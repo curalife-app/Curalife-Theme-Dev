@@ -1,0 +1,154 @@
+<div class="catalog-page">
+    <div class="container">
+        <div class="mini-wrap">
+            <div class="page-title">
+                <div class="sub-title">
+                    <h1>{{section.settings.prdct_title}}</h1>
+                    <p>{{section.settings.prdct_desc}}</p>
+                </div>
+                <div class="payment-methods">
+                    <ul>
+                        <li><i class="{{section.settings.prdct_pymnticn}}"></i></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="product-list">
+                {%- assign collection = collections[section.settings.collection] -%}
+                
+                {% for product in collection.products  -%}
+                <div class="product-card">
+                    <div class="wrap">
+                        <div class="picture">
+                            
+                            {% if section.settings.prdct_bgimg != blank %}
+                            <div class="bg">
+                                <img src="{{section.settings.prdct_bgimg | img_url: ''}}" alt="">
+                            </div>
+                            {% endif %}
+                           
+                            {% if product.featured_image.src != blank %}
+                            <div class="img">
+                                <img src="{{ product.featured_image.src | img_url: '300x300' }}" alt="">
+                            </div>
+                            {% endif %}
+                          	<div class="discount">
+                                {% if product.compare_at_price_max > product.price %}
+                        <p>
+                            {{ product.compare_at_price_max | minus: product.price | times: 100.0 | divided_by: product.compare_at_price_max | money_without_currency | times: 100 | remove: '.0'}}% discount
+                            
+                        </p>
+                        {% endif %}
+                            </div>
+                            <div class="more">
+                                <a href="{{ product.url }}">SHOW MORE</a>
+                            </div>
+                        </div>
+                        <div class="info">
+                            <div class="main">
+                                <div class="status">
+                                    <p>STARTER PACK</p>
+                                </div>
+                                <div class="name">
+                                    <h3><a href="{{ product.url }}">{{ product.title }}</a></h3>
+                                </div>
+                                <div class="price">
+                                    {% if product.compare_at_price > product.price %}
+                                    <p>{{ product.price | money }}<strike>{{ product.compare_at_price | money }}</strike></p>
+                                    {% else %}
+                                    <p>{{ product.price | money }}</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                             <form method="post" action="/cart/add">
+                                <input type="hidden" name="id" value="{{ product.variants.first.id }}" />
+
+                                <div class="btn">
+                                    <button type="submit" class="main-btn"><i class="icon-cart"></i>Add to Cart
+                                    </button>
+
+                                   
+                                </div>
+                            </form>
+                             <form method="post" action="/cart/add">
+                                <input type="hidden" name="id" value="{{ product.variants.first.id }}" />
+                                <input type="hidden" name="return_to" value="/checkout/">
+                                <div class="btn">
+                                    <button type="submit" class="main-btn blank">EXPRESS CHECKOUT
+                                    </button>
+                                   
+                                </div>
+                            </form>
+
+
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+                
+            </div>
+        </div>
+    </div>
+</div>
+{% if section.settings.bnr_btmimg != blank %}
+<div class="bottom-banner bottom-line">
+    <div class="container">
+        <div class="white-bg">
+            <div class="banner-section">
+                <img src="{{section.settings.bnr_btmimg | img_url: ''}}" alt="">
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% schema %}
+    {
+        "name": "Featured Products",
+        "class": "featured-products",
+        "settings": [
+            {
+                "type": "text",
+                "id": "prdct_title",
+                "label": "Title",
+                "default": "Enter Title"
+            },
+            {
+                "type": "textarea",
+                "id": "prdct_desc",
+                "label": "Description",
+                "default": "Enter Description"
+            },
+            {
+                "type": "text",
+                "id": "prdct_pymnticn",
+                "label": "Payment Icon",
+                "default": "icon-afterpay "
+                
+            },
+            {
+                "type": "collection",
+                "id": "collection",
+                "label": "Collection"
+            },
+            {
+              "type": "image_picker",
+              "id": "prdct_bgimg",
+              "label": "Select Product Background Image"
+            },
+            {
+              "type": "image_picker",
+              "id": "bnr_btmimg",
+              "label": "Select Bottom Banner Image"
+            }     
+            
+        ] 
+        
+    }
+{% endschema %}
+
+{% stylesheet %}
+{% endstylesheet %}
+
+{% javascript %}
+{% endjavascript %}

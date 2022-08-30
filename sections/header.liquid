@@ -1,0 +1,120 @@
+<header>
+  <div class="container">
+    <div class="main-toolbar">
+      <div class="main-links d-mobile">
+        <ul>
+          <li><a href="javascript:void(0)" class="open-menu"><i class="icon-menu"></i></a></li>
+          <li><a href="javascript:void(0)" class="open-search"><i class="icon-search"></i></a></li>
+        </ul>
+      </div>
+      {% if section.settings.logo != blank %}
+      <div class="main-logo">
+        <a href="{{section.settings.lgo_lnk}}"><img src="{{ section.settings.logo | img_url }}" alt="logo" width="120" height="34px"></a>
+      </div>
+      {% endif %}
+      <div class="main-menu">
+        <div class="menu-scroll">
+          <ul>
+            {% for link in linklists[section.settings.main_linklist].links %}
+              {% if link.links == blank  %}
+                <li><a class="notranslate" href="{{ link.url }}">{{ link.title }}</a></li>
+              {% else %}
+                <li class="dropdown"><a href="{{ link.url }}">{{ link.title }}</a>
+                  <div class="dropdown-menu">
+                    {% if link.links != blank %}
+                      <ul class="child">
+                        {% for child_link in link.links %}
+                          <li><a href= "{{ child_link.url }}">{{ child_link.title }}</a></li>
+                        {% endfor %}
+                      </ul>
+                    {% endif %}
+                  </div>
+                </li>
+              {% endif %}
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+
+      <div class="main-links">
+        <ul>
+          {% unless customer%}
+          <li><a href="javascript:void(0)" class="open-modal" data-fancybox data-src="#login-modal">
+            <i class="icofont-ui-user"></i><span>Account</span> </a>
+          </li>
+          {% endunless%}
+          {% if customer %}
+            <li><a href="/account">
+            <i class="icon-user"></i><span>{% if customer.first_name %}Welcome {{customer.first_name | capitalize}}!{% else %}My Account{% endif %}</span></a></li>
+          {% endif %}
+          <li>
+            <a href="javascript:void(0)" class="open-modal" data-fancybox data-src="#side-cart">
+            <i class="icofont-shopping-cart" data-items="{{ cart.item_count }}"></i><span>Cart </span> 
+            {% if cart.item_count > 0 %}<span class="header_cart_count">{{ cart.item_count }}</span>{% endif %}
+            </a>
+          </li>
+          <li><selector data-type="currencies" data-id="48859440"></selector></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</header>
+
+<script>
+  $('.main-menu ul li').click(() => {
+    woopra.track('Clicked on Header Link', { link_to: $(this).find("a").attr(href) });
+  })
+</script>
+  
+{% schema %}
+  {
+  "name": "Header",
+  "settings": [
+    {
+    "type": "header",
+    "content": "Logo"
+  },
+    {
+      "type": "image_picker",
+      "id": "logo",
+      "label": "Logo image"
+    },
+    {
+      "type": "url",
+      "id": "lgo_lnk",
+      "label": "Logo Link"
+    },
+    {
+    "type": "header",
+    "content": "Menu"
+  },
+    {
+      "type": "link_list",
+      "id": "main_linklist",
+      "label":"Menü",
+      "default": "main-menu"
+    }
+  ]
+  }
+{% endschema %}
+  
+{% style %}
+  .header_cart_count {
+    border-radius: 50px;
+    width: 20px;
+    height: 20px;
+    justify-content: center;
+    align-items: center;
+    display: inline-flex !important;
+    background-color: #00C6B1;
+    color: white;
+    font-weight: bold;
+    margin-left: 10px;
+  }
+  
+  @media screen and (max-width: 760px){
+    .header_cart_count {
+      margin-left: 0;
+    }
+  }
+{% endstyle %}
