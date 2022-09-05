@@ -1,5 +1,6 @@
 const gulp = require('gulp');
 const sass = require('gulp-sass')(require('sass'));
+const themeKit = require('@shopify/themekit');
 
 // Asset paths
 const srcSCSS = `scss/**/*.scss`;
@@ -19,6 +20,12 @@ gulp.task('sass', () => {
     srcJS
 ];
 
+gulp.task(`js`, () => {
+    return gulp.src(jsFiles)
+        .pipe(minify({noSource: true}))
+        .pipe(gulp.dest(assetsDir));
+});
+
 gulp.task('fonts', () => {
     return gulp.src('fonts/**')
         .pipe(changed(assetsDir)) // ignore unchanged files
@@ -27,4 +34,7 @@ gulp.task('fonts', () => {
 
 gulp.task('watch', () => {
     gulp.watch(srcSCSS, gulp.series('sass'));
+    themeKit.command('watch', {allowLive: true}, {
+        env: 'development'
+    });
 });
