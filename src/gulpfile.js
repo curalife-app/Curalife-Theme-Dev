@@ -32,7 +32,7 @@ gulp.task('fonts', () => {
         .pipe(gulp.dest(assetsDir))
 });
 
-gulp.task('all', ['scss', 'js', 'fonts']);
+gulp.task('default', ['scss', 'js', 'fonts']);
 
 gulp.task('watch', () => {
     gulp.watch(srcSCSS, gulp.series('sass'));
