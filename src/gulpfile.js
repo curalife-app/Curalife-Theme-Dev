@@ -32,9 +32,12 @@ gulp.task('fonts', () => {
         .pipe(gulp.dest(assetsDir))
 });
 
+gulp.task('all', ['scss', 'js', 'fonts']);
+
 gulp.task('watch', () => {
     gulp.watch(srcSCSS, gulp.series('sass'));
-    themeKit.command('watch', {allowLive: true}, {
+    themeKit.command('watch', {
+        allowLive: true,
         env: 'development'
     });
 });
