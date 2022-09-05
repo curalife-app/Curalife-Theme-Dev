@@ -1,13 +1,15 @@
 const gulp = require('gulp');
 const sass = require('gulp-sass')(require('sass'));
+const changed = require(`gulp-changed`);
+const minify = require(`gulp-minify`);
 const themeKit = require('@shopify/themekit');
 
 // Asset paths
-const srcSCSS = `scss/**/*.scss`;
-const srcJS = `js/*.js`;
+const srcSCSS = `styles/**/*.scss`;
+const srcJS = `scripts/*.js`;
 const assetsDir = `../assets/`;
 
-gulp.task('sass', () => {
+gulp.task('scss', () => {
     return gulp.src(srcSCSS).pipe(sass({outputStyle: 'compressed'}).on('error', sass.logError)).pipe(gulp.dest(assetsDir));
 });
 
@@ -32,10 +34,10 @@ gulp.task('fonts', () => {
         .pipe(gulp.dest(assetsDir))
 });
 
-gulp.task('default', ['scss', 'js', 'fonts']);
+gulp.task('default', gulp.series('scss', 'js', 'fonts'));
 
 gulp.task('watch', () => {
-    gulp.watch(srcSCSS, gulp.series('sass'));
+    gulp.watch(srcSCSS, gulp.series('scss', 'js', 'fonts'));
     themeKit.command('watch', {
         allowLive: true,
         env: 'development'
