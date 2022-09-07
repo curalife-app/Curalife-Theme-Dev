@@ -1,6 +1,5 @@
 'use strict';
 
-// const del = require('del');
 const gulp = require('gulp');
 const sass = require('gulp-sass')(require('sass'));
 const changed = require(`gulp-changed`);
@@ -8,6 +7,7 @@ const minify = require(`gulp-minify`);
 const flatten = require('gulp-flatten');
 const rename = require('gulp-rename');
 const watch = require('gulp-watch');
+const del = require('del');
 const path = require('path');
 const themeKit = require('@shopify/themekit');
 
