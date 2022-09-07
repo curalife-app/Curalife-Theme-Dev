@@ -1,45 +1,74 @@
+'use strict';
+
+// const del = require('del');
+// import {del} from 'del';
 const gulp = require('gulp');
 const sass = require('gulp-sass')(require('sass'));
 const changed = require(`gulp-changed`);
 const minify = require(`gulp-minify`);
+const watch = require('gulp-watch');
+const path = require('path');
 const themeKit = require('@shopify/themekit');
 
-// Asset paths
-const srcSCSS = `styles/**/*.scss`;
-const srcJS = `scripts/*.js`;
-const assetsDir = `../assets/`;
+var paths = {
+    assets: '../assets/',
+    scss: 'styles/**/*.scss',
+    js: 'scripts/**/*.js',
+    fonts: 'fonts/**/*.{woff,woff2,eot,ttf}',
+    images: 'images/**/*.{png,jpg,jpeg,gif,svg}'
+}
 
 gulp.task('scss', () => {
-    return gulp.src(srcSCSS).pipe(sass({outputStyle: 'compressed'}).on('error', sass.logError)).pipe(gulp.dest(assetsDir));
+    return gulp.src(paths.scss)
+        .pipe(changed(paths.assets)) // ignore unchanged files
+        .pipe(sass({outputStyle: 'compressed'}).on('error', sass.logError))
+        .pipe(gulp.dest(paths.assets));
 });
 
 /**
  * JS task
  * Note: use npm to install libraries and add them below, like the babel-polyfill example
  */
- const jsFiles = [
+const jsFiles = [
     //`./node_modules/babel-polyfill/dist/polyfill.js`,
-    srcJS
+    paths.js
 ];
 
 gulp.task(`js`, () => {
     return gulp.src(jsFiles)
+        .pipe(changed(paths.assets)) // ignore unchanged files
         .pipe(minify({noSource: true}))
-        .pipe(gulp.dest(assetsDir));
+        .pipe(gulp.dest(paths.assets));
 });
 
 gulp.task('fonts', () => {
-    return gulp.src('fonts/**')
-        .pipe(changed(assetsDir)) // ignore unchanged files
-        .pipe(gulp.dest(assetsDir))
+    return gulp.src(paths.fonts)
+        .pipe(changed(paths.assets)) // ignore unchanged files
+        .pipe(gulp.dest(paths.assets))
 });
 
-gulp.task('default', gulp.series('scss', 'js', 'fonts'));
+gulp.task('images', () => {
+    return gulp.src(paths.images)
+        .pipe(changed(paths.assets)) // ignore unchanged files
+        .pipe(gulp.dest(paths.assets))
+});
+
+gulp.task('default', gulp.series('scss', 'js', 'fonts', 'images'));
 
 gulp.task('watch', () => {
-    gulp.watch(srcSCSS, gulp.series('scss', 'js', 'fonts'));
+    gulp.watch([paths.scss, paths.js, paths.fonts, paths.images], gulp.series('scss', 'js', 'fonts', 'images'));
     themeKit.command('watch', {
         allowLive: true,
         env: 'development'
     });
+
+    //TODO: Handle Deleted Files
+    // fileWatcher.on('change', function (event) {
+    //     if (event.type === 'deleted') {
+    //         var filePathFromSrc = path.relative(path.resolve('/'), event.path);
+    //         var destFilePath = path.resolve(paths.assets, filePathFromSrc);
+    //         del.sync(destFilePath);
+    //     }
+    // });
 });
+
