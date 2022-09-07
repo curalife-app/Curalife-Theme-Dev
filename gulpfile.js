@@ -73,13 +73,13 @@ gulp.task('watch', () => {
         env: 'development'
     });
 
-    //TODO: Handle Deleted Files
-    // fileWatcher.on('change', function (event) {
-    //     if (event.type === 'deleted') {
-    //         var filePathFromSrc = path.relative(path.resolve('/'), event.path);
-    //         var destFilePath = path.resolve(paths.assets, filePathFromSrc);
-    //         del.sync(destFilePath);
-    //     }
-    // });
+    // Sync Deleted Files
+    fileWatcher.on('change', function (event) {
+        if (event.type === 'deleted') {
+            var filePathFromSrc = path.relative(path.resolve('/'), event.path);
+            var destFilePath = path.resolve(paths.assets, filePathFromSrc);
+            del.sync(destFilePath);
+        }
+    });
 });
 
