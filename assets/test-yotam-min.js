@@ -1,0 +1,1 @@
+function yotam(){console.log("yotam")}

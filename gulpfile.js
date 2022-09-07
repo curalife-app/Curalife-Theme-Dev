@@ -6,16 +6,17 @@ const gulp = require('gulp');
 const sass = require('gulp-sass')(require('sass'));
 const changed = require(`gulp-changed`);
 const minify = require(`gulp-minify`);
+const flatten = require('gulp-flatten');
 const watch = require('gulp-watch');
 const path = require('path');
 const themeKit = require('@shopify/themekit');
 
 var paths = {
-    assets: '../assets/',
-    scss: 'styles/**/*.scss',
-    js: 'scripts/**/*.js',
-    fonts: 'fonts/**/*.{woff,woff2,eot,ttf}',
-    images: 'images/**/*.{png,jpg,jpeg,gif,svg}'
+    assets: 'assets/',
+    scss: 'src/styles/**/*.scss',
+    js: 'src/scripts/**/*.js',
+    fonts: 'src/fonts/**/*.{woff,woff2,eot,ttf}',
+    images: 'src/images/*/*.{png,jpg,jpeg,gif,svg}'
 }
 
 gulp.task('scss', () => {
@@ -49,6 +50,7 @@ gulp.task('fonts', () => {
 
 gulp.task('images', () => {
     return gulp.src(paths.images)
+        .pipe(flatten())
         .pipe(changed(paths.assets)) // ignore unchanged files
         .pipe(gulp.dest(paths.assets))
 });
