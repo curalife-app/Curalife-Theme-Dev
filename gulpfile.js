@@ -6,6 +6,7 @@ const sass = require('gulp-sass')(require('sass'));
 const changed = require(`gulp-changed`);
 const minify = require(`gulp-minify`);
 const flatten = require('gulp-flatten');
+const rename = require('gulp-rename');
 const watch = require('gulp-watch');
 const path = require('path');
 const themeKit = require('@shopify/themekit');
@@ -52,8 +53,9 @@ gulp.task('fonts', () => {
 
 gulp.task('images', () => {
     return gulp.src(paths.images)
-        .pipe(flatten())
+        .pipe(rename(function (path) {return {basename: path.dirname + path.basename, extname: path.extname}}))
         .pipe(changed(paths.assets)) // ignore unchanged files
+        .pipe(flatten())
         .pipe(gulp.dest(paths.assets))
 });
 
