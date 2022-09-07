@@ -1,7 +1,6 @@
 'use strict';
 
 // const del = require('del');
-// import {del} from 'del';
 const gulp = require('gulp');
 const sass = require('gulp-sass')(require('sass'));
 const changed = require(`gulp-changed`);
@@ -21,6 +20,7 @@ var paths = {
 
 gulp.task('scss', () => {
     return gulp.src(paths.scss)
+        .pipe(flatten())
         .pipe(changed(paths.assets)) // ignore unchanged files
         .pipe(sass({outputStyle: 'compressed'}).on('error', sass.logError))
         .pipe(gulp.dest(paths.assets));
@@ -37,6 +37,7 @@ const jsFiles = [
 
 gulp.task(`js`, () => {
     return gulp.src(jsFiles)
+        .pipe(flatten())
         .pipe(changed(paths.assets)) // ignore unchanged files
         .pipe(minify({noSource: true}))
         .pipe(gulp.dest(paths.assets));
@@ -44,6 +45,7 @@ gulp.task(`js`, () => {
 
 gulp.task('fonts', () => {
     return gulp.src(paths.fonts)
+        .pipe(flatten())
         .pipe(changed(paths.assets)) // ignore unchanged files
         .pipe(gulp.dest(paths.assets))
 });
