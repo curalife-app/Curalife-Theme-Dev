@@ -47,7 +47,7 @@ gulp.task(`js`, () => {
 gulp.task('fonts', () => {
     return gulp.src(paths.fonts)
         .pipe(rename(function (path) {
-            path.basename = path.dirname.replace('/', '-') + '-' + path.basename;
+            path.basename = 'fonts-' + path.basename;
         }))
         .pipe(changed(paths.assets)) // ignore unchanged files
         .pipe(flatten())
