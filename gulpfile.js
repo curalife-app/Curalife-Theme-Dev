@@ -9,7 +9,7 @@ const del = require('del');
 const themeKit = require('@shopify/themekit');
 
 var paths = {
-    assets: 'assets/',
+    assets: '/build/assets/',
     styles: 'src/styles/',
     css: 'src/styles/**/*.css',
     scss: 'src/styles/scss/**/*.scss',
