@@ -85,12 +85,13 @@ gulp.task('clean-assets', () => { return del.sync(paths.assets); });
 gulp.task('clean-theme', () => { return del.sync(paths.build); });
 
 gulp.task('default', gulp.series('liquid', 'styles', 'js', 'fonts', 'images'));
+gulp.task('reset-build', gulp.series('clean-theme', 'default'));
 
-gulp.task('watch', () => {
-    gulp.watch([paths.scss, paths.js, paths.fonts, paths.images], gulp.series('scss', 'js', 'fonts', 'images'));
-    themeKit.command('watch', {
-        allowLive: true,
-        env: 'development'
-    });
-});
+// gulp.task('watch', () => {
+//     gulp.watch([paths.scss, paths.js, paths.fonts, paths.images], gulp.series('scss', 'js', 'fonts', 'images'));
+//     themeKit.command('watch', {
+//         allowLive: true,
+//         env: 'development'
+//     });
+// });
 
