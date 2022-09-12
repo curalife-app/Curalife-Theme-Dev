@@ -1,0 +1,367 @@
+{% assign current_variant = product.selected_or_first_available_variant %}
+
+<div class="product-data">
+    <div class="container">
+      <div class="product-wrap">
+        <div class="product-slider">
+          <div class="discount">
+            {% if product.compare_at_price_max > product.price %}
+            <p>{{ product.compare_at_price_max | minus: product.price | times: 100.0 | divided_by: product.compare_at_price_max | money_without_currency | times: 100 | remove: '.0'}}% discount</p>
+            {% endif %}
+          </div>
+          <div class="sliders-group">
+            <div class="thumbs-slider">
+              <div class="swiper">
+                <div class="swiper-wrapper">
+                  {% for image in product.images %}
+                  <div class="swiper-slide">
+                    <div class="thumbs-img">
+                      <div class="img-wrap">
+                        <img src="{{ image.src | img_url: 'master' }}" alt="{{ image.alt | escape }}" loading="lazy" {%if forloop.index == 1%}style="object-fit:cover"{%endif%}>
+                      </div>
+                    </div>
+                  </div>
+                  {% endfor %}
+                </div>
+              </div>
+            </div>
+            <div class="main-slider">
+              <div class="swiper">
+                <div class="swiper-wrapper">
+                  {% for image in product.images %}
+                  <div class="swiper-slide">
+                    <div class="product-img">
+                      <div class="img-wrap">
+                        <img src="{{ image.src | img_url: 'master' }}" alt="{{ image.alt | escape }}" loading="lazy">
+                      </div>
+                    </div>
+                  </div>
+                  {% endfor %}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="product-info">
+          <div class="title-wrapper">
+            <div class="sub-title">
+              {% if product.metafields.my_fields.alternative_title.value %}
+              <h1>{{ product.metafields.my_fields.alternative_title.value }}</h1>
+              {% else %}
+              <h1>{{ product.title }}</h1>
+              {% endif %}
+            </div>
+
+            {% capture CFH %}{{ content_for_header }}{% endcapture %}
+
+            {% if CFH contains 'adminBarInjector' %}
+            {% assign admin = true %}
+            {% elsif CFH contains 'admin-bar-iframe' %}
+            {% assign admin = true %}
+            {% elsif CFH contains 'preview_bar_injector-' %}
+            {% assign admin = true %}
+            {% endif %}
+
+            {% if admin %}
+            <div class="edit">
+              <a href="/admin/products/{{ product.id }}"> <i class="icofont-ui-edit"></i></a>
+            </div>
+            {% endif %}
+          </div>
+          
+          <div class="description">
+            <div class="price">
+              <p>{{ product.price | money_with_currency | replace: ".00", "" | replace: "GBP", "" }} {% if product.compare_at_price > product.price %}<strike>{{ product.compare_at_price | money_with_currency | replace: ".00", "" | replace: "GBP", "" }}</strike></p>{% endif %}
+            </div>
+            
+            <div class="form-wrap">
+              <form method="post" id="addTocartForm" action="/cart/add">
+              <input id="productVaraintSelected" type="hidden" name="id" value="{{ product.variants.first.id }}" />
+                <div class="qty-data">
+                  <p>Quantity</p>
+                  <div class="qty-control">
+                    <a href="javascript:void(0)" data-act="-"><span class="icon-minus"></span></a>
+                    <label>
+                      <input type="number" name="quantity" value="1" maxlength="4">
+                    </label>
+                    <a href="javascript:void(0)" data-act="+"><span class="icon-plus"></span></a>
+                  </div>
+                </div>
+                {% if product.id == all_products["curalin"].id or product.id == all_products["curalin-3-pack"].id %}
+                  {% if current_variant.available %}
+                  <button type="submit" name="add" id="AddTCart" class="main-btn "><i class="icon-cart"></i>Add to Cart</button>
+                  {% else %}
+                  <button type="button" name="add" id="" class="main-btn"><i class="icon-cart"></i>{{ 'products.product.sold_out' | t }}</button>
+                  {{ 'products.product.sold_out' | t }}
+                  {% endif %}
+                {% else %}
+                  <button type="submit" name="add" id="AddTCart" class="main-btn"><i class="icon-cart"></i>Add to Cart</button>
+                {% endif %}
+              </form>
+            </div>
+            <div class="extra-info">
+                {% for block in section.blocks %}
+                {% if block.type == 'prdct_tabs' %}
+                  <div class="text-wrap">
+                    <p>{{block.settings.tab_des}}</p>
+                  </div>
+                {% endif %}
+                {% endfor %}
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<style>
+  .thumbs-slider .swiper-slide {
+    height: 50px !important;
+  }
+
+  .title-wrapper {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .edit a {
+    margin-left: 15px;
+    font-size: 18px;
+  }
+
+  @media screen and (max-width: 768px) {
+    .title-wrapper {
+      justify-content: center;
+      position: relative;
+    }
+
+    .edit a {
+      position: absolute;
+      right: 0;
+    }
+  }
+</style>
+
+  <script>
+    productThumbs = new Swiper('.thumbs-slider .swiper', {
+      spaceBetween: 20,
+      direction: 'vertical',
+      watchSlidesVisibility: true,
+      grabCursor: false,
+      loop: false,
+      touchRatio: 0,
+    });
+
+    productSlider = new Swiper('.main-slider .swiper', {
+      slidesPerView: 1,
+      spaceBetween: 15,
+      watchSlidesVisibility: true,
+      loop: false,
+      slideToClickedSlide: false,
+      thumbs: {swiper: productThumbs},
+    });
+  </script>
+
+  <script>
+    // Change Quantity Widget On Product Page
+    $(document).on("click", ".product-data .qty-control a", function (e) {
+      e.preventDefault();
+      let newVal, $button = $(this),
+        inputObj = $button.closest(".qty-control").find("input"),
+        oldValue = inputObj.val();
+      if ($button.attr('data-act') === "+") {
+        newVal = parseInt(oldValue) + 1;
+      } 
+      else {
+        newVal = parseInt(oldValue) - 1;
+      }
+
+      inputObj.val(newVal);
+    });
+  </script>
+  
+<script>
+  $(document).on("click", "#AddTCart", function () {
+    window.dataLayer = window.dataLayer || [];
+    window.dataLayer.push({
+      event: 'add_to_cart',             // name of the event. In this case, it always must be add_to_cart
+      ecommerce: {                          
+      items: [{                           // an array with a product (or multiple products) that was added to a cart
+        item_name: '{{ product.title }}',      
+        item_id: '{{ product.selected_or_first_available_variant.sku }}', 
+        affiliation: '{{ shop.name }}',
+        price: '{{ product.selected_or_first_available_variant.price | money_without_currency }}',
+        currency: '{{ shop.currency }}',
+        item_brand: 'CuraLife',            
+        item_category: 'CuraLin',         
+        quantity: parseInt($(".qty-control input").val())
+      }]
+      },
+      email: '{{ customer.email }}',
+      phone: '{{ customer.phone }}',
+      name: '{{ customer.first_name }}',
+      surname: '{{ customer.last_name }}',
+      city: '{{ customer.customer_address.city }}',
+      state: '{{ customer.customer_address.province }}',
+      zip: '{{ customer.customer_address.zip }}',
+      country: '{{customer.customer_address.country_code | t}}',
+      user_agent: navigator.userAgent
+    });
+
+    woopra.track('add to cart', {
+      product_sku: '{{ product.selected_or_first_available_variant.sku }}',
+      product_name: '{{ product.title }}',
+      product_price: '{{ product.selected_or_first_available_variant.price | money_without_currency }}',
+      currency: '{{ shop.currency }}',
+      quantity: parseInt($(".qty-control input").val())
+    });
+  });
+</script>
+
+<script>      
+  $(document).on("click", "#AddToCart", function (Event) {
+    $("#cart-upgrade-popup").slideToggle();
+    return false;
+  });
+
+  window.dataLayer = window.dataLayer || [];
+  window.dataLayer.push({
+    event: 'view_item',         
+    ecommerce: {                          
+    items: [{        
+      item_name: '{{ product.title }}',      
+      item_id: '{{ product.selected_or_first_available_variant.sku }}', 
+      affiliation: '{{ shop.name }}',
+      price: '{{ product.selected_or_first_available_variant.price | money_without_currency }}',
+      currency: '{{ shop.currency }}',
+      item_brand: 'CuraLife',            
+      item_category: 'CuraLin',         
+      quantity: 1
+    }]
+    },
+    email: '{{ customer.email }}',
+    phone: '{{ customer.phone }}',
+    name: '{{ customer.first_name }}',
+    surname: '{{ customer.last_name }}',
+    city: '{{ customer.customer_address.city }}',
+    state: '{{ customer.customer_address.province }}',
+    zip: '{{ customer.customer_address.zip }}',
+    country: '{{customer.customer_address.country_code | t}}',
+    user_agent: navigator.userAgent
+  });
+</script>
+<script>
+  var _learnq = _learnq || [];
+    
+    var item = {
+    Name: {{ product.title|json }},
+    ProductID: {{ product.id|json }},
+    Categories: {{ product.collections|map:'title'|json }},
+    ImageURL: "https:{{ product.featured_image.src|img_url:'grande' }}",
+    URL: "{{ shop.secure_url }}{{ product.url }}",
+    Brand: {{ product.vendor|json }},
+    Price: {{ product.price|money|json }},
+    CompareAtPrice: {{ product.compare_at_price_max|money|json }}
+    };
+  
+    _learnq.push(['track', 'Viewed Product', item]);
+    _learnq.push(['trackViewedItem', {
+    Title: item.Name,
+    ItemId: item.ProductID,
+    Categories: item.Categories,
+    ImageUrl: item.ImageURL,
+    Url: item.URL,
+    Metadata: {
+      Brand: item.Brand,
+      Price: item.Price,
+      CompareAtPrice: item.CompareAtPrice
+    }
+    }]);
+  
+  </script>
+
+{% schema %}
+{
+  "name": "Proudct",
+  "class": "cart-content",
+  "settings": [
+    {
+      "type": "textarea",
+      "id": "prd_descript",
+      "label": "Description",
+      "default": "Add Description "
+    }, {
+      "type": "text",
+      "id": "prd_icn",
+      "label": "Add Icon",
+      "default": "icon-afterpay"
+    }, {
+      "type": "text",
+      "id": "prd_text",
+      "label": "Button Title",
+      "default": "Add Button Title "
+    }, {
+      "type": "url",
+      "id": "prd_url",
+      "label": "Button URL"
+    }, {
+      "type": "text",
+      "id": "ship_txt",
+      "label": "Shipping Title",
+      "default": "Add Shipping Title"
+    }, {
+      "type": "text",
+      "id": "ship_icn",
+      "label": "Shipping Icon",
+      "default": "icon-shipping"
+    }, {
+      "type": "header",
+      "content": "Upgrade Popup"
+    }, {
+      "type": "textarea",
+      "id": "first_up_title",
+      "label": "3-pack Title"
+    }, {
+      "type": "textarea",
+      "id": "first_up_text",
+      "label": "3-pack Text"
+    }, {
+      "type": "text",
+      "id": "first_btnup_text",
+      "label": "3-pack Btn"
+    }, {
+      "type": "textarea",
+      "id": "second_up_title",
+      "label": "6-pack Title"
+    }, {
+      "type": "textarea",
+      "id": "second_up_text",
+      "label": "6-pack Text"
+    }, {
+      "type": "text",
+      "id": "second_btnup_text",
+      "label": "6-pack Btn"
+    }, {
+      "type": "text",
+      "id": "continue_btn_text",
+      "label": "Continue Btn"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "prdct_tabs",
+      "name": "Product Tabs",
+      "settings": [
+        {
+          "type": "textarea",
+          "id": "tab_des",
+          "label": "Tab Description",
+          "default": "Enter Tab Description"
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

@@ -9,14 +9,22 @@ const del = require('del');
 const themeKit = require('@shopify/themekit');
 
 var paths = {
-    assets: '/build/assets/',
+    build: 'build/',
+    assets: 'build/assets/',
     styles: 'src/styles/',
     css: 'src/styles/**/*.css',
     scss: 'src/styles/scss/**/*.scss',
     js: 'src/scripts/**/*.js',
     fonts: 'src/fonts/**/*.{woff,woff2,eot,ttf}',
+    liquid: 'src/liquid/**/*.liquid',
     images: 'src/images/*/*.{png,jpg,jpeg,gif,svg}'
 }
+
+gulp.task(`liquid`, () => {
+    return gulp.src(paths.liquid)
+        .pipe(changed(paths.assets))
+        .pipe(gulp.dest(paths.build));
+});
 
 gulp.task('scss', () => {
     return gulp.src(paths.scss)
@@ -73,9 +81,10 @@ gulp.task('images', () => {
         .pipe(gulp.dest(paths.assets))
 });
 
-gulp.task('clean', () => { return del.sync(paths.assets); });
+gulp.task('clean-assets', () => { return del.sync(paths.assets); });
+gulp.task('clean-theme', () => { return del.sync(paths.build); });
 
-gulp.task('default', gulp.series('styles', 'js', 'fonts', 'images'));
+gulp.task('default', gulp.series('liquid', 'styles', 'js', 'fonts', 'images'));
 
 gulp.task('watch', () => {
     gulp.watch([paths.scss, paths.js, paths.fonts, paths.images], gulp.series('scss', 'js', 'fonts', 'images'));

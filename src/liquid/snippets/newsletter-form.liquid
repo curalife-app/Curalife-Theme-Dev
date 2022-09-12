@@ -1,0 +1,149 @@
+<div id="newsletter" class="gray-bg offset-top bottom-line">
+  <div class="container">
+    <div class="white-bg">
+      <div class="mini-wrap">
+        <div class="subscribe-section">
+          <div class="text-wrap">
+            <div class="intro-text">
+              <div class="sub-title">
+                <h2>The CuraLife Newsletter</h2>
+                <p>Get 5% off your next order when you sign up today for the latest advice, research and exclusive offers.</p>
+              </div>
+            </div>
+            <div class="subscribe-form">
+              <div class="_form_3"></div>
+              <script src="https://marketing.curalife.com/f/embed.php?id=3" type="text/javascript" charset="utf-8"></script>
+            </div>
+          </div>
+          <div class="img-wrap">
+            <img src="{{ 'newsletter-form-img.png' | file_url }}" alt="" width="265" height="auto" loading="lazy">
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  ._form {
+    margin: unset;
+    padding: unset;
+    margin: 0 !important;
+  }
+
+  ._submit {
+    min-height: 44px !important;
+    font-weight: 700 !important;
+    letter-spacing: 1px !important;
+    text-transform: uppercase !important;
+  }
+
+  ._field-wrapper input#email {
+    width: 300px !important;
+    font-size: 16px;
+    border: 1px solid var(--gray);
+    margin-right: 10px;
+    padding: 12px !important;
+  }
+
+  .form-content {
+    align-items: center;
+    display: flex;
+  }
+
+  ._form_element {
+    margin-bottom: unset !important;
+    margin-left: unset !important;
+  }
+
+  ._inline-style {
+    display: unset !important;
+  }
+
+  ._button-wrapper {
+    margin: 0 !important;
+  }
+
+  ._form-label {
+    display: none !important;
+  }
+
+  @media screen and (max-width: 760px) {
+    ._field-wrapper input#email,
+    ._submit 
+    {
+      width: 100% !important;
+      margin-bottom: 10px;
+    }
+  }
+</style>
+
+<script>
+  function getGeo() {
+    $.get("https://geo.curalife.com/", function(data) {
+      let country = JSON
+        .parse(data)
+        .country;
+      $('[data-name="lead_geo"]').val(country);
+    });
+  }
+
+  function getOperatingSys() {
+    var os = 'unknown';
+    if (navigator.userAgent.indexOf("Win") != -1) os = "Windows";
+    if (navigator.userAgent.indexOf("Mac") != -1) os = "MacOS";
+    if (navigator.userAgent.indexOf("X11") != -1) os = "UNIX";
+    if (navigator.userAgent.indexOf("Linux") != -1) os = "Linux";
+    return os;
+  }
+
+  const getDeviceType = () => {
+    let ua = navigator.userAgent;
+    if (/(tablet|ipad|playbook|silk)|(android(?!.*mobi))/i.test(ua)) {
+      return "tablet";
+    }
+    if (/Mobile|iP(hone|od)|Android|BlackBerry|IEMobile|Kindle|Silk-Accelerated|(hpw|web)OS|Opera M(obi|ini)/.test(ua)) {
+      return "mobile";
+    }
+    return "desktop";
+  };
+
+  window.onload = function() {
+    let queryString = window.location.search;
+    let urlParams = new URLSearchParams(queryString);
+    $('[data-name="lead_source"]').val("NewsLetter");
+    $('[data-name="lead_utm_source"]').val(urlParams.get('utm_source'));
+    $('[data-name="lead_utm_medium"]').val(urlParams.get('utm_medium'));
+    $('[data-name="lead_utm_campaign"]').val(urlParams.get('utm_campaign'));
+    $('[data-name="lead_utm_term"]').val(urlParams.get('utm_term'));
+    $('[data-name="lead_utm_content"]').val(urlParams.get('utm_content'));
+    $('[data-name="lead_source_date"]').val(new Date().toUTCString());
+    $('[data-name="lead_os"]').val(getOperatingSys());
+    $('[data-name="lead_device"]').val(getDeviceType());
+    $('[data-name="lead_url"]').val(window.location.href);
+    getGeo();
+  }
+
+  // Woopra Subscribe Event Tracking
+  document.addEventListener('submit', function(e) {
+    const form = e.target;
+    const formData = new FormData(form);
+    const entries = formData.entries();
+    const data = Object.fromEntries(entries);
+    for (var key in data) {
+      var fieldEl = form.querySelector(`[name="${key}"]`);
+      if (fieldEl.type === 'password') {
+        delete data[key];
+      }
+    }
+    
+    if (form.className.indexOf('_form_3') !== -1) {
+      woopra.identify({
+      'email': data["email"]
+      });
+      woopra.track('newsletter subscribe', {}, {
+        queue: true
+      });
+    }
+  });
+</script>
