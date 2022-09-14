@@ -11,12 +11,14 @@ const themeKit = require('@shopify/themekit');
 var paths = {
     build: 'build/',
     assets: 'build/assets/',
+    build_templates: 'build/templates/',
     styles: 'src/styles/',
     css: 'src/styles/**/*.css',
     scss: 'src/styles/scss/**/*.scss',
     js: 'src/scripts/**/*.js',
     fonts: 'src/fonts/**/*.{woff,woff2,eot,ttf}',
-    liquid: 'src/liquid/**/*.{liquid, json}',
+    liquid: ['src/liquid/layout/**/*.{liquid}', 'src/liquid/sections/**/*.{liquid}', 'src/liquid/snippets/**/*.{liquid}'],
+    templates: 'src/liquid/templates/**/*.{liquid, json}',
     images: 'src/images/*/*.{png,jpg,jpeg,gif,svg}'
 }
 
@@ -26,6 +28,14 @@ gulp.task(`liquid`, () => {
         .pipe(changed(paths.assets))
         .pipe(gulp.dest(paths.build));
 });
+
+gulp.task(`templates`, () => {
+    return gulp.src(paths.templates)
+        .pipe(changed(paths.assets))
+        .pipe(gulp.dest(paths.build_templates));
+});
+
+gulp.task('files', gulp.series('liquid', 'templates'));
 
 gulp.task('scss', () => {
     return gulp.src(paths.scss)
