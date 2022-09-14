@@ -16,7 +16,7 @@ var paths = {
     scss: 'src/styles/scss/**/*.scss',
     js: 'src/scripts/**/*.js',
     fonts: 'src/fonts/**/*.{woff,woff2,eot,ttf}',
-    liquid: 'src/liquid/**/*.liquid',
+    liquid: 'src/liquid/**/*.{liquid, json}',
     images: 'src/images/*/*.{png,jpg,jpeg,gif,svg}'
 }
 
