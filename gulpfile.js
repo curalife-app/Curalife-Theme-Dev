@@ -22,6 +22,7 @@ var paths = {
 
 gulp.task(`liquid`, () => {
     return gulp.src(paths.liquid)
+        .pipe(flatten({ includeParents: 1} ))
         .pipe(changed(paths.assets))
         .pipe(gulp.dest(paths.build));
 });
