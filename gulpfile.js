@@ -18,7 +18,7 @@ var paths = {
     js: 'src/scripts/**/*.js',
     fonts: 'src/fonts/**/*.{woff,woff2,eot,ttf}',
     liquid: ['src/liquid/layout/**/*.{liquid}', 'src/liquid/sections/**/*.{liquid}', 'src/liquid/snippets/**/*.{liquid}'],
-    templates: 'src/liquid/templates/**/*.{liquid, json}',
+    templates: 'src/liquid/templates/**/*.{liquid,json}',
     images: 'src/images/*/*.{png,jpg,jpeg,gif,svg}'
 }
 
