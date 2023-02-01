@@ -1,17 +1,40 @@
-{% capture CFH %}{{ content_for_header }}{% endcapture %}
+{% capture CFH %}{{ content_for_header }}{% endcapture %}{{CFH}}
 
 {% if CFH contains 'adminBarInjector' %}
-{% assign admin = true %}
+  {% assign admin = true %}
+  <script>console.log("Redirect Disabled Cause User Is Admin.")</script>
 {% elsif CFH contains 'admin-bar-iframe' %}
-{% assign admin = true %}
+  {% assign admin = true %}
+  <script>console.log("Redirect Disabled Cause User Is Admin.")</script>
 {% elsif CFH contains 'preview_bar_injector-' %}
-{% assign admin = true %}
+  {% assign admin = true %}
+  <script>console.log("Redirect Disabled Cause User Is Admin.")</script>
+{% elsif CFH contains "redirect=false" %}
+  {% assign admin = true %}
+  <script>console.log("Redirect Disabled Through URL Parameter.")</script>
+{% elsif customer.email == "yotam@curalife.com" %}
+  {% assign admin = true %}
+  <script>console.log("Redirect Cause User Is Yotam")</script>
+{% endif %}
+
+{%- comment -%} Temp: remove redirect for curaeats product page {%- endcomment -%}
+{% if request.path contains 'products/curaeats' %}
+  {% assign admin = true %}
+  <script>console.log("Redirect Disabled For CuraEats")</script>
 {% endif %}
 
 {% unless admin %}
   <script>
-    const detectRobot = (userAgent) => {
-      const robots = new RegExp([
+    function redirectTo(url, slug) {
+      if (slug) {
+        window.location.hostname = url;
+      } else {
+        window.location.href = url;
+      }
+    }
+
+    function detectRobot(userAgent) {
+      const robotRegexes = [
         /bot/, /spider/, /crawl/,
         /APIs-Google/, /AdsBot/, /Googlebot/,
         /mediapartners/, /Google Favicon/,
@@ -22,17 +45,9 @@
         /facebook/, /instagram/, /pinterest/, /reddit/,
         /slack/, /twitter/, /whatsapp/, /youtube/,
         /semrush/,
-      ].map((r) => r.source).join("|"), "i");
-      return robots.test(userAgent);
-    };
+      ];
 
-    function redirectTo(url, slug) {
-      if (slug) {
-        window.location.hostname = url;
-      }
-      else {
-        window.location.href = url;
-      }
+      return robotRegexes.some(regex => regex.test(userAgent));
     }
 
     const userAgent = navigator.userAgent;
@@ -40,24 +55,29 @@
 
     if (!isRobot) {
       console.log('REDIRECTING...');
-      let req = new XMLHttpRequest;
-      req.overrideMimeType("application/json"), req.open("GET", "https://geo.curalife.com/", !0), req.onload = function() {
-        let country = JSON.parse(req.responseText).country;
-        let host = location.hostname == "global.curalife.com" ? "Global" : "USA";
-        let countriesUS = ["US", "PR", "CA", "AU"]; // Countries for main domain (USA)
-        sessionStorage.setItem('country', country);
+      fetch('https://geo.curalife.com/')
+        .then(response => response.json())
+        .then(data => {
+          console.log(data);
+          const country = data.country;
+          const host = location.hostname === 'global.curalife.com' ? 'Global' : 'USA';
+          const countriesUs = ['US', 'PR', 'CA', 'AU'];
 
-        if (["LT", "LV"].includes(country)) {redirectTo("https://curalife.lv", false)} // If Lithuania Or Latvia
-        else if (country == "AT") {redirectTo("https://curalife.at", false)} // If Austria
-        else if (country == "KW") {redirectTo("https://trycuralife.com", false)} // If Kuwait
-        else if ((host == "USA") && (!countriesUS.includes(country))) { // If host is US but not on US Countries
-          redirectTo("global.curalife.com", true)
-        }
-        else if ((host == "Global") && (countriesUS.includes(country))) { // If Global and we are on US Countries so go US
-          redirectTo("curalife.com", true);
-        }
-        
-      }, req.send(null);
+          sessionStorage.setItem('country', country);
+
+          if (['LT', 'LV'].includes(country)) {
+            redirectTo('https://curalife.lv', false);
+          } else if (country === 'AT') {
+            redirectTo('https://curalife.at', false);
+          } else if (country === 'KW') {
+            redirectTo('https://trycuralife.com', false);
+          } else if (host === 'USA' && !countriesUs.includes(country)) {
+            redirectTo('global.curalife.com', true);
+          } else if (host === 'Global' && countriesUs.includes(country)) {
+            redirectTo('curalife.com', true);
+          }
+        });
     }
+
   </script>
 {% endunless %}
