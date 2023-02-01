@@ -10,7 +10,7 @@ const themeKit = require('@shopify/themekit');
 
 var paths = {
     build: 'build/',
-    assets: 'build/assets/',
+    build_assets: 'build/assets/',
     build_templates: 'build/templates/',
     styles: 'src/styles/',
     css: 'src/styles/**/*.css',
@@ -25,13 +25,13 @@ var paths = {
 gulp.task(`liquid`, () => {
     return gulp.src(paths.liquid)
         .pipe(flatten({ includeParents: 1} ))
-        .pipe(changed(paths.assets))
+        .pipe(changed(paths.build_assets))
         .pipe(gulp.dest(paths.build));
 });
 
 gulp.task(`templates`, () => {
     return gulp.src(paths.templates)
-        .pipe(changed(paths.assets))
+        .pipe(changed(paths.build_assets))
         .pipe(gulp.dest(paths.build_templates));
 });
 
@@ -42,15 +42,15 @@ gulp.task('scss', () => {
         .pipe(flatten())
         .pipe(changed(paths.styles))
         .pipe(sass({outputStyle: 'compressed'}).on('error', sass.logError))
-        .pipe(gulp.dest(paths.assets));
+        .pipe(gulp.dest(paths.build_assets));
 });
 
 gulp.task('css', () => {
     return gulp.src(paths.css)
         .pipe(flatten())
-        .pipe(changed(paths.assets))
+        .pipe(changed(paths.build_assets))
         .pipe(cleanCss())
-        .pipe(gulp.dest(paths.assets));
+        .pipe(gulp.dest(paths.build_assets));
 });
 
 gulp.task('styles', gulp.series('scss', 'css'));
@@ -67,9 +67,9 @@ const jsFiles = [
 gulp.task(`js`, () => {
     return gulp.src(jsFiles)
         .pipe(flatten())
-        .pipe(changed(paths.assets))
+        .pipe(changed(paths.build_assets))
         .pipe(minify({noSource: true}))
-        .pipe(gulp.dest(paths.assets));
+        .pipe(gulp.dest(paths.build_assets));
 });
 
 gulp.task('fonts', () => {
@@ -77,9 +77,9 @@ gulp.task('fonts', () => {
         .pipe(rename(function (path) {
             path.basename = 'fonts-' + path.basename;
         }))
-        .pipe(changed(paths.assets))
+        .pipe(changed(paths.build_assets))
         .pipe(flatten())
-        .pipe(gulp.dest(paths.assets))
+        .pipe(gulp.dest(paths.build_assets))
 });
 
 gulp.task('images', () => {
@@ -87,12 +87,12 @@ gulp.task('images', () => {
         .pipe(rename(function (path) {
             path.basename = path.dirname.replace('/', '-') + '-' + path.basename;
         }))
-        .pipe(changed(paths.assets))
+        .pipe(changed(paths.build_assets))
         .pipe(flatten())
-        .pipe(gulp.dest(paths.assets))
+        .pipe(gulp.dest(paths.build_assets))
 });
 
-gulp.task('clean-assets', () => { return del.sync(paths.assets); });
+gulp.task('clean-build_assets', () => { return del.sync(paths.build_assets); });
 gulp.task('clean-theme', () => { return del.sync(paths.build); });
 
 gulp.task('default', gulp.series('liquid', 'styles', 'js', 'fonts', 'images'));
