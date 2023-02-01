@@ -9,48 +9,48 @@ const del = require('del');
 const themeKit = require('@shopify/themekit');
 
 var paths = {
-    build: 'build/',
-    build_assets: 'build/assets/',
-    build_templates: 'build/templates/',
-    styles: 'src/styles/',
-    css: 'src/styles/**/*.css',
-    scss: 'src/styles/scss/**/*.scss',
-    js: 'src/scripts/**/*.js',
-    fonts: 'src/fonts/**/*.{woff,woff2,eot,ttf}',
-    liquid: ['src/liquid/layout/**/*.{liquid}', 'src/liquid/sections/**/*.{liquid}', 'src/liquid/snippets/**/*.{liquid}'],
-    templates: 'src/liquid/templates/**/*.{liquid,json}',
-    images: 'src/images/*/*.{png,jpg,jpeg,gif,svg}'
+  build: 'build/',
+  build_assets: 'build/assets/',
+  build_templates: 'build/templates/',
+  styles: 'src/styles/',
+  css: 'src/styles/**/*.css',
+  scss: 'src/styles/scss/**/*.scss',
+  js: 'src/scripts/**/*.js',
+  fonts: 'src/fonts/**/*.{woff,woff2,eot,ttf}',
+  liquid: ['src/liquid/layout/**/*.{liquid}', 'src/liquid/sections/**/*.{liquid}', 'src/liquid/snippets/**/*.{liquid}'],
+  templates: 'src/liquid/templates/**/*.{liquid,json}',
+  images: 'src/images/*/*.{png,jpg,jpeg,gif,svg}'
 }
 
 gulp.task(`liquid`, () => {
-    return gulp.src(paths.liquid)
-        .pipe(flatten({ includeParents: 1} ))
-        .pipe(changed(paths.build_assets))
-        .pipe(gulp.dest(paths.build));
+  return gulp.src(paths.liquid)
+    .pipe(flatten({ includeParents: 1} ))
+    .pipe(changed(paths.build_assets))
+    .pipe(gulp.dest(paths.build));
 });
 
 gulp.task(`templates`, () => {
-    return gulp.src(paths.templates)
-        .pipe(changed(paths.build_assets))
-        .pipe(gulp.dest(paths.build_templates));
+  return gulp.src(paths.templates)
+    .pipe(changed(paths.build_assets))
+    .pipe(gulp.dest(paths.build_templates));
 });
 
 gulp.task('files', gulp.series('liquid', 'templates'));
 
 gulp.task('scss', () => {
-    return gulp.src(paths.scss)
-        .pipe(flatten())
-        .pipe(changed(paths.styles))
-        .pipe(sass({outputStyle: 'compressed'}).on('error', sass.logError))
-        .pipe(gulp.dest(paths.build_assets));
+  return gulp.src(paths.scss)
+    .pipe(flatten())
+    .pipe(changed(paths.styles))
+    .pipe(sass({outputStyle: 'compressed'}).on('error', sass.logError))
+    .pipe(gulp.dest(paths.build_assets));
 });
 
 gulp.task('css', () => {
-    return gulp.src(paths.css)
-        .pipe(flatten())
-        .pipe(changed(paths.build_assets))
-        .pipe(cleanCss())
-        .pipe(gulp.dest(paths.build_assets));
+  return gulp.src(paths.css)
+    .pipe(flatten())
+    .pipe(changed(paths.build_assets))
+    .pipe(cleanCss())
+    .pipe(gulp.dest(paths.build_assets));
 });
 
 gulp.task('styles', gulp.series('scss', 'css'));
@@ -60,36 +60,36 @@ gulp.task('styles', gulp.series('scss', 'css'));
  * Note: use npm to install libraries and add them below, like the babel-polyfill example
  */
 const jsFiles = [
-    //`./node_modules/babel-polyfill/dist/polyfill.js`,
-    paths.js
+  //`./node_modules/babel-polyfill/dist/polyfill.js`,
+  paths.js
 ];
 
 gulp.task(`js`, () => {
-    return gulp.src(jsFiles)
-        .pipe(flatten())
-        .pipe(changed(paths.build_assets))
-        .pipe(minify({noSource: true}))
-        .pipe(gulp.dest(paths.build_assets));
+  return gulp.src(jsFiles)
+    .pipe(flatten())
+    .pipe(changed(paths.build_assets))
+    .pipe(minify({noSource: true}))
+    .pipe(gulp.dest(paths.build_assets));
 });
 
 gulp.task('fonts', () => {
-    return gulp.src(paths.fonts)
-        .pipe(rename(function (path) {
-            path.basename = 'fonts-' + path.basename;
-        }))
-        .pipe(changed(paths.build_assets))
-        .pipe(flatten())
-        .pipe(gulp.dest(paths.build_assets))
+  return gulp.src(paths.fonts)
+    .pipe(rename(function (path) {
+      path.basename = 'fonts-' + path.basename;
+    }))
+    .pipe(changed(paths.build_assets))
+    .pipe(flatten())
+    .pipe(gulp.dest(paths.build_assets))
 });
 
 gulp.task('images', () => {
-    return gulp.src(paths.images)
-        .pipe(rename(function (path) {
-            path.basename = path.dirname.replace('/', '-') + '-' + path.basename;
-        }))
-        .pipe(changed(paths.build_assets))
-        .pipe(flatten())
-        .pipe(gulp.dest(paths.build_assets))
+  return gulp.src(paths.images)
+    .pipe(rename(function (path) {
+      path.basename = path.dirname.replace('/', '-') + '-' + path.basename;
+    }))
+    .pipe(changed(paths.build_assets))
+    .pipe(flatten())
+    .pipe(gulp.dest(paths.build_assets))
 });
 
 gulp.task('clean-build_assets', () => { return del.sync(paths.build_assets); });
