@@ -93,7 +93,7 @@ gulp.task('images', () => {
 });
 
 gulp.task('clean-assets', () => { return del.sync(paths.build_assets); });
-gulp.task('clean-theme', () => { return del.sync(paths.build); });
+gulp.task('clean-theme', async() => { return del.sync(paths.build); });
 
 gulp.task('default', gulp.series('liquid', 'styles', 'js', 'fonts', 'images'));
 gulp.task('reset-build', gulp.series('clean-theme', 'default'));
