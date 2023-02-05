@@ -1,0 +1,152 @@
+<div class="product-actions">
+  {% if title %}
+    <p class="cta-title">{{ title }}</p>
+  {% endif %}
+
+  <div class="variants">
+    {% for var in product.variants %}
+      {% if forloop.last %}
+        {% render 'product-all-in-one-cta-section-actions-variant-box-thirty-days', var: var, index: forloop.index, isHighlightSubtitle: isHighlightSubtitle, isUpdateSaveTitle: true, isPricePerUnit: isPricePerUnit, challenge_value: challenge_value, curaeats_value: curaeats_value, isLastRender: true %}
+      {% else %}
+        {% render 'product-all-in-one-cta-section-actions-variant-box-thirty-days', var: var, index: forloop.index, isHighlightSubtitle: isHighlightSubtitle, isUpdateSaveTitle: true, isPricePerUnit: isPricePerUnit, challenge_value: challenge_value, curaeats_value: curaeats_value %}
+      {% endif %}
+    {% endfor %}
+  </div>
+
+  {% comment %} <input id="productVaraintSelected" type="hidden" name="id" value="{{ product.variants.first.id }}"/> {% endcomment %}
+  {% if isCuralinContent %}
+  <div class="submit-wrap">
+    {% if isBuyQuantity %}
+      <div class="qty-data" style="display:none">
+        <div class="qty-control">
+          <a data-act="-" href="javascript:void(0)">
+            <span class="icon-minus"></span>
+          </a>
+          <label>
+            <input maxlength="4" name="quantity" type="number" value="1">
+          </label>
+          <a data-act="+" href="javascript:void(0)">
+            <span class="icon-plus"></span>
+          </a>
+        </div>
+      </div>
+    {% endif %}
+
+    <button class="main-btn" id="buy-button"><span>Shop Now</span> <span class="save" id="save"></span></button>
+
+  </div>
+{% endif %}
+
+  {% if badgesContent %}
+    {% render 'trust-badges-widget', badgesContent: badgesContent, colors: "#5c5c5c", isMiniVersion: true, isColumn: true %}
+  {% endif %}
+</div>
+
+{% render 'script.round-converted-currency' %}
+
+<style>
+  .product-actions {
+    grid-area: 2/2/3/3;
+    max-width: 450px;
+    margin-top: {% unless isCuralinContent %}10px{% endunless %};
+
+  }
+
+  .product-actions .cta-title {
+    font-size: 18px;
+    padding: 10px 0;
+  }
+
+  .product-actions .variants {
+    display: flex;
+    flex-direction: {% if isReversed %}column-reverse{% else %}column{% endif %};
+    background: {% unless isCuralinContent %} #FFFFFF {% endunless %};
+    border: {% unless isCuralinContent %} 1px solid #CBCBCB {% endunless %};
+    border-radius:{% unless isCuralinContent %} 2px  {% endunless %};
+  }
+
+  .product-actions .submit-wrap button {
+    background-color: {{ ctaColor }};
+    border-color: {{ ctaColor }};
+    color: white;
+    width: {% if isCuralinContent %} 100%{% else %}80% {% endif %};
+  }
+
+  .product-actions .submit-wrap button span {
+    width: {% if isCuralinContent %}50%{% endif %};
+  }
+
+  .product-actions .submit-wrap button span:first-child {
+    border-right: {% if isCuralinContent %} 1px solid white {% endif %};
+    font-size: {% if isCuralinContent %}130%{% endif %};
+  }
+
+  .product-actions .submit-wrap button span.save {
+    font-weight: 100;
+  }
+
+  .product-actions .submit-wrap .qty-data .qty-control {
+    border-color: var(--dark-green);
+  }
+
+  @media screen and (max-width: 768px) {
+    .product-actions {
+      grid-area: unset;
+      grid-row: 3;
+      max-width: unset;
+      margin-top: unset;
+    }
+
+    .submit-wrap .qty-data .qty-control {
+      border: 1px solid #ffb22d
+    }
+  }
+</style>
+
+<script>
+  $( document ).ready(function() {
+      $(".variant-box").{% if defaultSelectionIndex %}eq({{ defaultSelectionIndex | minus: 1 }}){% else %}last(){% endif %}.trigger( "click" );
+  });
+
+  // On Buy Button Click
+  $(document).on("click", "#buy-button", function () {
+    let checkedPack = $(".variant-contain").first().attr("value");
+    let checkedQuantity = 1;
+    let checkoutLink = "https://" + location.hostname + "/cart/" + checkedPack + ":" + checkedQuantity;
+    window.location.href = checkoutLink;
+
+    window.dataLayer = window.dataLayer || [];
+    window.dataLayer.push({
+      event: 'add_to_cart',
+      ecommerce: {
+      items: [{
+        item_name: '{{ product.title }}',
+        item_id: $('input[name=pack]:checked').attr('sku'),
+        affiliation: '{{ shop.name }}',
+        price: $('input[name=pack]:checked').attr('price'),
+        currency: '{{ shop.currency }}',
+        item_brand: 'CuraLife',
+        item_category: 'CuraLin',
+        quantity: parseInt($(".qty-control input").val())
+      }]
+      },
+      email: '{{ customer.email }}',
+      phone: '{{ customer.phone }}',
+      name: '{{ customer.first_name }}',
+      surname: '{{ customer.last_name }}',
+      city: '{{ customer.customer_address.city }}',
+      state: '{{ customer.customer_address.province }}',
+      zip: '{{ customer.customer_address.zip }}',
+      country: '{{customer.customer_address.country_code | t}}',
+      user_agent: navigator.userAgent
+    });
+
+    woopra.track('add to cart', {
+      product_sku: $('input[name=pack]:checked').attr('sku'),
+      product_name: '{{ product.title }}',
+      product_price: $('input[name=pack]:checked').attr('price'),
+      currency: '{{ shop.currency }}',
+      quantity: parseInt($(".qty-control input").val())
+    });
+  });
+</script>
