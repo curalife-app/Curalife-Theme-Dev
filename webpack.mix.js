@@ -46,9 +46,6 @@ mix.js(paths.js, "dist/assets")
   })
   .setPublicPath(paths.build);
 
-  getFiles('src/scripts').forEach(function (filepath) {
-      mix.js('src/scripts/' + filepath, 'assets');
-  });
   getFiles('src/styles/scss').forEach(function (filepath) {
       mix.sass('src/styles/scss/' + filepath, 'assets');
   });
