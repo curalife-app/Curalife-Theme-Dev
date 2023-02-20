@@ -22,15 +22,15 @@ const paths = {
 
 mix.clean({cleanOnceBeforeBuildPatterns: [paths.build]});
 
-mix.js(paths.js, "assets")
-  .css(paths.css, "assets")
-  .sass(paths.scss, "assets")
-  .copy(paths.fonts, "assets")
-  .copy(paths.images, "assets")
-  .copy(paths.layout_folder, "layout")
-  .copy(paths.sections_folder, "sections")
-  .copy(paths.snippets_folder, "snippets")
-  .copy(paths.templates_folder, "templates")
+mix.js(paths.js, "dist/assets")
+  .css(paths.css, "dist/assets")
+  .sass(paths.scss, "dist/assets")
+  .copy(paths.fonts, "dist/assets")
+  .copy(paths.images, "dist/assets")
+  .copy(paths.layout_folder, "dist/layout")
+  .copy(paths.sections_folder, "dist/sections")
+  .copy(paths.snippets_folder, "dist/snippets")
+  .copy(paths.templates_folder, "dist/templates", false)
   .options({
     processCssUrls: false,
     postCss: [tailwindcss('tailwind.config.js')],
