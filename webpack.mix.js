@@ -24,12 +24,10 @@ const paths = {
   image_files: 'src/images/*/*.{png,jpg,jpeg,gif,svg}',
   font_files: 'src/fonts/**/*.{woff,woff2,eot,ttf}',
   layout_folder_files: 'src/liquid/layout/**',
-  config_folder_files: 'src/liquid/config/**',
-  locales_folder_files: 'src/liquid/locales/**',
+  config_folder_files: 'src/config/**',
+  locales_folder_files: 'src/locales/**',
   sections_folder_files: 'src/liquid/sections/**',
   snippets_folder_files: 'src/liquid/snippets/**',
-  locales_folder_files: 'src/liquid/locales/**',
-  config_folder_files: 'src/liquid/config/**',
   templates_folder: 'src/liquid/templates/'
 }
 
