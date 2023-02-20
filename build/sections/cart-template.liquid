@@ -1,0 +1,186 @@
+<div class="cart-page">
+  <div class="container">
+      <div class="mini-wrap">
+        {% if cart.item_count > 0 %}
+          <div class="page-title">
+              <div class="sub-title">
+                  <h1>{{section.settings.crt_titl}}</h1>
+              </div>
+          </div>
+          <form action="{{ routes.cart_url }}" method="post" novalidate class="cart table-wrap" id="cartform" data-wetheme-section-type="template--cart" data-wetheme-section-id="{{ section.id }}">
+          <div class="cart-list">
+              <table>
+                  <thead>
+                  <tr>
+                      <th></th>
+                      <th>Name</th>
+                      <th>Price</th>
+                      <th>Quantity</th>
+                      <th>Total</th>
+                  </tr>
+                  </thead>
+                  <tbody>
+                  {% for item in cart.items %}
+                  <tr>
+                      <td class="img">
+                          <div class="img-wrap">
+                              <span><img src="{{ item | img_url: 'medium' }}" width="142px" height="142px" alt="{{ item.title | escape }}" loading="lazy"></span>
+                          </div>
+                      </td>
+                      <td class="name">
+                        {% if item.product.metafields.my_fields.alternative_title.value %}
+                        <p>{{ item.product.metafields.my_fields.alternative_title.value }}</p>
+                        {% else %}
+                        <p>{{ item.product.title }}</p>
+                        {% endif %}
+                          <div class="remove-item" data-variant="{{item.variant.id}}" data-title="{{ item.product.title }}" data-id="{{item.product.selected_or_first_available_variant.sku}}" data-quantity="{{ item.quantity }}" data-discount="{% if item.product.compare_at_price > item.product.price %}{{ item.product.compare_at_price | minus: item.product.price | times: 0.01 }}{% else %}0{% endif %}">
+                              <a onclick="updateQuantity($(this).closest('tr').find('input'), 0 - $(this).closest('tr').find('input').val())" href="#">Remove</a>
+                          </div>
+                      </td>
+                      <td class="price"><p>{{ item.price | money_with_currency | replace: ".00", "" }}</p></td>
+                      <td class="quantity">
+                          <div class="qty-data">
+                              <p>Quantity</p>
+                              <div class="qty-control">
+                                  <a class="decrease-quantity" href="javascript:void(0)" onclick="updateQuantity($(this).parent().find('input'), -1)" data-act="-"><span class="icon-minus"></span></a>
+                                  <label>
+                                      <input type="number" name="updates[]" value="{{ item.quantity }}" item-var-id="{{item.variant_id}}" currency="{{cart.currency.symbol}}" currency-code="{{cart.currency.iso_code}}" cart-type="cart" title="{{item.product.title}}" prod-id="{{item.product.selected_or_first_available_variant.sku}}" price="{{item.product.selected_or_first_available_variant.price | money_without_currency}}" shop-name="{{shop.name}}">
+                                  </label>
+                                  <a class="increase-quantity" href="javascript:void(0)" onclick="updateQuantity($(this).parent().find('input'), 1)" data-act="+"><span class="icon-plus"></span></a>
+                              </div>
+                          </div>
+                      </td>
+                      <td class="total"><p>{{ item.price | money_with_currency | replace: ".00", "" }}</p></td>
+                  </tr>
+                  {% endfor %}
+                  </tbody>
+              </table>
+          </div>
+          <div class="cart-total">
+              <div class="total-wrap">
+                  <div class="price">
+                      <p>Subtotal: <b>{{ cart.total_price | money_with_currency | replace: ".00", ""  }}</b></p>
+                  </div>
+                  <div class="btn-wrap">
+                    <input id="cart_submit" type="submit" value="Place your order" name="checkout" class="main-btn" />
+                  </div>
+              </div>
+          </div>
+        </form>
+        {% else %}
+        <div class="emty_crt">
+            <h2>Your cart is currently empty.</h2>
+            <a href="/collections" class="main-btn">Continue shopping</a>
+        </div>
+          {% endif %}
+      </div>
+  </div>
+</div>
+<style>
+.main-btn{
+
+  width:100%;
+}
+</style>
+{% schema %}
+{
+  "name": "Cart",
+  "class": "cart-content",
+  "settings": [
+    {
+      "type": "text",
+      "id": "crt_titl",
+      "label": "Title",
+      "default": "Add Title "
+    },
+    {
+      "type": "textarea",
+      "id": "crt_descript",
+      "label": "Description",
+      "default": "Add Description "
+    },
+    {
+      "type": "text",
+      "id": "crt_icn",
+      "label": "Add Icon",
+      "default": "icon-afterpay"
+    },
+    {
+      "type": "text",
+      "id": "btn_text",
+      "label": "Button Title",
+      "default": "Add Button Title "
+    },
+     {
+      "type": "url",
+      "id": "btn_url",
+      "label": "Button URL"
+
+    }
+  ]
+
+  }
+{% endschema %}
+
+<style>
+body{
+  overflow-x: hidden;
+}
+.emty_crt .main-btn {
+  max-width: 260px;
+}
+.emty_crt{
+  text-align: center;
+ margin-top: 50px;
+}
+
+.main-btn {
+background: var(--dark-green);
+border-color: var(--dark-green);
+}
+
+.main-btn:hover {
+background: #404733;
+border-color: #404733;
+}
+
+</style>
+
+<script>
+// Disable Cart Widget
+$('.icofont-shopping-cart').parent().removeAttr('data-src');
+$('.icofont-shopping-cart').parent().removeAttr('data-fancybox');
+</script>
+
+<script type="text/javascript">
+cart_data = {{ cart | json }};
+var items_data = cart_data.items.map(function (item) {
+  return {
+    item_id: item.sku,
+    item_name: item.product_title,
+    affiliation: "{{ shop.name }}",
+    price: parseFloat(item.price / 100.0).toFixed(2).toString(),
+    currency: "{{ shop.currency }}",
+    item_brand: "CuraLife",
+    item_category: "CuraLin",
+    quantity: item.quantity
+  }
+});
+
+window.dataLayer = window.dataLayer || [];
+window.dataLayer.push({
+  event: "view_cart", // name of the event. In this case, it always must be view_cart
+  ecommerce: {
+    items: items_data
+  },
+  email: '{{ customer.email }}',
+  phone: '{{ customer.phone }}',
+  name: '{{ customer.first_name }}',
+  surname: '{{ customer.last_name }}',
+  city: '{{ customer.customer_address.city }}',
+  state: '{{ customer.customer_address.province }}',
+  zip: '{{ customer.customer_address.zip }}',
+  country: '{{customer.customer_address.country_code | t}}',
+  user_agent: navigator.userAgent
+});
+</script>
