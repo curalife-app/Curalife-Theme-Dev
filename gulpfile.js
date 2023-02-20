@@ -8,7 +8,7 @@ const cleanCss = require('gulp-clean-css');
 const del = require('del');
 const themeKit = require('@shopify/themekit');
 
-var paths = {
+const paths = {
   build: 'build/',
   build_assets: 'build/assets/',
   build_templates: 'build/templates/',
