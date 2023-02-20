@@ -1,4 +1,5 @@
 let mix = require('laravel-mix');
+let clean = require('laravel-mix-clean');
 const tailwindcss = require('tailwindcss');
 
 const paths = {
@@ -14,6 +15,8 @@ const paths = {
   templates: 'src/liquid/templates/**/*.{liquid,json}',
   images: 'src/images/*/*.{png,jpg,jpeg,gif,svg}'
 }
+
+mix.clean({cleanOnceBeforeBuildPatterns: [paths.build]});
 
 mix.js(paths.js, paths.build_assets)
   .css(paths.css, paths.build_assets)
