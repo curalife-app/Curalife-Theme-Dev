@@ -16,6 +16,8 @@ const paths = {
   build_layout_folder: 'build/layout/',
   build_sections_folder: 'build/sections/',
   build_snippets_folder: 'build/snippets/',
+  build_config_folder: 'build/config/',
+  build_locales_folder: 'build/locales/',
   css_folder: 'src/styles/css/',
   scss_folder: 'src/styles/scss/',
   script_files: 'src/scripts/**/*.js',
@@ -26,7 +28,9 @@ const paths = {
   locales_folder_files: 'src/liquid/locales/**',
   sections_folder_files: 'src/liquid/sections/**',
   snippets_folder_files: 'src/liquid/snippets/**',
-  templates_folder: 'src/liquid/templates/'
+  templates_folder: 'src/liquid/templates/',
+  locales_folder: 'src/liquid/locales/',
+  config_folder: 'src/liquid/config/'
 }
 
 mix.clean({cleanOnceBeforeBuildPatterns: [paths.build_folder]});
@@ -34,6 +38,8 @@ mix.clean({cleanOnceBeforeBuildPatterns: [paths.build_folder]});
 mix.js(paths.script_files, paths.build_assets_folder)
   .copy(paths.font_files, paths.build_assets_folder)
   .copy(paths.image_files, paths.build_assets_folder)
+  .copy(paths.config_folder_files, paths.build_config_folder)
+  .copy(paths.locales_folder_files, paths.build_locales_folder)
   .copy(paths.layout_folder_files, paths.build_layout_folder)
   .copy(paths.sections_folder_files, paths.build_sections_folder)
   .copy(paths.snippets_folder_files, paths.build_snippets_folder)
