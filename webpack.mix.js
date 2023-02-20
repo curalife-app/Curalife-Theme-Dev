@@ -1,4 +1,5 @@
 let mix = require('laravel-mix');
+const tailwindcss = require('tailwindcss');
 
 mix.js('src/scripts/*.js', 'dist/assets').setPublicPath('dist/assets')
   .options({
