@@ -28,9 +28,9 @@ const paths = {
   locales_folder_files: 'src/liquid/locales/**',
   sections_folder_files: 'src/liquid/sections/**',
   snippets_folder_files: 'src/liquid/snippets/**',
-  templates_folder: 'src/liquid/templates/',
-  locales_folder: 'src/liquid/locales/',
-  config_folder: 'src/liquid/config/'
+  locales_folder_files: 'src/liquid/locales/**',
+  config_folder_files: 'src/liquid/config/**',
+  templates_folder: 'src/liquid/templates/'
 }
 
 mix.clean({cleanOnceBeforeBuildPatterns: [paths.build_folder]});
