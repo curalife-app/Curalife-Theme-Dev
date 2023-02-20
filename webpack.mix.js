@@ -10,14 +10,14 @@ let getFiles = function (dir) {
 };
 
 const paths = {
-  build_folder: 'build/',
-  build_assets_folder: 'build/assets/',
-  build_templates_folder: 'build/templates/',
-  build_layout_folder: 'build/layout/',
-  build_sections_folder: 'build/sections/',
-  build_snippets_folder: 'build/snippets/',
-  build_config_folder: 'build/config/',
-  build_locales_folder: 'build/locales/',
+  build_folder: 'Curalife-Theme-Build/',
+  build_assets_folder: 'Curalife-Theme-Build/assets/',
+  build_templates_folder: 'Curalife-Theme-Build/templates/',
+  build_layout_folder: 'Curalife-Theme-Build/layout/',
+  build_sections_folder: 'Curalife-Theme-Build/sections/',
+  build_snippets_folder: 'Curalife-Theme-Build/snippets/',
+  build_config_folder: 'Curalife-Theme-Build/config/',
+  build_locales_folder: 'Curalife-Theme-Build/locales/',
   css_folder: 'src/styles/css/',
   scss_folder: 'src/styles/scss/',
   script_files: 'src/scripts/**/*.js',
