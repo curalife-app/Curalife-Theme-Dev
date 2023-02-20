@@ -11,21 +11,28 @@ const paths = {
   scss: 'src/styles/scss/**/*.scss',
   js: 'src/scripts/**/*.js',
   fonts: 'src/fonts/**/*.{woff,woff2,eot,ttf}',
-  liquid: ['src/liquid/layout/**/*.{liquid}', 'src/liquid/sections/**/*.{liquid}', 'src/liquid/snippets/**/*.{liquid}'],
-  templates: 'src/liquid/templates/**/*.{liquid,json}',
+  layout_folder: 'src/liquid/layout/**',
+  sections_folder: 'src/liquid/sections/**',
+  snippets_folder: 'src/liquid/snippets/**',
+  templates_folder: 'src/liquid/templates/**',
+  liquid_folders: ['src/liquid/layout/**', 'src/liquid/sections/**', 'src/liquid/snippets/**'],
+  templates: 'src/liquid/templates/**',
   images: 'src/images/*/*.{png,jpg,jpeg,gif,svg}'
 }
 
 mix.clean({cleanOnceBeforeBuildPatterns: [paths.build]});
 
-mix.js(paths.js, paths.build_assets)
-  .css(paths.css, paths.build_assets)
-  .sass(paths.scss, paths.build_assets)
-  .copy(paths.fonts, paths.build_assets)
-  .copy(paths.liquid, paths.build)
-  .copyDirectory(paths.images, paths.build_assets)
-  .copyDirectory(paths.templates, paths.build)
+mix.js(paths.js, "assets")
+  .css(paths.css, "assets")
+  .sass(paths.scss, "assets")
+  .copy(paths.fonts, "assets")
+  .copy(paths.images, "assets")
+  .copy(paths.layout_folder, "layout")
+  .copy(paths.sections_folder, "sections")
+  .copy(paths.snippets_folder, "snippets")
+  .copy(paths.templates_folder, "templates")
   .options({
     processCssUrls: false,
     postCss: [tailwindcss('tailwind.config.js')],
-  });
+  })
+  .setPublicPath(paths.build);
