@@ -4,52 +4,50 @@ const tailwindcss = require('tailwindcss');
 let fs = require('fs');
 
 let getFiles = function (dir) {
-  // get all 'files' in this directory
-  // filter directories
   return fs.readdirSync(dir).filter(file => {
       return fs.statSync(`${dir}/${file}`).isFile();
   });
 };
 
 const paths = {
-  build: 'dist/',
-  build_assets: 'dist/assets/',
-  build_templates: 'dist/templates/',
+  build_folder: 'build/',
+  build_assets_folder: 'build/assets/',
+  build_templates_folder: 'build/templates/',
+  build_layout_folder: 'build/layout/',
+  build_sections_folder: 'build/sections/',
+  build_snippets_folder: 'build/snippets/',
   styles: 'src/styles/',
-  css: 'src/styles/**/*.css',
-  scss: 'src/styles/scss/**/*.scss',
-  js: 'src/scripts/**/*.js',
+  css_folder: 'src/styles/css/',
+  scss_folder: 'src/styles/scss/',
+  scripts: 'src/scripts/**/*.js',
+  images: 'src/images/*/*.{png,jpg,jpeg,gif,svg}',
   fonts: 'src/fonts/**/*.{woff,woff2,eot,ttf}',
-  layout_folder: 'src/liquid/layout/**',
-  config_folder: 'src/liquid/config/**',
-  locales_folder: 'src/liquid/locales/**',
-  sections_folder: 'src/liquid/sections/**',
-  snippets_folder: 'src/liquid/snippets/**',
-  templates_folder: 'src/liquid/templates/**',
-  liquid_folders: ['src/liquid/layout/**', 'src/liquid/sections/**', 'src/liquid/snippets/**'],
-  templates: 'src/liquid/templates/**',
-  images: 'src/images/*/*.{png,jpg,jpeg,gif,svg}'
+  layout_folder: 'src/liquid/layout/',
+  config_folder: 'src/liquid/config/',
+  locales_folder: 'src/liquid/locales/',
+  sections_folder: 'src/liquid/sections/',
+  snippets_folder: 'src/liquid/snippets/',
+  templates_folder: 'src/liquid/templates/'
 }
 
-mix.clean({cleanOnceBeforeBuildPatterns: [paths.build]});
+mix.clean({cleanOnceBeforeBuildPatterns: [paths.build_folder]});
 
-mix.js(paths.js, "dist/assets")
-  .copy(paths.fonts, "dist/assets")
-  .copy(paths.images, "dist/assets")
-  .copy(paths.layout_folder, "dist/layout")
-  .copy(paths.sections_folder, "dist/sections")
-  .copy(paths.snippets_folder, "dist/snippets")
-  .copy(paths.templates_folder, "dist/templates", false)
+mix.js(paths.scripts, paths.build_assets_folder)
+  .copy(paths.fonts, paths.build_assets_folder)
+  .copy(paths.images, paths.build_assets_folder)
+  .copy(paths.layout_folder, paths.build_layout_folder)
+  .copy(paths.sections_folder, paths.build_sections_folder)
+  .copy(paths.snippets_folder, paths.build_snippets_folder)
+  .copy(paths.templates_folder, paths.build_templates_folder, false)
   .options({
     processCssUrls: false,
     postCss: [tailwindcss('tailwind.config.js')],
-  })
-  .setPublicPath(paths.build);
-
-  getFiles('src/styles/scss').forEach(function (filepath) {
-      mix.sass('src/styles/scss/' + filepath, 'assets');
-  });
-  getFiles('src/styles/css').forEach(function (filepath) {
-      mix.css('src/styles/css/' + filepath, 'assets');
   });
 
+
+  getFiles(paths.scss_folder).forEach(function (filepath) {
+      mix.sass(paths.scss_folder + filepath, paths.build_assets_folder);
+  });
+  getFiles(paths.css_folder).forEach(function (filepath) {
+      mix.css(paths.css_folder + filepath, paths.build_assets_folder);
+  });
