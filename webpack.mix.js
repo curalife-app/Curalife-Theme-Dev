@@ -12,6 +12,8 @@ const paths = {
   js: 'src/scripts/**/*.js',
   fonts: 'src/fonts/**/*.{woff,woff2,eot,ttf}',
   layout_folder: 'src/liquid/layout/**',
+  config_folder: 'src/liquid/config/**',
+  locales_folder: 'src/liquid/locales/**',
   sections_folder: 'src/liquid/sections/**',
   snippets_folder: 'src/liquid/snippets/**',
   templates_folder: 'src/liquid/templates/**',
