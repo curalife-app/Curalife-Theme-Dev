@@ -1,6 +1,15 @@
 let mix = require('laravel-mix');
 let clean = require('laravel-mix-clean');
 const tailwindcss = require('tailwindcss');
+let fs = require('fs');
+
+let getFiles = function (dir) {
+  // get all 'files' in this directory
+  // filter directories
+  return fs.readdirSync(dir).filter(file => {
+      return fs.statSync(`${dir}/${file}`).isFile();
+  });
+};
 
 const paths = {
   build: 'dist/',
@@ -25,8 +34,6 @@ const paths = {
 mix.clean({cleanOnceBeforeBuildPatterns: [paths.build]});
 
 mix.js(paths.js, "dist/assets")
-  .css(paths.css, "dist/assets")
-  .sass(paths.scss, "dist/assets")
   .copy(paths.fonts, "dist/assets")
   .copy(paths.images, "dist/assets")
   .copy(paths.layout_folder, "dist/layout")
@@ -38,3 +45,14 @@ mix.js(paths.js, "dist/assets")
     postCss: [tailwindcss('tailwind.config.js')],
   })
   .setPublicPath(paths.build);
+
+  getFiles('src/scripts').forEach(function (filepath) {
+      mix.js('src/scripts/' + filepath, 'assets');
+  });
+  getFiles('src/styles/scss').forEach(function (filepath) {
+      mix.sass('src/styles/scss/' + filepath, 'assets');
+  });
+  getFiles('src/styles/css').forEach(function (filepath) {
+      mix.css('src/styles/css/' + filepath, 'assets');
+  });
+
