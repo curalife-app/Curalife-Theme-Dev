@@ -1,0 +1,334 @@
+{% if shop.name == "CuraLife" %}
+  {% assign promotion_title = "+ Life Changing Bonus" %}
+
+  {% if localization.country.iso_code == 'CA' %}
+    {% assign bundle_addition_value = 17100 %}
+  {% elsif localization.country.iso_code == 'AU' %}
+    {% assign bundle_addition_value = 19000 %}
+  {% else %}
+    {% assign bundle_addition_value = 12800 %}
+  {% endif %}
+{% elsif shop.name == "CuraLife Global" %}
+  {% assign promotion_title = "+ CuraEats App" %}
+  {% assign bundle_addition_value = 2400 %}
+{% endif %}
+
+{% assign quantity = product.metafields.my_fields.pack_items_quantity %}
+{% assign quantity_by_cents = quantity | times: 100 %}
+{% assign item_price = product.price | times: 100.0 | divided_by: quantity_by_cents %}
+{% if product.tags contains "CuraEats" %}{% assign bundle_addition = bundle_addition_value %}{% else %}{% assign bundle_addition = 0 %}{% endif %}
+
+{% assign original_item_cap_total = original_item_cap | times: quantity %}
+{% assign original_item_cap_total_with_bundle = bundle_addition | times: 100 | plus: original_item_cap_total %}
+
+{% if localization.country.iso_code == 'CA' %}
+  {% assign original_item_cap = product.metafields.my_fields.original_item.value.metafields.my_fields.ca_cap | times: 100 %}
+{% elsif localization.country.iso_code == 'AU' %}
+  {% assign original_item_cap = product.metafields.my_fields.original_item.value.metafields.my_fields.au_cap | times: 100 %}
+{% else %}
+  {% assign original_item_cap = product.metafields.my_fields.original_item.value.compare_at_price %}
+{% endif %}
+
+{% assign save_price = original_item_cap | minus: item_price | times: quantity | plus: bundle_addition | money_with_currency | replace: ".00", "" | replace: "GBP", "" | replace: "AUD", "" | replace: "CAD", "" %}
+
+<div class="product-card {% if isRecommended %}recommended{% endif %}" id="product-card-section" data-product-collections="{{ productCollections }}">
+  {% if isLinkToProduct %}<a href="{{ product.url }}">{% endif %}
+  <h3>{% if product.metafields.my_fields.alternative_title.value %}{{ product.metafields.my_fields.alternative_title.value }}{% else %}{{ product.title }}{% endif %}</h3>
+
+  <p class="supply-days">Up To {{ product.metafields.my_fields.supply_days }} Days Supply</p>
+
+  <img class="product-image" src="{{ product.featured_image.src | img_url: 'original' }}" width="512" height="475" alt="" loading="lazy">
+  {% if isLinkToProduct %}</a>{% endif %}
+
+  <div class="info">
+    <div class="main">
+      <div class="price">
+        {% if quantity > 1 %}
+          <p class="divided-price"><strike class="rounded no-letters">{{ original_item_cap | money_with_currency | replace: ".00", "" | replace: "GBP", "" | replace: "AUD", "" | replace: "CAD", "" }}</strike><span class="rounded current-price">{{ item_price | money_with_currency | replace: ".00", "" | replace: "GBP", "" }}</span> <span class="per-bottle"> PER<br>BOTTLE</span> </p>
+        {% elsif product.compare_at_price > product.price %}
+          <p class="discounted-price"><strike class="rounded no-letters">{{ product.compare_at_price | money_with_currency | replace: ".00", "" | replace: "GBP", "" | replace: "AUD", "" | replace: "CAD", "" }}</strike><span class="rounded current-price">{{ product.price | money_with_currency | replace: ".00", "" | replace: "GBP", "" }}</span></p>
+        {% else %}
+          <p class="original-price" class="rounded">{{ product.price | money_with_currency | replace: ".00", "" | replace: "GBP", "" }}</p>
+        {% endif %}
+      </div>
+      <p class="promotion-title">{{ promotion_title }} ({{ bundle_addition_value | money_with_currency | replace: ".00", "" | replace: "GBP", "" }} Value!)</p>
+    </div>
+
+    {% unless isSkipCart %}
+    <form action="/cart/add" method="post">
+      <input type="hidden" name="id" value="{{ product.variants.first.id }}"/>
+      <input name="return_to" type="hidden" value="/cart/">
+    {% endunless %}
+      <button class="main-btn add-to-cart-btn" id='AddTCart' {% unless isSkipCart %}type="submit"{% endunless %} title="{{ product.title }}" prod-sku="{{ product.selected_or_first_available_variant.sku }}" prod-id="{{ product.variants.first.id }}" price="{{ product.selected_or_first_available_variant.price | money_without_currency }}" discount="{% if product.compare_at_price > product.price %}{{ product.compare_at_price | minus: product.price | times: 0.01 }}{% else %}0{% endif %}"><i class="icon-cart"></i>Add To Cart</button>
+    {% unless isSkipCart %}</form>{% endunless %}
+
+    <div class="total-and-shipping">
+      <div class="total-prices">
+        TOTAL: <strike class="striked" style="font-weight: 400;">{{ original_item_cap | times: quantity | plus: bundle_addition | money_with_currency | replace: ".00", "" | replace: "GBP", "" | replace: "AUD", "" | replace: "CAD", "" }}</strike>
+        <span class="real rounded">{{ product.price | money_with_currency | replace: ".00", "" | replace: "GBP", "" }}</span>
+      </div>
+
+      {% if shop.name == "CuraLife" %}
+        <div class="free-shipping">US SHIPPING: <span>FREE</span></div>
+      {% elsif shop.name == "CuraLife Global" %}
+        {% comment %} {% unless product.tags contains "no-free-shipping" %}
+          <div class="free-shipping" style="font-size: 14px; text-align: center;"><span class="free-red">FREE</span> SHIPPING</div>
+        {% endunless %} {% endcomment %}
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{% if isLastRender %}
+  <style>
+    .product-grid {
+      display: flex;
+    }
+
+    .product-card {
+      max-width: 350px;
+      padding: 10px;
+      display: flex;
+      align-items: center;
+      flex-direction: column;
+      overflow: hidden;
+      margin-top: 60px;
+    }
+
+    .product-card.recommended {
+      box-shadow: 0px 4px 30px rgba(0, 0, 0, 0.25);
+      border-radius: 7px;
+      margin-top: unset;
+    }
+
+    .product-card.recommended::before {
+      content: "- RECOMMENDED -";
+      font-family: 'PP Radio Grotesk';
+      padding: 10px;
+      text-align: center;
+      background: var(--vomit);
+      color: var(--dark-green);
+      font-size: 20px;
+      font-weight: bold;
+    }
+
+    .product-card .promotion-title {
+      font-size: 18px;
+      margin: unset;
+      color: #404733;
+    }
+
+    .product-card .info .main {
+      flex: auto;
+      padding-bottom: 10px;
+      display: flex;
+      flex-direction: column;
+      justify-content: end;
+      text-align: center;
+    }
+
+    .product-card .per-bottle {
+      font-size: 17px;
+      margin-top: 5px;
+      text-align: left;
+    }
+
+    .product-card .total-and-shipping {
+      display: flex;
+      flex-direction: column;
+      margin: 10px auto;
+      font-family: 'PP Radio Grotesk';
+      font-weight: 700;
+      font-size: 20px;
+      line-height: 20px;
+      margin-top: 10px;
+      text-align: center;
+      min-height: 42px;
+    }
+
+    .product-card .total-and-shipping .free-shipping {
+      font-size: 14px;
+      text-align: center;
+    }
+
+    .product-card .total-and-shipping .free-shipping span {
+      color: var(--red);
+    }
+
+    .product-card .info .price {
+      padding-top: 14px;
+      position: relative;
+      display: flex;
+      justify-content: center;
+      padding-bottom: 10px;
+    }
+
+    .product-card .info .price p {
+      display: flex;
+      align-items: center;
+      margin: 0;
+      font-weight: 800;
+      font-size: 18px;
+      line-height: 1;
+      text-align: center;
+      color: var(--dark);
+      white-space: nowrap;
+    }
+
+    .product-card .info .price .rounded.current-price,
+    .product-card .info .price .original-price {
+      font-family: 'PP Radio Grotesk';
+      font-weight: 700;
+      font-size: 45px;
+      padding-left: 5px;
+      padding-right: 5px;
+    }
+
+    .product-card h3 {
+        font-family: 'PP Radio Grotesk';
+        text-align: center;
+        font-size: 32px;
+        font-weight: bold;
+        margin: unset;
+        margin-top: 30px;
+        margin-bottom: 5px;
+    }
+
+    .product-card.recommended h3 {
+      font-size: 35px;
+    }
+
+    .product-card .changing-programm {
+      text-align: center;
+      font-size: clamp(16px, 2.5vw, 30px);
+      padding-bottom: 10px;
+      font-weight: 100;
+    }
+
+    .product-card button {
+      width: 100%;
+    }
+
+    @media screen and (max-width:768px) {
+      .product-grid {
+        gap: 10vw;
+        flex-direction: column;
+      }
+
+      .product-card .promotion-title {
+        font-size: 5vw;
+      }
+
+      .product-card {
+        max-width: 100%;
+        padding: 10px;
+        border: 1px solid #E8E8B0;
+        margin-top: unset;
+      }
+
+      .product-card h3 {
+        font-size: 10vw;
+        margin-top: 5vw;
+      }
+
+      .product-card .info .price {
+        padding-top: 0;
+      }
+
+      .product-card .info .price strike {
+        font-size: 18px;
+      }
+
+      .product-card .info .price .rounded.current-price {
+        font-size: 41px;
+        padding-left: 1vw;
+        padding-right: 1vw;
+      }
+
+      .product-card .info .price p {
+        font-size: 41px;
+      }
+
+      .product-card .info .main-btn {
+        font-size: 4vw;
+      }
+    }
+  </style>
+
+  <script>
+    $(document).on("click", "#AddTCart", function () {
+      window.dataLayer = window.dataLayer || [];
+      window.dataLayer.push({
+        event: 'add_to_cart',
+        ecommerce: {
+        items: [{
+          item_name: $(this).attr("title"),
+          item_id: $(this).attr("prod-sku"),
+          affiliation: '{{ shop.name }}',
+          price: $(this).attr("price"),
+          currency: '{{ shop.currency }}',
+          item_brand: 'CuraLife',
+          item_category: 'CuraLin',
+          quantity: 1
+        }]
+        },
+        email: '{{ customer.email }}',
+        phone: '{{ customer.phone }}',
+        name: '{{ customer.first_name }}',
+        surname: '{{ customer.last_name }}',
+        city: '{{ customer.customer_address.city }}',
+        state: '{{ customer.customer_address.province }}',
+        zip: '{{ customer.customer_address.zip }}',
+        country: '{{customer.customer_address.country_code | t}}',
+        user_agent: navigator.userAgent
+      });
+
+      woopra.track('add to cart', {
+        product_sku: $(this).attr("prod-sku"),
+        product_name: $(this).attr("title"),
+        product_price: $(this).attr("price"),
+        currency: '{{ shop.currency }}',
+        quantity: 1
+      });
+    });
+  </script>
+
+  {% if isSkipCart %}
+    <script>
+      // Buy Button Functionality
+      $(".add-to-cart-btn").click(function() {
+        let checkedPack = $(this).attr("prod-id");
+        let checkoutLink = "https://" + location.hostname + "/cart/" + checkedPack + ":1";
+        window.location.href = checkoutLink;
+      })
+    </script>
+  {% endif %}
+{% endif %}
+
+<script>
+  window.dataLayer = window.dataLayer || [];
+  window.dataLayer.push({
+    event: 'view_item',
+    ecommerce: {
+    items: [{
+      item_name: '{{ product.title }}',
+      item_id: '{{ product.selected_or_first_available_variant.sku }}',
+      affiliation: '{{ shop.name }}',
+      price: '{{ product.selected_or_first_available_variant.price | money_without_currency }}',
+      currency: '{{ shop.currency }}',
+      item_brand: 'CuraLife',
+      item_category: 'CuraLin',
+      quantity: 1
+    }]
+    },
+    email: '{{ customer.email }}',
+    phone: '{{ customer.phone }}',
+    name: '{{ customer.first_name }}',
+    surname: '{{ customer.last_name }}',
+    city: '{{ customer.customer_address.city }}',
+    state: '{{ customer.customer_address.province }}',
+    zip: '{{ customer.customer_address.zip }}',
+    country: '{{customer.customer_address.country_code | t}}',
+    user_agent: navigator.userAgent
+  });
+</script>
