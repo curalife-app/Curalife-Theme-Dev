@@ -31,7 +31,7 @@ const paths = {
   templates_folder: 'src/liquid/templates/'
 }
 
-mix.clean({cleanOnceBeforeBuildPatterns: [paths.build_folder]});
+// mix.clean({cleanOnceBeforeBuildPatterns: [paths.build_folder]});
 
 mix.js(paths.script_files, paths.build_assets_folder)
   .copy(paths.font_files, paths.build_assets_folder)
