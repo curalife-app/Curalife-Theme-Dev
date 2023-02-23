@@ -1,0 +1,96 @@
+<!-- Override checkout.shopify.com to redirect to the main domain  -->
+<script>
+
+  
+  (function () {
+
+    //General method to extract cookie by name
+    function gaCheckoutRedirectGetCookie(name) {
+        var matches = document.cookie.match(new RegExp(
+          "(?:^|; )" + name.replace(/([\.$?*|{}\(\)\[\]\\\/\+^])/g, '\\$1') + "=([^;]*)"
+        ));
+        return matches ? decodeURIComponent(matches[1]) : undefined;
+      }
+    
+    //Specific method to convert ga cookie into query string usable value
+    function gaCheckoutRedirectConvertCookieToQuery(ga) {
+      	var gaExp = ga.split('.');
+      	return ga + '-' + gaExp[gaExp.length-2] + '.' + gaExp[gaExp.length-1];
+    }
+
+    //Check if domain is checkout.shopify.com
+   	if (window.location.hostname == 'checkout.shopify.com') {
+      
+      	var gaCheckoutRedirectGaCookie = gaCheckoutRedirectGetCookie('_ga');
+    	var gaCheckoutRedirectTargetHostname = 'curalife.com';
+    	var gaCheckoutRedirectCurrentShop = '';
+      	var gaCheckoutRedirectLiquidShop = '{{ shop.id }}';
+        
+        //Map between myshopify.com subdomains and domains
+    	var gaCheckoutRedirectDomainMap = {
+      		'curalife-commerce-sia.myshopify.com': 'global.curalife.com',
+      		'curalife-commerce.myshopify.com': 'curalife.com'
+    	}
+        
+        //List of domains allowed for redirect
+        var gaCheckoutRedirectAllowedDomains = [
+        	'global.curalife.com',
+			'curalife.com'
+        ];
+        
+        //Set target hostname from liquid if it exists
+	    if (gaCheckoutRedirectAllowedDomains.includes('{{ shop.domain }}')) {
+        	gaCheckoutRedirectTargetHostname = '{{ shop.domain }}';
+        }
+        
+        //Additional check for shop id via Shopify JS object
+    	if (Shopify !== undefined && Shopify && Shopify.shop) {
+      		gaCheckoutRedirectCurrentShop = Shopify.shop;
+    	}
+      
+      	
+        //Make sure that we find the domain using the map
+        if (gaCheckoutRedirectDomainMap[gaCheckoutRedirectCurrentShop]) {
+            gaCheckoutRedirectTargetHostname = gaCheckoutRedirectDomainMap[gaCheckoutRedirectCurrentShop];
+        }
+
+        //Check for hostname to redirect to and that it doesn't match current hostname to avoid potential infinite redirect loop
+        if (gaCheckoutRedirectTargetHostname && gaCheckoutRedirectTargetHostname != window.location.hostname) {
+                    
+          //Redirect to domain with or without cookie
+          if (gaCheckoutRedirectGaCookie) {
+            var gaCheckoutRedirectTarget = gaCheckoutRedirectTargetHostname;
+            
+            //Add _ga query string to target query
+            if (window.location.search && window.location.search.includes('?')) {
+              gaCheckoutRedirectTarget =
+                window.location.protocol
+              	+ '//' + gaCheckoutRedirectTargetHostname
+              	+ window.location.pathname
+              	+ window.location.search
+              	+ '&_ga=' + gaCheckoutRedirectConvertCookieToQuery(gaCheckoutRedirectGaCookie)
+              	+ window.location.hash;
+            } else {
+              gaCheckoutRedirectTarget =
+                window.location.protocol
+              	+ '//'
+              	+ gaCheckoutRedirectTargetHostname
+              	+ window.location.pathname
+              	+ '?_ga=' + gaCheckoutRedirectConvertCookieToQuery(gaCheckoutRedirectGaCookie)
+              	+ window.location.hash;
+            }
+            
+            //console.log(gaCheckoutRedirectTarget);
+          	window.location = gaCheckoutRedirectTarget;
+          } else {
+            //console.log(gaCheckoutRedirectTargetHostname);
+          	window.location.hostname = gaCheckoutRedirectTargetHostname;
+          }
+          
+        }
+        	
+  	}
+    
+  })();
+ 
+</script>
