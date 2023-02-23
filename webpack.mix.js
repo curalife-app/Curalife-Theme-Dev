@@ -33,7 +33,7 @@ const paths = {
 
 // mix.clean({cleanOnceBeforeBuildPatterns: [paths.build_folder]});
 
-mix.js(paths.script_files, paths.build_assets_folder)
+mix.copy(paths.script_files, paths.build_assets_folder)
   .copy(paths.font_files, paths.build_assets_folder)
   .copy(paths.image_files, paths.build_assets_folder)
   .copy(paths.config_folder_files, paths.build_config_folder)
