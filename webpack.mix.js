@@ -22,7 +22,7 @@ const paths = {
   scss_folder: 'src/styles/scss/',
   script_files: 'src/scripts/**/*.js',
   image_files: 'src/images/*/*.{png,jpg,jpeg,gif,svg}',
-  font_files: 'src/fonts/**/*.{woff,woff2,eot,ttf}',
+  font_files: 'src/fonts/**/*.{woff,woff2,eot,ttf,otf}',
   layout_folder_files: 'src/liquid/layout/**',
   config_folder_files: 'src/config/**',
   locales_folder_files: 'src/locales/**',
