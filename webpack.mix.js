@@ -1,5 +1,4 @@
 let mix = require('laravel-mix');
-let clean = require('laravel-mix-clean');
 const tailwindcss = require('tailwindcss');
 let fs = require('fs');
 
@@ -28,26 +27,25 @@ const paths = {
   locales_folder_files: 'src/locales/**',
   sections_folder_files: 'src/liquid/sections/**',
   snippets_folder_files: 'src/liquid/snippets/**',
-  templates_folder: 'src/liquid/templates/'
+  templates_folder: 'src/liquid/templates/',
+  tailwindcss_file: 'src/styles/tailwind.scss'
 }
-
-// mix.clean({cleanOnceBeforeBuildPatterns: [paths.build_folder]});
 
 // Example for not flattening folder: .copy(paths.templates_folder, paths.build_templates_folder, false)
 
 mix.copy(paths.script_files, paths.build_assets_folder)
-  .copy(paths.font_files, paths.build_assets_folder)
-  .copy(paths.css_folder_files, paths.build_assets_folder)
-  .copy(paths.image_files, paths.build_assets_folder)
-  .copy(paths.config_folder_files, paths.build_config_folder)
-  .copy(paths.locales_folder_files, paths.build_locales_folder)
-  .copy(paths.layout_folder_files, paths.build_layout_folder)
-  .copy(paths.sections_folder_files, paths.build_sections_folder)
-  .copy(paths.snippets_folder_files, paths.build_snippets_folder)
-  .options({
-    processCssUrls: false,
-    postCss: [tailwindcss('tailwind.config.js')],
-  });
+    .copy(paths.font_files, paths.build_assets_folder)
+    .copy(paths.css_folder_files, paths.build_assets_folder)
+    .copy(paths.image_files, paths.build_assets_folder)
+    .copy(paths.config_folder_files, paths.build_config_folder)
+    .copy(paths.layout_folder_files, paths.build_layout_folder)
+    .copy(paths.sections_folder_files, paths.build_sections_folder)
+    .copy(paths.snippets_folder_files, paths.build_snippets_folder)
+    .sass(paths.tailwindcss_file, paths.build_assets_folder)
+      .options({
+        processCssUrls: false,
+        postCss: [tailwindcss('tailwind.config.js')],
+      });
 
   getFiles(paths.scss_folder).forEach(function (filepath) {
       mix.sass(paths.scss_folder + filepath, paths.build_assets_folder);
