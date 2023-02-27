@@ -18,7 +18,7 @@ const paths = {
   build_snippets_folder: 'Curalife-Theme-Build/snippets/',
   build_config_folder: 'Curalife-Theme-Build/config/',
   build_locales_folder: 'Curalife-Theme-Build/locales/',
-  css_folder: 'src/styles/css/',
+  css_folder_files: 'src/styles/css/**',
   scss_folder: 'src/styles/scss/',
   script_files: 'src/scripts/**/*.js',
   image_files: 'src/images/*/*.{png,jpg,jpeg,gif,svg}',
@@ -37,6 +37,7 @@ const paths = {
 
 mix.copy(paths.script_files, paths.build_assets_folder)
   .copy(paths.font_files, paths.build_assets_folder)
+  .copy(paths.css_folder_files, paths.build_assets_folder)
   .copy(paths.image_files, paths.build_assets_folder)
   .copy(paths.config_folder_files, paths.build_config_folder)
   .copy(paths.locales_folder_files, paths.build_locales_folder)
@@ -50,7 +51,4 @@ mix.copy(paths.script_files, paths.build_assets_folder)
 
   getFiles(paths.scss_folder).forEach(function (filepath) {
       mix.sass(paths.scss_folder + filepath, paths.build_assets_folder);
-  });
-  getFiles(paths.css_folder).forEach(function (filepath) {
-      mix.css(paths.css_folder + filepath, paths.build_assets_folder);
   });
