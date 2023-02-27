@@ -33,6 +33,8 @@ const paths = {
 
 // mix.clean({cleanOnceBeforeBuildPatterns: [paths.build_folder]});
 
+// Example for not flattening folder: .copy(paths.templates_folder, paths.build_templates_folder, false)
+
 mix.copy(paths.script_files, paths.build_assets_folder)
   .copy(paths.font_files, paths.build_assets_folder)
   .copy(paths.image_files, paths.build_assets_folder)
@@ -41,7 +43,6 @@ mix.copy(paths.script_files, paths.build_assets_folder)
   .copy(paths.layout_folder_files, paths.build_layout_folder)
   .copy(paths.sections_folder_files, paths.build_sections_folder)
   .copy(paths.snippets_folder_files, paths.build_snippets_folder)
-  .copy(paths.templates_folder, paths.build_templates_folder, false)
   .options({
     processCssUrls: false,
     postCss: [tailwindcss('tailwind.config.js')],
