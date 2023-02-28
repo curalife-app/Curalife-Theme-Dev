@@ -23,10 +23,16 @@ module.exports = {
       '3xl': '48px',
       '4xl': '64px',
       '5xl': '96px',
-      '6xl': '128px'
+      '6xl': '128px',
+      '7xl': '192px',
+      '8xl': '256px'
     },
     maxWidth: {
       '1/2': '50%',
+      '1/3': '33.333333%',
+    },
+    maxHeight: {
+      '500px': '500px',
     },
     extend: {
       colors: {
