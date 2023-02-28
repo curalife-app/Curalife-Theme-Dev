@@ -5,14 +5,14 @@ module.exports = {
   ],
   theme: {
     screens: {
-      sm: "640px",
-      md: "768px",
-      lg: "1024px",
-      xl: "1200px",
-      'sm-mobile': "640px",
-      'mobile': "768px",
-      'tablet': "1024px",
-      'desktop': "1200px"
+      sm: { max: "640px" },
+      md: { max: "768px" },
+      lg: { max: "1024px" },
+      xl: { max: "1200px" },
+      'sm-mobile': { max: "640px" },
+      'mobile': { max: "768px" },
+      'tablet': { max: "1024px" },
+      'desktop': { max: "1200px" },
     },
     fontSize: {
       sm: '14px',
@@ -24,6 +24,9 @@ module.exports = {
       '4xl': '64px',
       '5xl': '96px',
       '6xl': '128px'
+    },
+    maxWidth: {
+      '1/2': '50%',
     },
     extend: {
       colors: {
