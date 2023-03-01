@@ -48,6 +48,7 @@ module.exports = {
         lighterGreen: '#E1E8CF',
         vomit: '#E8E8B0',
         lightVomit: '#FAFAEF',
+        lighterVomit: '#FFFFF4',
         darkPurple: '#897389',
         purple: '#D6C7D6',
         lightPurple: '#FCF9FC',
@@ -65,6 +66,11 @@ module.exports = {
         lightPink: '#FFF1E8'
       }
     },
+  },
+  variants: {
+    extend: {
+      textColor: ['odd', 'even'],
+    }
   },
   plugins: [],
 }
