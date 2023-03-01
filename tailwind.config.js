@@ -35,6 +35,9 @@ module.exports = {
       '500px': '500px',
     },
     extend: {
+      spacing: {
+        '500': '500px',
+      },
       colors: {
         darkGrey: '#222222',
         grey: '#838383',
