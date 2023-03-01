@@ -68,9 +68,7 @@ module.exports = {
     },
   },
   variants: {
-    extend: {
-      textColor: ['odd', 'even'],
-    }
+    textColor: ['odd', 'even']
   },
   plugins: [],
 }
