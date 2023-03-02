@@ -1,0 +1,155 @@
+
+  <div class="slideOverflow">
+     <div class="slideContainer" style="left:0px;">
+        {% assign counter = 0 %}
+        {% for block in section.blocks %}
+          <div class="productSlide" id="slide{{ counter }}">
+            <div class="slide" style="background-image:url({{ block.settings.slideImg | img_url: '1000x' }});">
+              
+              <!-- all slide content in here -->
+              <!-- also feel free to take off the background image and change the width of any of this, its not needed to make it work -->
+              
+            </div>
+            {% assign counter = counter | plus: 1 %}
+          </div>
+        {% endfor %}
+     </div>
+  </div>
+  
+
+
+
+<style>
+    .slideOverflow{
+        overflow: hidden;
+        width: 100%;
+        height: 47vw;
+        position: relative;
+    }
+    .productSlideContainer{
+        display:flex;
+        position:absolute;
+        top:0px;
+        left:0px;
+        width:auto;
+        height:100%;
+        transition:all .2s;
+    }
+    .slide{
+        width: auto;
+        height: 100%;
+        background-size: cover;
+        background-position: center center;
+        position:relative;
+    }
+</style>
+
+
+
+
+  {% schema %}
+    {
+      "name": "Slider",
+      "settings": [
+
+      ],
+      "blocks": [
+        {
+          "type": "slides",
+          "name": "Slides",
+          "settings": [
+            {
+              "id": "slideImg",
+              "type": "image_picker",
+              "label": "Image"
+            }
+          ]
+        }
+      ]
+    }
+  {% endschema %}
+
+
+
+<script>
+    function slideRight(){
+      var productSlideContainer = document.getElementsByClassName("productSlideContainer");
+      var productImg = document.getElementsByClassName("productSlide");
+      var slideWidth = []; 
+      var slideLoc = [];
+      var slideContainerWidth = productSlideContainer[0].offsetWidth;
+      var dots = document.getElementsByClassName("dot");
+      for (var i = 0; i< dots.length; i++){
+        dots[i].classList.remove("activeDot");
+      }
+
+      for (var i = 0; i< productImg.length; i++){
+        slideWidth.push(productImg[i].offsetWidth);
+        var slideLocMath = 0;
+        for (var j = 0; j<=i; j++){
+          slideLocMath += slideWidth[j];
+        }
+        slideLoc.push(slideLocMath);
+        slideLocMath = 0;
+      }
+      if (productSlideContainer[0].style.left === 0+"px"){
+          productSlideContainer[0].style.left = -slideLoc[0]+"px";
+          dots[1].classList.add("activeDot");
+          }
+      else if (productSlideContainer[0].style.left === "-"+slideLoc[slideLoc.length-2]+"px"){
+            productSlideContainer[0].style.left = 0+"px";
+            dots[0].classList.add("activeDot");
+          }
+      else{
+        for (var i = 0; i<slideLoc.length-2; i++){
+          if (productSlideContainer[0].style.left === "-"+slideLoc[i]+"px"){
+            productSlideContainer[0].style.left = -slideLoc[i+1]+"px";
+            dots[i+2].classList.add("activeDot");
+            { break; }
+          }
+        }
+      }
+    }
+    function slideLeft(){
+      var productSlideContainer = document.getElementsByClassName("productSlideContainer");
+      var productImg = document.getElementsByClassName("productSlide");
+      var slideWidth = []; 
+      var slideLoc = [];
+      var slideContainerWidth = productSlideContainer[0].offsetWidth;
+      var dots = document.getElementsByClassName("dot");
+      for (var i = 0; i< dots.length; i++){
+        dots[i].classList.remove("activeDot");
+      }
+
+      for (var i = 0; i< productImg.length; i++){
+        slideWidth.push(productImg[i].offsetWidth);
+        var slideLocMath = 0;
+        for (var j = 0; j<=i; j++){
+          slideLocMath += slideWidth[j];
+        }
+        slideLoc.push(slideLocMath);
+        slideLocMath = 0;
+      }
+      if (productSlideContainer[0].style.left === 0+"px"){
+          productSlideContainer[0].style.left = "-"+slideLoc[slideLoc.length-2]+"px";
+          dots[slideLoc.length-1].classList.add("activeDot");
+          }
+      else if (productSlideContainer[0].style.left === "-"+slideLoc[slideLoc.length-2]+"px"){
+            productSlideContainer[0].style.left = "-"+slideLoc[slideLoc.length-3]+"px";
+            dots[slideLoc.length-2].classList.add("activeDot");
+          }
+      else if (productSlideContainer[0].style.left === "-"+slideLoc[0]+"px"){
+            productSlideContainer[0].style.left = "0px";
+            dots[0].classList.add("activeDot");
+          }
+      else{
+        for (var i = 0; i<slideLoc.length-2; i++){
+          if (productSlideContainer[0].style.left === "-"+slideLoc[i]+"px"){
+            productSlideContainer[0].style.left = -slideLoc[i-1]+"px";
+            dots[i].classList.add("activeDot");
+            { break; }
+          }
+        }
+      }
+    }
+</script>
