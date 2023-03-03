@@ -1,0 +1,237 @@
+{% assign reviews = section.settings.reviews %}
+{% assign show_image = section.settings.show_image %}
+{% assign show_name = section.settings.show_name %}
+{% assign show_stars = section.settings.show_stars %}
+
+{% if reviews.size > 0 %}
+  <div class="swiper-container">
+    <div class="swiper-wrapper">
+      {% for review in reviews %}
+        <div class="swiper-slide">
+          <div class="review-block">
+            {% if show_image %}
+              <div class="review-image">
+                <img src="{{ review.image | img_url: '300x300' }}" alt="{{ review.name }}">
+              </div>
+            {% endif %}
+            <div class="review-text">
+              {% if show_name %}
+                <div class="review-name">{{ review.name }}</div>
+              {% endif %}
+              <div class="review-description">{{ review.description }}</div>
+              {% if show_stars %}
+                <div class="review-rating">
+                  {% for i in (1..5) %}
+                    {% if i <= review.stars %}
+                      <i class="fas fa-star"></i>
+                    {% else %}
+                      <i class="far fa-star"></i>
+                    {% endif %}
+                  {% endfor %}
+                </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+    <div class="swiper-pagination"></div>
+  </div>
+
+  <script src="https://unpkg.com/swiper/swiper-bundle.min.js"></script>
+  <script>
+    var swiper = new Swiper('.swiper-container', {
+      loop: true,
+      pagination: {
+        el: '.swiper-pagination',
+        clickable: true
+      },
+      navigation: {
+        nextEl: '.swiper-button-next',
+        prevEl: '.swiper-button-prev',
+      },
+      autoplay: {
+        delay: 5000,
+        disableOnInteraction: false,
+      },
+    });
+  </script>
+
+  <style>
+    .swiper-container {
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    .swiper-slide {
+      padding: 20px;
+    }
+
+    .review-block {
+      display: flex;
+      flex-wrap: wrap;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      padding: 20px;
+    }
+
+    .review-image {
+      flex: 0 0 100px;
+      margin-right: 20px;
+    }
+
+    .review-image img {
+      display: block;
+      width: 100%;
+      height: auto;
+      border-radius: 50%;
+    }
+
+    .review-text {
+      flex: 1;
+    }
+
+    .review-name {
+      font-size: 20px;
+      font-weight: bold;
+      margin-bottom: 10px;
+    }
+
+    .review-description {
+      font-size: 16px;
+      line-height: 1.5;
+      margin-bottom: 10px;
+    }
+
+    .review-rating {
+      font-size: 24px;
+      margin-top: 10px;
+    }
+
+    .fa-star {
+      color: #FFC107;
+      margin-right: 5px;
+    }
+  </style>
+{% endif %}
+
+{% schema %}
+  {
+  "name": "Customer Reviews",
+  "settings": [
+    {
+      "type": "header",
+      "content": "Customer Reviews"
+    },
+    {
+      "type": "richtext",
+      "id": "intro",
+      "label": "Intro",
+      "default": "<p>Check out what our customers are saying about us:</p>"
+    },
+    {
+      "type": "group",
+      "id": "reviews",
+      "label": "Reviews",
+      "info": "Add customer reviews here.",
+      "add_label": "Add Review",
+      "max_items": 5,
+      "fields": [
+        {
+          "type": "text",
+          "id": "name",
+          "label": "Reviewer Name",
+          "default": "John Doe",
+          "required": true
+        },
+        {
+          "type": "image_picker",
+          "id": "image",
+          "label": "Reviewer Image",
+          "default": {
+            "src": "https://cdn.shopify.com/s/files/1/0000/0000/0000/files/default-avatar.png?v=1634825851",
+            "alt": "Default Avatar"
+          }
+        },
+        {
+          "type": "richtext",
+          "id": "description",
+          "label": "Review Description",
+          "default": "<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>",
+          "required": true
+        },
+        {
+          "type": "select",
+          "id": "stars",
+          "label": "Rating Stars",
+          "default": "5",
+          "options": [
+            { "value": "1", "label": "1 Star" },
+            { "value": "2", "label": "2 Stars" },
+            { "value": "3", "label": "3 Stars" },
+            { "value": "4", "label": "4 Stars" },
+            { "value": "5", "label": "5 Stars" }
+          ],
+          "required": true
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "show_image",
+      "label": "Show Reviewer Image",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_name",
+      "label": "Show Reviewer Name",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_stars",
+      "label": "Show Rating Stars",
+      "default": true
+    }
+  ],
+  "presets": [
+    {
+      "name": "Customer Reviews",
+      "category": "Social Proof",
+      "settings": {
+        "intro": "<p>Check out what our customers are saying about us:</p>",
+        "reviews": [
+          {
+            "name": "John Doe",
+            "image": {
+              "src": "https://cdn.shopify.com/s/files/1/0000/0000/0000/files/default-avatar.png?v=1634825851",
+              "alt": "Default Avatar"
+            },
+            "description": "<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>",
+            "stars": "5"
+          }
+        ],
+        "show_image": true,
+        "show_name": true,
+        "show_stars": true
+      }
+    }
+  ],
+  "validations": [
+    {
+      "id": "name",
+      "message": "Please enter a reviewer name."
+    },
+    {
+      "id": "description",
+      "message": "Please enter a review description."
+    },
+    {
+      "id": "stars",
+      "message": "Please select a rating."
+    }
+    ]
+  }
+{% endschema %}
+
