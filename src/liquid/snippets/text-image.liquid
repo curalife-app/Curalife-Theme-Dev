@@ -6,10 +6,10 @@
 {% endif %}
 
 <section class="text-image text-image-{{ section_id }} h-680">
-  <div class="md:flex-col container flex items-center justify-between gap-8 {% if is_flip %}flex-row-reverse{% endif %}">
-    <div class="mobile-title md:block md:text-center hidden"><h3>{{ title }}</h3></div>
+  <div class="container flex items-center justify-between gap-8 {% if is_mobile_reverse %}md:flex-col-reverse{% else%}md:flex-col{% endif %} {% if is_flip %}flex-row-reverse{% endif %}">
+{% unless is_mobile_reverse %}<div class="mobile-title md:block md:text-center hidden"><h3>{{ title }}</h3></div>{% endunless %}
 
-    <div class="image-wrapper">
+    <div class="image-wrapper max-w-1/2">
       {% if block_index %}
         <p class="odd:text-vomit even:text-lighterVomit md:text-2xl text-8xl absolute font-bold">{{ block_index }}</p>
       {% endif %}
@@ -17,8 +17,8 @@
       <img class="max-h-500px md:max-h-250px relative z-auto object-contain" src="{{ main_image | image_url }}" alt="" loading="lazy">
     </div>
 
-    <div class="content md:w-full md:text-center w-2/5">
-      <h3 class="md:hidden">{{ title }}</h3>
+    <div class="content md:w-full md:text-{{ mobile_alignment }} w-2/5">
+    <h3 class="{% unless is_mobile_reverse %}md:hidden{% endunless %}">{{ title }}</h3>
       <p>{{ content }}</p>
 
       {% if link_url_1 %}
@@ -33,7 +33,7 @@
       {% endif %}
 
       {% unless button_title == blank %}
-        <a href="{{ button_link }}"><button style="background-color: {{ button_color }};">{{ button_title }}</button></a>
+        <a href="{{ button_link }}"><button>{{ button_title }}</button></a>
       {% endunless %}
     </div>
   </div>
@@ -46,13 +46,65 @@
     line-height: 0.8;
   }
 
-  section.text-image-{{ section_id }} {
-    background-color: {{ bg_color }};
-  }
+  {% if text_color %}
+    section.text-image-{{ section_id }} {
+      color: {{ text_color }};
+    }
+
+    section.text-image-{{ section_id }} h3 {
+      color: {{ text_color }};
+    }
+  {% endif %}
+
+  {% if bg_color %}
+    section.text-image-{{ section_id }} {
+      background-color: {{ bg_color }};
+    }
+  {% endif %}
+
+  {% if button_color %}
+    section.text-image-{{ section_id }} button {
+      background-color: {{ button_color }};
+    }
+  {% endif %}
+
+  {% if button_text_color %}
+    section.text-image-{{ section_id }} button {
+      color: {{ button_text_color }};
+    }
+  {% endif %}
+
 
   section.text-image-{{ section_id }} p strong {
     font-weight: bold;
   }
+
+  {% if is_mobile_reverse %}
+    section.text-image-{{ section_id }} .image-wrapper img {
+      margin-left: -27vw;
+      margin-right: -60vw;
+      max-height: 380px;
+      max-width: 100vw;
+      width: 50vw;
+      object-fit: cover;
+      object-position: top;
+    }
+
+    section.text-image-{{ section_id }} {
+      padding: unset;
+    }
+
+    @media (max-width: 768px) {
+      section.text-image-{{ section_id }} {
+        padding-top: 50px !important;
+      }
+
+      section.text-image-{{ section_id }} .image-wrapper img {
+        width: 100vw;
+        margin-left: -50vw;
+      }
+    }
+  {% endif %}
 
   section.text-image .links {
     display: flex;

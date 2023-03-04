@@ -33,6 +33,7 @@ module.exports = {
     },
     maxHeight: {
       '250px': '250px',
+      '448px': '448px',
       '500px': '500px',
     },
     extend: {
