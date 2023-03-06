@@ -1,0 +1,184 @@
+<section id="collections-catalog-section">
+  <div class="category-tabs">
+    <div class="container">
+      <ul>
+        <li><a href="#" data-collection-handle="all" class="active">All</a></li>
+        {% for collection_handle in collectionsHandles %}
+          <li><a href="#" data-collection-handle="{{ collection_handle }}" data-collection-description="{{ collections[collection_handle].description }}" {% if request.path contains collection.handle %}class="active"{% endif %}>{{ collections[collection_handle].title }}</a></li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+
+  <div class="container">
+    {% for collection_handle in collectionsHandles %}
+      {% if forloop.last %}
+        {% assign isLastCollectionRender = true %}
+      {% endif %}
+
+    {% if collections[collection_handle].metafields.custom.alternative_title %}
+      {% assign collection_title = collections[collection_handle].metafields.custom.alternative_title %}
+    {% else %}
+      {% assign collection_title = collections[collection_handle].title %}
+    {% endif %}
+
+      <div class="collection-section" data-product-collections="{{ collection_handle }}" >
+        <h2>{{ collection_title }}</h2>
+
+        {% if isDescription %}
+          <p class="description">{{ collections[collection_handle].description }}</p>
+        {% endif %}
+
+        <div class="product-grid" style="{% if isHiddenCollections %}display: none;{% endif %}justify-content:{% if collections[collection_handle].metafields.custom.is_align_center %}center{% else %}start{% endif %}">
+          {% assign isProductCardLast = value %}
+          {% for product in collections[collection_handle].products %}
+            {% if forloop.last and isLastCollectionRender %}
+              {% assign isLastCardRender = true %}
+            {% endif %}
+
+            {% assign product_collections = product.collections | map: 'handle' | join: ' ' %}
+            {% render 'product-card', product: product, productCollections: product_collections, isLastRender: isLastCardRender %}
+          {% endfor %}
+        </div>
+      </div>
+
+      <style>
+        {% if collections[collection_handle].metafields.custom.is_align_center %}
+          .collection-section[data-product-collections="{{ collection_handle }}"] {
+            text-align: center;
+          }
+
+          .collection-section[data-product-collections="{{ collection_handle }}"] .description {
+            margin: 30px auto;
+          }
+        {% endif %}
+      </style>
+    {% endfor %}
+  </div>
+</section>
+
+<style>
+  #collections-catalog-section {
+    padding: 20px 0;
+    font-size: 20px;
+  }
+
+  #collections-catalog-section h2 {
+    margin: 20px 0;
+    font-size: 40px;
+  }
+
+  #collections-catalog-section .description {
+    max-width: 810px;
+    margin-bottom: 30px;
+  }
+
+  #collections-catalog-section .line {
+    border-bottom: 1px solid black;
+    width: 300px;
+    margin: 30px 0;
+  }
+
+  #collections-catalog-section .product-grid {
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  #collections-catalog-section .category-tabs ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 35px 10px;
+    justify-content: space-between;
+  }
+
+  #collections-catalog-section .category-tabs ul li a {
+    color: var(--light-green);
+    padding: 10px 20px;
+    border-radius: 20px;
+    font-size: 20px;
+    transition: all 0.3s ease-in-out;
+  }
+
+  #collections-catalog-section .category-tabs ul li a.active {
+    background: var(--vomit);
+    color: var(--dark-green);
+  }
+
+  @media screen and (max-width: 768px) {
+    #collections-catalog-section .category-tabs.slide .container {
+      --scrollbar-width: 0px;
+      --mask-width: 20px;
+      overflow-y: auto;
+      width: 90vw;
+      padding-right: var(--mask-width);
+      --mask-image-content: linear-gradient(to right, transparent, white var(--mask-width), white calc(100% - var(--mask-width)), transparent);
+      --mask-size-content: calc(100% - var(--scrollbar-width)) 100%;
+      --mask-image-scrollbar: linear-gradient(white, white);
+      --mask-size-scrollbar: var(--scrollbar-width) 100%;
+      -webkit-mask-image: var(--mask-image-content), var(--mask-image-scrollbar);
+      -webkit-mask-size: var(--mask-size-content), var(--mask-size-scrollbar);
+      -webkit-mask-position: 0 0, 100% 0;
+      -webkit-mask-repeat: no-repeat, no-repeat;
+      mask-image: var(--mask-image-content), var(--mask-image-scrollbar);
+      mask-size: var(--mask-size-content), var(--mask-size-scrollbar);
+      mask-position: 0 0, 100% 0;
+      mask-repeat: no-repeat, no-repeat;
+    }
+
+    #collections-catalog-section .product-grid {
+      justify-content: center;
+      gap: 2%;
+    }
+
+    #collections-catalog-section h2 {
+      text-align: center;
+      font-size: 10vw;
+    }
+
+    #collections-catalog-section .category-tabs ul {
+      gap: 1vw;
+      justify-content: center;
+    }
+
+    #collections-catalog-section .category-tabs.slide ul {
+      width: max-content;
+    }
+
+    #collections-catalog-section .category-tabs ul li a {
+      padding: 1vw 4vw;
+      font-size: 5vw;
+    }
+  }
+</style>
+
+<script>
+  isEventHappenedOnce = false;
+
+  $('.category-tabs a').click(function (e) {
+    $('.category-tabs a').removeClass('active');
+    $(this).addClass('active');
+
+    const collectionHandle = $(this).data('collection-handle');
+    if (collectionHandle == "all") {
+      $('.collection-section').fadeIn();
+      $('.category-badges-section').fadeOut();
+    }
+    else {
+      $('.collection-section').fadeOut();
+      $('.collection-section[data-product-collections*="' + collectionHandle + '"]').fadeIn();
+
+      $('.category-badges-section').fadeOut();
+      $('.category-badges-section[data-product-collections*="' + collectionHandle + '"]').fadeIn();
+    }
+
+    if (isEventHappenedOnce) {
+      woopra.track('Collection Tab Selected', {tab_name: $('.category-tabs a.active').text()});
+    }
+
+    isEventHappenedOnce = true;
+  });
+
+  $('.category-tabs a[data-collection-handle="{{ activeCollection }}"]').click();
+</script>
