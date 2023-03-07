@@ -1,0 +1,97 @@
+{% if shop.name == 'CuraLife' %}
+  <script>
+    const redirectPages = [
+      '/collections/all-2',
+      '/products/curalin-pack',
+      '/products/curalin-pack-t',
+      '/products/curalin-pack-flash-sale',
+      '/products/curalin',
+      '/products/curalin-monthly-deals',
+      '/products/curalin-3-pack',
+      '/products/curalin-6-pack',
+      '/products/curalin-2-pack',
+      '/products/curalin-freebies',
+      '/pages/glucose-support-lp01n-v2',
+      '/products/30-days-challenge',
+      '/products/30-days-challenge-n',
+      '/products/30-day-blood-sugar-challenge-pp'
+    ];
+
+    window.intervalCounter = 0;
+
+    const getCookie = name => (
+      document.cookie.split(';')
+      .find(c => c.trim().startsWith(`${name}=`))
+      ?.split('=')[1]
+    )
+
+    function hidePricingTestElements(isPricingTest) {
+      let elementsSelector = isPricingTest ? '.pricing-test' : '.pricing-test-original';
+      console.log("isPricingTest: " + isPricingTest)
+      console.log("hidePricingTestElements: " + elementsSelector);
+      document.querySelectorAll(elementsSelector).forEach(el => el.remove());
+    }
+
+    function showPricingTestElements() {
+      console.log("showPricingTestElements");
+      document.querySelectorAll('.pricing-test').forEach(el => el.style.display = 'block');
+    }
+
+    function redirectToPricingTestPage() {
+      if (redirectPages.includes(window.location.pathname)) {
+        console.log("redirectToPricingTestPage")
+        window.location.replace(`${window.location.pathname}-p`);
+      } else {
+        console.log("no need to redirect")
+        redirectPages.forEach(page => {
+          const links = document.querySelectorAll(`a[href="${page}"]`);
+          links.forEach(link => {
+            link.setAttribute("href", `${link.getAttribute("href")}-p`);
+          });
+        });
+      }
+    }
+
+    function checkIfPricingTest() {
+      let expCookie = getCookie('_gaexp');
+
+      if (expCookie) {
+        expCookie = expCookie.replace("GAX1.2.", "");
+        console.log("experimentCookie: '" + expCookie + "' " + expCookie.includes("aMzfYwCAQY6500jCEImDMQ.19453.1"))
+
+        return expCookie.includes("aMzfYwCAQY6500jCEImDMQ.19453.1");
+      } else {
+        return false;
+      }
+    }
+
+    function PricingTest() {
+      window.intervalCounter = 0;
+
+      var checker = window.setInterval(function() {
+        if (window.intervalCounter <= 10) {
+          if (checkIfPricingTest()) {
+            console.log("Pricing Test Active");
+            redirectToPricingTestPage();
+
+            hidePricingTestElements(false);
+            showPricingTestElements();
+
+            clearInterval(checker);
+          }
+          else {
+            console.log("not pricing test cookie - looks again in 200ms");
+            window.intervalCounter++;
+          }
+        }
+        else {
+          console.log("not pricing test cookie");
+          hidePricingTestElements(true);
+          clearInterval(checker);
+        }
+      }, 200);
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {PricingTest()}, false);
+  </script>
+{% endif %}
