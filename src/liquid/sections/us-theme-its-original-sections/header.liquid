@@ -1,0 +1,313 @@
+<header>
+  <div class="container">
+    <div class="main-toolbar">
+      <div class="main-links d-mobile">
+        <ul>
+          <li><a href="javascript:void(0)" class="open-menu"><i class="icon-menu"></i></a></li>
+          <li><a href="javascript:void(0)" class="open-search"><i class="icon-search"></i></a></li>
+        </ul>
+      </div>
+      <div class="main-logo">
+        <a href="/"><img src="{{ "Asset_1.png" | file_url }}" width='410'  height="95" alt="logo"></a>
+      </div>
+      <div class="main-menu">
+        <div class="menu-scroll">
+          <ul>
+            {% for link in linklists[section.settings.main_linklist].links %}
+              {% if link.links == blank %}
+                <li><a class="notranslate" href="{{ link.url }}">{{ link.title }}</a></li>
+              {% else %}
+                <li class="dropdown"><a href="{{ link.url }}">{{ link.title }}</a>
+                  <div class="dropdown-menu">
+                    {% if link.links != blank %}
+                      <ul class="child">
+                        {% for child_link in link.links %}
+                          <li><a href="{{ child_link.url }}">{{ child_link.title }}</a></li>
+                        {% endfor %}
+                      </ul>
+                    {% endif %}
+                  </div>
+                </li>
+              {% endif %}
+            {% endfor %}
+          </ul>
+          {% if shop.name == 'CuraLife' %}
+            <a class="quiz-button mobile" href="/pages/product-recommendation-quiz"><button class="btn-cta">TAKE THE QUIZ!</button></a>
+          {% endif %}
+        </div>
+      </div>
+
+      {% if shop.name == 'CuraLife' %}
+        <a class="quiz-button desktop" href="/pages/product-recommendation-quiz"><button class="btn-cta">TAKE THE QUIZ!</button></a>
+      {% endif %}
+
+      <div class="main-links">
+        <ul>
+          {% if customer %}
+            <li><a href="/account">
+            <i class="icon-user"></i><span class="option-title">{% if customer.first_name %}Hey {{customer.first_name | capitalize}}!{% else %}My Account{% endif %}</span></a></li>
+          {% else %}
+            <li><a href="/account/login"><i class="icofont-ui-user"></i><span>Account</span></a></li>
+          {% endif %}
+          <li>
+            {% comment %} {% render 'go-cart-button' %} {% endcomment %}
+            <a href="javascript:void(0)" class="open-modal" data-fancybox data-src="#side-cart">
+            <i class="icofont-shopping-cart" style="font-size:20px" data-items="{{ cart.item_count }}"></i><span class="option-title"></span>
+            {% if cart.item_count > 0 %}<span class="header_cart_count">{{ cart.item_count }}</span>{% endif %}
+            </a>
+          </li>
+          <li><selector data-type="currencies" data-id="48859440"></selector></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</header>
+
+<script>
+  woopra.track('Clicked On Quiz Button', {});
+</script>
+
+<style>
+  .quiz-button.mobile {
+    display: none;
+  }
+
+  header .btn-cta {
+    background-color: var(--green);
+    font-weight: bold;
+  }
+
+  @media screen and (max-width: 768px) {
+    .quiz-button.mobile {
+      display: block;
+    }
+    .quiz-button.desktop {
+      display: none;
+    }
+    .menu-scroll {
+      flex-direction: column;
+    }
+
+    header button {
+      margin-top: 5vw;
+      font-size: 6vw;
+    }
+  }
+</style>
+
+<script>
+  // Sticky Header
+  window.onscroll = function () {
+    const header = document.querySelector("header");
+      header && (document.body.scrollTop > 0 || document.documentElement.scrollTop > 0) ? header.classList.add("scrolled") : header.classList.remove("scrolled");
+  };
+
+  let screenWidth = window.innerWidth;
+
+  $(window).on('resize', function () {
+      screenWidth = window.innerWidth;
+  });
+
+  let activeMenu = false;
+
+  $(document).ready(function () {
+    $(document).on("click", ".extra-info ul li", function () {
+        $(this).toggleClass('show').siblings().removeClass('show')
+    });
+
+    $(document).on("click", ".main-links ul li a.open-menu", function () {
+        $(this).toggleClass('active');
+        $(".main-menu").toggleClass('active');
+    });
+
+    $(document).on("click", ".main-menu ul li.dropdown > a", function (e) {
+        if (screenWidth < 992) {
+            e.preventDefault();
+            $(this).closest(".dropdown").toggleClass("open");
+        }
+    });
+
+    $(document).on("click", ".main-links ul li a.open-search", function () {
+        $(this).toggleClass('active');
+        $(".main-search").toggleClass('active');
+    });
+
+    if ($(".account-menu").length) {
+        $(".account-menu .menu-list ul li").each(function () {
+            if ($(this).hasClass("active")) {
+                let text = $(this).find("a").html();
+                $(this).closest(".account-menu").find(".active-item p").html(text);
+            }
+        })
+    }
+
+    $(document).on("click", ".account-menu .active-item", function (e) {
+        if (screenWidth < 761) {
+            $(this).closest(".account-menu").toggleClass("open");
+        }
+    });
+  });
+</script>
+
+<script>
+  $('.main-menu ul li').click(() => {
+    woopra.track('Clicked on Header Link', { link_to: $(this).find("a").attr("href") });
+  })
+</script>
+
+<style>
+  header {
+    position: static;
+    background: white;
+    box-shadow: 0px 4px 10px rgb(0 0 0 / 5%);
+  }
+
+  header .main-toolbar {
+    padding: 20px 0;
+    justify-content: space-between;
+    gap: 50px;
+  }
+
+  header .main-toolbar .main-menu {
+    margin-right: auto;
+  }
+
+  .main-logo img {
+    margin-top: -3px;
+    max-width: 120px;
+  }
+
+  .main-menu ul li {
+    display: flex;
+    padding: 10px 15px;
+    position: relative;
+    cursor: pointer;
+  }
+
+  .main-menu ul li.dropdown {
+    margin-right: 15px;
+  }
+
+  .main-menu ul li.dropdown .dropdown-menu {
+    margin-top: 20px;
+    padding: unset;
+    background: white;
+    box-shadow: 0px 20px 25px rgb(0 0 0 / 25%);
+    transition: all var(--transition);
+    z-index: 100;
+  }
+
+  .main-menu ul li.dropdown:hover .dropdown-menu {
+      opacity: 1;
+      visibility: visible;
+  }
+
+  .main-menu ul li.dropdown .dropdown-menu ul:before {
+    border: unset;
+  }
+
+
+  .header_cart_count {
+    border-radius: 50%;
+    width: 13px;
+    height: 13px;
+    justify-content: center;
+    align-items: center;
+    display: inline-flex !important;
+    background-color: var(--light-green);
+    color: white;
+    font-weight: bold;
+    margin-left: 10px;
+    position: absolute;
+    right: -8px;
+    top: 0;
+    font-size: 10px;
+  }
+
+  @media screen and (max-width: 1000px) {
+    header .option-title {
+      display: none;
+    }
+
+    header .main-toolbar {
+      gap: unset;
+    }
+  }
+
+  @media screen and (max-width: 768px) {
+    .main-logo img {
+      max-width: 80px;
+    }
+
+    header {
+      position: fixed;
+    }
+
+    .main-menu ul {
+      flex-direction: column;
+    }
+
+    .main-menu ul li {
+      width: 100%;
+      display: block;
+      margin-right: unset;
+      border-bottom: 1px solid rgba(0,0,0,.05);
+    }
+
+    .main-menu ul li.dropdown .dropdown-menu {
+      max-height: 0px;
+      position: static;
+      overflow: hidden;
+    }
+
+    .main-menu ul li.dropdown.open .dropdown-menu {
+      max-height: 100vh;
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .main-menu ul li.dropdown .dropdown-menu {
+      box-shadow: unset;
+      width: 100%;
+      margin-top: unset;
+    }
+
+    .main-menu ul li.dropdown .dropdown-menu ul {
+        padding-inline-start: 15px;
+    }
+
+    .main-menu ul li a {
+      padding: 15px 0;
+      font-size: 20px;
+    }
+
+    .header_cart_count {
+      margin-left: 0;
+      right: 6px;
+    }
+  }
+</style>
+
+<script>
+  if( $('header').css('position')=='fixed') {
+    $('body').css('padding-top', $('header').height() + 'px');
+  }
+</script>
+
+{% schema %}
+  {
+  "name": "Header",
+  "settings": [
+    {
+    "type": "header",
+    "content": "Menu"
+  },
+    {
+      "type": "link_list",
+      "id": "main_linklist",
+      "label":"Menü",
+      "default": "main-menu"
+    }
+  ]
+  }
+{% endschema %}
