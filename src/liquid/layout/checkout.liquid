@@ -1,0 +1,977 @@
+{%- comment -%} Get Current Step and Settings {%- endcomment -%}
+{% if content_for_layout contains 'data-step="contact_information"' %}
+  {% assign is_contact_step = true %}
+  {% assign extensions_exist = true %}
+{% elsif content_for_layout contains 'data-step="shipping_method"' %}
+  {% assign is_shipping_step = true %}
+  {% assign extensions_exist = true %}
+{% elsif content_for_layout contains 'data-step="payment_method"' %}
+  {% assign is_payment_step = true %}
+  {% assign extensions_exist = true %}
+{% elsif content_for_layout contains 'Processing order' %}
+  {% assign is_processing_step = true %}
+{% elsif content_for_layout contains 'data-step="thank_you"' %}
+  {% if content_for_layout contains 'You’ll receive a confirmation email with your order number shortly.' %}
+    {% assign is_thank_you_step = true %}
+  {% endif %}
+{% endif %}
+
+{% assign bundle_products = "7902673240215:Curalin|7904376455319:Curalin|5485767655575:Curalin|7896199463063:Platinum Joint Care|7896200478871:Joint Care Gummies|7911564345495:Immune Booster|7911559299223:Immune Gummies|7911568703639:Multivitamin Gummies|7911570473111:Omega 3 6 9 Gummies|7896197660823:Restful Sleep|7896198447255:Sleep Well Gummies" | split: "|" %}
+
+{%- comment -%} If store is US {%- endcomment -%}
+{% if shop.name == 'CuraLife' %}
+  {% assign yotpo_script_id = "5AyB8SFKOjnnor-g4qIeMg" %}
+  {% assign yotpo_checkout_widget = "18962" %}
+{% elsif shop.name == "CuraLife Global" %}
+  {% assign yotpo_script_id = "oMYBvmnASlHzmouicgkepg" %}
+  {% assign yotpo_checkout_widget = "85446" %}
+{% endif %}
+
+{% if is_thank_you_step %}
+  <!-- If the customer bought curaeats app -->
+  {% for item in order.line_items %}
+    {% assign productTags = item.product.tags | join: ', ' %}
+    {% if item.product.title contains 'CuraEats' %}
+      {% assign curaeats_exist = true %}
+    {% elsif productTags contains 'CuraEats' %}
+      {% assign curaeats_exist = true %}
+    {% elsif item.variant.title contains 'CuraEats' %}
+      {% assign curaeats_exist = true %}
+    {% elsif item.product.title contains '30 Days Challenge' %}
+      {% assign thirty_days_challenge_exist = true %}
+    {% endif %}
+  {% endfor %}
+
+  {% assign customer_order_count = 0 %}
+  {% for order in customer.orders %}
+    {% assign customer_order_count = customer_order_count | plus: 1 %}
+  {% endfor %}
+  {% unless shop.name == "CuraLife Global" %}
+    {% if customer_order_count <= 1 %}
+      {% assign onboarding_exist = true %}
+    {% endif %}
+  {% endunless %}
+{% endif %}
+
+{% if onboarding_exist or curaeats_exist or thirty_days_challenge_exist %}
+  {% assign thankYouAdditions = true %}
+{% endif %}
+
+<!DOCTYPE html>
+<html lang="{{ locale }}" dir="{{ direction }}" class="{{ checkout_html_classes }}">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, height=device-height, minimum-scale=1.0, user-scalable=0">
+  <meta name="referrer" content="origin">
+  {%- if settings.favicon != blank -%}
+  <link rel="shortcut icon" href="{{ settings.favicon | image_url: width: 32 }}" type="image/png">
+  {%- endif -%}
+  <title>{{ page_title }}</title>
+
+  {{ content_for_header }}
+  {{ checkout_stylesheets }}
+  {{ checkout_scripts }}
+
+  <!-- Curalife Shopify Redirect for checkout.shopify.com -->
+  {% render 'layout.head.google-tag-manager-checkout-redirect'%}
+  <!-- Curalife Shopify Only Google Tag Manager -->
+  {% render 'layout.head.google-tag-manager'%}
+
+  {% if shop.name == "CuraLife Global" %}
+    <!-- ADDRESS VALIDATOR -->
+    <script async src="https://d3ox8tdk614ykk.cloudfront.net/pobox_checker.js"></script>
+  {% endif %}
+
+  <script src="{{ 'jquery-3.6.0.min.js' | asset_url }}"></script>
+
+  {{ 'icofont.min.css' | asset_url | stylesheet_tag: preload: true }}
+  <style>@font-face{font-family:IcoFont;font-weight:400;font-style:Regular;src:url({{ "icofont.woff2" | asset_url }}) format("woff2"),url({{ "icofont.woff" | asset_url }}) format("woff")}</style>
+
+  {% if is_thank_you_step %}
+    <!-- Swiper Import -->
+    {{ 'swiper.min.css' | asset_url | stylesheet_tag: preload: true }}
+    <script src="{{ 'swiper.min.js' | asset_url }}"></script>
+
+    <style>
+      @font-face {
+        font-family: 'DM Sans';
+        font-style: normal;
+        font-weight: 400;
+        src: url('{{ "DMSans-Regular.ttf" | asset_url }}');
+        src: local(''),
+        url('{{ "DMSans-Regular.ttf" | asset_url }}') format('ttf'),
+      }
+
+      @font-face {
+        font-family: 'DM Sans';
+        font-style: normal;
+        font-weight: 500;
+        src: url('{{ "DMSans-Medium.ttf" | asset_url }}');
+        src: local(''),
+        url('{{ "DMSans-Medium.ttf" | asset_url }}') format('ttf'),
+      }
+
+      @font-face {
+        font-family: 'DM Sans';
+        font-style: normal;
+        font-weight: 700;
+        src: url('{{ "DMSans-Bold.ttf" | asset_url }}');
+        src: local(''),
+        url('{{ "DMSans-Bold.ttf" | asset_url }}') format('ttf'),
+      }
+
+      @font-face {
+        font-family: 'PP Radio Grotesk';
+        font-style: normal;
+        font-weight: 300;
+        src: url('{{ "PPRadioGrotesk-Light.otf" | asset_url }}');
+        src: local(''),
+        url('{{ "PPRadioGrotesk-Light.otf" | asset_url }}') format('otf'),
+      }
+
+      @font-face {
+        font-family: 'PP Radio Grotesk';
+        font-style: normal;
+        font-weight: 400;
+        src: url('{{ "PPRadioGrotesk-Regular.otf" | asset_url }}');
+        src: local(''),
+        url('{{ "PPRadioGrotesk-Regular.otf" | asset_url }}') format('otf'),
+      }
+
+      @font-face {
+        font-family: 'PP Radio Grotesk';
+        font-style: normal;
+        font-weight: 700;
+        src: url('{{ "PPRadioGrotesk-Bold.otf" | asset_url }}');
+        src: local(''),
+        url('{{ "PPRadioGrotesk-Bold.otf" | asset_url }}') format('otf'),
+      }
+
+      .container {
+        width: 100%;
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 15px;
+      }
+
+      section {
+        padding: 30px 0;
+      }
+    </style>
+  {% endif %}
+</head>
+
+<body>
+  {{ skip_to_content_link }}
+
+  <header class="banner" data-header role="banner">
+    <div class="wrap">
+      {{ content_for_logo }}
+    </div>
+  </header>
+
+  {{ order_summary_toggle }}
+
+  <div class="content" data-content>
+    <div class="wrap">
+      <div class="main">
+        <header class="main__header" role="banner">
+          {{ content_for_logo }}
+          {{ breadcrumb }}
+
+          {% if extensions_exist %}
+            <div class="upper-extentions">
+              <ul id="progressbar">
+                <li id="contact-information" style="--step-content: 'Customer';z-index:3;" class="active"></li>
+                <li id="shipping-method" style="--step-content: 'Shipping';z-index:2;"></li>
+                <li id="payment-method" style="--step-content: 'Payment';z-index:1;"></li>
+              </ul>
+            </div>
+          {% endif %}
+
+          {{ alternative_payment_methods }}
+        </header>
+        <main class="main__content" role="main">
+          {{ content_for_layout }}
+          <div class="tc" style="display:flex;justify-content:flex-end;">
+            <p style="margin-top:10px;">By clicking the continue button I Agree to CuraLife's <a href="/policies/terms-of-service">Terms & Conditions</a>.</p>
+          </div>
+        </main>
+
+        {% if extensions_exist %}
+          <div id="payment-badges" class="payment-badges">
+            <img class="payment-badge" src="{{ 'checkout-payment-badges-visa.png' | asset_url }}" alt="payment provider visa" loading="lazy">
+            <img class="payment-badge" src="{{ 'checkout-payment-badges-mastercard.png' | asset_url }}" alt="payment provider mastercard" loading="lazy">
+            <img class="payment-badge" src="{{ 'checkout-payment-badges-amex.png' | asset_url }}" alt="payment provider amex" loading="lazy">
+            <img class="payment-badge" src="{{ 'checkout-payment-badges-discover.png' | asset_url }}" alt="payment provider discover" loading="lazy">
+            <img class="payment-badge" src="{{ 'checkout-payment-badges-jcb.png' | asset_url }}" alt="payment provider jcb" loading="lazy">
+            <img class="payment-badge" src="{{ 'checkout-payment-badges-diners.png' | asset_url }}" alt="payment provider diners" loading="lazy">
+          </div>
+        {% endif %}
+
+        <footer class="main__footer" role="contentinfo">
+          {{ content_for_footer }}
+        </footer>
+      </div>
+      <aside class="sidebar" role="complementary">
+        <div class="sidebar__header">
+          {{ content_for_logo }}
+        </div>
+        <div class="sidebar__content">
+          {{ content_for_order_summary }}
+        </div>
+
+        <script src="https://cdn-widgetsrepository.yotpo.com/v1/loader/{{ yotpo_script_id }}" async></script>
+        <div class="yotpo-widget-instance" data-yotpo-instance-id="{{ yotpo_checkout_widget }}"></div>
+
+        {% if extensions_exist %}
+          <div class="sidebar-extentions">
+            {% render 'checkout-badges-widget' %}
+            {% render 'checkout-reviews-widget' %}
+
+            {% for item in checkout.line_items %}
+              <div id="bundle-details-{{ forloop.index }}" class="bundle-details">
+                {% for item_prod in item.product.metafields.custom.bundle-products %}
+                  {% assign prod_id = item_prod | split: "/" | last %}
+
+                  {% for bundle_prod in bundle_products %}
+                    {% assign bundle_prod_id = bundle_prod | split: ":" | first %}
+                    {% assign bundle_prod_name = bundle_prod | split: ":" | last %}
+                    {% comment %} <script>console.log("{{prod_id}} , {{bundle_prod_id}} , {{ bundle_prod}}")</script> {% endcomment %}
+                    {% if bundle_prod_id == prod_id %}
+                      <p>‣ {{ bundle_prod_name }}<span>X{{ item.variant.metafields.my_fields.pack_bottles_quantity }}</span></p>
+                    {% endif %}
+                  {% endfor %}
+                {% endfor %}
+              </div>
+
+              <script>
+                let bundleDetails{{ forloop.index }} = $('#bundle-details-{{ forloop.index }}');
+                let lineItem{{ forloop.index }} = $("tbody[data-order-summary-section='line-items'] tr[data-product-id='{{ item.product.id }}']");
+                bundleDetails{{ forloop.index }}.insertAfter(lineItem{{ forloop.index }});
+                {% if item.variant.metafields.my_fields.pack_bottles_quantity %}
+                  lineItem{{ forloop.index }}.find('.product-thumbnail__quantity').text("{{ item.variant.metafields.my_fields.pack_bottles_quantity }}");
+                {% endif %}
+              </script>
+            {% endfor %}
+
+            <style>
+              tbody[data-order-summary-section="line-items"] {
+                display: table-caption;
+              }
+
+              .bundle-details {
+                position: relative;
+                top: -18px;
+              }
+
+              .bundle-details p {
+                padding: 4px 0;
+                font-size: 12px;
+                padding-left: 114px;
+                padding-right: 30px;
+                width: 70%;
+                display: flex;
+                justify-content: space-between;
+                background: #f0f0f0;
+                border-bottom: 1px solid #d0d0d0;
+              }
+
+              {% comment %} .bundle-details::before {
+                content: "▼";
+                position: absolute;
+                top: -20px;
+                left: 120px;
+              } {% endcomment %}
+            </style>
+          </div>
+        {% endif %}
+      </aside>
+    </div>
+  </div>
+
+  {% if thankYouAdditions %}
+    <style>
+      aside[role="complementary"]:not(.onboarding) {
+        display: none;
+      }
+
+      .js .order-summary--is-collapsed {
+        height: unset;
+        visibility: unset;
+      }
+
+      .logo {
+        position: relative;
+        top: -30px;
+      }
+
+      .order-summary__sections {
+        height: unset !important;
+      }
+
+      @media screen and (max-width: 1000px) {
+        .logo {
+          top: unset;
+        }
+
+        .main {
+          padding-top: 0;
+        }
+      }
+    </style>
+
+    {% if thirty_days_challenge_exist %}
+      {% assign faqItems = "When should I start the 30 day challenge?*We recommend starting as soon as you receive your plan. Starting is the hardest part, but we’re here to cheer you on and help you get started!
+      |Will I have fun?*Yes! We’re here to celebrate every win with you! No matter how big, or how small.
+      |What should I expect?*After a few weeks on your plan, you should expect to be sleeping better, having more energy, and having great maintenance of your glucose levels!
+      |Who do I speak to if I have questions about Curalin?* We are available for you 24/7 with any questions you may have! You may schedule a Curalin expert at any time.
+      |Can I take Curalin with other treatments?*CuraLin is 100% natural and is very safe to use alongside your medications. Like any supplement, it is always recommended to consult with a doctor before starting CuraLin.
+      |How many capsules should be taken?*
+      · Day 1+2: 1 capsule, WITH every meal <br><br>
+      · Day 3+4: 1 capsule, 30 minutes AFTER every meal<br><br>
+      · Day 5+: 2 capsules 30 minutes AFTER every meal
+      |Will I be able to do all of the movement routines? *We’ll start by asking about your fitness level and limitations so that you only receive movement routines that you feel confident tackling!
+      |What do I do if I don’t like certain meals on my meal plan?*No biggie! Rotating and repeating meals to your liking is totally fine! Just make sure the meals you’re replacing follow the same carb-cycling theme day you’re on!"
+      | split: '|' %}
+
+      <div id="thirty-day-challenge-content">
+        {% render 'onboarding-hero', title: "Your order is confirmed!", icon_file: "onboarding-order-icon.png" %}
+        {% render 'thirty-day-thank-you-ready-to-start', ctaButtonLink: "/pages/30-day-hub", ctaTitle: "YOUR 30 DAY PLAN AWAITS!" %}
+        {% render 'thirty-day-thank-you-best-results' %}
+        {% render 'thirty-day-thank-you-weeks' %}
+        {% render 'product-faq-section', bgColor: "#FFF1E8", faqItems: faqItems %}
+      </div>
+    {% endif %}
+
+    {% if curaeats_exist %}
+      <div id="curaeats-content">
+        {% assign thanksTitle = 'Order number ' | append: order.name | append: ' is confirmed!' %}
+        {% render 'onboarding-hero', title: thanksTitle, icon_file: "onboarding-order-icon.png" %}
+        {% render 'curaeats-download-section' %}
+        {% render 'contact-us-section', title: 'If you face any problem with accessing the app, do not hesitate to approach our customer support.', icons-background-color: 'white', border: true, box_link: '/pages/contact-us' %}
+      </div>
+
+      <style>
+        #curaeats-content {
+          display: none;
+        }
+
+        aside.sidebar.onboarding {
+          width: unset;
+          float: unset;
+        }
+
+        aside.sidebar.onboarding:after {
+          background: unset;
+          box-shadow: unset;
+        }
+
+        #contact-us-section {
+          margin-bottom: unset;
+        }
+      </style>
+    {% endif %}
+
+    {% if onboarding_exist %}
+      <div id="onboarding-content">
+        {% assign progress_steps = "Daily Tip
+        |Reviews
+        |How To Use
+        |Support
+        |FAQ
+        |Order Info"
+        | split: '|' %}
+        {% render 'onboarding-hero', title: "Your order is confirmed!", icon_file: "onboarding-order-icon.png" %}
+        {% render 'onboarding-progress-bar', progress_steps: progress_steps %}
+        {% render 'onboarding-quiz' %}
+        {% render 'onboarding-curalin-consumers-not-started' %}
+        {% render 'product-schedule-a-call-section', productTitle: "Curalin", bgColor: 'unset', border: true %}
+        {% render 'onboarding-faq' %}
+      </div>
+
+      <style>
+        #onboarding-content {
+          display: none;
+        }
+
+        aside.sidebar.onboarding {
+          width: unset;
+          float: unset;
+        }
+
+        aside.sidebar.onboarding:after {
+          background: unset;
+          box-shadow: unset;
+        }
+
+        #contact-us-section {
+          margin-bottom: unset;
+        }
+      </style>
+    {% endif %}
+  {% endif %}
+
+  {{ tracking_code }}
+
+  <!-- Start of Woopra Code -->
+  <script>
+    !function () { var t, o, c, e = window, n = document, r = arguments, a = "script", i = ["call", "cancelAction", "config", "identify", "push", "track", "trackClick", "trackForm", "update", "visit"], s = function () { var t, o = this, c = function (t) { o[t] = function () { return o._e.push([t].concat(Array.prototype.slice.call(arguments, 0))), o } }; for (o._e = [], t = 0; t < i.length; t++)c(i[t]) }; for (e.__woo = e.__woo || {}, t = 0; t < r.length; t++)e.__woo[r[t]] = e[r[t]] = e[r[t]] || new s; (o = n.createElement(a)).async = 1, o.src = "https://static.woopra.com/js/w.js", (c = n.getElementsByTagName(a)[0]).parentNode.insertBefore(o, c) }("woopra");
+
+    woopra.config({
+      domain: "curalife.com",
+      outgoing_tracking: true,
+      download_tracking: true,
+      click_tracking: true
+    });
+
+    {% if checkout.email %}
+    woopra.identify({
+      email: {{ checkout.email | json }}
+        });
+    {% endif %}
+
+    {% if customer %}
+    woopra.identify({
+      customer_id: {{ customer.id | json }},
+      name: {{ customer.name | json }},
+      email: {{ customer.email | json }},
+      order_count: {{ customer.orders_count | json }},
+      total_spent: {{ customer.total_spent | json }}
+        });
+    {% endif %}
+
+    woopra.track();
+  </script>
+  <!-- End of Woopra Code -->
+
+  <script>
+    items_data = [];
+    {% for line_item in checkout.line_items %}
+    var item = {
+      item_id: '{{ line_item.product.selected_or_first_available_variant.sku }}',
+      item_name: '{{ line_item.product.title }}',
+      affiliation: '{{ shop.name }}',
+      price: parseFloat({{ line_item.product.price }} / 100.0).toFixed(2).toString(),
+        currency: '{{ shop.currency }}',
+          item_brand: 'CuraLife',
+            item_category: 'CuraLin',
+              quantity: {{ line_item.quantity }}
+        }
+    items_data.push(item);
+    {% endfor %}
+
+    {% if extensions_exist %}
+      jQuery(".breadcrumb li:nth-child(2) .breadcrumb__text").html("Customer");
+      jQuery(".sidebar-extentions").insertAfter(".order-summary__section--total-lines");
+
+      let isMobile = window.matchMedia("only screen and (max-width: 768px)").matches;
+
+      if (isMobile) {
+        jQuery(".reviews").insertAfter("#payment-badges");
+      }
+
+      // Track Discount Code
+      var checker;
+
+      function trackApplyDiscount() {
+        checker = setInterval(checkApplyDiscount, 200);
+      }
+
+      function checkApplyDiscount() {
+        if ($(".tag .reduction-code .reduction-code__text").length) {
+          woopra.track('Apply Discount Code', {
+            discount_code: $(".tag .reduction-code .reduction-code__text").text()
+          });
+          clearInterval(checker);
+          $("#checkout_submit").click(trackApplyDiscount);
+        }
+        else if ($("#error-for-reduction_code").length) {
+          woopra.track('Apply Discount Code - Failed', {
+            discount_code: $("#checkout_reduction_code").attr("value"),
+            error_message: $("#error-for-reduction_code").text()
+          });
+          clearInterval(checker);
+          $("#checkout_submit").click(trackApplyDiscount);
+        }
+        else if ($("#checkout_submit").hasClass("btn--disabled")) {
+          woopra.track('Apply Discount Code - Failed', {
+            discount_code: $("#checkout_reduction_code").attr("value"),
+            error_message: "No message displayed (but apply button disabled)"
+          });
+          clearInterval(checker);
+          $("#checkout_submit").click(trackApplyDiscount);
+        }
+      }
+
+      $("#checkout_submit").click(trackApplyDiscount);
+      // End Track Discount Code
+    {% endif %}
+
+    {% if is_contact_step %}
+      console.log("- step: contact");
+      jQuery("label[for='smsbump-checkout-messages-subscription'] span").html("Get free SMS order status updates");
+      if (jQuery("label[for='smsbump-checkout-messages-subscription']").length) {
+        var replacer = jQuery("label[for='smsbump-checkout-messages-subscription']").html().replace("YES - I want Free SMS order updates on my order, shipping status, and exclusive discounts", "I want free order status updates by SMS, and to be notified when CuraLin is on sale");
+        jQuery("label[for='smsbump-checkout-messages-subscription']").html(replacer);
+      }
+      jQuery("label[for='checkout_remember_me']").html("Save my details for a faster shopping experience");
+      jQuery("label[for='checkout_buyer_accepts_marketing']").html("Send me emails about my order status, keep me up to date on discounts and educational content.");
+
+      // Track Begin Checkout
+      window.dataLayer = window.dataLayer || [];
+      window.dataLayer.push({
+        event: 'begin_checkout',
+        ecommerce: {
+          items: items_data
+        },
+        email: '{{ checkout.email }}',
+        phone: '{{ checkout.shipping_address.phone | replace: " ", "" }}',
+        name: '{{ checkout.shipping_address.first_name }}',
+        surname: '{{ checkout.shipping_address.last_name }}',
+        city: '{{ checkout.shipping_address.city }}',
+        state: '{{ checkout.shipping_address.province }}',
+        zip: '{{ checkout.shipping_address.zip }}',
+        country: '{{ checkout.shipping_address.country_code }}',
+        user_agent: navigator.userAgent
+      });
+
+      woopra.track('Checkout Step - Information', { page_url: window.location.href });
+
+      // Track Login
+      $('a[href*="/account/login"]').click(function () {
+        woopra.track('Checkout Login');
+      })
+    {% elsif is_shipping_step %}
+      console.log("- step: shipping");
+      jQuery("#shipping-method").addClass('active');
+      jQuery(".tc").hide();
+      $('#contact-information').html('<a class="new-breadcrumb-link" href="' + jQuery('.breadcrumb__link:contains("Information")').attr("href") + '"></a>');
+
+      // Track Shipping Step
+      window.dataLayer = window.dataLayer || [];
+      window.dataLayer.push({
+        event: 'add_shipping_info',
+        ecommerce: {
+          shipping_tier: 'US Free Shipping',
+          items: items_data
+        },
+        email: '{{ checkout.email }}',
+        phone: '{{ checkout.shipping_address.phone | replace: " ", "" }}',
+        name: '{{ checkout.shipping_address.first_name }}',
+        surname: '{{ checkout.shipping_address.last_name }}',
+        city: '{{ checkout.shipping_address.city }}',
+        state: '{{ checkout.shipping_address.province }}',
+        zip: '{{ checkout.shipping_address.zip }}',
+        country: '{{ checkout.shipping_address.country_code }}',
+        user_agent: navigator.userAgent
+      });
+
+      woopra.track('Checkout Step - Shipping', {});
+
+      // Track Changing Shipping Method
+      {%- comment -%} function runAfterElementExists(jquery_selector, callback) {
+        var checker = window.setInterval(function () {
+          if ($(jquery_selector).length) {
+            clearInterval(checker);
+            callback();
+          }
+        }, 200);
+      }
+
+      runAfterElementExists(".section--shipping-method .content-box__row", function () {
+        console.log("Shipping Method Exists");
+        $('.section--shipping-method .content-box__row .input-radio').on('change', function () {
+          console.log("radio changed");
+          woopra.track('shipping method selection change', { selection: $('.section--shipping-method .content-box__row .input-radio:checked').parent().siblings("label").find(".radio__label__primary").attr("data-shipping-method-label-title") });
+        });
+      }); {%- endcomment -%}
+    // End Track Shipping Change
+    {% elsif is_payment_step %}
+      console.log("- step: payment")
+      jQuery("#shipping-method").addClass('active');
+      jQuery("#payment-method").addClass('active');
+      jQuery(".tc").hide();
+      jQuery(".content-box__row .review-block").last().hide();
+      $('#contact-information').html('<a class="new-breadcrumb-link" href="' + jQuery('.breadcrumb__link:contains("Information")').attr("href") + '"></a>');
+      $('#shipping-method').html('<a class="new-breadcrumb-link" href="' + jQuery('.breadcrumb__link:contains("Shipping")').attr("href") + '"></a>');
+
+      // Track Payment Step
+      window.dataLayer = window.dataLayer || [];
+      window.dataLayer.push({
+        event: 'add_payment_info',
+        ecommerce: {
+          payment_type: '',
+          items: items_data
+        },
+        email: '{{ checkout.email }}',
+        phone: '{{ checkout.shipping_address.phone | replace: " ", "" }}',
+        name: '{{ checkout.shipping_address.first_name }}',
+        surname: '{{ checkout.shipping_address.last_name }}',
+        city: '{{ checkout.shipping_address.city }}',
+        state: '{{ checkout.shipping_address.province }}',
+        zip: '{{ checkout.shipping_address.zip }}',
+        country: '{{ checkout.shipping_address.country_code }}',
+        user_agent: navigator.userAgent
+      });
+
+      woopra.track('Checkout Step - Payment', {});
+
+      // Track Changing Billing Same/Different as Shipping
+      $('.section--billing-address input').click(function () {
+        woopra.track('Billing Same/Different as Shipping Select', {
+          option: $(this).val() == 'true' ? 'Different' : 'Same'
+        })
+      })
+
+      $('.section--billing-address label').click(function () {
+        woopra.track('Billing Same/Different as Shipping Select', {
+          option: $(this).attr('for') == 'checkout_different_billing_address_true' ? 'Different' : 'Same'
+        })
+      })
+    {% elsif is_processing_step %}
+      console.log("- step: processing")
+    {% elsif is_thank_you_step %}
+      console.log("- step: thank you")
+
+      $( document ).ready(function() {
+        jQuery("#progressbar").hide();
+
+        {% if thankYouAdditions %}
+          jQuery(".anyflexbox .content .wrap").css("flex-direction", "column");
+          jQuery(".anyflexbox .content .wrap .main").css("width", "unset");
+          jQuery(".anyflexbox .content .wrap .main").css("padding-right", "unset");
+          jQuery(".anyflexbox .content .wrap .main").css("padding-top", "50px");
+          jQuery(".anyflexbox .content .wrap .main .step .step__sections .section[data-order-update-options]").hide();
+          jQuery(".upper-extentions").hide();
+          jQuery(".sidebar-extentions").hide();
+          jQuery("aside.sidebar").addClass("onboarding");
+          jQuery(".sidebar").insertBefore(".content-box:first");
+        {% endif %}
+
+        console.log("{{thirty_days_challenge_exist}}");
+
+        {% if thirty_days_challenge_exist %}
+          jQuery("#thirty-day-challenge-content").insertBefore(".content .wrap");
+          jQuery("#thirty-day-challenge-content").show();
+        {% endif %}
+
+        {% if curaeats_exist %}
+          jQuery("#curaeats-content").insertBefore(".content .wrap");
+          jQuery("#curaeats-content").show();
+        {% endif %}
+
+        {% if onboarding_exist %}
+          jQuery("#onboarding-content").insertBefore(".content .wrap");
+          jQuery("#onboarding-content").show();
+        {% endif %}
+      });
+
+      jQuery("header").insertBefore(".content .wrap");
+
+      // Track Purchase
+      {% assign coupon = checkout.discount_applications | first %}
+      window.dataLayer = window.dataLayer || [];
+      window.dataLayer.push({
+        event: 'purchase',
+        ecommerce: {
+          currency: '{{ shop.currency }}',
+          value: '{{ checkout.total_price | money_without_currency }}',
+          tax: '{{ checkout.tax_price | money_without_currency }}',
+          shipping: '{{ checkout.shipping_price | money_without_currency }}',
+          affiliation: '{{ shop.name }}',
+          transaction_id: '{{ checkout.order.name }}',
+          coupon: '{{ coupon.title }}',
+          items: items_data
+        },
+        email: '{{ checkout.email }}',
+        phone: '{{ checkout.shipping_address.phone | replace: " ", "" }}',
+        name: '{{ checkout.shipping_address.first_name }}',
+        surname: '{{ checkout.shipping_address.last_name }}',
+        city: '{{ checkout.shipping_address.city }}',
+        state: '{{ checkout.shipping_address.province }}',
+        zip: '{{ checkout.shipping_address.zip }}',
+        country: '{{ checkout.shipping_address.country_code }}',
+        user_agent: navigator.userAgent
+      });
+
+      woopra.track('Checkout Step - Thank You', {});
+    {% endif %}
+  </script>
+
+  <script>
+    let utm_url = '&'
+    let utm = location.search.split('utm')
+    window.onload = function () {
+      for (let i = 1; i < utm.length; i++) {
+        utm_url += 'utm' + utm[i];
+      }
+      $("form").each((form) => {
+        $(this).attr("action", $(this).attr("action") + utm_url);
+      });
+    }
+  </script>
+
+  {% if thankYouAdditions %}
+    <style>
+      .sidebar {
+        width: 96% !important;
+        padding-top: 20px !important;
+        padding-left: 20px !important;
+        float: left !important;
+      }
+      .sidebar::after {
+        background: white !important;
+      }
+
+      .logo {
+        top: unset;
+        padding: 30px;
+      }
+    </style>
+  {% endif %}
+
+  {% if extensions_exist %}
+    <style>
+      a,
+      .link {
+        color: #009788;
+      }
+
+      a:hover,
+      .link:hover {
+        color: #007165;
+      }
+
+      .input-checkbox:checked,
+      .input-radio:checked {
+        border-color: #009788;
+      }
+
+      .input-checkbox:checked:hover,
+      .input-radio:checked:hover {
+        border-color: #007165;
+      }
+
+      .btn {
+        min-width: 180px;
+      }
+
+      #main-title {
+        padding-top: 50px;
+        font-size: 20px;
+      }
+
+      #smsbump-consent-message {
+        max-width: 200px;
+        position: absolute;
+        display: none;
+      }
+
+      .payment-badge {
+        width: 50px;
+      }
+
+      .upper-extentions {
+        margin-bottom: 70px;
+      }
+
+      /*progressbar*/
+      #progressbar {
+        margin-top: 30px;
+        margin-bottom: 30px;
+        text-align: center;
+      }
+
+      #progressbar li {
+        list-style-type: none;
+        text-transform: uppercase;
+        font-size: 9px;
+        width: 33.33%;
+        float: left;
+        position: relative;
+        letter-spacing: 1px;
+      }
+
+      #progressbar li:before {
+        background-image: url("{{ 'checkout-steps-bg-disabled.png' | asset_url }}");
+        background-position: right;
+        content: var(--step-content);
+        width: 210px;
+        height: 30px;
+        line-height: 30px;
+        display: block;
+        font-size: 12px;
+        color: white;
+      }
+
+      #progressbar li.active:before {
+        background-image: url("{{ 'checkout-steps-bg-active.png' | asset_url }}");
+        color: white;
+        font-weight: 600;
+      }
+
+      .breadcrumb {
+        display: none;
+      }
+
+      .new-breadcrumb-link {
+        display: block;
+        cursor: pointer;
+        position: absolute;
+        top: 0;
+        width: 210px;
+        height: 30px;
+      }
+
+      .order-summary__sections {
+        height: unset !important;
+      }
+
+      .product-thumbnail {
+        width: 100px;
+        height: 100px;
+        background: unset;
+      }
+
+      .product-thumbnail::after {
+        border: unset;
+      }
+
+      .product__description .reduction-code__text,
+      .sidebar .icon-svg--color-adaptive-light {
+        color: var(--green);
+        font-size: 11px;
+      }
+
+      .anyflexbox .field__input-btn {
+        border-radius: 3px;
+        font-size: 16px;
+        font-weight: 300;
+      }
+
+      .dynamic-checkout__title {
+        font-size: 20px;
+        font-weight: 300;
+      }
+
+      .step__footer__continue-btn {
+        padding: 15px;
+        background-color: #cd7550;
+        border-radius: 3px;
+        font-weight: 700;
+      }
+
+      .step__footer__continue-btn:hover {
+        background-color: #b76f50;
+      }
+
+      .tc p {
+        font-weight: 300;
+      }
+
+      .section__content {
+        padding: unset !important;
+        border: unset !important;
+        background-color: unset !important;
+      }
+
+      .checkbox__label span {
+        font-weight: unset !important;
+      }
+
+      .sidebar {
+        padding-left: 2%;
+      }
+
+      .section__content .field {
+        padding: 2px;
+      }
+
+      .field.field--optional.field--show-floating-label {
+        padding: 15px 0;
+      }
+
+      .main__header {
+        padding-bottom: unset !important;
+      }
+
+      @media screen and (max-width: 768px) {
+        .tc p {
+          max-width: 180px;
+        }
+
+        #progressbar {
+          overflow: hidden;
+          margin-top: 0;
+        }
+
+        #progressbar li:before {
+          width: 35vw;
+        }
+
+        .upper-extentions {
+          margin-bottom: unset;
+        }
+
+        .checkbox-wrapper {
+          padding: 5px 0;
+        }
+
+        .reviews {
+          margin-top: 5vw;
+        }
+
+        .review-content {
+          font-size: 4vw;
+          line-height: 5vw;
+        }
+
+        .review-info img {
+          height: 15vw;
+        }
+
+        .review .review-title {
+          font-size: 5vw;
+        }
+
+        .order-summary-toggle__icon {
+          fill: #EAAE79 !important;
+        }
+
+        .order-summary-toggle__text {
+          color: black !important;
+          font-size: 4vw;
+          font-weight: 200;
+        }
+
+        .order-summary-toggle__dropdown {
+          fill: black !important;
+        }
+
+        .payment-badges {
+          justify-content: space-between;
+        }
+
+        .payment-badge {
+          width: calc(100%/7 + 1vw);
+        }
+
+        .step__footer__continue-btn {
+          font-size: 4.5vw;
+          text-transform: uppercase;
+        }
+
+        .money-back-guarantee {
+          margin-bottom: 20px;
+        }
+
+        .trust-badges .badge img.badge-icon {
+          height: 6vw;
+        }
+      }
+    </style>
+  {% endif %}
+</body>
+</html>
