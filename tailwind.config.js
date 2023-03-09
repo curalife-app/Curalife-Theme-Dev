@@ -31,7 +31,6 @@ module.exports = {
       spacing: {
         '45%': '45%',
         '250px': '250px',
-        '350px': '350px',
         '448px': '448px',
         '500px': '500px',
       },
@@ -40,6 +39,9 @@ module.exports = {
         '1/3': '33.333333%',
         '1/4': '25%',
         '30%': '30%'
+      },
+      minHeight: {
+        '350px': '350px',
       },
       colors: {
         darkGrey: '#222222',
