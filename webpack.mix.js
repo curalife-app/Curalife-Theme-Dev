@@ -15,7 +15,6 @@ const paths = {
   build_layout_folder: 'Curalife-Theme-Build/layout/',
   build_sections_folder: 'Curalife-Theme-Build/sections/',
   build_snippets_folder: 'Curalife-Theme-Build/snippets/',
-  build_config_folder: 'Curalife-Theme-Build/config/',
   build_locales_folder: 'Curalife-Theme-Build/locales/',
   css_folder_files: 'src/styles/css/**',
   scss_folder: 'src/styles/scss/',
@@ -23,11 +22,9 @@ const paths = {
   image_files: 'src/images/*/*.{png,jpg,jpeg,gif,svg}',
   font_files: 'src/fonts/**/*.{woff,woff2,eot,ttf}',
   layout_folder_files: 'src/liquid/layout/**',
-  config_folder_files: 'src/config/**',
   locales_folder_files: 'src/locales/**',
   sections_folder_files: 'src/liquid/sections/**',
   snippets_folder_files: 'src/liquid/snippets/**',
-  templates_folder: 'src/liquid/templates/',
   tailwindcss_file: 'src/styles/tailwind.scss'
 }
 
@@ -37,7 +34,6 @@ mix.copy(paths.script_files, paths.build_assets_folder)
     .copy(paths.font_files, paths.build_assets_folder)
     .copy(paths.css_folder_files, paths.build_assets_folder)
     .copy(paths.image_files, paths.build_assets_folder)
-    .copy(paths.config_folder_files, paths.build_config_folder)
     .copy(paths.layout_folder_files, paths.build_layout_folder)
     .copy(paths.sections_folder_files, paths.build_sections_folder)
     .copy(paths.snippets_folder_files, paths.build_snippets_folder)
