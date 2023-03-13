@@ -1,0 +1,400 @@
+
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/0.4.1/html2canvas.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/1.3.5/jspdf.min.js"></script>
+
+{%- assign page_url = content_for_header | split:'"pageurl":"' | last | split:'"' | first | split: request.host | last | replace:'\/','/' | replace:'%20',' ' | replace:'\u0026','&'  -%}
+
+{% comment %} get "name" param from url {% endcomment %}
+{%- for i in (1..1) -%}
+  {%- unless page_url contains "?" -%}{% break %}{%- endunless -%}
+  {%- assign query_string = page_url | split:'?' | last -%}
+  {%- assign qry_parts= query_string | split:'&' -%}
+
+  {%- for part in qry_parts -%}
+    {%- assign key_and_value = part | split:'=' -%}
+    {%- if key_and_value.size > 1 -%}
+      {% if key_and_value[0] == 'name' %}
+        {% assign param = key_and_value[1] | replace: "+" , " " %}
+        <script>console.log("{{ param }}")</script>
+      {% endif %}
+    {%- endif -%}
+  {%- endfor -%}
+{%- endfor -%}
+
+{% if customer %}
+  {% assign customerName = customer.first_name | append: ' ' | append: customer.last_name %}
+{% endif %}
+
+<div class="info-form">
+  <img class="info-swoosh" src="{{ 'certificate-info-swoosh.png' | asset_url }}" width="426" height="503" alt="">
+  
+  <div class="container">
+    <div class="box">
+      <img class="info-three-swooshes" src="{{ 'certificate-info-three-swooshes.png' | asset_url }}" width="137" height="133" alt="">
+      <div class="info-title">Generate Your Certificate</div>
+
+      <div class="form-submit">
+        <div class="name">
+          <label class="title" for="name">Full Name</label>
+          <input class="input-name" type="text" id="name" name="name" value="{{ param | default: customerName }}">
+        </div>
+
+        <label class="title" for="theme">Choose Theme</label>
+
+        <div class="radio-container">
+          <form>
+          
+          <label for="classic"><img class="certificate-img" src="{{ 'certificate-1.png' | asset_url }}" width="1190" height="1684" alt=""></label>
+          <input type="radio"  id="classic" name="theme" value="classic" checked>  
+          <label class="curalifier" for="curalifer"><img class="certificate-img" src="{{ 'certificate-2.png' | asset_url }}" width="1193" height="1684" alt=""></label>
+          <input type="radio" id="curalifer" name="theme" value="curalifer">
+          </form>
+        </div>
+
+        {% comment %} <div class="verification">
+          <input type="checkbox" id="presented" name="presented">
+          <label class="presented-text" for="presented">I would love to be presented <br>
+            on <b>Curalife’s Wall of Fame</b> </label>
+        </div> {% endcomment %}
+
+        <button class="generate" onclick="generateCertification()">Generate Now</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="certificate-section">
+  <button class="download-main-btn" id="downloadPDF" onclick="downloadPDF()">Click Here to Download</button>
+  <div class="certificate" id="content2">
+      <div class="container">
+          <div class="certificate-wrap">
+                {% assign name = param | default: customerName %}
+                <div id="name-presented">{{ name }}</div>
+          </div>
+      </div>
+  </div>
+</div>
+
+<style>
+.radio-container input[type='radio'] {
+  background-color: white;
+  border-color: #404733;
+}
+  
+.box {
+  
+}
+
+.info-form {
+    background: linear-gradient(297deg, rgba(208,125,91,1) 0%, rgba(251,147,120,1) 54%); 
+    margin: 50px auto;   
+    position: relative; 
+    max-width: 1000px;       
+}
+
+.info-swoosh {
+  position: absolute;
+  bottom:0;
+}
+
+.info-three-swooshes {
+  position: absolute;
+  right: 0;
+}
+
+.info-title {
+  position: relative;
+  padding-top: 80px;
+  display: flex; 
+  justify-content: center;
+  font-family: 'PP Radio Grotesk';
+  font-weight: 700;
+  font-size: 48px;
+  text-align: center;
+  letter-spacing: -0.02em;
+  color: #404733;
+}
+
+.form-submit {
+  position: relative;
+  display: flex; 
+  justify-content: center;
+  padding: 20px 0;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 500px;
+  margin: auto;
+}
+
+.title {
+  display: flex;
+  justify-content: center;
+  font-family: 'DM Sans';
+  font-weight: 700;
+  font-size: clamp(25px, 2vw, 30px);
+  color: #404733;
+}
+
+.input-name{
+  display: flex;
+  margin: 0 auto;
+  {% comment %} margin-top: 10px; {% endcomment %}
+  padding: 10px 40px;
+  font-size: 20px;
+  border-radius: 56px;
+  {% comment %} margin-left: 10px; {% endcomment %}
+  border: none;
+  text-align: center;
+}
+
+.verification {
+  display: flex;
+  gap: 10px;
+}
+
+.verify-text {
+  font-family: 'DM Sans';
+  font-weight: 500;
+  font-size: 17px;
+  line-height: 39px;
+}
+
+.radio-container {
+  margin: 0 auto;
+}
+
+.radio-container form {
+  display: -webkit-inline-box;
+}
+
+.radio-container input {
+  width: 30px;
+}
+
+.certificate-img {
+  max-width: 100px;
+  border: 1px solid #404733; 
+}
+
+.curalifier{
+  margin-left: 70px;
+}
+
+.presented-text{
+  font-family: 'DM Sans';
+  color: #404733;
+  font-size: 20px;
+}
+
+.generate {
+  margin-top: 10px;
+  margin-bottom: 30px;
+  padding: 10px 60px;
+  border-radius: 56px;
+  border: none;
+  box-shadow: 0px 4px 4px rgba(0, 0, 0, .25);
+  background: #404733;
+  font-family: 'PP Radio Grotesk';
+  font-weight: 700;
+  font-size: clamp(20px, 2vw, 30px);
+  text-align: center;
+  text-transform: uppercase;
+  color: #FFFFFF;
+}
+
+
+
+.certificate-section {
+  display: none;
+}
+ .certificate {
+   font-family: 'PP Radio Grotesk';
+   font-weight: 400; 
+  }
+
+ .container {
+   max-width: 1000px;
+ }
+
+ .certificate-wrap {
+    position: relative;
+    margin: auto;
+    margin-bottom: 50px;
+    background-image: url("{{ 'certificate-1.png' | asset_url }}");
+    background-size: contain;
+    background-repeat: no-repeat;
+    max-width: 600px;
+    min-height: 840px
+  }
+
+  .certificate-wrap.curalife {
+    background-image: url("{{ 'certificate-2.png' | asset_url }}");
+  }
+
+ #name-presented { 
+    font-family: 'PP Radio Grotesk';
+    font-weight: 400; 
+    position: relative;
+    font-size: 30px;
+    color: #7E3211;
+    display: flex;
+    justify-content: center;
+    padding-top: 54%;
+  }
+
+
+
+  .download-main-btn {
+    font-family: 'PP Radio Grotesk';
+    font-weight: 400; 
+    color: white;
+    background: var(--dark-green);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 30px auto;
+    padding: 10px 20px;
+    box-shadow: 0px 4px 4px rgba(0, 0, 0, .25);
+    font-weight: 300;
+    font-size: clamp(20px, 2vw, 30px);
+    border-color: var(--dark-green);
+    border-radius: 10px;
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  @media (max-width: 768px) {
+    .info-title {
+      font-size: 10vw;
+    }
+
+    .info-form {
+      margin: unset;
+      max-width: unset;
+    }
+
+    #name-presented { 
+     font-size: 4vw;  
+   }
+
+   .curalifier{
+     margin-left: 5vw;
+   }
+  }
+</style>
+
+<script>
+  function generateCertification() {
+    $(".info-form").hide();
+    $(".certificate-section").show()
+    $("#name-presented").text($("input#name").val());
+    console.log("name: " + $("input#name").val())
+
+    // Check if any radio button is checked
+    if (!$('input[type=radio]:checked').length) {
+      alert('Please select an option.');
+      $(".certificate-section").hide();
+      $(".info-form").show();
+      return;
+    }
+
+    //if NoName 
+    if (!$('input[id=name]').val().length) {
+      alert('Please select a name.');
+      $(".certificate-section").hide();
+      $(".info-form").show();
+      return;
+    }
+
+
+    if ($("#curalifer")[0].checked) {
+      $(".certificate-wrap").addClass("curalife");
+    }
+  }
+</script>
+
+
+{% comment %} 
+<script>
+  $("#downloadPDF").click(function () {
+    getScreenshotOfElement(
+      $("div#content2").get(0),
+      0,
+      0,
+      $("#content2").width(),
+      $("#content2").height(),
+      function (data) {
+        var pdfWidth = 8.27; // A4 size width in inches
+        var pdfHeight = 11.69; // A4 size height in inches
+        var pdf = new jsPDF("p", "in", [pdfWidth, pdfHeight]);
+        var position = 0;
+        var imgWidth = pdfWidth - 0.5; // 0.5 inch margin on each side
+        var imgHeight = (imgWidth / $("#content2").width()) * $("#content2").height();
+        pdf.addImage(
+          "data:image/png;base64," + data,
+          "PNG",
+          0.25, // 0.5 inch margin on left side
+          position + 0.25, // 0.5 inch margin on top side
+          imgWidth,
+          imgHeight
+        );
+        pdf.save("certificate.pdf");
+      }
+    );
+  });
+
+  function getScreenshotOfElement(element, posX, posY, width, height, callback) {
+    html2canvas(element, {
+      onrendered: function (canvas) {
+        var context = canvas.getContext("2d");
+        var imageData = context.getImageData(posX, posY, width, height).data;
+        var outputCanvas = document.createElement("canvas");
+        var outputContext = outputCanvas.getContext("2d");
+        outputCanvas.width = width;
+        outputCanvas.height = height;
+
+        var idata = outputContext.createImageData(width, height);
+        idata.data.set(imageData);
+        outputContext.putImageData(idata, 0, 0);
+        callback(outputCanvas.toDataURL().replace("data:image/png;base64,", ""));
+      },
+      width: width,
+      height: height,
+      useCORS: true,
+      taintTest: false,
+      allowTaint: false,
+    });
+  }
+</script> {% endcomment %}
+
+
+<script>
+  function downloadPDF() {
+    let isMobile = window.matchMedia("only screen and (max-width: 768px)").matches;
+    let ratio = isMobile ? 1 : 2;
+    let marginOffset = isMobile ? 210 : 525;
+
+    html2canvas($('#content2'), {
+      onrendered: function (canvas) {
+        var wid;
+        var hgt;
+        var img = canvas.toDataURL("image/png", wid = canvas.width, hgt = canvas.height); //image data of canvas
+        var hratio = hgt / wid;
+        var doc = new jsPDF({orientation: "portrait"});
+        var width = doc.internal.pageSize.width * ratio;
+        var height = doc.internal.pageSize.height;
+        var height = width * hratio;
+        doc.addImage(img, 'JPEG', width - marginOffset, 10, width, height);
+        doc.save('Curalifer-Certificate.pdf');
+      },
+      useCORS: true
+    });
+  }
+</script>
+
+
+
+
