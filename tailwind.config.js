@@ -30,6 +30,7 @@ module.exports = {
     extend: {
       spacing: {
         '45%': '45%',
+        '50%': '50%',
         '250px': '250px',
         '448px': '448px',
         '500px': '500px',
