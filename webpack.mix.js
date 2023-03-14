@@ -34,11 +34,11 @@ mix.copy(paths.sections_folder_files, paths.build_sections_folder);
 mix.copy(paths.snippets_folder_files, paths.build_snippets_folder);
 
 // Compile all SCSS source files using TailwindCSS
-// mix.sass(paths.tailwindcss_file, paths.build_assets_folder)
-//    .options({
-//     processCssUrls: false,
-//     postCss: [ tailwindcss('tailwind.config.js') ],
-//    });
+mix.sass(paths.tailwindcss_file, paths.build_assets_folder)
+   .options({
+    processCssUrls: false,
+    postCss: [ tailwindcss('tailwind.config.js') ],
+   });
 
 // Compile each individual SCSS into CSS
 getFiles(paths.scss_folder).forEach(filename =>
