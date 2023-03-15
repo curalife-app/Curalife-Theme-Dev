@@ -5,14 +5,14 @@
   {% assign section_id = section.id %}
 {% endif %}
 
-<section class="text-image text-image-{{ section_id }} h-680 {% if is_no_padding %}no-padding{% endif %}">
+<section class="text-image text-image-{{ section_id }} h-680 {% if is_remove_padding_top %}pt-0{% endif %} {% if is_remove_padding_top %}pb-0{% endif %}">
   <div class="container flex items-center justify-between gap-8 md:gap-4 {% if is_mobile_reverse %}md:flex-col-reverse{% else %}md:flex-col{% endif %} {% if is_flip %}flex-row-reverse{% endif %}">
     {% unless is_mobile_reverse %}
       <div class="mobile-title md:block md:text-center hidden"><{{ title_tag }}>{{ title }}</{{ title_tag }}></div>
     {% endunless %}
 
     <div class="image-wrapper max-w-1/2 {% if is_image_bottom %}self-end md:self-auto{% endif %}">
-      <img class="md:max-h-250px relative z-auto object-contain {% if main_mobile_image %}desktop{% endif %} {% if is_mobile_reverse %}md:!min-h-350px{% endif %}" src="{{ main_image | image_url }}" alt="{{ title }}" loading="lazy">
+      <img class="{% if is_limit_image_size %}max-h-500px{% endif %} md:max-h-250px relative z-auto object-contain {% if main_mobile_image %}desktop{% endif %} {% if is_mobile_reverse %}md:!min-h-350px{% endif %}" src="{{ main_image | image_url }}" alt="{{ title }}" loading="lazy">
 
       {% if main_mobile_image %}
         <img class="mobile md:max-h-250px relative z-auto object-contain" src="{{ main_mobile_image | image_url }}" alt="{{ title }}" loading="lazy">
@@ -20,7 +20,7 @@
     </div>
 
     <div class="content-wrapper md:py-0 md:w-full md:text-{{ mobile_alignment }} w-45%">
-      <{{ title_tag }} class="{% unless is_mobile_reverse %}md:hidden{% endunless %}">{{ title }}</{{ title_tag }}>
+      <{{ title_tag }} class="title {% unless is_mobile_reverse %}md:hidden{% endunless %}">{{ title }}</{{ title_tag }}>
       <p>{{ content }}</p>
 
       {% if link_title_1 %}
@@ -93,9 +93,11 @@
     }
 
     @media (max-width: 768px) {
-      section.text-image-{{ section_id }} {
-        padding-top: 50px !important;
-      }
+      {% if reverse_on_mobile %}
+        section.text-image-{{ section_id }} {
+          padding-top: 10vw !important;
+        }
+      {% endif %}
 
       section.text-image-{{ section_id }} .image-wrapper img {
         min-width: 100vw;
@@ -115,7 +117,7 @@
   {% endif %}
 
   {% if title_swoosh_color %}
-    section.text-image-{{ section_id }} .content-wrapper strong,
+    section.text-image-{{ section_id }} .content-wrapper .title strong,
     section.text-image-{{ section_id }} .mobile-title strong {
       background-image: url('{{ 'title-swoosh-' | append: title_swoosh_color | append: '.svg' | asset_url }}');
       background-size: contain;
