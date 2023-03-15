@@ -6,7 +6,7 @@
 {% endif %}
 
 <section class="text-image text-image-{{ section_id }} h-680 {% if is_remove_padding_top %}pt-0{% endif %} {% if is_remove_padding_bottom %}pb-0{% endif %}">
-  <div class="container static flex items-center justify-between gap-8 md:gap-4 {% if is_mobile_reverse %}md:flex-col-reverse{% else %}md:flex-col{% endif %} {% if is_flip %}flex-row-reverse{% endif %}">
+  <div class="container static flex items-center justify-between gap-8 md:gap-4 {% if is_mobile_reverse %}md:flex-col-reverse{% else %}md:flex-col{% endif %}">
     {% unless is_mobile_reverse %}
       <div class="mobile-title md:block md:text-center hidden"><{{ title_tag }}>{{ title }}</{{ title_tag }}></div>
     {% endunless %}
@@ -70,20 +70,24 @@
     }
   {% endif %}
 
+  section.text-image-{{ section_id }} .container {
+    flex-direction: {% case image_position %}{% when 'right' %}row{% when 'left' %}row-reverse{% when 'bottom' %}column-reverse{% when 'top' %}column{% endcase %};
+  }
+
   section.text-image-{{ section_id }} p strong {
     font-weight: bold;
   }
 
   {% if is_mobile_reverse %}
   section.text-image-{{ section_id }} .image-wrapper img {
-    {% if is_flip %}
+    {% if image_position == 'left' %}
       max-width: 100vw;
       min-width: 50vw;
       min-height: 450px;
       max-height: 100%;
       object-fit: cover;
       object-position: top;
-    {% else %}
+    {% elsif image_position == 'right' %}
       position: absolute;
       right: 50%;
       top: 0;
@@ -105,7 +109,7 @@
         min-height: 450px;
         object-fit: cover;
         object-position: top;
-        {% unless is_flip %}
+        {% unless image_position == 'left' %}
           position: unset;
           right: unset;
           top: unset;
