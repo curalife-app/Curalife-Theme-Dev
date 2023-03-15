@@ -6,13 +6,13 @@
 {% endif %}
 
 <section class="text-image text-image-{{ section_id }} h-680 {% if is_remove_padding_top %}pt-0{% endif %} {% if is_remove_padding_bottom %}pb-0{% endif %}">
-  <div class="container static flex items-center justify-between gap-8 md:gap-4 {% if is_mobile_reverse %}md:flex-col-reverse{% else %}md:flex-col{% endif %}">
-    {% unless is_mobile_reverse %}
+  <div class="md:gap-4 container static flex items-center justify-between gap-8">
+    {% if is_image_middle_mobile %}
       <div class="mobile-title md:block md:text-center hidden md:justify-{{ alignment }} md:justify-{{ mobile_alignment }}"><{{ title_tag }}>{{ title }}</{{ title_tag }}></div>
-    {% endunless %}
+    {% endif %}
 
     <div class="image-wrapper {% if image_position == 'right' or image_position == 'left' %}max-w-1/2{% endif %} {% if is_image_bottom %}self-end md:self-auto{% endif %}">
-      <img class="{% if is_limit_image_size %}max-h-500px{% endif %} md:max-h-250px relative z-auto object-contain {% if main_mobile_image %}desktop{% endif %} {% if is_mobile_reverse %}md:!min-h-350px{% endif %}" src="{{ main_image | image_url }}" alt="{{ title }}" loading="lazy">
+      <img class="{% if is_limit_image_size %}max-h-500px{% endif %} md:max-h-250px relative z-auto object-contain {% if main_mobile_image %}desktop{% endif %} {% if is_image_overlap %}md:!min-h-350px{% endif %}" src="{{ main_image | image_url }}" alt="{{ title }}" loading="lazy">
 
       {% if main_mobile_image %}
         <img class="mobile md:max-h-250px relative z-auto object-contain" src="{{ main_mobile_image | image_url }}" alt="{{ title }}" loading="lazy">
@@ -20,7 +20,7 @@
     </div>
 
     <div class="content-wrapper md:py-0 md:w-full text-{{ alignment }} md:text-{{ mobile_alignment }} {% if image_position == 'right' or image_position == 'left' %}w-45%{% else %}w-70%{% endif %}">
-      <{{ title_tag }} class="title {% unless is_mobile_reverse %}md:hidden{% endunless %}">{{ title }}</{{ title_tag }}>
+      <{{ title_tag }} class="title {% if is_image_middle_mobile %}md:hidden{% endif %}">{{ title }}</{{ title_tag }}>
       <p>{{ content }}</p>
 
       {% if link_title_1 %}
@@ -74,20 +74,28 @@
     flex-direction: {% case image_position %}{% when 'right' %}row-reverse{% when 'left' %}row{% when 'bottom' %}column-reverse{% when 'top' %}column{% endcase %};
   }
 
+  {% if image_position == 'right' or image_position == 'left' %}
+    @media (max-width: 768px) {
+      section.text-image-{{ section_id }} .container {
+        flex-direction: {% if is_image_middle_mobile %}column{% else %}column-reverse{% endif %};
+      }
+    }
+  {% endif %}
+
   section.text-image-{{ section_id }} p strong {
     font-weight: bold;
   }
 
-  {% if is_mobile_reverse %}
+  {% if is_image_overlap %}
   section.text-image-{{ section_id }} .image-wrapper img {
-    {% if image_position == 'left' %}
+    {% if image_position == 'right' %}
       max-width: 100vw;
       min-width: 50vw;
       min-height: 450px;
       max-height: 100%;
       object-fit: cover;
       object-position: top;
-    {% elsif image_position == 'right' %}
+    {% elsif image_position == 'left' %}
       position: absolute;
       right: 50%;
       top: 0;
@@ -98,25 +106,18 @@
     }
 
     @media (max-width: 768px) {
-      {% if reverse_on_mobile %}
-        section.text-image-{{ section_id }} {
-          padding-top: 10vw !important;
-        }
-      {% endif %}
-
       section.text-image-{{ section_id }} .image-wrapper img {
         min-width: 100vw;
         min-height: 450px;
         object-fit: cover;
         object-position: top;
-        {% unless image_position == 'left' %}
-          position: unset;
-          right: unset;
-          top: unset;
-          bottom: unset;
-          margin: unset;
-          height: unset;
-        {% endunless %}
+
+        position: unset;
+        right: unset;
+        top: unset;
+        bottom: unset;
+        margin: unset;
+        height: unset;
       }
     }
   {% endif %}
