@@ -14,7 +14,7 @@ const paths = {
   build_sections_folder: 'Curalife-Theme-Build/sections',
   build_snippets_folder: 'Curalife-Theme-Build/snippets',
   css_folder_files: 'src/styles/css/**',
-  font_files: 'src/fonts/**/*.{woff,woff2,eot,ttf}',
+  font_files: 'src/fonts/**/*.{woff,woff2,eot,ttf,otf}',
   image_files: 'src/images/**/*.{png,jpg,jpeg,gif,svg}',
   layout_folder_files: 'src/liquid/layout/**',
   scss_folder: 'src/styles/scss/',
@@ -26,7 +26,7 @@ const paths = {
 
 // Copy all required files to target destination
 mix.copy(paths.script_files, paths.build_assets_folder)
-  .copy(paths.font_files, paths.build_assets_folder);
+mix.copy(paths.font_files, paths.build_assets_folder);
 mix.copy(paths.css_folder_files, paths.build_assets_folder);
 mix.copy(paths.image_files, paths.build_assets_folder, { flatten: true });
 mix.copy(paths.layout_folder_files, paths.build_layout_folder);
