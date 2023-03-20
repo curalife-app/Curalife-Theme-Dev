@@ -1,7 +1,8 @@
 module.exports = {
   content: [
     './src/liquid/sections/**/*.liquid',
-    './src/liquid/snippets/**/*.liquid'
+    './src/liquid/snippets/**/*.liquid',
+    './src/styles/tailwind-classes.liquid'
   ],
   theme: {
     screens: {
