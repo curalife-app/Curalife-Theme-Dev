@@ -1,0 +1,84 @@
+<section class="disorers-box-section">
+  <div class="container">
+    <div class="tabbed-content tabs-side">
+      <nav class="tabs">
+        <ul>
+          {% for disorder in collection.metafields.custom.disorders.value %}
+            <li><a href="#{{ disorder.name }}" {% if forloop.first %}class="active"{% endif %}>Product Highlights <i>></i></a></li>
+          {% endfor %}
+        </ul>
+      </nav>
+
+      <div class="content">
+        {% for disorder in collection.metafields.custom.disorders.value %}
+          <div id="{{ disorder.name }}" class="item {% if forloop.first %}active always-active{% endif %}" data-title="Product Highlights">
+            <div class="disorder-info">
+              <img src="{{ disorder.image.src | image_url }}" alt="{{ disorder.name }}">
+              <p>{{ disorder.description  }}</p>
+            </div>
+
+            <div class="ingredient-info">
+              <p>How we tackle it</p>
+              <h6>{{ disorder.ingredient.name }}</h6>
+              <img src="{{ disorder.ingredient.image.src | image_url }}" alt="{{ disorder.ingredient.name }}">
+              <p>{{ disorder.ingredient.description }}</p>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  tabControl();
+
+  var resizeTimer;
+  $(window).on('resize', function(e) {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function() {
+      tabControl();
+    }, 250);
+  });
+
+  function tabControl() {
+    var tabs = $('.pack-info-section.instance-{{ index }} .tabbed-content').find('.tabs');
+    if(tabs.is(':visible')) {
+      tabs.find('a').on('click', function(event) {
+        event.preventDefault();
+        var target = $(this).attr('href'),
+            tabs = $(this).parents('.tabs'),
+            buttons = tabs.find('a'),
+            item = tabs.parents('.pack-info-section.instance-{{ index }} .tabbed-content').find('.item');
+        buttons.removeClass('active');
+        item.removeClass('active');
+        $(this).addClass('active');
+        $(target).addClass('active');
+      });
+    } else {
+      $('.item').on('click', function() {
+        var container = $(this).parents('.tabbed-content'),
+            currId = $(this).attr('id'),
+            items = container.find('.item');
+            console.log(items);
+        container.find('.tabs a').removeClass('active');
+        items.removeClass('active');
+        $(this).addClass('active');
+        container.find('.tabs a[href$="#'+ currId +'"]').addClass('active');
+      });
+    }
+  }
+</script>
+
+{% schema %}
+  {
+    "name": "Disorders Box Section",
+    "class": "disorers-box-section",
+    "settings": [],
+    "presets": [
+      {
+        "name": "Disorders Box"
+      }
+    ]
+  }
+{% endschema %}
