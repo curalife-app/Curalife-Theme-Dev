@@ -1,27 +1,22 @@
-
-<section class="faq-section">
+<section id="faq-section-{{ section.id }}" class="faq-section">
   <div class="container">
     <h2>{{ title }}</h2>
 
-    {% if product.metafields.custom.faq.value %}
-      <div class="faq">
+    <div class="faq">
+      {% if product.metafields.custom.faq.value %}
         {% for faqItem in product.metafields.custom.faq.value %}
           <div class="faq-item">
-            <h4 class="question">{{ faqItem.question }}</h4>
+            <h5 class="question">{{ faqItem.question }}</h5>
             <div class="answer"><p>{{ faqItem.answer }}</p></div>
           </div>
         {% endfor %}
-      </div>
-    {% else %}
-      <div class="faq">
+      {% else %}
         {% for faqItem in faqItems %}
           <div class="faq-item">
-            <div class="question">
-              {{ faqItem | split: "*" | first }}
-            </div>
+            <h5 class="question">{{ faqItem | split: ":" | first }}</h5>
 
             <div class="answer">
-              <p>{{ faqItem | split: "*" | last }}</p>
+              <p>{{ faqItem | split: ":" | last }}</p>
 
               {% if faqItem contains 'How does each ingredient work' %}
                 {% render 'product-all-in-one-ingredients-section' %}
@@ -29,18 +24,20 @@
             </div>
           </div>
         {% endfor %}
-      </div>
-    {% endif %}
+      {% endif %}
+    </div>
   </div>
 </section>
 
 <style>
   {% if bgColor %}
-    .faq-section {
+    #faq-section-{{ section.id }} {
       background-color: {{ bgColor }};
     }
   {% endif %}
+</style>
 
+<style>
   .faq-section .faq {
     margin: 1rem auto;
   }
@@ -161,29 +158,28 @@
 </style>
 
 <script>
-  const accordionItemHeaders = document.querySelectorAll(".question");
+  let accordionItemHeadersObject = document.querySelectorAll(".question");
 
-  accordionItemHeaders.forEach(accordionItemHeader => {
-  accordionItemHeader.addEventListener("click", event => {
+  accordionItemHeadersObject.forEach(accordionItemHeader => {
+    accordionItemHeader.addEventListener("click", event => {
+      {% if isAllowOneOpen %}
+        let currentlyActiveAccordionItemHeader = document.querySelector(".question.active");
+        if (currentlyActiveAccordionItemHeader && currentlyActiveAccordionItemHeader!==accordionItemHeader) {
+          currentlyActiveAccordionItemHeader.classList.toggle("active");
+          currentlyActiveAccordionItemHeader.nextElementSibling.style.maxHeight = 0;
+        }
+      {% endif %}
 
-  {% if isAllowOneOpen %}
-    const currentlyActiveAccordionItemHeader = document.querySelector(".question.active");
-    if (currentlyActiveAccordionItemHeader && currentlyActiveAccordionItemHeader!==accordionItemHeader) {
-      currentlyActiveAccordionItemHeader.classList.toggle("active");
-      currentlyActiveAccordionItemHeader.nextElementSibling.style.maxHeight = 0;
-    }
-  {% endif %}
-
-  accordionItemHeader.classList.toggle("active");
-  const accordionItemBody = accordionItemHeader.nextElementSibling;
-  if(accordionItemHeader.classList.contains("active")) {
-    accordionItemBody.style.maxHeight = accordionItemBody.scrollHeight + "px";
-  }
-  else {
-    accordionItemBody.style.maxHeight = 0;
-  }
+      accordionItemHeader.classList.toggle("active");
+      let accordionItemBody = accordionItemHeader.nextElementSibling;
+      if (accordionItemHeader.classList.contains("active")) {
+        accordionItemBody.style.maxHeight = accordionItemBody.scrollHeight + "px";
+      }
+      else {
+        accordionItemBody.style.maxHeight = 0;
+      }
+    });
   });
-});
 
 faqIngredientsMainSliderAllInOne = new Swiper('.faq-section .ingredients-main-slider.swiper', {
     slidesPerView: 1,
