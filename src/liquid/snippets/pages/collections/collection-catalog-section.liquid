@@ -25,28 +25,37 @@
         {% assign isLastCollectionRender = true %}
       {% endif %}
 
-      {% if collections[collection_handle].metafields.custom.alternative_title %}
-        {% assign collection_title = collections[collection_handle].metafields.custom.alternative_title %}
-      {% else %}
-        {% assign collection_title = collections[collection_handle].title %}
-      {% endif %}
-
       <div class="collection-section" data-product-collections="{{ collection_handle }}" >
-        <h2>{{ collection_title }}</h2>
+        {% unless isNoTitle %}
+          {% if collections[collection_handle].metafields.custom.alternative_title %}
+            {% assign collection_title = collections[collection_handle].metafields.custom.alternative_title %}
+          {% else %}
+            {% assign collection_title = collections[collection_handle].title %}
+          {% endif %}
+
+          <h2>{{ collection_title }}</h2>
+        {% endunless %}
 
         {% if isDescription %}
-          <p class="description">{{ collections[collection_handle].description }}</p>
+      <p class="description {% if collections[collection_handle].metafields.custom.is_align_center or isCentered %}text-center m-auto{% endif %}">{{ collections[collection_handle].description }}</p>
         {% endif %}
 
-        <div class="product-grid" style="{% if isHiddenCollections %}display: none;{% endif %}justify-content:{% if collections[collection_handle].metafields.custom.is_align_center %}center{% else %}start{% endif %}">
+        <div class="product-grid" style="{% if isHiddenCollections %}display: none;{% endif %}justify-content:{% if collections[collection_handle].metafields.custom.is_align_center or isCentered %}center{% else %}start{% endif %}">
           {% assign isProductCardLast = value %}
           {% for product in collections[collection_handle].products %}
             {% if forloop.last and isLastCollectionRender %}
               {% assign isLastCardRender = true %}
             {% endif %}
 
-            {% assign product_collections = product.collections | map: 'handle' | join: ' ' %}
-            {% render 'product-card', product: product, productCollections: product_collections, isLastRender: isLastCardRender, isNoPrices: isNoPrices %}
+            {% if isNoBundles %}
+              {% unless product.tags contains 'bundle' %}
+                {% assign product_collections = product.collections | map: 'handle' | join: ' ' %}
+                {% render 'product-card', product: product, productCollections: product_collections, isLastRender: isLastCardRender, isNoPrices: isNoPrices, isLinkToCollection: isLinkToCollection %}
+              {% endunless %}
+            {% else %}
+              {% assign product_collections = product.collections | map: 'handle' | join: ' ' %}
+              {% render 'product-card', product: product, productCollections: product_collections, isLastRender: isLastCardRender, isNoPrices: isNoPrices, isLinkToCollection: isLinkToCollection %}
+            {% endif %}
           {% endfor %}
         </div>
       </div>
@@ -194,3 +203,16 @@
     $('.category-tabs a[data-collection-handle="{{ activeCollection }}"]').click();
   </script>
 {% endunless %}
+
+<script>
+  // Auto click on Tab with Url Param
+  $( document ).ready(function() {
+    let urlParams = new URLSearchParams(window.location.search);
+    let linksAddition = urlParams.get('category');
+    let collectionTabSelector = '.category-tabs a[data-collection-handle="' + linksAddition + '"]';
+    console.log(collectionTabSelector)
+    console.log($(collectionTabSelector))
+
+    $(collectionTabSelector).click();
+  });
+</script>
