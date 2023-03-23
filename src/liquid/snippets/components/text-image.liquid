@@ -1,0 +1,184 @@
+
+{% if block_index %}
+  {% assign section_id = block_index %}
+{% else %}
+  {% assign section_id = section.id %}
+{% endif %}
+
+<section class="text-image text-image-{{ section_id }} h-680 {% if is_remove_padding_top %}pt-0{% endif %} {% if is_remove_padding_bottom %}pb-0{% endif %}">
+  <div class="md:gap-4 container static flex items-center {% if is_image_overlap and image_position == 'left' %}justify-end{% else %}justify-between{% endif %} gap-16">
+    {% if is_image_middle_mobile %}
+      <div class="mobile-title md:block md:text-center hidden justify-{{ alignment }} md:justify-{{ mobile_alignment }}"><{{ title_tag }}>{{ title }}</{{ title_tag }}></div>
+    {% endif %}
+
+    <div class="image-wrapper {% if image_position == 'right' or image_position == 'left' %}max-w-1/2{% endif %} {% if is_image_bottom %}self-end md:self-auto{% endif %}">
+      <img class="{% if is_limit_image_size %}max-h-500px{% endif %} relative z-auto object-contain {% if main_mobile_image %}desktop{% endif %} {% if is_image_overlap %}md:!min-h-350px{% endif %}" src="{{ main_image | image_url }}" alt="{{ title }}" loading="lazy">
+
+      {% if main_mobile_image %}
+        <img class="mobile relative z-auto object-contain" src="{{ main_mobile_image | image_url }}" alt="{{ title }}" loading="lazy">
+      {% endif %}
+    </div>
+
+    <div class="content-wrapper md:py-0 md:!w-full text-{{ alignment }} md:text-{{ mobile_alignment }} {% if image_position == 'right' or image_position == 'left' %}w-45%{% else %}w-70%{% endif %}">
+      <{{ title_tag }} class="title {% if is_image_middle_mobile %}md:hidden{% endif %} {% if is_remove_padding_top %}md:mt-5{% endif %}">{{ title }}</{{ title_tag }}>
+      <p>{{ content }}</p>
+
+      {% if link_url_1 != blank %}
+        <div class="links empty:hidden md:justify-{{ alignment }} md:justify-{{ mobile_alignment }}">
+          {% if link_url_1 %}
+            <a href="{{ link_url_1 }}">{{ link_title_1 }} <i class="fa-thin fa-arrow-right"></i></a>
+          {% endif %}
+          {% if link_url_2 %}
+            <a href="{{ link_url_2 }}">{{ link_title_2 }} <i class="fa-thin fa-arrow-right"></i></a>
+          {% endif %}
+        </div>
+      {% endif %}
+
+      {% unless button_title == blank %}
+        <a href="{{ button_link }}" {% if is_button_link_new_window %}target="_blank"{% endif %}>
+          <button class="md:w-full flex justify-center gap-4">
+            {{ button_title }}
+            {% if button_icon %}<i class="{{ button_icon }}"></i>{% endif %}
+          </button>
+        </a>
+      {% endunless %}
+    </div>
+
+    <div class="decorations">
+      {% for decoration in decorations %}
+        <img class="absolute z-10" src="{{ decoration.settings.image.value.src | image_url }}" alt="{{ decoration.settings.image.value.alt }}" loading="lazy" style="top:{{ decoration.settings.top }};bottom:{{ decoration.settings.bottom }};right:{{ decoration.settings.right }};left:{{ decoration.settings.left }};opacity:{{ decoration.settings.opacity }}">
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<style>
+  {% if text_color %}
+    section.text-image-{{ section_id }} {
+      color: {{ text_color }};
+    }
+
+    section.text-image-{{ section_id }} h2 {
+      color: {{ text_color }};
+    }
+  {% endif %}
+
+  {% if bg_color %}
+    section.text-image-{{ section_id }} {
+      background-color: {{ bg_color }};
+    }
+  {% endif %}
+
+  {% if button_color %}
+    section.text-image-{{ section_id }} button {
+      background-color: {{ button_color }};
+    }
+  {% endif %}
+
+  {% if button_text_color %}
+    section.text-image-{{ section_id }} button {
+      color: {{ button_text_color }};
+    }
+  {% endif %}
+
+  section.text-image-{{ section_id }} .container {
+    flex-direction: {% case image_position %}{% when 'right' %}row-reverse{% when 'left' %}row{% when 'bottom' %}column-reverse{% when 'top' %}column{% endcase %};
+  }
+
+  {% if image_position == 'right' or image_position == 'left' %}
+    @media (max-width: 768px) {
+      section.text-image-{{ section_id }} .container {
+        flex-direction: {% if is_image_middle_mobile %}column{% else %}column-reverse{% endif %};
+      }
+    }
+  {% endif %}
+
+  section.text-image-{{ section_id }} p strong {
+    font-weight: bold;
+  }
+
+  {% if is_image_overlap %}
+  section.text-image-{{ section_id }} .image-wrapper img {
+    {% if image_position == 'right' %}
+      max-width: 100vw;
+      min-width: 50vw;
+      min-height: 200px;
+      max-height: 100%;
+      object-fit: cover;
+      object-position: top left;
+    {% elsif image_position == 'left' %}
+      position: absolute;
+      right: 50%;
+      top: 0;
+      bottom: 0;
+      margin: auto 0;
+      height: 100%;
+    {% endif %}
+    }
+
+    @media (max-width: 768px) {
+      section.text-image-{{ section_id }} .image-wrapper img {
+        min-width: 100vw;
+        min-height: 450px;
+        object-fit: cover;
+        object-position: top;
+
+        position: unset;
+        right: unset;
+        top: unset;
+        bottom: unset;
+        margin: unset;
+        height: unset;
+      }
+    }
+  {% endif %}
+
+  {% if title_swoosh_color %}
+    section.text-image-{{ section_id }} .content-wrapper .title strong,
+    section.text-image-{{ section_id }} .mobile-title strong {
+      background-image: url('{{ 'title-swoosh-' | append: title_swoosh_color | append: '.svg' | asset_url }}');
+      background-size: contain;
+      background-repeat: no-repeat;
+      padding: 8px;
+    }
+  {% endif %}
+
+  section.text-image-{{ section_id }} .content-wrapper {
+    width: {{ content_width }}%;
+  }
+</style>
+
+<style>
+  section.text-image .links {
+    display: flex;
+    align-items: center;
+    margin: 20px 0;
+    gap: 20px;
+  }
+
+  section.text-image h2 {
+    text-align: inherit;
+  }
+
+  section.text-image .links a {
+    font-weight: bold;
+    text-decoration: underline;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  @media (max-width: 768px) {
+    section.text-image {
+      max-height: unset !important;
+    }
+
+    section.text-image .image-wrapper {
+      max-width: unset;
+    }
+
+    section.text-image .content-wrapper {
+      width: 100%;
+    }
+  }
+</style>

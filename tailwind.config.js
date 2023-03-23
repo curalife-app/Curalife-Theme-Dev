@@ -1,7 +1,8 @@
 module.exports = {
   content: [
-    './src/liquid/sections/*.liquid',
-    './src/liquid/snippets/*.liquid'
+    './src/liquid/sections/**/*.liquid',
+    './src/liquid/snippets/**/*.liquid',
+    './src/styles/tailwind-classes.liquid'
   ],
   theme: {
     screens: {
@@ -14,22 +15,11 @@ module.exports = {
       'tablet': { max: "1024px" },
       'desktop': { max: "1200px" },
     },
-    fontSize: {
-      sm: '14px',
-      base: '16px',
-      lg: '20px',
-      xl: '24px',
-      '2xl': '32px',
-      '3xl': '48px',
-      '4xl': '64px',
-      '5xl': '96px',
-      '6xl': '128px',
-      '7xl': '192px',
-      '8xl': '256px'
-    },
     extend: {
       spacing: {
         '45%': '45%',
+        '50%': '50%',
+        '70%': '70%',
         '250px': '250px',
         '448px': '448px',
         '500px': '500px',
