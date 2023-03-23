@@ -37,11 +37,10 @@
         {% endunless %}
 
         {% if isDescription %}
-      <p class="description {% if collections[collection_handle].metafields.custom.is_align_center or isCentered %}text-center m-auto{% endif %}">{{ collections[collection_handle].description }}</p>
+          <p class="description {% if collections[collection_handle].metafields.custom.is_align_center or isCentered %}text-center m-auto{% endif %}">{{ collections[collection_handle].description }}</p>
         {% endif %}
 
         <div class="product-grid" style="{% if isHiddenCollections %}display: none;{% endif %}justify-content:{% if collections[collection_handle].metafields.custom.is_align_center or isCentered %}center{% else %}start{% endif %}">
-          {% assign isProductCardLast = value %}
           {% for product in collections[collection_handle].products %}
             {% if forloop.last and isLastCollectionRender %}
               {% assign isLastCardRender = true %}
@@ -51,12 +50,18 @@
               {% unless product.tags contains 'bundle' %}
                 {% assign product_collections = product.collections | map: 'handle' | join: ' ' %}
                 {% render 'product-card', product: product, productCollections: product_collections, isLastRender: isLastCardRender, isNoPrices: isNoPrices, isLinkToCollection: isLinkToCollection %}
+                {% if isLastCardRender %}{% assign isLastCardRendered = true %}{% endif %}
               {% endunless %}
             {% else %}
               {% assign product_collections = product.collections | map: 'handle' | join: ' ' %}
               {% render 'product-card', product: product, productCollections: product_collections, isLastRender: isLastCardRender, isNoPrices: isNoPrices, isLinkToCollection: isLinkToCollection %}
+              {% if isLastCardRender %}{% assign isLastCardRendered = true %}{% endif %}
             {% endif %}
           {% endfor %}
+
+          {% if isLastCardRendered != true %}
+            {% render 'product-card', isOnlyScriptsAndStyles: true, isNoPrices: isNoPrices, isLinkToCollection: isLinkToCollection %}
+          {% endif %}
         </div>
       </div>
 
