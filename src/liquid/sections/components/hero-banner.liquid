@@ -1,20 +1,23 @@
-<div class="md:justify-{{ section.settings.mobile_alignment }} container flex flex-col justify-{{ section.settings.vertical_align_desktop }}">
-  <h1 class="max-w-1/2 md:max-w-full md:text-{{ section.settings.text_align_mobile }} font-thin">
-    {% if section.settings.small_title %}<span class="small-title">{{ section.settings.small_title }}</span>{% endif %}
-    <br>
-    <span class="font-bold">{{ section.settings.big_title }}</span>
-  </h1>
+<section class="hero-banner bg-{{ section.settings.bg_position }}">
+  <div class="md:justify-{{ section.settings.mobile_alignment }} container flex flex-col justify-{{ section.settings.vertical_align_desktop }}">
+    <h1 class="max-w-1/2 md:max-w-full md:text-{{ section.settings.text_align_mobile }} font-thin">
+      {% if section.settings.small_title %}<span class="small-title">{{ section.settings.small_title }}</span>{% endif %}
+      <br>
+      <span class="font-bold">{{ section.settings.big_title }}</span>
+    </h1>
 
-  {% if section.settings.button_link != blank %}
-    <a href="{{ section.settings.button_link }}"><button>{{ section.settings.button_title }}</button></a>
-  {% endif %}
-</div>
+    {% if section.settings.button_link != blank %}
+      <a href="{{ section.settings.button_link }}"><button>{{ section.settings.button_title }}</button></a>
+    {% endif %}
+
+    {% if section.settings.bottom_content %}<div class="bottom-content"><p>{{ section.settings.bottom_content }}</p></div>{% endif %}
+  </div>
+</section>
 
 <style>
   section.hero-banner {
     background-image: url('{{ section.settings.bg_image | image_url }}');
     background-size: cover;
-    background-position: center;
     background-repeat: no-repeat;
     height: 500px;
     display: flex;
@@ -28,9 +31,31 @@
     {% if section.settings.is_title_shadow %}text-shadow: 0px 0px 8px rgba(0, 0, 0, 0.55);{% endif %}
   }
 
+  {% if section.settings.is_disable_br_desktop %}
+    section.hero-banner br {
+      display: none;
+    }
+
+    @media (max-width: 768px) {
+      section.hero-banner br {
+        display: block;
+      }
+    }
+  {% endif %}
+
   section.hero-banner h1 .small-title {
     display: inline-block;
     font-size: 30px;
+  }
+
+  section.hero-banner .bottom-content p {
+    position: relative;
+    bottom: 0;
+    text-align: center;
+    max-width: {{ section.settings.bottom_content_max_width }}%;
+    margin: auto;
+    margin-inline: auto;
+    margin-bottom: -100px;
   }
 
   section.hero-banner a button {
@@ -60,8 +85,6 @@
 {% schema %}
 {
   "name": "Hero Banner",
-  "tag": "section",
-  "class": "hero-banner",
   "disabled_on": {
     "groups": ["header", "footer"]
   },
@@ -85,6 +108,11 @@
       "type": "text",
       "id": "big_title",
       "label": "Big Title"
+    },
+    {
+      "type": "textarea",
+      "id": "bottom_content",
+      "label": "Bottom Content"
     },
     {
       "type": "header",
@@ -147,6 +175,44 @@
       "default": "start"
     },
     {
+      "type": "select",
+      "id": "bg_position",
+      "label": "Background Image Position",
+      "options": [
+        {
+          "value": "top",
+          "label": "Top"
+        },
+        {
+          "value": "center",
+          "label": "Center"
+        },
+        {
+          "value": "bottom",
+          "label": "Bottom"
+        },
+        {
+          "value": "right",
+          "label": "Right"
+        },
+        {
+          "value": "left",
+          "label": "Left"
+        }
+      ],
+      "default": "center"
+    },
+    {
+      "type": "range",
+      "id": "bottom_content_max_width",
+      "label": "Bottom Content Maximum Width",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "%",
+      "default": 70
+    },
+    {
       "type": "color",
       "id": "title_color",
       "label": "Title Color"
@@ -155,6 +221,11 @@
       "type": "checkbox",
       "id": "is_title_right",
       "label": "Place Title Right"
+    },
+    {
+      "type": "checkbox",
+      "id": "is_disable_br_desktop",
+      "label": "Disable <br> on desktop"
     },
     {
       "type": "checkbox",
