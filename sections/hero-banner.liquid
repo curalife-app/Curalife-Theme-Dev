@@ -1,13 +1,18 @@
-<div class="container">
-  <h1 class="md:text-left text-2xl font-normal text-center text-white">
-    {{ section.settings.small_title }}<br>
-    <span class="text-4xl font-bold">{{ section.settings.big_title }}</span>
+<div class="md:justify-{{ section.settings.mobile_alignment }} container flex flex-col justify-center">
+  <h1 class="max-w-1/2 md:max-w-full md:text-{{ section.settings.text_align_mobile }} font-thin">
+    {% if section.settings.small_title %}<span class="small-title">{{ section.settings.small_title }}</span>{% endif %}
+    <br>
+    <span class="font-bold">{{ section.settings.big_title }}</span>
   </h1>
+
+  {% if section.settings.button_link != blank %}
+    <a href="{{ section.settings.button_link }}"><button>{{ section.settings.button_title }}</button></a>
+  {% endif %}
 </div>
 
 <style>
   section.hero-banner {
-    background-image: url('{{ section.settings.bg_image | img_url: 'master' }}');
+    background-image: url('{{ section.settings.bg_image | image_url }}');
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
@@ -18,9 +23,36 @@
   }
 
   section.hero-banner h1 {
-    max-width: 50%;
-    margin-inline-start: 50%;
-    text-shadow: 0px 0px 8px rgba(0, 0, 0, 0.55);
+    {% if section.settings.title_color %}color: {{ section.settings.title_color }};{% endif %}
+    {% if section.settings.is_title_right %}margin-inline-start: 50%;{% endif %}
+    {% if section.settings.is_title_shadow %}text-shadow: 0px 0px 8px rgba(0, 0, 0, 0.55);{% endif %}
+  }
+
+  section.hero-banner h1 .small-title {
+    display: inline-block;
+    font-size: 30px;
+  }
+
+  section.hero-banner a button {
+    background-color: {{ section.settings.button_color }};
+    color: {{ section.settings.button_title_color }};
+  }
+
+  @media (max-width: 768px) {
+    {% if section.settings.bg_image_mobile %}
+      section.hero-banner {
+        background-image: url('{{ section.settings.bg_image_mobile | image_url }}');
+      }
+    {% endif %}
+
+    section.hero-banner h1 {
+      max-width: 100%;
+      margin-inline-start: unset;
+    }
+
+    section.hero-banner h1 .small-title {
+      font-size: 5vw;
+    }
   }
 </style>
 
@@ -39,6 +71,11 @@
       "label": "Background Image"
     },
     {
+      "type": "image_picker",
+      "id": "bg_image_mobile",
+      "label": "Background Image on Mobile"
+    },
+    {
       "type": "text",
       "id": "small_title",
       "label": "Small Title"
@@ -47,6 +84,85 @@
       "type": "text",
       "id": "big_title",
       "label": "Big Title"
+    },
+    {
+      "type": "header",
+      "content": "Options"
+    },
+    {
+      "type": "select",
+      "id": "text_align_mobile",
+      "label": "Text Align on Mobile",
+      "options": [
+        {
+          "value": "start",
+          "label": "Left"
+        },
+        {
+          "value": "center",
+          "label": "Center"
+        }
+      ],
+      "default": "center"
+    },
+    {
+      "type": "select",
+      "id": "mobile_alignment",
+      "label": "Vertical Align on Mobile",
+      "options": [
+        {
+          "value": "start",
+          "label": "Top"
+        },
+        {
+          "value": "center",
+          "label": "Center"
+        },
+        {
+          "value": "end",
+          "label": "Bottom"
+        }
+      ],
+      "default": "start"
+    },
+    {
+      "type": "color",
+      "id": "title_color",
+      "label": "Title Color"
+    },
+    {
+      "type": "checkbox",
+      "id": "is_title_right",
+      "label": "Place Title Right"
+    },
+    {
+      "type": "checkbox",
+      "id": "is_title_shadow",
+      "label": "Title Shadow"
+    },
+    {
+      "type": "header",
+      "content": "Button"
+    },
+    {
+      "type": "text",
+      "id": "button_title",
+      "label": "Button Title"
+    },
+    {
+      "type": "text",
+      "id": "button_link",
+      "label": "Button Link"
+    },
+    {
+      "type": "color",
+      "id": "button_color",
+      "label": "Button Color"
+    },
+    {
+      "type": "color",
+      "id": "button_title_color",
+      "label": "Button Title Color"
     }
   ],
   "presets": [
