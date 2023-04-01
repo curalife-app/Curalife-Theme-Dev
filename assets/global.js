@@ -190,7 +190,7 @@ class QuantityInput extends HTMLElement {
       const max = parseInt(this.input.max);
       const buttonPlus = this.querySelector(".quantity__button[name='plus']");
       buttonPlus.classList.toggle('disabled', value >= max);
-    } 
+    }
   }
 }
 
@@ -362,7 +362,7 @@ class MenuDrawer extends HTMLElement {
       if(isOpen) event.preventDefault();
       isOpen ? this.closeMenuDrawer(event, summaryElement) : this.openMenuDrawer(summaryElement);
 
-      if (window.matchMedia('(max-width: 990px)')) {
+      if (window.matchMedia('(max-width: 768px)')) {
         document.documentElement.style.setProperty('--viewport-height', `${window.innerHeight}px`);
       }
     } else {
