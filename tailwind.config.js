@@ -21,7 +21,6 @@ module.exports = {
         '50%': '50%',
         '70%': '70%',
         '250px': '250px',
-        '400px': '400px',
         '448px': '448px',
         '500px': '500px',
       },
@@ -33,6 +32,7 @@ module.exports = {
       },
       minHeight: {
         '350px': '350px',
+        '400px': '400px',
       },
       colors: {
         darkGrey: '#222222',
