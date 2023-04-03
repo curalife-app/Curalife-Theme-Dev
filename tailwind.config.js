@@ -5,6 +5,13 @@ module.exports = {
     './src/styles/tailwind-classes.liquid'
   ],
   theme: {
+    fontSize: {
+      xs: ['12px', '16px'],
+      sm: ['16px', '20px'],
+      base: ['18px', '24px'],
+      lg: ['20px', '28px'],
+      xl: ['24px', '32px'],
+    },
     screens: {
       sm: { max: "640px" },
       md: { max: "768px" },
