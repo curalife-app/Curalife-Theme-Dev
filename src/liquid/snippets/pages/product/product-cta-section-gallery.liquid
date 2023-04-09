@@ -91,56 +91,50 @@
           <div id="product-main-slider-nav-next" class="swiper-button-next nav"></div>
         </div>
 
-        <div class="thumbs-slider">
-          <div id="product-thumbs-slider-sc" class="swiper">
-            <div class="swiper-wrapper">
-              {% if isCuralinContent %}
-                {% for i in (1..6) %}
-                  <div class="swiper-slide">
-                    <div class="thumbs-img">
-                      <div class="img-wrap">
+        {% unless product.metafields.custom.is_hide_thumbs %}
+          <div class="thumbs-slider">
+            <div id="product-thumbs-slider-sc" class="swiper">
+              <div class="swiper-wrapper">
+                {% if isCuralinContent %}
+                  {% for i in (1..6) %}
+                    <div class="swiper-slide">
+                      <div class="thumbs-img">
                         <img src="{{ "product-aio-product-thumbnail-" | append: i | append: ".png" | asset_url }}" width="588" height="453" alt="" loading="lazy">
                       </div>
                     </div>
-                  </div>
-                {% endfor %}
+                  {% endfor %}
 
-                <div class="swiper-slide">
-                  <div class="thumbs-img video-thumbnail">
-                    <div class="img-wrap">
+                  <div class="swiper-slide">
+                    <div class="thumbs-img video-thumbnail">
                       <img src="{{ "product-aio-product-video-thumbnail.png" | asset_url }}" width="720" height="680" alt="" loading="lazy">
                     </div>
                   </div>
-                </div>
-              {% endif %}
+                {% endif %}
 
-              {% if product.variants.size > 1 %}
-                {% for var in product.variants %}
-                  <div class="swiper-slide">
-                    <div class="thumbs-img">
-                      <div class="img-wrap">
+                {% if product.variants.size > 1 %}
+                  {% for var in product.variants %}
+                    <div class="swiper-slide">
+                      <div class="thumbs-img">
                         <img src="{{ var.featured_image | image_url }}" alt="{{ var.featured_image.alt | escape }}" loading="lazy">
                       </div>
                     </div>
-                  </div>
-                {% endfor %}
-              {% else %}
-                {% for img in product.images %}
-                  <div class="swiper-slide">
-                    <div class="thumbs-img">
-                      <div class="img-wrap">
+                  {% endfor %}
+                {% else %}
+                  {% for img in product.images %}
+                    <div class="swiper-slide">
+                      <div class="thumbs-img">
                         <img src="{{ img.src | image_url }}" alt="{{ img.alt | escape }}" loading="lazy">
                       </div>
                     </div>
-                  </div>
-                {% endfor %}
-              {% endif %}
+                  {% endfor %}
+                {% endif %}
+              </div>
             </div>
-          </div>
 
-          <div id="product-thumbs-slider-nav-prev" class="swiper-button-prev"></div>
-          <div id="product-thumbs-slider-nav-next" class="swiper-button-next"></div>
-        </div>
+            <div id="product-thumbs-slider-nav-prev" class="swiper-button-prev"></div>
+            <div id="product-thumbs-slider-nav-next" class="swiper-button-next"></div>
+          </div>
+        {% endunless %}
       </div>
     </div>
   </div>
@@ -325,27 +319,29 @@
   </style>
 
   <script>
-    productThumbsAllInOne = new Swiper('#product-thumbs-slider-sc', {
-      slidesPerView: 'auto',
-      spaceBetween: 10,
-      watchSlidesVisibility: true,
-      grabCursor: true,
-      loop: false,
-      navigation: {
-        nextEl: '#product-thumbs-slider-nav-next',
-        prevEl: '#product-thumbs-slider-nav-prev',
-        disabledClass: 'disabled'
-      },
-      breakpoints: {
-        760: {
-          slidesPerView: 3,
-          freemode: true
+    {% unless product.metafields.custom.is_hide_thumbs %}
+      productThumbsAllInOne = new Swiper('#product-thumbs-slider-sc', {
+        slidesPerView: 'auto',
+        spaceBetween: 10,
+        watchSlidesVisibility: true,
+        grabCursor: true,
+        loop: false,
+        navigation: {
+          nextEl: '#product-thumbs-slider-nav-next',
+          prevEl: '#product-thumbs-slider-nav-prev',
+          disabledClass: 'disabled'
         },
-        1200: {
-          slidesPerView: 5
+        breakpoints: {
+          760: {
+            slidesPerView: 3,
+            freemode: true
+          },
+          1200: {
+            slidesPerView: 5
+          }
         }
-      }
-    });
+      });
+    {% endunless %}
 
     productSliderAllInOne = new Swiper('#product-main-slider-sc', {
       slidesPerView: 1,
@@ -355,7 +351,9 @@
       loop: false,
       grabCursor: true,
       slideToClickedSlide: true,
-      thumbs: {swiper: productThumbsAllInOne},
+      {% unless product.metafields.custom.is_hide_thumbs %}
+        thumbs: {swiper: productThumbsAllInOne},
+      {% endunless %}
       breakpoints: {
         0: {
           pagination: {
