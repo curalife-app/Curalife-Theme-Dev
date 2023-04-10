@@ -57,6 +57,13 @@
   {% assign thankYouAdditions = true %}
 {% endif %}
 
+{% assign no_discount_items = false %}
+{% for item in cart.items %}
+  {% if item.product.tags contains 'no-discount' %}
+    {% assign no_discount_items = true %}
+  {% endif %}
+{% endfor %}
+
 <!DOCTYPE html>
 <html lang="{{ locale }}" dir="{{ direction }}" class="{{ checkout_html_classes }}">
 <head>
@@ -375,13 +382,8 @@
 
     {% if onboarding_exist %}
       <div id="onboarding-content">
-        {% assign progress_steps = "Daily Tip
-        |Reviews
-        |How To Use
-        |Support
-        |FAQ
-        |Order Info"
-        | split: '|' %}
+        {% assign progress_steps = "Daily Tip|Reviews|How To Use|Support|FAQ|Order Info" | split: '|' %}
+
         {% render 'onboarding-hero', title: "Your order is confirmed!", icon_file: "onboarding-order-icon.png" %}
         {% render 'onboarding-progress-bar', progress_steps: progress_steps %}
         {% render 'onboarding-quiz' %}
@@ -462,13 +464,13 @@
     {% endfor %}
 
     {% if extensions_exist %}
-      jQuery(".breadcrumb li:nth-child(2) .breadcrumb__text").html("Customer");
-      jQuery(".sidebar-extentions").insertAfter(".order-summary__section--total-lines");
+      $(".breadcrumb li:nth-child(2) .breadcrumb__text").html("Customer");
+      $(".sidebar-extentions").insertAfter(".order-summary__section--total-lines");
 
       let isMobile = window.matchMedia("only screen and (max-width: 768px)").matches;
 
       if (isMobile) {
-        jQuery(".reviews").insertAfter("#payment-badges");
+        $(".reviews").insertAfter("#payment-badges");
       }
 
       // Track Discount Code
@@ -510,13 +512,13 @@
 
     {% if is_contact_step %}
       console.log("- step: contact");
-      jQuery("label[for='smsbump-checkout-messages-subscription'] span").html("Get free SMS order status updates");
-      if (jQuery("label[for='smsbump-checkout-messages-subscription']").length) {
-        var replacer = jQuery("label[for='smsbump-checkout-messages-subscription']").html().replace("YES - I want Free SMS order updates on my order, shipping status, and exclusive discounts", "I want free order status updates by SMS, and to be notified when CuraLin is on sale");
-        jQuery("label[for='smsbump-checkout-messages-subscription']").html(replacer);
+      $("label[for='smsbump-checkout-messages-subscription'] span").html("Get free SMS order status updates");
+      if ($("label[for='smsbump-checkout-messages-subscription']").length) {
+        var replacer = $("label[for='smsbump-checkout-messages-subscription']").html().replace("YES - I want Free SMS order updates on my order, shipping status, and exclusive discounts", "I want free order status updates by SMS, and to be notified when CuraLin is on sale");
+        $("label[for='smsbump-checkout-messages-subscription']").html(replacer);
       }
-      jQuery("label[for='checkout_remember_me']").html("Save my details for a faster shopping experience");
-      jQuery("label[for='checkout_buyer_accepts_marketing']").html("Send me emails about my order status, keep me up to date on discounts and educational content.");
+      $("label[for='checkout_remember_me']").html("Save my details for a faster shopping experience");
+      $("label[for='checkout_buyer_accepts_marketing']").html("Send me emails about my order status, keep me up to date on discounts and educational content.");
 
       // Track Begin Checkout
       window.dataLayer = window.dataLayer || [];
@@ -629,6 +631,12 @@
           option: $(this).attr('for') == 'checkout_different_billing_address_true' ? 'Different' : 'Same'
         })
       })
+
+      {% if no_discount_items %}
+        $('.order-summary__section--discount').remove();
+        $('.yotpo-widget-checkout-redemptions-widget').remove();
+      {% endif %}
+
     {% elsif is_processing_step %}
       console.log("- step: processing")
     {% elsif is_thank_you_step %}
@@ -648,8 +656,6 @@
           jQuery("aside.sidebar").addClass("onboarding");
           jQuery(".sidebar").insertBefore(".content-box:first");
         {% endif %}
-
-        console.log("{{ thirty_days_challenge_exist }}");
 
         {% if thirty_days_challenge_exist %}
           jQuery("#thirty-day-challenge-content").insertBefore(".content .wrap");
