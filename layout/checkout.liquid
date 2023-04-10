@@ -544,6 +544,11 @@
       $('a[href*="/account/login"]').click(function () {
         woopra.track('Checkout Login');
       })
+
+      {% if no_discount_items %}
+        $('.order-summary__section--discount').remove();
+        $('.yotpo-widget-checkout-redemptions-widget').remove();
+      {% endif %}
     {% elsif is_shipping_step %}
       console.log("- step: shipping");
       jQuery("#shipping-method").addClass('active');
@@ -571,23 +576,11 @@
 
       woopra.track('Checkout Step - Shipping', {});
 
-      // Track Changing Shipping Method
-      {%- comment -%} function runAfterElementExists(jquery_selector, callback) {
-        var checker = window.setInterval(function () {
-          if ($(jquery_selector).length) {
-            clearInterval(checker);
-            callback();
-          }
-        }, 200);
-      }
+      {% if no_discount_items %}
+        $('.order-summary__section--discount').remove();
+        $('.yotpo-widget-checkout-redemptions-widget').remove();
+      {% endif %}
 
-      runAfterElementExists(".section--shipping-method .content-box__row", function () {
-        console.log("Shipping Method Exists");
-        $('.section--shipping-method .content-box__row .input-radio').on('change', function () {
-          console.log("radio changed");
-          woopra.track('shipping method selection change', { selection: $('.section--shipping-method .content-box__row .input-radio:checked').parent().siblings("label").find(".radio__label__primary").attr("data-shipping-method-label-title") });
-        });
-      }); {%- endcomment -%}
     // End Track Shipping Change
     {% elsif is_payment_step %}
       console.log("- step: payment")
