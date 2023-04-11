@@ -241,6 +241,19 @@
       }
     </script>
 
+    {% unless settings.limit == 'No limit' %}
+      {{ 'jquery.limit.min.js' | asset_url | script_tag }}
+      <script>
+      Shopify.Cart.setProductHandle('{{ product.handle }}');
+      Shopify.Cart.limit( {
+        limitPer: '{{ settings.limit_per }}',
+        limitQuantity: {{ settings.limit_quantity }}{% if settings.limit == 'Enabled for products listed' %},
+        limitProductHandles: jQuery.trim("{{ settings.limit_product_handles }}").split(/[\s,;]+/){% endif %}{% if settings.limit_per == 'cart' and settings.limit_quantity == '1' %},
+        limitSkipCartPage: {% if settings.limit_skip_cart_page %}true{% else %}false{% endif %}{% endif %}
+        } );
+      </script>
+    {% endunless %}
+
     {% comment %} {%- if settings.predictive_search_enabled -%}
       <script src="{{ 'predictive-search.js' | asset_url }}" defer="defer"></script>
     {%- endif -%} {% endcomment %}
