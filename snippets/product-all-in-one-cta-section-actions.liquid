@@ -22,7 +22,27 @@
       </div>
     {% endif %}
 
-    <button class="main-btn" id="buy-button"><span>{% if isRetention %}Start Checkout{% else %}Shop Now{% endif %}</span>{% if ctaTextType %}<span class="save" id="save"></span>{% endif %}</button>
+    {% if product.handle contains 'curalin-bogo' %}
+      {% assign purchased = false %}
+
+      {% for order in customer.orders %}
+        {% for line_item in order.line_items %}
+          {% if line_item.product_id == product.id %}
+            {% assign purchased = true %}
+          {% endif %}
+        {% endfor %}
+      {% endfor %}
+
+      {% if customer.email == 'yotam@curalife.com' %}
+        {% assign purchased = true %}
+      {% endif %}
+    {% endif %}
+
+    {% unless purchased %}
+      <button class="main-btn" id="buy-button"><span>{% if isRetention %}Start Checkout{% else %}Shop Now{% endif %}</span>{% if ctaTextType %}<span class="save" id="save"></span>{% endif %}</button>
+    {% else %}
+      <div style="text-align:center">You cannot buy this deal more than once.</div>
+    {% endunless %}
   </div>
 
   {% if badgesContent %}
