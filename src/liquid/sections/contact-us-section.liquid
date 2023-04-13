@@ -1,35 +1,25 @@
 <section class="contact-us-section" id="contact-us-section">
   {% if box_link %}<a href="{{ box_link }}">{% endif %}
   <div class="container">
-    <h2>{{ title }}</h2>
+    <h2>{{ section.settings.title }}</h2>
 
     <div class="contact-options">
-      <div class="contact-option">
-        <i class="fa-thin fa-comments"></i>
-        <p>Live Chat</p>
-      </div>
-      <div class="contact-option">
-        <i class="fa-thin fa-headset"></i>
-        <p>Phone Support</p>
-      </div>
-      <div class="contact-option">
-        <i class="fa-thin fa-envelope"></i>
-        <p>Email</p>
-      </div>
+      {% assign contacts = section.blocks | where: 'type', 'contact_options' %}
+        {% for block in contacts %}
+          <div class="contact-option">
+            <i class="{{ block.settings.icon_option }}"></i>
+            <p>{{ block.settings.text_option }}</p>
+          </div>
+        {% endfor %}
     </div>
     <div class="phone-numbers">
-      <div class="phone-number">
-        <img src="{{ "icon-flag-uk.png" | asset_url }}" width="32" height="32" alt="" loading="lazy">
-        <a href="tel:+448000869122"><p>UK-Toll-Free: +44 800 086 9122</p></a>
-      </div>
-      <div class="phone-number">
-        <img src="{{ "icon-flag-us.png" | asset_url }}" width="32" height="32" alt="" loading="lazy">
-        <a href="tel:+18882867307"><p>US-Toll-Free: +1 888 286 7307</p></a>
-      </div>
-      <div class="phone-number">
-        <img src="{{ "icon-flag-au.png" | asset_url }}" alt="" loading="lazy">
-        <a href="tel:+611800942961"><p>AU-Toll-Free: +61 1800 942 961</p></a>
-      </div>
+     {% assign phones = section.blocks | where: 'type', 'phone_numbers' %}
+       {% for block in phones %}
+         <div class="phone-number">
+            <img src="{{ "block.settings.flag_img" | img_url: 'medium' }}" width="32" height="32" alt="" loading="lazy">
+            <a href="tel:{{ block.settings.phone_link }}"><p>{{ block.settings.phone_number }}</p></a>
+         </div>
+       {% endfor %}    
     </div>
   </div>
   {% if box_link %}</a>{% endif %}
@@ -56,7 +46,7 @@
 
   .contact-us-section .container .contact-options .contact-option svg {
     border-radius: 50%;
-    background-color: var(--light-green);
+    background-color: {{ section.settings.icon_background }};
     padding: 20px;
     width: 60px;
     height: 60px;
@@ -118,3 +108,77 @@
     });
   });
 </script>
+
+
+
+{% schema %}
+{
+  "name": "Contact Us Section",
+  "tag": "section",
+  "class": "contact-us no-padding",
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  },
+  "settings": [
+    {
+      "type": "text",
+      "id": "title",
+      "label": "Title",
+      "default": "We’re here for you 24/7. <br>Get in touch any time."
+    },
+
+    {
+        "type": "color",
+        "id": "icon_background",
+        "label": "Icon Background Color",
+        "default": "#9eb069"
+    }
+
+  ],
+  "blocks":[
+     {
+        "name":"Contact Options",
+        "type":"contact_options",
+        "settings":[
+           {
+              "type":"text",
+              "id":"icon_option",
+              "label":"Icon Option"
+           },
+           {
+            "type":"text",
+            "id":"text_option",
+            "label":"Text Option"
+           }
+        ]
+     },
+     {
+        "name":"Phone Numbers",
+        "type":"phone_numbers",
+        "settings":[
+           {
+              "type":"image_picker",
+              "id":"flag_img",
+              "label":"Flag Image"
+           },
+           {
+              "type":"text",
+              "id":"phone_link",
+              "label":"Phone Link"
+           },
+           {
+              "type":"text",
+              "id":"phone_number",
+              "label":"Phone Number"
+           }
+        ]
+     }
+  ],
+
+  "presets": [
+    {
+      "name": "Contact Us Section"
+    }
+  ]
+}
+{% endschema %}
