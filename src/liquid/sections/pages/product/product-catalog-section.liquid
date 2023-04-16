@@ -1,28 +1,18 @@
+
 {% if shop.name == "CuraLife" %}
   {% assign promotion_title = "+ Life Changing Bonus" %}
-
-  {% if localization.country.iso_code == 'CA' %}
-    {% assign bundle_addition_value = 17100 %}
-  {% elsif localization.country.iso_code == 'AU' %}
-    {% assign bundle_addition_value = 19000 %}
-  {% else %}
-    {% assign bundle_addition_value = 12800 %}
-  {% endif %}
+    {% if localization.country.iso_code == 'CA' %}
+     {% assign bundle_addition_value = 17100 %}
+    {% elsif localization.country.iso_code == 'AU' %}
+     {% assign bundle_addition_value = 19000 %}
+    {% else %}
+     {% assign bundle_addition_value = 12800 %}
+   {% endif %}
 {% endif %}
 
-{% assign quantity = product.metafields.my_fields.pack_items_quantity %}
-{% assign quantity_by_cents = quantity | times: 100 %}
-{% assign item_price = product.price | times: 100.0 | divided_by: quantity_by_cents %}
-{% if product.tags contains "CuraEats" %}{% assign bundle_addition = bundle_addition_value %}{% else %}{% assign bundle_addition = 0 %}{% endif %}
+   
 
-{% assign original_item_cap_total = original_item_cap | times: quantity %}
-{% assign original_item_cap_total_with_bundle = bundle_addition | times: 100 | plus: original_item_cap_total %}
-{% assign original_item_cap = product.metafields.my_fields.original_item.value.compare_at_price %}
-
-{% assign save_price = original_item_cap | minus: item_price | times: quantity | plus: bundle_addition | money_with_currency | replace: ".00", "" | replace: "GBP", "" | replace: "AUD", "" | replace: "CAD", "" %}
-
-
-<section id="product-catalog-section">
+<section id="product-catalog-section">  
   <div id="collection-titles-section">
     <div class="container titles">
       <h2 id="catalog-anchor" class="main-title">{{ section.settings.title }}</h2>
@@ -34,43 +24,13 @@
     <div class="product-list" id="product-list-section">   
     {% assign Prods = section.settings.products_catalog %}
         {% for prod in Prods %}
+            {% assign product = prod %}
             {% if forloop.index == "2" %}
-            {% assign isRecommended = true %}
+              {% assign isRecommended = true %}
             {% elsif forloop.last %}
-            {% assign isLast = true %}
+              {% assign isLast = true %}
             {% endif %}
-        <a class="product-link {% if prod.tags contains 'PTEST22' %}pricing-test{% else %}{% if prod.tags contains 'curalin' %}{% if prod.tags contains 'original' %}pricing-test-original{% endif %}{% endif %}{% endif %}" href="{% if isLinkToCollection %}/collections?category={{ collection.handle }}{% else %}{{ prod.url }}{% endif %}" {% if prod.tags contains 'PTEST22' %}style="display:none"{% endif %}>
-            <div id="{{ prod.handle }}" class="product-card {% if isRecommended %}recommended{% endif %}" id="product-card-section" data-product-collections="{{ productCollections }}">
-              <img class="product-image" src="{{ prod.featured_image.src | image_url }}" width="512" height="475" alt="" loading="lazy">
-
-              <div class="info">
-                <div class="main">
-                  <div class="product-titles">
-                    <h6 class="m-0">{% if prod.metafields.my_fields.alternative_title.value %}{{ prod.metafields.my_fields.alternative_title.value }}{% else %}{{ prod.title }}{% endif %}</h6>
-                    <p class="subtitle">{{ prod.metafields.my_fields.subtitle }}</p>
-                  </div>
-
-                  {% unless isNoPrices %}
-                    {% if product.metafields.custom.original_item_variant.value %}
-                      {% render 'price-new', prod: product.metafields.custom.original_item_variant.value, productType: "variant", isLastRender: isLastRender %}
-                    {% else %}
-                      {% render 'price-new', prod: product, isLastRender: isLastRender %}
-                    {% endif %}
-
-
-                    {% if product.title contains "Pack" %}
-                      <div class="total-prices" style="font-size:14px;font-weight:bold;">
-                        TOTAL: <strike class="striked" style="font-weight: 400;">{{ original_item_cap | times: quantity | plus: bundle_addition | money_with_currency | replace: ".00", "" | replace: "GBP", "" | replace: "AUD", "" | replace: "CAD", "" }}</strike>
-                        <span class="rounded real">{{ product.price | money_with_currency | replace: ".00", "" | replace: "GBP", "" }}</span>
-                      </div>
-                    {% endif %}
-                  {% endunless %}
-                </div>
-                  <button class="main-btn" title="{{ product.title }}" prod-sku="{{ product.selected_or_first_available_variant.sku }}" prod-id="{{ product.variants.first.id }}" price="{{ product.selected_or_first_available_variant.price | money_without_currency }}" discount="{% if product.compare_at_price > product.price %}{{ product.compare_at_price | minus: product.price | times: 0.01 }}{% else %}0{% endif %}"></i>Shop Now</button>
-                
-              </div>
-            </div>
-            </a>
+            {% render 'product-card', product: product, isRecommended: isRecommended, isLastRender: isLast, isSkipCart: isSkipCart %}
         {% endfor %}
     </div>
   </div>
@@ -80,8 +40,7 @@
     {% for block in badge %}
         <div class="trust-badge"><i class="{{ block.settings.badge_icon }}"></i></i>{{ block.settings.badge_text }}</div>
     {% endfor %}
-  </div>
- 
+  </div>   
 </section>
 
 <style>
@@ -316,116 +275,7 @@
 
 </style>
 
-<style>
-  .product-card {
-    position: relative;
-    max-width: 250px;
-    padding: 10px;
-    display: flex;
-    align-items: center;
-    flex-direction: column;
-    overflow: hidden;
-    border: 1px solid var(--lighter-green);
-  }
 
-  .product-card::before {
-    background-size: contain;
-    position: absolute;
-    top: 30px;
-    right: 10px;
-    width: 68px;
-    height: 68px;
-  }
-
-  .product-card .product-image {
-    min-height: 260px;
-    object-fit: contain;
-  }
-
-  .product-card .promotion-title {
-    font-size: 18px;
-    margin: unset;
-    color: #404733;
-  }
-
-  .product-card .info {
-    width: 100%;
-  }
-
-  .product-card .info .main {
-    text-align: center;
-    {% unless isNoPrices %}min-height: 130px;{% endunless %}
-  }
-
-  .product-card .product-titles {
-    min-height: 70px;
-  }
-
-  .product-card .product-titles p {
-    margin: unset;
-  }
-
-  .product-card .subtitle {
-    font-size: 14px;
-  }
-
-  .product-card button {
-    min-width: -webkit-fill-available;
-    padding: 15px;
-  }
-
-  @media screen and (max-width:768px) {
-    .product-link {
-      margin-bottom: 3vw;
-      width: 49%;
-    }
-
-    .product-card {
-      max-width: unset;
-      width: unset;
-    }
-    .product-grid {
-      gap: 1vw;
-
-    }
-
-    .product-card {
-      padding: 10px;
-      border: 1px solid var(--lighter-green);
-      margin-top: unset;
-    }
-
-    .product-card .product-titles {
-      min-height: 19vw;
-    }
-
-    .product-card .product-titles h6 {
-      font-size: 5vw;
-    }
-
-    .product-card .product-image {
-      min-height: 150px;
-    }
-
-    .product-card .subtitle {
-      font-size: 4vw;
-    }
-
-    .product-card .info .price strike {
-      font-size: 18px;
-    }
-
-    .product-card .info .price .rounded.current-price {
-      font-size: 41px;
-      padding-left: 1vw;
-      padding-right: 1vw;
-    }
-
-    .product-card .info .main-btn {
-      font-size: 4vw;
-    }
-  }
-</style>
 
 <script>
   let urlParams = new URLSearchParams(window.location.search);
@@ -489,14 +339,7 @@
     });
   });
 </script>
-<script>
-  // Buy Button Functionality
-  $(".add-to-cart-btn").click(function() {
-    let checkedPack = $(this).attr("prod-id");
-    let checkoutLink = "https://" + location.hostname + "/cart/" + checkedPack + ":1";
-    window.location.href = checkoutLink;
-  })
-</script>
+
 
 {% schema %}
     {
