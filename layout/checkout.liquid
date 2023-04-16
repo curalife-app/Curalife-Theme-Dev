@@ -375,13 +375,8 @@
 
     {% if onboarding_exist %}
       <div id="onboarding-content">
-        {% assign progress_steps = "Daily Tip
-        |Reviews
-        |How To Use
-        |Support
-        |FAQ
-        |Order Info"
-        | split: '|' %}
+        {% assign progress_steps = "Daily Tip|Reviews|How To Use|Support|FAQ|Order Info" | split: '|' %}
+
         {% render 'onboarding-hero', title: "Your order is confirmed!", icon_file: "onboarding-order-icon.png" %}
         {% render 'onboarding-progress-bar', progress_steps: progress_steps %}
         {% render 'onboarding-quiz' %}
@@ -462,13 +457,13 @@
     {% endfor %}
 
     {% if extensions_exist %}
-      jQuery(".breadcrumb li:nth-child(2) .breadcrumb__text").html("Customer");
-      jQuery(".sidebar-extentions").insertAfter(".order-summary__section--total-lines");
+      $(".breadcrumb li:nth-child(2) .breadcrumb__text").html("Customer");
+      $(".sidebar-extentions").insertAfter(".order-summary__section--total-lines");
 
       let isMobile = window.matchMedia("only screen and (max-width: 768px)").matches;
 
       if (isMobile) {
-        jQuery(".reviews").insertAfter("#payment-badges");
+        $(".reviews").insertAfter("#payment-badges");
       }
 
       // Track Discount Code
@@ -510,13 +505,13 @@
 
     {% if is_contact_step %}
       console.log("- step: contact");
-      jQuery("label[for='smsbump-checkout-messages-subscription'] span").html("Get free SMS order status updates");
-      if (jQuery("label[for='smsbump-checkout-messages-subscription']").length) {
-        var replacer = jQuery("label[for='smsbump-checkout-messages-subscription']").html().replace("YES - I want Free SMS order updates on my order, shipping status, and exclusive discounts", "I want free order status updates by SMS, and to be notified when CuraLin is on sale");
-        jQuery("label[for='smsbump-checkout-messages-subscription']").html(replacer);
+      $("label[for='smsbump-checkout-messages-subscription'] span").html("Get free SMS order status updates");
+      if ($("label[for='smsbump-checkout-messages-subscription']").length) {
+        var replacer = $("label[for='smsbump-checkout-messages-subscription']").html().replace("YES - I want Free SMS order updates on my order, shipping status, and exclusive discounts", "I want free order status updates by SMS, and to be notified when CuraLin is on sale");
+        $("label[for='smsbump-checkout-messages-subscription']").html(replacer);
       }
-      jQuery("label[for='checkout_remember_me']").html("Save my details for a faster shopping experience");
-      jQuery("label[for='checkout_buyer_accepts_marketing']").html("Send me emails about my order status, keep me up to date on discounts and educational content.");
+      $("label[for='checkout_remember_me']").html("Save my details for a faster shopping experience");
+      $("label[for='checkout_buyer_accepts_marketing']").html("Send me emails about my order status, keep me up to date on discounts and educational content.");
 
       // Track Begin Checkout
       window.dataLayer = window.dataLayer || [];
@@ -542,11 +537,19 @@
       $('a[href*="/account/login"]').click(function () {
         woopra.track('Checkout Login');
       })
+
+      // Disable Discount on Curalin 1+1
+      $('.product__description__name').each(function () {
+        if ($(this).text() == 'Curalin 1+1') {
+          $('.order-summary__section--discount').remove();
+          $('.yotpo-widget-checkout-redemptions-widget').remove();
+        }
+      });
     {% elsif is_shipping_step %}
       console.log("- step: shipping");
-      jQuery("#shipping-method").addClass('active');
-      jQuery(".tc").hide();
-      $('#contact-information').html('<a class="new-breadcrumb-link" href="' + jQuery('.breadcrumb__link:contains("Information")').attr("href") + '"></a>');
+      $("#shipping-method").addClass('active');
+      $(".tc").hide();
+      $('#contact-information').html('<a class="new-breadcrumb-link" href="' + $('.breadcrumb__link:contains("Information")').attr("href") + '"></a>');
 
       // Track Shipping Step
       window.dataLayer = window.dataLayer || [];
@@ -569,32 +572,22 @@
 
       woopra.track('Checkout Step - Shipping', {});
 
-      // Track Changing Shipping Method
-      {%- comment -%} function runAfterElementExists(jquery_selector, callback) {
-        var checker = window.setInterval(function () {
-          if ($(jquery_selector).length) {
-            clearInterval(checker);
-            callback();
-          }
-        }, 200);
-      }
-
-      runAfterElementExists(".section--shipping-method .content-box__row", function () {
-        console.log("Shipping Method Exists");
-        $('.section--shipping-method .content-box__row .input-radio').on('change', function () {
-          console.log("radio changed");
-          woopra.track('shipping method selection change', { selection: $('.section--shipping-method .content-box__row .input-radio:checked').parent().siblings("label").find(".radio__label__primary").attr("data-shipping-method-label-title") });
-        });
-      }); {%- endcomment -%}
+      // Disable Discount on Curalin 1+1
+      $('.product__description__name').each(function () {
+        if ($(this).text() == 'Curalin 1+1') {
+          $('.order-summary__section--discount').remove();
+          $('.yotpo-widget-checkout-redemptions-widget').remove();
+        }
+      });
     // End Track Shipping Change
     {% elsif is_payment_step %}
       console.log("- step: payment")
-      jQuery("#shipping-method").addClass('active');
-      jQuery("#payment-method").addClass('active');
-      jQuery(".tc").hide();
-      jQuery(".content-box__row .review-block").last().hide();
-      $('#contact-information').html('<a class="new-breadcrumb-link" href="' + jQuery('.breadcrumb__link:contains("Information")').attr("href") + '"></a>');
-      $('#shipping-method').html('<a class="new-breadcrumb-link" href="' + jQuery('.breadcrumb__link:contains("Shipping")').attr("href") + '"></a>');
+      $("#shipping-method").addClass('active');
+      $("#payment-method").addClass('active');
+      $(".tc").hide();
+      $(".content-box__row .review-block").last().hide();
+      $('#contact-information').html('<a class="new-breadcrumb-link" href="' + $('.breadcrumb__link:contains("Information")').attr("href") + '"></a>');
+      $('#shipping-method').html('<a class="new-breadcrumb-link" href="' + $('.breadcrumb__link:contains("Shipping")').attr("href") + '"></a>');
 
       // Track Payment Step
       window.dataLayer = window.dataLayer || [];
@@ -629,45 +622,51 @@
           option: $(this).attr('for') == 'checkout_different_billing_address_true' ? 'Different' : 'Same'
         })
       })
+
+      // Disable Discount on Curalin 1+1
+      $('.product__description__name').each(function () {
+        if ($(this).text() == 'Curalin 1+1') {
+          $('.order-summary__section--discount').remove();
+          $('.yotpo-widget-checkout-redemptions-widget').remove();
+        }
+      });
     {% elsif is_processing_step %}
       console.log("- step: processing")
     {% elsif is_thank_you_step %}
       console.log("- step: thank you")
 
       $( document ).ready(function() {
-        jQuery("#progressbar").hide();
+        $("#progressbar").hide();
 
         {% if thankYouAdditions %}
-          jQuery(".anyflexbox .content .wrap").css("flex-direction", "column");
-          jQuery(".anyflexbox .content .wrap .main").css("width", "unset");
-          jQuery(".anyflexbox .content .wrap .main").css("padding-right", "unset");
-          jQuery(".anyflexbox .content .wrap .main").css("padding-top", "50px");
-          jQuery(".anyflexbox .content .wrap .main .step .step__sections .section[data-order-update-options]").hide();
-          jQuery(".upper-extentions").hide();
-          jQuery(".sidebar-extentions").hide();
-          jQuery("aside.sidebar").addClass("onboarding");
-          jQuery(".sidebar").insertBefore(".content-box:first");
+          $(".anyflexbox .content .wrap").css("flex-direction", "column");
+          $(".anyflexbox .content .wrap .main").css("width", "unset");
+          $(".anyflexbox .content .wrap .main").css("padding-right", "unset");
+          $(".anyflexbox .content .wrap .main").css("padding-top", "50px");
+          $(".anyflexbox .content .wrap .main .step .step__sections .section[data-order-update-options]").hide();
+          $(".upper-extentions").hide();
+          $(".sidebar-extentions").hide();
+          $("aside.sidebar").addClass("onboarding");
+          $(".sidebar").insertBefore(".content-box:first");
         {% endif %}
 
-        console.log("{{ thirty_days_challenge_exist }}");
-
         {% if thirty_days_challenge_exist %}
-          jQuery("#thirty-day-challenge-content").insertBefore(".content .wrap");
-          //jQuery("#thirty-day-challenge-content").css("display", "block");
+          $("#thirty-day-challenge-content").insertBefore(".content .wrap");
+          //$("#thirty-day-challenge-content").css("display", "block");
         {% endif %}
 
         {% if curaeats_exist %}
-          jQuery("#curaeats-content").insertBefore(".content .wrap");
-          //jQuery("#curaeats-content").css("display", "block !important");
+          $("#curaeats-content").insertBefore(".content .wrap");
+          //$("#curaeats-content").css("display", "block !important");
         {% endif %}
 
         {% if onboarding_exist %}
-          jQuery("#onboarding-content").insertBefore(".content .wrap");
-          //jQuery("#onboarding-content").css("display", "block");
+          $("#onboarding-content").insertBefore(".content .wrap");
+          //$("#onboarding-content").css("display", "block");
         {% endif %}
       });
 
-      jQuery("header").insertBefore(".content .wrap");
+      $("header").insertBefore(".content .wrap");
 
       // Track Purchase
 
