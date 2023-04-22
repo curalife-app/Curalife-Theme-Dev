@@ -1,0 +1,261 @@
+<section id="product-catalog-section">
+  <div class="container">
+    <div class="product-list" id="product-list-section">
+    {% assign Prods = section.settings.products_catalog %}
+        {% for prod in Prods %}
+            {% assign product = prod %}
+            {% if forloop.index == "2" %}
+              {% assign isRecommended = true %}
+            {% elsif forloop.last %}
+              {% assign isLast = true %}
+            {% endif %}
+
+            {% render 'product-card', product: product, isRecommended: isRecommended, isLastRender: isLast, isSkipCart: isSkipCart %}
+        {% endfor %}
+    </div>
+  </div>
+
+  <div id="trust-badges-widget">
+    {% assign badge = section.blocks | where: 'type', 'trust_badges' %}
+    {% for block in badge %}
+      <div class="trust-badge"><i class="{{ block.settings.badge_icon }}"></i></i>{{ block.settings.badge_text }}</div>
+    {% endfor %}
+  </div>
+</section>
+
+<style>
+  #product-catalog-section {
+    padding: unset;
+    display: unset !important;
+  }
+
+  #product-catalog-section .product-list {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      margin: 0 auto;
+      padding: unset;
+  }
+
+  #product-catalog-section  {
+    display: flex;
+  }
+
+  #product-catalog-section .supply-days {
+    font-size: 16px;
+    text-align: center;
+    line-height: 0;
+    font-weight: 200;
+  }
+
+  .main-btn:hover {
+    background: #25291e !important;
+    border-color: #25291e !important;
+  }
+
+  #product-catalog-section .main-btn i {
+    display: block;
+    font-size: 24px;
+    padding-right: 10px;
+  }
+
+
+  @media screen and (max-width:768px) {
+    #product-catalog-section .product-list {
+      gap: 10vw;
+      flex-direction: column;
+    }
+  }
+</style>
+
+<style>
+  #trust-badges-widget {
+    padding: 20px 0;
+    display: flex;
+    justify-content: center;
+    gap: 50px;
+    font-size: 16px;
+    line-height: 1.2rem;
+  }
+
+  #trust-badges-widget .trust-badge {
+    display: flex;
+    text-align: center;
+    align-items: center;
+    text-transform: uppercase;
+    max-width: 33%;
+    color: {{ section.settings.badge_color }};
+    font-size: 14px;
+    line-height: 14px;
+    gap: 10px;
+  }
+
+  #trust-badges-widget .trust-badge svg {
+    font-size: 30px;
+  }
+
+  @media screen and (max-width:768px) {
+    #trust-badges-widget {
+      gap: unset;
+      justify-content: space-around;
+    }
+
+    #trust-badges-widget .container {
+      border-bottom: unset;
+      gap: unset;
+      justify-content: space-between;
+    }
+
+    #trust-badges-widget .trust-badge {
+      font-size: 2vw;
+      flex-direction: column;
+      padding-bottom: unset;
+    }
+
+    #trust-badges-widget .trust-badge i {
+      width: 40px;
+      margin-right: unset;
+    }
+  }
+
+  @media screen and (max-width: 500px) {
+    #trust-badges-widget .trust-badge {
+      font-size: 3vw;
+      line-height: 3vw;
+    }
+  }
+
+</style>
+
+
+
+<script>
+  let urlParams = new URLSearchParams(window.location.search);
+  let linksAddition = urlParams.get('add');
+
+  if (linksAddition) {
+    $('a').each(function () {
+      var currLink = $(this).attr('href');
+      if (currLink) { $(this).attr('href', currLink + linksAddition) };
+    });
+  }
+</script>
+
+<script>
+  $(document).on("click", ".cta-btn", function () {
+    console.log("add to cart event");
+        window.dataLayer  = window.dataLayer || [];
+        window.dataLayer.push({
+          'event': 'eec.addToCart',       // name of an event. In this case, always stays as eec.addToCart
+          'ecommerce': {                  // ecommerce object. This is the essential part of tracking. New EE data must always be pushed to this object
+            'currencyCode': '{{ shop.currency }}',          // the currency which is currently used by a visitor
+            'add': {                        // name of an action. In this case, always stays as add
+            'actionField': {
+            'list': 'main'          // optional. name of a list from which the product was added to a cart
+          },
+          'products': [{              // list of products added to a cart. Can contain multiple products at the same time
+            'name': $(this).attr('prod-title'),      // name of a product that was added to a cart
+            'id': $(this).attr('prod-id'),       // id of a product
+            'price': $(this).attr('prod-price').substring(1),      // price of a product
+            'category': 'Simple',
+            'variant': '',   // category of a product
+            'quantity': 1
+          }]
+        }
+      },
+      'userId': '{{ customer.id }}',
+      'email': '{{ customer.email }}',
+      'country': '{{customer.customer_address.country_code }}',
+      'city': '{{customer.customer_address.city }}',
+      'name': '{{ customer.first_name }}',
+      'surname': '{{ customer.last_name }}',
+      'phone_number': '{{customer.phone }}',
+      'state': '{{customer.customer_address.province }}',       //state or province
+      'zip': '{{customer.customer_address.zip }}'         //ZIP or Postal code
+      });
+  });
+</script>
+
+<script>
+  $( document ).ready(function() {
+    $(".rounded").each(function() {
+      if ($(this).hasClass("floor")) {
+        $(this).text("{{ cart.currency.symbol }}" + Math.floor(Number($(this).text().replace(/[^0-9\.-]+/g,""))));
+      }
+      else {
+        $(this).text("{{ cart.currency.symbol }}" + Math.ceil(Number($(this).text().replace(/[^0-9\.-]+/g,""))));
+      }
+
+      if (!$(this).hasClass("no-letters")) { $(this).text($(this).text() + " {{ currency_letters }}") };
+      $(this).show();
+    });
+  });
+</script>
+
+
+{% schema %}
+    {
+       "name": "Product Catalog",
+       "tag": "section",
+       "class": "product-catalog no-padding",
+       "disabled_on":{
+          "groups":[
+             "header",
+             "footer"
+          ]
+       },
+       "settings": [
+
+          {
+            "type": "number",
+            "id": "curaeats_value",
+            "label": "Curaeats Value",
+            "default": 29
+          },
+          {
+            "type": "number",
+            "id": "challenge_value",
+            "label": "Challenge Value",
+            "default": 99
+          },
+
+          {
+            "type": "color",
+            "id": "badge_color",
+            "label": "Badge Color",
+            "default": "#5c5c5c"
+          },
+          {
+            "type": "product_list",
+            "id": "products_catalog",
+            "label": "Product List"
+
+          }
+       ],
+       "blocks":[
+
+       {
+          "name":"Trust Badges",
+          "type":"trust_badges",
+          "settings":[
+             {
+                "type":"text",
+                "id":"badge_icon",
+                "label":"Badge Icon"
+             },
+             {
+                "type": "text",
+                "id": "badge_text",
+                "label": "Badge Text"
+             }
+          ]
+       }
+
+       ],
+       "presets":[
+          {
+             "name":"Product Catalog"
+          }
+       ]
+    }
+{% endschema %}
