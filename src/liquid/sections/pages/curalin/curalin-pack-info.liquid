@@ -25,10 +25,11 @@
       <div class="content">
         <div id="health-benefits" class="content-item active always-active" data-title="Benefits/Description">
           <div class="health-benefits item-content">
-          {% for benefit in product.metafields.custom.benefits_images.value %}
+            {% assign benefit = section.blocks | where: 'type', 'benefit' %} 
+          {% for block in benefit %}
             <div class="health-benefit">
-              <img src="{{ benefit.src | image_url }}" alt="health benefit" loading="lazy">
-              <p>{{ benefit.alt }}</p>
+              <img src="{{ block.settings.bnf_img | img_url }}" width="54" height="54" alt="health benefit" loading="lazy">
+              <p>{{ block.settings.bnf_desc }}</p>
             </div>
           {% endfor %}
           </div>
@@ -36,20 +37,18 @@
 
         <div id="instructions" class="content-item" data-title="Usage Instructions">
           <div class="instructions item-content">
-            {% for step in product.metafields.custom.instructions.value %}
+            {% assign step = section.blocks | where: 'type', 'step' %} 
+            {% for block in step %}
               <div class="step">
-                <h3>{{ step.title }}</h3>
+                <h3>{{ block.settings.stp_ttl }}</h3>
 
                 <div class="capsules">
-                  {% for item in (1..step.capsules) %}
-                    {% if product.tags contains "gummies" %}
-                      <img class="gummies" src="{{ "onboarding-gummy.png" | asset_url }}" width="20" height="31" alt="Capsule Pill" loading="lazy">
-                    {% else %}
-                      <img class="caps" src="{{ "onboarding-capsule.png" | asset_url }}" width="20" height="31" alt="Capsule Pill" loading="lazy" style="min-width: 35px">
-                    {% endif %}
-                  {% endfor %}
+                    {% assign capsule = section.blocks | where: 'type', 'capsule' %} 
+                        {% for block in capsule %}                  
+                          <img class="caps" src="{{ block.settings.capsule | img_url: 'medium' }}" width="20" height="31" alt="Capsule Pill" loading="lazy" style="min-width: 35px">                
+                        {% endfor %}
                 </div>
-                <p>{{ step.subtitle }} <br> {{ step.text }} <br> {{ step.text_2 }}</p>
+                <p>{{ block.settings.stp_text }}</p>
               </div>
             {% endfor %}
           </div>
@@ -536,6 +535,49 @@
             "label":"Tab Name"
           }
          ]
+      },
+      {
+        "name": "Benefit",
+        "type": "benefit",
+        "settings": [
+         {
+           "type":"image_picker",
+           "id":"bnf_img",
+           "label":"Benefit Image"
+         },
+         {
+           "type":"text",
+           "id":"bnf_desc",
+           "label":"Benefit Description"
+         }
+        ]
+      },
+      {
+        "name": "Step",
+        "type": "step",
+        "settings": [
+            {
+                "type": "text",
+                "id":"stp_ttl",
+                "label": "Step Title"
+            },
+            {
+                "type": "richtext",
+                "id": "stp_text",
+                "label": "Step Text"
+            }
+        ]
+      },
+      {
+        "name": "Capsule",
+        "type": "capsule",
+        "settings": [
+         {
+           "type":"image_picker",
+           "id":"capsule",
+           "label":"Capsule Image"
+         }
+        ]
       }
    ],
    "presets": [
