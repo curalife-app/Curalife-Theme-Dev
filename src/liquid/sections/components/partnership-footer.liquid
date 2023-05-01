@@ -1,15 +1,13 @@
-<footer>
+<section class="footer no-padding">
     <div class="container">
         <div class="menus">
             <div class="column"> 
                 <div class="menu">
                     <h4>Navigation</h4>
-                    <a href="#hero-section"><p><span>></span> Home</p></a> 
-                    <a href="#info-section"><p><span>></span> About Us</p></a>
-                    <a href="#curalin-section"><p><span>></span> Nutraceuticals</p></a>
-                    <a href="#scientific-section"><p><span>></span> Science</p></a>
-                    <a href="#app-section"><p><span>></span> Technology</p></a> 
-                    <a href="#program-cta-section"><p><span>></span> PSP</p></a>
+                    {% assign navigation = section.blocks | where: 'type', 'navigation' %}
+                    {% for block in navigation %}
+                     <a href="{{ block.settings.nav_link }}"><p><span><i class="fa-solid fa-chevron-right"></i></span>&nbsp;{{ block.settings.nav_ttl }}</p></a> 
+                    {% endfor %}
                 </div>
             </div>
             <div class="column">
@@ -21,10 +19,10 @@
                 <div class="menu">
                     <h4>Find us on</h4>
                     <div class="social-links">
-                        <a href="https://www.facebook.com/curalife"><i class="icofont-facebook"></i></a>
-                        <a href="https://www.instagram.com/curalife"><i class="icofont-instagram"></i></a>
-                        <a href="https://www.twitter.com/curalife"><i class="icofont-twitter"></i></a>
-                        <a href="https://www.linkedin.com/company/curalife-ltd"><i class="icofont-linkedin"></i></a>
+                        {% assign soc_lnk = section.blocks | where: 'type', 'soc_lnk' %}
+                        {% for block in soc_lnk %}
+                          <a href="{{ block.settings.soc_link }}"><i class="{{ block.settings.soc_icon }}"></i></a>
+                        {% endfor %}
                     </div>
                 </div>
             </div>
@@ -32,101 +30,100 @@
         <div class="footer-bottom">
             <p class="copyrights">© 2022 CuraLife Global</p>
             <div class="policies">
-                <a class="policy" href="/pages/privacy-policy">Privacy Policy</a>
-                <a class="policy" href="/pages/terms-of-service">Terms of Service</a>
+                {% assign policy = section.blocks | where: 'type', 'policy' %}
+                {% for block in policy %}
+                  <a class="policy" href="{{ block.settings.policy_link }}">{{ block.settings.policy_name }}</a>
+                {% endfor %}
             </div>
         </div>
     </div>
-</footer>
+</section>
 
 <style>
-    footer {
-        background-color: var(--green-dark);
+    .footer {
+        background-color: {{ section.settings.bg_color }};
         padding: 130px 0 0 0;
     }
 
-    footer i {
-        color: var(--orange);
-    }
-
-    footer .menus {
+ 
+    .footer .menus {
         display: flex; 
         justify-content: space-between;
         padding-bottom: 100px;
+        padding-top: 50px;
     }
 
-    footer .menu h4 {
-        color: white;
+    .footer .menu h4 {
+        color: {{ section.settings.text_color }};
         font-size: 30px;
         margin-bottom: 10px;
     }
 
-    footer .menu p span {
-        color: var(--orange);
+    .footer .menu p span {
+        color: {{ section.settings.dec_color }};
         font-weight: 800;
     }
 
-    footer .menu a,
-    footer .menu p {
+    .footer .menu a,
+    .footer .menu p {
         font-family: 'DMSans';
         font-size: 17px;
-        color: #FFFFFF;
+        color: {{ section.settings.text_color }};
         margin-bottom: 10px;
     }
 
-    footer .social-links {
+    .footer .social-links {
         display: flex;
         gap: 20px;
     }
 
-    footer .social-links a {
+    .footer .social-links a {
         font-size: 30px;
+        color: {{ section.settings.dec_color }};
     }
 
-    footer .footer-bottom {
+    .footer .footer-bottom {
         display: flex;
         justify-content: space-between;
         align-items: center;
         gap: 5px;
         padding: 15px 0;
-        border-top: 1px solid rgba(255, 255, 255, 0.25);
+        border-top: 1px solid {{ section.settings.brd_clr }};
     }
 
-    footer .policies {
+    .footer .policies {
         display: flex;
         gap: 15px;
     }
 
-    footer .policy,
-    footer .copyrights {
-        color: white;
+    .footer .policy,
+    .footer .copyrights {   
         font-size: 18px;
         font-family: 'DM Sans';
         font-weight: 400;
-        color: #FFFFFF;
+        color: {{ section.settings.text_color }};
     }
 
     @media screen and (max-width: 768px){
-        footer {
+        .footer {
             padding: 5vw 5vw 0;
         }
 
-        footer .menus {
+        .footer .menus {
             flex-direction: column;
+            padding-top: 7vw;
         }
 
-        footer .policy {
+        .footer .policy {
             font-size: 2vw;
         }
     }
 </style>
 
 
-
 {% schema %}
 {
   "name": "Partnerships Footer",
-  "class": "partnfooter_section no-padding",
   "enabled_on": {
     "groups": ["footer"]
   },
@@ -135,7 +132,7 @@
       "type": "color",
       "id": "bg_color",
       "label": "Background Color",
-      "default": "#000000"
+      "default": "#404733"
     },
     {
       "type": "color",
@@ -144,90 +141,69 @@
       "default": "#ffffff"
     },
     {
-      "type": "image_picker",
-      "id": "logo_img",
-      "label": "Logo image"
+      "type": "color",
+      "id": "dec_color",
+      "label": "Decoration Color",
+      "default": "#ffb22d"
     },
     {
-      "type": "header",
-      "content": "Bottom Menu"
-    },
-    {
-      "type": "text",
-      "id": "bottom_menu_title",
-      "label": "Bottom Menu Title"
-    },
-    {
-      "type": "link_list",
-      "id": "bottom_linklist",
-      "label": "Bottom Menu"
+        "type": "color_background",
+        "id": "brd_clr",
+        "label": "Border Color",
+        "default": "rgba(255, 255, 255, 0.25)"
     }
+  
   ],
   "blocks": [
     {
-      "type": "menu",
-      "name": "Menu",
+      "type": "navigation",
+      "name": "Navigation",
       "settings": [
         {
-          "type": "text",
-          "id": "menu_title",
-          "label": "Heading"
+          "type": "url",
+          "id": "nav_link",
+          "label": "Navigation Link"
         },
         {
-          "type": "link_list",
-          "id": "footer_linklist",
-          "label": "Menu"
+          "type": "text",
+          "id": "nav_ttl",
+          "label": "Navigation Title"
         }
       ]
     },
     {
-      "type": "contact",
-      "name": "Contact Numbers",
+      "type": "soc_lnk",
+      "name": "Social Link",
         "settings": [
-          {
-            "type": "image_picker",
-            "id": "flag_img",
-            "label": "Country Flag Image"
-          },
-          {
-            "type": "text",
-            "id": "phone_title",
-            "label": "Title"
-          },
-          {
-            "type": "text",
-            "id": "phone_number",
-            "label": "Phone Number"
-          }
+         {
+           "type": "url",
+           "id": "soc_link",
+           "label": "Social Link"
+         },
+         {
+           "type": "text",
+           "id": "soc_icon",
+           "label": "Social Icon"
+         }
         ]
       },
       {
-        "type": "social",
-        "name": "Social Media",
+        "type": "policy",
+        "name": "Policy",
         "settings": [
+          
           {
-            "type": "text",
-            "id": "social_icon_class",
-            "label": "Social Icon Class"
-          },
-          {
-            "id": "social_link",
+            "id": "policy_link",
             "type": "url",
-            "label": "Social Icon Link"
+            "label": "Policy Link"
+          },
+          {
+            "type": "text",
+            "id": "policy_name",
+            "label": "Policy name"
           }
         ]
-      },
-      {
-      "type": "payment",
-      "name": "Payment Images",
-      "settings": [
-        {
-          "type": "image_picker",
-          "id": "payment_img",
-          "label": "Select Payment Image"
-        }
-      ]
-    }
+      }    
   ],
   "presets": [
     {
