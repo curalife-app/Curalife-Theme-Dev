@@ -6,13 +6,13 @@
 {% endif %}
 
 <section class="text-image text-image-{{ section_id }} {% unless is_dynamic_height %}min-h-400px{% endunless %} {% if is_remove_padding_top %}pt-0{% endif %} {% if is_remove_padding_bottom %}pb-0{% endif %}">
-  <div class="md:gap-4 container static flex items-center gap-x-16 gap-y-4 {% if is_image_overlap and image_position == 'left' %}justify-end{% else %}justify-between{% endif %}">
+  <div class="md:gap-4 container flex items-center gap-x-16 gap-y-4 {% if is_image_overlap and image_position == 'left' %}justify-end{% else %}justify-between{% endif %}">
     {% if is_image_middle_mobile and title != blank %}
       <div class="mobile-title md:block md:text-center hidden justify-{{ alignment }} md:justify-{{ mobile_alignment }}"><{{ title_tag }}>{{ title }}</{{ title_tag }}></div>
     {% endif %}
 
     {% if main_image %}
-      <div class="image-wrapper {% if image_position == 'right' or image_position == 'left' %}max-w-1/2{% endif %} {% if is_image_bottom %}self-end md:self-auto{% endif %}">
+      <div class="image-wrapper z-[1] {% if image_position == 'right' or image_position == 'left' %}max-w-1/2{% endif %} {% if is_image_bottom %}self-end md:self-auto{% endif %}">
         <img class="{% if is_limit_image_size %}max-h-500px{% endif %} relative z-auto object-contain {% if is_hide_image_on_mobile %}md:hidden{% endif %} {% if main_mobile_image %}desktop{% endif %} {% if is_image_overlap %}md:!min-h-350px{% endif %}" src="{{ main_image | image_url }}" alt="{{ title }}" loading="lazy">
 
         {% if main_mobile_image %}
@@ -22,46 +22,117 @@
     {% endif %}
 
     <div class="content-wrapper md:py-0 md:!w-full {% unless main_image %}m-auto{% endunless %} text-{{ alignment }} md:text-{{ mobile_alignment }} {% if image_position == 'right' or image_position == 'left' %}w-45%{% else %}w-70%{% endif %}">
-      {% if title != blank %}
-        <{{ title_tag }} class="title {% if is_image_middle_mobile %}md:hidden{% endif %} {% if is_remove_padding_top %}md:mt-5{% endif %}">{{ title }}</{{ title_tag }}>
-      {% endif %}
-
-      {% if subtitle != blank %}
-        <p class="subtitle md:text-sm text-lg">{{ subtitle }}</>
-      {% endif %}
-
-      <p>{{ content }}</p>
-
-      {% if link_url_1 != blank %}
-        <div class="links empty:hidden md:justify-{{ alignment }} md:justify-{{ mobile_alignment }}">
-          {% if link_url_1 %}
-            <a href="{{ link_url_1 }}">{{ link_title_1 }} <i class="fa-thin fa-arrow-right"></i></a>
-          {% endif %}
-          {% if link_url_2 %}
-            <a href="{{ link_url_2 }}">{{ link_title_2 }} <i class="fa-thin fa-arrow-right"></i></a>
-          {% endif %}
+        {% if add_numbr %}
+        <div class="number">
+        <div class="add-number">{{ numbr }}</div>
         </div>
       {% endif %}
 
-      {% unless button_link == blank %}
-        <a href="{{ button_link }}" {% if is_button_link_new_window %}target="_blank"{% endif %}>
-          <button class="md:w-full flex justify-center gap-4">
-            {{ button_title }}
-            {% if button_icon %}<i class="{{ button_icon }}"></i>{% endif %}
-          </button>
-        </a>
-      {% endunless %}
+      <div class="content">
+        {% if title != blank %}
+            <{{ title_tag }} class="title {% if is_image_middle_mobile %}md:hidden{% endif %} {% if is_remove_padding_top %}md:mt-5{% endif %}">{{ title }}</{{ title_tag }}>
+          {% endif %}
+
+          {% if subtitle != blank %}
+            <p class="subtitle md:text-sm text-lg">{{ subtitle }}</>
+          {% endif %}
+
+          <p>{{ content }}</p>
+
+          {% if link_url_1 != blank %}
+            <div class="links empty:hidden md:justify-{{ alignment }} md:justify-{{ mobile_alignment }}">
+              {% if link_url_1 %}
+                <a href="{{ link_url_1 }}">{{ link_title_1 }} <i class="fa-thin fa-arrow-right"></i></a>
+              {% endif %}
+              {% if link_url_2 %}
+                <a href="{{ link_url_2 }}">{{ link_title_2 }} <i class="fa-thin fa-arrow-right"></i></a>
+              {% endif %}
+            </div>
+          {% endif %}
+
+          {% unless button_link == blank %}
+            <a href="{{ button_link }}" {% if is_button_link_new_window %}target="_blank"{% endif %}>
+              <button class="md:w-full flex justify-center gap-4">
+                {{ button_title }}
+                {% if button_icon %}<i class="{{ button_icon }}"></i>{% endif %}
+              </button>
+            </a>
+          {% endunless %}
+      </div>
     </div>
 
-    {% comment %} <div class="decorations">
-      {% for decoration in decorations %}
-        <img class="absolute z-10" src="{{ decoration.settings.image.value.src | image_url }}" alt="{{ decoration.settings.image.value.alt }}" loading="lazy" style="top:{{ decoration.settings.top }};bottom:{{ decoration.settings.bottom }};right:{{ decoration.settings.right }};left:{{ decoration.settings.left }};opacity:{{ decoration.settings.opacity }}">
-      {% endfor %}
-    </div> {% endcomment %}
+    {% if decor_img %}
+      <img class="decor-img" src="{{ decor_img | image_url }}" alt="" loading="lazy">
+    {% endif %}
   </div>
 </section>
 
 <style>
+  section.text-image-{{ section_id }} .decor-img {
+    position: absolute;
+    z-index: {% if is_decor_above %}2{% else %}0{% endif %};
+    top:{{ decor_position_top }}%;
+    left:{{ decor_position_left }}%;
+    opacity:{{ decor_opacity }}%;
+  }
+
+  @media screen and (max-width: 768px) {
+    section.text-image-{{ section_id }} .decor-img {
+      top:{{ decor_position_top_mobile }}%;
+      left:{{ decor_position_left_mobile }}%;
+    }
+  }
+
+{% if limit_height != blank %}
+  section.text-image-section,
+  section.text-image-{{ section_id }} {
+    overflow: visible;
+  }
+
+  html {
+    --elheight: {{ limit_height }}px;
+  }
+
+  section.text-image-{{ section_id }} .container {
+    max-height: var(--elheight);
+  }
+
+  section.text-image-{{ section_id }} .image-wrapper {
+    margin-bottom: calc(var(--elheight) * 0.1);
+  }
+
+  @media screen and (max-width: 768px) {
+    section.text-image-section,
+    section.text-image-{{ section_id }} {
+      overflow: hidden;
+    }
+
+    section.text-image-{{ section_id }} .container {
+      max-height: unset !important;
+    }
+
+    section.text-image-{{ section_id }} .image-wrapper {
+      margin-bottom: unset !important;
+    }
+  }
+{% endif %}
+
+  section.text-image-{{ section_id }} .image-content-wrapper {
+    display: flex;
+    justify-content: center;
+    gap:20px;
+
+  }
+
+  section.text-image-{{ section_id }} .add-number {
+    font-size: 150px;
+    font-family: 'PP Radio Grotesk';
+    text-align: start;
+    color: #ABAB74;
+    margin-top: -40px;
+    opacity: 0.5;
+  }
+
   {% if text_color %}
     section.text-image-{{ section_id }} {
       color: {{ text_color }};
@@ -197,6 +268,11 @@
 
     section.text-image .content-wrapper {
       width: 100%;
+    }
+
+    section.text-image .add-number{
+      font-size: 30vw;
+      margin-top: -8vw;
     }
   }
 </style>
