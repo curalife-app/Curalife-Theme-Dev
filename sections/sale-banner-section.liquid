@@ -1,12 +1,32 @@
-{% unless instance_id %}
-  {% assign instance_id = 'origin' %}
-{% endunless %}
+{%- assign page_url = content_for_header | split:'"pageurl":"' | last | split:'"' | first | split: request.host | last | replace:'\/','/' | replace:'%20',' ' | replace:'\u0026','&'  -%}
+{% assign param = blank %}
 
-{% if section.settings.is_fixed %}
+{%- for i in (1..1) -%}
+
+  {%- unless page_url contains "?" -%}{% break %}{%- endunless -%}
+  {%- assign query_string = page_url | split:'?' | last -%}
+  {%- assign qry_parts= query_string | split:'&' -%}
+
+  {%- for part in qry_parts -%}
+    {%- assign key_and_value = part | split:'=' -%}
+    {%- if key_and_value.size > 1 -%}
+      {% if key_and_value[0] == 'sale_handle' %}
+        {% assign param = key_and_value[1] %}
+      {% endif %}
+    {%- endif -%}
+  {%- endfor -%}
+{%- endfor -%}
+
+{% if param == section.settings.sale_handle %}
+  {% unless instance_id %}
+    {% assign instance_id = 'origin' %}
+  {% endunless %}
+
+  {% if section.settings.is_fixed %}
   <div class="pad" style="padding-top: 80px"></div>
-{% endif %}
+  {% endif %}
 
-<div class="sale-banner {{ instance_id }} {% if isHidden == true %}hidden{% endif %}">
+  <div class="sale-banner {{ instance_id }} {% if isHidden == true %}hidden{% endif %}">
   <div class="container">
     <div class="logo-wrapper">
       {% if section.settings.logo_img %}<img class="logo" src="{{ section.settings.logo_img | image_url }}" width="164" height="45" alt="logo">{% endif %}
@@ -34,9 +54,9 @@
       <a class="main-btn" id='main-cta-btn' href="{{ section.settings.cta_btn_link }}">{{ section.settings.cta_btn_title }}</a>
     </div>
   </div>
-</div>
+  </div>
 
-<style>
+  <style>
   .twenty-percent-off {
     display: flex;
   }
@@ -120,9 +140,9 @@
       line-height: 13px;
     }
   }
-</style>
+  </style>
 
-<style>
+  <style>
   .middle-flash-sale {
     padding: 0 20px;
     z-index: 5;
@@ -137,9 +157,9 @@
       width: 60%;
     }
   }
-</style>
+  </style>
 
-<style>
+  <style>
   .sale-banner {
     top: 0;
     {% if section.settings.desktop_content == 'none' %}display: none;{% endif %}
@@ -210,9 +230,9 @@
       display: {% if section.settings.mobile_content contains 'cta-button' %}block{% else %}none{% endif %};
     }
   }
-</style>
+  </style>
 
-<style>
+  <style>
   .sale-banner {
     box-shadow: 0px 4px 4px rgba(0, 0, 0, 0.25);
     transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
@@ -336,7 +356,8 @@
       line-height: 4vw;
     }
   }
-</style>
+  </style>
+{% endif %}
 
 {% schema %}
   {
@@ -369,6 +390,11 @@
         "type": "checkbox",
         "id": "is_fixed",
         "label": "Fixed Banner"
+      },
+      {
+        "type": "text",
+        "id": "sale_handle",
+        "label": "Sale Handle"
       },
       {
         "type": "header",
