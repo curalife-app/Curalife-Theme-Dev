@@ -1,363 +1,352 @@
-{%- assign page_url = content_for_header | split:'"pageurl":"' | last | split:'"' | first | split: request.host | last | replace:'\/','/' | replace:'%20',' ' | replace:'\u0026','&'  -%}
-{% assign param = blank %}
 
-{%- for i in (1..1) -%}
+{% unless instance_id %}
+  {% assign instance_id = 'origin' %}
+{% endunless %}
 
-  {%- unless page_url contains "?" -%}{% break %}{%- endunless -%}
-  {%- assign query_string = page_url | split:'?' | last -%}
-  {%- assign qry_parts= query_string | split:'&' -%}
+{% if section.settings.is_fixed %}
+<div class="pad" style="padding-top: 80px"></div>
+{% endif %}
 
-  {%- for part in qry_parts -%}
-    {%- assign key_and_value = part | split:'=' -%}
-    {%- if key_and_value.size > 1 -%}
-      {% if key_and_value[0] == 'sale-handle' %}
-        {% assign param = key_and_value[1] %}
-      {% endif %}
-    {%- endif -%}
-  {%- endfor -%}
-{%- endfor -%}
+<div class="sale-banner {{ instance_id }} {% if isHidden == true %}hidden{% endif %}" style="display: none">
+<div class="container">
+  <div class="logo-wrapper">
+    {% if section.settings.logo_img %}<img class="logo" src="{{ section.settings.logo_img | image_url }}" width="164" height="45" alt="logo">{% endif %}
+  </div>
 
-{% if param == section.settings.sale_handle %}
-  {% unless instance_id %}
-    {% assign instance_id = 'origin' %}
-  {% endunless %}
-
-  {% if section.settings.is_fixed %}
-  <div class="pad" style="padding-top: 80px"></div>
-  {% endif %}
-
-  <div class="sale-banner {{ instance_id }} {% if isHidden == true %}hidden{% endif %}">
-  <div class="container">
-    <div class="logo-wrapper">
-      {% if section.settings.logo_img %}<img class="logo" src="{{ section.settings.logo_img | image_url }}" width="164" height="45" alt="logo">{% endif %}
-    </div>
-
-    <div class="center-wrapper">
-      {% if section.settings.center_img %}
-        <div class="middle-flash-sale part-60">
-          <div class="flash-sale-desktop desktop"><img src="{{ section.settings.center_img | image_url }}" alt="" loading="lazy"></div>
-          <div class="flash-sale-mobile mobile"><img src="{{ section.settings.center_img_mobile | image_url }}" alt="" loading="lazy"></div>
-        </div>
-      {% else %}
-        <p class="title">{{ section.settings.center_title }}</p>
-      {% endif %}
-    </div>
-
-    <div class="cta-wrapper">
-      <div class="twenty-percent-off">
-        <div class="up-to">UP TO</div>
-        <div class="off"> {{ section.settings.percent_off }}% OFF</div>
-        <div class="twenty">{{ section.settings.percent_off }}</div>
-        <div class="percent-off"><div class="percent">%</div><div class="off-mobile">OFF</div></div>
+  <div class="center-wrapper">
+    {% if section.settings.center_img %}
+      <div class="middle-flash-sale part-60">
+        <div class="flash-sale-desktop desktop"><img src="{{ section.settings.center_img | image_url }}" alt="" loading="lazy"></div>
+        <div class="flash-sale-mobile mobile"><img src="{{ section.settings.center_img_mobile | image_url }}" alt="" loading="lazy"></div>
       </div>
+    {% else %}
+      <p class="title">{{ section.settings.center_title }}</p>
+    {% endif %}
+  </div>
 
-      <a class="main-btn" id='main-cta-btn' href="{{ section.settings.cta_btn_link }}">{{ section.settings.cta_btn_title }}</a>
+  <div class="cta-wrapper">
+    <div class="twenty-percent-off">
+      <div class="up-to">UP TO</div>
+      <div class="off"> {{ section.settings.percent_off }}% OFF</div>
+      <div class="twenty">{{ section.settings.percent_off }}</div>
+      <div class="percent-off"><div class="percent">%</div><div class="off-mobile">OFF</div></div>
     </div>
-  </div>
-  </div>
 
-  <style>
-  .twenty-percent-off {
-    display: flex;
-  }
+    <a class="main-btn" id='main-cta-btn' href="{{ section.settings.cta_btn_link }}">{{ section.settings.cta_btn_title }}</a>
+  </div>
+</div>
+</div>
 
+<style>
+.twenty-percent-off {
+  display: flex;
+}
+
+.up-to {
+  width: 25px;
+  height: 40px;
+  font-family: 'PP Radio Grotesk';
+  font-weight: 400;
+  font-size: 16px;
+  line-height: 20px;
+}
+
+.off {
+  margin-left: 10px;
+  width: 256px;
+  height: 40px;
+  font-family: 'PP Radio Grotesk';
+  font-weight: 400;
+  font-size: 50px;
+  line-height: 20px;
+  display: flex;
+  align-items: center;
+}
+
+.twenty {
+  display: none;
+}
+
+.percent-off {
+  display: none;
+}
+
+@media screen and (max-width: 768px) {
   .up-to {
-    width: 25px;
-    height: 40px;
-    font-family: 'PP Radio Grotesk';
+    margin-top: 10px;
+    width: 20px;
+    height: 15px;
     font-weight: 400;
-    font-size: 16px;
-    line-height: 20px;
+    font-size: 12px;
+    line-height: 12px;
   }
 
   .off {
-    margin-left: 10px;
-    width: 256px;
-    height: 40px;
-    font-family: 'PP Radio Grotesk';
-    font-weight: 400;
-    font-size: 50px;
-    line-height: 20px;
-    display: flex;
-    align-items: center;
+    display: none;
   }
 
   .twenty {
-    display: none;
+    display: flex;
+    width: 64px;
+    height: 47px;
+    font-family: 'PP Radio Grotesk';
+    font-weight: 400;
+    font-size: 47.0432px;
+    line-height: 47px;
   }
 
   .percent-off {
+    display: flex;
+    flex-direction: column;
+    margin-left: -5px;
+  }
+
+  .percent {
+    width: 27px;
+    height: 45px;
+    margin-top: -10px;
+    font-family: 'PP Radio Grotesk';
+    font-weight: 400;
+    font-size: 32px;
+    line-height: 61px;
+    color: #000000;
+  }
+
+  .off-mobile {
+    width: 22px;
+    height: 13px;
+    font-family: 'PP Radio Grotesk';
+    font-weight: 400;
+    font-size: 10.4036px;
+    line-height: 13px;
+  }
+}
+</style>
+
+<style>
+.middle-flash-sale {
+  padding: 0 20px;
+  z-index: 5;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@media screen and (max-width: 768px) {
+  .part-60 {
+    width: 60%;
+  }
+}
+</style>
+
+<style>
+.sale-banner {
+  top: 0;
+  {% if section.settings.desktop_content == 'none' %}display: none;{% endif %}
+}
+
+.sale-banner.{{ instance_id }} {
+  background: {{ section.settings.bg_color }};
+}
+
+.sale-banner.{{ instance_id }} {
+  {% if section.settings.is_fixed %}position: fixed;{% endif %}
+}
+
+.sale-banner.{{ instance_id }} img.logo {
+  display: {% if section.settings.desktop_content contains 'logo' %}block{% else %}none{% endif %};
+}
+
+.sale-banner.{{ instance_id }} p.title {
+  display: {% if section.settings.desktop_content contains 'title' %}block{% else %}none{% endif %};
+  font-size: clamp(38px, 4vw, 50px);
+  padding-bottom: 20px;
+  left: 50%;
+}
+
+.sale-banner.{{ instance_id }} .off-container {
+  display: {% if section.settings.desktop_content contains 'cta' %}flex{% else %}none{% endif %};
+}
+
+.sale-banner.{{ instance_id }} .off-container {
+  display: {% if section.settings.desktop_content contains 'cta' %}flex{% else %}none{% endif %};
+}
+
+{% unless section.settings.desktop_content contains 'cta-button' %}
+  .sale-banner.{{ instance_id }} a.main-btn {
     display: none;
   }
+{% endunless %}
 
-  @media screen and (max-width: 768px) {
-    .up-to {
-      margin-top: 10px;
-      width: 20px;
-      height: 15px;
-      font-weight: 400;
-      font-size: 12px;
-      line-height: 12px;
+@media screen and (max-width: 768px) {
+  {% if section.settings.desktop_content == 'none' %}
+    .sale-banner {
+      display: block;
     }
+  {% endif %}
 
-    .off {
-      display: none;
+  {% if section.settings.mobile_content contains ',' %}
+    .sale-banner.{{ instance_id }} .container {
+      gap: 3vw;
     }
-
-    .twenty {
-      display: flex;
-      width: 64px;
-      height: 47px;
-      font-family: 'PP Radio Grotesk';
-      font-weight: 400;
-      font-size: 47.0432px;
-      line-height: 47px;
-    }
-
-    .percent-off {
-      display: flex;
-      flex-direction: column;
-      margin-left: -5px;
-    }
-
-    .percent {
-      width: 27px;
-      height: 45px;
-      margin-top: -10px;
-      font-family: 'PP Radio Grotesk';
-      font-weight: 400;
-      font-size: 32px;
-      line-height: 61px;
-      color: #000000;
-    }
-
-    .off-mobile {
-      width: 22px;
-      height: 13px;
-      font-family: 'PP Radio Grotesk';
-      font-weight: 400;
-      font-size: 10.4036px;
-      line-height: 13px;
-    }
-  }
-  </style>
-
-  <style>
-  .middle-flash-sale {
-    padding: 0 20px;
-    z-index: 5;
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  @media screen and (max-width: 768px) {
-    .part-60 {
-      width: 60%;
-    }
-  }
-  </style>
-
-  <style>
-  .sale-banner {
-    top: 0;
-    {% if section.settings.desktop_content == 'none' %}display: none;{% endif %}
-  }
-
-  .sale-banner.{{ instance_id }} {
-    background: {{ section.settings.bg_color }};
-  }
-
-  .sale-banner.{{ instance_id }} {
-    {% if section.settings.is_fixed %}position: fixed;{% endif %}
-  }
+  {% endif %}
 
   .sale-banner.{{ instance_id }} img.logo {
-    display: {% if section.settings.desktop_content contains 'logo' %}block{% else %}none{% endif %};
+    display: {% if section.settings.mobile_content contains 'logo' %}block{% else %}none{% endif %};
+    width: 100%;
+    max-width: 100px;
   }
 
   .sale-banner.{{ instance_id }} p.title {
-    display: {% if section.settings.desktop_content contains 'title' %}block{% else %}none{% endif %};
-    font-size: clamp(38px, 4vw, 50px);
-    padding-bottom: 20px;
-    left: 50%;
+    display: {% if section.settings.mobile_content contains 'title' %}block{% else %}none{% endif %};
+    font-size: 9vw;
   }
 
   .sale-banner.{{ instance_id }} .off-container {
-    display: {% if section.settings.desktop_content contains 'cta' %}flex{% else %}none{% endif %};
+      display: {% if section.settings.mobile_content contains 'cta' %}flex{% else %}none{% endif %};
   }
 
-  .sale-banner.{{ instance_id }} .off-container {
-    display: {% if section.settings.desktop_content contains 'cta' %}flex{% else %}none{% endif %};
+  .sale-banner.{{ instance_id }} a.main-btn {
+    display: {% if section.settings.mobile_content contains 'cta-button' %}block{% else %}none{% endif %};
   }
+}
+</style>
 
-  {% unless section.settings.desktop_content contains 'cta-button' %}
-    .sale-banner.{{ instance_id }} a.main-btn {
-      display: none;
-    }
-  {% endunless %}
+<style>
+.sale-banner {
+  box-shadow: 0px 4px 4px rgba(0, 0, 0, 0.25);
+  transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+  overflow: hidden;
+  width: 100%;
+  z-index: 20;
+  min-height: 80px;
+}
 
-  @media screen and (max-width: 768px) {
-    {% if section.settings.desktop_content == 'none' %}
-      .sale-banner {
-        display: block;
-      }
-    {% endif %}
+.sale-banner.hidden {
+  display: none;
+}
 
-    {% if section.settings.mobile_content contains ',' %}
-      .sale-banner.{{ instance_id }} .container {
-        gap: 3vw;
-      }
-    {% endif %}
+.sale-banner .container {
+  position: relative;
+  min-height: 80px;
+  display: flex;
+  justify-content: {% if isOnlyLogo %} center {% else %} space-between {% endif %};
+  align-items: center;
+}
 
-    .sale-banner.{{ instance_id }} img.logo {
-      display: {% if section.settings.mobile_content contains 'logo' %}block{% else %}none{% endif %};
-      width: 100%;
-      max-width: 100px;
-    }
+.sale-banner img.logo {
+  object-fit: contain;
+}
 
-    .sale-banner.{{ instance_id }} p.title {
-      display: {% if section.settings.mobile_content contains 'title' %}block{% else %}none{% endif %};
-      font-size: 9vw;
-    }
+.sale-banner p.title {
+  font-family: 'PP Radio Grotesk';
+  color: #ffffff;
+  padding: 10px 0;
+  margin: unset;
+  text-align: center;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: max-content;
+  line-height: 1.2em;
+}
 
-    .sale-banner.{{ instance_id }} .off-container {
-        display: {% if section.settings.mobile_content contains 'cta' %}flex{% else %}none{% endif %};
-    }
+.sale-banner .cta-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
 
-    .sale-banner.{{ instance_id }} a.main-btn {
-      display: {% if section.settings.mobile_content contains 'cta-button' %}block{% else %}none{% endif %};
-    }
-  }
-  </style>
+.sale-banner .off-container {
+  justify-content: center;
+  align-items: center;
+  font-family:'PP Radio Grotesk';
+  gap: 10px;
+  color: white;
+}
 
-  <style>
+.sale-banner .up-to {
+  font-size: 25px;
+}
+
+.sale-banner .percents-off {
+  margin-right: 10px;
+  font-size: 35px;
+  font-weight: bold;
+  text-shadow: 0px 4px 4px rgba(0, 0, 0, 0.25);
+}
+
+.sale-banner a.main-btn {
+  font-size: 26px;
+  padding: 10px 40px;
+  color: white;
+  background: var(--dark-green);
+  border-radius: 6px;
+  box-shadow: 0px 5px 12px rgba(0, 0, 0, 0.15);
+}
+
+@media screen and (max-width: 768px) {
   .sale-banner {
-    box-shadow: 0px 4px 4px rgba(0, 0, 0, 0.25);
-    transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
-    overflow: hidden;
-    width: 100%;
-    z-index: 20;
-    min-height: 80px;
-  }
-
-  .sale-banner.hidden {
-    display: none;
+    min-height: 60px;
   }
 
   .sale-banner .container {
-    position: relative;
-    min-height: 80px;
-    display: flex;
-    justify-content: {% if isOnlyLogo %} center {% else %} space-between {% endif %};
-    align-items: center;
-  }
-
-  .sale-banner img.logo {
-    object-fit: contain;
+    min-height: 60px;
   }
 
   .sale-banner p.title {
-    font-family: 'PP Radio Grotesk';
-    color: #ffffff;
-    padding: 10px 0;
-    margin: unset;
-    text-align: center;
-    position: absolute;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    width: max-content;
-    line-height: 1.2em;
+    position: unset;
+    transform: unset;
+    padding-bottom: 10px;
   }
 
   .sale-banner .cta-wrapper {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
+    gap: 1vw;
   }
 
   .sale-banner .off-container {
-    justify-content: center;
-    align-items: center;
-    font-family:'PP Radio Grotesk';
-    gap: 10px;
-    color: white;
+    gap: unset;
   }
 
   .sale-banner .up-to {
-    font-size: 25px;
+    font-size: 4vw;
   }
 
   .sale-banner .percents-off {
-    margin-right: 10px;
-    font-size: 35px;
-    font-weight: bold;
-    text-shadow: 0px 4px 4px rgba(0, 0, 0, 0.25);
+    display:flex;
+    justify-content: center;
+    margin-right: unset;
+    font-size: 6vw;
+    line-height: 6vw;
   }
 
   .sale-banner a.main-btn {
-    font-size: 26px;
-    padding: 10px 40px;
-    color: white;
-    background: var(--dark-green);
-    border-radius: 6px;
-    box-shadow: 0px 5px 12px rgba(0, 0, 0, 0.15);
+    text-align:center;
+    font-size: 4vw;
+    padding: 3vw;
   }
+}
 
-  @media screen and (max-width: 768px) {
-    .sale-banner {
-      min-height: 60px;
-    }
-
-    .sale-banner .container {
-      min-height: 60px;
-    }
-
-    .sale-banner p.title {
-      position: unset;
-      transform: unset;
-      padding-bottom: 10px;
-    }
-
-    .sale-banner .cta-wrapper {
-      gap: 1vw;
-    }
-
-    .sale-banner .off-container {
-      gap: unset;
-    }
-
-    .sale-banner .up-to {
-      font-size: 4vw;
-    }
-
-    .sale-banner .percents-off {
-      display:flex;
-      justify-content: center;
-      margin-right: unset;
-      font-size: 6vw;
-      line-height: 6vw;
-    }
-
-    .sale-banner a.main-btn {
-      text-align:center;
-      font-size: 4vw;
-      padding: 3vw;
-    }
+@media screen and (max-width: 425px) {
+  .up-to {
+    margin-top: 3vw;
+    width: 8vw;
+    font-size: 4vw;
+    line-height: 4vw;
   }
+}
+</style>
 
-  @media screen and (max-width: 425px) {
-    .up-to {
-      margin-top: 3vw;
-      width: 8vw;
-      font-size: 4vw;
-      line-height: 4vw;
-    }
+<script>
+  let urlParams = new URLSearchParams(window.location.search);
+  let linksAddition = urlParams.get('sale-handle');
+
+  if (linksAddition == '{{ section.settings.sale_handle }}') {
+    $('.sale-banner.{{ instance_id }}').show();
   }
-  </style>
-{% endif %}
+</script>
 
 {% schema %}
   {
