@@ -1,20 +1,42 @@
-{% unless instance_id %}
-  {% assign instance_id = 'origin' %}
-{% endunless %}
+{%- assign page_url = content_for_header | split:'"pageurl":"' | last | split:'"' | first | split: request.host | last | replace:'\/','/' | replace:'%20',' ' | replace:'\u0026','&'  -%}
+{% assign param = blank %}
 
-<div class="pad" style="padding-top: 80px"></div>
+{%- for i in (1..1) -%}
 
-<div class="sale-banner {{ instance_id }} {% if isHidden == true %}hidden{% endif %}">
+  {%- unless page_url contains "?" -%}{% break %}{%- endunless -%}
+  {%- assign query_string = page_url | split:'?' | last -%}
+  {%- assign qry_parts= query_string | split:'&' -%}
+
+  {%- for part in qry_parts -%}
+    {%- assign key_and_value = part | split:'=' -%}
+    {%- if key_and_value.size > 1 -%}
+      {% if key_and_value[0] == 'sale_handle' %}
+        {% assign param = key_and_value[1] %}
+      {% endif %}
+    {%- endif -%}
+  {%- endfor -%}
+{%- endfor -%}
+
+{% if param == section.settings.sale_handle %}
+  {% unless instance_id %}
+    {% assign instance_id = 'origin' %}
+  {% endunless %}
+
+  {% if section.settings.is_fixed %}
+  <div class="pad" style="padding-top: 80px"></div>
+  {% endif %}
+
+  <div class="sale-banner {{ instance_id }} {% if isHidden == true %}hidden{% endif %}">
   <div class="container">
     <div class="logo-wrapper">
-      {% if section.settings.logo_img %}<img class="logo" src="{{ section.settings.logo_img | asset_url }}" width="164" height="45" alt="logo">{% endif %}
+      {% if section.settings.logo_img %}<img class="logo" src="{{ section.settings.logo_img | image_url }}" width="164" height="45" alt="logo">{% endif %}
     </div>
 
     <div class="center-wrapper">
       {% if section.settings.center_img %}
         <div class="middle-flash-sale part-60">
-          <div class="flash-sale-desktop desktop"><img src="{{ section.settings.logo_img | asset_url }}" alt="" loading="lazy"></div>
-          <div class="flash-sale-mobile mobile"><img src="{{ section.settings.logo_img_mobile | asset_url }}" alt="" loading="lazy"></div>
+          <div class="flash-sale-desktop desktop"><img src="{{ section.settings.center_img | image_url }}" alt="" loading="lazy"></div>
+          <div class="flash-sale-mobile mobile"><img src="{{ section.settings.center_img_mobile | image_url }}" alt="" loading="lazy"></div>
         </div>
       {% else %}
         <p class="title">{{ section.settings.center_title }}</p>
@@ -22,35 +44,19 @@
     </div>
 
     <div class="cta-wrapper">
-      {% if section.settings.cta_title == "20" %}
-        <div class="off-container">
-          <div class="up-to">UP TO</div>
-          <div class="percents-off">20% OFF</div>
-        </div>
-        {% elsif section.settings.cta_title == "flash" %}
-          <div class="twenty-percent-off">
-              <div class="up-to">
-                  UP TO
-              </div>
-              <div class="off"> 20% OFF</div>
-              <div class="twenty">20</div>
-              <div class="percent-off">
-                  <div class="percent">%</div>
-                  <div class="off-mobile">OFF</div>
-              </div>
-          </div>
-      {% else %}
-        <div class="off-container">
-          <div class="percents-off">{{ section.settings.cta_title }}</div>
-        </div>
-      {% endif %}
+      <div class="twenty-percent-off">
+        <div class="up-to">UP TO</div>
+        <div class="off"> {{ section.settings.percent_off }}% OFF</div>
+        <div class="twenty">{{ section.settings.percent_off }}</div>
+        <div class="percent-off"><div class="percent">%</div><div class="off-mobile">OFF</div></div>
+      </div>
 
       <a class="main-btn" id='main-cta-btn' href="{{ section.settings.cta_btn_link }}">{{ section.settings.cta_btn_title }}</a>
     </div>
   </div>
-</div>
+  </div>
 
-<style>
+  <style>
   .twenty-percent-off {
     display: flex;
   }
@@ -134,9 +140,9 @@
       line-height: 13px;
     }
   }
-</style>
+  </style>
 
-<style>
+  <style>
   .middle-flash-sale {
     padding: 0 20px;
     z-index: 5;
@@ -146,29 +152,17 @@
     justify-content: center;
   }
 
-  .flash-sale-mobile {
-    display: none;
-  }
-
   @media screen and (max-width: 768px) {
-      .flash-sale-desktop {
-        display: none;
-    }
-
-    .flash-sale-mobile {
-      display: block;
-    }
-
     .part-60 {
       width: 60%;
     }
   }
-</style>
+  </style>
 
-<style>
+  <style>
   .sale-banner {
     top: 0;
-    {% if desktopContent == 'none' %}display: none;{% endif %}
+    {% if section.settings.desktop_content == 'none' %}display: none;{% endif %}
   }
 
   .sale-banner.{{ instance_id }} {
@@ -180,11 +174,11 @@
   }
 
   .sale-banner.{{ instance_id }} img.logo {
-    display: {% if desktopContent contains 'logo' %}block{% else %}none{% endif %};
+    display: {% if section.settings.desktop_content contains 'logo' %}block{% else %}none{% endif %};
   }
 
   .sale-banner.{{ instance_id }} p.title {
-    display: {% if desktopContent contains 'title' %}block{% else %}none{% endif %};
+    display: {% if section.settings.desktop_content contains 'title' %}block{% else %}none{% endif %};
     font-size: clamp(38px, 4vw, 50px);
     padding-bottom: 20px;
     left: 50%;
@@ -225,8 +219,7 @@
 
     .sale-banner.{{ instance_id }} p.title {
       display: {% if section.settings.mobile_content contains 'title' %}block{% else %}none{% endif %};
-      font-size: {% if isLogo %}7{% else %}9{% endif %}vw;
-      {% if isLogo %}max-width: 50%;{% endif %}
+      font-size: 9vw;
     }
 
     .sale-banner.{{ instance_id }} .off-container {
@@ -237,9 +230,9 @@
       display: {% if section.settings.mobile_content contains 'cta-button' %}block{% else %}none{% endif %};
     }
   }
-</style>
+  </style>
 
-<style>
+  <style>
   .sale-banner {
     box-shadow: 0px 4px 4px rgba(0, 0, 0, 0.25);
     transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
@@ -290,16 +283,16 @@
     align-items: center;
     font-family:'PP Radio Grotesk';
     gap: 10px;
-    color: {% unless isFlash %} white {% endunless %};
+    color: white;
   }
 
   .sale-banner .up-to {
-    font-size: {% unless isFlash %} 25px{% endunless %};
+    font-size: 25px;
   }
 
   .sale-banner .percents-off {
     margin-right: 10px;
-    font-size: {% if isFlash %}clamp(20px, 2vw, 35px) {% else %} 35px {% endif %};
+    font-size: 35px;
     font-weight: bold;
     text-shadow: 0px 4px 4px rgba(0, 0, 0, 0.25);
   }
@@ -363,68 +356,88 @@
       line-height: 4vw;
     }
   }
-</style>
+  </style>
+{% endif %}
 
 {% schema %}
   {
-      "name": "Sale Banner",
-      "disabled_on": {
-          "groups": [
-              "header",
-              "footer"
-          ]
+    "name": "Sale Banner",
+    "disabled_on": {
+        "groups": [
+            "header",
+            "footer"
+        ]
+    },
+    "settings": [
+      {
+        "type": "color",
+        "id": "bg_color",
+        "label": "Background color"
       },
-      "settings": [
-        {
-          "type": "color",
-          "id": "bg_color",
-          "label": "Background color"
-        },
-        {
-          "type": "text",
-          "id": "desktop_content",
-          "label": "Desktop content",
-          "default": "logo,center,cta"
-        },
-        {
-          "type": "text",
-          "id": "mobile_content",
-          "label": "Mobile content",
-          "default": "logo,center,cta"
-        },
-        {
-          "type": "header",
-          "content": "Logo"
-        },
-        {
-          "type": "image_picker",
-          "id": "logo_img",
-          "label": "Logo Image"
-        },
-        {
-          "type": "header",
-          "content": "Center"
-        },
-        {
-          "type": "image_picker",
-          "id": "center_img",
-          "label": "Center Image"
-        },
-        {
-          "type": "text",
-          "id": "center_title",
-          "label": "Center Title"
-        },
-        {
-          "type": "header",
-          "content": "Right"
-        },
-        {
-
-        }
-      ],
-      "presets": [{
-          "name": "Sale Banner"
-      }]
+      {
+        "type": "text",
+        "id": "desktop_content",
+        "label": "Desktop content",
+        "default": "logo,center,cta"
+      },
+      {
+        "type": "text",
+        "id": "mobile_content",
+        "label": "Mobile content",
+        "default": "logo,center,cta"
+      },
+      {
+        "type": "checkbox",
+        "id": "is_fixed",
+        "label": "Fixed Banner"
+      },
+      {
+        "type": "text",
+        "id": "sale_handle",
+        "label": "Sale Handle"
+      },
+      {
+        "type": "header",
+        "content": "Logo"
+      },
+      {
+        "type": "image_picker",
+        "id": "logo_img",
+        "label": "Logo Image"
+      },
+      {
+        "type": "header",
+        "content": "Center"
+      },
+      {
+        "type": "image_picker",
+        "id": "center_img",
+        "label": "Center Image"
+      },
+      {
+        "type": "image_picker",
+        "id": "center_img_mobile",
+        "label": "Center Image Mobile"
+      },
+      {
+        "type": "text",
+        "id": "center_title",
+        "label": "Center Title"
+      },
+      {
+        "type": "header",
+        "content": "Right"
+      },
+      {
+        "type": "number",
+        "id": "percent_off",
+        "label": "Percent Off"
+      }
+    ],
+    "presets": [
+      {
+        "name": "Sale Banner"
+      }
+    ]
   }
   {% endschema %}
