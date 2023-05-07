@@ -418,11 +418,18 @@
         <nav class="header__inline-menu">
           <ul class="list-menu list-menu--inline" role="list">
             {%- for link in section.settings.menu.links -%}
-              {% if forloop.first and shop.name == 'CuraLife deletethis when ready' %}
+              {% if forloop.first and shop.name == 'CuraLife' %}
                 <li>
-                {% assign linkTitle = link.title %}
-                {% assign collections_handles = "glucose-support,sleep,joint-care,immune-care,multivitamins,bundles" | split: "," %}
-                {% render 'header-collections-menu' linkTitle: linkTitle, collectionsHandles: collections_handles %}
+                {% assign collectionsHandles = '' %}
+                {% for collection in section.settings.collections_menu %}
+                  {% if forloop.last %}
+                    {% assign collectionsHandles = collectionsHandles | append: collection.handle %}
+                  {% else %}
+                    {% assign collectionsHandles = collectionsHandles | append: collection.handle | append: ',' %}
+                  {% endif %}
+                {% endfor %}
+
+                {% render 'header-collections-menu', collectionsHandles: collectionsHandles %}
                 </li>
               {% else %}
                 <li>
@@ -894,6 +901,11 @@
   "name": "Header",
   "class": "section-header",
   "settings": [
+    {
+      "type": "collection_list",
+      "id": "collections_menu",
+      "label": "Collections for Menu"
+    },
     {
       "type": "select",
       "id": "logo_position",
