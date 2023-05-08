@@ -1,17 +1,18 @@
 <section id="hero-section">
   <div class="container">
-    {% if isLogo %}
-      <img class="logo" src="{{ "logo-new.svg" | asset_url }}" width='264'  height="61" alt="logo">
+    {% if section.settings.logo != blank %}
+      <img class="logo" src="{{ section.settings.logo | img_url  }}" width='264'  height="61" alt="logo">
     {% endif %}
 
-    <h1>Natural & Effective Blood Sugar Support</h1>
+    <h1>{{ section.settings.ttl_txt }}</h1>
     <div class="brand-welcome-text">
-      <h2 class="v3">So you can
-        <span class="title-text">eat well</span>
-        <span class="title-text" style="display: none;">sleep well</span>
-        <span class="title-text" style="display: none;">feel energetic</span>
-        <span class="title-text" style="display: none;">stay romantic</span>
-        <span class="title-text" style="display: none;">stay healthy</span>
+      <h2 class="v3">{{ section.settings.sub_txt }}
+        {% assign sub_txt = section.blocks | where: 'type', 'text_block' %}
+        {% for block in sub_txt %}
+           <span class="title-text" {% unless forloop.first %}
+           style="display: none;"
+           {% endunless %} >{{ block.settings.spn_txt }}</span>  
+        {% endfor %}        
       </h2>
     </div>
     <div class="brand-intro-cover">
@@ -35,7 +36,7 @@
 
 <style>
   #hero-section {
-    padding-top: {% if isFlash %}100px{% else %} 50px{% endif %};
+    padding-top: {% if section.settings.is_flash %}100px{% else %} 50px{% endif %};
   }
 
   #hero-section:before {
@@ -46,7 +47,7 @@
     height: 120%;
     left: -20vw;
     z-index: -5;
-    background: #e8e8e8;
+    background: {{ section.settings.bg_color }};
   }
 
   #hero-section img.logo {
@@ -97,10 +98,10 @@
   }
 
   #hero-section .brand-welcome-text * {
-    color: white;
+    color: {{ section.settings.wlcm_txt }};
     line-height: 1.2;
     font-size: clamp(6vw, 4vw, 80px);
-    background: var(--green);
+    background: {{ section.settings.wlcm_bg }};
     width: max-content;
   }
 
@@ -147,7 +148,7 @@
 
       #hero-section .brand-welcome-text * {
         font-size: 8vw;
-        color: var(--dark-green);
+        color: {{ section.settings.wlc_mbtxt }};
         background: unset;
       }
 
@@ -186,9 +187,9 @@
       }
 
       #hero-section {
-        min-height:{% if isFlash %} 150vw {% else %} 135vw{% endif %};
+        min-height:{% if section.settings.is_flash %} 150vw {% else %} 135vw{% endif %};
         overflow: visible;
-        padding-top: {% if isFlash %}100px {% else %}5vw{% endif %};
+        padding-top: {% if section.settings.is_flash %}100px {% else %}5vw{% endif %};
       }
     }
   }
@@ -252,3 +253,105 @@
     });
   }
 </script>
+
+
+
+{% schema %}
+{
+   "name":"Aio Hero",
+   "disabled_on":{
+      "groups":[
+         "header",
+         "footer"
+      ]
+   },
+   "settings":[
+       {
+           "type":"image_picker",
+           "id":"logo",
+           "label":"Logo"
+        },
+      {
+         "type":"color",
+         "id":"bg_color",
+         "label":"Background Color",
+         "default": "#e8e8e8"
+      },
+      {
+        "type": "color",
+        "id": "wlcm_bg",
+        "label": "Welcome Background",
+        "default": "#404733"
+      },
+      {
+        "type": "color",
+        "id": "wlcm_txt",
+        "label": "Welcome Text",
+        "default": "#fff"
+      },
+      {
+        "type": "color",
+        "id": "wlc_mbtxt",
+        "label": "Welcome Mobile Text",
+        "default": "#404733"
+      },
+      {
+        "type": "checkbox",
+        "id": "is_flash",
+        "label": "Flash Header"       
+      },
+      {
+        "type": "text",
+        "id": "ttl_txt",
+        "label": "Title",
+        "default": "Natural & Effective Blood Sugar Support"
+      },
+      {
+        "type": "text",
+        "id": "sub_txt",
+        "label": "Welcome Subtitle",
+        "default": "So you can"
+      }
+   ],
+   "blocks": [
+      {
+         "name": "Text Block",
+         "type": "text_block",
+         "settings": [
+          {
+            "type":"text",
+            "id":"spn_txt",
+            "label":"Span Text"
+          }
+         ]
+      },
+      {
+         "name": "Image Block",
+         "type": "img_block",
+         "settings": [
+          {
+            "type":"image_picker",
+            "id":"img_dsk",
+            "label":"Desktop Image"
+          }
+         ]
+      },
+      {
+         "name": "Image Mobile Block",
+         "type": "mbimg_block",
+         "settings": [
+          {
+            "type":"image_picker",
+            "id":"img_mb",
+            "label":"Mobile Image"
+          }          
+         ]
+      }
+   ],
+   "presets": [
+      {
+         "name":"Aio Hero"
+      }
+   ]
+}
+{% endschema %}
