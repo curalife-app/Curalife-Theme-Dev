@@ -1,0 +1,307 @@
+{% assign disorders_amount = 0 %}
+
+<section class="disorders-box-section">
+  <h2>{{ section.settings.title }}</h2>
+  <div class="container">
+    <div class="tabbed-content tabs-side shadow-2xl">
+      <nav class="tabs">
+        <ul>
+          {% for disorder in collection.metafields.custom.disorders.value %}
+            <li><a href="#item-{{ forloop.index }}" {% if forloop.first %}class="active"{% endif %}>{{ disorder.name }} <i>></i></a></li>
+          {% endfor %}
+        </ul>
+      </nav>
+
+      <div class="content">
+        {% for disorder in collection.metafields.custom.disorders.value %}
+          {% assign disorders_amount = disorders_amount | plus: 1 %}
+          <div id="item-{{ forloop.index }}" class="item {% if forloop.first %}active always-active{% endif %}" data-title="{{ disorder.name }}">
+            <div class="item-content flex">
+              <div class="content-column disorder-info">
+                <img src="{{ disorder.image.value.src | img_url: 'original' }}" alt="{{ disorder.name }}">
+                <p>{{ disorder.description  }}</p>
+              </div>
+
+              <div class="arrow">></div>
+
+              <div class="content-column ingredient-info">
+                <p>How we tackle it</p>
+                {% if disorder.ingredient.value %}
+                  <h6>{{ disorder.ingredient.value.name }}</h6>
+                  <img src="{{ disorder.ingredient.value.image.value.src | image_url }}" alt="{{ disorder.ingredient.name }}">
+                  <p class="font-bold">{{ disorder.ingredient.value.description }}</p>
+                {% else %}
+                  <img src="{{ disorder.solution_image.value.src | image_url }}" alt="{{ disorder.name }}">
+                  <p class="font-bold">{{ disorder.solution_description }}</p>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .disorders-box-section {
+    padding: 50px 0 70px;
+  }
+
+  .disorders-box-section .tabbed-content {
+    display: flex;
+    align-items: center;
+    border-radius: 20px;
+    overflow: hidden;
+  }
+
+  .disorders-box-section .tabbed-content .tabs {
+    box-shadow: 0 25px 54px -35px rgb(0 0 0 / .25);
+  }
+
+  .disorders-box-section .tabs ul li {
+    text-align: center;
+    height: calc(550px / {% if disorders_amount > 0 %}{{ disorders_amount }}{% else %}5{% endif %});
+    border-bottom: 1px solid #d2d2d2;
+  }
+
+  .disorders-box-section .tabs ul li a {
+    height: 100%;
+    align-items: center;
+    display: flex;
+    justify-content: center;
+    transition: all 0.2s;
+  }
+
+  .disorders-box-section .tabs ul li a i {
+    position: relative;
+    transition: all 0.5s ease-in-out;
+    font-style: normal;
+    left: 20px;
+  }
+
+  .disorders-box-section .tabs ul li a:hover,
+  .disorders-box-section .tabs ul li a.active {
+    background-color: #f9f9f9;
+    color: {{ collection.metafields.custom.color }};
+    font-weight: bold;
+  }
+
+  .disorders-box-section .item {
+    position: relative;
+  }
+
+  .disorders-box-section .item::before {
+    content: attr(data-title);
+    border-top: 1px solid var(--light-green);
+    cursor: pointer;
+    font-weight: bold;
+    padding: 0.5em;
+    display: block;
+    text-align: center;
+  }
+
+  .disorders-box-section .item.active .item-content {
+    transition: opacity 0.8s ease-in-out;
+  }
+
+  .disorders-box-section .arrow {
+    width: 50px;
+    height: 50px;
+    font-size: 40px;
+    border-radius: 50%;
+    position: absolute;
+    left: calc(50% - 25px);
+    top: calc(50% - 25px);
+    z-index: 10;
+    background: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .disorders-box-section .item-content .content-column {
+    width: 50%;
+    text-align: center;
+    padding: 20px;
+    height: 550px;
+  }
+
+  .disorders-box-section .item-content .content-column.disorder-info img {
+    height: 300px;
+    margin-bottom: 20px;
+    object-fit: contain;
+    object-position: bottom;
+  }
+
+  .disorders-box-section .item-content .content-column.ingredient-info {
+    background-color: {{ collection.metafields.custom.collection_bg_color }};
+    box-shadow: inset 12px 1px 20px 0px rgb(0 0 0 / .02);
+  }
+
+  .disorders-box-section .item-content .content-column.ingredient-info img {
+    height: 250px;
+    object-fit: contain;
+    object-position: bottom;
+  }
+
+  .disorders-box-section .tabbed-content .tabs {
+    display: none;
+  }
+
+  .disorders-box-section .tabbed-content .item {
+    min-height: 2em;
+  }
+
+  .disorders-box-section .tabbed-content .item .item-content {
+    opacity: 0;
+    visibility: hidden;
+    height: 0;
+  }
+
+  .disorders-box-section .tabbed-content .item.active .item-content {
+    opacity: 1;
+    visibility: visible;
+    height: auto;
+  }
+
+  @media all and (min-width: 800px) {
+    .disorders-box-section .item.active .item-content {
+      padding-top: 0;
+    }
+
+    .disorders-box-section .tabbed-content .tabs {
+      display: block;
+    }
+
+    .disorders-box-section .tabbed-content .tabs li {
+      display: inline-block;
+    }
+
+    .disorders-box-section .tabbed-content .tabs li:last-child {
+      border-bottom: unset;
+    }
+
+    .disorders-box-section .tabbed-content .tabs li a {
+      display: flex;
+    }
+
+    .disorders-box-section .tabbed-content .item {
+      min-height: 0;
+    }
+
+    .disorders-box-section .tabbed-content .item::before {
+      display: none;
+    }
+
+    .disorders-box-section .tabbed-content.tabs-side .tabs {
+      min-width: 300px;
+    }
+
+    .disorders-box-section .tabbed-content.tabs-side .tabs li {
+      display: block;
+    }
+  }
+
+  @media all and (max-width: 768px) {
+    .disorders-box-section .tabbed-content {
+      display: block;
+      margin-left: unset !important;
+    }
+
+    .disorders-box-section .item::after {
+      content: "+";
+      font-size: 30px;
+      position: absolute;
+      top: 5px;
+      right: 2vw;
+      border: 2px solid var(--light-green);
+      border-radius: 50%;
+      width: 5vw;
+      height: 5vw;
+      font-size: 5vw;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--light-green);
+    }
+
+    .disorders-box-section .item.active::after {
+      content: "-";
+    }
+
+    .disorders-box-section .tabbed-content .item.active .item-content {
+      flex-direction: column;
+    }
+
+    .disorders-box-section .item-content .content-column {
+      height: unset;
+    }
+
+    .disorders-box-section .arrow {
+      display: none;
+    }
+
+    .disorders-box-section .tabbed-content .item.active .item-content .content-column {
+      width: 100%
+    }
+  }
+
+  @media screen and (max-width: 500px) {
+    .disorders-box-section .item::after {
+      top: 4vw;
+    }
+  }
+</style>
+
+<script>
+  tabControl();
+
+  var resizeTimer;
+  $(window).on('resize', function(e) {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function() {
+      tabControl();
+    }, 250);
+  });
+
+  function tabControl() {
+    var tabs = $('.disorders-box-section .tabbed-content').find('.tabs');
+    if(tabs.is(':visible')) {
+      tabs.find('a').on('click', function(event) {
+        event.preventDefault();
+        var target = $(this).attr('href'),
+            tabs = $(this).parents('.tabs'),
+            buttons = tabs.find('a'),
+            item = tabs.parents('.disorders-box-section .tabbed-content').find('.item');
+        buttons.removeClass('active');
+        item.removeClass('active');
+        $(this).addClass('active');
+        $(target).addClass('active');
+      });
+    } else {
+      $('.item').on('click', function() {
+        var container = $(this).parents('.tabbed-content'),
+            currId = $(this).attr('id'),
+            items = container.find('.item');
+        container.find('.tabs a').removeClass('active');
+        items.removeClass('active');
+        $(this).addClass('active');
+        container.find('.tabs a[href$="#'+ currId +'"]').addClass('active');
+      });
+    }
+  }
+</script>
+
+{% schema %}
+  {
+    "name": "Disorders Box",
+    "class": "disorers-box-section",
+    "settings": [],
+    "presets": [
+      {
+        "name": "Disorders Box"
+      }
+    ]
+  }
+{% endschema %}
