@@ -1,20 +1,17 @@
-{% if product.images.size > 0 %}
   <div class="product-thumbnails">
     <div class="product-slider">
       <div class="sliders-group">
         <div class="main-slider">
           <div id="product-main-slider-sc" class="swiper">
             <div class="swiper-wrapper">
-              {% if isCuralinContent %}            
-              {% if products.size > 0 %}
-                  {% for prod in products %}
-                    <div class="swiper-slide">
-                      <div class="thumbs-img">
-                        <img src="{{ prod.settings.product_img | image_url }}" width="291" height="278" alt="Product Image" loading="lazy">
-                      </div>
+              {% if product_images.size > 0 %}
+                {% for img in product_images %}
+                  <div class="swiper-slide">
+                    <div class="thumbs-img">
+                      <img src="{{ img.settings.product_img | image_url }}" width="291" height="278" alt="Product Image" loading="lazy">
                     </div>
-                  {% endfor %}
-                {% endif %}
+                  </div>
+                {% endfor %}
               {% endif %}
 
               {% if product.variants.size > 0 %}
@@ -30,6 +27,13 @@
 
                       <div class="save-title"><p>SAVE {{ save_price | money_without_trailing_zeros }}</p></div>
                     {% endif %}
+
+                    {% unless product_images.size > 1 %}
+                    {% assign variantQuantity = product.variants | size %}
+                      {% if variantQuantity > 1 %}
+                        <p class="multiplier"></p>
+                      {% endif %}
+                    {% endunless %}
 
                     {% comment %} If Curalin is in the product, render the sale badge {% endcomment %}
                     {% if badgeImage %}
@@ -79,11 +83,11 @@
           <div class="thumbs-slider">
             <div id="product-thumbs-slider-sc" class="swiper">
               <div class="swiper-wrapper">
-                {% if products.size > 0 %}
-                  {% for prod in products %}
+                {% if product_images.size > 0 %}
+                  {% for img in product_images %}
                     <div class="swiper-slide">
                       <div class="thumbs-img">
-                        <img src="{{ prod.settings.product_img | image_url }}" width="291" height="278" alt="Product Image" loading="lazy">
+                        <img src="{{ img.settings.product_img | image_url }}" width="291" height="278" alt="Product Image" loading="lazy">
                       </div>
                     </div>
                   {% endfor %}
@@ -97,44 +101,6 @@
       </div>
     </div>
   </div>
-
-  {% if isImageVertical %}
-  <style>
-    .product-image {
-      max-width: 70%;
-      height: auto;
-    }
-    .wrapper-img {
-      display: flex;
-    }
-    .swiper, .swiper-container {
-      overflow: visible !important;
-    }
-    .swiper-wrapper {
-      display: flex;
-      flex-direction: column;
-      gap: 5px;
-    }
-   .swiper-button-prev {
-      left:130px;
-    }
-    .swiper-button-next, .swiper-button-prev {
-      color: var(--green);
-    }
-
-    @media (max-width: 768px) {
-      .product-image {
-        max-width: 100%;
-      }
-      .swiper-button-prev {
-        left: 0;
-      }
-      .swiper-wrapper{
-        display: none;
-      }
-    }
-   </style>
-  {% endif %}
 
   <style>
     .cta-section .save-title {
@@ -211,7 +177,7 @@
       width: 100px;
       height: 100px;
       border-radius: 5px;
-      background: white;
+      border: 1px solid #404733;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -313,51 +279,11 @@
       }
     }
   </style>
-{% else %}
-   
-  <img src="{{ product.images[0].src | image_url }}" alt="{{ product.images[0].alt }}" class="product-image" loading="lazy">
- 
- 
- {% unless products.size > 0 %}
-  {% assign variantQuantity = product.variants | size %}
-    {% if variantQuantity > 1 %}
-      <p class="multiplier"></p>
-    {% endif %}
-  {% endunless %}
-
-  {% comment %} If Curalin is in the product, render the sale badge {% endcomment %}
-    {% if var.metafields.custom.badge_image %}
-    <img src="{{ product.metafields.custom.badge_image | image_url }}" width="200" height="200" alt="Curalin" class="sale-badge" loading="lazy">
-
-    <style>
-      .cta-section .product-image {
-        max-height: 500px;
-      }
-
-      .sale-badge {
-        position: absolute;
-        top: 100px;
-        right: 130px;
-        width: 100px;
-        z-index: 1;
-      }
-
-      @media screen and (max-width: 768px) {
-        .sale-badge {
-          top: 10vw;
-          right: 0;
-          width: 25vw;
-        }
-      }
-    </style>
-  {% endif %}
-{% endif %}
 
 <script>
-  {% unless product.metafields.custom.is_hide_thumbs %}
+  {% unless isHideThumbs %}
     productThumbsAllInOne = new Swiper('#product-thumbs-slider-sc', {
-      slidesPerView: 'auto',
-      spaceBetween: 10,
+      slidesPerView: 4,
       watchSlidesVisibility: true,
       grabCursor: true,
       loop: false,
@@ -380,13 +306,12 @@
 
   productSliderAllInOne = new Swiper('#product-main-slider-sc', {
     slidesPerView: 1,
-    spaceBetween: 15,
     centeredSlides: true,
     watchSlidesVisibility: true,
     loop: false,
     grabCursor: true,
     slideToClickedSlide: true,
-    {% unless product.metafields.custom.is_hide_thumbs %}
+    {% unless isHideThumbs %}
       thumbs: {swiper: productThumbsAllInOne},
     {% endunless %}
     breakpoints: {
@@ -408,12 +333,6 @@
       }
     }
   });
-
-  {% if isCuralinContent %}
-    productSliderAllInOne.on('slideChange', function () {
-      $('iframe#product-video-iframe').attr( 'src', function ( i, val ) { return val; });
-    });
-  {% endif %}
 
   $('.thumbs-img').click(function() {
     woopra.track('Product Image Click', {});
