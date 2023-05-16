@@ -1,6 +1,6 @@
   <div class="product-thumbnails">
     <div class="product-slider">
-      <div class="sliders-group">
+      <div class="sliders-group flex {% if isThumbsVertical %}flex-row-reverse{% else %}flex-col{% endif %}">
         <div class="main-slider">
           <div id="product-main-slider-sc" class="swiper">
             <div class="swiper-wrapper">
@@ -8,7 +8,7 @@
                 {% for img in product_images %}
                   <div class="swiper-slide">
                     <div class="thumbs-img">
-                      <img src="{{ img.settings.product_img | image_url }}" width="291" height="278" alt="Product Image" loading="lazy">
+                      <img class="max-h-[500px]" src="{{ img.settings.product_img | image_url }}" alt="Product Image" loading="lazy">
                     </div>
                   </div>
                 {% endfor %}
@@ -282,57 +282,60 @@
 
 <script>
   {% unless isHideThumbs %}
-    productThumbsAllInOne = new Swiper('#product-thumbs-slider-sc', {
-      slidesPerView: 4,
-      watchSlidesVisibility: true,
-      grabCursor: true,
-      loop: false,
-      navigation: {
-        nextEl: '#product-thumbs-slider-nav-next',
-        prevEl: '#product-thumbs-slider-nav-prev',
-        disabledClass: 'disabled'
-      },
-      breakpoints: {
-        760: {
-          slidesPerView: 3,
-          freemode: true
-        },
-        1200: {
-          slidesPerView: 5
-        }
-      }
-    });
+   productThumbsAllInOne = new Swiper('#product-thumbs-slider-sc', {
+     slidesPerView: 'auto',
+     spaceBetween: 10,
+     {% if isThumbsVertical %}direction: 'vertical',{% endif %}
+     watchSlidesVisibility: true,
+     grabCursor: true,
+     loop: false,
+     navigation: {
+       nextEl: '#product-thumbs-slider-nav-next',
+       prevEl: '#product-thumbs-slider-nav-prev',
+       disabledClass: 'disabled'
+     },
+     breakpoints: {
+       760: {
+         slidesPerView: 3,
+         freemode: true
+       },
+       1200: {
+         slidesPerView: 5
+       }
+     }
+   });
   {% endunless %}
 
-  productSliderAllInOne = new Swiper('#product-main-slider-sc', {
-    slidesPerView: 1,
-    centeredSlides: true,
-    watchSlidesVisibility: true,
-    loop: false,
-    grabCursor: true,
-    slideToClickedSlide: true,
-    {% unless isHideThumbs %}
-      thumbs: {swiper: productThumbsAllInOne},
-    {% endunless %}
-    breakpoints: {
-      0: {
-        pagination: {
-          el: '.swiper-pagination',
-          clickable: 'true',
-          type: 'bullets',
-        },
-        navigation: {
-          nextEl: '#product-main-slider-nav-next',
-          prevEl: '#product-main-slider-nav-prev',
-          disabledClass: 'disabled'
-        }
-      },
-      760: {
-        pagination: {},
-        navigation: {}
-      }
-    }
-  });
+ productSliderAllInOne = new Swiper('#product-main-slider-sc', {
+   slidesPerView: 1,
+   spaceBetween: 15,
+   centeredSlides: true,
+   watchSlidesVisibility: true,
+   loop: false,
+   grabCursor: true,
+   slideToClickedSlide: true,
+   {% unless isHideThumbs %}
+     thumbs: {swiper: productThumbsAllInOne},
+   {% endunless %}
+   breakpoints: {
+     0: {
+       pagination: {
+         el: '.swiper-pagination',
+         clickable: 'true',
+         type: 'bullets',
+       },
+       navigation: {
+         nextEl: '#product-main-slider-nav-next',
+         prevEl: '#product-main-slider-nav-prev',
+         disabledClass: 'disabled'
+       }
+     },
+     760: {
+       pagination: {},
+       navigation: {}
+     }
+   }
+ });
 
   $('.thumbs-img').click(function() {
     woopra.track('Product Image Click', {});
