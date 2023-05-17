@@ -1,3 +1,101 @@
+{% if isThumbsVertical %}
+    <div class="slider-wrapper-noa">
+      <div class="thumbs-slider">
+        <div id="product-thumbs-slider-sc" class="swiper">
+          <div class="swiper-wrapper">
+            {% if product_images.size > 0 %}
+              {% for img in product_images %}
+                <div class="swiper-slide">
+                  <div class="thumbs-img">
+                    <img src="{{ img.settings.product_img | image_url }}" width="291" height="278" alt="Product Image" loading="lazy">
+                  </div>
+                </div>
+              {% endfor %}
+            {% endif %}
+          </div>
+        </div>
+        <div id="product-thumbs-slider-nav-prev" class="swiper-button-prev"></div>
+        <div id="product-thumbs-slider-nav-next" class="swiper-button-next"></div>
+      </div>
+      <div class="main-slider">
+        <div id="product-main-slider-sc" class="swiper">
+          <div class="swiper-wrapper">
+            {% if product_images.size > 0 %}
+              {% for img in product_images %}
+                <div class="swiper-slide">
+                  <div class="thumbs-img">
+                    <img class="max-h-[500px]" src="{{ img.settings.product_img | image_url }}" alt="Product Image" loading="lazy">
+                  </div>
+                </div>
+              {% endfor %}
+            {% endif %}
+
+            {% if product.variants.size > 0 %}
+              {% for var in product.variants %}
+                <div class="swiper-slide">
+                  <div class="product-img">
+                    <div class="img-wrap">
+                      <img src="{{ var.featured_image | image_url }}" alt="{{ var.featured_image.alt | escape }}" width="" height="" loading="lazy">
+                    </div>
+                  </div>
+                  {% if isSaveTitle %}
+                    {% assign save_price = var.compare_at_price | minus: var.price %}
+
+                    <div class="save-title"><p>SAVE {{ save_price | money_without_trailing_zeros }}</p></div>
+                  {% endif %}
+
+                  {% unless product_images.size > 1 %}
+                  {% assign variantQuantity = product.variants | size %}
+                    {% if variantQuantity > 1 %}
+                      <p class="multiplier"></p>
+                    {% endif %}
+                  {% endunless %}
+
+                  {% comment %} If Curalin is in the product, render the sale badge {% endcomment %}
+                  {% if badgeImage %}
+                    <img src="{{ badgeImage | image_url }}" width="200" height="200" alt="Curalin" class="sale-badge" loading="lazy">
+
+                    <style>
+                      .sale-badge {
+                        position: absolute;
+                        top: 100px;
+                        right: 130px;
+                        width: 100px;
+                        z-index: 1;
+                      }
+
+                      @media screen and (max-width: 768px) {
+                        .sale-badge {
+                          top: 10vw;
+                          right: 0;
+                          width: 25vw;
+                        }
+                      }
+                    </style>
+                  {% endif %}
+                </div>
+              {% endfor %}
+            {% else %}
+              {% for img in product.images %}
+                <div class="swiper-slide">
+                  <div class="product-img">
+                    <div class="img-wrap">
+                      <img src="{{ img.src | image_url }}" alt="{{ img.alt | escape }}" width="" height="" loading="lazy">
+                    </div>
+                  </div>
+                </div>
+              {% endfor %}
+            {% endif %}
+          </div>
+
+          <div class="swiper-pagination"></div>
+        </div>
+
+        <div id="product-main-slider-nav-prev" class="swiper-button-prev nav"></div>
+        <div id="product-main-slider-nav-next" class="swiper-button-next nav"></div>
+      </div>     
+    </div>
+ {% else %}       
   <div class="product-thumbnails">
     <div class="product-slider">
       <div class="sliders-group">
@@ -78,8 +176,7 @@
           <div id="product-main-slider-nav-prev" class="swiper-button-prev nav"></div>
           <div id="product-main-slider-nav-next" class="swiper-button-next nav"></div>
         </div>
-
-        {% unless isHideThumbs %}       
+         
           <div class="thumbs-slider">
             <div id="product-thumbs-slider-sc" class="swiper">
               <div class="swiper-wrapper">
@@ -97,7 +194,7 @@
             <div id="product-thumbs-slider-nav-prev" class="swiper-button-prev"></div>
             <div id="product-thumbs-slider-nav-next" class="swiper-button-next"></div>
           </div>
-        {% endunless %}
+       {% endif %}
       </div>
     </div>
   </div>
