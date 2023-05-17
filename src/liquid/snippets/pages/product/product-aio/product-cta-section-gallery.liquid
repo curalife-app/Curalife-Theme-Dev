@@ -3,7 +3,7 @@
     <div class="product-slider">
       <div class="sliders-group">
        <div class="relative noa-wrap ">
-        <div class="absolute top-0 left-0 thumbs-slider">
+        <div class="absolute top-0 left-0 max-h-full thumbs-slider">
           <div id="product-thumbs-slider-sc" class="swiper">
             <div class="swiper-wrapper">
               {% if product_images.size > 0 %}
@@ -33,12 +33,14 @@
                 {% endfor %}
               {% endif %}
 
-              {% if product.variants.size > 0 %}
+              {% assign first_variant = product.variants | first %}
+              {% if product.variants.size > 0 and first_variant.image != blank  %}
                 {% for var in product.variants %}
                   <div class="swiper-slide">
                     <div class="product-img">
                       <div class="img-wrap">
-                        <img src="{{ var.featured_image | image_url }}" alt="{{ var.featured_image.alt | escape }}" width="" height="" loading="lazy">
+                        <script>console.log(" {{ var.image }}")</script>
+                        <img src="{{ var.image | image_url }}" alt="{{ var.image.alt | escape }}" width="" height="" loading="lazy">
                       </div>
                     </div>
                     {% if isSaveTitle %}
@@ -53,29 +55,6 @@
                         <p class="multiplier"></p>
                       {% endif %}
                     {% endunless %}
-
-                    {% comment %} If Curalin is in the product, render the sale badge {% endcomment %}
-                    {% if badgeImage %}
-                      <img src="{{ badgeImage | image_url }}" width="200" height="200" alt="Curalin" class="sale-badge" loading="lazy">
-
-                      <style>
-                        .sale-badge {
-                          position: absolute;
-                          top: 100px;
-                          right: 130px;
-                          width: 100px;
-                          z-index: 1;
-                        }
-
-                        @media screen and (max-width: 768px) {
-                          .sale-badge {
-                            top: 10vw;
-                            right: 0;
-                            width: 25vw;
-                          }
-                        }
-                      </style>
-                    {% endif %}
                   </div>
                 {% endfor %}
               {% else %}
@@ -90,6 +69,29 @@
                 {% endfor %}
               {% endif %}
             </div>
+
+            {% comment %} If Curalin is in the product, render the sale badge {% endcomment %}
+              {% if badgeImage %}
+              <img src="{{ badgeImage.src | image_url }}" width="61" height="61" alt="Curalin" class="sale-badge" loading="lazy">
+
+              <style>
+                .sale-badge {
+                   position: absolute;
+                   top: 100px;
+                   right: 130px;
+                   width: 100px;
+                   z-index: 10;
+                }
+
+                @media screen and (max-width: 768px) {
+                  .sale-badge {
+                    top: 10vw;
+                    right: 0;
+                    width: 25vw;
+                  }
+                }
+              </style>
+            {% endif %}
 
             <div class="swiper-pagination"></div>
           </div>
@@ -152,8 +154,7 @@
 
                       {% comment %} If Curalin is in the product, render the sale badge {% endcomment %}
                       {% if badgeImage %}
-                        <img src="{{ badgeImage | image_url }}" width="200" height="200" alt="Curalin" class="sale-badge" loading="lazy">
-
+                        <img src="{{ badgeImage | image_url }}" width="61" height="61" alt="Curalin" class="sale-badge" loading="lazy">
                         <style>
                           .sale-badge {
                             position: absolute;
@@ -280,13 +281,14 @@
     }
 
     .product-thumbnails .product-slider .thumbs-slider {
+      {% unless isThumbsVertical %}
       margin-top: 30px;
-      margin-left: auto;
-      margin-right: auto;
       padding-left: 3em;
       padding-right: 3em;
+      {% endunless %}
+      margin-left: auto;
+      margin-right: auto;
       max-width: 100%;
-      max-height: 500px;
     }
 
     .product-thumbnails .product-slider .thumbs-slider .swiper-wrapper .thumbs-img {
