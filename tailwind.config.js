@@ -69,7 +69,8 @@ module.exports = {
         peach: '#F59E80',
         lightPeach: '#f6cdbf',
         lighterPeach: '#FFF6F8',
-        lightPink: '#FFF1E8'
+        lightPink: '#FFF1E8',
+        yellow: '#F3AF57'
       }
     },
   },
