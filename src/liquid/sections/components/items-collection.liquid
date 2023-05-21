@@ -2,10 +2,12 @@
   <div class="container">
     <{% if section.settings.is_slider %}swiper-container{% else %}div{% endif %} class="items flex-wrap flex justify-center overflow-visible" {% if section.settings.is_slider %}slides-per-view="auto" auto-height="true" {% if section.settings.is_arrows %}navigation="true"{% endif %} {% if section.settings.is_dots %}pagination="true" pagination-clickable="true"{% endif %} lazy="true"{% endif %}>
       {% for block in section.blocks %}
-        <{% if section.settings.is_slider %}swiper-slide{% else %}div{% endif %} class="item flex flex-col items-center p-4 text-center">
-          <img class="max-h-250px" src="{{ block.settings.image | image_url }}" alt="{{ blovariantsettings.title }}" loading="lazy">
-        <{{ section.settings.title_tag }} class="title-tag mt-4">{{ block.settings.title }}</{{ section.settings.title_tag }}>
+        <{% if section.settings.is_slider %}swiper-slide{% else %}div{% endif %} class="item relative">
+        <div class="item-content flex items-center p-4 text-center">
+          <img class="max-h-250px m-0" src="{{ block.settings.image | image_url }}" alt="{{ blovariantsettings.title }}" loading="lazy">
+          <{{ section.settings.title_tag }} class="title-tag mt-4">{{ block.settings.title }}</{{ section.settings.title_tag }}>
           <p>{{ block.settings.description }}</p>
+        </div>
         </{% if section.settings.is_slider %}swiper-slide{% else %}div{% endif %}>
       {% endfor %}
     </{% if section.settings.is_slider %}swiper-container{% else %}div{% endif %}>
@@ -30,9 +32,18 @@
   }
 
   #items-collection-{{ section.id }} .item {
-    flex-direction: {{ section.settings.item_layout }};
-    min-width: calc(100% / {% if section.settings.items_in_row_mobile == 'all' %}{{ section.blocks.size }}{% else %}{{ section.settings.items_in_row }}{% endif %});
+    width: calc(100% / {% if section.settings.items_in_row_mobile == 'all' %}{{ section.blocks.size }}{% else %}{{ section.settings.items_in_row }}{% endif %});
   }
+
+
+    #items-collection-{{ section.id }} .item-content {
+      max-width: {{ section.settings.item_max_width }}%;
+      flex-direction: {{ section.settings.item_layout }};
+      align-items: {{ section.settings.item_content_align }};
+      text-align: {{ section.settings.item_content_align }};
+      justify-content: {{ section.settings.item_content_align }};
+      gap: 5%;
+    }
 
   @media screen and (max-width: 768px) {
     #items-collection-{{ section.id }} .item {
@@ -84,6 +95,22 @@
         }
       ],
       "default": "column"
+    },
+    {
+      "type": "select",
+      "id": "item_content_align",
+      "label": "Item Conetnt Alignment",
+      "options": [
+        {
+          "value": "start",
+          "label": "Left"
+        },
+        {
+          "value": "center",
+          "label": "Center"
+        }
+      ],
+      "default": "center"
     },
     {
       "type": "select",
@@ -164,6 +191,16 @@
         }
       ],
       "default": "1"
+    },
+    {
+      "type": "range",
+      "id": "item_content_width",
+      "label": "Item Content Width",
+      "min": 50,
+      "max": 100,
+      "step": 5,
+      "unit": "%",
+      "default": 100
     }
   ],
   "blocks": [
