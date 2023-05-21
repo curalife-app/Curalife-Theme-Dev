@@ -1,13 +1,10 @@
 <section id="items-collection-{{ section.id }}">
   <div class="container">
-    <{% if section.settings.is_slider %}swiper-container{% else %}div{% endif %} class="items flex flex-wrap justify-center overflow-visible" {% if section.settings.is_slider %}slides-per-view="auto" auto-height="true" navigation="true" pagination="true" pagination-clickable="true" lazy="true"{% endif %}>
+    <{% if section.settings.is_slider %}swiper-container{% else %}div{% endif %} class="items flex-wrap flex justify-center overflow-visible" {% if section.settings.is_slider %}slides-per-view="auto" auto-height="true" {% if section.settings.is_arrows %}navigation="true"{% endif %} {% if section.settings.is_dots %}pagination="true" pagination-clickable="true"{% endif %} lazy="true"{% endif %}>
       {% for block in section.blocks %}
         <{% if section.settings.is_slider %}swiper-slide{% else %}div{% endif %} class="item flex flex-col items-center p-4 text-center">
-          <div class="img-wrapper min-h-[50%] flex align-center">
-            <img class="max-h-250px" src="{{ block.settings.image | image_url }}" alt="{{ block.settings.title }}" loading="lazy">
-          </div>
-
-          <{{ section.settings.title_tag }} class="mt-4">{{ block.settings.title }}</{{ section.settings.title_tag }}>
+          <img class="max-h-250px" src="{{ block.settings.image | image_url }}" alt="{{ blovariantsettings.title }}" loading="lazy">
+        <{{ section.settings.title_tag }} class="title-tag mt-4">{{ block.settings.title }}</{{ section.settings.title_tag }}>
           <p>{{ block.settings.description }}</p>
         </{% if section.settings.is_slider %}swiper-slide{% else %}div{% endif %}>
       {% endfor %}
@@ -15,12 +12,27 @@
   </div>
 </section>
 
-
 {% if section.settings.is_slider %}
   <script src="https://cdn.jsdelivr.net/npm/swiper@9/swiper-element-bundle.min.js"></script>
 {% endif %}
 
 <style>
+  {% if section.settings.is_two_items_in_row %}
+  #items-collection-{{ section.id }} .items {
+    flex-wrap: wrap;
+  }
+  #items-collection-{{ section.id }} .item {
+      display: flex;
+      flex-direction: row;
+      max-width: calc(70% /2) !important;
+      width: 100vw;
+    }
+
+    #items-collection-{{ section.id }} .item .title-tag {
+      max-width: 270px;
+      text-align: left;
+    }
+  {% endif %}
   .items {
     --swiper-theme-color: #000;
     --swiper-pagination-bottom: -9%;
@@ -34,14 +46,32 @@
   }
 
   #items-collection-{{ section.id }} .item {
-    max-width: calc(100% / {% if section.settings.items_in_row == "all" %}{{ section.blocks.size }}{% else %}{{ section.settings.items_in_row }}{% endif %});
+    min-width: calc(100% / {% if section.settings.items_in_row_mobile == 'all' %}{{ section.blocks.size }}{% else %}{{ section.settings.items_in_row }}{% endif %});
   }
+
 
   @media screen and (max-width: 768px) {
     #items-collection-{{ section.id }} .item {
       width: calc(100% / {{ section.settings.items_in_row_mobile }});
       max-width: unset;
     }
+
+    {% if section.settings.is_two_items_in_row %}
+      #items-collection-{{ section.id }} .item {
+        display: flex;
+        flex-direction: column;
+        max-width: calc(100% / {{ section.settings.items_in_row_mobile }}) !important;
+        width: 100vw;
+        min-height: 35vw;
+
+      }
+
+      #items-collection-{{ section.id }} .item .title-tag {
+        max-width: unset;
+        text-align: center;
+        font-size: 4vw;
+      }
+    {% endif %}
   }
 </style>
 
@@ -59,6 +89,18 @@
       "type": "checkbox",
       "id": "is_slider",
       "label": "Slider Functionality"
+    },
+    {
+      "type": "checkbox",
+      "id": "is_arrows",
+      "label": "Show Arrows",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "is_dots",
+      "label": "Show Dots",
+      "default": true
     },
     {
       "type": "select",
@@ -94,10 +136,6 @@
       "label": "Items In Row",
       "options": [
         {
-          "value": "all",
-          "label": "All"
-        },
-        {
           "value": "1",
           "label": "1"
         },
@@ -116,6 +154,10 @@
         {
           "value": "5",
           "label": "5"
+        },
+        {
+          "value": "all",
+          "label": "All"
         }
       ],
       "default": "all"
