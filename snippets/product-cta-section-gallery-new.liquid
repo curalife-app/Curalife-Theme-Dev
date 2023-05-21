@@ -1,145 +1,213 @@
-{% if product.images.size > 1 %}
+{% assign variantQuantity = product.variants | size %}
+{% assign firstVariant = product.variants | first %}
+
+{% if variantQuantity > 1 %}
+  {% unless firstVariant.image.src %}
+    {% assign isMultiplierVariants = true %}
+  {% endunless %}
+{% endif %}
+
+{% if isThumbsVertical %}
   <div class="product-thumbnails">
-    <div class="product-slider">
-      <div class="sliders-group">
-        <div class="main-slider">
-          <div id="product-main-slider-sc" class="swiper">
-            <div class="swiper-wrapper">
-              {% if isCuralinContent %}
-                {% for i in (1..5) %}
-                  <div class="swiper-slide">
-                    {% unless forloop.index == 1 %}<img class="main-slider-vector-bg" src="{{ 'product-aio-vector-product-slider.png' | asset_url }}" width="534" height="342" alt="">{% endunless %}
-
-                    <div class="product-img">
-                      <div class="img-wrap">
-                        <img src="{{ "product-aio-product-thumbnail-" | append: i | append: ".png" | asset_url }}" width="588" height="453" alt="" loading="lazy">
-                      </div>
-                    </div>
-                  </div>
-                {% endfor %}
-
-                <div class="swiper-slide">
-                  <div class="product-video">
-                    <iframe id="product-video-iframe" src="https://player.vimeo.com/video/365492409?playsinline=0" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen loading="lazy"></iframe>
-                  </div>
-                </div>
-              {% endif %}
-
-              {% if product.variants.size > 1 %}
-                {% for var in product.variants %}
-                  <div class="swiper-slide">
-                    {% if shop.name == "CuraLife Global" or request.path contains 'curalin-pack-t' %}
-                      <img class="main-slider-vector-bg" src="{{ 'product-aio-vector-product-slider.png' | asset_url }}" width="534" height="342" alt="">
-                    {% endif %}
-
-                    <div class="product-img">
-                      <div class="img-wrap">
-                        <img src="{{ var.featured_image | image_url }}" alt="{{ var.featured_image.alt | escape }}" loading="lazy">
-                      </div>
-                    </div>
-                    {% if isSaveTitle %}
-                      {% assign save_price = var.compare_at_price | minus: var.price %}
-
-                      <div class="save-title"><p>SAVE {{ save_price | money_without_trailing_zeros }}</p></div>
-                    {% endif %}
-
-                    {% comment %} If Curalin is in the product, render the sale badge {% endcomment %}
-                    {% if product.metafields.custom.badge_image %}
-                      <img src="{{ product.metafields.custom.badge_image | image_url }}" width="200" height="200" alt="Curalin" class="sale-badge" loading="lazy">
-
-                      <style>
-                        .sale-badge {
-                          position: absolute;
-                          top: 100px;
-                          right: 130px;
-                          width: 100px;
-                          z-index: 1;
-                        }
-
-                        @media screen and (max-width: 768px) {
-                          .sale-badge {
-                            top: 10vw;
-                            right: 0;
-                            width: 25vw;
-                          }
-                        }
-                      </style>
-                    {% endif %}
-                  </div>
-                {% endfor %}
-              {% else %}
-                {% for img in product.images %}
-                  <div class="swiper-slide">
-                    {% if shop.name == "CuraLife Global" or request.path contains 'curalin-pack-t' %}
-                      <img class="main-slider-vector-bg" src="{{ 'product-aio-vector-product-slider.png' | asset_url }}" width="534" height="342" alt="">
-                    {% endif %}
-
-                    <div class="product-img">
-                      <div class="img-wrap">
-                        <img src="{{ img.src | image_url }}" alt="{{ img.alt | escape }}" loading="lazy">
-                      </div>
-                    </div>
-                  </div>
-                {% endfor %}
-              {% endif %}
-            </div>
-
-            <div class="swiper-pagination"></div>
-          </div>
-
-          <div id="product-main-slider-nav-prev" class="swiper-button-prev nav"></div>
-          <div id="product-main-slider-nav-next" class="swiper-button-next nav"></div>
-        </div>
-
-        {% unless product.metafields.custom.is_hide_thumbs %}
-          <div class="thumbs-slider">
+      <div class="product-slider">
+        <div class="sliders-group">
+        <div class="noa-wrap relative">
+          <div class="thumbs-slider absolute top-0 left-0 max-h-full">
             <div id="product-thumbs-slider-sc" class="swiper">
               <div class="swiper-wrapper">
-                {% if isCuralinContent %}
-                  {% for i in (1..6) %}
-                    <div class="swiper-slide">
-                      <div class="thumbs-img">
-                        <img src="{{ "product-aio-product-thumbnail-" | append: i | append: ".png" | asset_url }}" width="588" height="453" alt="" loading="lazy">
-                      </div>
-                    </div>
-                  {% endfor %}
-
+                {% comment %} Render Product Images on Thumbs Slider {% endcomment %}
+                {% for img in product.images %}
                   <div class="swiper-slide">
-                    <div class="thumbs-img video-thumbnail">
-                      <img src="{{ "product-aio-product-video-thumbnail.png" | asset_url }}" width="720" height="680" alt="" loading="lazy">
-                    </div>
+                    <img src="{{ img.src | image_url }}" alt="{{ img.alt | escape }}" width="" height="" loading="lazy">
                   </div>
-                {% endif %}
+                {% endfor %}
 
-                {% if product.variants.size > 1 %}
+                {% comment %} Render Section Images on Thumbs Slider {% endcomment %}
+                {% for img in product_images %}
+                  <div class="swiper-slide">
+                    <img src="{{ img.settings.product_img | image_url }}" width="291" height="278" alt="Product Image" loading="lazy">
+                  </div>
+                {% endfor %}
+
+                {% comment %} Render Vaiants on Thumbs Slider {% endcomment %}
+                {% unless isMultiplierVariants %}
                   {% for var in product.variants %}
                     <div class="swiper-slide">
-                      <div class="thumbs-img">
-                        <img src="{{ var.featured_image | image_url }}" alt="{{ var.featured_image.alt | escape }}" loading="lazy">
-                      </div>
+                      <img src="{{ var.image | image_url }}" alt="{{ var.image.alt | escape }}" width="" height="" loading="lazy">
                     </div>
                   {% endfor %}
-                {% else %}
-                  {% for img in product.images %}
-                    <div class="swiper-slide">
-                      <div class="thumbs-img">
-                        <img src="{{ img.src | image_url }}" alt="{{ img.alt | escape }}" loading="lazy">
-                      </div>
-                    </div>
-                  {% endfor %}
-                {% endif %}
+                {% endunless %}
               </div>
             </div>
 
             <div id="product-thumbs-slider-nav-prev" class="swiper-button-prev"></div>
             <div id="product-thumbs-slider-nav-next" class="swiper-button-next"></div>
           </div>
-        {% endunless %}
+
+          <div class="main-slider">
+            <div id="product-main-slider-sc" class="swiper">
+              <div class="swiper-wrapper">
+                {% comment %} Render Product Images on Main Slider {% endcomment %}
+                {% for img in product.images %}
+                  <div class="swiper-slide">
+                    <img src="{{ img.src | image_url }}" alt="{{ img.alt | escape }}" width="" height="" loading="lazy">
+                  </div>
+
+                  {% if badgeImage %}
+                    <img src="{{ badgeImage | image_url }}" alt="Curalin" class="sale-badge" loading="lazy">
+                  {% endif %}
+
+                  {% if isMultiplierVariants %}
+                    <p class="multiplier"></p>
+                  {% endif %}
+                {% endfor %}
+
+                {% comment %} Render Section Images on Main Slider {% endcomment %}
+                {% for img in product_images %}
+                  <div class="swiper-slide">
+                    <img class="max-h-[500px]" src="{{ img.settings.product_img | image_url }}" alt="Product Image" loading="lazy">
+                  </div>
+                {% endfor %}
+
+                {% comment %} Render Vaiants on Main Slider {% endcomment %}
+                {% unless isMultiplierVariants %}
+                  {% for var in product.variants %}
+                    <div class="swiper-slide">
+                      <img src="{{ var.image | image_url }}" alt="{{ var.image.alt | escape }}" width="" height="" loading="lazy">
+
+                      {% if isSaveTitle %}
+                        {% assign save_price = var.compare_at_price | minus: var.price %}
+
+                        <div class="save-title"><p>SAVE {{ save_price | money_without_trailing_zeros }}</p></div>
+                      {% endif %}
+
+                      {% if badgeImage %}
+                        <img src="{{ badgeImage | image_url }}" alt="Curalin" class="sale-badge" loading="lazy">
+                      {% endif %}
+                    </div>
+                  {% endfor %}
+                {% endunless %}
+              </div>
+
+              <div class="swiper-pagination"></div>
+            </div>
+
+            <div id="product-main-slider-nav-prev" class="swiper-button-prev nav"></div>
+            <div id="product-main-slider-nav-next" class="swiper-button-next nav"></div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 
   <style>
+    .noa-wrap .main-slider {
+      margin-left: 160px;
+    }
+    @media screen and (max-width: 768px) {
+      .noa-wrap .main-slider {
+        margin-left: unset;
+      }
+    }
+  </style>
+{% else %}
+  <div class="product-thumbnails">
+      <div class="product-slider">
+        <div class="sliders-group">
+          <div class="main-slider">
+            <div id="product-main-slider-sc" class="swiper">
+              <div class="swiper-wrapper">
+                {% if product_images.size > 0 %}
+                  {% for img in product_images %}
+                    <div class="swiper-slide">
+                      <img class="max-h-[500px]" src="{{ img.settings.product_img | image_url }}" alt="Product Image" loading="lazy">
+                    </div>
+                  {% endfor %}
+                {% endif %}
+
+                {% if product.variants.size > 0 %}
+                  {% for var in product.variants %}
+                    <div class="swiper-slide">
+                      <div class="product-img">
+                        <div class="img-wrap">
+                          <img src="{{ var.featured_image | image_url }}" alt="{{ var.featured_image.alt | escape }}" width="" height="" loading="lazy">
+                        </div>
+                      </div>
+                      {% if isSaveTitle %}
+                        {% assign save_price = var.compare_at_price | minus: var.price %}
+
+                        <div class="save-title"><p>SAVE {{ save_price | money_without_trailing_zeros }}</p></div>
+                      {% endif %}
+
+                      {% if badgeImage %}
+                        <img src="{{ badgeImage | image_url }}" alt="Curalin" class="sale-badge" loading="lazy">
+                      {% endif %}
+                    </div>
+                  {% endfor %}
+                {% else %}
+                  {% for img in product.images %}
+                    <div class="swiper-slide">
+                      <div class="product-img">
+                        <div class="img-wrap">
+                          <img src="{{ img.src | image_url }}" alt="{{ img.alt | escape }}" width="" height="" loading="lazy">
+                        </div>
+                      </div>
+                    </div>
+                  {% endfor %}
+                {% endif %}
+              </div>
+
+              {% if isMultiplierVariants %}
+                <p class="multiplier"></p>
+              {% endif %}
+
+              <div class="swiper-pagination"></div>
+            </div>
+
+            <div id="product-main-slider-nav-prev" class="swiper-button-prev nav"></div>
+            <div id="product-main-slider-nav-next" class="swiper-button-next nav"></div>
+          </div>
+
+            <div class="thumbs-slider">
+              <div id="product-thumbs-slider-sc" class="swiper">
+                <div class="swiper-wrapper">
+                  {% if product_images.size > 0 %}
+                    {% for img in product_images %}
+                      <div class="swiper-slide">
+                        <img src="{{ img.settings.product_img | image_url }}" width="291" height="278" alt="Product Image" loading="lazy">
+                      </div>
+                    {% endfor %}
+                  {% endif %}
+                </div>
+              </div>
+              <div id="product-thumbs-slider-nav-prev" class="swiper-button-prev"></div>
+              <div id="product-thumbs-slider-nav-next" class="swiper-button-next"></div>
+            </div>
+
+        </div>
+      </div>
+    </div>
+{% endif %}
+
+  <style>
+    {% if badgeImage %}
+      .sale-badge {
+        position: absolute;
+        top: 10px;
+        right: 50px;
+        width: 100px;
+        z-index: 1;
+      }
+
+      @media screen and (max-width: 768px) {
+        .sale-badge {
+          top: 0;
+          right: 0;
+          width: 25vw;
+        }
+      }
+    {% endif %}
+
     .cta-section .save-title {
       position: absolute;
       z-index: 2;
@@ -172,7 +240,7 @@
 
     .product-thumbnails .product-slider .main-slider {
       padding: unset;
-      margin-left: unset
+    {% unless isThumbsVertical %}margin-left: unset;{% endunless %}
     }
 
     .product-thumbnails .product-slider .main-slider .main-slider-vector-bg {
@@ -185,9 +253,8 @@
       text-align: center
     }
 
-
     .product-thumbnails .product-slider .main-slider .swiper-slide .img-wrap img {
-      max-height: 400px;
+    {% unless isThumbsVertical %}max-height: 400px;{% endunless %}
       object-fit: contain;
     }
 
@@ -197,24 +264,29 @@
     }
 
     .product-thumbnails .product-slider .main-slider .nav {
-       display: none;
+      display: none;
+    }
+
+    .product-thumbnails .product-slider .main-slider .nav::after {
+      font-size: 30px;
     }
 
     .product-thumbnails .product-slider .thumbs-slider {
-      position: relative;
-      display: flex;
+      {% unless isThumbsVertical %}
       margin-top: 30px;
-      margin-left: auto;
-      margin-right: auto;
       padding-left: 3em;
       padding-right: 3em;
+      {% endunless %}
+      margin-left: auto;
+      margin-right: auto;
+      max-width: 100%;
     }
 
-    .product-thumbnails .product-slider .thumbs-slider .swiper-wrapper .thumbs-img {
+    .product-thumbnails .product-slider .thumbs-slider .swiper-wrapper img {
       width: 100px;
       height: 100px;
       border-radius: 5px;
-      background: white;
+      border: 1px solid #404733;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -317,108 +389,68 @@
     }
   </style>
 
-  <script>
-    {% unless product.metafields.custom.is_hide_thumbs %}
-      productThumbsAllInOne = new Swiper('#product-thumbs-slider-sc', {
-        slidesPerView: 'auto',
-        spaceBetween: 10,
-        watchSlidesVisibility: true,
-        grabCursor: true,
-        loop: false,
-        navigation: {
-          nextEl: '#product-thumbs-slider-nav-next',
-          prevEl: '#product-thumbs-slider-nav-prev',
-          disabledClass: 'disabled'
-        },
-        breakpoints: {
-          760: {
-            slidesPerView: 3,
-            freemode: true
-          },
-          1200: {
-            slidesPerView: 5
-          }
-        }
-      });
-    {% endunless %}
+<script>
+  {% unless isHideThumbs %}
+   productThumbsAllInOne = new Swiper('#product-thumbs-slider-sc', {
+    {% if isThumbsVertical %} direction: 'vertical', {% endif %}
+     slidesPerView: 'auto',
+     spaceBetween: 10,
+     watchSlidesVisibility: true,
+     grabCursor: true,
+     navigation: {
+       nextEl: '#product-thumbs-slider-nav-next',
+       prevEl: '#product-thumbs-slider-nav-prev',
+       disabledClass: 'disabled'
+     },
+     {% unless isThumbsVertical %}
+     breakpoints: {
+       760: {
+         slidesPerView: 3,
+         freemode: true
+       },
+       1200: {
+         slidesPerView: 5
+       }
+     }
+     {% endunless %}
+   });
+  {% endunless %}
 
-    productSliderAllInOne = new Swiper('#product-main-slider-sc', {
-      slidesPerView: 1,
-      spaceBetween: 15,
-      centeredSlides: true,
-      watchSlidesVisibility: true,
-      loop: false,
-      grabCursor: true,
-      slideToClickedSlide: true,
-      {% unless product.metafields.custom.is_hide_thumbs %}
-        thumbs: {swiper: productThumbsAllInOne},
-      {% endunless %}
-      breakpoints: {
-        0: {
-          pagination: {
-            el: '.swiper-pagination',
-            clickable: 'true',
-            type: 'bullets',
-          },
-          navigation: {
-            nextEl: '#product-main-slider-nav-next',
-            prevEl: '#product-main-slider-nav-prev',
-            disabledClass: 'disabled'
-          }
-        },
-        760: {
-          pagination: {},
-          navigation: {}
-        }
-      }
-    });
+ productSliderAllInOne = new Swiper('#product-main-slider-sc', {
+   slidesPerView: 1,
+   spaceBetween: 15,
+   watchSlidesVisibility: true,
+   grabCursor: true,
+   slideToClickedSlide: true,
+   {% unless isHideThumbs %}
+     thumbs: {swiper: productThumbsAllInOne},
+   {% endunless %}
+   breakpoints: {
+     0: {
+       pagination: {
+         el: '.swiper-pagination',
+         clickable: 'true',
+         type: 'bullets',
+       },
+       navigation: {
+         nextEl: '#product-main-slider-nav-next',
+         prevEl: '#product-main-slider-nav-prev',
+         disabledClass: 'disabled'
+       }
+     },
+     760: {
+       pagination: {},
+       navigation: {}
+     }
+   }
+ });
 
-    {% if isCuralinContent %}
-      productSliderAllInOne.on('slideChange', function () {
-        $('iframe#product-video-iframe').attr( 'src', function ( i, val ) { return val; });
-      });
-    {% endif %}
+  $('.thumbs-img').click(function() {
+    woopra.track('Product Image Click', {});
+  });
 
-    $('.thumbs-img').click(function() {
-      woopra.track('Product Image Click', {});
-    });
-
-    // Product Arrow Click
-    $('#product-thumbs-slider-nav-next, #product-thumbs-slider-nav-prev').click(function() {
-      woopra.track('Arrow Click', { section: "Product" });
-    });
-  </script>
-{% else %}
-  <img src="{{ product.images[0].src | image_url }}" alt="{{ product.images[0].alt }}" class="product-image" loading="lazy">
-  {% assign variantQuantity = product.variants | size %}
-  {% if variantQuantity > 1 %}
-    <p class="multiplier"></p>
-  {% endif %}
-
-  {% comment %} If Curalin is in the product, render the sale badge {% endcomment %}
-    {% if var.metafields.custom.badge_image %}
-    <img src="{{ product.metafields.custom.badge_image | image_url }}" width="200" height="200" alt="Curalin" class="sale-badge" loading="lazy">
-
-    <style>
-      .cta-section .product-image {
-        max-height: 500px;
-      }
-
-      .sale-badge {
-        position: absolute;
-        top: 100px;
-        right: 130px;
-        width: 100px;
-        z-index: 1;
-      }
-
-      @media screen and (max-width: 768px) {
-        .sale-badge {
-          top: 10vw;
-          right: 0;
-          width: 25vw;
-        }
-      }
-    </style>
-  {% endif %}
-{% endif %}
+  // Product Arrow Click
+  $('#product-thumbs-slider-nav-next, #product-thumbs-slider-nav-prev').click(function() {
+    woopra.track('Arrow Click', { section: "Product" });
+  });
+</script>
