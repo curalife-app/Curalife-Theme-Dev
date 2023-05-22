@@ -17,143 +17,169 @@
 {% assign curalin_options = curalin_options | split: ',' %}
 {% assign supplement_options = supplement_options | split: ',' %}
 
+{% assign curalin_options = '' %}
+{% assign supplement_options = '' %}
+
+{% for variant in product.variants %}
+  {% assign title_parts = variant.title | split: ' / ' %}
+  {% assign curalin_pack = title_parts.first %}
+  {% assign supplement_pack = title_parts.last %}
+
+  {% unless curalin_options contains curalin_pack %}
+    {% assign curalin_options = curalin_options | append: curalin_pack | append: ',' %}
+  {% endunless %}
+
+  {% unless supplement_options contains supplement_pack %}
+    {% assign supplement_options = supplement_options | append: supplement_pack | append: ',' %}
+  {% endunless %}
+{% endfor %}
+
+{% assign curalin_options = curalin_options | split: ',' %}
+{% assign supplement_options = supplement_options | split: ',' %}
+
 <div class="product-selection">
   <h2>Select Your Curalin Pack</h2>
-
   <div class="curalin-options">
     <div id="curalin-select">
       <div class="select_wrap">
-        {% assign first_variant = product.variants | first %}
-            <ul class="default_option">
-              <li>
-                <div class="option">
-                  <div class="icon"><img src="//cdn.shopify.com/s/files/1/0452/2459/1511/files/Frame1597877272_b547e086-cfa2-44e2-bfb0-bf54b180826e.png?v=1684767010" /></div>
-                  <p>{{ first_variant.title }}</p>
-                </div>
-              </li>
-            </ul>
-            <ul class="select_ul">
-              {% for option in curalin_options %}
-                {% for var in product.variants %}
-                  {% assign option_title = var.title | split: ' / ' | first %}
-                  {% if option_title == option %}
-                    {% assign variant_sample = var %}
-                    {% break %}
-                  {% endif %}
-                {% endfor %}
+        {% assign first_variant = product.variants.first %}
+        <ul class="default_option">
+          <li>
+            <div class="option">
+              <div class="icon">
+                <img src="//cdn.shopify.com/s/files/1/0452/2459/1511/files/Frame1597877272_b547e086-cfa2-44e2-bfb0-bf54b180826e.png?v=1684767010" />
+              </div>
+              <p>{{ first_variant.title }}</p>
+            </div>
+          </li>
+        </ul>
 
-                <li>
-                  <div class="option">
-                    <div class="icon"><img src="//cdn.shopify.com/s/files/1/0452/2459/1511/files/Frame1597877272_b547e086-cfa2-44e2-bfb0-bf54b180826e.png?v=1684767010" /></div>
-                    <p>{{ option }}</p>
-                  </div>
-                </li>
-              {% endfor %}
-            </ul>
-        </div>
+        <!-- Build Dropdown options -->
+        <ul class="select_ul">
+          {% for option in curalin_options %}
+            <!-- Obtain first matching variant -->
+            {% for variant in product.variants %}
+              {% assign option_title = variant.title | split: ' / ' | first %}
+              {% if option_title == option %}
+                {% assign variant_sample = variant %}
+                {% break %}
+              {% endif %}
+            {% endfor %}
+            <!-- Create list item for option -->
+            <li>
+              <div class="option">
+                <div class="icon">
+                  <img src="//cdn.shopify.com/s/files/1/0452/2459/1511/files/Frame1597877272_b547e086-cfa2-44e2-bfb0-bf54b180826e.png?v=1684767010" />
+                </div>
+                <p>{{ option }}</p>
+              </div>
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
     </div>
   </div>
-
-  <style>
-    .select_wrap{ width: 270px; height: 100%; position: relative;
-  user-select: none; overflow: hidden; border-radius: 5px;
-}
-
-.select_wrap .default_option {
-  background: #fff;
-  border-radius: 5px;
-  position: relative;
-  cursor: pointer;
-  z-index: 2;
-  border-color: var(--light-green);
-  border-width: 2px;
-}
-
-.select_wrap .default_option li{
-  padding: 15px 40px 15px 20px;
-}
-
-.select_wrap .default_option:before{
-  content: "";
-  position: absolute;
-  top: 23px;
-  right: 18px;
-  width: 6px;
-  height: 6px;
-  border: 2px solid;
-  border-color: transparent transparent #555555 #555555;
-  transform: rotate(-45deg);
-}
-
-.select_wrap .select_ul {
-  position: absolute;
-  top: 55px;
-  left: 0;
-  width: 100%;
-  background: #fff;
-  border-radius: 5px;
-  transform: translateY(-100%);
-  margin-top: 10px;
-  transition: all 0.3s ease;
-  opacity: 0;
-}
-
-.select_wrap .select_ul li{ padding: 15px 20px;
-  cursor: pointer;
-}
-
-.select_wrap .select_ul li:last-of-type{
-  border:none
-}
-
-.select_wrap .select_ul li:first-child:hover{
-  border-top-left-radius: 5px;
-  border-top-right-radius: 5px;
-}
-
-.select_wrap .select_ul li:last-child:hover{
-  border-bottom-left-radius: 5px;
-  border-bottom-right-radius: 5px;
-}
-
-.select_wrap .select_ul li:hover{ background: #fff4dd; }
-
-.select_wrap .option{ display: flex; align-items: center; }
-
-.select_wrap .option .icon{ width: 58px; height: 32px;
-  margin-right: 20px;
-}
-
-.select_wrap .option .icon img{ width: 100%; height: 100%; }
-
-.select_wrap.active {
-  overflow: visible;
-}
-
-.select_wrap.active .select_ul {
-  opacity: 1;
-  transform: translateY(0%);
-}
-
-.select_wrap.active .default_option:before{
-  top: 28px;
-  transform: rotate(-225deg);
-}
-  </style>
-
-  <script>
-    $(".default_option").click(function(){
-      $(this).parent().toggleClass("active");
-    })
-
-    $(".select_ul li").click(function(){
-      var currentel = $(this).html();
-      $(".default_option li").html(currentel);
-      $(this).parents(".select_wrap").removeClass("active");
-    })
-  </script>
-
+  <!-- Styles and Scripts... -->
 </div>
+
+<style>
+      .select_wrap{ width: 270px; height: 100%; position: relative;
+    user-select: none; overflow: hidden; border-radius: 5px;
+  }
+
+  .select_wrap .default_option {
+    background: #fff;
+    border-radius: 5px;
+    position: relative;
+    cursor: pointer;
+    z-index: 2;
+    border-color: var(--light-green);
+    border-width: 2px;
+  }
+
+  .select_wrap .default_option li{
+    padding: 15px 40px 15px 20px;
+  }
+
+  .select_wrap .default_option:before{
+    content: "";
+    position: absolute;
+    top: 23px;
+    right: 18px;
+    width: 6px;
+    height: 6px;
+    border: 2px solid;
+    border-color: transparent transparent #555555 #555555;
+    transform: rotate(-45deg);
+  }
+
+  .select_wrap .select_ul {
+    position: absolute;
+    top: 55px;
+    left: 0;
+    width: 100%;
+    background: #fff;
+    border-radius: 5px;
+    transform: translateY(-100%);
+    margin-top: 10px;
+    transition: all 0.3s ease;
+    opacity: 0;
+  }
+
+  .select_wrap .select_ul li{ padding: 15px 20px;
+    cursor: pointer;
+  }
+
+  .select_wrap .select_ul li:last-of-type{
+    border:none
+  }
+
+  .select_wrap .select_ul li:first-child:hover{
+    border-top-left-radius: 5px;
+    border-top-right-radius: 5px;
+  }
+
+  .select_wrap .select_ul li:last-child:hover{
+    border-bottom-left-radius: 5px;
+    border-bottom-right-radius: 5px;
+  }
+
+  .select_wrap .select_ul li:hover{ background: #fff4dd; }
+
+  .select_wrap .option{ display: flex; align-items: center; }
+
+  .select_wrap .option .icon{ width: 58px; height: 32px;
+    margin-right: 20px;
+  }
+
+  .select_wrap .option .icon img{ width: 100%; height: 100%; }
+
+  .select_wrap.active {
+    overflow: visible;
+  }
+
+  .select_wrap.active .select_ul {
+    opacity: 1;
+    transform: translateY(0%);
+  }
+
+  .select_wrap.active .default_option:before{
+    top: 28px;
+    transform: rotate(-225deg);
+  }
+    </style>
+
+    <script>
+  $(".default_option").click(function() {
+    $(this).parent().toggleClass("active");
+  })
+
+  $(".select_ul li").click(function() {
+    const currentel = $(this).html();
+    $(".default_option li").html(currentel);
+    $(this).parents(".select_wrap").removeClass("active");
+  })
+</script>
 
 <style>
   .selected-supplement {
