@@ -278,38 +278,30 @@
   });
 
   function tabControl() {
-    const tabContent = $('.disorders-box-section .tabbed-content');
-    const tabs = tabContent.find('.tabs');
-    const items = tabContent.find('.item');
+    function tabControl() {
+      const tabContent = $('.disorders-box-section .tabbed-content');
 
-    // Function to toggle active state
-    const toggleActiveState = function (element, target) {
-      if (element.hasClass('active')) {
-        element.removeClass('active');
-        $(target).removeClass('active');
-      } else {
-        element.addClass('active');
-        $(target).addClass('active');
-      }
-    };
+      const toggleActiveState = (element, target) => {
+        const isActive = element.hasClass('active');
+        element.toggleClass('active', !isActive);
+        target.toggleClass('active', !isActive);
+      };
 
-    if (tabs.is(':visible')) {
-      tabs.find('a').on('click', function (event) {
+      tabContent.on('click', '.tabs a, .item', function(event) {
         event.preventDefault();
-        const target = $(this).attr('href');
-        tabs.find('a').removeClass('active');
-        items.removeClass('active');
-        toggleActiveState($(this), target);
-      });
-    } else {
-      items.on('click', function () {
-        const currId = $(this).attr('id');
-        tabContent.find('.tabs a').removeClass('active');
-        items.removeClass('active');
-        toggleActiveState($(this), `.tabs a[href$="#${currId}"]`);
+
+        // Remove active state from all tabs and items
+        tabContent.find('.tabs a, .item').removeClass('active');
+
+        if ($(this).is('.tabs a')) {
+          const targetItem = $($(this).attr('href'));
+          toggleActiveState($(this), targetItem);
+        } else {
+          const associatedTab = tabContent.find(`.tabs a[href="#${$(this).attr('id')}"]`);
+          toggleActiveState($(this), associatedTab);
+        }
       });
     }
-  }
 </script>
 
 {% schema %}
