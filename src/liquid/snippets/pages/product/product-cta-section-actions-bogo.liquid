@@ -21,11 +21,25 @@
   <h2>Select Your Curalin Pack</h2>
 
   <div class="curalin-options">
-    <select id="curalin-select">
+    <div id="curalin-select">
       {% for option in curalin_options %}
-        <option value="{{ option }}">{{ option }}</option>
+        {% comment %} Find A Variant With This Option for Example {% endcomment %}
+        {% for var in product.variants %}
+          {% assign option_title = var.title | split: ' / ' | first %}
+          {% if option_title == option %}
+            {% assign example_variant = var %}
+            {% break %}
+          {% endif %}
+        {% endfor %
+
+        {% comment %} Render Option Box {% endcomment %}
+        {% if forloop.last %}
+          {% render 'product-cta-section-actions-variant-box', ctaTextType: ctaTextType, isVariantNotice: isVariantNotice, var: example_variant, index: forloop.index, isHighlightSubtitle: isHighlightSubtitle, isUpdateSaveTitle: true, pricePer: pricePer, challenge_value: challenge_value, curaeats_value: curaeats_value, isLastRender: true %}
+        {% else %}
+          {% render 'product-cta-section-actions-variant-box', ctaTextType: ctaTextType, isVariantNotice: isVariantNotice, var: example_variant, index: forloop.index, isHighlightSubtitle: isHighlightSubtitle, isUpdateSaveTitle: true, pricePer: pricePer, challenge_value: challenge_value, curaeats_value: curaeats_value %}
+        {% endif %}
       {% endfor %}
-    </select>
+    </div>
   </div>
 
   <h2>Select Your Supplement Pack</h2>
@@ -41,6 +55,12 @@
   <button class="buy-now">Buy Now</button>
 </div>
 
+<style>
+  .selected-supplement {
+    border: 3px solid #00ff00; /* This is just an example, use the color, width, and style you prefer */
+  }
+</style>
+
 <script>
   let selectedCuralinPack = null;
   let selectedSupplementPack = null;
@@ -51,11 +71,19 @@
   });
 
   // Handle Supplement selection
-  document.querySelectorAll('.select-supplement').forEach(img => {
-    img.addEventListener('click', event => {
-      selectedSupplementPack = event.target.dataset.supplementPack;
+document.querySelectorAll('.select-supplement').forEach(img => {
+  img.addEventListener('click', event => {
+    // Remove the selected class from any previously selected supplement
+    document.querySelectorAll('.select-supplement.selected-supplement').forEach(selectedImg => {
+      selectedImg.classList.remove('selected-supplement');
     });
+
+    // Add the selected class to the clicked supplement
+    event.target.classList.add('selected-supplement');
+
+    selectedSupplementPack = event.target.dataset.supplementPack;
   });
+});
 
 
   // Handle Buy Now click
