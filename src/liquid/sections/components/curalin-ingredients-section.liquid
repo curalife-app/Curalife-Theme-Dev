@@ -5,7 +5,7 @@
         <ul>
           {% for block in section.blocks %}
             {% assign ingredient_handle = block.settings.title | downcase | replace: ' ', '-' %}
-            <li><a href="#ingredients-{{ ingredient_handle }}" {% if forloop.first %}class="active"{% endif %}>
+            <li><a href="#ingredients-{{ ingredient_handle }}">
               <img src="{{ block.settings.img | img_url: 'master' }}" width="68" height="53" alt="Ingredient" loading="lazy">
               <span class="main-titles">{{ block.settings.title }}</span>
             </a></li>
@@ -17,7 +17,7 @@
         {% for block in section.blocks %}
           {% assign ingredient_handle = block.settings.title | downcase | replace: ' ', '-' %}
           <img class="product-suppliment-mb" src="{{ block.settings.img | img_url: 'master' }}" width="68" height="53" alt="Ingredient" loading="lazy">
-          <div id="ingredients-{{ ingredient_handle }}" class="item {% if forloop.first %}active{% endif %}" data-title="{{ block.settings.title }}">
+          <div id="ingredients-{{ ingredient_handle }}" class="item" data-title="{{ block.settings.title }}">
             <div class="ingredients item-content">
               <div class="ingr-imp">
                 <div class="ingr">{{ block.settings.ingr }}&nbsp; <span>{{ block.settings.title }}</span></div>
@@ -311,7 +311,7 @@
 </style>
 
 <script>
-  tabControl();
+  ingredientsTabControl();
 
   var resizeTimer;
   $(window).on('resize', function(e) {
@@ -321,34 +321,31 @@
     }, 250);
   });
 
-  function tabControl() {
-    var tabs = $('#curalin-pack-ingredients-section .tabbed-content').find('.tabs');
-    if(tabs.is(':visible')) {
-    tabs.find('a').on('click', function(event) {
+  function ingredientsTabControl() {
+    const tabContent = $('#curalin-pack-ingredients-section .tabbed-content');
+
+    const toggleActiveState = (element, target) => {
+      if (element.hasClass('active')) {
+        element.removeClass('active');
+        target.removeClass('active');
+      } else {
+        tabContent.find('.tabs a, .item').removeClass('active');
+        element.addClass('active');
+        target.addClass('active');
+      }
+    };
+
+    tabContent.on('click', '.tabs a, .item', function(event) {
       event.preventDefault();
-      var target = $(this).attr('href'),
-          tabs = $(this).parents('.tabs'),
-          buttons = tabs.find('a'),
-          item = tabs.parents('#curalin-pack-ingredients-section .tabbed-content').find('.item');
-      buttons.removeClass('active');
-      item.removeClass('active');
-      $(this).addClass('active');
-      $(target).addClass('active');
+
+      if ($(this).is('.tabs a')) {
+        const targetItem = $($(this).attr('href'));
+        toggleActiveState($(this), targetItem);
+      } else {
+        const associatedTab = tabContent.find(`.tabs a[href="#${$(this).attr('id')}"]`);
+        toggleActiveState($(this), associatedTab);
+      }
     });
-    } else {
-    $('.item').on('click', function() {
-      var container = $(this).parents('.tabbed-content'),
-          currId = $(this).attr('id'),
-          items = container.find('.item');
-      const isCurrentActive = $(this).hasClass('active');
-      container.find('.tabs a').removeClass('active');
-      items.removeClass('active');
-      if (!isCurrentActive) {
-        $(this).addClass('active')
-        container.find('.tabs a[href$="#'+ currId +'"]').addClass('active');
-      };
-    });
-    }
   }
 </script>
 
