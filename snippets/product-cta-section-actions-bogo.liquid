@@ -208,33 +208,33 @@
   });
 
   // Handle Supplement selection
-document.querySelectorAll('.select-supplement').forEach(img => {
-  img.addEventListener('click', event => {
-    // Remove the selected class from any previously selected supplement
-    document.querySelectorAll('.select-supplement.selected-supplement').forEach(selectedImg => {
-      selectedImg.classList.remove('selected-supplement');
+  document.querySelectorAll('.select-supplement').forEach(img => {
+    img.addEventListener('click', event => {
+      // Remove the selected class from any previously selected supplement
+      document.querySelectorAll('.select-supplement.selected-supplement').forEach(selectedImg => {
+        selectedImg.classList.remove('selected-supplement');
+      });
+
+      // Add the selected class to the clicked supplement
+      event.target.classList.add('selected-supplement');
+
+      selectedSupplementPack = event.target.dataset.supplementPack;
     });
-
-    // Add the selected class to the clicked supplement
-    event.target.classList.add('selected-supplement');
-
-    selectedSupplementPack = event.target.dataset.supplementPack;
   });
-});
 
+  // Create a variant map with combined pack names as keys and variant IDs as values
+  const variantMap = {
+    {% for variant in product.variants %}
+      {% assign curalin_pack = variant.title | split: ' / ' | first %}
+      {% assign supplement_pack = variant.title | split: ' / ' | last %}
+      "{{ curalin_pack }} / {{ supplement_pack }}": "{{ variant.id }}",
+    {% endfor %}
+  };
 
   // Handle Buy Now click
   document.querySelector('.buy-now').addEventListener('click', () => {
     if (selectedCuralinPack && selectedSupplementPack) {
-      // Find the variant ID for the selected combination
-      {% for variant in product.variants %}
-        {% assign curalin_pack = variant.title | split: ' / ' | first %}
-        {% assign supplement_pack = variant.title | split: ' / ' | last %}
-        {% if curalin_pack == selectedCuralinPack and supplement_pack == selectedSupplementPack %}
-          const variantId = '{{ variant.id }}';
-        {% endif %}
-      {% endfor %}
-
+      const variantId = variantMap[`${selectedCuralinPack} / ${selectedSupplementPack}`];
       const checkoutURL = `/cart/add?id=${variantId}`;
       window.location.href = checkoutURL;
     } else {
