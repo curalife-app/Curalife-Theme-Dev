@@ -45,6 +45,7 @@
                 {% break %}
               {% endif %}
             {% endfor %}
+
             <!-- Create list item for option -->
             <li>
               <div class="option" data-curalin-pack="{{ option }}">
@@ -62,9 +63,19 @@
 
   <div class="supplement-options">
     {% for option in supplement_options %}
+      <!-- Obtain first matching variant -->
+      {% for variant in product.variants %}
+        {% assign option_title = variant.title | split: ' / ' | last %}
+        {% if option_title == option %}
+          {% assign variant_sample = variant %}
+          {% break %}
+        {% endif %}
+      {% endfor %}
+
       <div class="select-supplement" data-supplement-pack="{{ option }}">
         <!-- Update this line with the correct way to get the image URL for your product options -->
-        <img src="{{ option | img_url: '1024x' }}" alt="{{ option }}">
+        {% assign bogo_gift_product = variant_sample.metafields.custom.bogo_gift_product %}
+        <img src="{{ bogo_gift_product.metafields.custom.bottle_image.src | img_url: '1024x' }}" alt="{{ option }}">
         <span>{{ option }}</span>
       </div>
     {% endfor %}
