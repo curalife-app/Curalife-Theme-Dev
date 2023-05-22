@@ -43,9 +43,6 @@
     </div>
   </div>
 
-  <script>console.log("price_per: {{ pricePer }}")</script>
-
-
   {% if pricePer != "dont_split" %}
     <div class="price">
       <div class="calculations">
@@ -266,40 +263,45 @@
     }
 
     $(".variant-box").click(function() {
-      $(this).find('input[name=pack]').prop('checked', true);
-      updateCTA();
-      updateSelectedVariantInformation('data-quantity', '.multiplier');
-      updateSelectedVariantInformation('data-save', '.save-badge');
+      if ( window.didClickVariant ) {
+        $(this).find('input[name=pack]').prop('checked', true);
+        updateCTA();
+        updateSelectedVariantInformation('data-quantity', '.multiplier');
+        updateSelectedVariantInformation('data-save', '.save-badge');
 
-      // Slide to Variant Image
-      {% if product.variants.size > 1 and product.images.size > 1 %}
-        let slideIndex = productSliderAllInOne.slides.length - $('input[name=pack]:checked').attr('data-index');
-        productSliderAllInOne.slideTo(slideIndex);
-      {% endif %}
+        // Slide to Variant Image
+        {% if product.variants.size > 1 and product.images.size > 1 %}
+          let slideIndex = productSliderAllInOne.slides.length - $('input[name=pack]:checked').attr('data-index');
+          productSliderAllInOne.slideTo(slideIndex);
+        {% endif %}
 
-      // Track in GA
-      window.dataLayer = window.dataLayer || [];
-      window.dataLayer.push({
-        'event': 'variant-click',
-        'label': $('input[name=pack]:checked').attr('data-sku'),
-        'userId': '{{ customer.id }}',
-        'email': '{{ customer.email }}',
-        'country': '{{customer.customer_address.country_code }}',
-        'city': '{{customer.customer_address.city }}',
-        'name': '{{ customer.first_name }}',
-        'surname': '{{ customer.last_name }}',
-        'phone_number': '{{customer.phone }}',
-        'state': '{{customer.customer_address.province }}',       //state or province
-        'zip': '{{customer.customer_address.zip }}'         //ZIP or Postal code
-      });
+        // Track in GA
+        window.dataLayer = window.dataLayer || [];
+        window.dataLayer.push({
+          'event': 'variant-click',
+          'label': $('input[name=pack]:checked').attr('data-sku'),
+          'userId': '{{ customer.id }}',
+          'email': '{{ customer.email }}',
+          'country': '{{customer.customer_address.country_code }}',
+          'city': '{{customer.customer_address.city }}',
+          'name': '{{ customer.first_name }}',
+          'surname': '{{ customer.last_name }}',
+          'phone_number': '{{customer.phone }}',
+          'state': '{{customer.customer_address.province }}',       //state or province
+          'zip': '{{customer.customer_address.zip }}'         //ZIP or Postal code
+        });
 
-      // Track in Woopra
-      woopra.track('Product_Variant_Select', {
-        sku: $(this).find("input").attr("data-sku"),
-        variant_id: $(this).find("input").attr("value"),
-        variant_title: $(this).find("input").attr("data-title"),
-        price: $(this).find("input").attr("data-price")
-      })
+        // Track in Woopra
+        woopra.track('Product_Variant_Select', {
+          sku: $(this).find("input").attr("data-sku"),
+          variant_id: $(this).find("input").attr("value"),
+          variant_title: $(this).find("input").attr("data-title"),
+          price: $(this).find("input").attr("data-price")
+        })
+      }
+      else {
+        window.didClickVariant = true;
+      }
     });
   </script>
 {% endif %}
