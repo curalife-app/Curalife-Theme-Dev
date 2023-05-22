@@ -74,10 +74,14 @@
 </div>
 
 <script>
+  // Map of variant titles to variants
+  const variantMap = {};
+
+  // Selected Curalin Pack and Supplement Pack
   let selectedCuralinPack = null;
   let selectedSupplementPack = null;
 
-  // Handle Curalin selection
+  // Handle Curalin Pack selection
   document.querySelectorAll('.curalin-options .option').forEach(option => {
     option.addEventListener('click', event => {
       // Remove 'selected' class from all options
@@ -86,62 +90,12 @@
       });
 
       // Add 'selected' class to clicked option
-      option.classList.add('selected');
+      event.target.classList.add('selected');
 
       // Update selectedCuralinPack
-      selectedCuralinPack = option.getAttribute('data-curalin-pack');
+      selectedCuralinPack = event.target.getAttribute('data-curalin-pack');
     });
   });
-
-  // Handle Supplement selection
-  document.querySelectorAll('.supplement-options .select-supplement').forEach(option => {
-    option.addEventListener('click', event => {
-      // Remove 'selected' class from all options
-      document.querySelectorAll('.supplement-options .select-supplement').forEach(opt => {
-        opt.classList.remove('selected');
-      });
-
-      // Add 'selected' class to clicked option
-      option.classList.add('selected');
-
-      // Update selectedSupplementPack
-      selectedSupplementPack = option.getAttribute('data-supplement-pack');
-    });
-  });
-
-  // Handle Buy Now click
-  document.querySelector('.buy-now').addEventListener('click', event => {
-    if (selectedCuralinPack && selectedSupplementPack) {
-      // Construct variant title
-      const variantTitle = `${selectedCuralinPack} / ${selectedSupplementPack}`;
-
-      // Find matching variant
-      const variant = variantMap[variantTitle];
-
-      if (variant) {
-        // Redirect to checkout URL
-        window.location.href = `/cart/add?id=${variant.id}`;
-      } else {
-        // Handle case where matching variant isn't found
-        console.error('No matching variant found for selected options');
-      }
-    } else {
-      // Handle case where not all options are selected
-      console.error('Please select both a Curalin Pack and a Supplement Pack before proceeding to checkout');
-    }
-  });
-
-  // 'selected' class from all options
-  document.querySelectorAll('.curalin-options .option').forEach(opt => {
-    opt.classList.remove('selected');
-
-    // Add 'selected' class to clicked option
-    event.target.classList.add('selected');
-
-    // Update selectedCuralinPack
-    selectedCuralinPack = event.target.getAttribute('data-curalin-pack');
-  });
-
 
   // Handle Supplement selection
   document.querySelectorAll('.supplement-options .select-supplement').forEach(option => {
@@ -166,12 +120,7 @@
       const variantTitle = `${selectedCuralinPack} / ${selectedSupplementPack}`;
 
       // Find matching variant
-      let matchingVariant = null;
-      product.variants.forEach(variant => {
-        if (variant.title === variantTitle) {
-          matchingVariant = variant;
-        }
-      });
+      const matchingVariant = product.variants.find(variant => variant.title === variantTitle);
 
       if (matchingVariant) {
         // Redirect to checkout URL
