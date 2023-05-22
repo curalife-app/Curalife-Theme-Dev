@@ -101,7 +101,7 @@
 
   .disorders-box-section .item::before {
     content: attr(data-title);
-    border-top: 1px solid var(--light-green);
+    border-top: 1px solid gainsboro;
     cursor: pointer;
     font-weight: bold;
     padding: 0.5em;
@@ -278,28 +278,35 @@
   });
 
   function tabControl() {
-    var tabs = $('.disorders-box-section .tabbed-content').find('.tabs');
-    if(tabs.is(':visible')) {
-      tabs.find('a').on('click', function(event) {
-        event.preventDefault();
-        var target = $(this).attr('href'),
-            tabs = $(this).parents('.tabs'),
-            buttons = tabs.find('a'),
-            item = tabs.parents('.disorders-box-section .tabbed-content').find('.item');
-        buttons.removeClass('active');
-        item.removeClass('active');
-        $(this).addClass('active');
+    const tabContent = $('.disorders-box-section .tabbed-content');
+    const tabs = tabContent.find('.tabs');
+    const items = tabContent.find('.item');
+
+    // Function to toggle active state
+    const toggleActiveState = function (element, target) {
+      if (element.hasClass('active')) {
+        element.removeClass('active');
+        $(target).removeClass('active');
+      } else {
+        element.addClass('active');
         $(target).addClass('active');
+      }
+    };
+
+    if (tabs.is(':visible')) {
+      tabs.find('a').on('click', function (event) {
+        event.preventDefault();
+        const target = $(this).attr('href');
+        tabs.find('a').removeClass('active');
+        items.removeClass('active');
+        toggleActiveState($(this), target);
       });
     } else {
-      $('.item').on('click', function() {
-        var container = $(this).parents('.tabbed-content'),
-            currId = $(this).attr('id'),
-            items = container.find('.item');
-        container.find('.tabs a').removeClass('active');
+      items.on('click', function () {
+        const currId = $(this).attr('id');
+        tabContent.find('.tabs a').removeClass('active');
         items.removeClass('active');
-        $(this).addClass('active');
-        container.find('.tabs a[href$="#'+ currId +'"]').addClass('active');
+        toggleActiveState($(this), `.tabs a[href$="#${currId}"]`);
       });
     }
   }
