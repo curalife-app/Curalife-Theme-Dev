@@ -311,42 +311,52 @@
 </style>
 
 <script>
-  ingredientsTabControl();
-
-  var resizeTimer;
-  $(window).on('resize', function(e) {
-    clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(function() {
-    tabControl();
-    }, 250);
-  });
-
-  function ingredientsTabControl() {
-    const tabContent = $('#curalin-pack-ingredients-section .tabbed-content');
-
-    const toggleActiveState = (element, target) => {
-      if (element.hasClass('active')) {
-        element.removeClass('active');
-        target.removeClass('active');
-      } else {
-        tabContent.find('.tabs a, .item').removeClass('active');
-        element.addClass('active');
-        target.addClass('active');
-      }
-    };
-
-    tabContent.on('click', '.tabs a, .item', function(event) {
-      event.preventDefault();
-
-      if ($(this).is('.tabs a')) {
-        const targetItem = $($(this).attr('href'));
-        toggleActiveState($(this), targetItem);
-      } else {
-        const associatedTab = tabContent.find(`.tabs a[href="#${$(this).attr('id')}"]`);
-        toggleActiveState($(this), associatedTab);
-      }
+  $(document).ready(function() {
+    var resizeTimer;
+    $(window).on('resize', function(e) {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(function() {
+        tabControl();
+      }, 250);
     });
-  }
+
+    function ingredientsTabControl() {
+      const tabContent = $('#curalin-pack-ingredients-section .tabbed-content');
+      console.log("tabContent length: ", tabContent.length);
+
+      const toggleActiveState = (element, target) => {
+        console.log("toggleActiveState called with element: ", element, " and target: ", target);
+        tabContent.find('.tabs a, .item').not(element).not(target).removeClass('active');
+        element.toggleClass('active');
+        target.toggleClass('active');
+        console.log("Current active elements: ", tabContent.find('.active'));
+      };
+
+      tabContent.on('click', '.tabs a, .item', function(event) {
+        event.preventDefault();
+
+        // If this element is already active, do nothing and return.
+        if ($(this).hasClass('active')) {
+          console.log("Clicked element is already active. No action performed.");
+          return;
+        }
+
+        console.log("Clicked element: ", $(this));
+
+        if ($(this).is('.tabs a')) {
+          const targetItem = $($(this).attr('href'));
+          console.log("Target item: ", targetItem);
+          toggleActiveState($(this), targetItem);
+        } else {
+          const associatedTab = tabContent.find(`.tabs a[href="#${$(this).attr('id')}"]`);
+          console.log("Associated tab: ", associatedTab);
+          toggleActiveState($(this), associatedTab);
+        }
+      });
+    }
+
+    ingredientsTabControl(); // Call this function after its definition
+  });
 </script>
 
 
