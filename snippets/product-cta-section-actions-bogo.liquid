@@ -54,7 +54,7 @@
 
             <!-- Create list item for option -->
             <li>
-              <div class="option" data-curalin-pack="{{ option }}">
+              <div class="option" data-curalin-pack="{{ option }}" data-price="{{ variant_sample.price }}" data-discount="{{ dave_price }}">
                 <div class="left-side-wrapper flex items-center gap-4">
                   {% assign bogo_curalin_pack_variant = variant_sample.metafields.custom.bogo_curalin_pack_variant.value %}
                   <img src="{{ bogo_curalin_pack_variant.image | image_url }}" alt="{{ option }}">
@@ -200,6 +200,25 @@
 
 
 <script>
+  function updateCTA(element) {
+    {% if ctaTextType %}
+      {% if ctaTextType == "save" %}
+        if (element.attr('data-discount') == 0) {
+          let ctaText = "";
+        }
+        else {
+          let ctaText = "You Save " + "{{ cart.currency.symbol }}" + element.attr('data-discount');
+        }
+      {% elsif ctaTextType == "total" %}
+        let ctaText = "Total " + "{{ cart.currency.symbol }}" + element.attr('data-price');
+      {% endif %}
+
+      $("#save").fadeOut(300, function () {
+        $(this).text(ctaText);
+      }).fadeIn(300);
+    {% endif %}
+  }
+
   // Map of variant titles to variants
   const variantMap = {};
 
@@ -220,6 +239,8 @@
 
       // Update selectedCuralinPack
       selectedCuralinPack = event.target.getAttribute('data-curalin-pack');
+
+      updateCTA(event.target);
     });
   });
 
