@@ -34,7 +34,6 @@
           </li>
         </ul>
 
-
         <!-- Build Dropdown options -->
         <ul class="select_ul shadow-xl">
           {% for option in curalin_options %}
@@ -47,6 +46,13 @@
               {% endif %}
             {% endfor %}
 
+            {% assign bottle_quantity = var.metafields.my_fields.pack_bottles_quantity %}
+            {% assign original_item_cap_total = original_item_cap | times: bottle_quantity %}
+            {% assign original_item_cap_total_with_bundle = bundle_value | times: 100 | plus: original_item_cap_total %}
+            {% assign original_item_price = var.metafields.custom.original_item.value.price %}
+            {% assign item_price = var.price | divided_by: bottle_quantity %}
+            {% assign save_price = original_item_price | minus: item_price | times: quantity %}
+
             <!-- Create list item for option -->
             <li>
               <div class="option" data-curalin-pack="{{ option }}">
@@ -55,6 +61,27 @@
                   <img src="{{ bogo_curalin_pack_variant.image | image_url }}" alt="{{ option }}">
                 </div>
                 <div>{{ option }}</div>
+
+                {% if pricePer != "dont_split" %}
+                  <div class="price">
+                    <div class="calculations">
+                      {% if original_item_cap_total > var.price %}
+                        <p class="compared-at-price"><strike class="no-letters rounded">{{ original_item_cap_total | money_without_trailing_zeros }}</strike></p>
+                      {% endif %}
+
+                      <p class="real-price no-letters rounded">{{ item_price | money_without_trailing_zeros }}</p>
+                    </div>
+
+                    <p class="per-month">Per {{ pricePer | capitalize }}</p>
+                  </div>
+                {% else %}
+                  <div class="price">
+                    {% if original_item_cap_total_with_bundle > var.price %}
+                      <p class="compared-at-price"><strike class="no-letters rounded">{{ original_item_cap_total_with_bundle | money_without_trailing_zeros }}</strike></p>
+                    {% endif %}
+                    <p class="real-price no-letters rounded">{{ var.price | money_without_trailing_zeros }}</p>
+                  </div>
+                {% endif %}
               </div>
             </li>
           {% endfor %}
@@ -75,7 +102,6 @@
         {% endif %}
       {% endfor %}
 
-
       <div class="select-supplement">
         <div class="supplement-option" data-supplement-pack="{{ option }}">
           {% assign bogo_gift_product = variant_sample.metafields.custom.bogo_gift_product.value %}
@@ -91,6 +117,46 @@
 
   <button class="buy-now">Buy Now</button>
 </div>
+
+<style>
+  .option .price p {
+      margin: unset;
+    }
+
+    .option .price .calculations {
+      display: flex;
+      align-items: center;
+      justify-content: right;
+    }
+
+    .option .price .calculations p::after {
+      content: "00";
+      font-size: 0.6rem;
+      vertical-align: super;
+      margin-right: 5px;
+    }
+
+    .option .price .calculations p.compared-at-price::after {
+      font-size: 0.3rem;
+    }
+
+    .option .price .per-month {
+      color: var(--grey);
+      font-size: 16px;
+    }
+
+    .option .price .compared-at-price {
+      font-size: unset;
+    }
+
+    .option .price .compared-at-price strike {
+      font-size: 13px !important;
+    }
+
+    .option .price .real-price {
+      font-size: 20px;
+    }
+</style>
 
 
 <script>
