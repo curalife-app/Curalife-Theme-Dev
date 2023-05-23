@@ -25,7 +25,7 @@
         {% assign first_variant = product.variants.first %}
         <ul class="default_option">
           <li>
-            <div class="option">
+            <div id="default-curalin-option" class="option" data-curalin-pack="{{ first_variant.title | split: ' / ' | first }}">
               <div class="icon">
                 <img src="//cdn.shopify.com/s/files/1/0452/2459/1511/files/Frame1597877272_b547e086-cfa2-44e2-bfb0-bf54b180826e.png?v=1684767010" />
               </div>
@@ -114,13 +114,9 @@
   let selectedCuralinPack = null;
   let selectedSupplementPack = null;
 
-  console.log("Script started");
-
   // Handle Curalin Pack selection
   document.querySelectorAll('.curalin-options .option').forEach(option => {
     option.addEventListener('click', event => {
-      console.log("Curalin pack option clicked");
-
       // Remove 'selected' class from all options
       document.querySelectorAll('.curalin-options .option').forEach(opt => {
         opt.classList.remove('selected');
@@ -131,18 +127,12 @@
 
       // Update selectedCuralinPack
       selectedCuralinPack = event.target.getAttribute('data-curalin-pack');
-
-      console.log("Selected Curalin pack: ", selectedCuralinPack);
     });
   });
 
   // Handle Supplement selection
   document.querySelectorAll('.supplement-options .select-supplement .supplement-option').forEach(option => {
     option.addEventListener('click', event => {
-      console.log("Supplement option clicked");
-      console.log("Clicked element: ", event.target);
-      console.log("data-supplement-pack attribute: ", event.target.getAttribute('data-supplement-pack'));
-
       // Remove 'selected' class from all options
       document.querySelectorAll('.supplement-options .select-supplement .supplement-option').forEach(opt => {
         opt.classList.remove('selected');
@@ -153,15 +143,11 @@
 
       // Update selectedSupplementPack
       selectedSupplementPack = event.target.getAttribute('data-supplement-pack');
-
-      console.log("Selected supplement pack: ", selectedSupplementPack);
     });
   });
 
   // Handle Buy Now click
   document.querySelector('.buy-now').addEventListener('click', event => {
-    console.log("Buy Now clicked");
-
     if (selectedCuralinPack && selectedSupplementPack) {
       // Convert product from Liquid to JavaScript
       const product = {{ product | json }};
@@ -169,14 +155,10 @@
       // Construct variant title
       const variantTitle = `${selectedCuralinPack} / ${selectedSupplementPack}`;
 
-      console.log("Constructed variant title: ", variantTitle);
-
       // Find matching variant
       const matchingVariant = product.variants.find(variant => variant.title === variantTitle);
 
       if (matchingVariant) {
-        console.log("Found matching variant: ", matchingVariant);
-
         // Construct the checkout URL
         const checkoutURL = `/cart/${matchingVariant.id}:1`;
 
@@ -190,6 +172,11 @@
       // Handle case where not all options are selected
       console.error('Please select both a Curalin Pack and a Supplement Pack before proceeding to checkout');
     }
+  });
+
+  // Add this code to the end of your script
+  document.addEventListener('DOMContentLoaded', (event) => {
+    $(".option[data-curalin-pack='Curalin']:first-child").click();
   });
 </script>
 
@@ -225,10 +212,10 @@
   .select_wrap .default_option:before{
     content: "";
     position: absolute;
-    top: 23px;
+    top: 28px;
     right: 18px;
-    width: 6px;
-    height: 6px;
+    width: 10px;
+    height: 10px;
     border: 2px solid;
     border-color: transparent transparent #555555 #555555;
     transform: rotate(-45deg);
@@ -236,25 +223,31 @@
 
   .select_wrap .select_ul {
     position: absolute;
-    top: 55px;
+    top: 100%;
     left: 0;
     width: 100%;
     background: #fff;
     border-radius: 5px;
-    transform: translateY(-100%);
-    margin-top: 10px;
+    max-height: 0;  /* changed from transform */
     transition: all 0.3s ease;
     opacity: 0;
     z-index: 1;
+    overflow: hidden;  /* hide the overflow */
+  }
+
+  .select_wrap.active .select_ul {
+    opacity: 1;
+    max-height: 470px; /* needs to be larger than the actual height you expect */
   }
 
 
-  .select_wrap .select_ul li{ padding: 15px 20px;
+  .select_wrap .select_ul li {
+    padding: 15px 20px;
     cursor: pointer;
   }
 
-  .select_wrap .select_ul li:last-of-type{
-    border:none
+  .select_wrap .select_ul li:last-of-type {
+    border: none;
   }
 
   .select_wrap .select_ul li:first-child:hover{
@@ -274,6 +267,7 @@
   .select_wrap .option {
     display: flex;
     align-items: center;
+    gap: 10px;
   }
 
   .select_wrap .option * {
@@ -307,13 +301,8 @@
     overflow: visible;
   }
 
-  .select_wrap.active .select_ul {
-    opacity: 1;
-    transform: translateY(0%);
-  }
-
   .select_wrap.active .default_option:before{
-    top: 28px;
+    top: 32px;
     transform: rotate(-225deg);
   }
     </style>
@@ -354,6 +343,10 @@
   .select-supplement .supplement-option.selected img {
     background: var(--vomit);
     border: 2px solid var(--light-green);
+  }
+
+  .select-supplement .supplement-option:hover img {
+    background: var(--light-vomit);
   }
 
   .select-supplement span {
