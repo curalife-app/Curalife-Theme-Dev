@@ -34,7 +34,6 @@
           </li>
         </ul>
 
-
         <!-- Build Dropdown options -->
         <ul class="select_ul shadow-xl">
           {% for option in curalin_options %}
@@ -47,14 +46,49 @@
               {% endif %}
             {% endfor %}
 
+            {% assign bottle_quantity = variant_sample.metafields.my_fields.pack_bottles_quantity %}
+            {% assign original_item_cap_total = original_item_cap | times: bottle_quantity %}
+            {% assign original_item_price = variant_sample.metafields.custom.original_item.value.price %}
+            {% assign item_price = variant_sample.price | divided_by: bottle_quantity %}
+            {% assign save_price = original_item_price | minus: item_price | times: quantity %}
+
             <!-- Create list item for option -->
             <li>
-              <div class="option" data-curalin-pack="{{ option }}">
-                <div class="icon">
+              <div class="option" data-curalin-pack="{{ option }}" data-price="{{ variant_sample.price }}" data-discount="{{ dave_price }}">
+                <div class="left-side-wrapper flex items-center gap-4">
                   {% assign bogo_curalin_pack_variant = variant_sample.metafields.custom.bogo_curalin_pack_variant.value %}
                   <img src="{{ bogo_curalin_pack_variant.image | image_url }}" alt="{{ option }}">
+
+                  <div class="variant-info">
+                    <div class="variant-title">{{ option }}</div>
+                    {% if var.metafields.my_fields.subtitle %}
+                      <div class="variant-infos">
+                        <div class="subtitle">{{ var.metafields.my_fields.subtitle }}</div>
+                      </div>
+                    {% endif %}
+                  </div>
                 </div>
-                <div>{{ option }}</div>
+
+                {% if pricePer != "dont_split" %}
+                  <div class="price">
+                    <div class="calculations">
+                      {% if original_item_cap_total > variant_sample.price %}
+                        <div class="compared-at-price"><strike class="no-letters rounded">{{ original_item_cap_total | money_without_trailing_zeros }}</strike></div>
+                      {% endif %}
+
+                      <div class="real-price no-letters rounded">{{ item_price | money_without_trailing_zeros }}</div>
+                    </div>
+
+                    <div class="per-month">Per {{ pricePer | capitalize }}</div>
+                  </div>
+                {% else %}
+                  <div class="price">
+                    {% if original_item_cap_total_with_bundle > variant_sample.price %}
+                      <div class="compared-at-price"><strike class="no-letters rounded">{{ original_item_cap_total_with_bundle | money_without_trailing_zeros }}</strike></div>
+                    {% endif %}
+                    <div class="real-price no-letters rounded">{{ variant_sample.price | money_without_trailing_zeros }}</div>
+                  </div>
+                {% endif %}
               </div>
             </li>
           {% endfor %}
@@ -75,7 +109,6 @@
         {% endif %}
       {% endfor %}
 
-
       <div class="select-supplement">
         <div class="supplement-option" data-supplement-pack="{{ option }}">
           {% assign bogo_gift_product = variant_sample.metafields.custom.bogo_gift_product.value %}
@@ -88,9 +121,69 @@
       </div>
     {% endfor %}
   </div>
-
-  <button class="buy-now">Buy Now</button>
+<button class="main-btn buy-now" id="buy-button"><span>SHOP NOW</span>{% if ctaTextType %}<span class="save" id="save"></span>{% endif %}</button>
 </div>
+
+{% render 'script.round-converted-currency' %}
+
+<style>
+  .product-selection .buy-now {
+    background-color: {{ ctaColor }};
+    width: 100%;
+    display: flex;
+    align-items: center;
+  }
+
+  .product-selection .buy-now:hover {
+    background-color: #ea9f1c;
+  }
+
+  .product-selection .buy-now span.save {
+    font-weight: 100;
+    border-left: 1px solid white;
+    padding-left: 10px;
+  }
+
+    .option .price {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .option .price .calculations {
+      display: flex;
+      align-items: center;
+      justify-content: right;
+    }
+
+    .option .price .calculations p::after {
+      content: "00";
+      font-size: 0.6rem;
+      vertical-align: super;
+      margin-right: 5px;
+    }
+
+    .option .price .calculations p.compared-at-price::after {
+      font-size: 0.3rem;
+    }
+
+    .option .price .per-month {
+      color: var(--grey);
+      font-size: 16px;
+    }
+
+    .option .price .compared-at-price {
+      font-size: unset;
+    }
+
+    .option .price .compared-at-price strike {
+      font-size: 13px !important;
+    }
+
+    .option .price .real-price {
+      font-size: 20px;
+    }
+</style>
 
 
 <script>
@@ -107,6 +200,25 @@
 
 
 <script>
+  function updateCTA(element) {
+    {% if ctaTextType %}
+      {% if ctaTextType == "save" %}
+        if (element.attr('data-discount') == 0) {
+          let ctaText = "";
+        }
+        else {
+          let ctaText = "You Save " + "{{ cart.currency.symbol }}" + element.attr('data-discount');
+        }
+      {% elsif ctaTextType == "total" %}
+        let ctaText = "Total " + "{{ cart.currency.symbol }}" + element.attr('data-price');
+      {% endif %}
+
+      $("#save").fadeOut(300, function () {
+        $(this).text(ctaText);
+      }).fadeIn(300);
+    {% endif %}
+  }
+
   // Map of variant titles to variants
   const variantMap = {};
 
@@ -127,6 +239,8 @@
 
       // Update selectedCuralinPack
       selectedCuralinPack = event.target.getAttribute('data-curalin-pack');
+
+      updateCTA(event.target);
     });
   });
 
@@ -191,7 +305,6 @@
     width: 100%;
     position: relative;
     user-select: none;
-    overflow: hidden;
     border-radius: 5px;
   }
 
@@ -268,6 +381,8 @@
     display: flex;
     align-items: center;
     gap: 10px;
+    justify-content: space-between;
+    width: 90%;
   }
 
   .select_wrap .option * {
@@ -278,7 +393,8 @@
     pointer-events: none;
   }
 
-  .select_wrap .option .icon {
+  .select_wrap .option img {
+    object-fit: contain;
     width: 60px;
   }
 
@@ -293,21 +409,13 @@
     font-size: 9px;
 }
 
-  .select_wrap .option .icon img {
-    object-fit: contain;
-  }
-
-  .select_wrap.active {
-    overflow: visible;
-  }
-
   .select_wrap.active .default_option:before{
     top: 32px;
     transform: rotate(-225deg);
   }
-    </style>
+</style>
 
-    <style>
+<style>
   .supplement-options {
     display: flex;
     flex-wrap: wrap;
