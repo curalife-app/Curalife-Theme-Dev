@@ -1,6 +1,8 @@
 {% assign curalin_options = '' %}
 {% assign supplement_options = '' %}
 
+{% assign variants = '' %}
+
 {% for variant in product.variants %}
   {% assign curalin_pack = variant.title | split: ' / ' | first %}
   {% assign supplement_pack = variant.title | split: ' / ' | last %}
@@ -12,6 +14,8 @@
   {% unless supplement_options contains supplement_pack %}
     {% assign supplement_options = supplement_options | append: supplement_pack | append: ',' %}
   {% endunless %}
+
+  {% assign variants = variants | append: variant.id | append: "-" | append: forloop.index | append: "," %}
 {% endfor %}
 
 {% assign curalin_options = curalin_options | split: ',' %}
@@ -231,6 +235,32 @@
     }).fadeIn(300);
   }
 
+  function findMatchingVariant(variantTitle) {
+    // Convert product from Liquid to JavaScript
+    const product = {{ product | json }};
+
+    // Find matching variant
+    const matchingVariant = product.variants.find(variant => variant.title === variantTitle);
+
+    return matchingVariant;
+  }
+
+  function slideToVariantImage () {
+    const matchingVariant = findMatchingVariant(selectedCuralinPack + ' / ' + selectedSupplementPack);
+    const variants = '{{ variants }}'.split(',');
+
+    variants.every(variant => {
+      const variantId = variant.split('-')[0];
+      const variantIndex = variant.split('-')[1];
+
+      if (variantId == matchingVariant.id) {
+        productSliderAllInOne.slideTo(variantIndex);
+        return false;
+      }
+      return true;
+    });
+  }
+
   // Map of variant titles to variants
   const variantMap = {};
 
@@ -254,6 +284,8 @@
 
       // Update CTA Button Save Text
       updateCTA(event.target);
+
+      slideToVariantImage();
     });
   });
 
@@ -270,20 +302,17 @@
 
       // Update selectedSupplementPack
       selectedSupplementPack = event.target.getAttribute('data-supplement-pack');
+
+      slideToVariantImage();
     });
   });
 
   // Handle Buy Now click
   document.querySelector('.buy-now').addEventListener('click', event => {
     if (selectedCuralinPack && selectedSupplementPack) {
-      // Convert product from Liquid to JavaScript
-      const product = {{ product | json }};
-
       // Construct variant title
       const variantTitle = `${selectedCuralinPack} / ${selectedSupplementPack}`;
-
-      // Find matching variant
-      const matchingVariant = product.variants.find(variant => variant.title === variantTitle);
+      const matchingVariant = findMatchingVariant(variantTitle);
 
       if (matchingVariant) {
         // Construct the checkout URL
@@ -428,18 +457,6 @@
     transform: rotate(-225deg);
   }
 
-  @media (max-width: 768px) {
-    .product-selection {
-      width: 100%;
-    }
-
-    .option .price .per-month {
-      font-size: 4vw;
-    }
-  }
-</style>
-
-<style>
   .supplement-options {
     display: flex;
     flex-wrap: wrap;
@@ -490,5 +507,24 @@
     background-color: rgba(0, 0, 0, 0.5); /* Semi-transparent black */
     color: white;
     text-align: center;
+  }
+
+  @media (max-width: 768px) {
+    .product-selection {
+      width: 100%;
+    }
+
+    .option .price .per-month {
+      font-size: 4vw;
+    }
+
+    .supplement-option {
+      width: 28vw;
+    }
+
+    .select-supplement img {
+      width: 28vw;
+      height: 28vw;
+    }
   }
 </style>
