@@ -1,6 +1,8 @@
 {% assign curalin_options = '' %}
 {% assign supplement_options = '' %}
 
+{% assign variants = '' %}
+
 {% for variant in product.variants %}
   {% assign curalin_pack = variant.title | split: ' / ' | first %}
   {% assign supplement_pack = variant.title | split: ' / ' | last %}
@@ -12,6 +14,8 @@
   {% unless supplement_options contains supplement_pack %}
     {% assign supplement_options = supplement_options | append: supplement_pack | append: ',' %}
   {% endunless %}
+
+  {% assign variants = variants | append: variant.id | append: "-" | append: forloop.index | append: "," %}
 {% endfor %}
 
 {% assign curalin_options = curalin_options | split: ',' %}
@@ -231,6 +235,16 @@
     }).fadeIn(300);
   }
 
+  function findMatchingVariant(variantTitle) {
+    // Convert product from Liquid to JavaScript
+    const product = {{ product | json }};
+
+    // Find matching variant
+    const matchingVariant = product.variants.find(variant => variant.title === variantTitle);
+
+    return matchingVariant;
+  }
+
   // Map of variant titles to variants
   const variantMap = {};
 
@@ -254,6 +268,19 @@
 
       // Update CTA Button Save Text
       updateCTA(event.target);
+
+      const matchingVariant = findMatchingVariant(selectedCuralinPack + ' / ' + selectedSupplementPack);
+      const variants = '{{ variants }}'.split(',');
+
+      forEach(variants, function (variant) {
+        const variantId = variant.split('-')[0];
+        const variantIndex = variant.split('-')[1];
+
+        if (variantId == matchingVariant.id) {
+          productSliderAllInOne.slideTo(variantIndex + 1);
+          break;
+        }
+      });
     });
   });
 
@@ -276,14 +303,9 @@
   // Handle Buy Now click
   document.querySelector('.buy-now').addEventListener('click', event => {
     if (selectedCuralinPack && selectedSupplementPack) {
-      // Convert product from Liquid to JavaScript
-      const product = {{ product | json }};
-
       // Construct variant title
       const variantTitle = `${selectedCuralinPack} / ${selectedSupplementPack}`;
-
-      // Find matching variant
-      const matchingVariant = product.variants.find(variant => variant.title === variantTitle);
+      const matchingVariant = findMatchingVariant(variantTitle);
 
       if (matchingVariant) {
         // Construct the checkout URL
