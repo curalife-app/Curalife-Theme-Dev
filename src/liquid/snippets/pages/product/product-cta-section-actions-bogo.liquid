@@ -19,7 +19,7 @@
 
 <div class="product-selection">
   <div>Select Your <b>Curalin Pack</b>:</div>
-  <div class="curalin-options">
+  <div class="curalin-options mb-4">
     <div id="curalin-select">
       <div class="select_wrap">
         {% assign first_variant = product.variants.first %}
@@ -54,16 +54,16 @@
 
             <!-- Create list item for option -->
             <li>
-              <div class="option" data-curalin-pack="{{ option }}" data-price="{{ variant_sample.price }}" data-discount="{{ dave_price }}">
+              <div class="option" data-curalin-pack="{{ option }}" data-price="{{ variant_sample.price | divided_by: 100  }}" data-discount="{{ save_price | divided_by: 100 }}">
                 <div class="left-side-wrapper flex items-center gap-4">
                   {% assign bogo_curalin_pack_variant = variant_sample.metafields.custom.bogo_curalin_pack_variant.value %}
                   <img src="{{ bogo_curalin_pack_variant.image | image_url }}" alt="{{ option }}">
 
                   <div class="variant-info">
                     <div class="variant-title">{{ option }}</div>
-                    {% if var.metafields.my_fields.subtitle %}
+                    {% if variant_sample.metafields.my_fields.subtitle %}
                       <div class="variant-infos">
-                        <div class="subtitle">{{ var.metafields.my_fields.subtitle }}</div>
+                        <div class="subtitle">{{ variant_sample.metafields.my_fields.subtitle }}</div>
                       </div>
                     {% endif %}
                   </div>
@@ -121,7 +121,8 @@
       </div>
     {% endfor %}
   </div>
-<button class="main-btn buy-now" id="buy-button"><span>SHOP NOW</span>{% if ctaTextType %}<span class="save" id="save"></span>{% endif %}</button>
+
+  <button class="main-btn buy-now" id="buy-button"><span>SHOP NOW</span>{% if ctaTextType %}<span class="save" id="save"></span>{% endif %}</button>
 </div>
 
 {% render 'script.round-converted-currency' %}
@@ -132,10 +133,17 @@
     width: 100%;
     display: flex;
     align-items: center;
+    gap: 10px;
+    justify-content: center;
   }
 
   .product-selection .buy-now:hover {
     background-color: #ea9f1c;
+  }
+
+  .variant-info .subtitle {
+    font-size: 14px;
+    color: #7a7a7a;
   }
 
   .product-selection .buy-now span.save {
@@ -200,23 +208,23 @@
 
 
 <script>
-  function updateCTA(element) {
-    {% if ctaTextType %}
-      {% if ctaTextType == "save" %}
-        if (element.attr('data-discount') == 0) {
-          let ctaText = "";
-        }
-        else {
-          let ctaText = "You Save " + "{{ cart.currency.symbol }}" + element.attr('data-discount');
-        }
-      {% elsif ctaTextType == "total" %}
-        let ctaText = "Total " + "{{ cart.currency.symbol }}" + element.attr('data-price');
-      {% endif %}
+  function updateCTA(optionElement) {
+    console.log(optionElement)
 
-      $("#save").fadeOut(300, function () {
-        $(this).text(ctaText);
-      }).fadeIn(300);
+    {% if ctaTextType == "save" %}
+      if (optionElement.getAttribute('data-discount').length == 0) {
+        let ctaText = "";
+      }
+      else {
+        let ctaText = "You Save " + "{{ cart.currency.symbol }}" + optionElement.getAttribute('data-discount');
+      }
+    {% elsif ctaTextType == "total" %}
+      let ctaText = "Total " + "{{ cart.currency.symbol }}" + optionElement.getAttribute('data-price');
     {% endif %}
+
+    $("#save").fadeOut(300, function () {
+      $(this).text(ctaText);
+    }).fadeIn(300);
   }
 
   // Map of variant titles to variants
@@ -240,6 +248,7 @@
       // Update selectedCuralinPack
       selectedCuralinPack = event.target.getAttribute('data-curalin-pack');
 
+      // Update CTA Button Save Text
       updateCTA(event.target);
     });
   });
