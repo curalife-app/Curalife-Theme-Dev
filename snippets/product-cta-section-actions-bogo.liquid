@@ -214,124 +214,82 @@
   })
 </script>
 
-
 <script>
-  function updateCTA(optionElement) {
-    console.log(optionElement)
+  const $ = document.querySelector.bind(document);
+  const $$ = document.querySelectorAll.bind(document);
 
-    {% if ctaTextType == "save" %}
-      if (optionElement.getAttribute('data-discount').length == 0) {
-        let ctaText = "";
-      }
-      else {
-        let ctaText = "You Save " + "{{ cart.currency.symbol }}" + optionElement.getAttribute('data-discount');
-      }
-    {% elsif ctaTextType == "total" %}
-      let ctaText = "Total " + "{{ cart.currency.symbol }}" + optionElement.getAttribute('data-price');
-    {% endif %}
+  // Convert product from Liquid to JavaScript
+  const product = {{ product | json }};
+
+  let selectedCuralinPack = null;
+  let selectedSupplementPack = null;
+
+  function findMatchingVariant(variantTitle) {
+    return product.variants.find(variant => variant.title === variantTitle);
+  }
+
+  function updateCTA(element) {
+    let ctaText = "";
+
+    if (ctaTextType == "save" && element.getAttribute('data-discount')) {
+      ctaText = `You Save ${cart.currency.symbol}${element.getAttribute('data-discount')}`;
+    } else if (ctaTextType == "total") {
+      ctaText = `Total ${cart.currency.symbol}${element.getAttribute('data-price')}`;
+    }
 
     $("#save").fadeOut(300, function () {
       $(this).text(ctaText);
     }).fadeIn(300);
   }
 
-  function findMatchingVariant(variantTitle) {
-    // Convert product from Liquid to JavaScript
-    const product = {{ product | json }};
-
-    // Find matching variant
-    const matchingVariant = product.variants.find(variant => variant.title === variantTitle);
-
-    return matchingVariant;
-  }
-
-  function slideToVariantImage () {
+  function slideToVariantImage() {
     const matchingVariant = findMatchingVariant(selectedCuralinPack + ' / ' + selectedSupplementPack);
     const variants = '{{ variants }}'.split(',');
 
-    variants.every(variant => {
-      const variantId = variant.split('-')[0];
-      const variantIndex = variant.split('-')[1];
+    for (const variant of variants) {
+      const [variantId, variantIndex] = variant.split('-');
 
       if (variantId == matchingVariant.id) {
         productSliderAllInOne.slideTo(variantIndex);
-        return false;
+        break;
       }
-      return true;
-    });
+    }
   }
 
-  // Map of variant titles to variants
-  const variantMap = {};
+  function handleOptionClick(event, selectAttr, selectedAttr) {
+    [...$$(`.${selectAttr} .option`)].forEach(opt => opt.classList.remove('selected'));
 
-  // Selected Curalin Pack and Supplement Pack
-  let selectedCuralinPack = null;
-  let selectedSupplementPack = null;
+    event.target.classList.add('selected');
+    window[selectedAttr] = event.target.getAttribute(`data-${selectAttr}`);
 
-  // Handle Curalin Pack selection
-  document.querySelectorAll('.curalin-options .option').forEach(option => {
-    option.addEventListener('click', event => {
-      // Remove 'selected' class from all options
-      document.querySelectorAll('.curalin-options .option').forEach(opt => {
-        opt.classList.remove('selected');
-      });
+    updateCTA(event.target);
+    slideToVariantImage();
+  }
 
-      // Add 'selected' class to clicked option
-      event.target.classList.add('selected');
-
-      // Update selectedCuralinPack
-      selectedCuralinPack = event.target.getAttribute('data-curalin-pack');
-
-      // Update CTA Button Save Text
-      updateCTA(event.target);
-
-      slideToVariantImage();
-    });
+  [...$$('.curalin-options .option')].forEach(option => {
+    option.addEventListener('click', e => handleOptionClick(e, 'curalin-pack', 'selectedCuralinPack'));
   });
 
-  // Handle Supplement selection
-  document.querySelectorAll('.supplement-options .select-supplement .supplement-option').forEach(option => {
-    option.addEventListener('click', event => {
-      // Remove 'selected' class from all options
-      document.querySelectorAll('.supplement-options .select-supplement .supplement-option').forEach(opt => {
-        opt.classList.remove('selected');
-      });
-
-      // Add 'selected' class to clicked option
-      event.target.classList.add('selected');
-
-      // Update selectedSupplementPack
-      selectedSupplementPack = event.target.getAttribute('data-supplement-pack');
-
-      slideToVariantImage();
-    });
+  [...$$('.supplement-options .select-supplement .supplement-option')].forEach(option => {
+    option.addEventListener('click', e => handleOptionClick(e, 'supplement-pack', 'selectedSupplementPack'));
   });
 
-  // Handle Buy Now click
-  document.querySelector('.buy-now').addEventListener('click', event => {
-    if (selectedCuralinPack && selectedSupplementPack) {
-      // Construct variant title
-      const variantTitle = `${selectedCuralinPack} / ${selectedSupplementPack}`;
-      const matchingVariant = findMatchingVariant(variantTitle);
-
-      if (matchingVariant) {
-        // Construct the checkout URL
-        const checkoutURL = `/cart/${matchingVariant.id}:1`;
-
-        // Redirect to checkout URL
-        window.location.href = checkoutURL;
-      } else {
-        // Handle case where matching variant isn't found
-        console.error('No matching variant found for selected options');
-      }
-    } else {
-      // Handle case where not all options are selected
-      alert('Please select your gift before proceeding to checkout');
+  $('.buy-now').addEventListener('click', () => {
+    if (!selectedCuralinPack || !selectedSupplementPack) {
+      return alert('Please select your gift before proceeding to checkout');
     }
+
+    const variantTitle = `${selectedCuralinPack} / ${selectedSupplementPack}`;
+    const matchingVariant = findMatchingVariant(variantTitle);
+
+    if (!matchingVariant) {
+      return console.error('No matching variant found for selected options');
+    }
+
+    window.location.href = `/cart/${matchingVariant.id}:1`;
   });
 
-  // Add this code to the end of your script
-  document.addEventListener('DOMContentLoaded', (event) => {
+  document.addEventListener('DOMContentLoaded', () => {
     $(".option[data-curalin-pack='Curalin']:first-child").click();
   });
 </script>
