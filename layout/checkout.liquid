@@ -699,6 +699,74 @@
 
 
       woopra.track('Checkout Step - Thank You', {});
+
+      // Emanuel GA4 Tracking solution
+      function getSessionData(callback) {
+    const pattern = /_ga_QS1K1J0E4C=GS\d\.\d\.(.+?)(?:;|$)/;
+    const match = document.cookie.match(pattern);
+    const parts = match?.[1].split(".");
+
+    if (!parts) {
+        window.setTimeout(() => getSessionData(callback), 200);
+        return;
+    }
+
+    callback({
+        ga_session_id: parts.shift(),
+        ga_session_number: parts.shift(),
+    });
+      }
+
+      function get_ga_clientid() {
+        var cookie = {};
+        document.cookie.split(';').forEach(function(el) {
+          var splitCookie = el.split('=');
+          var key = splitCookie[0].trim();
+          var value = splitCookie[1];
+          cookie[key] = value;
+        });
+        return cookie["_ga"].substring(6);
+      }
+
+      const measurement_id = `G-QS1K1J0E4C`;
+      const api_secret = `OYiBfFrJTpuprOJBnw1HUg`;
+
+      getSessionData(sessionData => {
+        fetch(`https://www.google-analytics.com/mp/collect?measurement_id=${measurement_id}&api_secret=${api_secret}`, {
+          method: "POST",
+          body: JSON.stringify({
+            client_id: get_ga_clientid(),
+            events: [{
+              name: 'test_yotam',
+              params: {
+                session_id: sessionData.ga_session_id,
+
+        "items": [
+          {
+            "item_id": "product1",
+            "item_name": "Product 1",
+            "quantity": 1,
+            "item_category": "recurring",
+            "affiliation": "Affiliation Here", // Please replace "Affiliation Here" with the correct value
+            "currency": "Currency Here", // Please replace "Currency Here" with the correct value
+            "brand": "Brand Here", // Please replace "Brand Here" with the correct value
+            "price": 12.21
+          }
+        ],
+        "affiliation": "zee-zees",
+        "currency": "USD",
+        "transaction_id": "T_12345",
+        "shipping": 0.00,
+        "tax": 1.11,
+        "value": 12.21,
+        "coupon": "insert_coupon"
+
+              }
+            }]
+          })
+        });
+      });
+      // End solution
     {% endif %}
   </script>
 
