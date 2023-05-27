@@ -117,7 +117,7 @@
       {% endfor %}
 
       <div class="select-supplement">
-        <div class="supplement-option" data-supplement-pack="{{ option }}">
+        <div class="supplement-option" data-supplement-pack="{{ option }}" data-index="{{ forloop.index }}">
           {% assign bogo_gift_product = variant_sample.metafields.custom.bogo_gift_product.value %}
           <img src="{{ bogo_gift_product.metafields.custom.bottle_image | image_url }}" alt="{{ option }}">
 
@@ -126,26 +126,6 @@
           <div>{{ option }}</div>
 
           <i class="fas fa-search quick-view-icon" data-modal-id="quickViewModal-{{ forloop.index }}"></i>
-        </div>
-      </div>
-
-      <!-- Quick View Modal -->
-      <div class="modal fade" id="quickViewModal-{{ forloop.index }}" tabindex="-1" role="dialog" aria-labelledby="quickViewModalLabel" aria-hidden="true" style="display: none;">
-        <div class="modal-dialog" role="document">
-          <div class="modal-content">
-            <div class="modal-header">
-              <h5 class="modal-title" id="quickViewModalLabel">Quick View - {{ option }}</h5>
-              <button type="button" class="close" data-modal-id="quickViewModal-{{ forloop.index }}" aria-label="Close">
-                <span aria-hidden="true">&times;</span>
-              </button>
-            </div>
-            <div class="modal-body">
-              <!-- Insert content for Quick View here -->
-            </div>
-            <div class="modal-footer">
-              <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
-            </div>
-          </div>
         </div>
       </div>
     {% endfor %}
@@ -225,146 +205,6 @@
       font-size: 20px;
     }
 </style>
-
-
-<script>
-  $(".default_option").click(function() {
-    $(this).parent().toggleClass("active");
-  })
-
-  $(".select_ul li").click(function() {
-    const currentel = $(this).html();
-    $(".default_option li").html(currentel);
-    $(this).parents(".select_wrap").removeClass("active");
-  })
-</script>
-
-
-<script>
-  function updateCTA(optionElement) {
-    console.log(optionElement)
-
-    {% if ctaTextType == "save" %}
-      if (optionElement.getAttribute('data-discount').length == 0) {
-        let ctaText = "";
-      }
-      else {
-        let ctaText = "You Save " + "{{ cart.currency.symbol }}" + optionElement.getAttribute('data-discount');
-      }
-    {% elsif ctaTextType == "total" %}
-      let ctaText = "Total " + "{{ cart.currency.symbol }}" + optionElement.getAttribute('data-price');
-    {% endif %}
-
-    $("#save").fadeOut(300, function () {
-      $(this).text(ctaText);
-    }).fadeIn(300);
-  }
-
-  function findMatchingVariant(variantTitle) {
-    // Convert product from Liquid to JavaScript
-    const product = {{ product | json }};
-
-    // Find matching variant
-    const matchingVariant = product.variants.find(variant => variant.title === variantTitle);
-
-    return matchingVariant;
-  }
-
-  function slideToVariantImage () {
-    const matchingVariant = findMatchingVariant(selectedCuralinPack + ' / ' + selectedSupplementPack);
-    const variants = '{{ variants }}'.split(',');
-
-    if (!matchingVariant) {
-        console.log("No matching variant found");
-        return;
-    }
-
-    variants.every(variant => {
-        const variantId = variant.split('-')[0];
-        const variantIndex = variant.split('-')[1];
-
-        if (variantId == matchingVariant.id) {
-            productSliderAllInOne.slideTo(variantIndex);
-            return false;
-        }
-        return true;
-    });
-}
-
-  // Map of variant titles to variants
-  const variantMap = {};
-
-  // Selected Curalin Pack and Supplement Pack
-  let selectedCuralinPack = null;
-  let selectedSupplementPack = null;
-
-  // Handle Curalin Pack selection
-  document.querySelectorAll('.curalin-options .option').forEach(option => {
-    option.addEventListener('click', event => {
-      // Remove 'selected' class from all options
-      document.querySelectorAll('.curalin-options .option').forEach(opt => {
-        opt.classList.remove('selected');
-      });
-
-      // Add 'selected' class to clicked option
-      event.target.classList.add('selected');
-
-      // Update selectedCuralinPack
-      selectedCuralinPack = event.target.getAttribute('data-curalin-pack');
-
-      // Update CTA Button Save Text
-      updateCTA(event.target);
-
-      slideToVariantImage();
-    });
-  });
-
-  // Handle Supplement selection
-  document.querySelectorAll('.supplement-options .select-supplement .supplement-option').forEach(option => {
-    option.addEventListener('click', event => {
-      // Remove 'selected' class from all options
-      document.querySelectorAll('.supplement-options .select-supplement .supplement-option').forEach(opt => {
-        opt.classList.remove('selected');
-      });
-
-      // Add 'selected' class to clicked option
-      event.target.classList.add('selected');
-
-      // Update selectedSupplementPack
-      selectedSupplementPack = event.target.getAttribute('data-supplement-pack');
-
-      slideToVariantImage();
-    });
-  });
-
-  // Handle Buy Now click
-  document.querySelector('.buy-now').addEventListener('click', event => {
-    if (selectedCuralinPack && selectedSupplementPack) {
-      // Construct variant title
-      const variantTitle = `${selectedCuralinPack} / ${selectedSupplementPack}`;
-      const matchingVariant = findMatchingVariant(variantTitle);
-
-      if (matchingVariant) {
-        // Construct the checkout URL
-        const checkoutURL = `/cart/${matchingVariant.id}:1`;
-
-        // Redirect to checkout URL
-        window.location.href = checkoutURL;
-      } else {
-        // Handle case where matching variant isn't found
-        console.error('No matching variant found for selected options');
-      }
-    } else {
-      // Handle case where not all options are selected
-      alert('Please select your gift before proceeding to checkout');
-    }
-  });
-
-  // Add this code to the end of your script
-  document.addEventListener('DOMContentLoaded', (event) => {
-    $(".option[data-curalin-pack='Curalin']:first-child").click();
-  });
-</script>
 
 <style>
   .product-selection {
@@ -607,3 +447,145 @@
     }
   }
 </style>
+
+<script>
+  $(".default_option").click(function() {
+    $(this).parent().toggleClass("active");
+  })
+
+  $(".select_ul li").click(function() {
+    const currentel = $(this).html();
+    $(".default_option li").html(currentel);
+    $(this).parents(".select_wrap").removeClass("active");
+  })
+</script>
+
+
+<script>
+  function updateCTA(optionElement) {
+    console.log(optionElement)
+
+    {% if ctaTextType == "save" %}
+      if (optionElement.getAttribute('data-discount').length == 0) {
+        let ctaText = "";
+      }
+      else {
+        let ctaText = "You Save " + "{{ cart.currency.symbol }}" + optionElement.getAttribute('data-discount');
+      }
+    {% elsif ctaTextType == "total" %}
+      let ctaText = "Total " + "{{ cart.currency.symbol }}" + optionElement.getAttribute('data-price');
+    {% endif %}
+
+    $("#save").fadeOut(300, function () {
+      $(this).text(ctaText);
+    }).fadeIn(300);
+  }
+
+  function findMatchingVariant(variantTitle) {
+    // Convert product from Liquid to JavaScript
+    const product = {{ product | json }};
+
+    // Find matching variant
+    const matchingVariant = product.variants.find(variant => variant.title === variantTitle);
+
+    return matchingVariant;
+  }
+
+  function slideToVariantImage () {
+    const matchingVariant = findMatchingVariant(selectedCuralinPack + ' / ' + selectedSupplementPack);
+    const variants = '{{ variants }}'.split(',');
+
+    if (!matchingVariant) {
+        console.log("No matching variant found");
+        return;
+    }
+
+    variants.every(variant => {
+        const variantId = variant.split('-')[0];
+        const variantIndex = variant.split('-')[1];
+
+        if (variantId == matchingVariant.id) {
+            productSliderAllInOne.slideTo(variantIndex);
+            return false;
+        }
+        return true;
+    });
+}
+
+  // Map of variant titles to variants
+  const variantMap = {};
+
+  // Selected Curalin Pack and Supplement Pack
+  let selectedCuralinPack = null;
+  let selectedSupplementPack = null;
+
+  // Handle Curalin Pack selection
+  document.querySelectorAll('.curalin-options .option').forEach(option => {
+    option.addEventListener('click', event => {
+      // Remove 'selected' class from all options
+      document.querySelectorAll('.curalin-options .option').forEach(opt => {
+        opt.classList.remove('selected');
+      });
+
+      // Add 'selected' class to clicked option
+      event.target.classList.add('selected');
+
+      // Update selectedCuralinPack
+      selectedCuralinPack = event.target.getAttribute('data-curalin-pack');
+
+      // Update CTA Button Save Text
+      updateCTA(event.target);
+
+      slideToVariantImage();
+    });
+  });
+
+  // Handle Supplement selection
+  document.querySelectorAll('.supplement-options .select-supplement .supplement-option').forEach(option => {
+    option.addEventListener('click', event => {
+      // Remove 'selected' class from all options
+      document.querySelectorAll('.supplement-options .select-supplement .supplement-option').forEach(opt => {
+        opt.classList.remove('selected');
+      });
+
+      // Add 'selected' class to clicked option
+      event.target.classList.add('selected');
+
+      // Update selectedSupplementPack
+      selectedSupplementPack = event.target.getAttribute('data-supplement-pack');
+
+      // Slide to Gift Box
+      giftSlder.slideTo(event.target.getAttribute('data-index'));
+
+      slideToVariantImage();
+    });
+  });
+
+  // Handle Buy Now click
+  document.querySelector('.buy-now').addEventListener('click', event => {
+    if (selectedCuralinPack && selectedSupplementPack) {
+      // Construct variant title
+      const variantTitle = `${selectedCuralinPack} / ${selectedSupplementPack}`;
+      const matchingVariant = findMatchingVariant(variantTitle);
+
+      if (matchingVariant) {
+        // Construct the checkout URL
+        const checkoutURL = `/cart/${matchingVariant.id}:1`;
+
+        // Redirect to checkout URL
+        window.location.href = checkoutURL;
+      } else {
+        // Handle case where matching variant isn't found
+        console.error('No matching variant found for selected options');
+      }
+    } else {
+      // Handle case where not all options are selected
+      alert('Please select your gift before proceeding to checkout');
+    }
+  });
+
+  // Add this code to the end of your script
+  document.addEventListener('DOMContentLoaded', (event) => {
+    $(".option[data-curalin-pack='Curalin']:first-child").click();
+  });
+</script>
