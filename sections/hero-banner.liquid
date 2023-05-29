@@ -1,4 +1,26 @@
 <section class="hero-banner bg-{{ section.settings.bg_position }}">
+  {% if section.blocks.size > 0 %}
+    <div class="background absolute w-full h-full">
+      <div class="default-images">
+        {% assign first_images_set_block = section.blocks | first %}
+        <img class="absolute h-full w-full object-cover" src="{{ first_images_set_block.left_image | image_url }}" alt="">
+        <img class="absolute h-full w-full left-1/2 object-cover" src="{{ first_images_set_block.right_image | image_url }}" alt="">
+      </div>
+
+      <div class="images left">
+        {% for block in section.blocks %}
+          <img class="absolute h-full w-1/2 object-cover" src="{{ block.settings.left_image | image_url }}" alt="">
+        {% endfor %}
+      </div>
+
+      <div class="images right">
+        {% for block in section.blocks %}
+          <img class="absolute h-full w-1/2 left-1/2 object-cover" src="{{ block.settings.right_image | image_url }}" alt="">
+        {% endfor %}
+      </div>
+    </div>
+  {% endif %}
+
   <div class="md:justify-{{ section.settings.mobile_alignment }} container !w-full flex flex-col justify-{{ section.settings.vertical_align_desktop }}">
     <h1 class="max-w-1/2 md:max-w-full md:text-{{ section.settings.text_align_mobile }} font-thin">
      {% if section.settings.flip %} <span class="font-bold">{{ section.settings.big_title }}</span> <br>
@@ -92,6 +114,33 @@
     section.hero-banner h1 .small-title {
       font-size: 5vw;
     }
+  }
+</style>
+
+<style>
+  .hero-banner .background img {
+    opacity: 0;
+    animation: change-img-anim 30s infinite;
+  }
+
+  {% assign delay = 0 %}
+  {% for block in section.blocks %}
+    .hero-banner .background .images.left img:nth-child({{ forloop.index }}) {
+      animation-delay: {{ delay }}s;
+    }
+
+    .hero-banner .background .images.right img:nth-child({{ forloop.index }}) {
+      animation-delay: {{ delay | plus: 1 }}s;
+    }
+
+    {% assign delay = delay | plus: 10 %}
+  {% endfor %}
+
+  @keyframes change-img-anim {
+    0%{ opacity: 0;}
+    10%{ opacity: 1;}
+    90%{ opacity: 1;}
+    100%{ opacity: 0;}
   }
 </style>
 
@@ -278,6 +327,24 @@
       "type": "color",
       "id": "button_title_color",
       "label": "Button Title Color"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "image",
+      "name": "Images Set",
+      "settings": [
+        {
+          "type": "image_picker",
+          "id": "right_image",
+          "label": "Right Image"
+        },
+        {
+          "type": "image_picker",
+          "id": "left_image",
+          "label": "Left Image"
+        }
+      ]
     }
   ],
   "presets": [
