@@ -1,17 +1,18 @@
 <section class="hero-banner bg-{{ section.settings.bg_position }}">
-  <div class="background absolute w-full h-full flex">
-    {% for block in section.blocks %}
-      <div class="right-images">
-        <img src="{{ block.settings.right_image | image_url }}" alt="">
-      </div>
-    {% endfor %}
-    {% for block in section.blocks %}
-      <div class="left-images">
-        <img src="{{ block.settings.left_image | image_url }}" alt="">
-      </div>
-    {% endfor %}
+  <div class="background absolute w-full h-full">
+    <div class="images left">
+      {% for block in section.blocks %}
+        <img class="absolute h-full w-1/2 object-cover" src="{{ block.settings.left_image | image_url }}" alt="">
+      {% endfor %}
+    </div>
+
+    <div class="images right">
+      {% for block in section.blocks %}
+        <img class="absolute h-full w-1/2 left-1/2 object-cover" src="{{ block.settings.right_image | image_url }}" alt="">
+      {% endfor %}
     </div>
   </div>
+
   <div class="md:justify-{{ section.settings.mobile_alignment }} container !w-full flex flex-col justify-{{ section.settings.vertical_align_desktop }}">
     <h1 class="max-w-1/2 md:max-w-full md:text-{{ section.settings.text_align_mobile }} font-thin">
       {% if section.settings.flip %} <span class="font-bold">{{ section.settings.big_title }}</span> <br>
@@ -30,6 +31,33 @@
     {% if section.settings.bottom_content %}<div class="bottom-content"><p>{{ section.settings.bottom_content }}</p></div>{% endif %}
   </div>
 </section>
+
+<style>
+  .hero-banner .background img {
+    opacity: 0;
+    animation: change-img-anim 30s infinite;
+  }
+
+  {% assign delay = 0 %}
+  {% for block in section.blocks %}
+    .hero-banner .background .images.left img:nth-child({{ forloop.index }}) {
+      animation-delay: {{ delay }}s;
+    }
+
+    .hero-banner .background .images.right img:nth-child({{ forloop.index }}) {
+      animation-delay: {{ delay | plus: 1 }}s;
+    }
+
+    {% assign delay = delay | plus: 10 %}
+  {% endfor %}
+
+@keyframes change-img-anim {
+	0%{ opacity: 0;}
+	10%{ opacity: 1;}
+	90%{ opacity: 1;}
+	100%{ opacity: 0;}
+}
+</style>
 
 <style>
   section.hero-banner {
