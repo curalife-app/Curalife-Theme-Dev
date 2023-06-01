@@ -1,0 +1,204 @@
+{% unless isOnlyScriptsAndStyles %}
+  {% assign quantity = variant.metafields.my_fields.pack_items_quantity %}
+  {% assign quantity_by_cents = quantity | times: 100 %}
+  {% assign item_price = variant.price | times: 100.0 | divided_by: quantity_by_cents %}
+
+  {% assign original_item_cap_total = original_item_cap | times: quantity %}
+  {% assign original_item_cap = variant.metafields.my_fields.original_item.value.compare_at_price %}
+
+  {% assign save_price = original_item_cap | minus: item_price | times: quantity | money_with_currency | replace: ".00", "" | replace: "GBP", "" | replace: "AUD", "" | replace: "CAD", "" %}
+
+  <a class="product-link" href="{{ variant.product.url }}">
+  <div id="{{ variant.id }}" class="product-card" id="product-card-section" data-product-collections="{{ productCollections }}">
+    <img class="product-image" src="{{ variant.image.src | image_url }}" width="512" height="475" alt="" loading="lazy">
+
+    <div class="info">
+      <div class="main">
+        <div class="product-titles">
+          <h6 class="m-0">{{ variant.title }}</h6>
+          {% comment %} <p class="subtitle">{{ product.metafields.my_fields.subtitle }}</p> {% endcomment %}
+        </div>
+
+        {% unless isNoPrices %}
+            {% render 'price-new', prod: product, isLastRender: isLastRender, productType: "variant" %}
+        {% endunless %}
+      </div>
+
+        <button class="main-btn" title="{{ product.title }}" prod-sku="{{ product.selected_or_first_available_variant.sku }}" prod-id="{{ product.variants.first.id }}" price="{{ product.selected_or_first_available_variant.price | money_without_currency }}" discount="{% if product.compare_at_price > product.price %}{{ product.compare_at_price | minus: product.price | times: 0.01 }}{% else %}0{% endif %}"></i>SHOP NOW</button>
+    </div>
+  </div>
+  </a>
+
+  {% if product.metafields.custom.badge_image and isNoPrices != true %}
+    {% unless product.metafields.custom.is_badge_collection %}
+      <style>
+        .product-card#{{ product.handle }}::before {
+          content: "";
+          background-image: url("{{ product.metafields.custom.badge_image | image_url }}");
+          background-repeat: no-repeat;
+        }
+      </style>
+    {% endunless %}
+  {% endif %}
+{% endunless %}
+
+{% if isLastRender or isOnlyScriptsAndStyles %}
+  <style>
+    .product-card {
+      position: relative;
+      max-width: 270px;
+      padding: 10px;
+      display: flex;
+      align-items: center;
+      flex-direction: column;
+      border: 1px solid var(--lighter-green);
+    }
+
+    .product-card::before {
+      background-size: contain;
+      position: absolute;
+      top: 30px;
+      right: 10px;
+      width: 68px;
+      height: 68px;
+    }
+
+    .product-card .product-image {
+      min-height: 250px;
+      object-fit: contain;
+    }
+
+    .product-card .promotion-title {
+      font-size: 18px;
+      margin: unset;
+      color: #404733;
+    }
+
+    .product-card .info {
+      width: 100%;
+    }
+
+    .product-card .info .main {
+      text-align: center;
+      {% unless isNoPrices %}min-height: 80px;{% endunless %}
+    }
+
+    .product-card .product-titles {
+      min-height: 30px;
+    }
+
+    .product-card .product-titles p {
+      margin: unset;
+    }
+
+    .product-card .subtitle {
+      font-size: 14px;
+    }
+
+    .product-card button {
+      min-width: -webkit-fill-available;
+      padding: 6px;
+      border-radius: 3px;
+      font-weight: bold;
+    }
+
+    @media screen and (max-width: 768px) {
+      .product-link {
+        margin-bottom: 3vw;
+        width: 49%;
+      }
+
+      .product-card .product-image {
+        min-height: unset;
+      }
+
+      .product-card button {
+        font-size: 4vw;
+      }
+
+      .product-grid {
+        gap: 1vw;
+      }
+
+      .product-card {
+        padding: 1vw;
+        margin-top: unset;
+        max-width: unset;
+        width: unset;
+      }
+
+      .product-card .product-titles {
+        min-height: 2.2em;
+        margin: unset;
+      }
+
+      .product-card .product-titles h6 {
+        font-size: 5vw;
+        line-height: 1em;
+      }
+
+      .product-card .subtitle {
+        font-size: 4vw;
+      }
+
+      .product-card .info .price strike {
+        font-size: 4vw;
+      }
+
+      .product-card .info .price .rounded.current-price {
+        font-size: 41px;
+        padding-left: 1vw;
+        padding-right: 1vw;
+      }
+    }
+  </style>
+
+  {% comment %} <script>
+    $(document).on("click", ".add-to-cart-btn", function () {
+      window.dataLayer = window.dataLayer || [];
+      window.dataLayer.push({
+        event: 'add_to_cart',
+        ecommerce: {
+        items: [{
+          item_name: $(this).attr("title"),
+          item_id: $(this).attr("prod-sku"),
+          affiliation: '{{ shop.name }}',
+          price: $(this).attr("price"),
+          currency: '{{ shop.currency }}',
+          item_brand: 'CuraLife',
+          item_category: 'CuraLin',
+          quantity: 1
+        }]
+        },
+        email: '{{ customer.email }}',
+        phone: '{{ customer.phone }}',
+        name: '{{ customer.first_name }}',
+        surname: '{{ customer.last_name }}',
+        city: '{{ customer.customer_address.city }}',
+        state: '{{ customer.customer_address.province }}',
+        zip: '{{ customer.customer_address.zip }}',
+        country: '{{customer.customer_address.country_code | t}}',
+        user_agent: navigator.userAgent
+      });
+
+      woopra.track('add to cart', {
+        product_sku: $(this).attr("prod-sku"),
+        product_name: $(this).attr("title"),
+        product_price: $(this).attr("price"),
+        currency: '{{ shop.currency }}',
+        quantity: 1
+      });
+    });
+  </script> {% endcomment %}
+
+  {% if isSkipCart %}
+    <script>
+      // Buy Button Functionality
+      $(".add-to-cart-btn").click(function() {
+        let checkedPack = $(this).attr("prod-id");
+        let checkoutLink = "https://" + location.hostname + "/cart/" + checkedPack + ":1";
+        window.location.href = checkoutLink;
+      })
+    </script>
+  {% endif %}
+{% endif %}
