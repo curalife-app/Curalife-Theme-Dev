@@ -1,49 +1,30 @@
 {% unless isOnlyScriptsAndStyles %}
-  {% assign quantity = product.metafields.my_fields.pack_items_quantity %}
+  {% assign quantity = variant.metafields.my_fields.pack_items_quantity %}
   {% assign quantity_by_cents = quantity | times: 100 %}
-  {% assign item_price = product.price | times: 100.0 | divided_by: quantity_by_cents %}
+  {% assign item_price = variant.price | times: 100.0 | divided_by: quantity_by_cents %}
 
   {% assign original_item_cap_total = original_item_cap | times: quantity %}
   {% assign original_item_cap = product.metafields.my_fields.original_item.value.compare_at_price %}
 
-  {% assign save_price = original_item_cap | minus: item_price | times: quantity | plus: bundle_addition | money_with_currency | replace: ".00", "" | replace: "GBP", "" | replace: "AUD", "" | replace: "CAD", "" %}
+  {% assign save_price = original_item_cap | minus: item_price | times: quantity | money_with_currency | replace: ".00", "" | replace: "GBP", "" | replace: "AUD", "" | replace: "CAD", "" %}
 
-  <a class="product-link {% if product.tags contains 'PTEST22' %}pricing-test{% else %}{% if product.tags contains 'curalin' %}{% if product.tags contains 'original' %}pricing-test-original{% endif %}{% endif %}{% endif %}" href="{% if isLinkToCollection %}/collections?category={{ collection.handle }}{% else %}{{ product.url }}{% endif %}" {% if product.tags contains 'PTEST22' %}style="display:none"{% endif %}>
-  <div id="{{ product.handle }}" class="product-card {% if isRecommended %}recommended{% endif %}" id="product-card-section" data-product-collections="{{ productCollections }}">
-    <img class="product-image" src="{{ product.featured_image.src | image_url }}" width="512" height="475" alt="" loading="lazy">
+  <a class="product-link" href="{{ variant.product.url }}">
+  <div id="{{ variant.id }}" class="product-card" id="product-card-section" data-product-collections="{{ productCollections }}">
+    <img class="product-image" src="{{ variant.image.src | image_url }}" width="512" height="475" alt="" loading="lazy">
 
     <div class="info">
       <div class="main">
         <div class="product-titles">
-          <h6 class="m-0">{% if product.metafields.my_fields.alternative_title.value %}{{ product.metafields.my_fields.alternative_title.value }}{% else %}{{ product.title }}{% endif %}</h6>
+          <h6 class="m-0">{{ variant.title }}</h6>
           {% comment %} <p class="subtitle">{{ product.metafields.my_fields.subtitle }}</p> {% endcomment %}
         </div>
 
         {% unless isNoPrices %}
-          {% if product.metafields.custom.original_item_variant.value %}
-            {% render 'price-new', prod: product.metafields.custom.original_item_variant.value, productType: "variant", isLastRender: isLastRender %}
-          {% else %}
-            {% render 'price-new', prod: product, isLastRender: isLastRender %}
-          {% endif %}
-
-
-          {% if product.title contains "Pack" %}
-            <div class="total-prices text-[12px]">
-              TOTAL: <strike class="striked">{{ original_item_cap | times: quantity | plus: bundle_addition | money_with_currency | replace: ".00", "" | replace: "GBP", "" | replace: "AUD", "" | replace: "CAD", "" }}</strike>
-              <span class="real rounded font-bold">{{ product.price | money_with_currency | replace: ".00", "" | replace: "GBP", "" }}</span>
-            </div>
-          {% endif %}
+            {% render 'price-new', prod: product, isLastRender: isLastRender, productType: "variant" %}
         {% endunless %}
       </div>
 
-      {% comment %} {% unless isSkipCart %}
-        <form action="/cart/add" method="post">
-          <input type="hidden" name="id" value="{{ product.variants.first.id }}"/>
-          <input name="return_to" type="hidden" value="/cart/">
-      {% endunless %} {% endcomment %}
-        {% comment %} <button class="main-btn add-to-cart-btn" {% unless isSkipCart %}type="submit"{% endunless %} title="{{ product.title }}" prod-sku="{{ product.selected_or_first_available_variant.sku }}" prod-id="{{ product.variants.first.id }}" price="{{ product.selected_or_first_available_variant.price | money_without_currency }}" discount="{% if product.compare_at_price > product.price %}{{ product.compare_at_price | minus: product.price | times: 0.01 }}{% else %}0{% endif %}"><i class="icon-cart"></i>Add To Cart</button> {% endcomment %}
         <button class="main-btn" title="{{ product.title }}" prod-sku="{{ product.selected_or_first_available_variant.sku }}" prod-id="{{ product.variants.first.id }}" price="{{ product.selected_or_first_available_variant.price | money_without_currency }}" discount="{% if product.compare_at_price > product.price %}{{ product.compare_at_price | minus: product.price | times: 0.01 }}{% else %}0{% endif %}"></i>SHOP NOW</button>
-      {% comment %} {% unless isSkipCart %}</form>{% endunless %} {% endcomment %}
     </div>
   </div>
   </a>
