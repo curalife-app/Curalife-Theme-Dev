@@ -49,23 +49,35 @@
             <a class="md:w-[49%] h-full .product-link" href="{{ collections[collection_handle].metafields.custom.collection_banner_lnk }}"><img class="h-full md:h-auto object-contain" src="{{ collections[collection_handle].metafields.custom.collection_banner_img | image_url }}" alt=""></a>
           {% endif %}
 
-          {% for product in collections[collection_handle].products %}
-            {% if forloop.last and isLastCollectionRender %}
-              {% assign isLastCardRender = true %}
-            {% endif %}
+          {% if collections[collection_handle].products.size == 1 %}
+            {% assign onlyProduct = collections[collection_handle].products | first %}
+            {% for variant in onlyProduct.variants %}
+              {% if forloop.last and isLastCollectionRender %}
+                {% assign isLastCardRender = true %}
+              {% endif %}
 
-            {% if isNoBundles %}
-              {% unless product.tags contains 'bundle' %}
+              {% assign product_collections = variant.product.collections | map: 'handle' | join: ' ' %}
+              {% render 'variant-card', variant: variant, productCollections: product_collections, isLastRender: isLastCardRender, isNoPrices: isNoPrices, isLinkToCollection: isLinkToCollection %}
+            {% endfor %}
+          {% else %}
+            {% for product in collections[collection_handle].products %}
+              {% if forloop.last and isLastCollectionRender %}
+                {% assign isLastCardRender = true %}
+              {% endif %}
+
+              {% if isNoBundles %}
+                {% unless product.tags contains 'bundle' %}
+                  {% assign product_collections = product.collections | map: 'handle' | join: ' ' %}
+                  {% render 'product-card', product: product, productCollections: product_collections, isLastRender: isLastCardRender, isNoPrices: isNoPrices, isLinkToCollection: isLinkToCollection %}
+                  {% if isLastCardRender %}{% assign isLastCardRendered = true %}{% endif %}
+                {% endunless %}
+              {% else %}
                 {% assign product_collections = product.collections | map: 'handle' | join: ' ' %}
                 {% render 'product-card', product: product, productCollections: product_collections, isLastRender: isLastCardRender, isNoPrices: isNoPrices, isLinkToCollection: isLinkToCollection %}
                 {% if isLastCardRender %}{% assign isLastCardRendered = true %}{% endif %}
-              {% endunless %}
-            {% else %}
-              {% assign product_collections = product.collections | map: 'handle' | join: ' ' %}
-              {% render 'product-card', product: product, productCollections: product_collections, isLastRender: isLastCardRender, isNoPrices: isNoPrices, isLinkToCollection: isLinkToCollection %}
-              {% if isLastCardRender %}{% assign isLastCardRendered = true %}{% endif %}
-            {% endif %}
-          {% endfor %}
+              {% endif %}
+            {% endfor %}
+          {% endif %}
 
           {% if isLastCardRendered != true %}
             {% render 'product-card', isOnlyScriptsAndStyles: true, isNoPrices: isNoPrices, isLinkToCollection: isLinkToCollection %}
