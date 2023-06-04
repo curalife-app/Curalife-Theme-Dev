@@ -13,10 +13,10 @@
     </div>
   {% endif %}
 
-  <div class="md:gap-4 container flex items-center gap-x-16 gap-y-4 {% if is_image_overlap and image_position == 'left' %}justify-end{% else %}justify-between{% endif %} {% if is_remove_container_padding_mobile %}md:p-0{% endif %}">
+  <div class="md:gap-4 container flex md:items-center gap-x-16 gap-y-4 {% if is_image_overlap and image_position == 'left' %}justify-end{% else %}justify-between{% endif %} {% if is_remove_container_padding_mobile %}md:p-0{% endif %}">
     {% unless is_mobile_hero_style %}
       {% if is_image_middle_mobile and title != blank %}
-<div class="mobile-title md:block md:text-center hidden justify-{{ alignment }} md:justify-{{ mobile_alignment }}"><{{ title_tag }}>{{ title }}</{{ title_tag }}></div>
+        <div class="mobile-title md:block md:text-center hidden justify-{{ alignment }} md:justify-{{ mobile_alignment }}"><{{ title_tag }}>{{ title }}</{{ title_tag }}></div>
       {% endif %}
     {% endunless %}
 
@@ -33,7 +33,7 @@
     {% endif %}
 
     {% if title != blank or content != blank %}
-      <div class="content-wrapper break-word z-[1] flex align-center md:py-0 md:!w-full gap-12 md:gap-4 {% unless main_image %}m-auto{% endunless %} text-{{ alignment }} md:text-{{ mobile_alignment }} {% if image_position == 'right' or image_position == 'left' %}w-45%{% else %}w-70%{% endif %}">
+      <div class="content-wrapper break-word z-[1] flex align-center md:py-0 md:!w-full gap-12 md:gap-4 {% unless main_image %}{% if alignment == 'center' %}m-auto{% endif %}{% endunless %} text-{{ alignment }} md:text-{{ mobile_alignment }} {% if image_position == 'right' or image_position == 'left' %}w-45%{% else %}w-70%{% endif %}">
         {% if number != blank %}
           <div class="number">
             <div class="add-number">{{ number }}</div>
@@ -81,6 +81,58 @@
 </section>
 
 <style>
+    {% if padding_top != 50 %}
+      section.text-image-{{ section_id }} {
+        padding-top: {{ padding_top }}px;
+      }
+    {% endif %}
+
+    {% if padding_bottom != 50 %}
+      section.text-image-{{ section_id }} {
+        padding-bottom: {{ padding_bottom }}px;
+      }
+    {% endif %}
+
+    {% if padding_top_mobile %}
+      @media screen and (max-width: 768px) {
+        section.text-image-{{ section_id }} {
+          padding-top: {{ padding_top_mobile }}vw;
+        }
+      }
+    {% endif %}
+
+    {% if padding_bottom_mobile %}
+      @media screen and (max-width: 768px) {
+        section.text-image-{{ section_id }} {
+          padding-bottom: {{ padding_bottom_mobile }}vw;
+        }
+      }
+    {% endif %}
+
+
+
+    {% if is_image_overlap %}
+      section.text-image-{{ section_id }} .content-wrapper {
+        position: relative;
+        z-index: 1;
+      }
+
+      section.text-image-{{ section_id }} .image-wrapper {
+        position: absolute;
+        top: 0;
+        {% if image_position == 'right' %}right: 0;{% else %}left: 0;{% endif %}
+        width: 50%;
+        height: 100%;
+        z-index: 0;
+      }
+
+      section.text-image-{{ section_id }} .image-wrapper img {
+        height: 100%;
+        width: 100%;
+        object-fit: cover;
+      }
+    {% endif %}
+
   {% if bg_image %}
     section.text-image-{{ section_id }} {
       background-image: url('{{ bg_image | image_url }}');
