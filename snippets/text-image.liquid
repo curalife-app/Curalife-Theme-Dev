@@ -26,7 +26,7 @@
   <div class="md:gap-4 container flex {% if main_image %}items-center{% endif %} md:items-center gap-x-16 gap-y-4 {% case image_position %}{% when 'right' %}flex-row-reverse{% when 'left' %}flex-row{% when 'bottom' %}flex-col-reverse{% when 'top' %}flex-col{% endcase %} {% if itemsDirection == 'horizontal' and is_no_wrap == false %}{% if is_image_middle_mobile %}md:flex-col{% else %}md:flex-col-reverse{% endif %}{% endif %} {% if is_image_overlap and image_position == 'left' %}justify-end{% else %}justify-between{% endif %} {% if is_remove_container_padding_mobile %}md:p-0{% endif %}">
     {% unless is_mobile_hero_style %}
       {% if is_image_middle_mobile and title != blank %}
-<div class="mobile-title md:block md:text-center hidden justify-{{ alignment }} md:justify-{{ mobile_alignment }}"><{{ title_tag }}>{{ title }}</{{ title_tag }}></div>
+        <div class="mobile-title md:block md:text-center hidden justify-{{ alignment }} md:justify-{{ mobile_alignment }}"><{{ title_tag }}>{{ title }}</{{ title_tag }}></div>
       {% endif %}
     {% endunless %}
 
@@ -56,7 +56,7 @@
           {% endif %}
 
           {% if subtitle != blank %}
-        <p class="subtitle {% if title_tag == 'h1' %}text-[30px]{% else %}text-xl md:text-sm{% endif %}">{{ subtitle }}</>
+            <p class="subtitle {% if title_tag == 'h1' %}text-[30px]{% else %}text-xl md:text-sm{% endif %} {% if is_no_p_margin %}m-0{% endif %}">{{ subtitle }}</>
           {% endif %}
 
           <p>{{ content }}</p>
@@ -182,49 +182,47 @@
     }
   {% endif %}
 
-{% unless limit_height > 0 %}
-  section.text-image-section,
-  section.text-image-{{ section_id }} {
-    overflow: visible;
-  }
-
-  html {
-    --elheight_{{ section.id }}: {{ limit_height }}px;
-  }
-
-
-  section.text-image-{{ section_id }} .container {
-    {% comment %} {% unless border_color contains 'rgba(0,0,0,0)' %}border: 1px solid {{ border_color }};{% endunless %} {% endcomment %}
-    {% unless bg_color contains 'rgba(0,0,0,0)' %}background-color: {{ bg_color }};{% endunless %}
-    {% if bg_width == 'container' %}padding: 30px;{% endif %}
-    max-height: var(--elheight_{{ section.id }});
-    max-width: {{ max_width }}px;
-    border-radius: 5px;
-  }
-
-  section.text-image-{{ section_id }} .image-wrapper {
-    margin-bottom: calc(var(--elheight_{{ section.id }}) * 0.1);
-  }
-
-  @media screen and (max-width: 768px) {
+  {% unless limit_height > 0 %}
     section.text-image-section,
     section.text-image-{{ section_id }} {
-      overflow: hidden;
+      overflow: visible;
+    }
+
+    html {
+      --elheight_{{ section.id }}: {{ limit_height }}px;
     }
 
     section.text-image-{{ section_id }} .container {
-      {% if bg_width == 'container' %}
-        margin: 0 10px;
-        width: unset;
-      {% endif %}
-      max-height: unset !important;
+      {% unless bg_color contains 'rgba(0,0,0,0)' %}background-color: {{ bg_color }};{% endunless %}
+      {% if bg_width == 'container' %}padding: 30px;{% endif %}
+      max-height: var(--elheight_{{ section.id }});
+      max-width: {{ max_width }}px;
+      border-radius: 5px;
     }
 
     section.text-image-{{ section_id }} .image-wrapper {
-      margin-bottom: unset !important;
+      margin-bottom: calc(var(--elheight_{{ section.id }}) * 0.1);
     }
-  }
-{% endunless %}
+
+    @media screen and (max-width: 768px) {
+      section.text-image-section,
+      section.text-image-{{ section_id }} {
+        overflow: hidden;
+      }
+
+      section.text-image-{{ section_id }} .container {
+        {% if bg_width == 'container' %}
+          margin: 0 10px;
+          width: unset;
+        {% endif %}
+        max-height: unset !important;
+      }
+
+      section.text-image-{{ section_id }} .image-wrapper {
+        margin-bottom: unset !important;
+      }
+    }
+  {% endunless %}
 
   section.text-image-{{ section_id }} .image-content-wrapper {
     display: flex;
@@ -257,40 +255,19 @@
     }
   {% endif %}
 
-
-    section.text-image-{{ section_id }} button {
-      {% if is_button_transparent %}
-        background-color: transparent;
-        border: 1px solid {{ button_color }};
-      {% else %}
-        {% if button_color %}background-color: {{ button_color }};{% endif %}
-      {% endif %}
-      color: {{ button_text_color }};
-    }
-
-  {% comment %} section.text-image-{{ section_id }} .container {
-    flex-direction: {% case image_position %}{% when 'right' %}row-reverse{% when 'left' %}row{% when 'bottom' %}column-reverse{% when 'top' %}column{% endcase %};
-  } {% endcomment %}
-
-  {% comment %} {% if image_position == 'right' or image_position == 'left' %}
-    {% unless is_no_wrap %}
-      @media (max-width: 768px) {
-        section.text-image-{{ section_id }} .container {
-          flex-direction: {% if is_image_middle_mobile %}column{% else %}column-reverse{% endif %};
-        }
-      }
-    {% endunless %}
-  {% endif %} {% endcomment %}
+  section.text-image-{{ section_id }} button {
+    {% if is_button_transparent %}
+      background-color: transparent;
+      border: 1px solid {{ button_color }};
+    {% else %}
+      {% if button_color %}background-color: {{ button_color }};{% endif %}
+    {% endif %}
+    color: {{ button_text_color }};
+  }
 
   section.text-image-{{ section_id }} p strong {
     font-weight: bold;
   }
-
-  {% if is_no_p_margin %}
-    section.text-image-{{ section_id }} p {
-      margin: 0;
-    }
-  {% endif %}
 
   {% if is_image_overlap %}
   section.text-image-{{ section_id }} .image-wrapper img {
@@ -379,10 +356,6 @@
 
     section.text-image .image-wrapper {
       max-width: unset;
-    }
-
-    section.text-image .content-wrapper {
-      width: 100%;
     }
 
     section.text-image .add-number{
