@@ -4,6 +4,16 @@
   {% assign section_id = section.id %}
 {% endif %}
 
+{% if image_position == 'right' or image_position == 'left' %}
+  {% if main_image and title %}
+    {% assign itemsDirection = 'horizontal' %}
+  {% else %}
+    {% assign itemsDirection = 'vertical' %}
+  {% endif %}
+{% else %}
+  {% assign itemsDirection = 'vertical' %}
+{% endif %}
+
 <section class="text-image text-image-{{ section_id }} flex align-center md:flex-col {% unless is_dynamic_height %}min-h-400px{% endunless %} {% if is_remove_padding_top %}pt-0{% endif %} {% if is_remove_padding_bottom %}pb-0{% endif %}">
   {% if is_mobile_hero_style %}
     <div class="mobile-hero-style hidden md:block">
@@ -13,27 +23,27 @@
     </div>
   {% endif %}
 
-  <div class="md:gap-4 container flex items-center gap-x-16 gap-y-4 {% if is_image_overlap and image_position == 'left' %}justify-end{% else %}justify-between{% endif %} {% if is_remove_container_padding_mobile %}md:p-0{% endif %}">
+  <div class="md:gap-4 container flex {% if main_image %}items-center{% endif %} md:items-center gap-x-16 gap-y-4 {% case image_position %}{% when 'right' %}flex-row-reverse{% when 'left' %}flex-row{% when 'bottom' %}flex-col-reverse{% when 'top' %}flex-col{% endcase %} {% if itemsDirection == 'horizontal' and is_no_wrap == false %}{% if is_image_middle_mobile %}md:flex-col{% else %}md:flex-col-reverse{% endif %}{% endif %} {% if is_image_overlap and image_position == 'left' %}justify-end{% else %}justify-between{% endif %} {% if is_remove_container_padding_mobile %}md:p-0{% endif %}">
     {% unless is_mobile_hero_style %}
       {% if is_image_middle_mobile and title != blank %}
-<div class="mobile-title md:block md:text-center hidden justify-{{ alignment }} md:justify-{{ mobile_alignment }}"><{{ title_tag }}>{{ title }}</{{ title_tag }}></div>
+        <div class="mobile-title md:block md:text-center hidden justify-{{ alignment }} md:justify-{{ mobile_alignment }}"><{{ title_tag }}>{{ title }}</{{ title_tag }}></div>
       {% endif %}
     {% endunless %}
 
     {% if main_image or main_mobile_image %}
-      <div class="image-wrapper z-[1] h-auto {% if image_position == 'right' or image_position == 'left' %}max-w-1/2{% else %}w-full{% endif %} {% if is_image_bottom %}self-end md:self-auto{% endif %}">
+      <div class="image-wrapper z-[1] h-auto {% if itemsDirection == 'horizontal' %}max-w-1/2{% else %}w-full{% endif %} {% if is_image_bottom %}self-end md:self-auto{% endif %}">
         {% if main_image %}
-          <img class="{% if is_limit_image_size %}max-h-500px{% endif %} relative z-auto object-contain {% if is_hide_image_on_mobile %}md:hidden{% endif %} {% if main_mobile_image %}desktop{% endif %} {% if is_image_overlap %}md:!min-h-350px{% endif %}" src="{{ main_image | image_url }}" alt="{{ title }}" loading="lazy">
+          <img class="{% if is_limit_image_size %}max-h-500px{% endif %} relative z-auto object-contain {% if is_hide_image_on_mobile %}md:hidden{% endif %} {% if main_mobile_image %}desktop{% endif %} {% if is_image_overlap %}md:!min-h-350px{% endif %}" src="{{ main_image | image_url }}" alt="{{ title }}" loading="lazy" {% if content_animation != 'none'%}data-aos="{{ content_animation }}"{% endif %}>
         {% endif %}
 
         {% if main_mobile_image and is_mobile_hero_style == false %}
-          <img class="mobile relative z-auto {% if is_image_cover %}object-cover{% else %}object-contain{% endif %}" src="{{ main_mobile_image | image_url }}" alt="{{ title }}" loading="lazy">
+          <img class="mobile relative z-auto {% if is_image_cover %}object-cover{% else %}object-contain{% endif %}" src="{{ main_mobile_image | image_url }}" alt="{{ title }}" loading="lazy" {% if content_animation != 'none'%}data-aos="{{ content_animation }}"{% endif %}>
         {% endif %}
       </div>
     {% endif %}
 
     {% if title != blank or content != blank %}
-      <div class="content-wrapper break-word z-[1] flex align-center md:py-0 md:!w-full gap-12 md:gap-4 {% unless main_image %}m-auto{% endunless %} text-{{ alignment }} md:text-{{ mobile_alignment }} {% if image_position == 'right' or image_position == 'left' %}w-45%{% else %}w-70%{% endif %}">
+      <div class="content-wrapper break-word z-[1] flex md:align-center md:py-0 md:!w-full gap-12 md:gap-4 md:m-auto {% unless main_image %}{% if alignment == 'center' %}m-auto{% endif %}{% endunless %} text-{{ alignment }} md:text-{{ mobile_alignment }} {% if itemsDirection == 'horizontal' %}w-45%{% else %}w-70%{% endif %}" {% if content_animation != 'none'%}data-aos="{{ content_animation }}"{% endif %}>
         {% if number != blank %}
           <div class="number">
             <div class="add-number">{{ number }}</div>
@@ -46,7 +56,7 @@
           {% endif %}
 
           {% if subtitle != blank %}
-        <p class="subtitle {% if title_tag == 'h1' %}text-[30px]{% else %}text-xl md:text-sm{% endif %}">{{ subtitle }}</>
+            <p class="subtitle {% if title_tag == 'h1' %}text-[30px]{% else %}text-xl md:text-sm{% endif %} {% if is_no_p_margin %}m-0{% endif %}">{{ subtitle }}</>
           {% endif %}
 
           <p>{{ content }}</p>
@@ -172,49 +182,47 @@
     }
   {% endif %}
 
-{% unless limit_height > 0 %}
-  section.text-image-section,
-  section.text-image-{{ section_id }} {
-    overflow: visible;
-  }
-
-  html {
-    --elheight_{{ section.id }}: {{ limit_height }}px;
-  }
-
-
-  section.text-image-{{ section_id }} .container {
-    {% comment %} {% unless border_color contains 'rgba(0,0,0,0)' %}border: 1px solid {{ border_color }};{% endunless %} {% endcomment %}
-    {% unless bg_color contains 'rgba(0,0,0,0)' %}background-color: {{ bg_color }};{% endunless %}
-    {% if bg_width == 'container' %}padding: 30px;{% endif %}
-    max-height: var(--elheight_{{ section.id }});
-    max-width: {{ max_width }}px;
-    border-radius: 5px;
-  }
-
-  section.text-image-{{ section_id }} .image-wrapper {
-    margin-bottom: calc(var(--elheight_{{ section.id }}) * 0.1);
-  }
-
-  @media screen and (max-width: 768px) {
+  {% unless limit_height > 0 %}
     section.text-image-section,
     section.text-image-{{ section_id }} {
-      overflow: hidden;
+      overflow: visible;
+    }
+
+    html {
+      --elheight_{{ section.id }}: {{ limit_height }}px;
     }
 
     section.text-image-{{ section_id }} .container {
-      {% if bg_width == 'container' %}
-        margin: 0 10px;
-        width: unset;
-      {% endif %}
-      max-height: unset !important;
+      {% unless bg_color contains 'rgba(0,0,0,0)' %}background-color: {{ bg_color }};{% endunless %}
+      {% if bg_width == 'container' %}padding: 30px;{% endif %}
+      max-height: var(--elheight_{{ section.id }});
+      max-width: {{ max_width }}px;
+      border-radius: 5px;
     }
 
     section.text-image-{{ section_id }} .image-wrapper {
-      margin-bottom: unset !important;
+      margin-bottom: calc(var(--elheight_{{ section.id }}) * 0.1);
     }
-  }
-{% endunless %}
+
+    @media screen and (max-width: 768px) {
+      section.text-image-section,
+      section.text-image-{{ section_id }} {
+        overflow: hidden;
+      }
+
+      section.text-image-{{ section_id }} .container {
+        {% if bg_width == 'container' %}
+          margin: 0 10px;
+          width: unset;
+        {% endif %}
+        max-height: unset !important;
+      }
+
+      section.text-image-{{ section_id }} .image-wrapper {
+        margin-bottom: unset !important;
+      }
+    }
+  {% endunless %}
 
   section.text-image-{{ section_id }} .image-content-wrapper {
     display: flex;
@@ -247,41 +255,19 @@
     }
   {% endif %}
 
-  {% if button_color %}
-    section.text-image-{{ section_id }} button {
-      background-color: {{ button_color }};
-    }
-  {% endif %}
-
-  {% if button_text_color %}
-    section.text-image-{{ section_id }} button {
-      color: {{ button_text_color }};
-    }
-  {% endif %}
-
-  section.text-image-{{ section_id }} .container {
-    flex-direction: {% case image_position %}{% when 'right' %}row-reverse{% when 'left' %}row{% when 'bottom' %}column-reverse{% when 'top' %}column{% endcase %};
+  section.text-image-{{ section_id }} button {
+    {% if is_button_transparent %}
+      background-color: transparent;
+      border: 1px solid {{ button_color }};
+    {% else %}
+      {% if button_color %}background-color: {{ button_color }};{% endif %}
+    {% endif %}
+    color: {{ button_text_color }};
   }
-
-  {% if image_position == 'right' or image_position == 'left' %}
-    {% unless is_no_wrap %}
-      @media (max-width: 768px) {
-        section.text-image-{{ section_id }} .container {
-          flex-direction: {% if is_image_middle_mobile %}column{% else %}column-reverse{% endif %};
-        }
-      }
-    {% endunless %}
-  {% endif %}
 
   section.text-image-{{ section_id }} p strong {
     font-weight: bold;
   }
-
-  {% if is_no_p_margin %}
-    section.text-image-{{ section_id }} p {
-      margin: 0;
-    }
-  {% endif %}
 
   {% if is_image_overlap %}
   section.text-image-{{ section_id }} .image-wrapper img {
@@ -370,10 +356,6 @@
 
     section.text-image .image-wrapper {
       max-width: unset;
-    }
-
-    section.text-image .content-wrapper {
-      width: 100%;
     }
 
     section.text-image .add-number{
