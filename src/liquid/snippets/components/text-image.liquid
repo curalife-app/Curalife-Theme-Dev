@@ -80,6 +80,21 @@
               </button>
             </a>
           {% endunless %}
+
+          {% for block in section_blocks %}
+            {% case block.type %}
+            {% when 'button' %}
+              <a href="{{ block.settings.button_url }}" {% if block.settings.is_new_tab %}target="_blank"{% endif %}>
+                <button class="md:w-full flex justify-center gap-4 {% if alignment == 'center' %}m-auto{% endif %}">
+                  {{ block.settings.button_text }}
+                  {% if block.settings.button_icon %}<i class="{{ block.settings.button_icon }}"></i>{% endif %}
+                </button>
+              </a>
+
+            {% when 'image' %}
+              <img class="block-image object-contain mt-4" src="{{ block.settings.image | image_url }}" alt="" loading="lazy">
+            {% endcase %}
+          {% endfor %}
         </div>
       </div>
     {% endif %}
@@ -255,15 +270,46 @@
     }
   {% endif %}
 
-  section.text-image-{{ section_id }} button {
-    {% if is_button_transparent %}
-      background-color: transparent;
+  {% if is_button_transparent %}
+    section.text-image-{{ section_id }} button {
+      background: transparent;
       border: 1px solid {{ button_color }};
-    {% else %}
+      border-color: {{ button_color }};
+      border-radius: 0;
+      color: {{ button_color }};
+      position: relative;
+      overflow: hidden;
+      z-index: 1;
+      transition: color 200ms ease-in-out;
+    }
+
+    section.text-image-{{ section_id }} button:after {
+      content: '';
+      position: absolute;
+      display: block;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 0;
+      height: 100%;
+      background: {{ button_color }};
+      z-index: -1;
+      transition: width 200ms ease-in-out;
+    }
+
+    section.text-image-{{ section_id }} button:hover {
+      color: #fff;
+    }
+
+    section.text-image-{{ section_id }} button:hover:after {
+      width: 110%;
+    }
+  {% else %}
+    section.text-image-{{ section_id }} button {
       {% if button_color %}background-color: {{ button_color }};{% endif %}
-    {% endif %}
-    color: {{ button_text_color }};
-  }
+      color: {{ button_text_color }};
+    }
+  {% endif %}
 
   section.text-image-{{ section_id }} p strong {
     font-weight: bold;
@@ -272,7 +318,7 @@
   {% if is_image_overlap %}
   section.text-image-{{ section_id }} .image-wrapper img {
     {% if image_position == 'right' %}
-      min-width: 50vw;
+      min-width: 55vw;
       min-height: 200px;
       max-height: 100%;
       object-fit: cover;
@@ -315,11 +361,12 @@
   {% if title_swoosh_color %}
     section.text-image-{{ section_id }} .content-wrapper .title strong,
     section.text-image-{{ section_id }} .mobile-title strong {
+      {% if title_highlight_color %}color: {{ title_highlight_color }};{% endif %}
+      {% unless title_swoosh_color == 'none' %}padding: {% if title_swoosh_color == 'dark-green' %}8px{% else %}30px 10px{% endif %};{% endunless %}
       background-image: url('{{ 'title-swoosh-' | append: title_swoosh_color | append: '.svg' | asset_url }}');
       background-size: contain;
       background-repeat: no-repeat;
-      padding: 8px;
-      {% if title_swoosh_color == 'dark-green' %}color: white;{% endif %}
+      background-position: center;
     }
   {% endif %}
 
