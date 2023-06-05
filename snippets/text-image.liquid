@@ -74,7 +74,7 @@
 
           {% unless button_link == blank %}
             <a href="{{ button_link }}" {% if is_button_link_new_window %}target="_blank"{% endif %}>
-          <button class="md:w-full flex justify-center gap-4 {% if alignment == 'center' %}m-auto{% endif %}">
+              <button class="md:w-full flex justify-center gap-4 {% if alignment == 'center' %}m-auto{% endif %}">
                 {{ button_title }}
                 {% if button_icon %}<i class="{{ button_icon }}"></i>{% endif %}
               </button>
@@ -85,11 +85,54 @@
             {% case block.type %}
             {% when 'button' %}
               <a href="{{ block.settings.button_url }}" {% if block.settings.is_new_tab %}target="_blank"{% endif %}>
-                <button class="md:w-full flex justify-center gap-4 {% if alignment == 'center' %}m-auto{% endif %}">
+                <button id="{{ block.id }}" class="md:w-full flex justify-center gap-4 {% if alignment == 'center' %}m-auto{% endif %}">
                   {{ block.settings.button_text }}
                   {% if block.settings.button_icon %}<i class="{{ block.settings.button_icon }}"></i>{% endif %}
                 </button>
               </a>
+
+              <style>
+                {% if block.settings.button_style == 'outline' %}
+                  section.text-image-{{ section_id }} button#{{ block.id }} {
+                    background: transparent;
+                    border: 1px solid {{ block.settings.button_text_color }};
+                    border-color: {{ block.settings.button_text_color }};
+                    border-radius: 0;
+                    color: {{ block.settings.button_text_color }};
+                    position: relative;
+                    overflow: hidden;
+                    z-index: 1;
+                    transition: color 200ms ease-in-out;
+                  }
+
+                  section.text-image-{{ section_id }} button#{{ block.id }}:after {
+                    content: '';
+                    position: absolute;
+                    display: block;
+                    top: 0;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    width: 0;
+                    height: 100%;
+                    background: {{ block.settings.button_text_color }};
+                    z-index: -1;
+                    transition: width 200ms ease-in-out;
+                  }
+
+                  section.text-image-{{ section_id }} button#{{ block.id }}:hover {
+                    color: #fff;
+                  }
+
+                  section.text-image-{{ section_id }} button#{{ block.id }}:hover:after {
+                    width: 110%;
+                  }
+                {% else %}
+                  section.text-image-{{ section_id }} button#{{ block.id }} {
+                    background-color: {{ block.settings.button_bg_color }};
+                    color: {{ block.settings.button_text_color }};
+                  }
+                {% endif %}
+              </style>
 
             {% when 'image' %}
               <img class="block-image object-contain mt-4" src="{{ block.settings.image | image_url }}" alt="" loading="lazy">
@@ -267,47 +310,6 @@
   {% if bg_color and bg_width == 'full' %}
     section.text-image-{{ section_id }} {
       background-color: {{ bg_color }};
-    }
-  {% endif %}
-
-  {% if is_button_transparent %}
-    section.text-image-{{ section_id }} button {
-      background: transparent;
-      border: 1px solid {{ button_color }};
-      border-color: {{ button_color }};
-      border-radius: 0;
-      color: {{ button_color }};
-      position: relative;
-      overflow: hidden;
-      z-index: 1;
-      transition: color 200ms ease-in-out;
-    }
-
-    section.text-image-{{ section_id }} button:after {
-      content: '';
-      position: absolute;
-      display: block;
-      top: 0;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 0;
-      height: 100%;
-      background: {{ button_color }};
-      z-index: -1;
-      transition: width 200ms ease-in-out;
-    }
-
-    section.text-image-{{ section_id }} button:hover {
-      color: #fff;
-    }
-
-    section.text-image-{{ section_id }} button:hover:after {
-      width: 110%;
-    }
-  {% else %}
-    section.text-image-{{ section_id }} button {
-      {% if button_color %}background-color: {{ button_color }};{% endif %}
-      color: {{ button_text_color }};
     }
   {% endif %}
 
