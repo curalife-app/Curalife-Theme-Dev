@@ -2,22 +2,22 @@
   {% render 'title', title: section.settings.main_title, title_tag: 'h2', subtitle: section.settings.main_subtitle, title_swoosh_color: section.settings.title_swoosh_color, title_highlight_color: section.settings.title_highlight_color, is_remove_padding_bottom: true %}
 {% endif %}
 
-<section id="items-collection-{{ section.id }}">
-  <div class="container">
+<section id="items-collection-{{ section.id }}" class="{% if section.settings.is_decor_relative_full %}static{% endif %}">
+  <div class="container {% if section.settings.is_decor_relative_full %}static{% endif %}">
     <{% if section.settings.is_slider %}swiper-container{% else %}div{% endif %} class="items items-center flex-wrap flex justify-center overflow-visible m-auto" {% if section.settings.is_slider %}centered-slide="true" slides-per-view="auto" auto-height="true" {% if section.settings.is_arrows %}navigation="true"{% endif %} {% if section.settings.is_dots %}pagination="true" pagination-clickable="true"{% endif %} {% if section.settings.is_ticker %}autoplay="{ delay: 1000, disableOnInteraction: false }"{% endif %} lazy="true"{% endif %}>
       {% for block in section.blocks %}
-        <{% if section.settings.is_slider %}swiper-slide{% else %}div{% endif %} class="item relative">
-        <div class="item-content flex items-center p-4 text-center gap-4 m-auto">
-          <img class="max-h-250px m-0" src="{{ block.settings.image | image_url }}" alt="{{ blovariantsettings.title }}" loading="lazy">
-          <{{ section.settings.title_tag }} class="title-tag m-0">{{ block.settings.title }}</{{ section.settings.title_tag }}>
-          <p>{{ block.settings.description }}</p>
-        </div>
+        <{% if section.settings.is_slider %}swiper-slide{% else %}div{% endif %} class="item relative {% if block.settings.is_hide_on_mobile %}md:hidden{% endif %}">
+          <div class="item-content flex flex-col items-center p-4 md:p-1 text-center gap-4 m-auto">
+            <img class="max-h-250px m-0" src="{{ block.settings.image | image_url }}" alt="{{ blovariantsettings.title }}" loading="lazy">
+            <{{ section.settings.title_tag }} class="title-tag m-0">{{ block.settings.title }}</{{ section.settings.title_tag }}>
+            <p>{{ block.settings.description }}</p>
+          </div>
         </{% if section.settings.is_slider %}swiper-slide{% else %}div{% endif %}>
       {% endfor %}
     </{% if section.settings.is_slider %}swiper-container{% else %}div{% endif %}>
 
     {% if section.settings.decor_img %}
-      <img class="decor-img {% if section.settings.is_decor_remove_on_mobile %}md:hidden{% endif %}" src="{{ section.settings.decor_img | image_url }}" alt="" loading="lazy">
+      <img class="decor-img {% if section.settings.is_decor_remove_on_mobile %}md:hidden{% endif %} {% if section.settings.is_decor_bg %}w-full h-full object-cover{% endif %}" src="{{ section.settings.decor_img | image_url }}" alt="" loading="lazy">
     {% endif %}
   </div>
 </section>
@@ -52,30 +52,30 @@
     justify-content: {{ section.settings.item_content_align }};
   }
 
-  {% if padding_top != 50 and padding_top != blank %}
-    section.text-image-{{ section_id }} {
-      padding-top: {{ padding_top }}px;
+  {% if section.settings.padding_top != 50 and section.settings.padding_top != blank %}
+    #items-collection-{{ section.id }} {
+      padding-top: {{ section.settings.padding_top }}px;
     }
   {% endif %}
 
-  {% if padding_bottom != 50 and padding_top != blank %}
-    section.text-image-{{ section_id }} {
-      padding-bottom: {{ padding_bottom }}px;
+  {% if section.settings.padding_bottom != 50 and section.settings.padding_top != blank %}
+    #items-collection-{{ section.id }} {
+      padding-bottom: {{ section.settings.padding_bottom }}px;
     }
   {% endif %}
 
-  {% if padding_top_mobile != blank %}
+  {% if section.settings.padding_top_mobile != blank %}
     @media screen and (max-width: 768px) {
-      section.text-image-{{ section_id }} {
-        padding-top: {{ padding_top_mobile }}vw;
+      #items-collection-{{ section.id }} {
+        padding-top: {{ section.settings.padding_top_mobile }}vw;
       }
     }
   {% endif %}
 
-  {% if padding_bottom_mobile != blank %}
+  {% if section.settings.padding_bottom_mobile != blank %}
     @media screen and (max-width: 768px) {
-      section.text-image-{{ section_id }} {
-        padding-bottom: {{ padding_bottom_mobile }}vw;
+      #items-collection-{{ section.id }} {
+        padding-bottom: {{ section.settings.padding_bottom_mobile }}vw;
       }
     }
   {% endif %}
@@ -98,7 +98,13 @@
     }
 
     #items-collection-{{ section.id }} .item {
-      width: calc(100% / {% if section.settings.items_in_row_mobile == 'all' %}{{ section.blocks.size }}{% else %}{{ section.settings.items_in_row_mobile }}{% endif %});
+      {% assign itemsOnMobileCounter = section.blocks.size %}
+      {% for block in section.blocks %}
+        {% if block.settings.is_hide_on_mobile %}
+          {% assign itemsOnMobileCounter = itemsOnMobileCounter | minus: 1 %}
+        {% endif %}
+      {% endfor %}
+      width: calc(100% / {% if section.settings.items_in_row_mobile == 'all' %}{{ itemsOnMobileCounter }}{% else %}{{ section.settings.items_in_row_mobile }}{% endif %});
       max-width: unset;
     }
 
@@ -546,6 +552,16 @@
     },
     {
       "type": "checkbox",
+      "id": "is_decor_bg",
+      "label": "Decoration is a Background"
+    },
+    {
+      "type": "checkbox",
+      "id": "is_decor_relative_full",
+      "label": "Decoration Relative to Full Width"
+    },
+    {
+      "type": "checkbox",
       "id": "is_decor_remove_on_mobile",
       "label": "Remove Decoration On Mobile"
     }
@@ -569,6 +585,11 @@
           "type": "text",
           "id": "description",
           "label": "Description"
+        },
+        {
+          "type": "checkbox",
+          "id": "is_hide_on_mobile",
+          "label": "Hide on mobile"
         }
       ]
     }
