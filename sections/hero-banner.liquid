@@ -83,6 +83,18 @@
     color: {{ section.settings.button_title_color }};
   }
 
+  #hero-banner-{{ section.id }} .images img {
+    position: absolute;
+    height: 100%;
+    width: 50%;
+    opacity: 0;
+    transition: opacity 1s ease-in-out;
+  }
+
+  #hero-banner-{{ section.id }} .images.right img {
+    left: 50%;
+  }
+
   @media (max-width: 768px) {
     {% if section.settings.bg_image_mobile %}
       #hero-banner-{{ section.id }} {
@@ -101,32 +113,20 @@
   }
 </style>
 
-<style>
-  .hero-banner .background .images img {
-    opacity: 0;
-    animation: change-img-anim {{ section.settings.animation_delay | times: section.blocks.size }}s infinite;
+<script>
+  const delay = {{ section.settings.animation_delay }} * 1000; // Convert to ms
+  const imagesLeft = document.querySelectorAll('.img-left');
+  const imagesRight = document.querySelectorAll('.img-right');
+  let index = 0;
+
+  function animateImages() {
+    imagesLeft.forEach((img, i) => img.style.opacity = i === index ? 1 : 0);
+    imagesRight.forEach((img, i) => img.style.opacity = i === index ? 1 : 0);
+    index = (index + 1) % imagesLeft.length; // Go to the next image, loop back to 0 at the end
   }
 
-  {% assign delay = 0 %}
-  {% for block in section.blocks %}
-    #hero-banner-{{ section.id }} .background .images.left img:nth-child({{ forloop.index }}) {
-      animation-delay: {{ delay }}s;
-    }
-
-    #hero-banner-{{ section.id }} .background .images.right img:nth-child({{ forloop.index }}) {
-      animation-delay: {{ delay }}s;
-    }
-
-    {% assign delay = delay | plus: section.settings.animation_delay %}
-  {% endfor %}
-
-  @keyframes change-img-anim {
-    0%{ opacity: 0;}
-    10%{ opacity: 1;}
-    90%{ opacity: 1;}
-    100%{ opacity: 0;}
-  }
-</style>
+  setInterval(animateImages, delay);
+</script>
 
 
 {% schema %}
