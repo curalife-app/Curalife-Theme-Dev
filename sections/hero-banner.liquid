@@ -1,12 +1,6 @@
 <section id="hero-banner-{{ section.id }}" class="hero-banner bg-{{ section.settings.bg_position }}">
   {% if section.blocks.size > 0 %}
     <div class="background absolute w-full h-full">
-      <div class="default-images">
-        {% assign first_images_set_block = section.blocks | first %}
-        <img class="absolute h-full w-1/2 object-cover" src="{{ first_images_set_block.settings.left_image | image_url }}" alt="">
-        <img class="absolute h-full w-1/2 left-1/2 object-cover" src="{{ first_images_set_block.settings.right_image | image_url }}" alt="">
-      </div>
-
       <div class="images left">
         {% for block in section.blocks %}
           <img class="img-left absolute h-full w-1/2 object-cover" src="{{ block.settings.left_image | image_url }}" alt="">
@@ -116,20 +110,24 @@
 <script>
 window.onload = function() {
   const animation_delay = {{ section.settings.animation_delay }} * 1000; // Convert to ms
+  const animation_offset = {{ section.settings.animation_offset }}; // Get offset from settings
   const imagesLeft = document.querySelectorAll('.img-left');
   const imagesRight = document.querySelectorAll('.img-right');
   let index = 0;
 
   function animateImages() {
     imagesLeft.forEach((img, i) => img.style.opacity = i === index ? 1 : 0);
-    imagesRight.forEach((img, i) => img.style.opacity = i === index ? 1 : 0);
+
+    setTimeout(() => {
+      imagesRight.forEach((img, i) => img.style.opacity = i === index ? 1 : 0);
+    }, animation_offset); // Use offset from settings
+
     index = (index + 1) % imagesLeft.length; // Go to the next image, loop back to 0 at the end
   }
 
   setInterval(animateImages, animation_delay);
 }
 </script>
-
 
 {% schema %}
 {
@@ -172,6 +170,12 @@ window.onload = function() {
       "id": "animation_delay",
       "label": "Animation Delay (seconds)",
       "default": 3
+    },
+    {
+      "type": "number",
+      "id": "animation_offset",
+      "label": "Animation Offset (milliseconds)",
+      "default": 500
     },
     {
       "type": "checkbox",
