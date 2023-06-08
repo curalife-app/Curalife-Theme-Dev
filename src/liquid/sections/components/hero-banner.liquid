@@ -1,49 +1,41 @@
-<section id="hero-banner-{{ section.id }}" class="hero-banner bg-{{ section.settings.bg_position }}">
+<section id="hero-banner-{{ section.id }}" class="hero-banner {% if section.settings.is_split_image_text_on_mobile %}md:pb-[200vw]{% endif %} bg-{{ section.settings.bg_position }}">
   {% if section.blocks.size > 0 %}
-    <div class="background absolute w-full h-full">
-      <div class="default-images">
-        {% assign first_images_set_block = section.blocks | first %}
-        <img class="absolute h-full w-1/2 object-cover" src="{{ first_images_set_block.settings.left_image | image_url }}" alt="">
-        <img class="absolute h-full w-1/2 left-1/2 object-cover" src="{{ first_images_set_block.settings.right_image | image_url }}" alt="">
-      </div>
-
+    <div class="background absolute w-full h-full md:h-1/2 {% if section.settings.is_split_image_text_on_mobile %}md:top-0{% endif %}">
       <div class="images left">
         {% for block in section.blocks %}
-          <img class="absolute h-full w-1/2 object-cover" src="{{ block.settings.left_image | image_url }}" alt="">
+          <img class="img-left absolute h-full w-1/2 object-cover" src="{{ block.settings.left_image | image_url }}" alt="">
         {% endfor %}
       </div>
 
       <div class="images right">
         {% for block in section.blocks %}
-          <img class="absolute h-full w-1/2 left-1/2 object-cover" src="{{ block.settings.right_image | image_url }}" alt="">
+          <img class="img-right absolute h-full w-1/2 left-1/2 object-cover" src="{{ block.settings.right_image | image_url }}" alt="">
         {% endfor %}
       </div>
     </div>
   {% endif %}
 
-  <div class="md:justify-{{ section.settings.mobile_alignment }} container !w-full flex flex-col justify-{{ section.settings.vertical_align_desktop }} {% if section.settings.text_align == 'center' %}items-center{% endif %}">
+  <div class="{% if section.settings.is_split_image_text_on_mobile %}md:mt-[210vw]{% endif %} md:justify-{{ section.settings.mobile_alignment }} container !w-full flex flex-col justify-{{ section.settings.vertical_align_desktop }} {% if section.settings.text_align == 'center' %}items-center{% endif %}">
     <h1 class="w-1/2 md:w-full text-{{ section.settings.text_align }} md:text-{{ section.settings.text_align_mobile }} font-thin {% if section.settings.text_align == 'center' %}m-auto{% endif %}">
       {% if section.settings.flip %} <span class="font-bold">{{ section.settings.big_title }}</span> <br>
         {% if section.settings.small_title %}<span class="small-title">{{ section.settings.small_title }}</span>{% endif %}
       {% else %}
-        {% if section.settings.small_title %}<span class="small-title">{{ section.settings.small_title }}</span>{% endif %}
+        {% if section.settings.small_title %}<span class="small-title mb-2">{{ section.settings.small_title }}</span>{% endif %}
         <br {% if section.settings.is_disable_br_desktop %}class="mobile"{% endif %}>
         <span class="font-bold">{{ section.settings.big_title }}</span>
       {% endif %}
     </h1>
 
     {% if section.settings.button_link != blank %}
-      <a href="{{ section.settings.button_link }}" {% if section.settings.is_button_link_new_window %}target="_blank"{% endif %}><button>{{ section.settings.button_title }}</button></a>
+      <a class="md:mt-4" href="{{ section.settings.button_link }}" {% if section.settings.is_button_link_new_window %}target="_blank"{% endif %}><button>{{ section.settings.button_title }}</button></a>
     {% endif %}
-
-    {% if section.settings.bottom_content %}<div class="bottom-content"><p>{{ section.settings.bottom_content }}</p></div>{% endif %}
   </div>
 </section>
 
 
 <style>
-  section.hero-banner {
-    background-image: url('{{ section.settings.bg_image | image_url }}');
+  #hero-banner-{{ section.id }} {
+  {% if section.settings.bg_image %}background-image: url('{{ section.settings.bg_image | image_url }}');{% endif %}
     background-size: cover;
     background-repeat: no-repeat;
     height: 500px;
@@ -65,7 +57,6 @@
   }
 
   #hero-banner-{{ section.id }} .bottom-content p {
-    max-width: {{ section.settings.bottom_content_max_width }}%;
     position: relative;
     bottom: 0;
     text-align: center;
@@ -81,6 +72,18 @@
   #hero-banner-{{ section.id }} a button {
     background-color: {{ section.settings.button_color }};
     color: {{ section.settings.button_title_color }};
+  }
+
+  #hero-banner-{{ section.id }} .images img {
+    position: absolute;
+    height: 100%;
+    width: 50%;
+    opacity: 0;
+    transition: opacity 1s ease-in-out;
+  }
+
+  #hero-banner-{{ section.id }} .images.right img {
+    left: 50%;
   }
 
   @media (max-width: 768px) {
@@ -101,33 +104,28 @@
   }
 </style>
 
-<style>
-  .hero-banner .background .images img {
-    opacity: 0;
-    animation: change-img-anim {{ section.settings.animation_delay | times: section.blocks.size }}s infinite;
+{% if section.settings.is_split_image_text_on_mobile %}
+<script>
+  const animation_delay = {{ section.settings.animation_delay }} * 1000; // Convert to ms
+  const animation_offset = {{ section.settings.animation_offset }}; // Get offset from settings
+  let index = 0;
+
+  function animateImages() {
+    const imagesLeft = document.querySelectorAll('#hero-banner-{{ section.id }} .img-left');
+    const imagesRight = document.querySelectorAll('#hero-banner-{{ section.id }} .img-right');
+
+    imagesLeft.forEach((img, i) => img.style.opacity = i === index ? 1 : 0);
+
+    setTimeout(() => {
+      imagesRight.forEach((img, i) => img.style.opacity = i === index ? 1 : 0);
+    }, animation_offset); // Use offset from settings
+
+    index = (index + 1) % imagesLeft.length; // Go to the next image, loop back to 0 at the end
   }
 
-  {% assign delay = 0 %}
-  {% for block in section.blocks %}
-    #hero-banner-{{ section.id }} .background .images.left img:nth-child({{ forloop.index }}) {
-      animation-delay: {{ delay }}s;
-    }
-
-    #hero-banner-{{ section.id }} .background .images.right img:nth-child({{ forloop.index }}) {
-      animation-delay: {{ delay }}s;
-    }
-
-    {% assign delay = delay | plus: section.settings.animation_delay %}
-  {% endfor %}
-
-  @keyframes change-img-anim {
-    0%{ opacity: 0;}
-    10%{ opacity: 1;}
-    90%{ opacity: 1;}
-    100%{ opacity: 0;}
-  }
-</style>
-
+  setInterval(animateImages, animation_delay);
+</script>
+{% endif %}
 
 {% schema %}
 {
@@ -157,11 +155,6 @@
       "label": "Big Title"
     },
     {
-      "type": "textarea",
-      "id": "bottom_content",
-      "label": "Bottom Content"
-    },
-    {
       "type": "header",
       "content": "Options"
     },
@@ -170,6 +163,12 @@
       "id": "animation_delay",
       "label": "Animation Delay (seconds)",
       "default": 3
+    },
+    {
+      "type": "number",
+      "id": "animation_offset",
+      "label": "Animation Offset (milliseconds)",
+      "default": 250
     },
     {
       "type": "checkbox",
@@ -277,16 +276,6 @@
       "default": "center"
     },
     {
-      "type": "range",
-      "id": "bottom_content_max_width",
-      "label": "Bottom Content Maximum Width",
-      "min": 0,
-      "max": 100,
-      "step": 1,
-      "unit": "%",
-      "default": 70
-    },
-    {
       "type": "color",
       "id": "title_color",
       "label": "Title Color"
@@ -295,6 +284,11 @@
       "type": "checkbox",
       "id": "is_title_right",
       "label": "Place Title Right"
+    },
+    {
+      "type": "checkbox",
+      "id": "is_split_image_text_on_mobile",
+      "label": "Split Image and Text on Mobile"
     },
     {
       "type": "checkbox",
