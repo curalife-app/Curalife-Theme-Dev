@@ -105,44 +105,50 @@
 </style>
 
 {% if section.blocks.size > 1 %}
-  <script>
-    let animation_delay = {{ section.settings.animation_delay }} * 1000; // Convert to ms
-    let animation_offset = {{ section.settings.animation_offset }}; // Get offset from settings
-    let index = 0;
+<script>
+  const animation_delay = {{ section.settings.animation_delay }} * 1000; // Convert to ms
+  const animation_offset = {{ section.settings.animation_offset }}; // Get offset from settings
+  let index = 0;
+  let firstRun = true;
 
-    function animateImages() {
-      let imagesLeft = document.querySelectorAll('.img-left');
-      let imagesRight = document.querySelectorAll('.img-right');
+  function animateImages() {
+    const imagesLeft = document.querySelectorAll('.img-left');
+    const imagesRight = document.querySelectorAll('.img-right');
 
-      // Ensure imagesLeft and imagesRight have the same number of images
-      if (imagesLeft.length !== imagesRight.length) {
-        console.error('Mismatch in number of left and right images');
-        return;
-      }
+    // Ensure imagesLeft and imagesRight have the same number of images
+    if (imagesLeft.length !== imagesRight.length) {
+      console.error('Mismatch in number of left and right images');
+      return;
+    }
 
-      // Set all images to be transparent
-      imagesLeft.forEach(img => img.style.opacity = 0);
-      imagesRight.forEach(img => img.style.opacity = 0);
+    // Set all images to be transparent
+    imagesLeft.forEach(img => img.style.opacity = 0);
+    imagesRight.forEach(img => img.style.opacity = 0);
 
-      // Set the current image to be visible
-      if (imagesLeft[index]) {
-        imagesLeft[index].style.opacity = 1;
-      }
-      if (imagesRight[index]) {
+    // Set the current image to be visible
+    if (imagesLeft[index]) {
+      imagesLeft[index].style.opacity = 1;
+    }
+    if (imagesRight[index]) {
+      if (firstRun) {
+        imagesRight[index].style.opacity = 1;
+        firstRun = false;
+      } else {
         setTimeout(() => {
           imagesRight[index].style.opacity = 1;
         }, animation_offset); // Use offset from settings
       }
-
-      index = (index + 1) % imagesLeft.length; // Go to the next image, loop back to 0 at the end
     }
 
-    // Start the animation immediately
-    animateImages();
+    index = (index + 1) % imagesLeft.length; // Go to the next image, loop back to 0 at the end
+  }
 
-    // Then continue at the specified interval
-    setInterval(animateImages, animation_delay);
-  </script>
+  // Start the animation immediately
+  animateImages();
+
+  // Then continue at the specified interval
+  setInterval(animateImages, animation_delay);
+</script>
 {% endif %}
 
 {% schema %}
