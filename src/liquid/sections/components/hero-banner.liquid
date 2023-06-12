@@ -1,9 +1,10 @@
-<section id="hero-banner-{{ section.id }}" class="hero-banner bg-{{ section.settings.bg_position }}">
+<section id="hero-banner-{{ section.id }}" class="hero-banner flex items-center justify-center h-[500px] bg-{{ section.settings.bg_position }} {% if section.settings.is_split_image_text_on_mobile %}md:flex md:flex-col md:gap-4 md:!h-auto md:pt-0{% endif %}">
   {% if section.blocks.size > 0 %}
-    <div class="background absolute w-full h-full md:h-1/2">
-      <div class="images">
+<div class="background absolute {% if section.settings.is_split_image_text_on_mobile %}md:static{% endif %} w-full h-full">
+<div class="images {% if section.settings.is_split_image_text_on_mobile %}md:relative md:h-[90vw]{% endif %}">
         {% for block in section.blocks %}
-          <img class="absolute h-full w-full object-cover" src="{{ block.settings.img | image_url }}" alt="">
+          <img class="img absolute h-full w-full object-cover desktop" src="{{ block.settings.img | image_url }}" alt="">
+          <img class="img-mobile absolute h-full w-full object-cover mobile" src="{{ block.settings.img_mobile | image_url }}" alt="">
         {% endfor %}
       </div>
     </div>
@@ -31,10 +32,6 @@
   {% if section.settings.bg_image %}background-image: url('{{ section.settings.bg_image | image_url }}');{% endif %}
     background-size: cover;
     background-repeat: no-repeat;
-    height: 500px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
   }
 
   #hero-banner-{{ section.id }} h1 {
@@ -70,7 +67,6 @@
   #hero-banner-{{ section.id }} .images img {
     position: absolute;
     height: 100%;
-    width: 50%;
     opacity: 0;
     transition: opacity 1s ease-in-out;
   }
@@ -83,21 +79,6 @@
     {% if section.settings.bg_image_mobile %}
       #hero-banner-{{ section.id }} {
         background-image: url('{{ section.settings.bg_image_mobile | image_url }}');
-      }
-    {% endif %}
-
-    {% if section.settings.is_split_image_text_on_mobile %}
-      #hero-banner-{{ section.id }} {
-        padding-bottom: 110vh;
-      }
-
-      #hero-banner-{{ section.id }} .background {
-        top: 0;
-        height: 100vw;
-      }
-
-      #hero-banner-{{ section.id }} .container {
-        margin-top: 200vw;
       }
     {% endif %}
 
@@ -114,36 +95,33 @@
 
 {% if section.blocks.size > 1 %}
 <script>
-  const animation_delay = {{ section.settings.animation_delay }} * 1000; // Convert to ms
-  let index = 0;
-  let firstRun = true;
+  const animationDelay = {{ section.settings.animation_delay }} * 1000;
 
-  function animateImages() {
-    const images = document.querySelectorAll('.images img');
+  function animateImages(className) {
+    const images = document.querySelectorAll(className);
+    let index = 0;
 
-    // Set all images to be transparent
-    images.forEach(img => img.style.opacity = 0);
-
-    // Set the current image to be visible
     if (images[index]) {
-      if (firstRun) {
-        images[index].style.opacity = 1;
-        firstRun = false;
-      } else {
-        setTimeout(() => {
-          images[index].style.opacity = 1;
-        }, 0); // Use offset from settings
-      }
+      images[index].style.opacity = 1;
     }
 
-    index = (index + 1) % images.length; // Go to the next image, loop back to 0 at the end
+    setInterval(() => {
+      images.forEach(img => img.style.opacity = 0);
+
+      index = (index + 1) % images.length;
+
+      if (images[index]) {
+        images[index].style.opacity = 1;
+      }
+
+    }, animationDelay);
   }
 
-  // Start the animation immediately
-  animateImages();
-
-  // Then continue at the specified interval
-  setInterval(animateImages, animation_delay);
+  if (window.innerWidth <= 768) {
+    animateImages('.img-mobile');
+  } else {
+    animateImages('.img.desktop');
+  }
 </script>
 {% endif %}
 
@@ -359,6 +337,11 @@
           "type": "image_picker",
           "id": "img",
           "label": "Image"
+        },
+        {
+          "type": "image_picker",
+          "id": "img_mobile",
+          "label": "Image on Mobile"
         }
       ]
     }
