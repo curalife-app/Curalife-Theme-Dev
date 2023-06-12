@@ -1,36 +1,32 @@
-<div class="container mb-16">
-  {% comment %} <div class="review-titles w-1/2">
-    {% for block in section.blocks %}
-      <div class="review-title" onclick="swiper.slideTo({{ forloop.index }})">
-        {{ block.settings.title }}
+<section class="customer-reviews relative">
+  <div class="container mb-16 flex md:flex-col items-center">
+    <div class="review-titles-wrapper w-1/2 md:w-full">
+      <div class="review-titles w-[90%]">
+        {% for block in section.blocks %}
+        <div class="review-title text-[23px] py-4 border-b border-black cursor-pointer {% if forloop.first %}active{% endif %}" onclick="window.slideToReview({{ forloop.index }})">"{{ block.settings.title }}"</div>
+        {% endfor %}
       </div>
-    {% endfor %}
-  </div> {% endcomment %}
+    </div>
 
-  <swiper-container class="reviews flex" centered-slides="true" auto-height="true" space-between="30" slides-per-view="auto" navigation="true" pagination="true" pagination-clickable="true" lazy="true">
-    {% for block in section.blocks %}
-      <swiper-slide class="review-wrapper">
-        <div class="review h-[350px] md:h-fit md:flex-col md:p-4 md:shadow-xl flex justify-start gap-8 p-8 bg-white shadow-2xl">
-          <img class="md:object-cover md:object-top md:w-full max-h-[280px]" src="{{ block.settings.customer_image | image_url }}" alt="" loading="lazy">
-          <div class="content text-start mt-8 md:mt-0">
-            <h3 class="name">{{ block.settings.name }}</h3>
-            <div class="rating text-lightGreen mb-5"><i class="fa-sharp fa-solid fa-star"></i><i class="fa-sharp fa-solid fa-star"></i><i class="fa-sharp fa-solid fa-star"></i><i class="fa-sharp fa-solid fa-star"></i><i class="fa-sharp fa-solid fa-star"></i></div>
-            <p class="quote">{{ block.settings.quote }}</p>
-            <p class="additional-text bottom-7 md:text-sm md:relative md:bottom-0 absolute">{{ block.settings.additional_text }}</p>
+
+    <div class="swiper reviews flex w-1/2 md:w-full">
+      <div class="swiper-wrapper">
+        {% for block in section.blocks %}
+          <div class="swiper-slide review-wrapper">
+            <div class="review border border-black h-[350px] md:h-fit md:flex-col md:p-4 md:shadow-xl flex justify-start gap-8 p-8 bg-white shadow-lg">
+              <img class="md:object-cover md:object-top md:w-full max-h-[280px]" src="{{ block.settings.customer_image | image_url }}" alt="" loading="lazy">
+              <div class="content text-start">
+                <h3 class="name font-thin mb-2">{{ block.settings.name }}</h3>
+                <div class="rating text-[#FFB22D] mb-4"><i class="fa-sharp fa-solid fa-star"></i><i class="fa-sharp fa-solid fa-star"></i><i class="fa-sharp fa-solid fa-star"></i><i class="fa-sharp fa-solid fa-star"></i><i class="fa-sharp fa-solid fa-star"></i></div>
+                <p class="quote">{{ block.settings.quote }}</p>
+              </div>
+            </div>
           </div>
-        </div>
-      </swiper-slide>
-    {% endfor %}
-  </swiper-container>
-</div>
-
-<script>
-  var swiper = new Swiper('.swiper-container', {
-    // your options here
-  });
-</script>
-
-<script src="https://cdn.jsdelivr.net/npm/swiper@9/swiper-element-bundle.min.js"></script>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</section>
 
 <style>
   :root {
@@ -43,22 +39,59 @@
     background-color: {{ section.settings.bg_color }};
   }
 
-  .customer-reviews .reviews {
-    overflow: visible;
+  .customer-reviews .review-titles-wrapper .review-title:before {
+    content: ">";
+    margin-right: 10px;
+    font-size: 30px;
   }
 
-  .customer-reviews .review {
-    cursor: grab;
-    max-width: 80%;
-    margin: auto;
+  .customer-reviews .review-titles-wrapper .review-title.active {
+    color: var(--light-green);
+    font-size: 30px;
   }
 </style>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    var reviewsSwiper = new Swiper('.swiper', {
+      centeredSlides: true,
+      slidesPerView: 'auto',
+      grabCursor: true,
+      spaceBetween: 30,
+      autoHeight: true,
+      lazy: true,
+      paginationClickable: true,
+      pagination: {
+        el: '.swiper-pagination',
+        clickable: true,
+      },
+      navigation: {
+        nextEl: '.swiper-button-next',
+        prevEl: '.swiper-button-prev'
+      }
+    });
+
+    window.slideToReview = function(index) {
+      reviewsSwiper.slideTo(index - 1);
+
+      var reviewTitles = document.querySelectorAll('.review-title');
+
+      reviewTitles.forEach(function(reviewTitle, idx) {
+        if (idx === index - 1) {
+          if (!reviewTitle.classList.contains('active')) {
+            reviewTitle.classList.add('active');
+          }
+        } else {
+          reviewTitle.classList.remove('active');
+        }
+      });
+    };
+  });
+</script>
 
 {% schema %}
 {
   "name": "Customer Reviews",
-  "tag": "section",
-  "class": "customer-reviews relative",
   "disabled_on": {
     "groups": ["header", "footer"]
   },
@@ -88,11 +121,6 @@
           "type": "richtext",
           "id": "quote",
           "label": "Review Quote"
-        },
-        {
-          "type": "text",
-          "id": "additional_text",
-          "label": "Additional Text"
         },
         {
           "type": "text",
