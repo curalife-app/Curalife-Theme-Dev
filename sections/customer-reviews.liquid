@@ -72,8 +72,8 @@
 </style>
 
 <script>
-  const reviewsApp = {
-    init: function() {
+  class ReviewsApp {
+    constructor() {
       this.reviewTitles = Array.from(document.querySelectorAll('.review-title'));
       this.reviewQuotes = Array.from(document.querySelectorAll('.quote'));
       this.reviewsSwiper = new Swiper('.swiper', {
@@ -83,32 +83,29 @@
         autoHeight: true,
         lazy: true
       });
+    }
 
-      this.bindEvents();
-    },
+    bindEvents() {
+      document.querySelector('.review-titles-wrapper').addEventListener('click', (event) => {
+        const title = event.target;
+        const index = this.reviewTitles.indexOf(title);
 
-    bindEvents: function() {
-      // Iterate over the review titles
-      this.reviewTitles.forEach((title, index) => {
-        // Attach click event listener to each title
-        title.addEventListener('click', () => {
+        if (index !== -1) {
           this.slideToReview(index + 1);
-        });
-
-        // Highlight quote text for each title
-        this.highlightQuoteText(title, this.reviewQuotes[index]);
+        }
       });
-    },
 
-    highlightQuoteText: function(title, quote) {
-      // Remove quotes from title and check if it exists in the quote
+      this.reviewTitles.forEach((title, index) => this.highlightQuoteText(title, this.reviewQuotes[index]));
+    }
+
+    highlightQuoteText(title, quote) {
       const titleText = title.innerText.replace(/["]+/g, '');
       const quoteText = quote.textContent;
 
       if (quoteText.includes(titleText)) {
-        // Create a highlighted text element and replace the title in the quote with it
         const index = quoteText.indexOf(titleText);
         const highlightedText = document.createElement('span');
+
         highlightedText.classList.add('highlight');
         highlightedText.textContent = titleText;
 
@@ -116,23 +113,19 @@
         quote.appendChild(highlightedText);
         quote.appendChild(document.createTextNode(quoteText.substring(index + titleText.length)));
       }
-    },
-
-    slideToReview: function(index) {
-      // Slide the swiper to the selected review
-      this.reviewsSwiper.slideTo(index - 1);
-
-      // Update the active title
-      this.reviewTitles.forEach((reviewTitle, idx) => {
-        reviewTitle.classList.toggle('active', idx === index - 1);
-      });
     }
-  };
 
-  // Run the application when the DOM is fully loaded
-  document.addEventListener('DOMContentLoaded', () => {
-    reviewsApp.init();
-  });
+    slideToReview(index) {
+      this.reviewsSwiper.slideTo(index - 1);
+      this.reviewTitles.forEach((reviewTitle, idx) => reviewTitle.classList.toggle('active', idx === index - 1));
+    }
+
+    init() {
+      this.bindEvents();
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => new ReviewsApp().init());
 </script>
 
 {% schema %}
