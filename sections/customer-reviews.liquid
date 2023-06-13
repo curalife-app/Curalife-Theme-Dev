@@ -3,7 +3,7 @@
     <div class="review-titles-wrapper w-1/2 md:w-full">
       <div class="review-titles w-[90%] md:w-full">
         {% for block in section.blocks %}
-          <div class="review-title text-[23px] transition-all duration-300 py-4 cursor-pointer {% if forloop.first %}active{% endif %} {% unless forloop.last %}border-b border-black{% endunless %}" onclick="window.slideToReview({{ forloop.index }})">"{{ block.settings.title }}"</div>
+          <div class="review-title text-[23px] transition-all duration-300 py-4 cursor-pointer {% if forloop.first %}active{% endif %} {% unless forloop.last %}border-b border-black{% endunless %}">"{{ block.settings.title }}"</div>
         {% endfor %}
       </div>
     </div>
@@ -77,67 +77,91 @@
 </style>
 
 <script>
-  // Encapsulate all variables and functions within an object
-const reviewsApp = {
-  init: function() {
-    this.reviewTitles = Array.from(document.querySelectorAll('.review-title'));
-    this.reviewQuotes = Array.from(document.querySelectorAll('.quote'));
-    this.reviewsSwiper = new Swiper('.swiper', {
-      centeredSlides: true,
-      slidesPerView: '1',
-      spaceBetween: 30,
-      autoHeight: true,
-      lazy: true
-    });
-
-    this.bindEvents();
-  },
-
-  bindEvents: function() {
-    this.reviewTitles.forEach((title, index) => {
-      title.addEventListener('click', () => {
-        this.slideToReview(index);
+  class ReviewsApp {
+    constructor() {
+      this.reviewTitles = document.querySelectorAll('.review-title');
+      this.reviewQuotes = document.querySelectorAll('.quote');
+      this.currentActiveIndex = 0; // added to track current active review
+      this.reviewsSwiper = new Swiper('.swiper', {
+        centeredSlides: true,
+        slidesPerView: '1',
+        spaceBetween: 30,
+        autoHeight: true,
+        lazy: true,
+        loop: true,
+        preloadImages: false,
       });
 
-      this.highlightQuoteText(title, this.reviewQuotes[index]);
-    });
-  },
-
-  highlightQuoteText: function(title, quote) {
-    const titleText = title.innerText.replace(/["]+/g, ''); // Remove quotes from title
-    const quoteText = quote.textContent;
-
-    if (quoteText.includes(titleText)) {
-      const index = quoteText.indexOf(titleText);
-      const highlightedText = document.createElement('span');
-      highlightedText.classList.add('highlight');
-      highlightedText.textContent = titleText;
-
-      quote.textContent = quoteText.substring(0, index);
-      quote.appendChild(highlightedText);
-      quote.appendChild(document.createTextNode(quoteText.substring(index + titleText.length)));
+      this.reviewTitleClickHandler = this.handleReviewTitleClick.bind(this);
     }
-  },
 
-  slideToReview: function(index) {
-    this.reviewsSwiper.slideTo(index - 1);
+    handleReviewTitleClick(event) {
+      this.slideToReview(Array.from(this.reviewTitles).indexOf(event.target));
+    }
 
-    this.reviewTitles.forEach((reviewTitle, idx) => {
-      if (idx === index - 1) {
-        if (!reviewTitle.classList.contains('active')) {
-          reviewTitle.classList.add('active');
-        }
-      } else {
-        reviewTitle.classList.remove('active');
+    bindEvents() {
+      this.reviewTitles.forEach((title, index) => {
+        title.addEventListener('click', () => this.handleReviewTitleClick(index));
+      });
+    }
+
+    unbindEvents() {
+      this.reviewTitles.forEach((title, index) => {
+        title.removeEventListener('click', () => this.handleReviewTitleClick(index));
+      });
+    }
+
+    highlightQuoteText(title, quote) {
+      const titleText = title.innerText.replace(/["]+/g, '');
+      const quoteText = quote.textContent;
+
+      if (quoteText.includes(titleText)) {
+        const index = quoteText.indexOf(titleText);
+        const highlightedText = this.createHighlightedText(titleText);
+
+        quote.textContent = quoteText.substring(0, index);
+        quote.append(...[highlightedText, document.createTextNode(quoteText.substring(index + titleText.length))]);
       }
-    });
-  }
-};
+    }
 
-// Run the application when the DOM is fully loaded
-document.addEventListener('DOMContentLoaded', () => {
-  reviewsApp.init();
-});
+    createHighlightedText(text) {
+      const span = document.createElement('span');
+      span.classList.add('highlight');
+      span.textContent = text;
+      return span;
+    }
+
+    slideToReview(index) {
+      this.reviewsSwiper.slideTo(index);
+      this.reviewTitles[this.currentActiveIndex].classList.remove('active');
+      this.reviewTitles[index].classList.add('active');
+      this.currentActiveIndex = index;
+    }
+
+    init() {
+      this.bindEvents();
+      setTimeout(() => {
+        this.reviewTitles.forEach((title, index) => this.highlightQuoteText(title, this.reviewQuotes[index]));
+      }, 500);
+    }
+
+    destroy() {
+      this.unbindEvents();
+    }
+  }
+
+  let reviewsApp;
+
+  document.addEventListener('DOMContentLoaded', () => {
+    reviewsApp = new ReviewsApp();
+    reviewsApp.init();
+  });
+
+  window.addEventListener('beforeunload', () => {
+    if (reviewsApp) {
+      reviewsApp.destroy();
+    }
+  });
 </script>
 
 {% schema %}
