@@ -72,52 +72,11 @@
 </style>
 
 <script>
-  // Encapsulate all variables and functions within an object
-const reviewsApp = {
-  init: function() {
-    this.reviewTitles = Array.from(document.querySelectorAll('.review-title'));
-    this.reviewQuotes = Array.from(document.querySelectorAll('.quote'));
-    this.reviewsSwiper = new Swiper('.swiper', {
-      centeredSlides: true,
-      slidesPerView: '1',
-      spaceBetween: 30,
-      autoHeight: true,
-      lazy: true
-    });
+  function slideToReview(index) {
+    // assuming reviewsSwiper and reviewTitles are in the global scope
+    reviewsSwiper.slideTo(index - 1);
 
-    this.bindEvents();
-  },
-
-  bindEvents: function() {
-    this.reviewTitles.forEach((title, index) => {
-      title.addEventListener('click', () => {
-        this.slideToReview(index);
-      });
-
-      this.highlightQuoteText(title, this.reviewQuotes[index]);
-    });
-  },
-
-  highlightQuoteText: function(title, quote) {
-    const titleText = title.innerText.replace(/["]+/g, ''); // Remove quotes from title
-    const quoteText = quote.textContent;
-
-    if (quoteText.includes(titleText)) {
-      const index = quoteText.indexOf(titleText);
-      const highlightedText = document.createElement('span');
-      highlightedText.classList.add('highlight');
-      highlightedText.textContent = titleText;
-
-      quote.textContent = quoteText.substring(0, index);
-      quote.appendChild(highlightedText);
-      quote.appendChild(document.createTextNode(quoteText.substring(index + titleText.length)));
-    }
-  },
-
-  slideToReview: function(index) {
-    this.reviewsSwiper.slideTo(index - 1);
-
-    this.reviewTitles.forEach((reviewTitle, idx) => {
+    reviewTitles.forEach(function(reviewTitle, idx) {
       if (idx === index - 1) {
         if (!reviewTitle.classList.contains('active')) {
           reviewTitle.classList.add('active');
@@ -126,13 +85,45 @@ const reviewsApp = {
         reviewTitle.classList.remove('active');
       }
     });
-  }
-};
+  };
 
-// Run the application when the DOM is fully loaded
-document.addEventListener('DOMContentLoaded', () => {
-  reviewsApp.init();
-});
+  document.addEventListener('DOMContentLoaded', function() {
+    window.reviewTitles = Array.from(document.querySelectorAll('.review-title'));
+    window.reviewQuotes = Array.from(document.querySelectorAll('.quote'));
+    window.reviewsSwiper = new Swiper('.swiper', {
+      centeredSlides: true,
+      slidesPerView: '1',
+      spaceBetween: 30,
+      autoHeight: true,
+      lazy: true
+    });
+
+    function highlightQuoteText(title, quote) {
+      var titleText = title.innerText.replace(/["]+/g, ''); // Remove quotes from title
+      var quoteText = quote.textContent;
+
+      if (quoteText.includes(titleText)) {
+        var index = quoteText.indexOf(titleText);
+        var highlightedText = document.createElement('span');
+        highlightedText.classList.add('highlight');
+        highlightedText.textContent = titleText;
+
+        quote.textContent = quoteText.substring(0, index);
+        quote.appendChild(highlightedText);
+        quote.appendChild(document.createTextNode(quoteText.substring(index + titleText.length)));
+      }
+    }
+
+    window.slideToReview = _.debounce(slideToReview, 200); // debounce function with lodash
+
+    reviewTitles.forEach((title, index) => {
+      title.addEventListener('click', function() {
+        window.slideToReview(index);
+      });
+
+      highlightQuoteText(title, reviewQuotes[index]);
+    });
+  });
 </script>
 
 {% schema %}
