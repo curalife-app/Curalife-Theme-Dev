@@ -49,6 +49,11 @@
     font-size: 25px;
   }
 
+  .customer-reviews .highlight {
+    color: var(--light-green);
+    font-weight: bold;
+  }
+
   @media screen and (max-width: 1200px) {
     .customer-reviews .review-titles-wrapper .review-title,
     .customer-reviews .review-titles-wrapper .review-title:before {
@@ -72,28 +77,12 @@
 </style>
 
 <script>
-  document.addEventListener('DOMContentLoaded', function() {
-    const reviewTitles = Array.from(document.querySelectorAll('.review-title'));
-    const reviewQuotes = Array.from(document.querySelectorAll('.quote'));
-
-    reviewTitles.forEach((title, index) => {
-      const quote = reviewQuotes[index];
-      const titleText = title.innerText.replace(/["]+/g, ''); // Remove quotes from title
-      const quoteText = quote.innerText;
-
-      if (quoteText.includes(titleText)) {
-        const index = quoteText.indexOf(titleText);
-        const highlightedText = `<span style="color: var(--light-green); font-weight: bold;">${titleText}</span>`;
-        const newQuoteText = quoteText.substring(0, index) + highlightedText + quoteText.substring(index + titleText.length);
-        quote.innerHTML = newQuoteText;
-      }
-    });
-  });
-</script>
-
-<script>
-  document.addEventListener('DOMContentLoaded', function() {
-    var reviewsSwiper = new Swiper('.swiper', {
+  // Encapsulate all variables and functions within an object
+const reviewsApp = {
+  init: function() {
+    this.reviewTitles = Array.from(document.querySelectorAll('.review-title'));
+    this.reviewQuotes = Array.from(document.querySelectorAll('.quote'));
+    this.reviewsSwiper = new Swiper('.swiper', {
       centeredSlides: true,
       slidesPerView: '1',
       spaceBetween: 30,
@@ -101,22 +90,54 @@
       lazy: true
     });
 
-    window.slideToReview = function(index) {
-      reviewsSwiper.slideTo(index - 1);
+    this.bindEvents();
+  },
 
-      var reviewTitles = document.querySelectorAll('.review-title');
-
-      reviewTitles.forEach(function(reviewTitle, idx) {
-        if (idx === index - 1) {
-          if (!reviewTitle.classList.contains('active')) {
-            reviewTitle.classList.add('active');
-          }
-        } else {
-          reviewTitle.classList.remove('active');
-        }
+  bindEvents: function() {
+    this.reviewTitles.forEach((title, index) => {
+      title.addEventListener('click', () => {
+        this.slideToReview(index);
       });
-    };
-  });
+
+      this.highlightQuoteText(title, this.reviewQuotes[index]);
+    });
+  },
+
+  highlightQuoteText: function(title, quote) {
+    const titleText = title.innerText.replace(/["]+/g, ''); // Remove quotes from title
+    const quoteText = quote.textContent;
+
+    if (quoteText.includes(titleText)) {
+      const index = quoteText.indexOf(titleText);
+      const highlightedText = document.createElement('span');
+      highlightedText.classList.add('highlight');
+      highlightedText.textContent = titleText;
+
+      quote.textContent = quoteText.substring(0, index);
+      quote.appendChild(highlightedText);
+      quote.appendChild(document.createTextNode(quoteText.substring(index + titleText.length)));
+    }
+  },
+
+  slideToReview: function(index) {
+    this.reviewsSwiper.slideTo(index - 1);
+
+    this.reviewTitles.forEach((reviewTitle, idx) => {
+      if (idx === index - 1) {
+        if (!reviewTitle.classList.contains('active')) {
+          reviewTitle.classList.add('active');
+        }
+      } else {
+        reviewTitle.classList.remove('active');
+      }
+    });
+  }
+};
+
+// Run the application when the DOM is fully loaded
+document.addEventListener('DOMContentLoaded', () => {
+  reviewsApp.init();
+});
 </script>
 
 {% schema %}
