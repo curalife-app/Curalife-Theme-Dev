@@ -3,7 +3,7 @@
     <div class="review-titles-wrapper w-1/2 md:w-full">
       <div class="review-titles w-[90%] md:w-full">
         {% for block in section.blocks %}
-          <div class="review-title text-[23px] transition-all duration-300 py-4 cursor-pointer {% if forloop.first %}active{% endif %} {% unless forloop.last %}border-b border-black{% endunless %}" onclick="window.slideToReview({{ forloop.index }})">"{{ block.settings.title }}"</div>
+          <div class="review-title text-[23px] transition-all duration-300 py-4 cursor-pointer {% if forloop.first %}active{% endif %} {% unless forloop.last %}border-b border-black{% endunless %}">"{{ block.settings.title }}"</div>
         {% endfor %}
       </div>
     </div>
@@ -13,7 +13,7 @@
         {% for block in section.blocks %}
           <div class="swiper-slide review-wrapper">
             <div class="review border border-black h-[350px] md:h-fit md:flex-row-reverse md:p-4 md:shadow-xl flex justify-start gap-8 p-8 bg-white shadow-lg">
-              <img class="max-h-[280px] xl:max-h-[17vw] md-max-h-none md:w-1/4 md:absolute md:" src="{{ block.settings.customer_image | image_url }}" alt="" loading="lazy">
+              <img class="m-0 max-h-[280px] xl:max-h-[17vw] md:max-h-fit md:w-1/4 md:absolute" src="{{ block.settings.customer_image | image_url }}" alt="" loading="lazy">
               <div class="content text-start md:text-[4vw]">
                 <h3 class="name font-thin mb-2">{{ block.settings.name }}</h3>
                 <div class="rating text-[#FFB22D] mb-4 md:mb-16 md:text-[3vw]"><i class="fa-sharp fa-solid fa-star"></i><i class="fa-sharp fa-solid fa-star"></i><i class="fa-sharp fa-solid fa-star"></i><i class="fa-sharp fa-solid fa-star"></i><i class="fa-sharp fa-solid fa-star"></i></div>
@@ -49,6 +49,19 @@
     font-size: 25px;
   }
 
+  .customer-reviews .highlight {
+    color: var(--light-green);
+    font-weight: bold;
+  }
+
+  @media screen and (max-width: 1200px) {
+    .customer-reviews .review-titles-wrapper .review-title,
+    .customer-reviews .review-titles-wrapper .review-title:before {
+      padding-left: 3vw;
+      text-indent: -3vw;
+    }
+  }
+
   @media screen and (max-width: 768px) {
     .customer-reviews .review-titles-wrapper .review-title,
     .customer-reviews .review-titles-wrapper .review-title:before {
@@ -64,50 +77,90 @@
 </style>
 
 <script>
-  document.addEventListener('DOMContentLoaded', function() {
-    const reviewTitles = Array.from(document.querySelectorAll('.review-title'));
-    const reviewQuotes = Array.from(document.querySelectorAll('.quote'));
-
-    reviewTitles.forEach((title, index) => {
-      const quote = reviewQuotes[index];
-      const titleText = title.innerText.replace(/["]+/g, ''); // Remove quotes from title
-      const quoteText = quote.innerText;
-
-      if (quoteText.includes(titleText)) {
-        const index = quoteText.indexOf(titleText);
-        const highlightedText = `<span style="color: var(--light-green); font-weight: bold;">${titleText}</span>`;
-        const newQuoteText = quoteText.substring(0, index) + highlightedText + quoteText.substring(index + titleText.length);
-        quote.innerHTML = newQuoteText;
-      }
-    });
-  });
-</script>
-
-<script>
-  document.addEventListener('DOMContentLoaded', function() {
-    var reviewsSwiper = new Swiper('.swiper', {
+  class ReviewsApp {
+    constructor() {
+    this.reviewTitles = Array.from(document.querySelectorAll('.review-title'));
+    this.reviewQuotes = Array.from(document.querySelectorAll('.quote'));
+    this.currentActiveIndex = 0;
+    this.reviewsSwiper = new Swiper('.swiper', {
       centeredSlides: true,
       slidesPerView: '1',
       spaceBetween: 30,
       autoHeight: true,
-      lazy: true
+      lazy: true,
+      loop: true,
+      preloadImages: false,
     });
+  }
 
-    window.slideToReview = function(index) {
-      reviewsSwiper.slideTo(index - 1);
+  handleReviewTitleClick(event) {
+    const index = parseInt(event.target.dataset.index, 10);
+    this.slideToReview(index);
+  }
 
-      var reviewTitles = document.querySelectorAll('.review-title');
+  bindEvents() {
+    this.reviewTitles.forEach((title, index) => {
+      title.dataset.index = index;
+      title.addEventListener('click', this.handleReviewTitleClick.bind(this));
+    });
+  }
 
-      reviewTitles.forEach(function(reviewTitle, idx) {
-        if (idx === index - 1) {
-          if (!reviewTitle.classList.contains('active')) {
-            reviewTitle.classList.add('active');
-          }
-        } else {
-          reviewTitle.classList.remove('active');
-        }
+    unbindEvents() {
+      this.reviewTitles.forEach((title, index) => {
+        title.removeEventListener('click', () => this.handleReviewTitleClick(index));
       });
-    };
+    }
+
+    highlightQuoteText(title, quote) {
+      const titleText = title.innerText.replace(/["]+/g, '');
+      const quoteText = quote.textContent;
+
+      if (quoteText.includes(titleText)) {
+        const index = quoteText.indexOf(titleText);
+        const highlightedText = this.createHighlightedText(titleText);
+
+        quote.textContent = quoteText.substring(0, index);
+        quote.append(...[highlightedText, document.createTextNode(quoteText.substring(index + titleText.length))]);
+      }
+    }
+
+    createHighlightedText(text) {
+      const span = document.createElement('span');
+      span.classList.add('highlight');
+      span.textContent = text;
+      return span;
+    }
+
+    slideToReview(index) {
+      this.reviewsSwiper.slideToLoop(index);
+      this.reviewTitles[this.currentActiveIndex].classList.remove('active');
+      this.reviewTitles[index].classList.add('active');
+      this.currentActiveIndex = index;
+    }
+
+    init() {
+      this.bindEvents();
+      setTimeout(() => {
+        this.reviewTitles.forEach((title, index) => this.highlightQuoteText(title, this.reviewQuotes[index]));
+      }, 500);
+    }
+
+    destroy() {
+      this.unbindEvents();
+    }
+  }
+
+  let reviewsApp;
+
+  document.addEventListener('DOMContentLoaded', () => {
+    reviewsApp = new ReviewsApp();
+    reviewsApp.init();
+  });
+
+  window.addEventListener('beforeunload', () => {
+    if (reviewsApp) {
+      reviewsApp.destroy();
+    }
   });
 </script>
 
