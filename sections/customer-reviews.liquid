@@ -72,8 +72,8 @@
 </style>
 
 <script>
-  class ReviewsApp {
-    constructor() {
+  const reviewsApp = {
+    init: function() {
       this.reviewTitles = Array.from(document.querySelectorAll('.review-title'));
       this.reviewQuotes = Array.from(document.querySelectorAll('.quote'));
       this.reviewsSwiper = new Swiper('.swiper', {
@@ -83,49 +83,56 @@
         autoHeight: true,
         lazy: true
       });
-    }
 
-    bindEvents() {
-      document.querySelector('.review-titles-wrapper').addEventListener('click', (event) => {
-        const title = event.target;
-        const index = this.reviewTitles.indexOf(title);
+      this.bindEvents();
+    },
 
-        if (index !== -1) {
+    bindEvents: function() {
+      // Iterate over the review titles
+      this.reviewTitles.forEach((title, index) => {
+        // Attach click event listener to each title
+        title.addEventListener('click', () => {
           this.slideToReview(index + 1);
-        }
+        });
+
+        // Highlight quote text for each title
+        this.highlightQuoteText(title, this.reviewQuotes[index]);
       });
+    },
 
-      this.reviewTitles.forEach((title, index) => this.highlightQuoteText(title, this.reviewQuotes[index]));
-    }
-
-    highlightQuoteText(title, quote) {
-      const titleText = title.innerText.trim();
+    highlightQuoteText: function(title, quote) {
+      // Remove quotes from title and check if it exists in the quote
+      const titleText = title.innerText.replace(/["]+/g, '');
       const quoteText = quote.textContent;
 
       if (quoteText.includes(titleText)) {
+        // Create a highlighted text element and replace the title in the quote with it
         const index = quoteText.indexOf(titleText);
         const highlightedText = document.createElement('span');
         highlightedText.classList.add('highlight');
         highlightedText.textContent = titleText;
 
-        const beforeText = quoteText.substring(0, index);
-        const afterText = quoteText.substring(index + titleText.length);
-        quote.innerHTML = '';
-        quote.append(beforeText, highlightedText, afterText);
+        quote.textContent = quoteText.substring(0, index);
+        quote.appendChild(highlightedText);
+        quote.appendChild(document.createTextNode(quoteText.substring(index + titleText.length)));
       }
-    }
+    },
 
-    slideToReview(index) {
+    slideToReview: function(index) {
+      // Slide the swiper to the selected review
       this.reviewsSwiper.slideTo(index - 1);
-      this.reviewTitles.forEach((reviewTitle, idx) => reviewTitle.classList.toggle('active', idx === index - 1));
-    }
 
-    init() {
-      this.bindEvents();
+      // Update the active title
+      this.reviewTitles.forEach((reviewTitle, idx) => {
+        reviewTitle.classList.toggle('active', idx === index - 1);
+      });
     }
-  }
+  };
 
-  document.addEventListener('DOMContentLoaded', () => new ReviewsApp().init());
+  // Run the application when the DOM is fully loaded
+  document.addEventListener('DOMContentLoaded', () => {
+    reviewsApp.init();
+  });
 </script>
 
 {% schema %}
