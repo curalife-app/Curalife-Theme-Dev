@@ -1,400 +1,414 @@
-{% if block_index %}
-  {% assign section_id = block_index %}
-{% else %}
-  {% assign section_id = section.id %}
+{% if is_hide_on_global and shop.name == 'CuraLife Global' %}
+  {% assign hideSection = true %}
 {% endif %}
 
-{% if image_position == 'right' or image_position == 'left' %}
-  {% if main_image and title %}
-    {% assign itemsDirection = 'horizontal' %}
+{% unless hideSection %}
+  {% if block_index %}
+    {% assign section_id = block_index %}
+  {% else %}
+    {% assign section_id = section.id %}
+  {% endif %}
+
+  {% if image_position == 'right' or image_position == 'left' %}
+    {% if main_image and title %}
+      {% assign itemsDirection = 'horizontal' %}
+    {% else %}
+      {% assign itemsDirection = 'vertical' %}
+    {% endif %}
   {% else %}
     {% assign itemsDirection = 'vertical' %}
   {% endif %}
-{% else %}
-  {% assign itemsDirection = 'vertical' %}
-{% endif %}
 
-{% if main_title != blank %}
-  {% render 'title', title: main_title, title_tag: 'h2', subtitle: main_subtitle, title_swoosh_color: title_swoosh_color, span_color: title_highlight_color, is_remove_padding_bottom: true %}
-{% endif %}
-
-<section class="text-image text-image-{{ section_id }} flex align-center md:flex-col {% if is_decor_relative_full %}static{% endif %} {% unless is_dynamic_height %}min-h-400px{% endunless %} {% if is_remove_padding_top %}pt-0{% endif %} {% if is_remove_padding_bottom %}pb-0{% endif %}">
-  {% if is_mobile_hero_style %}
-    <div class="mobile-hero-style hidden md:block">
-      <div class="container flex align-center md:min-h-[60vw]">
-        <div class="mobile-title z-[1] max-w-1/2 justify-{{ alignment }} md:justify-{{ mobile_alignment }}"><{{ title_tag }}>{{ title }}</{{ title_tag }}></div>
-      </div>
-    </div>
+  {% if main_title != blank %}
+    {% render 'title', title: main_title, title_tag: 'h2', subtitle: main_subtitle, title_swoosh_color: title_swoosh_color, span_color: title_highlight_color, is_remove_padding_bottom: true %}
   {% endif %}
 
-  <div class="container flex md:gap-4 {% if is_decor_relative_full %}static{% endif %} {% if main_image %}items-center{% endif %} md:items-center gap-x-16 gap-y-4 {% case image_position %}{% when 'right' %}flex-row-reverse{% when 'left' %}flex-row{% when 'bottom' %}flex-col-reverse{% when 'top' %}flex-col{% endcase %} {% unless is_no_wrap %}{% if is_image_middle_mobile %}md:flex-col{% else %}md:flex-col-reverse{% endif %}{% endunless %} {% if is_image_overlap and image_position == 'left' %}justify-end{% else %}justify-between{% endif %} {% if is_remove_container_padding_mobile %}md:p-0{% endif %}">
-    {% unless is_mobile_hero_style %}
-      {% if is_image_middle_mobile and title != blank %}
-        <div class="mobile-title z-[1] md:block md:text-center hidden justify-{{ alignment }} md:justify-{{ mobile_alignment }}"><{{ title_tag }}>{{ title }}</{{ title_tag }}></div>
-      {% endif %}
-    {% endunless %}
-
-    {% if main_image or main_mobile_image %}
-      <div class="image-wrapper z-[1] h-auto {% if main_mobile_image and main_image == blank %}mobile{% endif %} {% if itemsDirection == 'horizontal' %}max-w-1/2{% else %}w-full{% endif %} {% if is_image_bottom %}self-end md:self-auto{% endif %}">
-        {% if main_image %}
-          <img class="{% if is_limit_image_size %}max-h-500px{% endif %} relative z-auto object-contain {% if is_hide_image_on_mobile %}md:hidden{% endif %} {% if main_mobile_image %}desktop{% endif %} {% if is_image_overlap %}md:!min-h-350px{% endif %}" src="{{ main_image | image_url }}" alt="{{ title }}" loading="lazy" {% if image_animation != 'none'%}data-aos="{{ image_animation }}" data-aos-duration="{{ animation_duration }}"{% endif %}>
-        {% endif %}
-
-        {% if main_mobile_image and is_mobile_hero_style == false %}
-          <img class="mobile relative z-auto {% if is_image_cover %}object-cover{% else %}object-contain{% endif %}" src="{{ main_mobile_image | image_url }}" alt="{{ title }}" loading="lazy" {% if image_animation != 'none'%}data-aos="{{ image_animation }}" data-aos-duration="{{ animation_duration }}"{% endif %}>
-        {% endif %}
-      </div>
-    {% endif %}
-
-    {% if title != blank or content != blank %}
-      <div class="content-wrapper break-word z-[1] flex md:py-0 md:!w-full gap-12 md:gap-4 md:m-auto {% unless main_image %}{% if alignment == 'center' %}m-auto{% endif %}{% endunless %} {% if itemsDirection == 'horizontal' %}w-45%{% else %}w-70%{% endif %}" {% if content_animation != 'none'%}data-aos="{{ content_animation }}" data-aos-duration="{{ animation_duration }}"{% endif %}>
-        {% if number != blank %}
-          <div class="number">
-            <div class="add-number">{{ number }}</div>
-          </div>
-        {% endif %}
-
-        <div class="content flex flex-col gap-4 md:w-full md:text-{{ mobile_alignment }} items-{{ alignment }} md:items-{{ mobile_alignment }} {% unless main_image %}w-full{% endunless %}">
-          {% if title != blank %}
-            <{{ title_tag }} class="title {% if is_image_middle_mobile or is_mobile_hero_style %}md:hidden{% endif %}">{{ title }}</{{ title_tag }}>
-          {% endif %}
-
-          {% if subtitle != blank %}
-            <p class="subtitle {% if title_tag == 'h1' %}text-[30px]{% else %}text-xl{% endif %} {% if is_no_p_margin %}m-0{% endif %}">{{ subtitle }}</>
-          {% endif %}
-
-          <div class="description {% if is_hide_description_on_mobile %}md:hidden{% endif %}">{{ content }}</div>
-
-          {% if link_url_1 != blank %}
-            <div class="links empty:hidden md:justify-{{ alignment }} md:justify-{{ mobile_alignment }}">
-              {% if link_url_1 %}
-                <a href="{{ link_url_1 }}">{{ link_title_1 }} <i class="fa-thin fa-arrow-right"></i></a>
-              {% endif %}
-              {% if link_url_2 %}
-                <a href="{{ link_url_2 }}">{{ link_title_2 }} <i class="fa-thin fa-arrow-right"></i></a>
-              {% endif %}
-            </div>
-          {% endif %}
-
-          {% for block in section_blocks %}
-            {% case block.type %}
-            {% when 'button' %}
-              {% render 'button',
-                button_text: block.settings.button_text,
-                button_url: block.settings.button_url,
-                button_icon: block.settings.button_icon,
-                button_style: block.settings.button_style,
-                button_text_color: block.settings.button_text_color,
-                button_bg_color: block.settings.button_bg_color,
-                button_is_new_tab: block.settings.button_is_new_tab,
-                button_id: block.id
-              %}
-            {% when 'image' %}
-              <img class="block-image object-contain {% if block.settings.image_mobile %}desktop{% endif %}" src="{{ block.settings.image | image_url }}" alt="" loading="lazy">
-              {% if block.settings.image_mobile %}<img class="block-image object-contain w-full mobile" src="{{ block.settings.image_mobile | image_url }}" alt="" loading="lazy">{% endif %}
-            {% endcase %}
-          {% endfor %}
+  <section class="text-image text-image-{{ section_id }} flex align-center md:flex-col {% if is_decor_relative_full %}static{% endif %} {% unless is_dynamic_height %}min-h-400px{% endunless %} {% if is_remove_padding_top %}pt-0{% endif %} {% if is_remove_padding_bottom %}pb-0{% endif %}">
+    {% if is_mobile_hero_style %}
+      <div class="mobile-hero-style hidden md:block">
+        <div class="container flex align-center md:min-h-[60vw]">
+          <div class="mobile-title z-[1] max-w-1/2 justify-{{ alignment }} md:justify-{{ mobile_alignment }}"><{{ title_tag }}>{{ title }}</{{ title_tag }}></div>
         </div>
       </div>
     {% endif %}
 
-    {% if decor_img %}
-      <img class="decor-img {% if is_decor_remove_on_mobile %}md:hidden{% endif %} {% if is_decor_bg %}w-full h-full object-cover{% endif %}" src="{{ decor_img | image_url }}" alt="" loading="lazy">
+    <div class="container flex md:gap-4 {% if is_decor_relative_full %}static{% endif %} {% if main_image %}items-center{% endif %} md:items-center gap-x-16 gap-y-4 {% case image_position %}{% when 'right' %}flex-row-reverse{% when 'left' %}flex-row{% when 'bottom' %}flex-col-reverse{% when 'top' %}flex-col{% endcase %} {% unless is_no_wrap %}{% if is_image_middle_mobile %}md:flex-col{% else %}md:flex-col-reverse{% endif %}{% endunless %} {% if is_image_overlap and image_position == 'left' %}justify-end{% else %}justify-between{% endif %} {% if is_remove_container_padding_mobile %}md:p-0{% endif %}">
+      {% unless is_mobile_hero_style %}
+        {% if is_image_middle_mobile and title != blank %}
+          <div class="mobile-title z-[1] md:block md:text-center hidden justify-{{ alignment }} md:justify-{{ mobile_alignment }}"><{{ title_tag }}>{{ title }}</{{ title_tag }}></div>
+        {% endif %}
+      {% endunless %}
+
+      {% if main_image or main_mobile_image %}
+        <div class="image-wrapper z-[1] h-auto {% if main_mobile_image and main_image == blank %}mobile{% endif %} {% if itemsDirection == 'horizontal' %}max-w-1/2{% else %}w-full{% endif %} {% if is_image_bottom %}self-end md:self-auto{% endif %}">
+          {% if main_image %}
+            <img class="{% if is_limit_image_size %}max-h-500px{% endif %} relative z-auto object-contain {% if is_hide_image_on_mobile %}md:hidden{% endif %} {% if main_mobile_image %}desktop{% endif %} {% if is_image_overlap %}md:!min-h-350px{% endif %}" src="{{ main_image | image_url }}" alt="{{ title }}" loading="lazy" {% if image_animation != 'none'%}data-aos="{{ image_animation }}" data-aos-duration="{{ animation_duration }}"{% endif %}>
+          {% endif %}
+
+          {% if main_mobile_image and is_mobile_hero_style == false %}
+            <img class="mobile relative z-auto {% if is_image_cover %}object-cover{% else %}object-contain{% endif %}" src="{{ main_mobile_image | image_url }}" alt="{{ title }}" loading="lazy" {% if image_animation != 'none'%}data-aos="{{ image_animation }}" data-aos-duration="{{ animation_duration }}"{% endif %}>
+          {% endif %}
+        </div>
+      {% endif %}
+
+      {% if title != blank or content != blank %}
+        <div class="content-wrapper break-word z-[1] flex md:py-0 md:!w-full gap-12 md:gap-4 md:m-auto {% unless main_image %}{% if alignment == 'center' %}m-auto{% endif %}{% endunless %} {% if itemsDirection == 'horizontal' %}w-45%{% else %}w-70%{% endif %}" {% if content_animation != 'none'%}data-aos="{{ content_animation }}" data-aos-duration="{{ animation_duration }}"{% endif %}>
+          {% if number != blank %}
+            <div class="number">
+              <div class="add-number">{{ number }}</div>
+            </div>
+          {% endif %}
+
+          <div class="content flex flex-col gap-4 md:w-full md:text-{{ mobile_alignment }} items-{{ alignment }} md:items-{{ mobile_alignment }} {% unless main_image %}w-full{% endunless %}">
+            {% if title != blank %}
+              <{{ title_tag }} class="title {% if is_image_middle_mobile or is_mobile_hero_style %}md:hidden{% endif %}">{{ title }}</{{ title_tag }}>
+            {% endif %}
+
+            {% if subtitle != blank %}
+              <p class="subtitle {% if title_tag == 'h1' %}text-[30px]{% else %}text-xl{% endif %} {% if is_no_p_margin %}m-0{% endif %}">{{ subtitle }}</>
+            {% endif %}
+
+            {% if is_line_seperator %}
+              <div class="line-seperator border-b border-black w-[100px] md:w-[30vw]"></div>
+            {% endif %}
+
+            <div class="description {% if is_hide_description_on_mobile %}md:hidden{% endif %}">{{ content }}</div>
+
+            {% if link_url_1 != blank %}
+              <div class="links empty:hidden md:justify-{{ alignment }} md:justify-{{ mobile_alignment }}">
+                {% if link_url_1 %}
+                  <a href="{{ link_url_1 }}">{{ link_title_1 }} <i class="fa-thin fa-arrow-right"></i></a>
+                {% endif %}
+                {% if link_url_2 %}
+                  <a href="{{ link_url_2 }}">{{ link_title_2 }} <i class="fa-thin fa-arrow-right"></i></a>
+                {% endif %}
+              </div>
+            {% endif %}
+
+            {% for block in section_blocks %}
+              {% case block.type %}
+              {% when 'button' %}
+                {% render 'button',
+                  button_text: block.settings.button_text,
+                  button_url: block.settings.button_url,
+                  button_icon: block.settings.button_icon,
+                  button_style: block.settings.button_style,
+                  button_text_color: block.settings.button_text_color,
+                  button_bg_color: block.settings.button_bg_color,
+                  button_is_new_tab: block.settings.button_is_new_tab,
+                  button_id: block.id
+                %}
+              {% when 'image' %}
+                <img class="block-image object-contain {% if block.settings.image_mobile %}desktop{% endif %}" src="{{ block.settings.image | image_url }}" alt="" loading="lazy">
+                {% if block.settings.image_mobile %}<img class="block-image object-contain w-full mobile" src="{{ block.settings.image_mobile | image_url }}" alt="" loading="lazy">{% endif %}
+              {% endcase %}
+            {% endfor %}
+          </div>
+        </div>
+      {% endif %}
+
+      {% if decor_img %}
+        <img class="decor-img {% if is_decor_remove_on_mobile %}md:hidden{% endif %} {% if is_decor_bg %}w-full h-full object-cover{% endif %}" src="{{ decor_img | image_url }}" alt="" loading="lazy">
+      {% endif %}
+    </div>
+  </section>
+
+
+  <style>
+    {% if padding_top >= 0 and padding_top != 50 %}
+      section.text-image-{{ section_id }} {
+        padding-top: {{ padding_top }}px;
+      }
     {% endif %}
-  </div>
-</section>
 
-
-<style>
-  {% if padding_top >= 0 and padding_top != 50 %}
-    section.text-image-{{ section_id }} {
-      padding-top: {{ padding_top }}px;
-    }
-  {% endif %}
-
-  {% if padding_bottom >= 0 and padding_top != 50 %}
-    section.text-image-{{ section_id }} {
-      padding-bottom: {{ padding_bottom }}px;
-    }
-  {% endif %}
-
-  {% if padding_top_mobile >= 0 %}
-    @media screen and (max-width: 768px) {
+    {% if padding_bottom >= 0 and padding_top != 50 %}
       section.text-image-{{ section_id }} {
-        padding-top: {{ padding_top_mobile }}vw;
+        padding-bottom: {{ padding_bottom }}px;
       }
-    }
-  {% endif %}
+    {% endif %}
 
-  {% if padding_bottom_mobile >= 0 %}
-    @media screen and (max-width: 768px) {
-      section.text-image-{{ section_id }} {
-        padding-bottom: {{ padding_bottom_mobile }}vw;
-      }
-    }
-  {% endif %}
-
-  {% if bg_image %}
-    section.text-image-{{ section_id }} {
-      background-image: url('{{ bg_image | image_url }}');
-      background-size: cover;
-    }
-
-    {% if bg_image_mobile %}
+    {% if padding_top_mobile >= 0 %}
       @media screen and (max-width: 768px) {
         section.text-image-{{ section_id }} {
-          background-image: url('{{ bg_image_mobile | image_url }}');
+          padding-top: {{ padding_top_mobile }}vw;
         }
       }
     {% endif %}
-  {% endif %}
 
-  section.text-image .content-wrapper em {
-    font-size: 12px;
-  }
+    {% if padding_bottom_mobile >= 0 %}
+      @media screen and (max-width: 768px) {
+        section.text-image-{{ section_id }} {
+          padding-bottom: {{ padding_bottom_mobile }}vw;
+        }
+      }
+    {% endif %}
 
-  {% if is_image_full_width_mobile %}
+    {% if bg_image %}
+      section.text-image-{{ section_id }} {
+        background-image: url('{{ bg_image | image_url }}');
+        background-size: cover;
+      }
+
+      {% if bg_image_mobile %}
+        @media screen and (max-width: 768px) {
+          section.text-image-{{ section_id }} {
+            background-image: url('{{ bg_image_mobile | image_url }}');
+          }
+        }
+      {% endif %}
+    {% endif %}
+
+    section.text-image .content-wrapper em {
+      font-size: 12px;
+    }
+
+    {% if is_image_full_width_mobile %}
+      @media screen and (max-width: 768px) {
+        section.text-image-{{ section_id }} .image-wrapper {
+          width: 100vw;
+        }
+      }
+    {% endif %}
+
+    {% if is_mobile_hero_style %}
+      section.text-image-{{ section_id }} .mobile-hero-style {
+        background-image: url('{{ main_mobile_image | image_url }}');
+        background-size: cover;
+      }
+    {% endif %}
+
+    section.text-image-{{ section_id }} .image-wrapper img {
+      width: inherit;
+    }
+
+    {% if decor_img %}
+      section.text-image-{{ section_id }} .decor-img {
+        position: absolute;
+        z-index: {% if is_decor_above %}2{% else %}0{% endif %};
+        top:{{ decor_position_top }}%;
+        left:{{ decor_position_left }}%;
+        opacity:{{ decor_opacity }}%;
+        max-width:{{ decor_max_width }}%;
+      }
+    {% endif %}
+
     @media screen and (max-width: 768px) {
-      section.text-image-{{ section_id }} .image-wrapper {
-        width: 100vw;
+      section.text-image-{{ section_id }} .decor-img {
+        top:{{ decor_position_top_mobile }}%;
+        left:{{ decor_position_left_mobile }}%;
       }
     }
-  {% endif %}
 
-  {% if is_mobile_hero_style %}
-    section.text-image-{{ section_id }} .mobile-hero-style {
-      background-image: url('{{ main_mobile_image | image_url }}');
-      background-size: cover;
-    }
-  {% endif %}
+    {% if section.settings.is_full_width %}
+      section.text-image-{{ section_id }} .container {
+        max-width: 100%;
+        padding: 0;
+      }
+    {% endif %}
 
-  section.text-image-{{ section_id }} .image-wrapper img {
-    width: inherit;
-  }
-
-  {% if decor_img %}
-    section.text-image-{{ section_id }} .decor-img {
-      position: absolute;
-      z-index: {% if is_decor_above %}2{% else %}0{% endif %};
-      top:{{ decor_position_top }}%;
-      left:{{ decor_position_left }}%;
-      opacity:{{ decor_opacity }}%;
-      max-width:{{ decor_max_width }}%;
-    }
-  {% endif %}
-
-  @media screen and (max-width: 768px) {
-    section.text-image-{{ section_id }} .decor-img {
-      top:{{ decor_position_top_mobile }}%;
-      left:{{ decor_position_left_mobile }}%;
-    }
-  }
-
-  {% if section.settings.is_full_width %}
-    section.text-image-{{ section_id }} .container {
-      max-width: 100%;
-      padding: 0;
-    }
-  {% endif %}
-
-  {% unless limit_height > 0 %}
-    section.text-image-section,
-    section.text-image-{{ section_id }} {
-      overflow: visible;
-    }
-
-    html {
-      --elheight_{{ section.id }}: {{ limit_height }}px;
-    }
-
-    section.text-image-{{ section_id }} .container {
-      {% unless bg_color contains 'rgba(0,0,0,0)' %}background-color: {{ bg_color }};{% endunless %}
-      {% if bg_width == 'container' %}padding: 30px;{% endif %}
-      max-height: var(--elheight_{{ section.id }});
-      max-width: {{ max_width }}px;
-      border-radius: 5px;
-    }
-
-    section.text-image-{{ section_id }} .image-wrapper {
-      margin-bottom: calc(var(--elheight_{{ section.id }}) * 0.1);
-    }
-
-    @media screen and (max-width: 768px) {
+    {% unless limit_height > 0 %}
       section.text-image-section,
       section.text-image-{{ section_id }} {
-        overflow: hidden;
+        overflow: visible;
+      }
+
+      html {
+        --elheight_{{ section.id }}: {{ limit_height }}px;
       }
 
       section.text-image-{{ section_id }} .container {
-        {% if bg_width == 'container' %}
-          margin: 0 10px;
-          width: unset;
-        {% endif %}
-        max-height: unset !important;
+        {% unless bg_color contains 'rgba(0,0,0,0)' %}background-color: {{ bg_color }};{% endunless %}
+        {% if bg_width == 'container' %}padding: 30px;{% endif %}
+        max-height: var(--elheight_{{ section.id }});
+        max-width: {{ max_width }}px;
+        border-radius: 5px;
       }
 
       section.text-image-{{ section_id }} .image-wrapper {
-        margin-bottom: unset !important;
+        margin-bottom: calc(var(--elheight_{{ section.id }}) * 0.1);
       }
+
+      @media screen and (max-width: 768px) {
+        section.text-image-section,
+        section.text-image-{{ section_id }} {
+          overflow: hidden;
+        }
+
+        section.text-image-{{ section_id }} .container {
+          {% if bg_width == 'container' %}
+            margin: 0 10px;
+            width: unset;
+          {% endif %}
+          max-height: unset !important;
+        }
+
+        section.text-image-{{ section_id }} .image-wrapper {
+          margin-bottom: unset !important;
+        }
+      }
+    {% endunless %}
+
+    section.text-image-{{ section_id }} .image-content-wrapper {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
     }
-  {% endunless %}
 
-  section.text-image-{{ section_id }} .image-content-wrapper {
-    display: flex;
-    justify-content: center;
-    gap: 20px;
-  }
-
-  section.text-image-{{ section_id }} .add-number {
-    font-size: 150px;
-    font-family: 'PP Radio Grotesk';
-    text-align: start;
-    color: #ABAB74;
-    margin-top: -40px;
-    opacity: 0.5;
-  }
-
-  {% if text_color %}
-    section.text-image-{{ section_id }} {
-      color: {{ text_color }};
+    section.text-image-{{ section_id }} .add-number {
+      font-size: 150px;
+      font-family: 'PP Radio Grotesk';
+      text-align: start;
+      color: #ABAB74;
+      margin-top: -40px;
+      opacity: 0.5;
     }
 
-    section.text-image-{{ section_id }} h2 {
-      color: {{ text_color }};
-    }
-  {% endif %}
+    {% if text_color %}
+      section.text-image-{{ section_id }} {
+        color: {{ text_color }};
+      }
 
-  {% if bg_color and bg_width == 'full' %}
-    section.text-image-{{ section_id }} {
-      background-color: {{ bg_color }};
-    }
-  {% endif %}
-
-  section.text-image-{{ section_id }} p strong {
-    font-weight: bold;
-  }
-
-  {% if is_image_overlap %}
-  section.text-image-{{ section_id }} .image-wrapper img {
-    {% if image_position == 'right' %}
-      min-width: 55vw;
-      min-height: 200px;
-      max-height: 100%;
-      object-fit: cover;
-      object-position: top left;
-    {% elsif image_position == 'left' %}
-      position: absolute;
-      right: 50%;
-      top: 0;
-      bottom: 0;
-      margin: auto 0;
-      height: 100%;
+      section.text-image-{{ section_id }} h2 {
+        color: {{ text_color }};
+      }
     {% endif %}
-    }
 
-    @media (max-width: 768px) {
-      section.text-image-{{ section_id }} .image-wrapper img {
-        min-width: 100vw;
-        min-height: 450px;
-        object-fit: cover;
-        object-position: top;
-
-        position: unset;
-        right: unset;
-        top: unset;
-        bottom: unset;
-        margin: unset;
-        height: unset;
+    {% if bg_color and bg_width == 'full' %}
+      section.text-image-{{ section_id }} {
+        background-color: {{ bg_color }};
       }
-    }
-  {% endif %}
+    {% endif %}
 
-  section.text-image-{{ section_id }} .content {
-    {% if is_remove_padding_top and is_remove_padding_bottom %}margin: 50px 0;{% endif %}
-  }
-
-  section.text-image-{{ section_id }} .content .title {
-    {% if subtitle != blank %}margin-bottom: 0;{% endif %}
-  }
-
-  {% if title_swoosh_color %}
-    section.text-image-{{ section_id }} .content-wrapper .title strong,
-    section.text-image-{{ section_id }} .mobile-title strong {
-      {% if title_highlight_color %}color: {{ title_highlight_color }};{% endif %}
-      {% unless title_swoosh_color == 'none' %}padding: {% if title_swoosh_color == 'dark-green' %}8px{% else %}30px 10px{% endif %};{% endunless %}
-      background-image: url('{{ 'title-swoosh-' | append: title_swoosh_color | append: '.svg' | asset_url }}');
-      background-size: contain;
-      background-repeat: no-repeat;
-      background-position: center;
-    }
-  {% endif %}
-
-  section.text-image-{{ section_id }} .content-wrapper {
-    width: {{ content_width }}%;
-  }
-
-  section.text-image-{{ section_id }} .content-wrapper {
-    font-size: {{ text_size }}px;
-  }
-
-  section.text-image .links {
-    display: flex;
-    align-items: center;
-    margin: 20px 0;
-    gap: 20px;
-  }
-
-  section.text-image h2 {
-    text-align: inherit;
-  }
-
-  section.text-image .links a {
-    font-weight: bold;
-    text-decoration: underline;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  section.text-image .content ul {
-    margin-bottom: 1em;
-  }
-
-  section.text-image .content ul li {
-    margin-bottom: 1em;
-  }
-
-  section.text-image .content ul li::before {
-    content: "\2022";
-    color: #5E8F8F;
-    margin-right: 0.5em;
-    position: relative;
-    top: 0.1em;
-    font-size: 1.5em;
-  }
-
-  section.text-image .content ul li strong {
-    color: #5E8F8F;
-    font-size: 1.2em;
-  }
-
-  @media (max-width: 768px) {
-    section.text-image {
-      max-height: unset !important;
+    section.text-image-{{ section_id }} p strong {
+      font-weight: bold;
     }
 
-    section.text-image .image-wrapper {
-      max-width: unset;
+    {% if is_image_overlap %}
+    section.text-image-{{ section_id }} .image-wrapper img {
+      {% if image_position == 'right' %}
+        min-width: 55vw;
+        min-height: 200px;
+        max-height: 100%;
+        object-fit: cover;
+        object-position: top left;
+      {% elsif image_position == 'left' %}
+        position: absolute;
+        right: 50%;
+        top: 0;
+        bottom: 0;
+        margin: auto 0;
+        height: 100%;
+      {% endif %}
+      }
+
+      @media (max-width: 768px) {
+        section.text-image-{{ section_id }} .image-wrapper img {
+          min-width: 100vw;
+          object-fit: cover;
+          object-position: top;
+          position: unset;
+          right: unset;
+          top: unset;
+          bottom: unset;
+          margin: unset;
+          height: unset;
+        }
+      }
+    {% endif %}
+
+    section.text-image-{{ section_id }} .content {
+      {% if is_remove_padding_top and is_remove_padding_bottom %}margin: 50px 0;{% endif %}
     }
 
-    section.text-image .add-number{
-      font-size: 30vw;
-      margin-top: -8vw;
+    section.text-image-{{ section_id }} .content .title {
+      {% if subtitle != blank %}margin-bottom: 0;{% endif %}
+    }
+
+    {% if title_swoosh_color %}
+      section.text-image-{{ section_id }} .content-wrapper .title strong,
+      section.text-image-{{ section_id }} .mobile-title strong {
+        {% if title_highlight_color %}color: {{ title_highlight_color }};{% endif %}
+        {% unless title_swoosh_color == 'none' %}padding: {% if title_swoosh_color == 'dark-green' %}8px{% else %}30px 10px{% endif %};{% endunless %}
+        background-image: url('{{ 'title-swoosh-' | append: title_swoosh_color | append: '.svg' | asset_url }}');
+        background-size: contain;
+        background-repeat: no-repeat;
+        background-position: center;
+      }
+    {% endif %}
+
+    section.text-image-{{ section_id }} .content-wrapper {
+      width: {{ content_width }}%;
+    }
+
+    section.text-image-{{ section_id }} .content-wrapper {
+      font-size: {{ text_size }}px;
+    }
+
+    section.text-image .links {
+      display: flex;
+      align-items: center;
+      margin: 20px 0;
+      gap: 20px;
+    }
+
+    section.text-image h2 {
+      text-align: inherit;
+    }
+
+    section.text-image .links a {
+      font-weight: bold;
+      text-decoration: underline;
+      display: flex;
+      align-items: center;
+      gap: 10px;
     }
 
     section.text-image .content ul {
-      padding-left: 7vw;
-      text-indent: -6vw;
+      margin-bottom: 1em;
     }
-  }
-</style>
+
+    section.text-image .content ul li {
+      margin-bottom: 1em;
+    }
+
+    section.text-image .content ul li::before {
+      content: "\2022";
+      color: #5E8F8F;
+      margin-right: 0.5em;
+      position: relative;
+      top: 0.1em;
+      font-size: 1.5em;
+    }
+
+    section.text-image .content ul li strong {
+      color: #5E8F8F;
+      font-size: 1.2em;
+    }
+
+    @media (max-width: 768px) {
+      {% if is_no_br_mobile %}
+        section.text-image-{{ section_id }} .content-wrapper .title br {
+          display: none;
+        }
+      {% endif %}
+
+      section.text-image {
+        max-height: unset !important;
+      }
+
+      section.text-image .image-wrapper {
+        max-width: unset;
+      }
+
+      section.text-image .add-number{
+        font-size: 30vw;
+        margin-top: -8vw;
+      }
+
+      section.text-image .content ul {
+        padding-left: 7vw;
+        text-indent: -6vw;
+      }
+    }
+  </style>
+{% endunless %}
