@@ -3,7 +3,7 @@
     <div class="review-titles-wrapper w-1/2 md:w-full">
       <div class="review-titles w-[90%] md:w-full">
         {% for block in section.blocks %}
-          <div class="review-title text-[23px] transition-all duration-300 py-4 cursor-pointer {% if forloop.first %}active{% endif %} {% unless forloop.last %}border-b border-black{% endunless %}">"{{ block.settings.title }}"</div>
+          <div class="review-title text-[23px] transition-all duration-300 py-4 cursor-pointer {% if forloop.first %}active{% endif %} {% unless forloop.last %}border-b border-black{% endunless %}" onclick="window.slideToReview({{ forloop.index }})">"{{ block.settings.title }}"</div>
         {% endfor %}
       </div>
     </div>
@@ -13,7 +13,7 @@
         {% for block in section.blocks %}
           <div class="swiper-slide review-wrapper">
             <div class="review border border-black h-[350px] md:h-fit md:flex-row-reverse md:p-4 md:shadow-xl flex justify-start gap-8 p-8 bg-white shadow-lg">
-              <img class="m-0 max-h-[280px] xl:max-h-[17vw] md-max-h-none md:w-1/4 md:absolute" src="{{ block.settings.customer_image | image_url }}" alt="" loading="lazy">
+              <img class="m-0 max-h-[280px] xl:max-h-[17vw] md-max-h-none md:w-1/4 md:absolute md:" src="{{ block.settings.customer_image | image_url }}" alt="" loading="lazy">
               <div class="content text-start md:text-[4vw]">
                 <h3 class="name font-thin mb-2">{{ block.settings.name }}</h3>
                 <div class="rating text-[#FFB22D] mb-4 md:mb-16 md:text-[3vw]"><i class="fa-sharp fa-solid fa-star"></i><i class="fa-sharp fa-solid fa-star"></i><i class="fa-sharp fa-solid fa-star"></i><i class="fa-sharp fa-solid fa-star"></i><i class="fa-sharp fa-solid fa-star"></i></div>
@@ -74,36 +74,28 @@
 <script>
   class ReviewsApp {
     constructor() {
-      this.reviewTitles = document.querySelectorAll('.review-title');
-      this.reviewQuotes = document.querySelectorAll('.quote');
-      this.currentActiveIndex = 0; // added to track current active review
+      this.reviewTitles = Array.from(document.querySelectorAll('.review-title'));
+      this.reviewQuotes = Array.from(document.querySelectorAll('.quote'));
       this.reviewsSwiper = new Swiper('.swiper', {
         centeredSlides: true,
         slidesPerView: '1',
         spaceBetween: 30,
         autoHeight: true,
-        lazy: true,
-        loop: true,
-        preloadImages: false,
+        lazy: true
       });
-
-      this.reviewTitleClickHandler = this.handleReviewTitleClick;
-    }
-
-    handleReviewTitleClick(event) {
-      this.slideToReview(Array.from(this.reviewTitles).indexOf(event.target));
     }
 
     bindEvents() {
-      this.reviewTitles.forEach((title, index) => {
-        title.addEventListener('click', this.handleReviewTitleClick.bind(this, index));
-      });
-    }
+      document.querySelector('.review-titles-wrapper').addEventListener('click', (event) => {
+        const title = event.target;
+        const index = this.reviewTitles.indexOf(title);
 
-    unbindEvents() {
-      this.reviewTitles.forEach((title, index) => {
-        title.removeEventListener('click', () => this.handleReviewTitleClick(index));
+        if (index !== -1) {
+          this.slideToReview(index + 1);
+        }
       });
+
+      this.reviewTitles.forEach((title, index) => this.highlightQuoteText(title, this.reviewQuotes[index]));
     }
 
     highlightQuoteText(title, quote) {
@@ -112,53 +104,28 @@
 
       if (quoteText.includes(titleText)) {
         const index = quoteText.indexOf(titleText);
-        const highlightedText = this.createHighlightedText(titleText);
+        const highlightedText = document.createElement('span');
+
+        highlightedText.classList.add('highlight');
+        highlightedText.textContent = titleText;
 
         quote.textContent = quoteText.substring(0, index);
-        quote.append(...[highlightedText, document.createTextNode(quoteText.substring(index + titleText.length))]);
+        quote.appendChild(highlightedText);
+        quote.appendChild(document.createTextNode(quoteText.substring(index + titleText.length)));
       }
     }
 
-    createHighlightedText(text) {
-      const span = document.createElement('span');
-      span.classList.add('highlight');
-      span.textContent = text;
-      return span;
-    }
-
     slideToReview(index) {
-      this.reviewsSwiper.slideTo(index);
-      this.reviewTitles[this.currentActiveIndex].classList.remove('active');
-      this.reviewTitles[index].classList.add('active');
-      this.currentActiveIndex = index;
+      this.reviewsSwiper.slideTo(index - 1);
+      this.reviewTitles.forEach((reviewTitle, idx) => reviewTitle.classList.toggle('active', idx === index - 1));
     }
 
     init() {
-      this.reviewTitles = document.querySelectorAll('.review-title');
-      this.reviewQuotes = document.querySelectorAll('.quote');
       this.bindEvents();
-      setTimeout(() => {
-        this.reviewTitles.forEach((title, index) => this.highlightQuoteText(title, this.reviewQuotes[index]));
-      }, 500);
-    }
-
-    destroy() {
-      this.unbindEvents();
     }
   }
 
-  let reviewsApp;
-
-  document.addEventListener('DOMContentLoaded', () => {
-    reviewsApp = new ReviewsApp();
-    reviewsApp.init();
-  });
-
-  window.addEventListener('beforeunload', () => {
-    if (reviewsApp) {
-      reviewsApp.destroy();
-    }
-  });
+  document.addEventListener('DOMContentLoaded', () => new ReviewsApp().init());
 </script>
 
 {% schema %}
