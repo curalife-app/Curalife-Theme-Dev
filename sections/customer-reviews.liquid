@@ -83,19 +83,21 @@
         autoHeight: true,
         lazy: true
       });
+      this.reviewTitleClickHandler = this.handleReviewTitleClick.bind(this);
+    }
+
+    handleReviewTitleClick(event) {
+      if(event.target.classList.contains('review-title')) {
+        this.slideToReview(this.reviewTitles.indexOf(event.target) + 1);
+      }
     }
 
     bindEvents() {
-      document.querySelector('.review-titles-wrapper').addEventListener('click', (event) => {
-        const title = event.target;
-        const index = this.reviewTitles.indexOf(title);
+      this.reviewTitles.forEach(title => title.addEventListener('click', this.reviewTitleClickHandler));
+    }
 
-        if (index !== -1) {
-          this.slideToReview(index + 1);
-        }
-      });
-
-      this.reviewTitles.forEach((title, index) => this.highlightQuoteText(title, this.reviewQuotes[index]));
+    unbindEvents() {
+      this.reviewTitles.forEach(title => title.removeEventListener('click', this.reviewTitleClickHandler));
     }
 
     highlightQuoteText(title, quote) {
@@ -104,15 +106,18 @@
 
       if (quoteText.includes(titleText)) {
         const index = quoteText.indexOf(titleText);
-        const highlightedText = document.createElement('span');
-
-        highlightedText.classList.add('highlight');
-        highlightedText.textContent = titleText;
+        const highlightedText = this.createHighlightedText(titleText);
 
         quote.textContent = quoteText.substring(0, index);
-        quote.appendChild(highlightedText);
-        quote.appendChild(document.createTextNode(quoteText.substring(index + titleText.length)));
+        quote.append(...[highlightedText, document.createTextNode(quoteText.substring(index + titleText.length))]);
       }
+    }
+
+    createHighlightedText(text) {
+      const span = document.createElement('span');
+      span.classList.add('highlight');
+      span.textContent = text;
+      return span;
     }
 
     slideToReview(index) {
@@ -122,10 +127,26 @@
 
     init() {
       this.bindEvents();
+      this.reviewTitles.forEach((title, index) => this.highlightQuoteText(title, this.reviewQuotes[index]));
+    }
+
+    destroy() {
+      this.unbindEvents();
     }
   }
 
-  document.addEventListener('DOMContentLoaded', () => new ReviewsApp().init());
+  let reviewsApp;
+
+  document.addEventListener('DOMContentLoaded', () => {
+    reviewsApp = new ReviewsApp();
+    reviewsApp.init();
+  });
+
+  window.addEventListener('beforeunload', () => {
+    if (reviewsApp) {
+      reviewsApp.destroy();
+    }
+  });
 </script>
 
 {% schema %}
