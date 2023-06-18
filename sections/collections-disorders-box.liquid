@@ -264,52 +264,48 @@
 
 
 <script>
-  $(document).ready(function() {
-    var resizeTimer;
-    $(window).on('resize', function(e) {
-      clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(function() {
-        tabControl();
-      }, 250);
+  var resizeTimer;
+function tabControl() {
+  var tabs = $('.disorders-box-section .tabbed-content').find('.tabs');
+  if(tabs.is(':visible')) {
+    tabs.find('a').on('click', function(event) {
+      event.preventDefault();
+      var target = $(this).attr('href'),
+          tabs = $(this).parents('.tabs'),
+          buttons = tabs.find('a'),
+          item = tabs.parents('.disorders-box-section .tabbed-content').find('.item');
+      buttons.removeClass('active');
+      item.removeClass('active');
+      $(this).addClass('active');
+      $(target).addClass('active');
     });
+  } else {
+    $(".item").on('click', function() {
+      var container = $(this).parents('.tabbed-content'),
+          currId = $(this).attr('id'),
+          items = container.find('.item');
+      container.find('.tabs a').removeClass('active');
+      items.removeClass('active');
+      $(this).addClass('active');
+      container.find('.tabs a[href$="#'+ currId +'"]').addClass('active');
+      // Scroll to element function
+      $('html, body').animate({
+          scrollTop: $(this).offset().top
+      }, 200);
+    });
+  }
+}
 
-    function tabControl() {
-      const tabContent = $('.disorders-box-section .tabbed-content');
-      console.log("tabContent length: ", tabContent.length);
-
-      const toggleActiveState = (element, target) => {
-        console.log("toggleActiveState called with element: ", element, " and target: ", target);
-        tabContent.find('.tabs a, .item').not(element).not(target).removeClass('active');
-        element.toggleClass('active');
-        target.toggleClass('active');
-        console.log("Current active elements: ", tabContent.find('.active'));
-      };
-
-      tabContent.on('click', '.tabs a, .item', function(event) {
-        event.preventDefault();
-
-        // If this element is already active, do nothing and return.
-        if ($(this).hasClass('active')) {
-          console.log("Clicked element is already active. No action performed.");
-          return;
-        }
-
-        console.log("Clicked element: ", $(this));
-
-        if ($(this).is('.tabs a')) {
-          const targetItem = $($(this).attr('href'));
-          console.log("Target item: ", targetItem);
-          toggleActiveState($(this), targetItem);
-        } else {
-          const associatedTab = tabContent.find(`.tabs a[href="#${$(this).attr('id')}"]`);
-          console.log("Associated tab: ", associatedTab);
-          toggleActiveState($(this), associatedTab);
-        }
-      });
-    }
-
-    tabControl(); // Call this function after its definition
+$(document).ready(function(){
+  $(window).on('resize', function(e) {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function() {
+      tabControl();
+    }, 250);
   });
+
+  tabControl();
+});
 </script>
 
 
