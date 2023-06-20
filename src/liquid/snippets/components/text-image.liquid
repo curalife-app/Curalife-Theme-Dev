@@ -25,7 +25,7 @@
 
   <section class="text-image text-image-{{ section_id }} flex align-center md:flex-col {% if is_decor_relative_full %}static{% endif %} {% unless is_dynamic_height %}min-h-400px{% endunless %} {% if is_remove_padding_top %}pt-0{% endif %} {% if is_remove_padding_bottom %}pb-0{% endif %}">
     {% if is_mobile_hero_style %}
-      <div class="mobile-hero-style hidden md:block">
+      <div class="mobile-hero-style md:block hidden">
         <div class="container flex align-center md:min-h-[60vw]">
           <div class="mobile-title z-[1] max-w-1/2 justify-{{ alignment }} md:justify-{{ mobile_alignment }} {% if is_line_seperator %}m-0{% endif %}"><{{ title_tag }}>{{ title }}</{{ title_tag }}></div>
         </div>
@@ -35,19 +35,20 @@
     <div class="container flex md:gap-4 {% if is_decor_relative_full %}static{% endif %} {% if main_image %}items-center{% endif %} md:items-center gap-x-16 gap-y-4 {% case image_position %}{% when 'right' %}flex-row-reverse{% when 'left' %}flex-row{% when 'bottom' %}flex-col-reverse{% when 'top' %}flex-col{% endcase %} {% unless is_no_wrap %}{% if is_image_middle_mobile %}md:flex-col{% else %}md:flex-col-reverse{% endif %}{% endunless %} {% if is_image_overlap and image_position == 'left' %}justify-end{% else %}justify-between{% endif %} {% if is_remove_container_padding_mobile %}md:p-0{% endif %}">
       {% unless is_mobile_hero_style %}
         {% if is_image_middle_mobile and title != blank %}
-    <div class="mobile-title z-[1] md:block md:text-center hidden justify-{{ alignment }} md:justify-{{ mobile_alignment }} {% if is_line_seperator %}m-0{% endif %}"><{{ title_tag }}>{{ title }}</{{ title_tag }}></div>
+          <div class="mobile-title z-[1] md:block md:text-center hidden justify-{{ alignment }} md:justify-{{ mobile_alignment }} {% if is_line_seperator %}m-0{% endif %}"><{{ title_tag }}>{{ title }}</{{ title_tag }}></div>
         {% endif %}
       {% endunless %}
 
       {% if main_image or main_mobile_image %}
         <div class="image-wrapper z-[1] h-auto {% if main_mobile_image and main_image == blank %}mobile{% endif %} {% if itemsDirection == 'horizontal' %}max-w-1/2{% else %}w-full{% endif %} {% if is_image_bottom %}self-end md:self-auto{% endif %}">
-          {% if main_image %}
-            <img class="{% if is_limit_image_size %}max-h-500px{% endif %} relative z-auto object-contain {% if is_hide_image_on_mobile %}md:hidden{% endif %} {% if main_mobile_image %}desktop{% endif %} {% if is_image_overlap %}md:!min-h-350px{% endif %}" src="{{ main_image | image_url }}" alt="{{ title }}" loading="lazy" {% if image_animation != 'none'%}data-aos="{{ image_animation }}" data-aos-duration="{{ animation_duration }}"{% endif %}>
-          {% endif %}
-
-          {% if main_mobile_image and is_mobile_hero_style == false %}
-            <img class="mobile relative z-auto {% if is_image_cover %}object-cover{% else %}object-contain{% endif %}" src="{{ main_mobile_image | image_url }}" alt="{{ title }}" loading="lazy" {% if image_animation != 'none'%}data-aos="{{ image_animation }}" data-aos-duration="{{ animation_duration }}"{% endif %}>
-          {% endif %}
+          <picture>
+            {% if main_mobile_image and is_mobile_hero_style == false %}
+              <source media="(max-width: 768px)" srcset="{{ main_mobile_image | image_url }}">
+            {% endif %}
+            {% if main_image %}
+              <img class="{% if is_limit_image_size %}max-h-500px{% endif %} relative z-auto object-contain {% if is_hide_image_on_mobile %}md:hidden{% endif %} {% if is_image_overlap %}md:!min-h-350px{% endif %}" src="{{ main_image | image_url }}" alt="{{ title }}" loading="lazy" {% if image_animation != 'none'%}data-aos="{{ image_animation }}" data-aos-duration="{{ animation_duration }}"{% endif %}>
+            {% endif %}
+          </picture>
         </div>
       {% endif %}
 
@@ -99,8 +100,12 @@
                   button_id: block.id
                 %}
               {% when 'image' %}
-                <img class="block-image object-contain {% if block.settings.image_mobile %}desktop{% endif %}" src="{{ block.settings.image | image_url }}" alt="" loading="lazy">
-                {% if block.settings.image_mobile %}<img class="block-image object-contain w-full mobile" src="{{ block.settings.image_mobile | image_url }}" alt="" loading="lazy">{% endif %}
+                <picture>
+                  {% if block.settings.image_mobile %}
+                    <source media="(max-width: 768px)" srcset="{{ block.settings.image_mobile | image_url }}">
+                  {% endif %}
+                  <img class="block-image object-contain" src="{{ block.settings.image | image_url }}" alt="" loading="lazy">
+                </picture>
               {% endcase %}
             {% endfor %}
           </div>
