@@ -21,11 +21,11 @@ f.event={add:function(a,c,d,e,g){var h,i,j,k,l,m,n,o,p,q,r,s;if(!(a.nodeType===3
 
     SocialLogin = function() {
 
-        var iframeHtml = "\u003Ciframe\u000Aid\u003D\u0022one\u002Dclick\u002Dsocial\u002Dlogin\u002Dbuttons\u003C\u003Ciframe_container_id\u003E\u003E\u0022 class\u003D\u0022one\u002Dclick\u002Dsocial\u002Dlogin\u002Dbuttons\u0022\u000AframeBorder\u003D\u00270\u0027\u000Astyle\u003D\u0027   margin\u002Dtop: 10px\u003B   width: 100%\u003B overflow: hidden\u003B\u0027\u000Adata\u002Ddefault_style\u003D\u0027margin\u002Dtop: 10px\u003B overflow: hidden\u003B width: 100%\u003B\u0027\u000Aallowtransparency\u003D\u0027yes\u0027 src\u003D\u0027https://oneclicksociallogin.devcloudsoftware.com/api/socialbuttons/?cache_key\u003D4049734330\u0026shop\u003Dcuralife\u002Dcommerce\u002Dsia.myshopify.com\u0026popup_type\u003D\u0026current_url\u003D\u003C\u003Ccurrent_url\u003E\u003E\u0026iframe_id\u003D\u003C\u003Ciframe_id\u003E\u003E\u0026button_font_color\u003D\u003C\u003Cbutton_font_color\u003E\u003E\u0026terms_font_color\u003D\u003C\u003Cterms_font_color\u003E\u003E\u0026background_color\u003D\u003C\u003Cbackground_color\u003E\u003E\u0027\u000A title\u003D\u0022Social Login Buttons\u0022\u003E\u000A\u003C/iframe\u003E";
+        var iframeHtml = "\u003Ciframe\u000Aid\u003D\u0022one\u002Dclick\u002Dsocial\u002Dlogin\u002Dbuttons\u003C\u003Ciframe_container_id\u003E\u003E\u0022 class\u003D\u0022one\u002Dclick\u002Dsocial\u002Dlogin\u002Dbuttons\u0022\u000AframeBorder\u003D\u00270\u0027\u000Astyle\u003D\u0027   margin\u002Dtop: 10px\u003B   width: 100%\u003B overflow: hidden\u003B\u0027\u000Adata\u002Ddefault_style\u003D\u0027margin\u002Dtop: 10px\u003B overflow: hidden\u003B width: 100%\u003B\u0027\u000Aallowtransparency\u003D\u0027yes\u0027 src\u003D\u0027https://oneclicksociallogin.devcloudsoftware.com/api/socialbuttons/?cache_key\u003D4643065136\u0026shop\u003Dcuralife\u002Dcommerce\u002Dsia.myshopify.com\u0026popup_type\u003D\u0026current_url\u003D\u003C\u003Ccurrent_url\u003E\u003E\u0026iframe_id\u003D\u003C\u003Ciframe_id\u003E\u003E\u0026button_font_color\u003D\u003C\u003Cbutton_font_color\u003E\u003E\u0026terms_font_color\u003D\u003C\u003Cterms_font_color\u003E\u003E\u0026background_color\u003D\u003C\u003Cbackground_color\u003E\u003E\u0027\u000A title\u003D\u0022Social Login Buttons\u0022\u003E\u000A\u003C/iframe\u003E";
         var share_bar = "";
         var login_popup_template = "";
         var register_popup_template = "";
-        var google_onetap_iframe_template = "\u000A\u003Ciframe\u000Aid\u003D\u0022one\u002Dclick\u002Dsocial\u002Dgoogle\u002Done\u002Dtap\u0022 src\u003D\u0022https://oneclicksociallogin.devcloudsoftware.com/api/googleonetap/?shop_id\u003D19418\u0026current_url\u003D\u003C\u003Ccurrent_url\u003E\u003E\u0022 allowtransparency\u003D\u0027yes\u0027 frameBorder\u003D\u00270\u0027 style\u003D\u0022height: 300px\u003B width: 400px\u003B z\u002Dindex: 9999999\u003B position: fixed\u003B\u003C\u003Ccss\u003E\u003E\u0022 title\u003D\u0022Social Login Google One Tap\u0022\u003E\u000A\u003C/iframe\u003E\u000A\u000A\u000A";
+        var google_onetap_iframe_template = "";
 
         var isLoginPage = function(url) {
 
@@ -352,8 +352,6 @@ f.event={add:function(a,c,d,e,g){var h,i,j,k,l,m,n,o,p,q,r,s;if(!(a.nodeType===3
 
         var _init = function() {
 
-            
-            showGoogleOneTap();
             
 
             
