@@ -313,54 +313,74 @@
   </section>
 
   <script>
-document.addEventListener("DOMContentLoaded", function() {
-    const tabs = document.getElementById('tabs');
-    const tabLinks = Array.from(tabs.querySelectorAll('ul li a'));
-    const accountData = document.querySelector('.account-data');
-    const allTabPanes = Array.from(tabs.querySelectorAll('.account-data .data-row'));
+    document.addEventListener("DOMContentLoaded", function() {
+        var tabs = document.getElementById('tabs');
+        var tabLinks = tabs.querySelectorAll('ul li a');
+        var accountData = document.querySelector('.account-data');
 
-    // Function to set the height of .account-data
-    const setAccountDataHeight = (tabPane) => {
-        const tabPaneWrap = tabPane.querySelector('.data-wrap');
-        accountData.style.height = `${tabPaneWrap.offsetHeight}px`;
-    }
+        // Hide all tab panes initially
+        var allTabPanes = tabs.querySelectorAll('.account-data .data-row');
+        for (var j = 0; j < allTabPanes.length; j++) {
+            allTabPanes[j].classList.remove("active");
+        }
 
-    // Function to activate a tab pane
-    const activateTabPane = (tabPane) => {
-        allTabPanes.forEach(pane => pane.classList.remove("active"));
-        tabPane.classList.add("active");
-        setAccountDataHeight(tabPane);
-        tabPane.addEventListener('transitionend', () => setAccountDataHeight(tabPane));
-    }
+        // Display the first tab pane
+        var firstTabPane = document.getElementById(tabLinks[0].getAttribute('href').substr(1));
+        if (firstTabPane) {
+            firstTabPane.classList.add("active");
+            var firstTabPaneWrap = firstTabPane.querySelector('.data-wrap');
+            accountData.style.height = `${firstTabPaneWrap.offsetHeight}px`; // Set initial height
+        }
+        tabLinks[0].parentElement.classList.add("active");
 
-    // Hide all tab panes initially and display the first tab pane
-    allTabPanes.forEach(pane => pane.classList.remove("active"));
-    const firstTabPane = document.getElementById(tabLinks[0].getAttribute('href').substr(1));
-    if (firstTabPane) {
-        activateTabPane(firstTabPane);
-    }
-    tabLinks[0].parentElement.classList.add("active");
+        // Loop through the tab links
+        for (var i = 0; i < tabLinks.length; i++) {
+            var tabLink = tabLinks[i];
 
-    // Use event delegation for the click event
-    tabs.addEventListener('click', function(e) {
-        if (e.target.tagName === 'A') {
-            e.preventDefault();
+            // Click event to perform the tab switching
+            tabLink.addEventListener('click', function(e) {
+                e.preventDefault();
 
-            const target = e.target.getAttribute('href').substr(1);
-            const tabPane = document.getElementById(target);
+                var target = e.target.getAttribute('href').substr(1);
+                var tabPane = document.getElementById(target);
 
-            // Display the correct tab pane and set the height of the container
-            if (tabPane) {
-                activateTabPane(tabPane);
-            }
+                // Hide all tab panes
+                var allTabPanes = tabs.querySelectorAll('.account-data .data-row');
+                for (var j = 0; j < allTabPanes.length; j++) {
+                    allTabPanes[j].classList.remove("active");
+                }
 
-            // Set the clicked tab link to active and the rest to inactive
-            tabLinks.forEach(link => link.parentElement.classList.remove("active"));
-            e.target.parentElement.classList.add("active");
+                // Display the correct tab pane and set the height of the container
+                if (tabPane) {
+                    tabPane.classList.add("active");
+                    var tabPaneWrap = tabPane.querySelector('.data-wrap');
+                    // Set the height immediately
+                    accountData.style.height = `${tabPaneWrap.offsetHeight}px`;
+                }
+
+                // Update the height of .account-data after the transition effect has finished
+                var transitionEnd = 'transitionend';
+                tabPane.addEventListener(transitionEnd, function() {
+                    var activeTabPane = tabs.querySelector('.account-data .data-row.active');
+                    if (activeTabPane) {
+                        var activeTabPaneWrap = activeTabPane.querySelector('.data-wrap');
+                        accountData.style.height = `${activeTabPaneWrap.offsetHeight}px`;
+                    }
+                });
+
+                // Set the clicked tab link to active and the rest to inactive
+                for (var j = 0; j < tabLinks.length; j++) {
+                    if (tabLinks[j] == e.target) {
+                        tabLinks[j].parentElement.classList.add("active");
+                    } else {
+                        tabLinks[j].parentElement.classList.remove("active");
+                    }
+                }
+
+            });
         }
     });
-});
-</script>
+    </script>
 {% endif %}
 
 <style>
