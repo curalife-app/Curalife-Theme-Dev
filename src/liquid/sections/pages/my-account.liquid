@@ -9,8 +9,6 @@
   <section class="account-page">
     <div class="container">
       <div id="tabs">
-        <h1> My Account</h1>
-
         <div class="account-content">
           <div class="account-menu">
             <div class="menu-list">
@@ -85,153 +83,84 @@
               </div>
             </div>
 
-            <div class="data-wrap" id="b">
-              <div class="data-title">
-                <h3>Your Orders</h3>
-              </div>
+            <div class="data-row w-full" id="b">
+              <div class="data-wrap w-full">
+                <div class="data-title">
+                  <h3>Your Orders</h3>
+                </div>
 
-              {% if customer.orders %}
-                <div class="data-list">
-                  <ul>
-                    {% for order in customer.orders %}
-                      <li>
-                        <div class="order-head">
-                          <div class="number">
-                            <p>Order {{ order.name }}</p>
+                {% if customer.orders %}
+                  <div class="data-list">
+                    <ul>
+                      {% for order in customer.orders %}
+                        <li>
+                          <div class="order-head">
+                            <div class="number">
+                              <p>Order {{ order.name }}</p>
+                            </div>
+                            <div class="date">
+                              <p>{{ order.created_at | date: format: 'abbreviated_date' }}</p>
+                            </div>
+                            <div class="more">
+                              <p><a href="{{ shop.secured_url }}/apps/download?ids={{ order.id }}&t=invoice&public_key={{ invoice_id }}&source=shopify_notification_email" target="_blank"><i class="fa-thin fa-laptop-arrow-down"></i></a></p>
+                            </div>
                           </div>
-                          <div class="date">
-                            <p>{{ order.created_at | date: format: 'abbreviated_date' }}</p>
-                          </div>
-                          <div class="more">
-                            <p><a href="{{ shop.secured_url }}/apps/download?ids={{ order.id }}&t=invoice&public_key={{ invoice_id }}&source=shopify_notification_email" target="_blank"><i class="fa-thin fa-laptop-arrow-down"></i></a></p>
-                          </div>
-                        </div>
 
-                        {% for a in order.line_items %}
-                          <div class="order-body">
-                            <div class="order-item">
-                              <div class="rows-wrap">
-                                <div class="img-wrap">
-                                  <span><img src={% if a.product.featured_image %}{{ a.product.featured_image | image_url }}{% else %}"{{ 'favicon-96x96.png' | asset_url }}"{% endif %} alt=""></span>
+                          {% for a in order.line_items %}
+                            <div class="order-body">
+                              <div class="order-item">
+                                <div class="rows-wrap">
+                                  <div class="img-wrap">
+                                    <span><img src={% if a.product.featured_image %}{{ a.product.featured_image | image_url }}{% else %}"{{ 'favicon-96x96.png' | asset_url }}"{% endif %} alt=""></span>
+                                  </div>
+
+                                  <div class="name"><p>{{ a.product.title }}</p></div>
                                 </div>
 
-                                <div class="name"><p>{{ a.product.title }}</p></div>
+                                <div class="item-quantity"><p>Quantity: {{ a.quantity }}</p></div>
+                                <div class="item-price"><p>{{ order.total_price | money_with_currency }}</p></div>
+
+                                <div class="status done">
+                                  <p>
+                                    {% if order.fulfillment_status != "fulfilled" %}
+                                      <style>
+                                        #{{ order.name }} { color: #d8ae13; }
+                                        #{{ order.name }}:before { background: #d8ae13; }
+                                      </style>
+                                    {% endif %}
+                                    <span id="{{ order.name }}">{{ order.fulfillment_status }}</span>
+                                  </p>
+                                </div>
                               </div>
 
-                              <div class="item-quantity"><p>Quantity: {{ a.quantity }}</p></div>
-                              <div class="item-price"><p>{{ order.total_price | money_with_currency }}</p></div>
-
-                              <div class="status done">
-                                <p>
-                                  {% if order.fulfillment_status != "fulfilled" %}
-                                    <style>
-                                      #{{ order.name }} { color: #d8ae13; }
-                                      #{{ order.name }}:before { background: #d8ae13; }
-                                    </style>
-                                  {% endif %}
-                                  <span id="{{ order.name }}">{{ order.fulfillment_status }}</span>
-                                </p>
-                              </div>
                             </div>
+                            <div class="view-details d-mobile">
+                              <div class="more-btn">
+                                <p>
+                                  <a href="https://curalife-commerce.myshopify.com/apps/download?ids={{ order.id }}&t=invoice&public_key=51da85a3c3dfa1f360b48852b64218b2&source=shopify_notification_email" target="_blank">Download Invoice</a>                                                        </div>
+                            </div>
+                            {% endfor %}
+                          </li>
+                      {% endfor %}
 
-                          </div>
-                          <div class="view-details d-mobile">
-                            <div class="more-btn">
-                              <p>
-                                <a href="https://curalife-commerce.myshopify.com/apps/download?ids={{ order.id }}&t=invoice&public_key=51da85a3c3dfa1f360b48852b64218b2&source=shopify_notification_email" target="_blank">Download Invoice</a>                                                        </div>
-                          </div>
-                          {% endfor %}
-                        </li>
-                    {% endfor %}
-
-                  </ul>
-                </div>
-              {% else %}
-                <div class="data-content">
-                  <div class="empty-content">
-                    <div class="empty-text">
-                      <p>
-                        <span class="icon-smile"></span>You haven't placed any orders yet.</p>
-                      <a href="{{ section.settings.ord_btnlink }}" class="main-btn blank">SHOP NOW</a>
-                    </div>
+                    </ul>
                   </div>
-                </div>
-              {% endif %}
-            </div>
-            <!--  <div class="data-wrap" id="c">
-            <div class="data-title">
-              <h3>Manage Payments</h3>
-            </div>
-            <div class="data-list">
-              <ul>
-                <li>
-                  <div class="payments-head">
-                    <div class="number">
-                      <p># 1 <span><img src="images/visa.svg" alt=""></span></p>
-                    </div>
-                    <div class="active-payment">
-                      <label><input type="radio" name="set-default" checked>
-                        <span class="label-wrap">
-                          <span class="active">Default Card</span><span class="set-active">Set Default</span>
-                        </span>
-                      </label>
-                    </div>
-                  </div>
-                  <div class="payments-body">
-                    <div class="payments-item">
-                      <div class="card-number">
-                        <p><span>1234</span></p>
-                      </div>
-                      <div class="exp-date">
-                        <p>05/23</p>
-                      </div>
-                      <div class="name">
-                        <p>Thomas Jhones</p>
-                      </div>
-                      <div class="delete">
-                        <p><a href="javascript:void(0)">Delete card</a></p>
+                {% else %}
+                  <div class="data-content">
+                    <div class="empty-content">
+                      <div class="empty-text">
+                        <p>
+                          <span class="icon-smile"></span>You haven't placed any orders yet.</p>
+                        <a href="{{ section.settings.ord_btnlink }}" class="main-btn blank">SHOP NOW</a>
                       </div>
                     </div>
                   </div>
-                </li>
-                <li>
-                  <div class="payments-head">
-                    <div class="number">
-                      <p># 2 <span><img src="images/master-card.svg" alt=""></span></p>
-                    </div>
-                    <div class="active-payment">
-                      <label><input type="radio" name="set-default">
-                        <span class="label-wrap">
-                          <span class="active">Default Card</span><span class="set-active">Set Default</span>
-                        </span>
-                      </label>
-                    </div>
-                  </div>
-                  <div class="payments-body">
-                    <div class="payments-item">
-                      <div class="card-number">
-                        <p><span>1451</span></p>
-                      </div>
-                      <div class="exp-date">
-                        <p>07/22</p>
-                      </div>
-                      <div class="name">
-                        <p>Thomas Jhones</p>
-                      </div>
-                      <div class="delete">
-                        <p><a href="javascript:void(0)">Delete card</a></p>
-                      </div>
-                    </div>
-                  </div>
-                </li>
-              </ul>
-              <div class="list-btn">
-                <button type="button" class="main-btn blank">add credit card</button>
+                {% endif %}
               </div>
             </div>
-          </div> -->
 
-            <div class="data-wrap" id="e">
+          <div class="data-row" id="e">
+            <div class="data-wrap">
               <div class="data-title">Rewards history</p></div>
 
               <script>
@@ -265,8 +194,10 @@
                 </table>
               </div>
             </div>
+          </div>
 
-            <div class="data-wrap with-border" id="f">
+          <div class="data-row" id="f">
+            <div class="data-wrap with-border">
               <div class="data-title">
                 <h3>Change password</h3>
               </div>
@@ -299,26 +230,92 @@
               </div>
             </div>
           </div>
+          </div>
         </div>
       </div>
     </div>
   </section>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function() {
+    let tabs = document.querySelector('#tabs');
+    let tabLinks = Array.from(tabs.querySelectorAll('ul li a'));
+    let accountData = document.querySelector('.account-data');
+    let allTabPanes = Array.from(tabs.querySelectorAll('.account-data .data-row'));
+
+    function setActiveTab(targetLink) {
+        let target = targetLink.getAttribute('href').substr(1);
+        let tabPane = document.getElementById(target);
+
+        // Deactivate all tab panes and links
+        allTabPanes.forEach(pane => pane.classList.remove("active"));
+        tabLinks.forEach(link => link.parentElement.classList.remove("active"));
+
+        // Activate the target tab pane and link
+        if (tabPane) {
+            tabPane.classList.add("active");
+            let tabPaneWrap = tabPane.querySelector('.data-wrap');
+            accountData.style.height = `${tabPaneWrap.offsetHeight}px`;
+        }
+
+        targetLink.parentElement.classList.add("active");
+    }
+
+    // Event listener for transitionend to update the height
+    allTabPanes.forEach(pane => {
+        pane.addEventListener('transitionend', function() {
+            let activeTabPane = tabs.querySelector('.account-data .data-row.active');
+            if (activeTabPane) {
+                let activeTabPaneWrap = activeTabPane.querySelector('.data-wrap');
+                accountData.style.height = `${activeTabPaneWrap.offsetHeight}px`;
+            }
+        });
+    });
+
+    // Initialize the first tab
+    setActiveTab(tabLinks[0]);
+
+    // Add event listener for each tab
+    tabLinks.forEach(link => {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            setActiveTab(e.target);
+        });
+    });
+});
+    </script>
+
+    <style>
+      section:has(.rc-login) {
+        padding: 0;
+      }
+
+      .rc-login a {
+        padding: 10px 20px;
+        background: var(--dark-green);
+        color: white;
+        font-weight: bold;
+        border-radius: 5px;
+      }
+    </style>
 {% endif %}
 
-<script src="https://code.jquery.com/ui/1.9.1/jquery-ui.js"></script>
-<script>
-  $("#tabs").tabs();
-</script>
-
-<script>
-  $(document).ready(function() {
-    console.log($('.account-menu .menu-list ul li a'))
-    $('.account-menu .menu-list ul li').last().removeAttr('role').removeAttr('tabindex').removeAttr('aria-controls').removeAttr('aria-labelledby').removeAttr('aria-selected').removeClass('ui-state-default ui-corner-top');
-    $('.account-menu .menu-list ul li a').last().removeAttr('id').removeAttr('tabindex').removeClass('ui-tabs-anchor');
-  });
-</script>
-
 <style>
+
+.account-data {
+    position: relative;
+}
+
+.data-row {
+    position: absolute;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+}
+
+.data-row.active {
+    opacity: 1;
+}
+
   .icon-logout {
     margin-right: 10px;
   }
