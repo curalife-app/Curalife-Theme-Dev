@@ -161,80 +161,6 @@
               </div>
             </div>
 
-
-            <!--  <div class="data-wrap" id="c">
-            <div class="data-title">
-              <h3>Manage Payments</h3>
-            </div>
-            <div class="data-list">
-              <ul>
-                <li>
-                  <div class="payments-head">
-                    <div class="number">
-                      <p># 1 <span><img src="images/visa.svg" alt=""></span></p>
-                    </div>
-                    <div class="active-payment">
-                      <label><input type="radio" name="set-default" checked>
-                        <span class="label-wrap">
-                          <span class="active">Default Card</span><span class="set-active">Set Default</span>
-                        </span>
-                      </label>
-                    </div>
-                  </div>
-                  <div class="payments-body">
-                    <div class="payments-item">
-                      <div class="card-number">
-                        <p><span>1234</span></p>
-                      </div>
-                      <div class="exp-date">
-                        <p>05/23</p>
-                      </div>
-                      <div class="name">
-                        <p>Thomas Jhones</p>
-                      </div>
-                      <div class="delete">
-                        <p><a href="javascript:void(0)">Delete card</a></p>
-                      </div>
-                    </div>
-                  </div>
-                </li>
-                <li>
-                  <div class="payments-head">
-                    <div class="number">
-                      <p># 2 <span><img src="images/master-card.svg" alt=""></span></p>
-                    </div>
-                    <div class="active-payment">
-                      <label><input type="radio" name="set-default">
-                        <span class="label-wrap">
-                          <span class="active">Default Card</span><span class="set-active">Set Default</span>
-                        </span>
-                      </label>
-                    </div>
-                  </div>
-                  <div class="payments-body">
-                    <div class="payments-item">
-                      <div class="card-number">
-                        <p><span>1451</span></p>
-                      </div>
-                      <div class="exp-date">
-                        <p>07/22</p>
-                      </div>
-                      <div class="name">
-                        <p>Thomas Jhones</p>
-                      </div>
-                      <div class="delete">
-                        <p><a href="javascript:void(0)">Delete card</a></p>
-                      </div>
-                    </div>
-                  </div>
-                </li>
-              </ul>
-              <div class="list-btn">
-                <button type="button" class="main-btn blank">add credit card</button>
-              </div>
-            </div>
-          </div> -->
-
           <div class="data-row" id="e">
             <div class="data-wrap">
               <div class="data-title">Rewards history</p></div>
@@ -314,72 +240,51 @@
 
   <script>
     document.addEventListener("DOMContentLoaded", function() {
-        var tabs = document.getElementById('tabs');
-        var tabLinks = tabs.querySelectorAll('ul li a');
-        var accountData = document.querySelector('.account-data');
+    let tabs = document.querySelector('#tabs');
+    let tabLinks = Array.from(tabs.querySelectorAll('ul li a'));
+    let accountData = document.querySelector('.account-data');
+    let allTabPanes = Array.from(tabs.querySelectorAll('.account-data .data-row'));
 
-        // Hide all tab panes initially
-        var allTabPanes = tabs.querySelectorAll('.account-data .data-row');
-        for (var j = 0; j < allTabPanes.length; j++) {
-            allTabPanes[j].classList.remove("active");
+    function setActiveTab(targetLink) {
+        let target = targetLink.getAttribute('href').substr(1);
+        let tabPane = document.getElementById(target);
+
+        // Deactivate all tab panes and links
+        allTabPanes.forEach(pane => pane.classList.remove("active"));
+        tabLinks.forEach(link => link.parentElement.classList.remove("active"));
+
+        // Activate the target tab pane and link
+        if (tabPane) {
+            tabPane.classList.add("active");
+            let tabPaneWrap = tabPane.querySelector('.data-wrap');
+            accountData.style.height = `${tabPaneWrap.offsetHeight}px`;
         }
 
-        // Display the first tab pane
-        var firstTabPane = document.getElementById(tabLinks[0].getAttribute('href').substr(1));
-        if (firstTabPane) {
-            firstTabPane.classList.add("active");
-            var firstTabPaneWrap = firstTabPane.querySelector('.data-wrap');
-            accountData.style.height = `${firstTabPaneWrap.offsetHeight}px`; // Set initial height
-        }
-        tabLinks[0].parentElement.classList.add("active");
+        targetLink.parentElement.classList.add("active");
+    }
 
-        // Loop through the tab links
-        for (var i = 0; i < tabLinks.length; i++) {
-            var tabLink = tabLinks[i];
-
-            // Click event to perform the tab switching
-            tabLink.addEventListener('click', function(e) {
-                e.preventDefault();
-
-                var target = e.target.getAttribute('href').substr(1);
-                var tabPane = document.getElementById(target);
-
-                // Hide all tab panes
-                var allTabPanes = tabs.querySelectorAll('.account-data .data-row');
-                for (var j = 0; j < allTabPanes.length; j++) {
-                    allTabPanes[j].classList.remove("active");
-                }
-
-                // Display the correct tab pane and set the height of the container
-                if (tabPane) {
-                    tabPane.classList.add("active");
-                    var tabPaneWrap = tabPane.querySelector('.data-wrap');
-                    // Set the height immediately
-                    accountData.style.height = `${tabPaneWrap.offsetHeight}px`;
-                }
-
-                // Update the height of .account-data after the transition effect has finished
-                var transitionEnd = 'transitionend';
-                tabPane.addEventListener(transitionEnd, function() {
-                    var activeTabPane = tabs.querySelector('.account-data .data-row.active');
-                    if (activeTabPane) {
-                        var activeTabPaneWrap = activeTabPane.querySelector('.data-wrap');
-                        accountData.style.height = `${activeTabPaneWrap.offsetHeight}px`;
-                    }
-                });
-
-                // Set the clicked tab link to active and the rest to inactive
-                for (var j = 0; j < tabLinks.length; j++) {
-                    if (tabLinks[j] == e.target) {
-                        tabLinks[j].parentElement.classList.add("active");
-                    } else {
-                        tabLinks[j].parentElement.classList.remove("active");
-                    }
-                }
-
-            });
-        }
+    // Event listener for transitionend to update the height
+    allTabPanes.forEach(pane => {
+        pane.addEventListener('transitionend', function() {
+            let activeTabPane = tabs.querySelector('.account-data .data-row.active');
+            if (activeTabPane) {
+                let activeTabPaneWrap = activeTabPane.querySelector('.data-wrap');
+                accountData.style.height = `${activeTabPaneWrap.offsetHeight}px`;
+            }
+        });
     });
+
+    // Initialize the first tab
+    setActiveTab(tabLinks[0]);
+
+    // Add event listener for each tab
+    tabLinks.forEach(link => {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            setActiveTab(e.target);
+        });
+    });
+});
     </script>
 {% endif %}
 
