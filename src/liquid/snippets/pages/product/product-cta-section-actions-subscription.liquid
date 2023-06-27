@@ -1,0 +1,525 @@
+{% assign variantQuantity = product.variants | size %}
+
+<div class="product-actions">
+  {% if variantQuantity > 1 %}
+    <div class="cta-title">{{ title }}</div>
+  {% endif %}
+
+  <div class="purchase-options">
+    <div class="purchase-option-box subscription">
+      <div class="left-side-wrapper">
+        <div class="radio-box">
+          <input type="radio" name="pack" checked="true"></input>
+        </div>
+
+        <div class="option-info">
+          <div class="option-title">Subscribe & <span>save 25%</span></div>
+          <div class="option-subtitle">Every 4th order FREE = 25% off</div>
+        </div>
+      </div>
+
+      <div class="price">
+        <div class="calculations">
+          <div class="compared-at-price"><strike class="no-letters rounded">{{ 75 | money_without_trailing_zeros }}</strike></div>
+          <div class="real-price no-letters rounded">{{ 56 | money_without_trailing_zeros }}</div>
+        </div>
+
+        <p class="per-month">Per Month</p>
+      </div>
+    </div>
+
+    <div class="purchase-option-box buy-once">
+      <div class="left-side-wrapper">
+        <div class="radio-box">
+          <input type="radio" name="pack"></input>
+        </div>
+
+        <div class="option-info">
+          <div class="option-title">Buy once</div>
+          <div class="option-subtitle">One time delivery</div>
+        </div>
+      </div>
+
+      {% comment %} <div class="price">
+        <div class="calculations">
+          <div class="compared-at-price"><strike class="no-letters rounded">{{ 75 | money_without_trailing_zeros }}</strike></div>
+          <div class="real-price no-letters rounded">{{ 56 | money_without_trailing_zeros }}</div>
+        </div>
+
+        <p class="per-month">Per {{ pricePer | capitalize }}</p>
+      </div> {% endcomment %}
+    </div>
+  </div>
+
+  {% if variantQuantity > 1 %}
+    <div class="variants" style="max-height:0; overflow:hidden;">
+      <div class="cta-title">Choose Pack</div>
+
+      {% for var in product.variants %}
+        {% assign bottle_quantity = var.metafields.my_fields.pack_bottles_quantity %}
+        {% assign item_price = var.price | divided_by: bottle_quantity %}
+        {% assign save_price = original_item_price | minus: item_price | times: quantity %}
+
+        <div class="pack-option {% if forloop.index == 2 %}selected{% endif %}" data-value="{{ var.id }}" data-quantity="{{ var.metafields.my_fields.pack_bottles_quantity }}" data-price="{{ var.price | money_without_currency | replace: ".00", "" }}" data-title="{{ var.title }}" data-sku="{{ var.sku }}" data-save="{{ save_price }}" data-index="{{ forloop.index }}">
+          <div class="thumbnail relative">
+            <img src="{{ var.product.metafields.custom.bottle_image | image_url }}" alt="{{ var.title }}">
+            {% if bottle_quantity > 1 %}<div class="variant-bottle-quantity">X{{ bottle_quantity }}</div>{% endif %}
+            {% if var.metafields.my_fields.subtitle %}<div class="variant-subtitle">{{ var.metafields.my_fields.subtitle }}</div>{% endif %}
+          </div>
+          <div class="variant-info py-2">
+            <div class="variant-price-wrapper flex items-center justify-center gap-1">
+              {% if var.compare_at_price > 0 %}<div class="variant-cap text-[12px] rounded line-through">{{ var.compare_at_price | money_without_trailing_zeros }}</div>{% endif %}
+              <div class="variant-price font-bold">{{ var.price | money_without_trailing_zeros }}</div>
+            </div>
+            <div class="variant-title text-[14px]">{{ var.title }}</div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <div class="submit-wrap flex flex-col">
+    <button class="main-btn" id="buy-button"><span>{% if isRetention %}START CHECKOUT{% else %}SHOP NOW{% endif %}</span>{% if ctaTextType %}<span class="save" id="save"></span>{% endif %}</button>
+  </div>
+</div>
+
+{% render 'script.round-converted-currency' %}
+
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    var subscriptionOption = document.querySelector('.subscription .radio-box input[type=radio]');
+    var oneTimeOption = document.querySelector('.buy-once .radio-box input[type=radio]');
+    var variants = document.querySelector('.variants');
+
+    variants.style.transition = 'max-height 0.15s ease-out';
+    variants.style.overflow = 'hidden';
+    variants.style.maxHeight = '0';
+
+    var checkOption = function() {
+      if (oneTimeOption.checked) {
+        variants.style.maxHeight = 'none';
+        var scrollHeight = variants.scrollHeight;
+        variants.style.maxHeight = '';
+        variants.style.maxHeight = scrollHeight + 'px';
+      } else if (subscriptionOption.checked) {
+        variants.style.maxHeight = '0';
+      }
+    };
+
+    $(".purchase-option-box").click(function() {
+      let radioButton = $(this).find('input');
+      radioButton.prop('checked', true);
+      checkOption();
+    });
+  });
+</script>
+
+  <script>
+    function updateCTA() {
+      {% if ctaTextType %}
+        let ctaText = "Total " + "{{ cart.currency.symbol }}" + $('.pack-option.selected').first().attr('data-price');
+
+        $("#save").fadeOut(300, function () {
+          $(this).text(ctaText);
+        }).fadeIn(300);
+      {% endif %}
+    }
+
+    function updateSelectedVariantInformation(infoAttributeName, targetElementToUpdate) {
+      let varIndex = $('.pack-option.selected').first().attr(infoAttributeName);
+
+      $(targetElementToUpdate).fadeOut(300, function () {
+        varIndex > 1 ? $(targetElementToUpdate).text("X" + varIndex) : $(targetElementToUpdate).text("");
+      }).fadeIn(300);
+    }
+
+    $(".pack-option").click(function() {
+      window.didClickVariant = true;
+
+      $(".pack-option").removeClass("selected");
+      $(this).addClass("selected");
+
+      updateCTA();
+
+      // Slide to Variant Image
+      {% if product.variants.size > 1 and product.images.size > 1 %}
+        let slideIndex = productSliderAllInOne.slides.length - ({{ product.variants.size | plus: 1 }} - $(this).attr('data-index'));
+        productSliderAllInOne.slideTo(slideIndex);
+      {% endif %}
+
+      if (window.didClickVariant) {
+        window.dataLayer = window.dataLayer || [];
+        window.dataLayer.push({
+          'event': 'variant-click',
+          'label': $(this).attr('data-sku'),
+          'userId': '{{ customer.id }}',
+          'email': '{{ customer.email }}',
+          'country': '{{customer.customer_address.country_code }}',
+          'city': '{{customer.customer_address.city }}',
+          'name': '{{ customer.first_name }}',
+          'surname': '{{ customer.last_name }}',
+          'phone_number': '{{customer.phone }}',
+          'state': '{{customer.customer_address.province }}',       //state or province
+          'zip': '{{customer.customer_address.zip }}'         //ZIP or Postal code
+        });
+
+        // Track in Woopra
+        woopra.track('Product_Variant_Select', {
+          sku: $(this).attr("data-sku"),
+          variant_id: $(this).attr("value"),
+          variant_title: $(this).attr("data-title"),
+          price: $(this).attr("data-price")
+        })
+      }
+      else {
+        window.didClickVariant = true;
+      }
+    });
+  </script>
+
+<script>
+  // On Buy Button Click
+  $(document).on("click", "#buy-button", function () {
+    let checkedPack = $('input[name=pack]:checked').val();
+    let checkedQuantity = 1;
+    let checkoutLink = "https://" + location.hostname + "/cart/" + checkedPack + ":" + checkedQuantity;
+    window.location.href = checkoutLink;
+
+    window.dataLayer = window.dataLayer || [];
+    window.dataLayer.push({
+      event: 'add_to_cart',
+      ecommerce: {
+      items: [{
+        item_name: '{{ product.title }}',
+        item_id: $('input[name=pack]:checked').attr('data_sku'),
+        affiliation: '{{ shop.name }}',
+        price: $('input[name=pack]:checked').attr('data_price'),
+        currency: '{{ shop.currency }}',
+        item_brand: 'CuraLife',
+        item_category: 'CuraLin',
+        quantity: $(".qty-control input").length ? parseInt($(".qty-control input").val()) : 1
+      }]
+      },
+      email: '{{ customer.email }}',
+      phone: '{{ customer.phone }}',
+      name: '{{ customer.first_name }}',
+      surname: '{{ customer.last_name }}',
+      city: '{{ customer.customer_address.city }}',
+      state: '{{ customer.customer_address.province }}',
+      zip: '{{ customer.customer_address.zip }}',
+      country: '{{customer.customer_address.country_code | t}}',
+      user_agent: navigator.userAgent
+    });
+
+    woopra.track('add to cart', {
+      product_sku: $('input[name=pack]:checked').attr('data_sku'),
+      product_name: '{{ product.title }}',
+      product_price: $('input[name=pack]:checked').attr('data_price'),
+      currency: '{{ shop.currency }}',
+      quantity: parseInt($(".qty-control input").val())
+    });
+  });
+</script>
+
+
+<style>
+  .product-actions {
+    grid-area: 2/2/3/3;
+    max-width: 450px;
+  }
+
+  .product-actions .cta-title {
+    padding: 10px 0;
+  }
+
+  .product-actions .variants {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .product-actions .submit-wrap {
+    display: flex;
+  }
+
+  .product-actions .submit-wrap button {
+    background-color: {{ ctaColor }};
+    width: 100%;
+    display: flex;
+    align-items: center;
+  }
+
+  .product-actions .submit-wrap:hover {
+    border-color: #ea9f1c;
+  }
+
+  .product-actions .submit-wrap:hover button {
+    background-color: #ea9f1c;
+  }
+
+  {% unless isRetention %}
+    .product-actions .submit-wrap button span {
+      width: 50%;
+    }
+  {% endunless %}
+
+  .product-actions .submit-wrap button span.save {
+    font-weight: 100;
+    border-left: 1px solid white;
+    {% if isRetention %}padding-left: 10px;{% endif %}
+  }
+
+  .product-actions .submit-wrap .qty-data .qty-control {
+    border: 0;
+    background: white;
+  }
+
+  @media screen and (max-width: 768px) {
+    .product-actions {
+      grid-area: unset;
+      grid-row: 3;
+      max-width: unset
+    }
+
+    .product-actions .submit-wrap button span:first-child {
+      font-size: 4vw;
+    }
+
+    .submit-wrap .qty-data .qty-control {
+      border: 1px solid #ffb22d
+    }
+
+    .product-actions .submit-wrap button {
+      min-height: 15vw;
+    }
+  }
+</style>
+
+<style>
+    .purchase-option-box {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      height: 65px;
+      background: #fff;
+      border: 1px solid #cbcbcb;
+      box-sizing: border-box;
+      border-radius: 2px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      filter: drop-shadow(0px 4px 4px rgba(47, 47, 47, 0.1));
+      transition: all .5s;
+      position: relative;
+      border-radius: 10px;
+      border-color: var(--light-green);
+    }
+
+    .purchase-option-box:hover {
+      border-color: var(--dark-green);
+      filter: drop-shadow(0px 4px 4px rgba(47, 47, 47, 0.3));
+    }
+
+    .purchase-option-box:hover>.radio-box input[type=radio]:after {
+      background-color: #a9a9a9;
+    }
+
+    .purchase-option-box .left-side-wrapper {
+      display: flex;
+    }
+
+    .purchase-option-box .radio-box {
+      align-items: center;
+      display: flex;
+      padding: 20px;
+    }
+
+    .purchase-option-box .option-info {
+      padding: 10px 0 15px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .purchase-option-box .option-info .option-title {
+      margin: 0;
+    }
+
+    .purchase-option-box .option-info .option-infos p {
+      font-weight: 200;
+      display: inline-block;
+      margin: 0;
+      font-size: 14px;
+      {% if isHighlightSubtitle %}
+        color: white;
+        border-radius: 15px;
+        padding: 2px 10px;
+        background: var(--light-green);
+      {% endif %}
+    }
+
+    .purchase-option-box .option-info .option-infos p b {
+      font-weight: 700;
+    }
+
+    .purchase-option-box .price {
+      display: flex;
+      min-width: 70px;
+      margin-right: 10px;
+      flex-direction: column;
+      align-items: end;
+      gap: unset;
+    }
+
+    .purchase-option-box .price {
+
+    }
+
+    .purchase-option-box .price p {
+      margin: unset;
+    }
+
+    .purchase-option-box .price .calculations {
+      display: flex;
+      align-items: center;
+      justify-content: right;
+    }
+
+    .purchase-option-box .price .calculations p::after {
+      content: "00";
+      font-size: 0.6rem;
+      vertical-align: super;
+      margin-right: 5px;
+    }
+
+    .purchase-option-box .price .calculations p.compared-at-price::after {
+      font-size: 0.3rem;
+    }
+
+    .purchase-option-box .price .per-month {
+      color: var(--grey);
+      font-size: 16px;
+    }
+
+    .purchase-option-box .price .compared-at-price {
+      font-size: unset;
+    }
+
+    .purchase-option-box .price .compared-at-price strike {
+      font-size: 13px !important;
+    }
+
+    .purchase-option-box .price .real-price {
+      font-size: 20px;
+    }
+
+    @media screen and (max-width: 1270px) {
+      .purchase-option-box {
+        width: 100%
+      }
+
+      .purchase-option-box .option-info {
+        padding: 10px 0;
+        width: 95%;
+      }
+
+      .purchase-option-box .price {
+        position: absolute;
+        right: 10px;
+        bottom: 10px;
+        margin-right: unset;
+      }
+    }
+
+    @media screen and (max-width: 768px) {
+      .purchase-option-box {
+        justify-content: unset;
+      }
+
+      .purchase-option-box .option-info .option-title {
+        font-size: 4vw;
+      }
+
+      .purchase-option-box .option-info .option-infos p {
+        font-size: 3vw;
+      }
+
+      .purchase-option-box .radio-box {
+        padding: 3vw;
+      }
+    }
+  </style>
+
+  <style>
+    .product-actions .variants .pack-option .thumbnail img {
+      border: 1px solid var(--light-green);
+      border-radius: 5px;
+      transition: 0.5s all;
+      cursor: pointer;
+    }
+
+    .product-actions .variants .pack-option.selected .thumbnail img {
+      background: var(--lighter-green);
+    }
+
+    .product-actions .pack-option {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+    }
+
+    .variant-bottle-quantity {
+      position: absolute;
+      right: 5px;
+      top: 5px;
+      border-radius: 50%;
+      background: var(--light-green);
+      width: 30px;
+      height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: bold;
+      font-size: 14px;
+    }
+
+  .variant-subtitle {
+    background: var(--light-green);
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 14px;
+    padding: 3px 0;
+  }
+  </style>
+
+{% comment %}
+  <script>
+      function addItemToCart(variant_id, qty, selling_plan) {
+
+        data = {
+          "id": variant_id,
+          "quantity": qty,
+          "selling_plan": selling_plan
+        }
+
+        console.log(data);
+
+        jQuery.ajax({
+          type: 'POST',
+          url: '/cart/add.js',
+          data: data,
+          dataType: 'json',
+          success: function() {
+            console.log('success');
+            window.location.href = '/cart';
+          }
+        });
+      }
+    </script> {% endcomment %}
