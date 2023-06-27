@@ -90,9 +90,9 @@
         {% assign item_price = var.price | divided_by: bottle_quantity %}
         {% assign save_price = original_item_price | minus: item_price | times: quantity %}
 
-        <div class="pack-option">
+        <div class="pack-option" data-value="{{ var.id }}" data-quantity="{{ var.metafields.my_fields.pack_bottles_quantity }}" data-price="{{ var.price | money_without_currency | replace: ".00", "" }}" data-title="{{ var.title }}" data-sku="{{ var.sku }}" data-save="{{ save_price }}" data-index="{{ product.variants.size | minus: index | plus: 1 }}">
           <div class="thumbnail">
-            <img src="{{ var.product.metafields.custom.bottle_image | image_url }}" alt="{{ var.title }}"  data-value="{{ var.id }}" data-quantity="{{ var.metafields.my_fields.pack_bottles_quantity }}" data-price="{{ var.price | money_without_currency | replace: ".00", "" }}" data-title="{{ var.title }}" data-sku="{{ var.sku }}" data-save="{{ save_price }}" data-index="{{ product.variants.size | minus: index | plus: 1 }}">
+            <img src="{{ var.product.metafields.custom.bottle_image | image_url }}" alt="{{ var.title }}">
             <div class="multiplier">X{{ bottle_quantity }}</div>
           </div>
           <div class="price">{{ var.price | money_without_trailing_zeros }}</div>
@@ -122,7 +122,6 @@
 
   .product-actions .variants {
     display: flex;
-    flex-direction: {% if isReversed %}column-reverse{% else %}column{% endif %};
   }
 
   .product-actions .submit-wrap {
@@ -366,45 +365,35 @@
     }
 
     function updateSelectedVariantInformation(infoAttributeName, targetElementToUpdate) {
-      let varIndex = $('input[name=pack]:checked').attr(infoAttributeName);
+      let varIndex = $('pack-option.selected').first().attr(infoAttributeName);
 
       $(targetElementToUpdate).fadeOut(300, function () {
         varIndex > 1 ? $(targetElementToUpdate).text("X" + varIndex) : $(targetElementToUpdate).text("");
       }).fadeIn(300);
     }
 
-    $(".variant-box").click(function() {
-      $(this).find('input[name=pack]').prop('checked', true);
+    $(".pack-option").click(function() {
+      window.didClickVariant = true;
+
+      $(".pack-option").removeClass("selected");
+      $(this).addClass("selected");
+
       updateCTA();
       updateSelectedVariantInformation('data-quantity', '.multiplier');
       updateSelectedVariantInformation('data-save', '.save-badge');
 
-      {% if request.path contains 'prime' %}
-        if ($('input[name=pack]:checked').attr('data-sku') == "Curalin180") {
-          $(".buy-with-prime-button").fadeIn(300);
-        }
-        else {
-          $(".buy-with-prime-button").fadeOut(300);
-        }
-      {% endif %}
-
-      {% assign collection_products_amount = var.product.collections.last.products | size %}
-      {% if collection_products_amount == 1 and var.product.tags contains 'supplement' %}
-        window.didClickVariant = true;
+      // Slide to Variant Image
+      {% if product.variants.size > 1 and product.images.size > 1 %}
+        let slideIndex = productSliderAllInOne.slides.length - $(this).attr('data-index');
+        productSliderAllInOne.slideTo(slideIndex);
       {% endif %}
 
       if (window.didClickVariant) {
-        // Slide to Variant Image
-        {% if product.variants.size > 1 and product.images.size > 1 %}
-          let slideIndex = productSliderAllInOne.slides.length - $('input[name=pack]:checked').attr('data-index');
-          productSliderAllInOne.slideTo(slideIndex);
-        {% endif %}
-
         // Track in GA
         window.dataLayer = window.dataLayer || [];
         window.dataLayer.push({
           'event': 'variant-click',
-          'label': $('input[name=pack]:checked').attr('data-sku'),
+          'label': $(this).attr('data-sku'),
           'userId': '{{ customer.id }}',
           'email': '{{ customer.email }}',
           'country': '{{customer.customer_address.country_code }}',
@@ -418,15 +407,19 @@
 
         // Track in Woopra
         woopra.track('Product_Variant_Select', {
-          sku: $(this).find("input").attr("data-sku"),
-          variant_id: $(this).find("input").attr("value"),
-          variant_title: $(this).find("input").attr("data-title"),
-          price: $(this).find("input").attr("data-price")
+          sku: $(this).attr("data-sku"),
+          variant_id: $(this).attr("value"),
+          variant_title: $(this).attr("data-title"),
+          price: $(this).attr("data-price")
         })
       }
       else {
         window.didClickVariant = true;
       }
+    });
+
+    $(".variant-box").click(function() {
+      $(this).find('input[name=pack]').prop('checked', true);
     });
   </script>
 
