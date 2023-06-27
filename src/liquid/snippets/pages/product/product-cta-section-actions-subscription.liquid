@@ -1,28 +1,32 @@
 {% assign variantQuantity = product.variants | size %}
+{% assign tooltipTitle = "Curalin's Subscription Is Simple." %}
+{% assign tooltipDescription = "Receive your first Curalin a few days after ordering. Then you'll receive new products every 1 month after that initial order." %}
+{% assign tooltipFeatures = "Every 4th subscription order is FREE.|Free US shipping on all orders.|Subscriber-only gifts and product drops.|24/7 support." | split: "|" %}
 
 <div class="product-actions">
-  {% if variantQuantity > 1 %}
-    <div class="cta-title font-bold">{{ title }}</div>
-  {% endif %}
+  <div class="top-wrapper flex justify-between items-center">
+    {% if variantQuantity > 1 %}<div class="cta-title font-bold">{{ title }}</div>{% endif %}
+    {% render 'tooltip', title: tooltipTitle, description: tooltipDescription, features: tooltipFeatures %}
+  </div>
 
   <div class="purchase-options">
     <div class="purchase-option-box subscription">
       <div class="left-side-wrapper">
         <div class="radio-box">
-          <input type="radio" name="pack" checked="true"></input>
+          <input type="radio" id="subscribe" name="pack" checked="true"></input>
+          <label for="subscribe"></label>
         </div>
 
         <div class="option-info">
-          <div class="option-title">Subscribe & <span>save 25%</span></div>
-          <div class="option-subtitle">Every 4th order FREE = 25% off</div>
+          <div class="option-title font-semibold">Subscribe & <span>save 25%</span></div>
+          <div class="option-subtitle text-[14px]">Every 4th order FREE = 25% off</div>
         </div>
       </div>
 
       <div class="price">
         <div class="calculations">
-          {% assign subscriptionBottlePrice = 56.00 %}
-          <div class="compared-at-price"><strike class="no-letters rounded">{{ product.variants.first.price | money_without_trailing_zeros }}</strike></div>
-          <div class="real-price no-letters rounded">{{ subscriptionBottlePrice | money_without_trailing_zeros }}</div>
+          <div class="compared-at-price rounded line-through text-[12px]">{{ product.variants.first.price | money_without_trailing_zeros }}</div>
+          <div class="real-price no-letters rounded">{{ 5625 | money_without_trailing_zeros }}</div>
         </div>
 
         <p class="per-month">Per Month</p>
@@ -32,12 +36,13 @@
     <div class="purchase-option-box buy-once">
       <div class="left-side-wrapper">
         <div class="radio-box">
-          <input type="radio" name="pack"></input>
+          <input type="radio" id="buyonce" name="pack"></input>
+          <label for="buyonce"></label>
         </div>
 
         <div class="option-info">
-          <div class="option-title">Buy once</div>
-          <div class="option-subtitle">One time delivery</div>
+          <div class="option-title font-semibold">Buy once</div>
+          <div class="option-subtitle text-[14px]">One time delivery</div>
         </div>
       </div>
 
@@ -54,7 +59,7 @@
 
   {% if variantQuantity > 1 %}
     <div class="variants" style="max-height:0; overflow:hidden;">
-      <div class="cta-title font-bold">Choose Pack</div>
+      {% comment %} <div class="cta-title font-bold">Choose Pack</div> {% endcomment %}
 
       {% for var in product.variants %}
         {% assign bottle_quantity = var.metafields.my_fields.pack_bottles_quantity %}
@@ -80,7 +85,7 @@
   {% endif %}
 
   <div class="submit-wrap flex flex-col">
-    <button class="main-btn" id="buy-button">SHOP NOW</button>
+    <button class="main-btn" id="buy-button" onclick="buyButtonHandler()">SHOP NOW</button>
   </div>
 </div>
 
@@ -172,12 +177,36 @@
   </script>
 
 <script>
+  function buySubscription(variant_id, qty, selling_plan) {
+    data = {
+      "id": variant_id,
+      "quantity": qty,
+      "selling_plan": selling_plan
+    }
+
+    jQuery.ajax({
+      type: 'POST',
+      url: '/cart/add.js',
+      data: data,
+      dataType: 'json',
+      success: function() {
+        console.log('success');
+        window.location.href = '/checkout';
+      }
+    });
+  };
+
   // On Buy Button Click
-  $(document).on("click", "#buy-button", function () {
-    let checkedPack = $('input[name=pack]:checked').val();
-    let checkedQuantity = 1;
-    let checkoutLink = "https://" + location.hostname + "/cart/" + checkedPack + ":" + checkedQuantity;
-    window.location.href = checkoutLink;
+  function buyButtonHandler() {
+    if ($('.purchase-option-box.subscription').find('input:checked').length === 0) {
+      let checkedPack = $('.pack-option.selected').first().attr('data-value');
+      let checkedQuantity = 1;
+      let checkoutLink = "https://" + location.hostname + "/cart/" + checkedPack + ":" + checkedQuantity;
+      window.location.href = checkoutLink;
+    }
+    else {
+      buySubscription({{ product.variants.first.id }}, 1, {{ product.selling_plan_groups[0].selling_plans[0].id }});
+    }
 
     window.dataLayer = window.dataLayer || [];
     window.dataLayer.push({
@@ -212,14 +241,44 @@
       currency: '{{ shop.currency }}',
       quantity: parseInt($(".qty-control input").val())
     });
-  });
+  };
 </script>
+
+<style>
+  .radio-box input[type='radio'] {
+  display: none;
+}
+
+.radio-box label {
+  cursor: pointer;
+  width: 19px;
+  height: 19px;
+  border: 1px solid var(--light-green);
+  border-radius: 50%;
+  position: relative;
+}
+
+.radio-box input[type='radio']:checked + label:after {
+  content: '\2713';
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--light-green);
+  text-align: center;
+  line-height: 22px;
+  color: #fff;
+}
+</style>
 
 
 <style>
   .product-actions {
     grid-area: 2/2/3/3;
-    max-width: 450px;
+    max-width: 400px;
+    min-height: 415px;
   }
 
   .product-actions .cta-title {
@@ -286,10 +345,14 @@
     display: flex;
     flex-direction: column;
     justify-content: center;
+    gap: 0.25rem;
   }
 
-  .purchase-option-box .option-info .option-title {
-    margin: 0;
+  .purchase-option-box .option-info .option-title span {
+    background: var(--light-green);
+    color: white;
+    border-radius: 10px;
+    padding: 0 8px;
   }
 
   .purchase-option-box .option-info .option-infos p {
@@ -330,6 +393,7 @@
     display: flex;
     align-items: center;
     justify-content: right;
+    gap: 5px;
   }
 
   .purchase-option-box .price .calculations p::after {
@@ -346,14 +410,6 @@
   .purchase-option-box .price .per-month {
     color: var(--grey);
     font-size: 16px;
-  }
-
-  .purchase-option-box .price .compared-at-price {
-    font-size: unset;
-  }
-
-  .purchase-option-box .price .compared-at-price strike {
-    font-size: 13px !important;
   }
 
   .purchase-option-box .price .real-price {
@@ -458,7 +514,7 @@
     font-size: 14px;
     padding: 3px 0;
   }
-  </style>
+</style>
 
 {% comment %}
   <script>
