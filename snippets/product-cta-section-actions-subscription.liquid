@@ -79,7 +79,10 @@
   {% endif %}
 
   <div class="submit-wrap flex flex-col">
-    <button class="main-btn" id="buy-button"><span>{% if isRetention %}START CHECKOUT{% else %}SHOP NOW{% endif %}</span>{% if ctaTextType %}<span class="save" id="save"></span>{% endif %}</button>
+    <button class="main-btn" id="buy-button">
+      <span>{% if isRetention %}START CHECKOUT{% else %}SHOP NOW{% endif %}</span>
+      {% comment %} {% if ctaTextType %}<span class="save" id="save"></span>{% endif %} {% endcomment %}
+    </button>
   </div>
 </div>
 
@@ -116,16 +119,6 @@
 </script>
 
   <script>
-    function updateCTA() {
-      {% if ctaTextType %}
-        let ctaText = "Total " + "{{ cart.currency.symbol }}" + $('.pack-option.selected').first().attr('data-price');
-
-        $("#save").fadeOut(300, function () {
-          $(this).text(ctaText);
-        }).fadeIn(300);
-      {% endif %}
-    }
-
     function updateSelectedVariantInformation(infoAttributeName, targetElementToUpdate) {
       let varIndex = $('.pack-option.selected').first().attr(infoAttributeName);
 
@@ -135,12 +128,19 @@
     }
 
     $(".pack-option").click(function() {
-      window.didClickVariant = true;
-
       $(".pack-option").removeClass("selected");
       $(this).addClass("selected");
 
-      updateCTA();
+      {% comment %}
+        // Update CTA Button Text
+        {% if ctaTextType %}
+          let ctaText = "Total " + "{{ cart.currency.symbol }}" + $('.pack-option.selected').first().attr('data-price');
+
+          $("#save").fadeOut(300, function () {
+            $(this).text(ctaText);
+          }).fadeIn(300);
+        {% endif %}
+      {% endcomment %}
 
       // Slide to Variant Image
       {% if product.variants.size > 1 and product.images.size > 1 %}
