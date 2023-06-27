@@ -79,6 +79,189 @@
 
 {% render 'script.round-converted-currency' %}
 
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('DOM fully loaded and parsed');
+
+  var subscriptionOption = document.querySelector('.subscription .radio-box input[type=radio]');
+  console.log('subscriptionOption:', subscriptionOption);
+
+  var oneTimeOption = document.querySelector('.buy-once .radio-box input[type=radio]');
+  console.log('oneTimeOption:', oneTimeOption);
+
+  var variants = document.querySelector('.variants');
+  console.log('variants:', variants);
+
+  // Add fade class to variants for transition effects
+  variants.classList.add('fade');
+
+  // Initially hide variants
+  variants.classList.add('hidden');
+  console.log('Initially hiding variants');
+
+  // Function to check radio input changes
+  var checkOption = function() {
+    console.log('Checking option');
+    if (oneTimeOption.checked) {
+      console.log('Buy once option is checked');
+      // Show variants when 'Buy once' is selected
+      variants.classList.remove('hidden');
+    } else if (subscriptionOption.checked) {
+      console.log('Subscribe & Save option is checked');
+      // Hide variants when 'Subscribe & Save' is selected
+      variants.classList.add('hidden');
+    }
+  };
+
+  // Check option initially in case the buy-once option comes pre-selected
+  checkOption();
+
+  // Attach event listener to inputs
+  subscriptionOption.addEventListener('change', checkOption);
+  oneTimeOption.addEventListener('change', checkOption);
+});
+</script>
+
+
+  <script>
+    function updateCTA() {
+      {% if ctaTextType %}
+        {% if ctaTextType == "save" %}
+          if ($('input[name=pack]:checked').attr('data-discount') == 0) {
+            let ctaText = "";
+          }
+          else {
+            let ctaText = "You Save " + "{{ cart.currency.symbol }}" + $('input[name=pack]:checked').attr('data-discount');
+          }
+        {% elsif ctaTextType == "total" %}
+          let ctaText = "Total " + "{{ cart.currency.symbol }}" + $('input[name=pack]:checked').attr('data-price');
+        {% endif %}
+
+        $("#save").fadeOut(300, function () {
+          $(this).text(ctaText);
+        }).fadeIn(300);
+      {% endif %}
+    }
+
+    function updateSelectedVariantInformation(infoAttributeName, targetElementToUpdate) {
+      let varIndex = $('pack-option.selected').first().attr(infoAttributeName);
+
+      $(targetElementToUpdate).fadeOut(300, function () {
+        varIndex > 1 ? $(targetElementToUpdate).text("X" + varIndex) : $(targetElementToUpdate).text("");
+      }).fadeIn(300);
+    }
+
+    $(".pack-option").click(function() {
+      window.didClickVariant = true;
+
+      $(".pack-option").removeClass("selected");
+      $(this).addClass("selected");
+
+      updateCTA();
+      updateSelectedVariantInformation('data-quantity', '.multiplier');
+      updateSelectedVariantInformation('data-save', '.save-badge');
+
+      // Slide to Variant Image
+      {% if product.variants.size > 1 and product.images.size > 1 %}
+        let slideIndex = productSliderAllInOne.slides.length - $(this).attr('data-index');
+        productSliderAllInOne.slideTo(slideIndex);
+      {% endif %}
+
+      if (window.didClickVariant) {
+        // Track in GA
+        window.dataLayer = window.dataLayer || [];
+        window.dataLayer.push({
+          'event': 'variant-click',
+          'label': $(this).attr('data-sku'),
+          'userId': '{{ customer.id }}',
+          'email': '{{ customer.email }}',
+          'country': '{{customer.customer_address.country_code }}',
+          'city': '{{customer.customer_address.city }}',
+          'name': '{{ customer.first_name }}',
+          'surname': '{{ customer.last_name }}',
+          'phone_number': '{{customer.phone }}',
+          'state': '{{customer.customer_address.province }}',       //state or province
+          'zip': '{{customer.customer_address.zip }}'         //ZIP or Postal code
+        });
+
+        // Track in Woopra
+        woopra.track('Product_Variant_Select', {
+          sku: $(this).attr("data-sku"),
+          variant_id: $(this).attr("value"),
+          variant_title: $(this).attr("data-title"),
+          price: $(this).attr("data-price")
+        })
+      }
+      else {
+        window.didClickVariant = true;
+      }
+    });
+
+    $(".purchase-option-box").click(function() {
+      let radioButton = $(this).find('input[name=pack]');
+      radioButton.prop('checked', true);
+      radioButton.trigger('change');
+    });
+  </script>
+
+<script>
+  $(document).ready(function() {
+    let urlParams = new URLSearchParams(window.location.search);
+    let defaultVariant = urlParams.get('default-variant');
+
+    if (defaultVariant) {
+      $(".purchase-option-box").eq(defaultVariant - 1).trigger("click");
+    }
+    else {
+      $(".purchase-option-box").{% if product.variants.size == 1 or request.path contains 'prime' %}first(){% elsif defaultSelectionIndex %}eq({{ defaultSelectionIndex | minus: 1 }}){% else %}first(){% endif %}.trigger( "click" );
+    }
+  });
+
+  // On Buy Button Click
+  $(document).on("click", "#buy-button", function () {
+    let checkedPack = $('input[name=pack]:checked').val();
+    let checkedQuantity = 1;
+    let checkoutLink = "https://" + location.hostname + "/cart/" + checkedPack + ":" + checkedQuantity;
+    window.location.href = checkoutLink;
+
+    window.dataLayer = window.dataLayer || [];
+    window.dataLayer.push({
+      event: 'add_to_cart',
+      ecommerce: {
+      items: [{
+        item_name: '{{ product.title }}',
+        item_id: $('input[name=pack]:checked').attr('data_sku'),
+        affiliation: '{{ shop.name }}',
+        price: $('input[name=pack]:checked').attr('data_price'),
+        currency: '{{ shop.currency }}',
+        item_brand: 'CuraLife',
+        item_category: 'CuraLin',
+        quantity: $(".qty-control input").length ? parseInt($(".qty-control input").val()) : 1
+      }]
+      },
+      email: '{{ customer.email }}',
+      phone: '{{ customer.phone }}',
+      name: '{{ customer.first_name }}',
+      surname: '{{ customer.last_name }}',
+      city: '{{ customer.customer_address.city }}',
+      state: '{{ customer.customer_address.province }}',
+      zip: '{{ customer.customer_address.zip }}',
+      country: '{{customer.customer_address.country_code | t}}',
+      user_agent: navigator.userAgent
+    });
+
+    woopra.track('add to cart', {
+      product_sku: $('input[name=pack]:checked').attr('data_sku'),
+      product_name: '{{ product.title }}',
+      product_price: $('input[name=pack]:checked').attr('data_price'),
+      currency: '{{ shop.currency }}',
+      quantity: parseInt($(".qty-control input").val())
+    });
+  });
+</script>
+
+
 <style>
   .product-actions {
     grid-area: 2/2/3/3;
@@ -325,185 +508,6 @@
     transition: visibility 0s 0.5s, opacity 0.5s linear;
   }
 </style>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  console.log('DOM fully loaded and parsed');
-
-  var subscriptionOption = document.querySelector('.subscription .radio-box input[type=radio]');
-  console.log('subscriptionOption:', subscriptionOption);
-
-  var oneTimeOption = document.querySelector('.buy-once .radio-box input[type=radio]');
-  console.log('oneTimeOption:', oneTimeOption);
-
-  var variants = document.querySelector('.variants');
-  console.log('variants:', variants);
-
-  // Add fade class to variants for transition effects
-  variants.classList.add('fade');
-
-  // Initially hide variants
-  variants.classList.add('hidden');
-  console.log('Initially hiding variants');
-
-  // Function to check radio input changes
-  var checkOption = function() {
-    console.log('Checking option');
-    if (oneTimeOption.checked) {
-      console.log('Buy once option is checked');
-      // Show variants when 'Buy once' is selected
-      variants.classList.remove('hidden');
-    } else if (subscriptionOption.checked) {
-      console.log('Subscribe & Save option is checked');
-      // Hide variants when 'Subscribe & Save' is selected
-      variants.classList.add('hidden');
-    }
-  };
-
-  // Check option initially in case the buy-once option comes pre-selected
-  checkOption();
-
-  // Attach event listener to inputs
-  subscriptionOption.addEventListener('change', checkOption);
-  oneTimeOption.addEventListener('change', checkOption);
-});
-</script>
-
-
-  <script>
-    function updateCTA() {
-      {% if ctaTextType %}
-        {% if ctaTextType == "save" %}
-          if ($('input[name=pack]:checked').attr('data-discount') == 0) {
-            let ctaText = "";
-          }
-          else {
-            let ctaText = "You Save " + "{{ cart.currency.symbol }}" + $('input[name=pack]:checked').attr('data-discount');
-          }
-        {% elsif ctaTextType == "total" %}
-          let ctaText = "Total " + "{{ cart.currency.symbol }}" + $('input[name=pack]:checked').attr('data-price');
-        {% endif %}
-
-        $("#save").fadeOut(300, function () {
-          $(this).text(ctaText);
-        }).fadeIn(300);
-      {% endif %}
-    }
-
-    function updateSelectedVariantInformation(infoAttributeName, targetElementToUpdate) {
-      let varIndex = $('pack-option.selected').first().attr(infoAttributeName);
-
-      $(targetElementToUpdate).fadeOut(300, function () {
-        varIndex > 1 ? $(targetElementToUpdate).text("X" + varIndex) : $(targetElementToUpdate).text("");
-      }).fadeIn(300);
-    }
-
-    $(".pack-option").click(function() {
-      window.didClickVariant = true;
-
-      $(".pack-option").removeClass("selected");
-      $(this).addClass("selected");
-
-      updateCTA();
-      updateSelectedVariantInformation('data-quantity', '.multiplier');
-      updateSelectedVariantInformation('data-save', '.save-badge');
-
-      // Slide to Variant Image
-      {% if product.variants.size > 1 and product.images.size > 1 %}
-        let slideIndex = productSliderAllInOne.slides.length - $(this).attr('data-index');
-        productSliderAllInOne.slideTo(slideIndex);
-      {% endif %}
-
-      if (window.didClickVariant) {
-        // Track in GA
-        window.dataLayer = window.dataLayer || [];
-        window.dataLayer.push({
-          'event': 'variant-click',
-          'label': $(this).attr('data-sku'),
-          'userId': '{{ customer.id }}',
-          'email': '{{ customer.email }}',
-          'country': '{{customer.customer_address.country_code }}',
-          'city': '{{customer.customer_address.city }}',
-          'name': '{{ customer.first_name }}',
-          'surname': '{{ customer.last_name }}',
-          'phone_number': '{{customer.phone }}',
-          'state': '{{customer.customer_address.province }}',       //state or province
-          'zip': '{{customer.customer_address.zip }}'         //ZIP or Postal code
-        });
-
-        // Track in Woopra
-        woopra.track('Product_Variant_Select', {
-          sku: $(this).attr("data-sku"),
-          variant_id: $(this).attr("value"),
-          variant_title: $(this).attr("data-title"),
-          price: $(this).attr("data-price")
-        })
-      }
-      else {
-        window.didClickVariant = true;
-      }
-    });
-
-    $(".purchase-option-box").click(function() {
-      $(this).find('input[name=pack]').prop('checked', true).trigger('change');
-    });
-  </script>
-
-<script>
-  $(document).ready(function() {
-    let urlParams = new URLSearchParams(window.location.search);
-    let defaultVariant = urlParams.get('default-variant');
-
-    if (defaultVariant) {
-      $(".purchase-option-box").eq(defaultVariant - 1).trigger("click");
-    }
-    else {
-      $(".purchase-option-box").{% if product.variants.size == 1 or request.path contains 'prime' %}first(){% elsif defaultSelectionIndex %}eq({{ defaultSelectionIndex | minus: 1 }}){% else %}first(){% endif %}.trigger( "click" );
-    }
-  });
-
-  // On Buy Button Click
-  $(document).on("click", "#buy-button", function () {
-    let checkedPack = $('input[name=pack]:checked').val();
-    let checkedQuantity = 1;
-    let checkoutLink = "https://" + location.hostname + "/cart/" + checkedPack + ":" + checkedQuantity;
-    window.location.href = checkoutLink;
-
-    window.dataLayer = window.dataLayer || [];
-    window.dataLayer.push({
-      event: 'add_to_cart',
-      ecommerce: {
-      items: [{
-        item_name: '{{ product.title }}',
-        item_id: $('input[name=pack]:checked').attr('data_sku'),
-        affiliation: '{{ shop.name }}',
-        price: $('input[name=pack]:checked').attr('data_price'),
-        currency: '{{ shop.currency }}',
-        item_brand: 'CuraLife',
-        item_category: 'CuraLin',
-        quantity: $(".qty-control input").length ? parseInt($(".qty-control input").val()) : 1
-      }]
-      },
-      email: '{{ customer.email }}',
-      phone: '{{ customer.phone }}',
-      name: '{{ customer.first_name }}',
-      surname: '{{ customer.last_name }}',
-      city: '{{ customer.customer_address.city }}',
-      state: '{{ customer.customer_address.province }}',
-      zip: '{{ customer.customer_address.zip }}',
-      country: '{{customer.customer_address.country_code | t}}',
-      user_agent: navigator.userAgent
-    });
-
-    woopra.track('add to cart', {
-      product_sku: $('input[name=pack]:checked').attr('data_sku'),
-      product_name: '{{ product.title }}',
-      product_price: $('input[name=pack]:checked').attr('data_price'),
-      currency: '{{ shop.currency }}',
-      quantity: parseInt($(".qty-control input").val())
-    });
-  });
-</script>
 
 {% comment %}
   <script>
