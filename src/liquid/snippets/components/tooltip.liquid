@@ -1,5 +1,6 @@
 <div class="subscription-details relative underline text-[12px] cursor-pointer hover:color-[]">Subscription Details
   <div id="tooltip" style="display: none;">
+    <span id="close" style="position: absolute; top: 0; right: 0; cursor: pointer;">&times;</span>
     <h6 class="text-[18px]">{{ title }}</h6>
     <p class="description">{{ description }}</p>
     <ul class="features">
@@ -13,27 +14,36 @@
 <style>
   #tooltip {
     position: absolute;
-    background-color: #f9f9f9;
+    background-color: var(--lighter-brown);
     border: 1px solid #ccc;
     padding: 10px;
     border-radius: 5px;
-    width: 200px;
+    width: 270px;
     z-index: 10;
     top: 20px;
+    right: 0;
   }
 
-  .features {
+  #close {
+    font-size: 24px;
+    padding: 0 5px;
+    line-height: 1;
+  }
+
+  #tooltip .features {
     list-style: none;
     padding: 0;
+    font-size: 11px;
+    font-weight: bold;
+  }
+
+  #tooltip .features li {
+    display: flex;
+    align-items: flex-start;
     margin-bottom: 3px;
   }
 
-  .features li {
-    display: flex;
-    align-items: flex-start;
-  }
-
-  .features li::before {
+  #tooltip .features li::before {
     content: '✓';
     display: flex;
     align-items: center;
@@ -43,14 +53,35 @@
     border-radius: 50%;
     background-color: var(--dark-green);
     color: white;
-    margin-right: 10px;
+    margin-right: 7px;
+    margin-top: 1px;
     font-size: 9px;
+  }
+
+  @media (max-width: 768px) {
+    #tooltip {
+      font-size: 5vw;
+      width: 90vw;
+    }
+
+    #tooltip #close {
+      font-size: 8vw;
+    }
+
+    #tooltip .features {
+      font-size: 4vw;
+    }
+
+    #tooltip h6 {
+      font-size: 5.5vw;
+    }
   }
 </style>
 
 <script>
   const subscriptionDetails = document.querySelector(".subscription-details");
   const tooltip = document.querySelector("#tooltip");
+  const closeButton = document.querySelector("#close");
 
   // Flag to keep track of whether the tooltip should stay open
   let shouldStayOpen = false;
@@ -68,8 +99,24 @@
   });
 
   // Toggle tooltip on click
-  subscriptionDetails.addEventListener("click", function() {
+  subscriptionDetails.addEventListener("click", function(event) {
+    event.stopPropagation(); // prevent event from bubbling up to document
     shouldStayOpen = !shouldStayOpen;
     tooltip.style.display = shouldStayOpen ? "block" : "none";
+  });
+
+  // Close tooltip on close button click
+  closeButton.addEventListener("click", function(event) {
+    event.stopPropagation();
+    shouldStayOpen = false;
+    tooltip.style.display = "none";
+  });
+
+  // Hide tooltip on document click, if it should not stay open
+  document.addEventListener("click", function() {
+    if (shouldStayOpen) {
+      shouldStayOpen = false;
+      tooltip.style.display = "none";
+    }
   });
 </script>
