@@ -174,24 +174,43 @@
   </script>
 
 <script>
-  function buySubscription(variant_id, qty, selling_plan) {
-    data = {
-      "id": variant_id,
-      "quantity": qty,
-      "selling_plan": selling_plan
-    }
-
+  function clearCart(callback) {
     jQuery.ajax({
       type: 'POST',
-      url: '/cart/add.js',
-      data: data,
-      dataType: 'json',
+      url: '/cart/clear.js',
       success: function() {
-        console.log('success');
-        window.location.href = '/checkout';
+        console.log('Cart cleared');
+        callback();
+      },
+      error: function() {
+        console.log('Failed to clear cart');
       }
     });
-  };
+  }
+
+  function buySubscription(variant_id, qty, selling_plan) {
+    clearCart(function() {
+      data = {
+        "id": variant_id,
+        "quantity": qty,
+        "selling_plan": selling_plan
+      }
+
+      jQuery.ajax({
+        type: 'POST',
+        url: '/cart/add.js',
+        data: data,
+        dataType: 'json',
+        success: function() {
+          console.log('success');
+          window.location.href = '/checkout';
+        },
+        error: function() {
+          console.log('Failed to add item to cart');
+        }
+      });
+    });
+  }
 
   // On Buy Button Click
   function buyButtonHandler() {
