@@ -102,29 +102,29 @@
     var oneTimeOption = document.querySelector('.buy-once .radio-box input[type=radio]');
     var variants = document.querySelector('.variants');
 
-    variants.style.transition = 'max-height 0.15s ease-out';
+    // Add transition for both max-height and opacity
+    variants.style.transition = 'max-height 0.15s ease-out, opacity 0.3s ease-in-out';
     variants.style.overflow = 'hidden';
     variants.style.maxHeight = '0';
+    variants.style.opacity = '0';  // start with opacity 0
 
     var checkOption = function() {
-  if (oneTimeOption.checked) {
-    // Calculate the necessary height
-    variants.style.height = 'auto';
-    var scrollHeight = variants.offsetHeight;
+      if (oneTimeOption.checked) {
+        variants.style.maxHeight = 'none';
+        var scrollHeight = variants.scrollHeight;
+        variants.style.maxHeight = '';
+        variants.style.maxHeight = scrollHeight + 'px';
 
-    // Set up the starting state of the animation
-    variants.style.height = '0';
-    variants.offsetHeight;  // force reflow
+        // After a delay equivalent to the max-height transition, set opacity to 1
+        setTimeout(() => { variants.style.opacity = '1'; }, 150);
+      } else if (subscriptionOption.checked) {
+        // Before starting the max-height transition, set opacity to 0
+        variants.style.opacity = '0';
 
-    // Start the animation
-    variants.style.transition = 'height 0.5s ease-out';
-    variants.style.height = scrollHeight + 'px';
-  } else if (subscriptionOption.checked) {
-    // Reset the styles if it's not checked
-    variants.style.transition = 'height 0.5s ease-out';
-    variants.style.height = '0';
-  }
-};
+        // After a delay equivalent to the opacity transition, set max-height to 0
+        setTimeout(() => { variants.style.maxHeight = '0'; }, 300);
+      }
+    };
 
     $(".purchase-option-box").click(function() {
       let radioButton = $(this).find('input');
