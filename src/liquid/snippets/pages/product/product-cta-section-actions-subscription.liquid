@@ -17,7 +17,7 @@
           <label for="subscribe"></label>
         </div>
 
-        <div class="option-info">
+        <div class="option-info leading-none">
           <div class="option-title font-semibold">Subscribe & <span>save 25%</span></div>
           <div class="option-subtitle text-[14px]">Every 4th order FREE = 25% off</div>
         </div>
@@ -40,7 +40,7 @@
           <label for="buyonce"></label>
         </div>
 
-        <div class="option-info">
+        <div class="option-info leading-none">
           <div class="option-title font-semibold">Buy once</div>
           <div class="option-subtitle text-[14px]">One time delivery</div>
         </div>
@@ -85,7 +85,11 @@
   {% endif %}
 
   <div class="submit-wrap flex flex-col">
-    <button class="main-btn" id="buy-button" onclick="buyButtonHandler()">SHOP NOW</button>
+    <button class="main-btn p-0" id="buy-button" onclick="buyButtonHandler()" style="min-height:50px">
+      <span id="button-text">SHOP NOW</span>
+      <div id="loader" style="display: none;">
+        <div class="lds-ellipsis"><div></div><div></div><div></div><div></div></div>
+      </div></button>
   </div>
 </div>
 
@@ -98,9 +102,10 @@
     var oneTimeOption = document.querySelector('.buy-once .radio-box input[type=radio]');
     var variants = document.querySelector('.variants');
 
-    variants.style.transition = 'max-height 0.15s ease-out';
+    variants.style.transition = 'max-height 0.15s ease-out, opacity 0.3s ease-in-out';
     variants.style.overflow = 'hidden';
     variants.style.maxHeight = '0';
+    variants.style.opacity = '0';
 
     var checkOption = function() {
       if (oneTimeOption.checked) {
@@ -108,8 +113,10 @@
         var scrollHeight = variants.scrollHeight;
         variants.style.maxHeight = '';
         variants.style.maxHeight = scrollHeight + 'px';
+        setTimeout(() => { variants.style.opacity = '1'; }, 150);
       } else if (subscriptionOption.checked) {
-        variants.style.maxHeight = '0';
+        variants.style.opacity = '0';
+        setTimeout(() => { variants.style.maxHeight = '0'; }, 300);
       }
     };
 
@@ -133,17 +140,6 @@
     $(".pack-option").click(function() {
       $(".pack-option").removeClass("selected");
       $(this).addClass("selected");
-
-      {% comment %}
-        // Update CTA Button Text
-        {% if ctaTextType %}
-          let ctaText = "Total " + "{{ cart.currency.symbol }}" + $('.pack-option.selected').first().attr('data-price');
-
-          $("#save").fadeOut(300, function () {
-            $(this).text(ctaText);
-          }).fadeIn(300);
-        {% endif %}
-      {% endcomment %}
 
       // Slide to Variant Image
       {% if product.variants.size > 1 and product.images.size > 1 %}
@@ -198,6 +194,9 @@
 
   // On Buy Button Click
   function buyButtonHandler() {
+    document.getElementById('loader').style.display = 'block';
+    document.getElementById('button-text').style.display = 'none';
+
     if ($('.purchase-option-box.subscription').find('input:checked').length === 0) {
       let checkedPack = $('.pack-option.selected').first().attr('data-value');
       let checkedQuantity = 1;
@@ -341,7 +340,7 @@
   }
 
   .purchase-option-box .option-info {
-    padding: 10px 0 15px;
+    padding: 10px 0;
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -394,6 +393,7 @@
     align-items: center;
     justify-content: right;
     gap: 5px;
+    line-height: 1;
   }
 
   .purchase-option-box .price .calculations p::after {
@@ -516,27 +516,59 @@
   }
 </style>
 
-{% comment %}
-  <script>
-      function addItemToCart(variant_id, qty, selling_plan) {
-
-        data = {
-          "id": variant_id,
-          "quantity": qty,
-          "selling_plan": selling_plan
-        }
-
-        console.log(data);
-
-        jQuery.ajax({
-          type: 'POST',
-          url: '/cart/add.js',
-          data: data,
-          dataType: 'json',
-          success: function() {
-            console.log('success');
-            window.location.href = '/cart';
-          }
-        });
-      }
-    </script> {% endcomment %}
+<style>
+  .lds-ellipsis {
+    display: inline-block;
+    position: relative;
+    width: 80px;
+    top:-10px;
+  }
+  .lds-ellipsis div {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #fff;
+    animation-timing-function: cubic-bezier(0, 1, 1, 0);
+  }
+  .lds-ellipsis div:nth-child(1) {
+    left: 8px;
+    animation: lds-ellipsis1 0.6s infinite;
+  }
+  .lds-ellipsis div:nth-child(2) {
+    left: 8px;
+    animation: lds-ellipsis2 0.6s infinite;
+  }
+  .lds-ellipsis div:nth-child(3) {
+    left: 32px;
+    animation: lds-ellipsis2 0.6s infinite;
+  }
+  .lds-ellipsis div:nth-child(4) {
+    left: 56px;
+    animation: lds-ellipsis3 0.6s infinite;
+  }
+  @keyframes lds-ellipsis1 {
+    0% {
+      transform: scale(0);
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+  @keyframes lds-ellipsis3 {
+    0% {
+      transform: scale(1);
+    }
+    100% {
+      transform: scale(0);
+    }
+  }
+  @keyframes lds-ellipsis2 {
+    0% {
+      transform: translate(0, 0);
+    }
+    100% {
+      transform: translate(24px, 0);
+    }
+  }
+</style>
