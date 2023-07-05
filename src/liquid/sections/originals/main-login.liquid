@@ -1,3 +1,14 @@
+{% comment %} disable recharge link from login page {% endcomment %}
+<script>
+    window.rcLoginAccessLink = {
+        disableInjection: true,
+    };
+</script>
+
+{% if shop.name == 'CuraLife' %}
+  {% assign isKrakenFunctionality = false %}
+{% endif %}
+
 {{ 'customer.css' | asset_url | stylesheet_tag }}
 
 {%- style -%}
@@ -84,7 +95,7 @@
         </h3>
       {%- endif -%}
       {%- form 'customer_login', novalidate: 'novalidate' -%}
-        {%- if form.errors -%}
+        {% unless isKrakenFunctionality %} {%- if form.errors -%}
           <h2 class="form__message" tabindex="-1" autofocus>
             <span class="visually-hidden">{{ 'accessibility.error' | t }} </span>
             <svg aria-hidden="true" focusable="false" viewBox="0 0 13 13">
@@ -97,6 +108,7 @@
           </h2>
           {{ form.errors | default_errors }}
         {%- endif -%}
+      {% endunless %}
 
         <div class="field">
           <input
@@ -117,7 +129,7 @@
         </div>
 
         {%- if form.password_needed -%}
-          <div class="field">
+          <div class="field" {% if isKrakenFunctionality %}style="display: none;"{% endif %}>
             <input
               type="password"
               value=""
@@ -163,6 +175,16 @@
     {%- endif -%}
   </div>
 </div>
+
+{% comment %} Style Kraken's Login Error Messages {% endcomment %}
+<style>
+  #messageWrapper {
+    background: var(--light-peach);
+    padding: 10px;
+    border: 3px solid var(--peach);
+    font-weight: bold;
+  }
+</style>
 
 {% schema %}
 {
