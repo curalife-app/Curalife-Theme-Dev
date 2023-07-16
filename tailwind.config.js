@@ -17,10 +17,6 @@ module.exports = {
       md: { max: "768px" },
       lg: { max: "1024px" },
       xl: { max: "1200px" },
-      'smb': { max: "640px" },
-      'mb': { max: "768px" },
-      'tb': { max: "1024px" },
-      'dt': { max: "1200px" },
     },
     extend: {
       spacing: {
