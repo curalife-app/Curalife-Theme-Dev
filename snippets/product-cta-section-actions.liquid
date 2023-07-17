@@ -1,4 +1,4 @@
-<div class="product-actions">
+<div id="product-actions-{{ section_id }}" class="product-actions">
   {% assign variantQuantity = product.variants | size %}
   {% if variantQuantity > 1 %}
     <div class="cta-title">{{ title }}</div>
@@ -117,15 +117,15 @@
     let defaultVariant = urlParams.get('default-variant');
 
     if (defaultVariant) {
-      $(".variant-box").eq(defaultVariant - 1).trigger("click");
+      $("#product-actions-{{ section_id }} .variant-box").eq(defaultVariant - 1).trigger("click");
     }
     else {
-      $(".variant-box").{% if product.variants.size == 1 or request.path contains 'prime' %}first(){% elsif defaultSelectionIndex %}eq({{ defaultSelectionIndex | minus: 1 }}){% else %}first(){% endif %}.trigger( "click" );
+      $("#product-actions-{{ section_id }} .variant-box").{% if product.variants.size == 1 or request.path contains 'prime' %}first(){% elsif defaultSelectionIndex %}eq({{ defaultSelectionIndex | minus: 1 }}){% else %}first(){% endif %}.trigger( "click" );
     }
   });
 
   // On Quantity Change
-  $(document).on("click", ".submit-wrap .qty-control a", function (e) {
+  $(document).on("click", "#product-actions-{{ section_id }} .submit-wrap .qty-control a", function (e) {
     e.preventDefault();
     let newVal, $button = $(this),
       inputObj = $button.closest(".qty-control").find("input"),
@@ -141,8 +141,8 @@
   });
 
   // On Buy Button Click
-  $(document).on("click", "#buy-button", function () {
-    let checkedPack = $('input[name=pack]:checked').val();
+  $(document).on("click", "#product-actions-{{ section_id }} #buy-button", function () {
+    let checkedPack = $('#product-actions-{{ section_id }} input[name=pack]:checked').val();
     let checkedQuantity = 1;
     let checkoutLink = "https://" + location.hostname + "/cart/" + checkedPack + ":" + checkedQuantity;
     window.location.href = checkoutLink;
@@ -153,9 +153,9 @@
       ecommerce: {
       items: [{
         item_name: '{{ product.title }}',
-        item_id: $('input[name=pack]:checked').attr('data_sku'),
+        item_id: $('#product-actions-{{ section_id }} input[name=pack]:checked').attr('data_sku'),
         affiliation: '{{ shop.name }}',
-        price: $('input[name=pack]:checked').attr('data_price'),
+        price: $('#product-actions-{{ section_id }} input[name=pack]:checked').attr('data_price'),
         currency: '{{ shop.currency }}',
         item_brand: 'CuraLife',
         item_category: 'CuraLin',
@@ -174,9 +174,9 @@
     });
 
     woopra.track('add to cart', {
-      product_sku: $('input[name=pack]:checked').attr('data_sku'),
+      product_sku: $('#product-actions-{{ section_id }} input[name=pack]:checked').attr('data_sku'),
       product_name: '{{ product.title }}',
-      product_price: $('input[name=pack]:checked').attr('data_price'),
+      product_price: $('#product-actions-{{ section_id }} input[name=pack]:checked').attr('data_price'),
       currency: '{{ shop.currency }}',
       quantity: parseInt($(".qty-control input").val())
     });
