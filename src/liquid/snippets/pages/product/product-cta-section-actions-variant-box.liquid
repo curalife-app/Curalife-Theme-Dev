@@ -6,13 +6,17 @@
   {% assign original_item_cap = var.metafields.custom.original_item.value.compare_at_price %}
 {% endif %}
 
+{% comment %} Short Section ID for JS Variables {% endcomment %}
+{% assign sectionIDParts = section_id | split: '-' %}
+{% assign shortSectionID = sectionIDParts[-1] %}
+
 {% assign bottle_quantity = var.metafields.my_fields.pack_bottles_quantity %}
 {% assign original_item_cap_total = original_item_cap | times: bottle_quantity %}
 {% assign original_item_price = var.metafields.custom.original_item.value.price %}
 {% assign item_price = var.price | divided_by: bottle_quantity %}
 {% assign save_price = original_item_price | minus: item_price | times: quantity %}
 
-<div class="variant-box">
+<div id="variant-box-{{ section_id }}" class="variant-box">
   <div class="left-side-wrapper">
     <div class="radio-box">
       {% assign discount = 0 %}
@@ -221,29 +225,30 @@
       }
     }
   </style>
+{% endif %}
 
   <script>
     function updateCTA() {
       {% if ctaTextType %}
+        let checkedInputElement = $('#variant-box-{{ section_id }} input[name=pack]:checked');
+
         {% if ctaTextType == "save" %}
-          if ($('input[name=pack]:checked').attr('data-discount') == 0) {
+          if (checkedInputElement.attr('data-discount') == 0) {
             let ctaText = "";
           }
           else {
-            let ctaText = "You Save " + "{{ cart.currency.symbol }}" + $('input[name=pack]:checked').attr('data-discount');
+            let ctaText = "You Save " + "{{ cart.currency.symbol }}" + checkedInputElement.attr('data-discount');
           }
         {% elsif ctaTextType == "total" %}
-          let ctaText = "Total " + "{{ cart.currency.symbol }}" + $('input[name=pack]:checked').attr('data-price');
+          let ctaText = "Total " + "{{ cart.currency.symbol }}" + checkedInputElement.attr('data-price');
         {% endif %}
 
-        $("#save").fadeOut(300, function () {
-          $(this).text(ctaText);
-        }).fadeIn(300);
+        $("#product-actions-{{ section_id }} #save").fadeOut(300, function () {$(this).text(ctaText);}).fadeIn(300);
       {% endif %}
     }
 
     function updateSelectedVariantInformation(infoAttributeName, targetElementToUpdate) {
-      let varIndex = $('input[name=pack]:checked').attr(infoAttributeName);
+      let varIndex = $('#variant-box-{{ section_id }} input[name=pack]:checked').attr(infoAttributeName);
 
       $(targetElementToUpdate).fadeOut(300, function () {
         varIndex > 1 ? $(targetElementToUpdate).text("X" + varIndex) : $(targetElementToUpdate).text("");
@@ -257,7 +262,7 @@
       updateSelectedVariantInformation('data-save', '.save-badge');
 
       {% if request.path contains 'prime' %}
-        if ($('input[name=pack]:checked').attr('data-sku') == "Curalin180") {
+        if ($(this).find('input[name=pack]:checked').attr('data-sku') == "Curalin180") {
           $(".buy-with-prime-button").fadeIn(300);
         }
         else {
@@ -273,15 +278,15 @@
       if (window.didClickVariant) {
         // Slide to Variant Image
         {% if product.variants.size > 1 and product.images.size > 1 %}
-          let slideIndex = productSliderAllInOne.slides.length - $('input[name=pack]:checked').attr('data-index');
-          productSliderAllInOne.slideTo(slideIndex);
+          let slideIndex = productSliderAllInOne{{ shortSectionID }}.slides.length - $(this).find('input[name=pack]:checked').attr('data-index');
+          productSliderAllInOne{{ shortSectionID }}.slideTo(slideIndex);
         {% endif %}
 
         // Track in GA
         window.dataLayer = window.dataLayer || [];
         window.dataLayer.push({
           'event': 'variant-click',
-          'label': $('input[name=pack]:checked').attr('data-sku'),
+          'label': $(this).find('input[name=pack]:checked').attr('data-sku'),
           'userId': '{{ customer.id }}',
           'email': '{{ customer.email }}',
           'country': '{{customer.customer_address.country_code }}',
@@ -295,10 +300,10 @@
 
         // Track in Woopra
         woopra.track('Product_Variant_Select', {
-          sku: $(this).find("input").attr("data-sku"),
-          variant_id: $(this).find("input").attr("value"),
-          variant_title: $(this).find("input").attr("data-title"),
-          price: $(this).find("input").attr("data-price")
+          sku: $(this).find('input[name=pack]:checked').attr("data-sku"),
+          variant_id: $(this).find('input[name=pack]:checked').attr("value"),
+          variant_title: $(this).find('input[name=pack]:checked').attr("data-title"),
+          price: $(this).find('input[name=pack]:checked').attr("data-price")
         })
       }
       else {
@@ -306,4 +311,3 @@
       }
     });
   </script>
-{% endif %}

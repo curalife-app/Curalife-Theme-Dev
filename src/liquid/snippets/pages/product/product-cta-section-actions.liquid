@@ -7,9 +7,9 @@
   <div class="variants">
     {% for var in product.variants %}
       {% if forloop.last %}
-        {% render 'product-cta-section-actions-variant-box', ctaTextType: ctaTextType, isVariantNotice: isVariantNotice, var: var, index: forloop.index, isHighlightSubtitle: isHighlightSubtitle, isUpdateSaveTitle: true, pricePer: pricePer, challenge_value: challenge_value, curaeats_value: curaeats_value, isLastRender: true %}
+        {% render 'product-cta-section-actions-variant-box', section_id: section_id, ctaTextType: ctaTextType, isVariantNotice: isVariantNotice, var: var, index: forloop.index, isHighlightSubtitle: isHighlightSubtitle, isUpdateSaveTitle: true, pricePer: pricePer, challenge_value: challenge_value, curaeats_value: curaeats_value, isLastRender: true %}
       {% else %}
-        {% render 'product-cta-section-actions-variant-box', ctaTextType: ctaTextType, isVariantNotice: isVariantNotice, var: var, index: forloop.index, isHighlightSubtitle: isHighlightSubtitle, isUpdateSaveTitle: true, pricePer: pricePer, challenge_value: challenge_value, curaeats_value: curaeats_value %}
+        {% render 'product-cta-section-actions-variant-box', section_id: section_id, ctaTextType: ctaTextType, isVariantNotice: isVariantNotice, var: var, index: forloop.index, isHighlightSubtitle: isHighlightSubtitle, isUpdateSaveTitle: true, pricePer: pricePer, challenge_value: challenge_value, curaeats_value: curaeats_value %}
       {% endif %}
     {% endfor %}
   </div>
@@ -25,7 +25,7 @@
       </div>
     {% endif %}
 
-    <button class="main-btn" id="buy-button"><span>{% if isRetention %}START CHECKOUT{% else %}SHOP NOW{% endif %}</span>{% if ctaTextType %}<span class="save" id="save"></span>{% endif %}</button>
+    <button class="main-btn" id="buy-button"><span>SHOP NOW</span>{% if ctaTextType %}<span class="save" id="save"></span>{% endif %}</button>
 
     {% if request.path contains 'buy-with-prime' %}
       {% render 'buy-with-prime-button' %}
@@ -40,72 +40,68 @@
 {% render 'script.round-converted-currency' %}
 
 <style>
-  #product-actions-{{ section_id }} .product-actions {
+  #product-actions-{{ section_id }} {
     grid-area: 2/2/3/3;
     max-width: 400px;
   }
 
-  #product-actions-{{ section_id }} .product-actions .cta-title {
+  #product-actions-{{ section_id }} .cta-title {
     padding: 10px 0;
   }
 
-  #product-actions-{{ section_id }} .product-actions .variants {
+  #product-actions-{{ section_id }} .variants {
     display: flex;
     flex-direction: {% if isReversed %}column-reverse{% else %}column{% endif %};
   }
 
-  #product-actions-{{ section_id }} .product-actions .submit-wrap {
+  #product-actions-{{ section_id }} .submit-wrap {
     display: flex;
   }
 
-  #product-actions-{{ section_id }} .product-actions .submit-wrap button {
+  #product-actions-{{ section_id }} .submit-wrap button {
     background-color: {{ ctaColor }};
     width: 100%;
     display: flex;
     align-items: center;
+    justify-content: center;
+    gap: 20px;
   }
 
-  #product-actions-{{ section_id }} .product-actions .submit-wrap:hover {
+  #product-actions-{{ section_id }} .submit-wrap:hover {
     border-color: #ea9f1c;
   }
 
-  #product-actions-{{ section_id }} .product-actions .submit-wrap:hover button {
+  #product-actions-{{ section_id }} .submit-wrap:hover button {
     background-color: #ea9f1c;
   }
 
-  {% unless isRetention %}
-  #product-actions-{{ section_id }} .product-actions .submit-wrap button span {
-      width: 50%;
-    }
-  {% endunless %}
-
-  #product-actions-{{ section_id }} .product-actions .submit-wrap button span.save {
+  #product-actions-{{ section_id }} .submit-wrap button span.save {
     font-weight: 100;
     border-left: 1px solid white;
-    {% if isRetention %}padding-left: 10px;{% endif %}
+    padding-left: 20px;
   }
 
-  #product-actions-{{ section_id }} .product-actions .submit-wrap .qty-data .qty-control {
+  #product-actions-{{ section_id }} .submit-wrap .qty-data .qty-control {
     border: 0;
     background: white;
   }
 
   @media screen and (max-width: 768px) {
-    #product-actions-{{ section_id }} .product-actions {
+    #product-actions-{{ section_id }} {
       grid-area: unset;
       grid-row: 3;
       max-width: unset
     }
 
-    #product-actions-{{ section_id }} .product-actions .submit-wrap button span:first-child {
+    #product-actions-{{ section_id }} .submit-wrap button span:first-child {
       font-size: 4vw;
     }
 
     #product-actions-{{ section_id }} .submit-wrap .qty-data .qty-control {
-      border: 1px solid #ffb22d
+      border: 1px solid {{ ctaColor }};
     }
 
-    #product-actions-{{ section_id }} .product-actions .submit-wrap button {
+    #product-actions-{{ section_id }} .submit-wrap button {
       min-height: 15vw;
     }
   }
@@ -124,21 +120,23 @@
     }
   });
 
-  // On Quantity Change
-  $(document).on("click", "#product-actions-{{ section_id }} .submit-wrap .qty-control a", function (e) {
-    e.preventDefault();
-    let newVal, $button = $(this),
-      inputObj = $button.closest(".qty-control").find("input"),
-      oldValue = inputObj.val();
-    if ($button.attr('data-act') === "+") {
-      newVal = parseInt(oldValue) + 1;
-    }
-    else {
-      newVal = parseInt(oldValue) - 1;
-    }
+  {% if isBuyQuantity %}
+    // On Quantity Change
+    $(document).on("click", "#product-actions-{{ section_id }} .submit-wrap .qty-control a", function (e) {
+      e.preventDefault();
+      let newVal, $button = $(this),
+        inputObj = $button.closest(".qty-control").find("input"),
+        oldValue = inputObj.val();
+      if ($button.attr('data-act') === "+") {
+        newVal = parseInt(oldValue) + 1;
+      }
+      else {
+        newVal = parseInt(oldValue) - 1;
+      }
 
-    inputObj.val(newVal);
-  });
+      inputObj.val(newVal);
+    });
+  {% endif %}
 
   // On Buy Button Click
   $(document).on("click", "#product-actions-{{ section_id }} #buy-button", function () {
