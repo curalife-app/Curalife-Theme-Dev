@@ -1,0 +1,74 @@
+{% if shop.name == 'CuraLife' %}
+  <script>
+    {% comment %} const redirectPages = [
+      '/collections/all-2',
+      '/products/curalin-pack',
+      '/products/curalin',
+      '/products/curalin-monthly-deals',
+      '/products/curalin-3-pack',
+      '/products/curalin-3-pack-n',
+      '/products/curalin-6-pack',
+      '/products/curalin-2-pack',
+      '/products/curalin-freebies',
+      '/pages/glucose-support-lp01n-v2',
+      '/products/30-day-blood-sugar-challenge-pp'
+    ]; {% endcomment %}
+
+    let isTest = false;
+    window.intervalCounter = 0;
+
+    const getCookie = name => (
+      document.cookie.split(';')
+      .find(c => c.trim().startsWith(`${name}=`))
+      ?.split('=')[1]
+    )
+
+    function runAfterCookie(callback){
+        var checker = window.setInterval(function() {
+          const expCookie = getCookie('_gaexp');
+
+          console.log("expCookie: ", expCookie)
+          if (expCookie) {
+            expCookie.split('!').forEach(cookie => {
+              if (cookie.startsWith('GAX1.2.aMz')) {
+                isTest = cookie.endsWith('1') ? true : false;
+              }
+            });
+          }
+
+          if (intervalCounter <= 15)
+          {
+            if (isTest) {
+              clearInterval(checker);
+              callback();
+            }
+          }
+        }, 200);
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+      runAfterCookie(function() {
+          if (isTest) {
+            console.log("pricing t");
+            // redirect to pricing page
+            if (redirectPages.includes(window.location.pathname)) {
+              window.location.replace(`${window.location.pathname}-p`);
+            } else {
+              redirectPages.forEach(page => {
+                const links = document.querySelectorAll(`a[href="${page}"]`);
+                links.forEach(link => {
+                  link.setAttribute("href", `${link.getAttribute("href")}-p`);
+                });
+              });
+            }
+
+            const pricingTestOriginalElements = document.querySelectorAll('.pricing-test-original');
+            pricingTestOriginalElements.forEach(el => el.remove());
+          } else {
+            const pricingTestElements = document.querySelectorAll('.pricing-test');
+            pricingTestElements.forEach(el => el.remove());
+          }
+      });
+    }, false);
+  </script>
+{% endif %}
