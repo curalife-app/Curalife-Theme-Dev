@@ -1,8 +1,8 @@
 {% if section.settings.is_hide_on_global and shop.name == 'CuraLife Global' %}
   {% assign hideSection = true %}
-{% elsif display_on_pages != blank %}
+{% elsif section.settings.display_on_pages != blank %}
   {% assign isDisplayOnThisPage = false %}
-  {% assign displayOnPagesArray = display_on_pages | split: ',' %}
+  {% assign displayOnPagesArray = section.settings.display_on_pages | split: ',' %}
   {% for currentPage in displayOnPagesArray %}
     {% if currentPage == request.path %}
       {% assign isDisplayOnThisPage = true %}
@@ -77,10 +77,15 @@
   </section>
 
   <style>
-    {% if section.settings.bg_image %}
       #section-{{ section.id }} {
-        background-image: url('{{ section.settings.bg_image | image_url }}');
-        background-size: cover;
+        {% if section.settings.bg_image %}
+          background-image: url('{{ section.settings.bg_image | image_url }}');
+          background-size: cover;
+        {% endif %}
+
+        {% if section.settings.bg_color and section.settings.bg_width == 'full' %}
+          background-color: {{ section.settings.bg_color }};
+        {% endif %}
       }
 
       {% if section.settings.bg_image_mobile %}
@@ -91,32 +96,26 @@
         }
       {% endif %}
     {% endif %}
-  </style>
 
-  <style>
     #section-{{ section.id }} .container {
-      max-width: {{ section.settings.max_width }}%;
-    }
+      max-width: {{ section.settings.max_width }}px;
 
-    {% if section.settings.bg_color %}
-      #section-{{ section.id }} {
-        background-color: {{ section.settings.bg_color }};
-      }
-    {% endif %}
+      {% if section.settings.bg_width == 'container' %}
+        {% unless section.settings.bg_color contains 'rgba(0,0,0,0)' %}background-color: {{ section.settings.bg_color }};{% endunless %}
+        padding: 30px;
+        border-radius: 5px;
+      {% endif %}
 
-    {% if section.settings.border_color != blank %}
-      #section-{{ section.id }} .container {
+      {% if section.settings.border_color != blank %}
         border-bottom: 1px solid {{ section.settings.border_color }};
         padding-bottom: 30px;
-      }
-    {% endif %}
+      {% endif %}
 
-    {% if section.settings.is_full_width %}
-      #section-{{ section.id }} .container {
+      {% if section.settings.is_full_width %}
         max-width: 100%;
         padding: 0;
-      }
-    {% endif %}
+      {% endif %}
+    }
   </style>
 
   <style>
@@ -150,18 +149,6 @@
       }
     {% endif %}
 
-    {% if section.settings.is_remove_padding_bottom %}
-      #section-{{ section.id }} {
-        padding-bottom: 0;
-      }
-    {% endif %}
-
-    {% if section.settings.is_remove_padding_top %}
-      #section-{{ section.id }} {
-        padding-top: 0;
-      }
-    {% endif %}
-
     @media screen and (max-width: 768px) {
       #section-{{ section.id }} .container {
         max-width: 100% !important;
@@ -180,7 +167,6 @@
         max-width:{{ section.settings.decor_max_width }}%;
         object-fit: contain;
       }
-
 
       @media screen and (max-width: 768px) {
         #section-{{ section.id }} .decor-img {
@@ -551,16 +537,6 @@
       "type": "number",
       "id": "padding_bottom_mobile",
       "label": "Padding Bottom on Mobile (vw unit)"
-    },
-    {
-      "type": "checkbox",
-      "id": "is_remove_padding_top",
-      "label": "Remove padding top"
-    },
-    {
-      "type": "checkbox",
-      "id": "is_remove_padding_bottom",
-      "label": "Remove padding bottom"
     },
     {
       "type": "checkbox",
