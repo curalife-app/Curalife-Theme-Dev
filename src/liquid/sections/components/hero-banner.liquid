@@ -1,7 +1,7 @@
 <section id="hero-banner-{{ section.id }}" class="hero-banner flex items-center justify-center h-[500px] bg-{{ section.settings.bg_position }} {% if section.settings.is_split_image_text_on_mobile %}md:flex md:flex-col md:gap-4 md:!h-auto md:pt-0{% endif %}">
   {% if section.blocks.size > 0 %}
-<div class="background absolute {% if section.settings.is_split_image_text_on_mobile %}md:static{% endif %} w-full h-full">
-<div class="images {% if section.settings.is_split_image_text_on_mobile %}md:relative md:h-[90vw]{% endif %}">
+    <div class="background absolute {% if section.settings.is_split_image_text_on_mobile %}md:static{% endif %} w-full h-full">
+      <div class="images {% if section.settings.is_split_image_text_on_mobile %}md:relative md:h-[90vw]{% endif %}">
         {% for block in section.blocks %}
           <img class="img absolute h-full w-full object-cover desktop" src="{{ block.settings.img | image_url }}" alt="">
           <img class="img-mobile absolute h-full w-full object-cover mobile" src="{{ block.settings.img_mobile | image_url }}" alt="">
@@ -11,23 +11,35 @@
   {% endif %}
 
   <div class="md:justify-{{ section.settings.mobile_alignment }} container !w-full flex flex-col justify-{{ section.settings.vertical_align_desktop }} {% if section.settings.text_align == 'center' %}items-center{% endif %}">
-    <h1 class="w-1/2 md:w-full text-{{ section.settings.text_align }} md:text-{{ section.settings.text_align_mobile }} font-thin {% if section.settings.text_align == 'center' %}m-auto{% endif %}">
-      {% if section.settings.flip %} <span class="font-bold">{{ section.settings.big_title }}</span> <br>
-        {% if section.settings.small_title %}<span class="small-title">{{ section.settings.small_title }}</span>{% endif %}
-      {% else %}
-        {% if section.settings.small_title %}<span class="small-title mb-2">{{ section.settings.small_title }}</span>{% endif %}
-        <br {% if section.settings.is_disable_br_desktop %}class="mobile"{% endif %}>
-        <span class="big-title font-bold">{{ section.settings.big_title }}</span>
-      {% endif %}
-    </h1>
+    {% if section.settings.big_title.size > 0 %}
+      <h1 class="w-1/2 md:w-full text-{{ section.settings.text_align }} md:text-{{ section.settings.text_align_mobile }} font-thin {% if section.settings.text_align == 'center' %}m-auto{% endif %}">
+        {% if section.settings.flip %} <span class="font-bold">{{ section.settings.big_title }}</span> <br>
+          {% if section.settings.small_title %}<span class="small-title">{{ section.settings.small_title }}</span>{% endif %}
+        {% else %}
+          {% if section.settings.small_title %}<span class="small-title mb-2">{{ section.settings.small_title }}</span>{% endif %}
+          <br {% if section.settings.is_disable_br_desktop %}class="mobile"{% endif %}>
+          <span class="big-title font-bold">{{ section.settings.big_title }}</span>
+        {% endif %}
+      </h1>
+    {% endif %}
+
+    {% if section.settings.content_img %}
+      <img class="m-10 md:m-0" src="{{ section.settings.content_img | image_url }}" alt="{{ section.settings.content_img.alt }}">
+    {% endif %}
 
     {% if section.settings.button_link != blank %}
-      <a class="md:mt-4" href="{{ section.settings.button_link }}" {% if section.settings.is_button_link_new_window %}target="_blank"{% endif %}><button>{{ section.settings.button_title }}</button></a>
+      <a class="{% if section.settings.big_title or section.settings.small_title %}md:mt-4{% endif %}" href="{{ section.settings.button_link }}" {% if section.settings.is_button_link_new_window %}target="_blank"{% endif %}><button class="font-bold text-[24px]">{{ section.settings.button_title }}</button></a>
     {% endif %}
   </div>
 </section>
 
 <style>
+  {% if section.settings.bg_color %}
+    #hero-banner-{{ section.id }} {
+      background-color: {{ section.settings.bg_color }};
+    }
+  {% endif %}
+
   {% if section.settings.is_title_border %}
     #hero-banner-{{ section.id }} h1 .big-title {
       text-shadow: -1px 0 white, 0 2px white, 1px 0 white, 0 3px white;
@@ -70,12 +82,14 @@
     color: {{ section.settings.button_title_color }};
   }
 
-  #hero-banner-{{ section.id }} .images img {
-    position: absolute;
-    height: 100%;
-    opacity: 0;
-    transition: opacity 1s ease-in-out;
-  }
+  {% if section.blocks.size > 1 %}
+    #hero-banner-{{ section.id }} .images img {
+      position: absolute;
+      height: 100%;
+      opacity: 0;
+      transition: opacity 1s ease-in-out;
+    }
+  {% endif %}
 
   #hero-banner-{{ section.id }} .images.right img {
     left: 50%;
@@ -139,6 +153,16 @@
   },
   "settings": [
     {
+      "type": "color",
+      "id": "bg_color",
+      "label": "Background Color"
+    },
+    {
+      "type": "color",
+      "id": "title_color",
+      "label": "Title Color"
+    },
+    {
       "type": "image_picker",
       "id": "bg_image",
       "label": "Background Image"
@@ -147,6 +171,11 @@
       "type": "image_picker",
       "id": "bg_image_mobile",
       "label": "Background Image on Mobile"
+    },
+    {
+      "type": "image_picker",
+      "id": "content_img",
+      "label": "Content Image"
     },
     {
       "type": "text",
@@ -283,11 +312,6 @@
         }
       ],
       "default": "center"
-    },
-    {
-      "type": "color",
-      "id": "title_color",
-      "label": "Title Color"
     },
     {
       "type": "checkbox",
