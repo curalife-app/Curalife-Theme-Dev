@@ -1,0 +1,33 @@
+<script>
+  function runAfterCookieExists(cookie_regx,callback){
+      var checker = window.setInterval(function() {
+      if (document.cookie.match(cookie_regx)) {
+          clearInterval(checker);
+          callback();
+      }}, 200);
+  }
+
+  function trackOptimizeExperiments() {
+    var cookie_regx = '(^|;)\\s*' + '_gaexp' + '\\s*=\\s*([^;]+)';
+
+    runAfterCookieExists(cookie_regx, function() {
+      var experiments = document.cookie.match(cookie_regx).pop().replace('GAX1.2.','').split('!');
+
+      for (var i = 0; i < experiments.length; i++) {
+        var experiment = experiments[i].split('.');
+        var fieldName = "optimize_exp_" + experiment[0];
+        var varID = experiment[2];
+        var trackObj = new Object();
+        trackObj[fieldName] = varID;
+
+        console.log("Google Optimize Experiment Active:")
+        console.log(trackObj);
+        window.GOExperiment = trackObj;
+      }
+    })
+  }
+
+  $( document ).ready(function() {
+    trackOptimizeExperiments();
+  });
+</script>
