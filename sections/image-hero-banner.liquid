@@ -1,44 +1,75 @@
-<section id="hero-banner-{{ section.id }}" class="hero-banner flex items-center justify-center h-[500px] bg-{{ section.settings.bg_position }} {% if section.settings.is_split_image_text_on_mobile %}md:flex md:flex-col md:gap-4 md:!h-auto md:pt-0{% endif %}">
-  {% if section.blocks.size > 0 %}
-    <div class="background absolute {% if section.settings.is_split_image_text_on_mobile %}md:static{% endif %} w-full h-full">
-      <div class="images {% if section.settings.is_split_image_text_on_mobile %}md:relative md:h-[90vw]{% endif %}">
-        {% for block in section.blocks %}
-          <img class="img absolute h-full w-full object-cover desktop" src="{{ block.settings.img | image_url }}" alt="">
-          <img class="img-mobile absolute h-full w-full object-cover mobile" src="{{ block.settings.img_mobile | image_url }}" alt="">
-        {% endfor %}
+{% if section.settings.bg_image %}
+  {% assign bgWidth = section.settings.bg_image.width %}
+  {% assign bgHeight = section.settings.bg_image.height %}
+  {% assign bgWidthMobile = section.settings.bg_image_mobile.width %}
+  {% assign bgHeightMobile = section.settings.bg_image_mobile.height %}
+{% elsif section.blocks.size > 0 %}
+  {% assign firstBlock = section.blocks | first %}
+  {% assign bgWidth = firstBlock.settings.img.width %}
+  {% assign bgHeight = firstBlock.settings.img.height %}
+  {% assign bgWidthMobile = firstBlock.settings.img_mobile.width %}
+  {% assign bgHeightMobile = firstBlock.settings.img_mobile.height %}
+{% endif %}
+
+{% if section.settings.is_section_link %}
+  <a href="{{ section.settings.button_link }}" {% if section.settings.is_button_link_new_window %}target="_blank"{% endif %}>
+{% endif %}
+  <section id="hero-banner-{{ section.id }}" class="hero-banner flex items-center justify-center h-[500px] bg-{{ section.settings.bg_position }} {% if section.settings.is_split_image_text_on_mobile %}md:flex md:flex-col md:gap-4 md:!h-auto md:pt-0{% endif %}">
+    {% if section.blocks.size > 0 %}
+      <div class="background absolute {% if section.settings.is_split_image_text_on_mobile %}md:static{% endif %} w-full h-full">
+        <div class="images {% if section.settings.is_split_image_text_on_mobile %}md:relative md:h-[90vw]{% endif %}">
+          {% for block in section.blocks %}
+            <img class="img absolute h-full w-full object-cover desktop" src="{{ block.settings.img | image_url }}" alt="">
+            <img class="img-mobile absolute h-full w-full object-cover mobile" src="{{ block.settings.img_mobile | image_url }}" alt="">
+          {% endfor %}
+        </div>
       </div>
+    {% endif %}
+
+    <div class="md:justify-{{ section.settings.mobile_alignment }} container !w-full flex flex-col justify-{{ section.settings.vertical_align_desktop }} {% if section.settings.text_align == 'center' %}items-center{% endif %}">
+      {% if section.settings.big_title.size > 0 %}
+        <h1 class="w-1/2 md:w-full text-{{ section.settings.text_align }} md:text-{{ section.settings.text_align_mobile }} font-thin {% if section.settings.text_align == 'center' %}m-auto{% endif %}">
+          {% if section.settings.flip %} <span class="font-bold">{{ section.settings.big_title }}</span> <br>
+            {% if section.settings.small_title %}<span class="small-title">{{ section.settings.small_title }}</span>{% endif %}
+          {% else %}
+            {% if section.settings.small_title %}<span class="small-title mb-2">{{ section.settings.small_title }}</span>{% endif %}
+            <br {% if section.settings.is_disable_br_desktop %}class="mobile"{% endif %}>
+            <span class="big-title font-bold">{{ section.settings.big_title }}</span>
+          {% endif %}
+        </h1>
+      {% endif %}
+
+      {% if section.settings.content_img %}
+        <img class="m-10 md:m-0" src="{{ section.settings.content_img | image_url }}" alt="{{ section.settings.content_img.alt }}">
+      {% endif %}
+
+      {% if section.settings.button_title != blank %}
+        <a class="{% if section.settings.big_title or section.settings.small_title %}md:mt-4{% endif %}" href="{{ section.settings.button_link }}" {% if section.settings.is_button_link_new_window %}target="_blank"{% endif %}><button class="font-bold text-[24px]">{{ section.settings.button_title }}</button></a>
+      {% endif %}
     </div>
-  {% endif %}
-
-  <div class="md:justify-{{ section.settings.mobile_alignment }} container !w-full flex flex-col justify-{{ section.settings.vertical_align_desktop }} {% if section.settings.text_align == 'center' %}items-center{% endif %}">
-    {% if section.settings.big_title.size > 0 %}
-      <h1 class="w-1/2 md:w-full text-{{ section.settings.text_align }} md:text-{{ section.settings.text_align_mobile }} font-thin {% if section.settings.text_align == 'center' %}m-auto{% endif %}">
-        {% if section.settings.flip %} <span class="font-bold">{{ section.settings.big_title }}</span> <br>
-          {% if section.settings.small_title %}<span class="small-title">{{ section.settings.small_title }}</span>{% endif %}
-        {% else %}
-          {% if section.settings.small_title %}<span class="small-title mb-2">{{ section.settings.small_title }}</span>{% endif %}
-          <br {% if section.settings.is_disable_br_desktop %}class="mobile"{% endif %}>
-          <span class="big-title font-bold">{{ section.settings.big_title }}</span>
-        {% endif %}
-      </h1>
-    {% endif %}
-
-    {% if section.settings.content_img %}
-      <img class="m-10 md:m-0" src="{{ section.settings.content_img | image_url }}" alt="{{ section.settings.content_img.alt }}">
-    {% endif %}
-
-    {% if section.settings.button_link != blank %}
-      <a class="{% if section.settings.big_title or section.settings.small_title %}md:mt-4{% endif %}" href="{{ section.settings.button_link }}" {% if section.settings.is_button_link_new_window %}target="_blank"{% endif %}><button class="font-bold text-[24px]">{{ section.settings.button_title }}</button></a>
-    {% endif %}
-  </div>
-</section>
+  </section>
+{% if section.settings.is_section_link %}
+  </a>
+{% endif %}
 
 <style>
   {% if section.settings.bg_color %}
     #hero-banner-{{ section.id }} {
-      background-color: {{ section.settings.bg_color }};
+      background: {{ section.settings.bg_color }};
     }
   {% endif %}
+
+  #hero-banner-{{ section.id }} {
+    width: 100%;
+    height: 0;
+    padding-top: calc({{ bgHeight }} / {{ bgWidth }} * 100%);
+  }
+
+  @media (max-width: 768px) {
+    #hero-banner-{{ section.id }} {
+      padding-top: calc({{ bgHeightMobile }} / {{ bgWidthMobile }} * 100%);
+    }
+  }
 
   {% if section.settings.is_title_border %}
     #hero-banner-{{ section.id }} h1 .big-title {
@@ -113,41 +144,9 @@
   }
 </style>
 
-{% if section.blocks.size > 1 %}
-<script>
-  const animationDelay = {{ section.settings.animation_delay }} * 1000;
-
-  function animateImages(className) {
-    const images = document.querySelectorAll(className);
-    let index = 0;
-
-    if (images[index]) {
-      images[index].style.opacity = 1;
-    }
-
-    setInterval(() => {
-      images.forEach(img => img.style.opacity = 0);
-
-      index = (index + 1) % images.length;
-
-      if (images[index]) {
-        images[index].style.opacity = 1;
-      }
-
-    }, animationDelay);
-  }
-
-  if (window.innerWidth <= 768) {
-    animateImages('.img-mobile');
-  } else {
-    animateImages('.img.desktop');
-  }
-</script>
-{% endif %}
-
 {% schema %}
 {
-  "name": "Hero Banner",
+  "name": "Image Hero Banner",
   "disabled_on": {
     "groups": ["header", "footer"]
   },
@@ -353,6 +352,11 @@
       "label": "Open Button Link in New Window"
     },
     {
+      "type": "checkbox",
+      "id": "is_section_link",
+      "label": "Link on the whole section"
+    },
+    {
       "type": "color",
       "id": "button_color",
       "label": "Button Color"
@@ -363,27 +367,9 @@
       "label": "Button Title Color"
     }
   ],
-  "blocks": [
-    {
-      "type": "image",
-      "name": "Image Slide",
-      "settings": [
-        {
-          "type": "image_picker",
-          "id": "img",
-          "label": "Image"
-        },
-        {
-          "type": "image_picker",
-          "id": "img_mobile",
-          "label": "Image on Mobile"
-        }
-      ]
-    }
-  ],
   "presets": [
     {
-      "name": "Hero Banner"
+      "name": "Image Hero Banner"
     }
   ]
 }
