@@ -1,5 +1,9 @@
-{% if section.settings.is_hide_on_global and shop.name == 'CuraLife Global' %}
-  {% assign hideSection = true %}
+{% if shop.name == 'CuraLife Global' %}
+  {% if section.settings.is_hide_on_global %}
+    {% assign hideSection = true %}
+  {% elsif section.settings.section_additional_classes contains 'prime' or section.settings.section_additional_classes contains 'subscription' %}
+    {% assign hideSection = true %}
+  {% endif %}
 {% elsif section.settings.display_on_pages != blank %}
   {% assign isDisplayOnThisPage = false %}
   {% assign displayOnPagesArray = section.settings.display_on_pages | split: ',' %}
@@ -12,8 +16,6 @@
   {% unless isDisplayOnThisPage %}
     {% assign hideSection = true %}
   {% endunless %}
-{% elsif section.settings.section_additional_classes contains 'prime' or section.settings.section_additional_classes contains 'subscription' %}
-  {% assign hideSection = true %}
 {% endif %}
 
 {% unless hideSection %}
@@ -70,9 +72,17 @@
   </section>
 
   <style>
-    #section-{{ section.id }} {
-      display: grid;
+    .text-image {
+      display: flex;
+    }
 
+    @media screen and (max-width: 768px) {
+      .text-image {
+        display: block;
+      }
+    }
+
+    #section-{{ section.id }} {
       {% if section.settings.bg_image %}
         background-image: url('{{ section.settings.bg_image | image_url }}');
         background-size: cover;
@@ -112,12 +122,6 @@
         max-width: 100%;
         padding: 0;
       {% endif %}
-    }
-
-    @media screen and (max-width: 768px) {
-      #section-{{ section.id }} {
-        display: block;
-      }
     }
   </style>
 
