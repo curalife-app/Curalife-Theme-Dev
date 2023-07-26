@@ -15,17 +15,19 @@
   </div>
 
   <div class="submit-wrap flex flex-col">
-    {% if isBuyQuantity %}
-      <div class="qty-data">
-        <div class="qty-control">
-          <a data-act="-" href="javascript:void(0)"><span class="icon-minus"></span></a>
-          <label><input maxlength="4" name="quantity" type="number" value="1"></label>
-          <a data-act="+" href="javascript:void(0)"><span class="icon-plus"></span></a>
+    <div class="main-submit-wrapper flex">
+      {% if isBuyQuantity %}
+        <div class="qty">
+          <input type="text" name="qty" maxlength="12" value="1" title="" class="input-text" />
+          <div class="qty_inc_dec">
+            <i class="increment" onclick="incrementQty()">+</i>
+            <i class="decrement" onclick="decrementQty()">-</i>
+          </div>
         </div>
-      </div>
-    {% endif %}
+      {% endif %}
 
-    <button class="main-btn" id="buy-button"><span>SHOP NOW</span>{% if ctaTextType %}<span class="save" id="save"></span>{% endif %}</button>
+    <button class="main-btn" id="buy-button"><span>SHOP NOW</span>{% unless isBuyQuantity %}<span class="save" id="save"></span>{% endunless %}</button>
+    </div>
 
     {% render 'buy-with-prime-button' %}
   </div>
@@ -58,11 +60,13 @@
 
   #product-actions-{{ section_id }} .submit-wrap button {
     background-color: {{ ctaColor }};
-    width: 100%;
+    {% unless isBuyQuantity %}width: 100%;{% endunless %}
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 20px;
+    min-width: 320px;
+    transition: width 0.3s ease;
   }
 
   #product-actions-{{ section_id }} .submit-wrap:hover {
@@ -105,6 +109,111 @@
   }
 </style>
 
+
+{% if isBuyQuantity %}
+  <style>
+    .qty {
+      float: left;
+      width: 0;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+    }
+
+    .qty_inc_dec .increment,
+    .qty_inc_dec .decrement {
+      float: left;
+      text-align: center;
+      width: 30px;
+      cursor: pointer;
+      font-size: 1.2em;
+      line-height: 20px;
+      height: 50%;
+      vertical-align: middle;
+      background-color: #fff;
+      border: 1px solid #ccc;
+    }
+
+    .qty_inc_dec .increment {
+      border-bottom: 0;
+      line-height: 25px;
+    }
+
+    .qty_inc_dec {
+      width: 10px;
+      height: 100%;
+      display: inline-block;
+    }
+
+    .qty input[type=text] {
+      float: left;
+      font-family: "Open Sans", sans-serif;
+      outline: 0;
+      font-size: 1.2em;
+      text-align: center;
+      width: 50px;
+      height: 100%;
+      color: #2a2a2a;
+      line-height: 40px;
+      border: 1px solid #ccc;
+      border-right: 0;
+    }
+
+    /* Quantity Selector Transition */
+.qty {
+  transition: width 0.3s ease;
+}
+
+.qty_expanded {
+  width: 120px; /* Adjust the width as per your design */
+}
+
+.qty_inc_dec {
+  transition: opacity 0.3s ease;
+}
+
+.qty_expanded .qty_inc_dec {
+  opacity: 1;
+}
+  </style>
+
+  <script>
+    function incrementQty() {
+    var value = document.querySelector('input[name="qty"]').value;
+    var cardQty = document.querySelector(".cart-qty");
+    value = isNaN(value) ? 1 : value;
+    value++;
+    document.querySelector('input[name="qty"]').value = value;
+    cardQty.innerHTML = value;
+    cardQty.classList.add("rotate-x");
+  }
+
+  function decrementQty() {
+    var value = document.querySelector('input[name="qty"]').value;
+    var cardQty = document.querySelector(".cart-qty");
+    value = isNaN(value) ? 1 : value;
+    value > 1 ? value-- : value;
+    document.querySelector('input[name="qty"]').value = value;
+    cardQty.innerHTML = value;
+    cardQty.classList.add("rotate-x");
+  }
+  </script>
+
+  <script>
+    $(".product-actions .variant-box").click(function() {
+      if ($(this).find('input[name=pack]:checked').attr('data-sku') == "Curalin180") {
+        $(".qty").addClass("qty_expanded");
+        $(".submit-wrap button").css("width", "unset");
+      }
+      else {
+        $(".qty").removeClass("qty_expanded");
+        $(".submit-wrap button").css("width", "100%");
+      }
+    });
+  </script>
+{% endif %}
+
 <script>
   $(document).ready(function() {
     let urlParams = new URLSearchParams(window.location.search);
@@ -118,28 +227,10 @@
     }
   });
 
-  {% if isBuyQuantity %}
-    // On Quantity Change
-    $(document).on("click", "#product-actions-{{ section_id }} .submit-wrap .qty-control a", function (e) {
-      e.preventDefault();
-      let newVal, $button = $(this),
-        inputObj = $button.closest(".qty-control").find("input"),
-        oldValue = inputObj.val();
-      if ($button.attr('data-act') === "+") {
-        newVal = parseInt(oldValue) + 1;
-      }
-      else {
-        newVal = parseInt(oldValue) - 1;
-      }
-
-      inputObj.val(newVal);
-    });
-  {% endif %}
-
   // On Buy Button Click
   $(document).on("click", "#product-actions-{{ section_id }} #buy-button", function () {
     let checkedPack = $('#product-actions-{{ section_id }} input[name=pack]:checked').val();
-    let checkedQuantity = 1;
+    let checkedQuantity = {% if isBuyQuantity %}$('#product-actions-{{ section_id }} input[name=qty]').val();{% else %}1{% endif %};
     let checkoutLink = "https://" + location.hostname + "/cart/" + checkedPack + ":" + checkedQuantity;
     window.location.href = checkoutLink;
 
@@ -155,7 +246,7 @@
         currency: '{{ shop.currency }}',
         item_brand: 'CuraLife',
         item_category: 'CuraLin',
-        quantity: $(".qty-control input").length ? parseInt($(".qty-control input").val()) : 1
+        quantity: {% if isBuyQuantity %}$('#product-actions-{{ section_id }} input[name=qty]').val(){% else %}1{% endif %}
       }]
       },
       email: '{{ customer.email }}',
