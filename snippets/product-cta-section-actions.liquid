@@ -197,28 +197,10 @@
     }
   });
 
-  {% if isBuyQuantity %}
-    // On Quantity Change
-    $(document).on("click", "#product-actions-{{ section_id }} .submit-wrap .qty-control a", function (e) {
-      e.preventDefault();
-      let newVal, $button = $(this),
-        inputObj = $button.closest(".qty-control").find("input"),
-        oldValue = inputObj.val();
-      if ($button.attr('data-act') === "+") {
-        newVal = parseInt(oldValue) + 1;
-      }
-      else {
-        newVal = parseInt(oldValue) - 1;
-      }
-
-      inputObj.val(newVal);
-    });
-  {% endif %}
-
   // On Buy Button Click
   $(document).on("click", "#product-actions-{{ section_id }} #buy-button", function () {
     let checkedPack = $('#product-actions-{{ section_id }} input[name=pack]:checked').val();
-    let checkedQuantity = 1;
+    let checkedQuantity = {% if isBuyQuantity %}$('#product-actions-{{ section_id }} input[name=qty]').val();{% else %}1{% endif %};
     let checkoutLink = "https://" + location.hostname + "/cart/" + checkedPack + ":" + checkedQuantity;
     window.location.href = checkoutLink;
 
@@ -234,7 +216,7 @@
         currency: '{{ shop.currency }}',
         item_brand: 'CuraLife',
         item_category: 'CuraLin',
-        quantity: $(".qty-control input").length ? parseInt($(".qty-control input").val()) : 1
+        quantity: {% if isBuyQuantity %}$('#product-actions-{{ section_id }} input[name=qty]').val(){% else %}1{% endif %}
       }]
       },
       email: '{{ customer.email }}',
