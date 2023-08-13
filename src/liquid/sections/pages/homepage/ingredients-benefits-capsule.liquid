@@ -1,0 +1,153 @@
+<section class="ingredients-benefits-capsule-section text-center">
+  <div class="container">
+    <h2>{{ section.settings.title }}</h2>
+    <p>{{ section.settings.subtitle }}</p>
+
+    <div class="benefits-capsule relative m-auto text-[30px] md:text-[6vw] font-bold mb-4">
+      <img class="max-w-[500px] md:w-full" src="{{ section.settings.capsule_image | image_url }}" alt="Capsule">
+    </div>
+
+    <div class="ingredients flex items-center gap-[10px] text-[14px] justify-center md:flex-wrap">
+      <img class="md:hidden" src="{{ section.settings.capsule_left_image | image_url }}" alt="Capsule left">
+
+      {% for block in section.blocks %}
+        <div class="ingredient md:w-[31%]">
+          <img class="drop-shadow-md" src="{{ block.settings.ingredient_image | image_url }}" alt="{{ block.settings.ingredient_title }}">
+          <p>{{ block.settings.ingredient_title }}</p>
+        </div>
+      {% endfor %}
+
+      <img class="md:hidden" src="{{ section.settings.capsule_right_image | image_url }}" alt="Capsule right">
+    </div>
+
+    <p class="text-[12px] pt-4">{{ section.settings.disclaimer }}</p>
+  </div>
+</section>
+
+<style>
+  .ingredients-benefits-capsule-section {
+    background-color: {{ section.settings.bg_color }};
+  }
+
+  .benefits-text {
+    opacity: 0;
+    transition: opacity 1s;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: none;
+  }
+</style>
+
+<script>
+  let benefits = "{{ section.settings.benefits }}".split(',');
+  let benefitsCapsule = document.querySelector('.benefits-capsule');
+  let currentBenefitIndex = 0;
+
+  benefits.forEach(benefit => {
+      let span = document.createElement('span');
+      span.classList.add('benefits-text');
+      span.textContent = benefit;
+      benefitsCapsule.appendChild(span);
+  });
+
+  // Function to display the next benefit with a fade effect
+  function showNextBenefit() {
+    // Hide the currently displayed benefit
+    let currentBenefit = benefitsCapsule.querySelector('.benefits-text.active');
+    if (currentBenefit) {
+      currentBenefit.style.opacity = '0';
+      setTimeout(() => {
+        currentBenefit.style.display = 'none';
+        currentBenefit.classList.remove('active');
+      }, 1000);
+    }
+
+    // Display the next benefit
+    let nextBenefit = benefitsCapsule.querySelectorAll('.benefits-text')[currentBenefitIndex];
+    nextBenefit.style.display = 'block';
+    setTimeout(() => {
+      nextBenefit.style.opacity = '1';
+      nextBenefit.classList.add('active');
+    }, 100);
+
+    // Update the currentBenefitIndex for the next cycle
+    currentBenefitIndex = (currentBenefitIndex + 1) % benefits.length;
+  }
+
+  // Call the function every 2 seconds
+  setInterval(showNextBenefit, 2000);
+</script>
+
+{% schema %}
+  {
+    "name": "Ingredients Capsule",
+    "class": "ingredients-benefits-capsule",
+    "settings": [
+      {
+        "type": "color",
+        "id": "bg_color",
+        "label": "Background Color"
+      },
+      {
+        "type": "text",
+        "id": "title",
+        "label": "Main Title"
+      },
+      {
+        "type": "text",
+        "id": "subtitle",
+        "label": "Subtitle"
+      },
+      {
+        "type": "text",
+        "id": "disclaimer",
+        "label": "Disclaimer Text"
+      },
+      {
+        "type": "text",
+        "id": "benefits",
+        "label": "Benefits (seperate by comma)"
+      },
+      {
+        "type": "image_picker",
+        "id": "capsule_image",
+        "label": "Capsule Image"
+      },
+      {
+        "type": "image_picker",
+        "id": "capsule_left_image",
+        "label": "Capsule - Left Side Image"
+      },
+      {
+        "type": "image_picker",
+        "id": "capsule_right_image",
+        "label": "Capsule - Right Side Image"
+      }
+    ],
+    "blocks": [
+      {
+        "type": "image",
+        "name": "ingredient",
+        "settings": [
+          {
+            "type": "image_picker",
+            "id": "ingredient_image",
+            "label": "Ingredient Image"
+          },
+          {
+            "type": "text",
+            "id": "ingredient_title",
+            "label": "Ingredient Title"
+          }
+        ]
+      }
+    ],
+    "presets": [
+      {
+        "name": "Ingredients Capsule"
+      }
+    ]
+  }
+{% endschema %}
