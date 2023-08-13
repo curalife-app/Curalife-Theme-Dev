@@ -24,12 +24,62 @@
   }
 
   .benefits-capsule {
-    background-image: url({{ section.settings.capsule_image | img_url: 'master' }});
+    background-image: url({{ section.settings.capsule_image | image_url }});
     background-size: cover;
     min-width: {{ capsule_image.width }}px;
     min-height: {{ capsule_image.height }}px;
   }
+
+  .benefits-text {
+    opacity: 0;
+    transition: opacity 1s;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: none;
+  }
 </style>
+
+<script>
+  let benefits = "{{ section.settings.benefits }}".split(',');
+  let benefitsCapsule = document.querySelector('.benefits-capsule');
+  let currentBenefitIndex = 0;
+
+  benefits.forEach(benefit => {
+    let span = document.createElement('span');
+    span.textContent = benefit;
+    span.classList.add('benefits-text');
+    benefitsCapsule.appendChild(span);
+  });
+
+  // Function to display the next benefit with a fade effect
+  function showNextBenefit() {
+    // Hide the currently displayed benefit
+    let currentBenefit = benefitsCapsule.querySelector('.benefits-text.active');
+    if (currentBenefit) {
+      currentBenefit.style.opacity = '0';
+      setTimeout(() => {
+        currentBenefit.style.display = 'none';
+        currentBenefit.classList.remove('active');
+      }, 1000);
+    }
+
+    // Display the next benefit
+    let nextBenefit = benefitsCapsule.querySelectorAll('.benefits-text')[currentBenefitIndex];
+    nextBenefit.style.display = 'block';
+    setTimeout(() => {
+      nextBenefit.style.opacity = '1';
+      nextBenefit.classList.add('active');
+    }, 100);
+
+    // Update the currentBenefitIndex for the next cycle
+    currentBenefitIndex = (currentBenefitIndex + 1) % benefits.length;
+  }
+
+  // Call the function every 2 seconds
+  setInterval(showNextBenefit, 2000);
+</script>
 
 {% schema %}
   {
