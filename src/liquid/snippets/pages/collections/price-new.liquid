@@ -1,27 +1,28 @@
 {% if productType == "variant" %}
-  {% assign original_item_cap = prod.metafields.custom.original_item.value.compare_at_price %}
+  {% assign original_item_cap = prod.compare_at_price %}
   {% assign quantity = prod.metafields.my_fields.pack_bottles_quantity %}
+{% elsif prod.metafields.custom.original_item_variant.value %}
+  {% assign original_item_cap = prod.metafields.custom.original_item_variant.value.compare_at_price %}
+  {% assign quantity = prod.metafields.my_fields.pack_items_quantity %}
 {% else %}
-  {% assign original_item_cap = prod.metafields.my_fields.original_item.value.compare_at_price %}
+  {% assign original_item_cap = prod.compare_at_price %}
   {% assign quantity = prod.metafields.my_fields.pack_items_quantity %}
 {% endif %}
 
-{% assign quantity_by_cents = quantity | times: 100 %}
-{% assign item_price = prod.price | times: 100.0 | divided_by: quantity_by_cents %}
-<div class="price-wrapper">
-  <p>
-    {% if prod.compare_at_price > prod.price %}<strike class="no-letters rounded">{{ original_item_cap | money_with_currency | replace: ".00", "" | replace: "GBP", "" | replace: "AUD", "" | replace: "CAD", "" }}</strike>{% endif %}
-    <span class="new-price rounded">{{ item_price | money | replace: ".00", "" | replace: "GBP", "" }}</span>
-    {% if quantity > 1 %}<span class="per-bottle"> PER<br>BOTTLE</span>{% endif %}
-  </p>
-</div>
+{% if prod.price > 0 %}
+  {% assign item_price = prod.price | divided_by: quantity %}
+{% else %}
+  {% assign item_price = prod.metafields.custom.original_item_variant.value.price | divided_by: quantity %}
+{% endif %}
+
+<p>
+  {% if prod.compare_at_price > prod.price %}<strike class="no-letters rounded">{{ original_item_cap | money_with_currency | replace: ".00", "" | replace: "GBP", "" | replace: "AUD", "" | replace: "CAD", "" }}</strike>{% endif %}
+  <span class="new-price rounded">{{ item_price | money | replace: ".00", "" | replace: "GBP", "" }}</span>
+  {% if quantity > 1 %}<span class="per-bottle"> PER<br>BOTTLE</span>{% endif %}
+</p>
 
 {% if isLastRender %}
   <style>
-    .price-wrapper {
-      padding-bottom: unset !important;
-    }
-
     .price-wrapper strike {
       color: var(--dark-grey);
       font-size: 14px;
