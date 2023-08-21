@@ -90,7 +90,7 @@
 
         <main class="main__content" role="main">
           {{ content_for_layout }}
-          <div class="tc" style="display:flex;justify-content:flex-end;">
+          <div class="tc" style="display:none;justify-content:flex-end;">
             <p style="margin-top:10px;">By clicking the continue button I Agree to CuraLife's <a href="/policies/terms-of-service">Terms & Conditions</a>.</p>
           </div>
         </main>
@@ -240,6 +240,7 @@
 
     {% if is_contact_step %}
       console.log("- step: contact");
+      $(".tc").css("display", "flex");
       $("label[for='smsbump-checkout-messages-subscription'] span").html("Get free SMS order status updates");
       if ($("label[for='smsbump-checkout-messages-subscription']").length) {
         var replacer = $("label[for='smsbump-checkout-messages-subscription']").html().replace("YES - I want Free SMS order updates on my order, shipping status, and exclusive discounts", "I want free order status updates by SMS, and to be notified when CuraLin is on sale");
@@ -249,7 +250,7 @@
       $("label[for='checkout_buyer_accepts_marketing']").html("Send me emails about my order status, keep me up to date on discounts and educational content.");
 
       // Track Begin Checkout
-      {% comment %} window.dataLayer = window.dataLayer || [];
+      window.dataLayer = window.dataLayer || [];
       window.dataLayer.push({
         event: 'begin_checkout',
         ecommerce: {
@@ -264,7 +265,7 @@
         zip: '{{ checkout.shipping_address.zip }}',
         country: '{{ checkout.shipping_address.country_code }}',
         user_agent: navigator.userAgent
-      }); {% endcomment %}
+      });
 
       woopra.track('Checkout Step - Information', { page_url: window.location.href });
 
@@ -283,7 +284,6 @@
     {% elsif is_shipping_step %}
       console.log("- step: shipping");
       $("#shipping-method").addClass('active');
-      $(".tc").hide();
       $('#contact-information').html('<a class="new-breadcrumb-link" href="' + $('.breadcrumb__link:contains("Information")').attr("href") + '"></a>');
 
       // Track Shipping Step
@@ -319,7 +319,6 @@
       console.log("- step: payment")
       $("#shipping-method").addClass('active');
       $("#payment-method").addClass('active');
-      $(".tc").hide();
       $(".content-box__row .review-block").last().hide();
       $('#contact-information').html('<a class="new-breadcrumb-link" href="' + $('.breadcrumb__link:contains("Information")').attr("href") + '"></a>');
       $('#shipping-method').html('<a class="new-breadcrumb-link" href="' + $('.breadcrumb__link:contains("Shipping")').attr("href") + '"></a>');
@@ -420,25 +419,6 @@
       });
     }
   </script>
-
-  {% if thankYouAdditions %}
-    <style>
-      .sidebar {
-        width: 96% !important;
-        padding-top: 20px !important;
-        padding-left: 20px !important;
-        float: left !important;
-      }
-      .sidebar::after {
-        background: white !important;
-      }
-
-      .logo {
-        top: unset;
-        padding: 30px;
-      }
-    </style>
-  {% endif %}
 
   {% if extensions_exist %}
     <style>
