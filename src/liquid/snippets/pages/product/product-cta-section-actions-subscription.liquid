@@ -10,13 +10,13 @@
 {% assign tooltipFeatures = "Every 4th subscription order is FREE.|Free US shipping on all orders.|Subscriber-only gifts and product drops.|Cancel anytime." | split: "|" %}
 
 <div id="product-actions-{{ section_id }}" class="product-actions">
-  <div class="top-wrapper flex items-center justify-between">
-    {% if variantQuantity > 1 %}<div class="cta-title font-bold">{{ title }}</div>{% endif %}
+  <div class="top-wrapper subscription-element flex items-center justify-between" {% if product.title == "Curalin 3 Pack" or product.title == "Curalin 6 Pack" %}style="display: none"{% endif %}>
+    {% if variantQuantity > 1 or product.tags contains 'subscription' %}<div class="cta-title font-bold">{{ title }}</div>{% endif %}
     {% render 'tooltip', section_id: section_id, title: tooltipTitle, description: tooltipDescription, features: tooltipFeatures %}
   </div>
 
   <div class="purchase-options">
-    <div class="purchase-option-box subscription">
+  <div class="purchase-option-box subscription-element" {% if product.title == "Curalin 3 Pack" or product.title == "Curalin 6 Pack" %}style="display: none"{% endif %}>
       <div class="left-side-wrapper">
         <div class="radio-box">
           <input type="radio" id="subscribe" name="pack-subscription" checked="true"></input>
@@ -47,19 +47,19 @@
         </div>
 
         <div class="option-info leading-none">
-          <div class="option-title font-semibold">Buy once</div>
-          <div class="option-subtitle text-[14px]">One time delivery</div>
+        <div class="option-title font-semibold">{% if variantQuantity > 1 %}Buy once{% else %}{{ product.variants.first.title }}{% endif %}</div>
+          <div class="option-subtitle text-[14px] subscription-element" {% if product.title == "Curalin 3 Pack" or product.title == "Curalin 6 Pack" %}style="display: none"{% endif %}>One time delivery</div>
         </div>
       </div>
 
-      {% comment %} <div class="price">
-        <div class="calculations">
-          <div class="compared-at-price"><strike class="no-letters rounded">{{ 75 | money_without_trailing_zeros }}</strike></div>
-          <div class="real-price no-letters rounded">{{ 56 | money_without_trailing_zeros }}</div>
+      {% if variantQuantity == 1 %}
+        <div class="price">
+          <div class="calculations">
+            <div class="compared-at-price rounded line-through text-[12px]">{{ product.variants.first.compare_at_price | money_without_trailing_zeros }}</div>
+            <div class="real-price no-letters rounded">{{ product.variants.first.price | money_without_trailing_zeros }}</div>
+          </div>
         </div>
-
-        <p class="per-month">Per {{ pricePer | capitalize }}</p>
-      </div> {% endcomment %}
+      {% endif %}
     </div>
   </div>
 
@@ -107,30 +107,33 @@
   document.addEventListener('DOMContentLoaded', function() {
     var subscriptionOption = document.querySelector('#product-actions-{{ section_id }} .subscription .radio-box input[type=radio]');
     var oneTimeOption = document.querySelector('#product-actions-{{ section_id }} .buy-once .radio-box input[type=radio]');
-    var variants = document.querySelector('#product-actions-{{ section_id }} .variants');
 
-    variants.style.transition = 'max-height 0.15s ease-out, opacity 0.3s ease-in-out';
-    variants.style.overflow = 'hidden';
-    variants.style.maxHeight = '0';
-    variants.style.opacity = '0';
+    {% if variantQuantity > 1 %}
+      var variants = document.querySelector('#product-actions-{{ section_id }} .variants');
 
-    var checkOption = function() {
-      if (oneTimeOption.checked) {
-        variants.style.maxHeight = 'none';
-        var scrollHeight = variants.scrollHeight;
-        variants.style.maxHeight = '';
-        variants.style.maxHeight = scrollHeight + 'px';
-        setTimeout(() => { variants.style.opacity = '1'; }, 150);
-      } else if (subscriptionOption.checked) {
-        variants.style.opacity = '0';
-        setTimeout(() => { variants.style.maxHeight = '0'; }, 300);
-      }
-    };
+      variants.style.transition = 'max-height 0.15s ease-out, opacity 0.3s ease-in-out';
+      variants.style.overflow = 'hidden';
+      variants.style.maxHeight = '0';
+      variants.style.opacity = '0';
+
+      var checkOption = function() {
+        if (oneTimeOption.checked) {
+          variants.style.maxHeight = 'none';
+          var scrollHeight = variants.scrollHeight;
+          variants.style.maxHeight = '';
+          variants.style.maxHeight = scrollHeight + 'px';
+          setTimeout(() => { variants.style.opacity = '1'; }, 150);
+        } else if (subscriptionOption.checked) {
+          variants.style.opacity = '0';
+          setTimeout(() => { variants.style.maxHeight = '0'; }, 300);
+        }
+      };
+    {% endif %}
 
     $("#product-actions-{{ section_id }} .purchase-option-box").click(function() {
       let radioButton = $(this).find('input');
       radioButton.prop('checked', true);
-      checkOption();
+      {% if variantQuantity > 1 %} checkOption(); {% endif %}
     });
 
 
@@ -227,14 +230,19 @@
     document.querySelector('#product-actions-{{ section_id }} #button-text').style.display = 'none';
 
     if ($('#product-actions-{{ section_id }} .purchase-option-box.subscription').find('input:checked').length === 0) {
-      let checkedPack = $('#product-actions-{{ section_id }} .pack-option.selected').first().attr('data-value');
+      {% if variantQuantity > 1 %}
+        let checkedPack = $('#product-actions-{{ section_id }} .pack-option.selected').first().attr('data-value');
+      {% else %}
+        let checkedPack = {{ product.variants.first.id }};
+      {% endif %}
+
       let checkedQuantity = 1;
       let checkoutLink = "https://" + location.hostname + "/cart/" + checkedPack + ":" + checkedQuantity;
       window.location.href = checkoutLink;
     }
     else {
       {% comment %} buySubscription({{ product.variants.first.id }}, 1, {{ product.selling_plan_groups[0].selling_plans[0].id }}); {% endcomment %}
-      buySubscription(43162416873623, 1, {{ product.selling_plan_groups[0].selling_plans[0].id }});
+      buySubscription(43162416873623, 1, 5594513559);
     }
 
     window.dataLayer = window.dataLayer || [];
