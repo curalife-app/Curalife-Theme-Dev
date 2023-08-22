@@ -270,17 +270,16 @@
     }
 
     const baseUrl = targetUrl.split('?')[0];
-    const queryString = targetUrl.split('?')[1];
+    const queryString = targetUrl.split('?')[1] || "";
     const productSegment = baseUrl.split('/').pop();
+    const newBaseUrl = baseUrl.replace(productSegment, productValue);
 
-    console.log('Current URL:', currentUrl);
-    console.log('Base URL:', baseUrl);
-    console.log('Query String:', queryString);
-    console.log('Product Segment:', productSegment);
-    console.log('Product Value:', productValue);
+    // Create a new URLSearchParams object to manage query parameters
+    const newUrlParams = new URLSearchParams(queryString);
+    // Remove the "product" parameter from the query string
+    newUrlParams.delete("product");
 
-
-    const newUrl = baseUrl.replace(productSegment, productValue) + '?' + queryString;
+    const newUrl = newBaseUrl + '?' + newUrlParams.toString();
 
     console.log('Updated URL:', newUrl);
     return newUrl;
@@ -294,8 +293,10 @@
     if (productReplacement) {
       $('a').each(function () {
         var currLink = $(this).attr('href');
-        let newURL = replaceProductInCurrentUrl(currLink);
-        if (currLink) { $(this).attr('href', newURL) };
+        if (currLink) {
+          let newURL = replaceProductInCurrentUrl(currLink);
+          $(this).attr('href', newURL);
+        }
       });
     }
   });
