@@ -1,14 +1,13 @@
 {% assign variantQuantity = product.variants | size %}
-{% assign firstVariant = product.variants | first %}
 
 {% comment %} Short Section ID for JS Variables {% endcomment %}
 {% assign sectionIDParts = section_id | split: '-' %}
 {% assign shortSectionID = sectionIDParts[-1] %}
 
 {% if variantQuantity > 1 %}
-  {% unless firstVariant.image.src %}
+  {% if product.variants.first.image.src %}
     {% assign isMultiplierVariants = true %}
-  {% endunless %}
+  {% endif %}
 {% endif %}
 
 <div id="product-thumbnails-{{ section_id }}" class="product-thumbnails">
@@ -88,7 +87,7 @@
               {% endfor %}
 
               {% comment %} Render Vaiants on Main Slider {% endcomment %}
-              {% unless isMultiplierVariants %}
+              {% if isMultiplierVariants %}
                 {% for var in product.variants %}
                   <div class="swiper-slide">
                     <img src="{{ var.image | image_url }}" alt="{{ var.image.alt | escape }}" class="swiper-lazy max-h-[500px]">
@@ -105,7 +104,7 @@
                     {% endif %}
                   </div>
                 {% endfor %}
-              {% endunless %}
+              {% endif %}
             </div>
 
             <div class="swiper-pagination"></div>
@@ -353,8 +352,6 @@
 
   window.productSliderAllInOne{{ shortSectionID }} = new Swiper('#product-main-slider-sc-{{ section_id }}', {
     {% unless isHideThumbs %}thumbs: {swiper: window.productThumbsAllInOne{{ shortSectionID }}},{% endunless %}
-    preloadImages: false,
-    lazy: true,
     slidesPerView: 1,
     spaceBetween: 15,
     watchSlidesVisibility: true,

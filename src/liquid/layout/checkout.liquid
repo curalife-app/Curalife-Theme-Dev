@@ -11,12 +11,16 @@
 {% elsif content_for_layout contains 'Processing order' %}
   {% assign is_processing_step = true %}
 {% elsif content_for_layout contains 'data-step="thank_you"' %}
-  {% if content_for_layout contains 'You’ll receive a confirmation email with your order number shortly.' %}
-    {% assign is_thank_you_step = true %}
-  {% endif %}
+  {% assign is_thank_you_step = true %}
+{% elsif request.path contains '/orders/' %}
+  {% assign is_order_page = true %}
 {% endif %}
 
-{% assign bundle_products = "7902673240215:Curalin|7904376455319:Curalin|5485767655575:Curalin|8008569487511:Curalin-Bogo|7896199463063:Platinum Joint Care|7896200478871:Joint Care Gummies|7911564345495:Immune Booster|7911559299223:Immune Gummies|7911568703639:Multivitamin Gummies|7911570473111:Omega 3 Gummies|7896197660823:Restful Sleep|7896198447255:Sleep Well Gummies" | split: "|" %}
+{% if customer.email == 'yotam@curalife.com' or request.path contains '5a6671b8ca374d8fb65d56debf3632b4' %}
+  {% assign is_first_time_purchase = true %}
+{% endif %}
+
+{% assign bundle_products = "7902673240215:Curalin|7904376455319:Curalin|5485767655575:Curalin|7896199463063:Platinum Joint Care|7896200478871:Joint Care Gummies|7911564345495:Immune Booster|7911559299223:Immune Gummies|7911568703639:Multivitamin Gummies|7911570473111:Omega 3 Gummies|7896197660823:Restful Sleep|7896198447255:Sleep Well Gummies" | split: "|" %}
 {% assign bundle_variants = "" | split: "|" %}
 
 {%- comment -%} If store is US {%- endcomment -%}
@@ -90,19 +94,63 @@
 
         <main class="main__content" role="main">
           {{ content_for_layout }}
+
+          {% comment %} {% if is_first_time_purchase %}
+            {% if is_thank_you_step or is_order_page %}
+              <section class="p1">
+                <h3>Welcome to the Curalin Family{% if Customer.first_name %}, {{ Customer.first_name }}{% endif %}!</h3>
+                <p>Thank you for choosing Curalin for your wellness journey. <br>Since it's your first time with us, we want to make sure you get the best results possible. Curalin is more than just a supplement, it's a commitment to a healthier lifestyle.</p>
+                <a href="/pages/post-purchase"><button>Learn How to Maximize Your Results with Curalin</button></a>
+              </section>
+
+              <script>
+                $(document).ready(function () {
+                  let titleElement = $(".section[data-order-update-options]");
+                  $(".p1").insertAfter(titleElement);
+                });
+              </script>
+
+              <style>
+                .p1 {
+                  text-align: center;
+                  padding-top: 30px;
+                }
+
+                .p1 h3 {
+                  font-size: 26px;
+                  font-weight: bold;
+                  margin-bottom: 5px;
+                }
+
+                .p1 p {
+                  font-size: 18px;
+                  margin-bottom: 20px;
+                }
+
+                .p1 button {
+                  background-color: #404733;
+                  border: none;
+                  border-radius: 5px;
+                  color: white;
+                  font-size: 18px;
+                  font-weight: bold;
+                  padding: 10px 20px;
+                }
+              </style>
+            {% endif %}
+          {% endif %} {% endcomment %}
+
           <div class="tc" style="display:none;justify-content:flex-end;">
             <p style="margin-top:10px;">By clicking the continue button I Agree to CuraLife's <a href="/policies/terms-of-service">Terms & Conditions</a>.</p>
           </div>
         </main>
 
         {% if extensions_exist %}
+        {% assign credit_cards = "visa,mastercard,amex,discover,jcb,diners" | split: ',' %}
           <div id="payment-badges" class="payment-badges">
-            <img class="payment-badge" src="{{ 'checkout-payment-badges-visa.png' | asset_url }}" alt="payment provider visa" loading="lazy">
-            <img class="payment-badge" src="{{ 'checkout-payment-badges-mastercard.png' | asset_url }}" alt="payment provider mastercard" loading="lazy">
-            <img class="payment-badge" src="{{ 'checkout-payment-badges-amex.png' | asset_url }}" alt="payment provider amex" loading="lazy">
-            <img class="payment-badge" src="{{ 'checkout-payment-badges-discover.png' | asset_url }}" alt="payment provider discover" loading="lazy">
-            <img class="payment-badge" src="{{ 'checkout-payment-badges-jcb.png' | asset_url }}" alt="payment provider jcb" loading="lazy">
-            <img class="payment-badge" src="{{ 'checkout-payment-badges-diners.png' | asset_url }}" alt="payment provider diners" loading="lazy">
+            {% for card in credit_cards %}
+              <img class="payment-badge" src="{{ 'checkout-payment-badges-' | append: card | append: '.png' | asset_url }}" alt="credit card icon - {{ card }}" loading="lazy">
+            {% endfor %}
           </div>
         {% endif %}
 
@@ -156,19 +204,19 @@
     });
 
     {% if checkout.email %}
-    woopra.identify({
-      email: {{ checkout.email | json }}
-        });
+      woopra.identify({
+        email: {{ checkout.email | json }}
+      });
     {% endif %}
 
     {% if customer %}
-    woopra.identify({
-      customer_id: {{ customer.id | json }},
-      name: {{ customer.name | json }},
-      email: {{ customer.email | json }},
-      order_count: {{ customer.orders_count | json }},
-      total_spent: {{ customer.total_spent | json }}
-        });
+      woopra.identify({
+        customer_id: {{ customer.id | json }},
+        name: {{ customer.name | json }},
+        email: {{ customer.email | json }},
+        order_count: {{ customer.orders_count | json }},
+        total_spent: {{ customer.total_spent | json }}
+      });
     {% endif %}
 
     woopra.track();
@@ -178,30 +226,29 @@
   <script>
     items_data = [];
     {% for line_item in checkout.line_items %}
-    var item = {
-      item_id: '{{ line_item.sku }}',
-      item_name: '{{ line_item.product.title }}',
-      affiliation: '{{ shop.name }}',
-      price: parseFloat({{ line_item.price }} / 100.0).toFixed(2).toString(),
+      var item = {
+        item_id: '{{ line_item.sku }}',
+        item_name: '{{ line_item.product.title }}',
+        affiliation: '{{ shop.name }}',
+        price: parseFloat({{ line_item.price }} / 100.0).toFixed(2).toString(),
         currency: '{{ shop.currency }}',
-          item_brand: 'CuraLife',
-            item_category: 'CuraLin',
-              quantity: {{ line_item.quantity }}
-        }
-    items_data.push(item);
+        item_brand: 'CuraLife',
+        item_category: 'CuraLin',
+        quantity: {{ line_item.quantity }}
+      }
+      items_data.push(item);
     {% endfor %}
 
     {% if extensions_exist %}
       $(".breadcrumb li:nth-child(2) .breadcrumb__text").html("Customer");
       $(".sidebar-extentions").insertAfter(".order-summary__section--total-lines");
 
-      let isMobile = window.matchMedia("only screen and (max-width: 768px)").matches;
-
-      if (isMobile) {
+      // If mobile, move reviews to after payment badges
+      if (window.matchMedia("only screen and (max-width: 768px)").matches) {
         $(".reviews").insertAfter("#payment-badges");
       }
 
-      // Track Discount Code
+      {% comment %} // Track Discount Code
       var checker;
 
       function trackApplyDiscount() {
@@ -235,7 +282,7 @@
       }
 
       $("#checkout_submit").click(trackApplyDiscount);
-      // End Track Discount Code
+      // End Track Discount Code {% endcomment %}
     {% endif %}
 
     {% if is_contact_step %}
@@ -274,13 +321,6 @@
         woopra.track('Checkout Login');
       })
 
-      // Disable Discount on Curalin 1+1
-      $('.product__description__name').each(function () {
-        if ($(this).text() == 'Curalin 1+1') {
-          $('.order-summary__section--discount').remove();
-          $('.yotpo-widget-checkout-redemptions-widget').remove();
-        }
-      });
     {% elsif is_shipping_step %}
       console.log("- step: shipping");
       $("#shipping-method").addClass('active');
@@ -372,8 +412,6 @@
       $( document ).ready(function() {
         $("#progressbar").hide();
       });
-
-      $("header").insertBefore(".content .wrap");
 
       // Track Purchase
         {% assign coupon = checkout.discount_applications | first %}
