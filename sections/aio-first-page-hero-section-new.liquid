@@ -259,42 +259,33 @@
 </script>
 
 <script>
-  function replaceProductInCurrentUrl(targetUrl) {
-    const currentUrl = window.location.href;
-    const urlParams = new URLSearchParams(currentUrl.split('?')[1]);
-    const productValue = urlParams.get("product");
+  function getProductValue() {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get("product");
+  }
 
-    if (!productValue) {
-      console.warn('No "product" parameter found in the URL');
-      return;
-    }
+  function replaceProductSegment(targetUrl, productValue) {
+    if (!productValue) return targetUrl;
 
-    const baseUrl = targetUrl.split('?')[0];
-    const queryString = targetUrl.split('?')[1] || "";
+    const [baseUrl, queryString] = targetUrl.split('?');
     const productSegment = baseUrl.split('/').pop();
     const newBaseUrl = baseUrl.replace(productSegment, productValue);
 
-    // Create a new URLSearchParams object to manage query parameters
     const newUrlParams = new URLSearchParams(queryString);
-    // Remove the "product" parameter from the query string
     newUrlParams.delete("product");
 
-    const newUrl = newBaseUrl + '?' + newUrlParams.toString();
-
-    console.log('Updated URL:', newUrl);
-    return newUrl;
+    const finalQueryString = newUrlParams.toString() ? '?' + newUrlParams.toString() : "";
+    return newBaseUrl + finalQueryString;
   }
 
   $(document).ready(function () {
-    let urlParams = new URLSearchParams(window.location.search);
-    let productReplacement = urlParams.get('product');
+    const productReplacement = getProductValue();
 
-    console.log('Product Replacement:', productReplacement);
     if (productReplacement) {
       $('a').each(function () {
-        var currLink = $(this).attr('href');
+        const currLink = $(this).attr('href');
         if (currLink) {
-          let newURL = replaceProductInCurrentUrl(currLink);
+          const newURL = replaceProductSegment(currLink, productReplacement);
           $(this).attr('href', newURL);
         }
       });
