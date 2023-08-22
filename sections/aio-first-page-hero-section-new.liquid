@@ -259,37 +259,38 @@
 </script>
 
 <script>
-  const modifyProductLinks = () => {
-    const getProductValue = () => new URLSearchParams(window.location.search).get("product");
+  function getProductValue() {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get("product");
+  }
 
-    const replaceProductSegment = (url, productValue) => {
-      if (!url || !productValue) return url;
+  function replaceProductSegment(targetUrl, productValue) {
+    if (!productValue) return targetUrl;
 
-      const parsedUrl = new URL(url);
-      const pathParts = parsedUrl.pathname.split('/');
-      const productIndex = pathParts.indexOf('products');
+    const [baseUrl, queryString] = targetUrl.split('?');
+    const productSegment = baseUrl.split('/').pop();
+    const newBaseUrl = baseUrl.replace(productSegment, productValue);
 
-      if (productIndex === -1 || productIndex === pathParts.length - 1) return url;
+    const newUrlParams = new URLSearchParams(queryString);
+    newUrlParams.delete("product");
 
-      pathParts[productIndex + 1] = productValue;
-      parsedUrl.pathname = pathParts.join('/');
-      parsedUrl.searchParams.delete("product");
+    const finalQueryString = newUrlParams.toString() ? '?' + newUrlParams.toString() : "";
+    return newBaseUrl + finalQueryString;
+  }
 
-      return parsedUrl.toString();
-    };
-
+  $(document).ready(function () {
     const productReplacement = getProductValue();
-    if (!productReplacement) return;
 
-    // Target links within a specific class, or use another selector as needed
-    document.querySelectorAll('a.your-specific-class').forEach(link => {
-      const currentHref = link.getAttribute('href');
-      const newHref = replaceProductSegment(currentHref, productReplacement);
-      link.setAttribute('href', newHref);
-    });
-  };
-
-  document.addEventListener('DOMContentLoaded', modifyProductLinks);
+    if (productReplacement) {
+      $('a').each(function () {
+        const currLink = $(this).attr('href');
+        if (currLink) {
+          const newURL = replaceProductSegment(currLink, productReplacement);
+          $(this).attr('href', newURL);
+        }
+      });
+    }
+  });
 </script>
 
 
