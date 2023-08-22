@@ -96,13 +96,11 @@
         </main>
 
         {% if extensions_exist %}
+        {% assign credit_cards = "visa,mastercard,amex,discover,jcb,diners" | split: ',' %}
           <div id="payment-badges" class="payment-badges">
-            <img class="payment-badge" src="{{ 'checkout-payment-badges-visa.png' | asset_url }}" alt="payment provider visa" loading="lazy">
-            <img class="payment-badge" src="{{ 'checkout-payment-badges-mastercard.png' | asset_url }}" alt="payment provider mastercard" loading="lazy">
-            <img class="payment-badge" src="{{ 'checkout-payment-badges-amex.png' | asset_url }}" alt="payment provider amex" loading="lazy">
-            <img class="payment-badge" src="{{ 'checkout-payment-badges-discover.png' | asset_url }}" alt="payment provider discover" loading="lazy">
-            <img class="payment-badge" src="{{ 'checkout-payment-badges-jcb.png' | asset_url }}" alt="payment provider jcb" loading="lazy">
-            <img class="payment-badge" src="{{ 'checkout-payment-badges-diners.png' | asset_url }}" alt="payment provider diners" loading="lazy">
+            {% for card in credit_cards %}
+              <img class="payment-badge" src="{{ 'checkout-payment-badges-' | append: card | append: '.png' | asset_url }}" alt="credit card icon - {{ card }}" loading="lazy">
+            {% endfor %}
           </div>
         {% endif %}
 
@@ -156,19 +154,19 @@
     });
 
     {% if checkout.email %}
-    woopra.identify({
-      email: {{ checkout.email | json }}
-        });
+      woopra.identify({
+        email: {{ checkout.email | json }}
+      });
     {% endif %}
 
     {% if customer %}
-    woopra.identify({
-      customer_id: {{ customer.id | json }},
-      name: {{ customer.name | json }},
-      email: {{ customer.email | json }},
-      order_count: {{ customer.orders_count | json }},
-      total_spent: {{ customer.total_spent | json }}
-        });
+      woopra.identify({
+        customer_id: {{ customer.id | json }},
+        name: {{ customer.name | json }},
+        email: {{ customer.email | json }},
+        order_count: {{ customer.orders_count | json }},
+        total_spent: {{ customer.total_spent | json }}
+      });
     {% endif %}
 
     woopra.track();
@@ -178,30 +176,29 @@
   <script>
     items_data = [];
     {% for line_item in checkout.line_items %}
-    var item = {
-      item_id: '{{ line_item.sku }}',
-      item_name: '{{ line_item.product.title }}',
-      affiliation: '{{ shop.name }}',
-      price: parseFloat({{ line_item.price }} / 100.0).toFixed(2).toString(),
+      var item = {
+        item_id: '{{ line_item.sku }}',
+        item_name: '{{ line_item.product.title }}',
+        affiliation: '{{ shop.name }}',
+        price: parseFloat({{ line_item.price }} / 100.0).toFixed(2).toString(),
         currency: '{{ shop.currency }}',
-          item_brand: 'CuraLife',
-            item_category: 'CuraLin',
-              quantity: {{ line_item.quantity }}
-        }
-    items_data.push(item);
+        item_brand: 'CuraLife',
+        item_category: 'CuraLin',
+        quantity: {{ line_item.quantity }}
+      }
+      items_data.push(item);
     {% endfor %}
 
     {% if extensions_exist %}
       $(".breadcrumb li:nth-child(2) .breadcrumb__text").html("Customer");
       $(".sidebar-extentions").insertAfter(".order-summary__section--total-lines");
 
-      let isMobile = window.matchMedia("only screen and (max-width: 768px)").matches;
-
-      if (isMobile) {
+      // If mobile, move reviews to after payment badges
+      if (window.matchMedia("only screen and (max-width: 768px)").matches) {
         $(".reviews").insertAfter("#payment-badges");
       }
 
-      // Track Discount Code
+      {% comment %} // Track Discount Code
       var checker;
 
       function trackApplyDiscount() {
@@ -235,7 +232,7 @@
       }
 
       $("#checkout_submit").click(trackApplyDiscount);
-      // End Track Discount Code
+      // End Track Discount Code {% endcomment %}
     {% endif %}
 
     {% if is_contact_step %}
