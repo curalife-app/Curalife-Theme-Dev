@@ -67,41 +67,30 @@
 {% render 'newsletter-form' %}
 
 <script>
-  $(document).ready(function() {
-  var initialOffset = 100; // Start with 100px offset
-  var newOffset = 30; // Change to 30px offset when scrolling starts
-  var sidebar = $('#stickySidebar');
-  var content = $('.content');
+  $(document).ready(function(){
+  // Cache elements for better performance
+  var $sidebar = $('#stickySidebar');
+  var $content = $('.content');
 
   $(window).on('scroll', function() {
-    var scrollPosition = $(window).scrollTop();
-    var articleTop = content.offset().top;
-    var articleBottom = articleTop + content.height();
-    var sidebarHeight = sidebar.height();
-    var maxScroll = articleBottom - sidebarHeight;
+    var scrollPosition = $(this).scrollTop();
+    var articleBottom = $content.offset().top + $content.height();
+    var sidebarHeight = $sidebar.height();
 
-    if (scrollPosition > articleTop - initialOffset) {
-      if (scrollPosition < maxScroll - newOffset) {
-        sidebar.css({
-          'position': 'fixed',
-          'top': newOffset + 'px',
-          'right': '0',
-          'width': '33%'
-        });
-      } else {
-        sidebar.css({
-          'position': 'absolute',
-          'top': (maxScroll - articleTop) + 'px',
-          'right': '0',
-          'width': '33%'
-        });
-      }
-    } else {
-      sidebar.css({
-        'position': 'absolute',
-        'top': '100px',
-        'right': '0',
-        'width': '33%'
+    // Determine the top offset
+    var offsetTop = (scrollPosition > 0) ? 0 : 100;
+
+    // Condition to keep the sidebar within the article area
+    if ((scrollPosition + sidebarHeight + offsetTop) < articleBottom) {
+      $sidebar.css({
+        'position': 'relative',
+        'top': scrollPosition + offsetTop + 'px'
+      });
+    }
+    else {
+      $sidebar.css({
+        'position': 'relative',
+        'top': (articleBottom - sidebarHeight) + 'px'
       });
     }
   });
