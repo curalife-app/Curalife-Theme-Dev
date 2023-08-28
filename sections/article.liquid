@@ -67,25 +67,45 @@
 {% render 'newsletter-form' %}
 
 <script>
-  $(document).ready(function(){
-    $(window).on('scroll', function(){
-      var scrollPosition = $(this).scrollTop();
-      var articleBottom = $('.content').offset().top + $('.content').height();
-      var sidebarHeight = $('#stickySidebar').height();
+  $(document).ready(function() {
+  var initialOffset = 100; // Start with 100px offset
+  var newOffset = 30; // Change to 30px offset when scrolling starts
+  var sidebar = $('#stickySidebar');
+  var content = $('.content');
 
-      // Start with a 100px offset
-      var offsetTop = 100;
+  $(window).on('scroll', function() {
+    var scrollPosition = $(window).scrollTop();
+    var articleTop = content.offset().top;
+    var articleBottom = articleTop + content.height();
+    var sidebarHeight = sidebar.height();
+    var maxScroll = articleBottom - sidebarHeight;
 
-      // Change to 30px offset when scrolling starts
-      if (scrollPosition > 0) {
-        offsetTop = 0;
+    if (scrollPosition > articleTop - initialOffset) {
+      if (scrollPosition < maxScroll - newOffset) {
+        sidebar.css({
+          'position': 'fixed',
+          'top': newOffset + 'px',
+          'right': '0',
+          'width': '33%'
+        });
+      } else {
+        sidebar.css({
+          'position': 'absolute',
+          'top': (maxScroll - articleTop) + 'px',
+          'right': '0',
+          'width': '33%'
+        });
       }
-
-      if (scrollPosition + sidebarHeight < articleBottom) {
-        $('#stickySidebar').css('top', scrollPosition + offsetTop + 'px');
-      }
-    });
+    } else {
+      sidebar.css({
+        'position': 'absolute',
+        'top': '100px',
+        'right': '0',
+        'width': '33%'
+      });
+    }
   });
+});
 </script>
 
 <style>
