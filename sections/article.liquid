@@ -1,39 +1,15 @@
 {% assign blog_categories = "Awareness Dates,CuraFood Recipes,Health Education,Healthy Living" %}
-{% assign variable = value %}
 
 <div class="article-page">
   <div class="container">
-    {% if section.settings.singpst_img != blank %}
-      <div class="article-top py-[50px]">
-        <a class="banner click" id="article_top" href="{{ section.settings.singpst_url}}">
-          <img src="{{ section.settings.singpst_img | image_url }}" alt="" loading="lazy" height="175" style="width:100%">
-        </a>
-      </div>
-    {% endif %}
-
       <div class="article-data">
         <div class="article-wrap">
           <div class="title">
             <h1>{{ article.title }}</h1>
           </div>
-          {% capture CFH %}{{ content_for_header }}{% endcapture %}
-
-          {% if CFH contains 'adminBarInjector' %}
-          {% assign admin = true %}
-          {% elsif CFH contains 'admin-bar-iframe' %}
-          {% assign admin = true %}
-          {% elsif CFH contains 'preview_bar_injector-' %}
-          {% assign admin = true %}
-          {% endif %}
-
-          {% if admin %}
-            <div class="edit">
-              <a href="/admin/articles/{{ article.id }}"> <i class="icofont-ui-edit" style="position:relative;top:10px;left:20px;font-size:20px;"></i></a>
-            </div>
-          {% endif %}
 
           <div class="article-author">
-            <div class="details">Author: {{ article.author }}</div>
+            <div class="details">By {{ article.author }}</div>
           </div>
 
           <div class="intro-data introhide">
@@ -65,6 +41,75 @@
           </div>
           {% if section.settings.sidepst_img != blank %}
             <div class="sidebar w-[33%]">
+              {% capture all_the_tags %}
+                {% for tag in article.tags %}
+                  {{ tag }}
+                {% endfor %}
+              {% endcapture %}
+              {% assign current = article.id %}
+              {% assign count = 0 %}
+              <div class="related-posts">
+                <div class="container">
+                  <div class="posts-wrap">
+                    <div class="sub-title">
+                      <h2>Related Articles</h2>
+                    </div>
+
+                    <div class="posts-list">
+                      {% for article in blog.articles %}
+                        {% if count <= 2 %}
+                          {% unless article.id == current %}
+                            {% for tag in article.tags %}
+                              {% if all_the_tags contains tag %}
+                                  <div class="article-card">
+                                    <div class="picture">
+                                      <a href="{{ article.url }}" class="main-link"></a>
+                                      {% if article.image %}
+                                        <img src="{{ article.image | image_url }}" alt="" loading="lazy">
+                                      {% endif %}
+                                      {% if article.tags.size > 0 %}
+                                        {% for tag in article.tags %}
+                                          <div class="category">
+                                            <p>{{ tag }}</p>
+                                          </div>
+                                        {% endfor %}
+                                      {% endif %}
+                                    </div>
+
+                                    <div class="info">
+                                      <div class="main-info">
+                                        <div class="title">
+                                          <h3>
+                                            <a href="{{ article.url }}">{{ article.title }}</a>
+                                          </h3>
+                                        </div>
+                                        <div class="offer">
+                                          <p>{{settings.offer_desc}}</p>
+                                        </div>
+                                        <div class="description">
+                                          <p>
+                                            {% if article.excerpt.size > 0 %}
+                                              {{ article.excerpt }}
+                                            {% else %}
+                                              {{ article.content | strip_html | truncate: 150 }}
+                                            {% endif %}
+                                          </p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                {% assign count = count | plus: 1 %}
+                                {% break %}
+                              {% endif %}
+                            {% endfor %}
+                          {% endunless %}
+                        {% endif %}
+                      {% endfor %}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <a class="banner click" id="article_sidebar" href="{{ section.settings.sidepst_url}}">
                 <img src="{{ section.settings.sidepst_img | image_url: width: 308 }}" width="259px" height="512px" alt="" loading="lazy">
               </a>
@@ -95,7 +140,6 @@
           </div>
         </div>
 
-
         {% if section.settings.mobile_img != blank %}
           <div class="article-bottom">
             <a class="banner click" id="article_bottom" href="{{ section.settings.sidepst_url}}">
@@ -103,74 +147,6 @@
             </a>
           </div>
         {% endif %}
-
-        {% capture all_the_tags %}
-          {% for tag in article.tags %}
-            {{ tag }}
-          {% endfor %}
-        {% endcapture %}
-        {% assign current = article.id %}
-        {% assign count = 0 %}
-        <div class="related-posts">
-          <div class="container">
-            <div class="posts-wrap">
-              <div class="sub-title">
-                <h2>Related Articles</h2>
-              </div>
-              <div class="posts-list">
-                {% for article in blog.articles %}
-                  {% if count <= 2 %}
-                    {% unless article.id == current %}
-                      {% for tag in article.tags %}
-                        {% if all_the_tags contains tag %}
-                            <div class="article-card">
-                              <div class="picture">
-                                <a href="{{ article.url }}" class="main-link"></a>
-                                {% if article.image %}
-                                  <img src="{{ article.image | image_url }}" alt="" loading="lazy">
-                                {% endif %}
-                                {% if article.tags.size > 0 %}
-                                  {% for tag in article.tags %}
-                                    <div class="category">
-                                      <p>{{ tag }}</p>
-                                    </div>
-                                  {% endfor %}
-                                {% endif %}
-                              </div>
-
-                              <div class="info">
-                                <div class="main-info">
-                                  <div class="title">
-                                    <h3>
-                                      <a href="{{ article.url }}">{{ article.title }}</a>
-                                    </h3>
-                                  </div>
-                                  <div class="offer">
-                                    <p>{{settings.offer_desc}}</p>
-                                  </div>
-                                  <div class="description">
-                                    <p>
-                                      {% if article.excerpt.size > 0 %}
-                                        {{ article.excerpt }}
-                                      {% else %}
-                                        {{ article.content | strip_html | truncate: 150 }}
-                                      {% endif %}
-                                    </p>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          {% assign count = count | plus: 1 %}
-                          {% break %}
-                        {% endif %}
-                      {% endfor %}
-                    {% endunless %}
-                  {% endif %}
-                {% endfor %}
-              </div>
-            </div>
-          </div>
-        </div>
 
         <div class="posts-categories">
           <div class="sub-title">
