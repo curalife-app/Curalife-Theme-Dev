@@ -10,8 +10,8 @@
 {% assign tooltipFeatures = "Every 4th subscription order is FREE.|Free US shipping on all orders.|Subscriber-only gifts and product drops.|Cancel anytime." | split: "|" %}
 
 <div id="product-actions-{{ section_id }}" class="product-actions">
-  <div class="top-wrapper subscription-element flex items-center justify-between" {% if product.title == "Curalin 3 Pack" or product.title == "Curalin 6 Pack" %}style="display: none"{% endif %}>
-    {% if variantQuantity > 1 or product.tags contains 'subscription' %}<div class="cta-title font-bold">{{ title }}</div>{% endif %}
+  <div class="flex items-center justify-between top-wrapper subscription-element" {% if product.title == "Curalin 3 Pack" or product.title == "Curalin 6 Pack" %}style="display: none"{% endif %}>
+    {% if variantQuantity > 1 or product.tags contains 'subscription' %}<div class="font-bold cta-title">{{ title }}</div>{% endif %}
     {% render 'tooltip', section_id: section_id, title: tooltipTitle, description: tooltipDescription, features: tooltipFeatures %}
   </div>
 
@@ -23,8 +23,8 @@
           <label for="subscribe"></label>
         </div>
 
-        <div class="option-info leading-none">
-          <div class="option-title flex items-center font-semibold">Subscribe & <span>Save 25%</span></div>
+        <div class="leading-none option-info">
+          <div class="flex items-center font-semibold option-title">Subscribe & <span>Save 25%</span></div>
           <div class="option-subtitle text-[14px]">Every 4th order - <b>FREE!</b></div>
         </div>
       </div>
@@ -32,7 +32,7 @@
       <div class="price">
         <div class="calculations">
           {% comment %} <div class="compared-at-price rounded line-through text-[12px]">{{ all_products['curalin'].variants.first.price | money_without_trailing_zeros }}</div> {% endcomment %}
-          <div class="real-price no-letters rounded">{{ subscriptionPrice | times: 100 | money_without_trailing_zeros }}</div>
+          <div class="rounded real-price no-letters">{{ subscriptionPrice | times: 100 | money_without_trailing_zeros }}</div>
         </div>
 
         <p class="per-month">Per Month</p>
@@ -46,8 +46,8 @@
           <label for="buyonce"></label>
         </div>
 
-        <div class="option-info leading-none">
-        <div class="option-title font-semibold">{% if variantQuantity > 1 %}Buy once{% else %}{{ product.variants.first.title }}{% endif %}</div>
+        <div class="leading-none option-info">
+        <div class="font-semibold option-title">{% if variantQuantity > 1 %}Buy once{% else %}{{ product.variants.first.title }}{% endif %}</div>
           <div class="option-subtitle text-[14px] subscription-element" {% if product.title == "Curalin 3 Pack" or product.title == "Curalin 6 Pack" %}style="display: none"{% endif %}>One time delivery</div>
         </div>
       </div>
@@ -56,7 +56,7 @@
         <div class="price">
           <div class="calculations">
             <div class="compared-at-price rounded line-through text-[12px]">{{ product.variants.first.compare_at_price | money_without_trailing_zeros }}</div>
-            <div class="real-price no-letters rounded">{{ product.variants.first.price | money_without_trailing_zeros }}</div>
+            <div class="rounded real-price no-letters">{{ product.variants.first.price | money_without_trailing_zeros }}</div>
           </div>
         </div>
       {% endif %}
@@ -65,7 +65,7 @@
 
   {% if variantQuantity > 1 %}
     <div class="variants" style="max-height:0; overflow:hidden;">
-      {% comment %} <div class="cta-title font-bold">Choose Pack</div> {% endcomment %}
+      {% comment %} <div class="font-bold cta-title">Choose Pack</div> {% endcomment %}
 
       {% for var in product.variants %}
         {% assign bottle_quantity = var.metafields.my_fields.pack_bottles_quantity %}
@@ -73,15 +73,15 @@
         {% assign save_price = original_item_price | minus: item_price | times: quantity %}
 
         <div class="pack-option {% if forloop.index == 2 %}selected{% endif %}" data-value="{{ var.id }}" data-quantity="{{ var.metafields.my_fields.pack_bottles_quantity }}" data-price="{{ var.price | money_without_currency | replace: ".00", "" }}" data-title="{{ var.title }}" data-sku="{{ var.sku }}" data-save="{{ save_price }}" data-index="{{ forloop.index }}">
-          <div class="thumbnail relative">
+          <div class="relative thumbnail">
             <img src="{{ var.product.metafields.custom.bottle_image | image_url }}" alt="{{ var.title }}">
             {% if bottle_quantity > 1 %}<div class="variant-bottle-quantity">X{{ bottle_quantity }}</div>{% endif %}
             {% if var.metafields.my_fields.subtitle %}<div class="variant-subtitle">{{ var.metafields.my_fields.subtitle }}</div>{% endif %}
           </div>
-          <div class="variant-info py-2">
-            <div class="variant-price-wrapper flex items-center justify-center gap-1">
+          <div class="py-2 variant-info">
+            <div class="flex items-center justify-center gap-1 variant-price-wrapper">
               {% if var.compare_at_price > 0 and var.compare_at_price > var.price %}<div class="variant-cap text-[12px] rounded line-through">{{ var.compare_at_price | money_without_trailing_zeros }}</div>{% endif %}
-              <div class="variant-price font-bold">{{ var.price | money_without_trailing_zeros }}</div>
+              <div class="font-bold variant-price">{{ var.price | money_without_trailing_zeros }}</div>
             </div>
             <div class="variant-title text-[14px] md:text-[3.5vw]">{{ var.title }}</div>
           </div>
@@ -90,7 +90,7 @@
     </div>
   {% endif %}
 
-  <div class="submit-wrap flex flex-col">
+  <div class="flex flex-col submit-wrap">
     <button class="main-btn p-0 bg-[#ffb22d]" id="buy-button" onclick="buyButtonHandler()" style="min-height:50px">
       <span id="button-text">SHOP NOW</span>
       <div id="loader" style="display: none;">
@@ -136,6 +136,12 @@
       let radioButton = $(this).find('input');
       radioButton.prop('checked', true);
       {% if variantQuantity > 1 %} checkOption(); {% endif %}
+
+      // Check if the clicked box is the "Buy once" option
+      if ($(this).hasClass('buy-once')) {
+        // If it is, trigger a click event on the first .pack-option
+        $("#product-actions-{{ section_id }} .pack-option").first().trigger('click');
+      }
     });
 
     $(".purchase-option-box.subscription-element").first().trigger( "click" );
@@ -392,8 +398,10 @@
     color: white;
     border-radius: 10px;
     padding: 0 8px;
-    font-size: 16px;
+    font-size: 15px;
     margin-left: 5px;
+    font-weight: normal;
+    line-height: 1.2;
   }
 
   .cta-section-{{ section_id }} .purchase-option-box .option-info .option-infos p {

@@ -35,20 +35,11 @@ mix.copy(paths.snippets_folder_files, paths.build_snippets_folder);
 
 // Compile all SCSS source files using TailwindCSS
 mix.sass(paths.tailwindcss_file, paths.build_assets_folder)
-   .options({
+  .options({
     processCssUrls: false,
     postCss: [ tailwindcss('tailwind.config.js') ],
-   });
+  });
 
 // Compile each individual SCSS into CSS
 getFiles(paths.scss_folder).forEach(filename =>
   mix.sass(`${paths.scss_folder}${filename}`, paths.build_assets_folder));
-
-  // mix.browserSync({
-  //     proxy: 'http://localhost:3000',
-  //     files: [
-  //         // The path(s) to your templates or Liquid files that will trigger a rebuild when changed
-  //       paths.sections_folder_files,
-  //       paths.snippets_folder_files
-  //     ]
-  // });
