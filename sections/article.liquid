@@ -68,36 +68,35 @@
 
 <script>
   $(document).ready(function(){
-  // Cache elements for better performance
-  var $sidebar = $('#stickySidebar');
-  var $content = $('.content');
+  // Function to update sidebar position
+  function updateSidebar() {
+    var scrollPosition = $(window).scrollTop();
+    var articleBottom = $('.content').offset().top + $('.content').height();
+    var sidebarHeight = $('#stickySidebar').height();
+    var windowBottom = scrollPosition + $(window).height();
 
-  $(window).on('scroll', function() {
-    var scrollPosition = $(this).scrollTop();
-    var articleBottom = $content.offset().top + $content.height();
-    var sidebarHeight = $sidebar.height();
-
-    // Determine the top offset
-    var offsetTop = (scrollPosition > 0) ? 0 : 100;
-
-    // Condition to keep the sidebar within the article area
-    if ((scrollPosition + sidebarHeight + offsetTop) < articleBottom) {
-      $sidebar.css({
-        'position': 'relative',
-        'top': scrollPosition + offsetTop + 'px'
-      });
+    // Condition to keep the sidebar in relative position
+    if (scrollPosition + sidebarHeight >= articleBottom || sidebarHeight >= $('.content').height()) {
+      $('#stickySidebar').removeClass('sticky');
+    } else {
+      $('#stickySidebar').addClass('sticky');
+      var offsetTop = (scrollPosition > 0) ? 0 : 100;
+      $('#stickySidebar').css('top', offsetTop + 'px');
     }
-    else {
-      $sidebar.css({
-        'position': 'relative',
-        'top': (articleBottom - sidebarHeight) + 'px'
-      });
-    }
-  });
+  }
+
+  // Initial update
+  updateSidebar();
+
+  // Update sidebar on scroll and window resize
+  $(window).on('scroll resize', updateSidebar);
 });
 </script>
 
 <style>
+  .sticky {
+  position: absolute;
+}
   .article-wrap h3 {
     font-size: 30px;
   }
