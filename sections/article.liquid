@@ -46,37 +46,35 @@
                 {{ tag }}
               {% endfor %}
             {% endcapture %}
-
             {% assign current = article.id %}
-            {% assign related_articles = "" | split: "," %}
-
+            {% assign count = 0 %}
             <div class="related-posts bg-[#F1F1F1]">
               <h4>Related topics</h4>
 
               <div class="posts-list flex flex-col gap-4">
                 {% for article in blog.articles %}
-                  {% unless article.id == current %}
-                    {% for tag in article.tags %}
-                      {% if all_the_tags contains tag and related_articles.size < 3 %}
-                        {% assign related_articles = related_articles | push: article %}
-                        {% break %}
-                      {% endif %}
-                    {% endfor %}
-                  {% endunless %}
-                {% endfor %}
+                  {% if count <= 2 %}
+                    {% unless article.id == current %}
+                      {% for tag in article.tags %}
+                        {% if all_the_tags contains tag %}
+                          <a href="{{ article.url }}" class="main-link">
+                            <div class="article-card flex">
+                              <div class="picture w-[110px]">
+                                <img src="{{ article.image | image_url: width: 110 }}" width="110" height="60" alt="{{ article.title }} article thumbnail" loading="lazy">
+                              </div>
 
-                {% for related_article in related_articles %}
-                  <a href="{{ related_article.url }}" class="main-link">
-                    <div class="article-card flex">
-                      <div class="picture w-[110px]">
-                        <img src="{{ related_article.image | image_url: width: 110 }}" width="110" height="60" alt="{{ related_article.title }} article thumbnail" loading="lazy">
-                      </div>
-                      <div class="info flex flex-col">
-                        <h4 class="text-[20px] m-0">{{ related_article.title }}</h4>
-                        <div class="date text-[14px]">{{ related_article.published_at | date: "%B %d, %Y" }}</div>
-                      </div>
-                    </div>
-                  </a>
+                              <div class="info flex flex-col">
+                                <h4 class="text-[20px] m-0">{{ article.title }}</h4>
+                                <div class="date text-[14px]">{{ article.published_at | date: "%B %d, %Y" }}</div>
+                              </div>
+                            </div>
+                            </a>
+                          {% assign count = count | plus: 1 %}
+                          {% break %}
+                        {% endif %}
+                      {% endfor %}
+                    {% endunless %}
+                  {% endif %}
                 {% endfor %}
               </div>
             </div>
