@@ -193,42 +193,40 @@
   </script>
 
 <script>
-  function clearCart(callback) {
-    jQuery.ajax({
-      type: 'POST',
-      url: '/cart/clear.js',
-      success: function() {
-        console.log('Cart cleared');
-        callback();
-      },
-      error: function() {
-        console.log('Failed to clear cart');
-      }
-    });
+  async function clearCart() {
+    try {
+      await jQuery.ajax({
+        type: 'POST',
+        url: '/cart/clear.js'
+      });
+      console.log('Cart cleared');
+    } catch (error) {
+      console.log('Failed to clear cart');
+    }
   }
 
-  function buySubscription(variant_id, qty, selling_plan) {
-    clearCart(function() {
-      data = {
-        "id": variant_id,
-        "quantity": qty,
-        "selling_plan": selling_plan
-      }
-
-      jQuery.ajax({
+  async function addToCart(variant_id, qty, selling_plan) {
+    try {
+      await jQuery.ajax({
         type: 'POST',
         url: '/cart/add.js',
-        data: data,
-        dataType: 'json',
-        success: function() {
-          console.log('success');
-          window.location.href = '/checkout';
+        data: {
+          "id": variant_id,
+          "quantity": qty,
+          "selling_plan": selling_plan
         },
-        error: function() {
-          console.log('Failed to add item to cart');
-        }
+        dataType: 'json'
       });
-    });
+      console.log('success');
+      window.location.href = '/checkout';
+    } catch (error) {
+      console.log('Failed to add item to cart');
+    }
+  }
+
+  async function buySubscription(variant_id, qty, selling_plan) {
+    await clearCart();
+    await addToCart(variant_id, qty, selling_plan);
   }
 
   // On Buy Button Click
