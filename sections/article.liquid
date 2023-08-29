@@ -40,21 +40,19 @@
     </div>
 
     <div id="stickySidebar" class="sidebar w-[33%] md:w-full md:pt-8 absolute md:!static top-[100px] right-0">
-      {% assign all_the_tags = article.tags | join: ',' %}
-      {% assign current = article.id %}
       {% assign related_count = 0 %}
       {% assign all_articles = blog.articles %}
-      {% assign random_index = i | plus: random_offset | plus: current | modulo: all_articles.size %}
+      {% assign all_the_tags = article.tags | join: ',' %}
+      {% assign current = article.id %}
 
       <div class="related-posts px-4 py-8 bg-[#F1F1F1]">
         <h4>Related Topics</h4>
 
         <div class="posts-list flex flex-col gap-6">
-          {% for related_article in blog.articles %}
+          {% for related_article in all_articles %}
             {% if related_count >= 5 %}
               {% break %}
             {% endif %}
-
             {% unless related_article.id == current %}
               {% for tag in related_article.tags %}
                 {% if all_the_tags contains tag %}
@@ -70,7 +68,6 @@
                       </div>
                     </div>
                   </a>
-
                   {% assign related_count = related_count | plus: 1 %}
                   {% break %}
                 {% endif %}
@@ -80,7 +77,7 @@
 
           {% if related_count == 0 %}
             {% for i in (1..5) %}
-              {% assign random_index = i | plus: random_offset | modulo: all_articles.size %}
+              {% assign random_index = i | times: now | modulo: all_articles.size %}
               {% assign random_article = all_articles[random_index] %}
               {% unless random_article.id == current %}
                 <a href="{{ random_article.url }}">
