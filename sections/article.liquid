@@ -40,44 +40,43 @@
     </div>
 
     <div id="stickySidebar" class="sidebar w-[33%] md:w-full md:pt-8 absolute md:!static top-[100px] right-0">
+  <div class="related-posts px-4 py-8 bg-[#F1F1F1]">
+    <h4>Related Topics</h4>
+    <div class="posts-list flex flex-col gap-6">
       {% assign all_the_tags = article.tags | join: ',' %}
       {% assign current = article.id %}
       {% assign related_count = 0 %}
+      {% assign all_articles = blog.articles %}
+      {% assign random_offset = now | date: '%S' | modulo: all_articles.size %}
 
-      <div class="related-posts px-4 py-8 bg-[#F1F1F1]">
-        <h4>Related Topics</h4>
+      <!-- Loop to get related articles -->
+      {% for loop_article in blog.articles %}
+        {% if related_count >= 5 %}
+          {% break %}
+        {% endif %}
 
-        <div class="posts-list flex flex-col gap-6">
-          {% for loop_article in blog.articles %}
-            {% if related_count >= 5 %}
+        {% unless loop_article.id == current %}
+          {% for tag in loop_article.tags %}
+            {% if all_the_tags contains tag %}
+              <!-- Your existing code for displaying each article -->
+              {% assign related_count = related_count | plus: 1 %}
               {% break %}
             {% endif %}
-
-            {% unless loop_article.id == current %}
-              {% for tag in loop_article.tags %}
-                {% if all_the_tags contains tag %}
-                  <a href="{{ loop_article.url }}">
-                    <div class="article-card flex-nowrap flex gap-2">
-                      <div class="picture min-w-[110px] h-[60px] overflow-hidden border-r-2">
-                        <img src="{{ loop_article.image | image_url }}" width="110" height="60" alt="{{ loop_article.title }} article thumbnail" loading="lazy">
-                      </div>
-
-                      <div class="info flex flex-col gap-1">
-                        <h4 class="text-[20px] m-0 line-clamp-2">{{ loop_article.title }}</h4>
-                        <div class="date text-[14px]">{{ loop_article.published_at | date: '%B %d, %Y' }}</div>
-                      </div>
-                    </div>
-                  </a>
-
-                  {% assign related_count = related_count | plus: 1 %}
-                  {% break %}
-                {% endif %}
-              {% endfor %}
-            {% endunless %}
           {% endfor %}
-        </div>
-      </div>
+        {% endunless %}
+      {% endfor %}
+
+      <!-- Loop to fill in with random articles if related_count is less than 5 -->
+      {% for i in (related_count..4) %}
+        {% assign random_index = forloop.index0 | plus: random_offset | modulo: all_articles.size %}
+        {% assign random_article = all_articles[random_index] %}
+        {% unless random_article.id == current %}
+          <!-- Your existing code for displaying each article, replace loop_article with random_article -->
+        {% endunless %}
+      {% endfor %}
     </div>
+  </div>
+</div>
   </div>
 </section>
 
