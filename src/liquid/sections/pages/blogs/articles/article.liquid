@@ -1,132 +1,133 @@
-{% assign blog_categories = "Awareness Dates,CuraFood Recipes,Health Education,Healthy Living" %}
+{% assign blog_categories = "Awareness Dates,CuraFood Recipes,Health Education,Healthy Living" | split: "," %}
 
 <section class="article-page">
   <div class="container">
-    <div class="article-data">
-      <div class="article-wrap flex flex-wrap justify-between">
-        <h1 class="text-[48px] m-0">{{ article.title }}</h1>
+    <div class="article-wrap flex flex-wrap justify-between">
+      <h1 class="text-[48px] md:text-[8vw] mb-2">{{ article.title }}</h1>
 
-        <div class="article-info w-full mb-[30px]">
-          <div class="details">By {{ article.author }}, {{ article.published_at | date: '%B %d, %Y' }}</div>
-        </div>
-
-        <div class="content w-[60%]">
-          <div class="picture-container mb-[30px]">
-            {% if article.image %}
-              {% unless article.metafields.custom.hide_article_image == "true" %}
-                <img class="h-[400px] w-full" id="featured-image" src="{{ article.image | image_url }}" alt="" height="410" loading="lazy">
-              {% endunless %}
-            {% endif %}
-          </div>
-
-          <div class="text text-[20px]">{{ article.content }}</div>
-        </div>
-
-        {% if section.settings.sidepst_img != blank %}
-          <div class="sidebar w-[33%]">
-            {% assign all_the_tags = article.tags | join: ',' %}
-            {% assign current = article.id %}
-            {% assign related_count = 0 %}
-
-            <div class="related-posts p-4 bg-[#F1F1F1]">
-              <h4>Related topics</h4>
-
-              <div class="posts-list flex flex-col gap-4">
-                {% for loop_article in blog.articles %}
-                  {% if related_count >= 5 %}
-                    {% break %}
-                  {% endif %}
-
-                  {% unless loop_article.id == current %}
-                    {% for tag in loop_article.tags %}
-                      {% if all_the_tags contains tag %}
-                        <a href="{{ loop_article.url }}">
-                          <div class="article-card flex-nowrap flex gap-2">
-                            <div class="picture w-[110px] h-[60px] overflow-hidden border-r-2">
-                              <img src="{{ loop_article.image | image_url }}" width="110" height="60" alt="{{ loop_article.title }} article thumbnail" loading="lazy">
-                            </div>
-
-                            <div class="info flex flex-col">
-                              <h4 class="text-[20px] m-0 line-clamp-2">{{ loop_article.title }}</h4>
-                              <div class="date text-[14px]">{{ loop_article.published_at | date: '%B %d, %Y' }}</div>
-                            </div>
-                          </div>
-                        </a>
-
-                        {% assign related_count = related_count | plus: 1 %}
-                        {% break %}
-                      {% endif %}
-                    {% endfor %}
-                  {% endunless %}
-                {% endfor %}
-              </div>
-            </div>
-
-            <a class="banner click" id="article_sidebar" href="{{ section.settings.sidepst_url}}">
-              <img src="{{ section.settings.sidepst_img | image_url: width: 308 }}" width="259" height="512" alt="" loading="lazy">
-            </a>
-          </div>
-        {% endif %}
+      <div class="article-info w-full mb-[30px] text-[16px]">
+        <div class="details">By {{ article.author }}, {{ article.published_at | date: '%B %d, %Y' }}</div>
       </div>
-{% comment %}
-      <div class="share-post">
-        <div class="container">
-          <div class="share-wrap">
-            {% if section.settings.socil_titl != blank %}
-              <p>{{section.settings.socil_titl}}</p>
+
+      <div class="content w-[60%] md:w-full pb-4">
+        <div class="picture-container mb-[30px]">
+          {% if article.image %}
+            {% unless article.metafields.custom.hide_article_image == "true" %}
+              <img class="!p-0 h-[400px] md:h-[250px] w-full" id="featured-image" src="{{ article.image | image_url }}" alt="" height="400" loading="lazy">
+            {% endunless %}
+          {% endif %}
+        </div>
+
+        <div class="text text-[20px]">{{ article.content }}</div>
+      </div>
+    </div>
+
+    <div class="tag-section w-[60%] md:w-full md:pt-4 items-center flex justify-center p-4">
+      {% for tag in article.tags %}
+        {% if blog_categories contains tag %}
+          <a href="{{ blog.url }}/tagged/{{ tag | handleize }}" class="article-tag px-4 py-1 gap-2 bg-[#F1F1F1] text-[14px] min-w-[130px] text-center rounded-sm">{{ tag }}</a>
+        {% endif %}
+      {% endfor %}
+    </div>
+
+    <div class="share-article w-[60%] md:w-full bg-[#F1F1F1] items-center text-[20px] flex justify-center p-4 gap-4">
+      <div>Share with friends: </div>
+      <div class="social-buttons">
+        <a href="https://www.facebook.com/sharer/sharer.php?u={{ shop.url }}{{ article.url }}" target="_blank"><i class="fab fa-facebook-f p-4"></i></a>
+        <a href="https://twitter.com/share?url={{ shop.url }}{{ article.url }}&text={{ article.title }}" target="_blank"><i class="fab fa-twitter p-4"></i></a>
+        <a href="#" id="copy-link-button"><i class="fas fa-copy p-4"></i></a>
+      </div>
+    </div>
+
+    <div id="stickySidebar" class="sidebar w-[33%] md:w-full md:pt-8 absolute md:!static top-[100px] right-0">
+      {% assign all_the_tags = article.tags | join: ',' %}
+      {% assign current = article.id %}
+      {% assign related_count = 0 %}
+
+      <div class="related-posts px-4 py-8 bg-[#F1F1F1]">
+        <h4>Related Topics</h4>
+
+        <div class="posts-list flex flex-col gap-6">
+          {% for loop_article in blog.articles %}
+            {% if related_count >= 5 %}
+              {% break %}
             {% endif %}
-            <ul>
-              {% for block in section.blocks %}
-                {% if block.type == 'socl_icn' %}
-                  {% if block.settings.blg_icn != blank %}
-                    <li>
-                      <a href="{{block.settings.blg_icnlink}}">
-                        <span class="{{block.settings.blg_icn}}"></span>
-                      </a>
-                    </li>
-                  {% endif %}
+
+            {% unless loop_article.id == current %}
+              {% for tag in loop_article.tags %}
+                {% if all_the_tags contains tag %}
+                  <a href="{{ loop_article.url }}">
+                    <div class="article-card flex-nowrap flex gap-2">
+                      <div class="picture min-w-[110px] h-[60px] overflow-hidden border-r-2">
+                        <img src="{{ loop_article.image | image_url }}" width="110" height="60" alt="{{ loop_article.title }} article thumbnail" loading="lazy">
+                      </div>
+
+                      <div class="info flex flex-col gap-1">
+                        <h4 class="text-[20px] m-0 line-clamp-2">{{ loop_article.title }}</h4>
+                        <div class="date text-[14px]">{{ loop_article.published_at | date: '%B %d, %Y' }}</div>
+                      </div>
+                    </div>
+                  </a>
+
+                  {% assign related_count = related_count | plus: 1 %}
+                  {% break %}
                 {% endif %}
               {% endfor %}
-            </ul>
-          </div>
-        </div>
-      </div> {% endcomment %}
-
-      {% comment %} <div class="posts-categories">
-        <h2>Blog Categories</h2>
-
-        <ul class="blog-category flex justify-center">
-          {% for tag in blog.all_tags %}
-            {% if blog_categories contains tag %}
-                {% assign crTag = tag %}
-                {% if current_tags contains crTag %}
-                {% assign cls = "active" %}
-                {% else %}
-                {% assign cls = "" %}
-                {% endif %}
-                <li class="{{ cls }}"><a href="{{ blog.url }}/tagged/{{ tag | handleize }}">{{ tag }}</a></li>
-            {% endif %}
+            {% endunless %}
           {% endfor %}
-        </ul>
-      </div> {% endcomment %}
+        </div>
+      </div>
     </div>
   </div>
 </section>
 
 {% render 'newsletter-form' %}
 
+<script>
+  $(document).ready(function(){
+    if ($(window).width() > 768) {
+      var initialSidebarTop = $('#stickySidebar').offset().top;
+      var tagsSectionBottom = $('.tag-section').offset().top + $('.tag-section').height();
+      var sidebarHeight = $('#stickySidebar').height();
+      var offsetTop = 100;
+
+      $(window).on('scroll', function(){
+        var scrollPosition = $(this).scrollTop();
+        var maxTranslate = tagsSectionBottom - sidebarHeight - initialSidebarTop + offsetTop;
+
+        if (scrollPosition >= initialSidebarTop - offsetTop) {
+          var translateY = scrollPosition - initialSidebarTop + offsetTop;
+          translateY = Math.min(translateY, maxTranslate);
+          $('#stickySidebar').css('transform', 'translateY(' + translateY + 'px)');
+        } else {
+          $('#stickySidebar').css('transform', 'translateY(0)');
+        }
+      });
+    }
+  });
+</script>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('copy-link-button').addEventListener('click', function(e) {
+      e.preventDefault();
+      var dummy = document.createElement('input'),
+          text = window.location.href;
+
+      document.body.appendChild(dummy);
+      dummy.value = text;
+      dummy.select();
+      document.execCommand('copy');
+      document.body.removeChild(dummy);
+
+      alert('Link copied to clipboard.');
+    });
+  });
+</script>
+
 <style>
   .article-wrap h3 {
     font-size: 30px;
-  }
-
-  .article-top {
-      padding: 50px 0;
-      text-align: center;
-  }
-
-  a:hover {
-      text-decoration: unset;
   }
 
   .article-author .photo {
@@ -158,72 +159,15 @@
       font-size: 36px;
   }
 
-  .share-post {
-      padding: 20px 0;
-      margin-top: 60px;
-      background: #f5f5f5;
+  .article-wrap .content img {
+    padding: 2rem 0;
   }
 
-  .share-post .share-wrap {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: center;
-  }
-
-  .share-post p {
-      display: flex;
-      margin: 0;
-      padding: 0 31px 0 0;
-      font-weight: 400;
-      font-size: 18px;
-      line-height: 1.5;
-  }
-
-  .share-post ul {
-      display: flex;
-      flex-wrap: wrap;
-  }
-
-  .share-post ul li {
-      display: flex;
-  }
-
-  .share-post ul li a {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin: 5px 10px;
-      height: 40px;
-      font-size: 22px;
-  }
-
-  .article-data .article-bottom {
-      padding: 29px 0 2px;
-  }
-
-  .article-bottom {
-      display: none;
-  }
-
-  .article-data .article-bottom a {
-      display: block;
-      max-width: 283px;
-      margin: 0 auto;
-  }
-
-  .related-posts .posts-wrap .posts-list {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: space-between;
-      gap: 10px;
+  .social-buttons a:hover {
+    color: black;
   }
 
   @media screen and (max-width: 768px) {
-    .article-top {
-        padding-bottom: 33px;
-    }
-
     .article-wrap .content {
         width: 100%;
     }
@@ -234,245 +178,12 @@
     .article-wrap .content .text h2 {
         font-size: 24px;
     }
-    .article-wrap .sidebar {
-        display: none;
-    }
-    .share-post {
-        padding: 27px 0;
-        margin-top: 27px;
-        margin-left: -15px;
-        margin-right: -15px;
-    }
-    .share-post p {
-        width: 100%;
-        padding: 0;
-        font-size: 18px;
-        justify-content: center;
-    }
-    .share-post ul {
-        width: 100%;
-        justify-content: center;
-        padding-top: 15px;
-    }
-    .share-post ul li a {
-        margin: 5px 10px;
-        width: 40px;
-        height: 40px;
-        font-size: 22px;
-    }
-  }
-
-  @media screen and (max-width: 640px) {
-    .article-bottom {
-        display: block;
-    }
-  }
-
-  .article-card .info .main-info .title h3 a {
-      color: inherit;
-      transition: color var(--transition);
-  }
-  .blog-page {
-      padding-bottom: 50px;
-  }
-
-  .blog-category ul {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-  }
-
-  .blog-category ul li {
-      display: flex;
-      text-align: center;
-      margin-bottom: 10px;
-      padding-right: 13px;
-  }
-  .blog-category ul li a {
-      display: flex;
-      align-items: center;
-      padding: 10px 15px;
-      font-weight: 400;
-      font-size: 18px;
-      line-height: 1;
-      letter-spacing: -.284583px;
-      color: var(--green);
-      white-space: nowrap;
-      border: 1px solid var(--green);
-      border-radius: 5px;
-      transition: color var(--transition),border-color var(--transition),background-color var(--transition);
-  }
-  .blog-category ul li.active a {
-      color: #fff;
-      background: var(--green);
-  }
-  .article-list {
-      display: flex;
-      flex-wrap: wrap;
-  }
-
-  .article-card .picture .category {
-      max-width: 100%;
-      padding: 17px 20px;
-      background: var(--green);
-      border-radius: 0 2px 2px 0;
-      position: absolute;
-      left: 0;
-      bottom: 20px;
-      z-index: 3;
-      min-width: 140px;
-      text-align: center;
-  }
-  .article-card .picture .category p {
-      margin: 0;
-      font-weight: 400;
-      font-size: 16px;
-      line-height: 1;
-      letter-spacing: -.284583px;
-      color: #fff;
-      overflow: hidden;
-      white-space: nowrap;
-      text-overflow: ellipsis;
-  }
-  .article-card .info {
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      flex: 1;
-  }
-  .article-card .info .main-info {
-      padding-right: 10px;
-  }
-
-  @media screen and (max-width: 768px){
-    .blog-category {
-        padding-top: 20px;
-    }
-    .article-card {
-        width: 100%;
-    }
-    .article-list .article-card:first-child {
-        flex-direction: column;
-    }
-    .article-list .article-card:first-child .picture {
-        width: 100%;
-    }
-    .article-list .article-card .picture:before {
-        padding-bottom: 67.7%;
-    }
-    .article-list .article-card:first-child .picture:before {
-        padding-bottom: 67.7%;
-    }
-    .article-card .picture .category {
-        padding: 17px 20px;
-        bottom: 24px;
-    }
-    .article-card .picture .category p {
-        font-size: 16px;
-    }
-    .article-list .article-card:first-child .info .main-info {
-        padding: 0;
-    }
-    .article-card {
-        width: 100%;
-    }
-    .article-list .article-card:first-child {
-        flex-direction: column;
-    }
-    .article-list .article-card:first-child .info .main-info .title {
-        padding-top: 12px;
-    }
-    .article-card .info .main-info .title {
-        padding-top: 12px;
-    }
-    .article-card .info .main-info .title h3 {
-        font-size: 16px;
-    }
-    .article-list .article-card:first-child .info .main-info .offer {
-        padding-top: 19px;
-        padding-right: 10px;
-    }
-    .article-list .article-card .info .main-info .offer {
-        padding-top: 19px;
-        padding-right: 10px;
-    }
-    .article-card .info .main-info .offer p {
-        font-size: 18px;
-    }
-    .article-list .article-card:first-child .info .main-info .description {
-        display: none;
-    }
-    .article-list .article-card .info .main-info .description {
-        padding-top: 24px;
-    }
-    .article-card .info .main-info .description p {
-        font-size: 14px;
-    }
-    .article-card .info .article-author {
-        padding-top: 22px;
-        display: none;
-    }
   }
 </style>
 
 {% schema %}
 {
   "name": "Article Pages",
-  "settings": [
-    {
-      "type": "image_picker",
-      "id": "singpst_img",
-      "label": "Select Image"
-    }, {
-      "type": "url",
-      "id": "singpst_url",
-      "label": "Link"
-    }, {
-      "type": "image_picker",
-      "id": "authr_blgimg",
-      "label": "Select Author Image"
-    }, {
-      "type": "image_picker",
-      "id": "sidepst_img",
-      "label": "Select Sidebar Image"
-    }, {
-      "type": "image_picker",
-      "id": "mobile_img",
-      "label": "Select Mobile Image"
-    }, {
-      "type": "url",
-      "id": "sidepst_url",
-      "label": "Link for sidebar image and (Mobile Image)"
-    }, {
-      "type": "header",
-      "content": "Social Share Section Start"
-    }, {
-      "type": "text",
-      "id": "socil_titl",
-      "label": "Title",
-      "default": "Enter Title"
-    }, {
-      "type": "header",
-      "content": "Newsletter Section Start"
-    }
-  ],
-  "blocks": [
-    {
-      "type": "socl_icn",
-      "name": "Social Icons",
-      "settings": [
-        {
-          "type": "text",
-          "id": "blg_icn",
-          "label": "Facebook Icone",
-          "default": "icon-b-fb"
-        }, {
-          "type": "url",
-          "id": "blg_icnlink",
-          "label": "Facebook Link"
-        }
-      ]
-    }
-  ]
+  "settings": []
 }
 {% endschema %}
