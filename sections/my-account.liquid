@@ -148,68 +148,84 @@
 </script>
 
 <script>
-  document.addEventListener("DOMContentLoaded", function() {
-    let tabs = document.querySelector('#tabs');
-    let tabLinks = Array.from(tabs.querySelectorAll('ul li a'));
-    let accountData = document.querySelector('.account-data');
-    let allTabPanes = Array.from(tabs.querySelectorAll('.account-data .data-row'));
-
+  document.addEventListener("DOMContentLoaded", function () {
+    // Tab control functionality
     function setActiveTab(targetLink) {
-      let href = targetLink ? targetLink.getAttribute('href') : null;
-      let target = href ? href.substr(1) : null;
-      let tabPane = target ? document.getElementById(target) : null;
+      const tabs = document.querySelector('#tabs');
+      const tabLinks = Array.from(tabs.querySelectorAll('ul li a'));
+      const accountData = document.querySelector('.account-data');
+      const allTabPanes = Array.from(tabs.querySelectorAll('.account-data .data-row'));
+
+      const href = targetLink ? targetLink.getAttribute('href').substr(1) : null;
+      const tabPane = href ? document.getElementById(href) : null;
+
+      // Deactivate all tab panes and links
+      allTabPanes.forEach(pane => {
+        pane.classList.remove("active");
+        pane.style.pointerEvents = "none";
+      });
+      tabLinks.forEach(link => link.parentElement.classList.remove("active"));
 
       if (tabPane) {
-        // Deactivate all tab panes and links
-        allTabPanes.forEach(pane => {
-            pane.classList.remove("active");
-            pane.style.pointerEvents = "none";  // Disable interactions
-        });
-        tabLinks.forEach(link => link.parentElement.classList.remove("active"));
-
         // Activate the target tab pane and link
         tabPane.classList.add("active");
-        tabPane.style.pointerEvents = "auto";  // Enable interactions
-        let tabPaneWrap = tabPane.querySelector('.data-wrap');
+        tabPane.style.pointerEvents = "auto";
+        const tabPaneWrap = tabPane.querySelector('.data-wrap');
         accountData.style.height = `${tabPaneWrap.offsetHeight}px`;
       }
 
       targetLink.parentElement.classList.add("active");
-  }
+    }
 
-  // Event listener for transitionend to update the height
-  allTabPanes.forEach(pane => {
-    pane.addEventListener('transitionend', function() {
-      let activeTabPane = tabs.querySelector('.account-data .data-row.active');
-      if (activeTabPane) {
-        accountData.style.height = `${activeTabPane.clientHeight}px`;
+    // Initialize
+    const tabs = document.querySelector('#tabs');
+    const tabLinks = Array.from(tabs.querySelectorAll('ul li a'));
+    setActiveTab(tabLinks[0]);
+
+    // Listen to tab clicks
+    tabLinks.forEach(link => {
+      link.addEventListener('click', function (e) {
+        e.preventDefault();
+        setActiveTab(e.target);
+      });
+    });
+
+    // Update accountData height on pane transition
+    const allTabPanes = Array.from(tabs.querySelectorAll('.account-data .data-row'));
+    allTabPanes.forEach(pane => {
+      pane.addEventListener('transitionend', function () {
+        const activeTabPane = tabs.querySelector('.account-data .data-row.active');
+        if (activeTabPane) {
+          accountData.style.height = `${activeTabPane.clientHeight}px`;
+        }
+      });
+    });
+
+    // Handle the mobile dropdown
+    const mobileDropdown = document.querySelector('#mobile-dropdown');
+    mobileDropdown.addEventListener('change', function () {
+      const selectedValue = this.value;
+      if (selectedValue.startsWith("/")) {
+        window.location.href = selectedValue;
+      } else {
+        const targetLink = document.querySelector(`ul li a[href="${selectedValue}"]`);
+        if (targetLink) {
+          targetLink.click();
+        }
       }
     });
+
+    // Handle subscriptions link
+    $(document).ready(function () {
+      const subscriptionsLink = $('.rc-login a').first().attr('href');
+      $('#subscription-tab').attr('href', subscriptionsLink);
+      $('.rc-login').closest('section').remove();
+      $('#mobile-dropdown option[value="#subscription-tab"]').attr('value', subscriptionsLink);
+    });
   });
-
-  // Initialize the first tab
-  setActiveTab(tabLinks[0]);
-
-  // Add event listener for each tab
-  tabLinks.forEach(link => {
-      link.addEventListener('click', function(e) {
-          e.preventDefault();
-          setActiveTab(e.target);
-      });
-  });
-
-  {% if show_curalifer_tab %}
-    let curaliferTabLink = document.querySelector('ul li a[href="#curalifer"]');
-    if (curaliferTabLink) {
-      setActiveTab(curaliferTabLink);
-    }
-  {% else %}
-    setActiveTab(tabLinks[0]);
-  {% endif %}
-});
 </script>
 
-<script>
+{% comment %} <script>
   $(document).ready(function() {
     let subscriptionsLink = $('.rc-login a').first().attr('href');
     $('#subscription-tab').attr('href', subscriptionsLink);
@@ -223,7 +239,7 @@
       window.location.href = $(this).val();
     }
   });
-</script>
+</script> {% endcomment %}
 
 <style>
   main {
