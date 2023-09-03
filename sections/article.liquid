@@ -127,44 +127,48 @@
 
 <script>
   $(document).ready(function() {
-    if ($(window).width() > 768) {
-      var initialSidebarTop = $('#stickySidebar').offset().top;
-      var tagsSectionBottom = $('.tag-section').offset().top + $('.tag-section').height();
-      var sidebarHeight = $('#stickySidebar').height();
-      var offsetTop = 0;
-      var translateY = 0;
-      var prevScrollPosition = $(window).scrollTop();
-      var hasScrolledUp = false; // New variable to track the scroll direction
+  if ($(window).width() > 768) {
+    var initialSidebarTop = $('#stickySidebar').offset().top;
+    var tagsSectionBottom = $('.tag-section').offset().top + $('.tag-section').height();
+    var sidebarHeight = $('#stickySidebar').height();
+    var offsetTop = 0;
+    var translateY = 0;
+    var prevScrollPosition = $(window).scrollTop();
+    var scrollTimeout;
 
-      function updateSidebar() {
-        var scrollPosition = $(window).scrollTop();
-        var maxTranslate = tagsSectionBottom - sidebarHeight - initialSidebarTop;
+    function updateSidebar() {
+      var scrollPosition = $(window).scrollTop();
+      var maxTranslate = tagsSectionBottom - sidebarHeight - initialSidebarTop;
 
-        if (scrollPosition >= initialSidebarTop - offsetTop) {
-          var newTranslateY = scrollPosition - initialSidebarTop + offsetTop;
-          translateY = Math.min(newTranslateY, maxTranslate);
-        } else {
-          translateY = 0;
-        }
-
-        if (scrollPosition < prevScrollPosition) {
-          hasScrolledUp = true;  // Set the flag when scrolled up
-          offsetTop = 100;
-        } else {
-          if (!hasScrolledUp) {
-            offsetTop = 0;
-          }
-        }
-
-        $('#stickySidebar').css('transform', 'translateY(' + translateY + 'px)');
-
-        prevScrollPosition = scrollPosition;
-        requestAnimationFrame(updateSidebar);
+      if (scrollPosition >= initialSidebarTop - offsetTop) {
+        var newTranslateY = scrollPosition - initialSidebarTop + offsetTop;
+        translateY = Math.min(newTranslateY, maxTranslate);
+      } else {
+        translateY = 0;
       }
 
+      if (scrollPosition < prevScrollPosition) {
+        clearTimeout(scrollTimeout);
+        offsetTop = 100;
+
+        // Debounce scrolling stop
+        scrollTimeout = setTimeout(function() {
+          offsetTop = 100; // Keep offsetTop at 100px when stop scrolling up
+        }, 150);
+
+      } else {
+        offsetTop = 0; // Reset to 0 when scrolling down
+      }
+
+      $('#stickySidebar').css('transform', 'translateY(' + translateY + 'px)');
+
+      prevScrollPosition = scrollPosition;
       requestAnimationFrame(updateSidebar);
     }
-  });
+
+    requestAnimationFrame(updateSidebar);
+  }
+});
 </script>
 
 <style>
