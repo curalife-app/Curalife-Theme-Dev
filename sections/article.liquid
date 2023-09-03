@@ -133,21 +133,29 @@
     var sidebarHeight = $('#stickySidebar').height();
     var offsetTop = 0;
     var translateY = 0;
+    var prevScrollPosition = $(window).scrollTop();  // Initialize previous scroll position
 
     function updateSidebar() {
       var scrollPosition = $(window).scrollTop();
-      var maxTranslate = tagsSectionBottom - sidebarHeight - initialSidebarTop + offsetTop;
+      var maxTranslate = tagsSectionBottom - sidebarHeight - initialSidebarTop;
 
       if (scrollPosition >= initialSidebarTop - offsetTop) {
-        // Stick the sidebar to the top by setting translateY to the difference
-        // between the scroll position and the initial top position
         var newTranslateY = scrollPosition - initialSidebarTop + offsetTop;
         translateY = Math.min(newTranslateY, maxTranslate);
       } else {
         translateY = 0; // Reset the translateY value when the sidebar is at its initial position
       }
 
+      // Update the offset when scrolling up
+      if (scrollPosition < prevScrollPosition) {
+        offsetTop = 100;
+      } else {
+        offsetTop = 0;
+      }
+
       $('#stickySidebar').css('transform', 'translateY(' + translateY + 'px)');
+
+      prevScrollPosition = scrollPosition;  // Update previous scroll position
       requestAnimationFrame(updateSidebar);
     }
 
