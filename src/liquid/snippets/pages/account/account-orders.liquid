@@ -1,0 +1,280 @@
+{%- comment -%} If store is US {%- endcomment -%}
+{% if shop.name == 'CuraLife' %}
+  {% assign invoice_id = "51da85a3c3dfa1f360b48852b64218b2" %}
+{% elsif shop.name == "CuraLife Global" %}
+  {% assign invoice_id = "656f0dbf9392657eed7feefc486781fb" %}
+{% endif %}
+
+<div class="data-title">
+  <h5 class="m-0">Your Orders</h5>
+</div>
+
+{% if customer.orders %}
+  <div class="data-list">
+    <ul>
+      {% for order in customer.orders %}
+        <li>
+          <div class="order-head">
+            <div class="number">
+              <p>Order {{ order.name }}</p>
+            </div>
+            <div class="date">
+              <p>{{ order.created_at | date: format: 'abbreviated_date' }}</p>
+            </div>
+            <div class="more">
+              <p><a href="{{ shop.secured_url }}/apps/download?ids={{ order.id }}&t=invoice&public_key={{ invoice_id }}&source=shopify_notification_email" target="_blank"><i class="fa-thin fa-laptop-arrow-down"></i></a></p>
+            </div>
+          </div>
+
+          {% for a in order.line_items %}
+            <div class="order-body">
+              <div class="order-item">
+                <div class="rows-wrap">
+                  <div class="img-wrap">
+                    <span><img src={% if a.product.featured_image %}{{ a.product.featured_image | image_url }}{% else %}"{{ 'favicon-96x96.png' | asset_url }}"{% endif %} alt=""></span>
+                  </div>
+
+                  <div class="name"><p>{{ a.product.title }}</p></div>
+                </div>
+
+                <div class="item-quantity"><p>Quantity: {{ a.quantity }}</p></div>
+                <div class="item-price"><p>{{ order.total_price | money_with_currency }}</p></div>
+
+                <div class="status done">
+                  <p>
+                    {% if order.fulfillment_status != "fulfilled" %}
+                      <style>
+                        #{{ order.name }} { color: #d8ae13; }
+                        #{{ order.name }}:before { background: #d8ae13; }
+                      </style>
+                    {% endif %}
+                    <span id="{{ order.name }}">{{ order.fulfillment_status }}</span>
+                  </p>
+                </div>
+              </div>
+
+            </div>
+            <div class="view-details d-mobile">
+              <div class="more-btn">
+                <p>
+                  <a href="https://curalife-commerce.myshopify.com/apps/download?ids={{ order.id }}&t=invoice&public_key=51da85a3c3dfa1f360b48852b64218b2&source=shopify_notification_email" target="_blank">Download Invoice</a>                                                        </div>
+            </div>
+            {% endfor %}
+          </li>
+      {% endfor %}
+
+    </ul>
+  </div>
+
+  <style>
+    .data-list ul li {
+      display: block;
+      border: 1px solid #efefef;
+    }
+
+    .data-list ul {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .data-list ul li .order-head {
+      display: flex;
+      align-items: center;
+      min-height: 50px;
+      padding: 10px 27px;
+      background: #f8f8f8;
+      border-bottom: 1px solid #efefef;
+    }
+
+    .data-list ul li .order-head .number {
+      width: 30%;
+      text-align: left;
+    }
+
+    .data-list ul li .order-head p {
+      margin: 0;
+      font-weight: 400;
+      font-size: 14px;
+      line-height: 1;
+      color: var(--dark);
+    }
+
+    .data-list ul li .order-head .date {
+      width: 40%;
+      padding: 0 10px;
+      text-align: center;
+    }
+
+    .data-list ul li .order-head .more {
+      width: 30%;
+      text-align: right;
+    }
+
+    .data-list ul li .order-item:last-child {
+      border: none;
+    }
+
+    .data-list ul li .order-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid #efefef;
+      padding: 20px;
+    }
+
+    .data-list ul li .order-item .rows-wrap {
+      display: flex;
+      align-items: center;
+      padding-right: 10px;
+    }
+
+    .data-list ul li .order-item .img-wrap {
+      width: 70px;
+      flex-shrink: 0;
+      position: relative;
+      border: 1px solid #ebebeb;
+      border-radius: 5px;
+      overflow: hidden;
+    }
+
+    .data-list ul li .order-item .img-wrap:before {
+      content: "";
+      display: block;
+      padding-bottom: 100%;
+      pointer-events: none;
+    }
+
+    .data-list ul li .order-item .img-wrap span {
+      padding: 5px;
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+    }
+    .data-list ul li .order-item .img-wrap span img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    .data-list ul li .order-item .name {
+      padding-left: 20px;
+    }
+
+    .data-list ul li .order-item p {
+      margin: 0;
+      font-weight: 400;
+      font-size: 16px;
+      line-height: 1;
+      color: var(--black);
+    }
+
+    .data-list ul li .order-item .value,
+    .data-list ul li .order-item .item-quantity {
+      padding: 0 10px;
+    }
+
+    .data-list ul li .order-item .item-quantity p {
+      white-space: nowrap;
+    }
+
+    .data-list ul li .order-item .item-price p {
+      white-space: nowrap;
+    }
+
+    .data-list ul li .order-item .status {
+      padding-left: 10px;
+    }
+
+    .data-list ul li .view-details.d-mobile {
+      display: none;
+    }
+
+    .data-list ul li .view-details .more-btn {
+      display: flex;
+      justify-content: center;
+      padding: 27px 10px;
+      border-top: 1px solid #efefef;
+    }
+
+    .data-list ul li .view-details .more-btn p {
+      margin: 0;
+      font-weight: 600;
+      font-size: 16px;
+      line-height: 1.3;
+      color: #333;
+      cursor: pointer;
+      transition: color var(--transition);
+    }
+
+    .data-list ul li .view-details .more-btn p a {
+      font-weight: 400;
+      font-size: 14px;
+      color: var(--dark);
+      text-decoration: underline;
+      transition: color var(--transition);
+    }
+
+    @media (max-width: 767px) {
+      .data-list ul li .order-head {
+        justify-content: space-between;
+      }
+
+      .data-list ul li .order-head .number {
+        width: auto;
+      }
+
+      .data-list ul li .order-head .date {
+        padding: 0 0 0 10px;
+        width: auto;
+      }
+
+      .data-list ul li .order-item {
+        min-height: 131px;
+        flex-wrap: wrap;
+        position: relative;
+      }
+
+      .data-list ul li .order-item .rows-wrap {
+        width: 100%;
+        padding-right: 0;
+      }
+
+      .data-list ul li .order-item .name,
+      .data-list ul li .order-item .value,
+      .data-list ul li .order-item .item-quantity,
+      .data-list ul li .order-item .item-price,
+      .data-list ul li .order-item .status {
+        width: 100%;
+        padding: 7px 0;
+        text-align: right;
+      }
+
+      .data-list ul li .order-item .status p {
+        font-weight: 500;
+      }
+
+      .data-list ul li .order-item .img-wrap {
+        width: 33%;
+        position: absolute;
+        top: 18px;
+        right: 18px;
+      }
+
+      .data-list ul li .order-item p {
+        max-width: 50%;
+      }
+    }
+  </style>
+{% else %}
+  <div class="data-content">
+    <div class="empty-content">
+      <div class="empty-text">
+        <p>
+          <span class="icon-smile"></span>You haven't placed any orders yet.</p>
+        <a href="{{ section.settings.ord_btnlink }}" class="main-btn blank">SHOP NOW</a>
+      </div>
+    </div>
+  </div>
+{% endif %}
