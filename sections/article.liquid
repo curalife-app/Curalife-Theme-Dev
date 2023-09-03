@@ -127,40 +127,46 @@
 
 <script>
   $(document).ready(function() {
-    if ($(window).width() > 768) {
-      var initialSidebarTop = $('#stickySidebar').offset().top;
-      var tagsSectionBottom = $('.tag-section').offset().top + $('.tag-section').height();
-      var sidebarHeight = $('#stickySidebar').height();
-      var offsetTop = 0;
-      var translateY = 0;
-      var prevScrollPosition = $(window).scrollTop();
+  if ($(window).width() > 768) {
+    var initialSidebarTop = $('#stickySidebar').offset().top;
+    var tagsSectionBottom = $('.tag-section').offset().top + $('.tag-section').height();
+    var sidebarHeight = $('#stickySidebar').height();
+    var offsetTop = 0;
+    var translateY = 0;
+    var prevScrollPosition = $(window).scrollTop();
+    var wasScrollingUp = false; // Variable to store the scroll direction
 
-      function updateSidebar() {
-        var scrollPosition = $(window).scrollTop();
-        var maxTranslate = tagsSectionBottom - sidebarHeight - initialSidebarTop;
+    function updateSidebar() {
+      var scrollPosition = $(window).scrollTop();
+      var maxTranslate = tagsSectionBottom - sidebarHeight - initialSidebarTop;
 
-        if (scrollPosition >= initialSidebarTop - offsetTop) {
-          var newTranslateY = scrollPosition - initialSidebarTop + offsetTop;
-          translateY = Math.min(newTranslateY, maxTranslate);
-        } else {
-          translateY = 0;
-        }
-
-        if (scrollPosition < prevScrollPosition) {
-          offsetTop = 100; // Set offset when scrolling up
-        } else {
-          offsetTop = 0;  // Reset offset when scrolling down
-        }
-
-        $('#stickySidebar').css('transform', 'translateY(' + translateY + 'px)');
-
-        prevScrollPosition = scrollPosition;  // Update previous scroll position
-        requestAnimationFrame(updateSidebar);
+      if (scrollPosition >= initialSidebarTop - offsetTop) {
+        var newTranslateY = scrollPosition - initialSidebarTop + offsetTop;
+        translateY = Math.min(newTranslateY, maxTranslate);
+      } else {
+        translateY = 0;
       }
 
+      if (scrollPosition < prevScrollPosition) {
+        wasScrollingUp = true; // Set scrolling up flag
+        offsetTop = 100; // Set offset when scrolling up
+      } else if (wasScrollingUp) {
+        // If the last scroll direction was up, keep offset at 100
+        offsetTop = 100;
+        wasScrollingUp = false; // Reset scrolling up flag
+      } else {
+        offsetTop = 0;  // Reset offset when scrolling down
+      }
+
+      $('#stickySidebar').css('transform', 'translateY(' + translateY + 'px)');
+
+      prevScrollPosition = scrollPosition;  // Update previous scroll position
       requestAnimationFrame(updateSidebar);
     }
-  });
+
+    requestAnimationFrame(updateSidebar);
+  }
+});
 </script>
 
 <style>
