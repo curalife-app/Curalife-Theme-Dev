@@ -127,46 +127,51 @@
 
 <script>
   $(document).ready(function() {
-  if ($(window).width() > 768) {
-    var initialSidebarTop = $('#stickySidebar').offset().top;
-    var tagsSectionBottom = $('.tag-section').offset().top + $('.tag-section').height();
-    var sidebarHeight = $('#stickySidebar').height();
-    var offsetTop = 0;
-    var translateY = 0;
-    var prevScrollPosition = $(window).scrollTop();
-    var wasScrollingUp = false; // Variable to store the scroll direction
+    if ($(window).width() > 768) {
+      var initialSidebarTop = $('#stickySidebar').offset().top;
+      var tagsSectionBottom = $('.tag-section').offset().top + $('.tag-section').height();
+      var sidebarHeight = $('#stickySidebar').height();
+      var offsetTop = 0;
+      var translateY = 0;
+      var prevScrollPosition = $(window).scrollTop();
+      var scrollingUp = false;
 
-    function updateSidebar() {
-      var scrollPosition = $(window).scrollTop();
-      var maxTranslate = tagsSectionBottom - sidebarHeight - initialSidebarTop;
+      function updateSidebar() {
+        var scrollPosition = $(window).scrollTop();
 
-      if (scrollPosition >= initialSidebarTop - offsetTop) {
-        var newTranslateY = scrollPosition - initialSidebarTop + offsetTop;
-        translateY = Math.min(newTranslateY, maxTranslate);
-      } else {
-        translateY = 0;
+        // Update offset based on scroll direction
+        if (scrollPosition < prevScrollPosition) {
+          scrollingUp = true;
+          offsetTop = 100;
+        } else if (scrollPosition > prevScrollPosition) {
+          scrollingUp = false;
+          offsetTop = 0;
+        }
+
+        // Calculate the maximum translateY value
+        var maxTranslate = tagsSectionBottom - sidebarHeight - initialSidebarTop;
+
+        // Calculate the new translateY value
+        if (scrollPosition >= initialSidebarTop - offsetTop) {
+          translateY = Math.min(scrollPosition - initialSidebarTop + offsetTop, maxTranslate);
+        } else {
+          translateY = 0;
+        }
+
+        // Apply the new translateY value to the sidebar
+        $('#stickySidebar').css('transform', 'translateY(' + translateY + 'px)');
+
+        // Update the previous scroll position for the next iteration
+        prevScrollPosition = scrollPosition;
+
+        // Continue updating
+        requestAnimationFrame(updateSidebar);
       }
 
-      if (scrollPosition < prevScrollPosition) {
-        wasScrollingUp = true; // Set scrolling up flag
-        offsetTop = 100; // Set offset when scrolling up
-      } else if (wasScrollingUp) {
-        // If the last scroll direction was up, keep offset at 100
-        offsetTop = 100;
-        wasScrollingUp = false; // Reset scrolling up flag
-      } else {
-        offsetTop = 0;  // Reset offset when scrolling down
-      }
-
-      $('#stickySidebar').css('transform', 'translateY(' + translateY + 'px)');
-
-      prevScrollPosition = scrollPosition;  // Update previous scroll position
+      // Start the update loop
       requestAnimationFrame(updateSidebar);
     }
-
-    requestAnimationFrame(updateSidebar);
-  }
-});
+  });
 </script>
 
 <style>
