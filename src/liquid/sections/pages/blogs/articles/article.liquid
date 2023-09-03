@@ -127,27 +127,38 @@
 
 <script>
   $(document).ready(function(){
-    if ($(window).width() > 768) {
-      var initialSidebarTop = $('#stickySidebar').offset().top;
-      var tagsSectionBottom = $('.tag-section').offset().top + $('.tag-section').height();
-      var sidebarHeight = $('#stickySidebar').height();
-      var offsetTop = 100;
+  if ($(window).width() > 768) {
+    var initialSidebarTop = $('#stickySidebar').offset().top;
+    var tagsSectionBottom = $('.tag-section').offset().top + $('.tag-section').height();
+    var sidebarHeight = $('#stickySidebar').height();
+    var offsetTop = 0;
+    var translateY = 0;
 
-      $(window).on('scroll', function(){
-        var scrollPosition = $(this).scrollTop();
-        var maxTranslate = tagsSectionBottom - sidebarHeight - initialSidebarTop + offsetTop;
+    function updateSidebar() {
+      var scrollPosition = $(window).scrollTop();
+      var maxTranslate = tagsSectionBottom - sidebarHeight - initialSidebarTop + offsetTop;
 
-        if (scrollPosition >= initialSidebarTop - offsetTop) {
-          var translateY = scrollPosition - initialSidebarTop + offsetTop;
-          translateY = Math.min(translateY, maxTranslate);
-          $('#stickySidebar').css('transform', 'translateY(' + translateY + 'px)');
-        } else {
-          $('#stickySidebar').css('transform', 'translateY(0)');
-        }
-      });
+      if (scrollPosition >= initialSidebarTop - offsetTop) {
+        var newTranslateY = scrollPosition - initialSidebarTop + offsetTop;
+        translateY = Math.min(newTranslateY, maxTranslate);
+      } else {
+        translateY = 0;
+      }
+
+      $('#stickySidebar').css('transform', 'translateY(' + translateY + 'px)');
+      requestAnimationFrame(updateSidebar);
     }
-  });
+
+    requestAnimationFrame(updateSidebar);
+  }
+});
 </script>
+
+<style>
+  #stickySidebar {
+  transition: transform 0 ease-in-out;
+}
+</style>
 
 <script>
   document.addEventListener('DOMContentLoaded', function() {
