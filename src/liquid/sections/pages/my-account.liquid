@@ -17,7 +17,7 @@
       <div class="account-content">
         <div class="account-menu desktop">
           <div class="menu-list">
-            <ul>
+            <ul class="tabs">
               {% if show_curalifer_tab %}
                 <li><a href="#curalifer"><span><i class="fa-thin fa-user-crown"></i></span>Curalifer</a></li>
               {% endif %}
@@ -140,36 +140,38 @@
 </section>
 
 <script>
-  function changeContent() {
-    let selectedTab = document.querySelector('#mobile-dropdown').value;
-    let tabLink = document.querySelector(`ul li a[href="${selectedTab}"]`);
-    if (tabLink) {
-      tabLink.click();
-    }
-  }
-</script>
-
-<script>
   document.addEventListener("DOMContentLoaded", function () {
-    // Tab control functionality
+    const accountData = document.querySelector('.account-data'); // Initialize once at the top
+
+    if (!accountData) {
+      console.error("accountData element is not found");
+      return;
+    }
+
+    function changeContent() {
+      let selectedTab = document.querySelector('#mobile-dropdown').value;
+      let tabLink = document.querySelector(`ul.tabs li a[href="${selectedTab}"]`);
+      if (tabLink) {
+        tabLink.click();
+      }
+    }
+
     function setActiveTab(targetLink) {
       const tabs = document.querySelector('#tabs');
-      const tabLinks = Array.from(tabs.querySelectorAll('ul li a'));
-      const accountData = document.querySelector('.account-data');
+      const tabLinks = Array.from(tabs.querySelectorAll('ul.tabs li a'));
       const allTabPanes = Array.from(tabs.querySelectorAll('.account-data .data-row'));
 
-      const href = targetLink ? targetLink.getAttribute('href').substr(1) : null;
+      const href = (targetLink && targetLink.getAttribute('href')) ? targetLink.getAttribute('href').substr(1) : null;
       const tabPane = href ? document.getElementById(href) : null;
 
-      // Deactivate all tab panes and links
       allTabPanes.forEach(pane => {
         pane.classList.remove("active");
         pane.style.pointerEvents = "none";
       });
+
       tabLinks.forEach(link => link.parentElement.classList.remove("active"));
 
-      if (tabPane) {
-        // Activate the target tab pane and link
+      if (tabPane && accountData) { // Check if accountData is available
         tabPane.classList.add("active");
         tabPane.style.pointerEvents = "auto";
         const tabPaneWrap = tabPane.querySelector('.data-wrap');
@@ -179,12 +181,13 @@
       targetLink.parentElement.classList.add("active");
     }
 
-    // Initialize
     const tabs = document.querySelector('#tabs');
-    const tabLinks = Array.from(tabs.querySelectorAll('ul li a'));
-    setActiveTab(tabLinks[0]);
+    const tabLinks = Array.from(tabs.querySelectorAll('ul.tabs li a'));
 
-    // Listen to tab clicks
+    if (tabLinks.length > 0) {
+      setActiveTab(tabLinks[0]);
+    }
+
     tabLinks.forEach(link => {
       link.addEventListener('click', function (e) {
         e.preventDefault();
@@ -192,8 +195,8 @@
       });
     });
 
-    // Update accountData height on pane transition
     const allTabPanes = Array.from(tabs.querySelectorAll('.account-data .data-row'));
+
     allTabPanes.forEach(pane => {
       pane.addEventListener('transitionend', function () {
         const activeTabPane = tabs.querySelector('.account-data .data-row.active');
@@ -203,19 +206,8 @@
       });
     });
 
-    // Handle the mobile dropdown
     const mobileDropdown = document.querySelector('#mobile-dropdown');
-    mobileDropdown.addEventListener('change', function () {
-      const selectedValue = this.value;
-      if (selectedValue.startsWith("/")) {
-        window.location.href = selectedValue;
-      } else {
-        const targetLink = document.querySelector(`ul li a[href="${selectedValue}"]`);
-        if (targetLink) {
-          targetLink.click();
-        }
-      }
-    });
+    mobileDropdown.addEventListener('change', changeContent);
 
     // Handle subscriptions link
     $(document).ready(function () {
