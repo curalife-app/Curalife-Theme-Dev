@@ -141,86 +141,82 @@
 
 <script>
   document.addEventListener("DOMContentLoaded", function () {
-    const accountData = document.querySelector('.account-data'); // Initialize once at the top
+  const accountData = document.querySelector('.account-data'); // Initialize once at the top
 
-    if(!accountData) {
-      console.error("accountData element is not found");
-      return;
+  if (!accountData) {
+    console.error("accountData element is not found");
+    return;
+  }
+
+  function changeContent() {
+    let selectedTab = document.querySelector('#mobile-dropdown').value;
+    let tabLink = document.querySelector(`ul.tabs li a[href="${selectedTab}"]`);
+    if (tabLink) {
+      tabLink.click();
     }
+  }
 
-    function changeContent() {
-      let selectedTab = document.querySelector('#mobile-dropdown').value;
-      let tabLink = document.querySelector(`ul.tabs li a[href="${selectedTab}"]`);
-      if (tabLink) {
-        tabLink.click();
-      }
-    }
-
-    function setActiveTab(targetLink) {
-      const tabs = document.querySelector('#tabs');
-      const tabLinks = Array.from(tabs.querySelectorAll('ul.tabs li a'));
-      const accountData = document.querySelector('.account-data'); // Initialize here
-      const allTabPanes = Array.from(tabs.querySelectorAll('.account-data .data-row'));
-
-      const href = (targetLink && targetLink.getAttribute('href')) ? targetLink.getAttribute('href').substr(1) : null;
-      const tabPane = href ? document.getElementById(href) : null;
-
-      allTabPanes.forEach(pane => {
-        pane.classList.remove("active");
-        pane.style.pointerEvents = "none";
-      });
-
-      tabLinks.forEach(link => link.parentElement.classList.remove("active"));
-
-      if (tabPane && accountData) { // Check if accountData is available
-        tabPane.classList.add("active");
-        tabPane.style.pointerEvents = "auto";
-        const tabPaneWrap = tabPane.querySelector('.data-wrap');
-        accountData.style.height = `${tabPaneWrap.offsetHeight}px`;
-      }
-
-      targetLink.parentElement.classList.add("active");
-    }
-
+  function setActiveTab(targetLink) {
     const tabs = document.querySelector('#tabs');
     const tabLinks = Array.from(tabs.querySelectorAll('ul.tabs li a'));
+    const allTabPanes = Array.from(tabs.querySelectorAll('.account-data .data-row'));
 
-    if (tabLinks.length > 0) {
-      setActiveTab(tabLinks[0]);
-    }
+    const href = (targetLink && targetLink.getAttribute('href')) ? targetLink.getAttribute('href').substr(1) : null;
+    const tabPane = href ? document.getElementById(href) : null;
 
-    tabLinks.forEach(link => {
-      link.addEventListener('click', function (e) {
-        e.preventDefault();
-        setActiveTab(e.target);
-      });
+    allTabPanes.forEach(pane => {
+      pane.classList.remove("active");
+      pane.style.pointerEvents = "none";
     });
 
-    const allTabPanes = Array.from(tabs.querySelectorAll('.account-data .data-row'));
-    const accountData = document.querySelector('.account-data'); // Initialize here
+    tabLinks.forEach(link => link.parentElement.classList.remove("active"));
 
-    if (accountData) { // Check if accountData is available
-      allTabPanes.forEach(pane => {
-        pane.addEventListener('transitionend', function () {
-          const activeTabPane = tabs.querySelector('.account-data .data-row.active');
-          if (activeTabPane) {
-            accountData.style.height = `${activeTabPane.clientHeight}px`;
-          }
-        });
-      });
+    if (tabPane && accountData) { // Check if accountData is available
+      tabPane.classList.add("active");
+      tabPane.style.pointerEvents = "auto";
+      const tabPaneWrap = tabPane.querySelector('.data-wrap');
+      accountData.style.height = `${tabPaneWrap.offsetHeight}px`;
     }
 
-    const mobileDropdown = document.querySelector('#mobile-dropdown');
-    mobileDropdown.addEventListener('change', changeContent);
+    targetLink.parentElement.classList.add("active");
+  }
 
-    // Handle subscriptions link
-    $(document).ready(function () {
-      const subscriptionsLink = $('.rc-login a').first().attr('href');
-      $('#subscription-tab').attr('href', subscriptionsLink);
-      $('.rc-login').closest('section').remove();
-      $('#mobile-dropdown option[value="#subscription-tab"]').attr('value', subscriptionsLink);
+  const tabs = document.querySelector('#tabs');
+  const tabLinks = Array.from(tabs.querySelectorAll('ul.tabs li a'));
+
+  if (tabLinks.length > 0) {
+    setActiveTab(tabLinks[0]);
+  }
+
+  tabLinks.forEach(link => {
+    link.addEventListener('click', function (e) {
+      e.preventDefault();
+      setActiveTab(e.target);
     });
   });
+
+  const allTabPanes = Array.from(tabs.querySelectorAll('.account-data .data-row'));
+
+  allTabPanes.forEach(pane => {
+    pane.addEventListener('transitionend', function () {
+      const activeTabPane = tabs.querySelector('.account-data .data-row.active');
+      if (activeTabPane) {
+        accountData.style.height = `${activeTabPane.clientHeight}px`;
+      }
+    });
+  });
+
+  const mobileDropdown = document.querySelector('#mobile-dropdown');
+  mobileDropdown.addEventListener('change', changeContent);
+
+  // Handle subscriptions link
+  $(document).ready(function () {
+    const subscriptionsLink = $('.rc-login a').first().attr('href');
+    $('#subscription-tab').attr('href', subscriptionsLink);
+    $('.rc-login').closest('section').remove();
+    $('#mobile-dropdown option[value="#subscription-tab"]').attr('value', subscriptionsLink);
+  });
+});
 </script>
 
 <style>
