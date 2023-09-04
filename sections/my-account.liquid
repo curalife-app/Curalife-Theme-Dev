@@ -141,67 +141,82 @@
 
 <script>
   document.addEventListener("DOMContentLoaded", function () {
-    const accountData = document.querySelector('.account-data');
+  const accountData = document.querySelector('.account-data'); // Initialize once at the top
+
+  if (!accountData) {
+    console.error("accountData element is not found");
+    return;
+  }
+
+  function changeContent() {
+    let selectedTab = document.querySelector('#mobile-dropdown').value;
+    let tabLink = document.querySelector(`ul.tabs li a[href="${selectedTab}"]`);
+    if (tabLink) {
+      tabLink.click();
+    }
+  }
+
+  function setActiveTab(targetLink) {
     const tabs = document.querySelector('#tabs');
     const tabLinks = Array.from(tabs.querySelectorAll('ul.tabs li a'));
     const allTabPanes = Array.from(tabs.querySelectorAll('.account-data .data-row'));
-    const mobileDropdown = document.querySelector('#mobile-dropdown');
 
-    if (!accountData) {
-      console.error("accountData element is not found");
-      return;
+    const href = (targetLink && targetLink.getAttribute('href')) ? targetLink.getAttribute('href').substr(1) : null;
+    const tabPane = href ? document.getElementById(href) : null;
+
+    allTabPanes.forEach(pane => {
+      pane.classList.remove("active");
+      pane.style.pointerEvents = "none";
+    });
+
+    tabLinks.forEach(link => link.parentElement.classList.remove("active"));
+
+    if (tabPane && accountData) { // Check if accountData is available
+      tabPane.classList.add("active");
+      tabPane.style.pointerEvents = "auto";
+      const tabPaneWrap = tabPane.querySelector('.data-wrap');
+      accountData.style.height = `${tabPaneWrap.offsetHeight}px`;
     }
 
-    const changeContent = () => {
-      const selectedTab = mobileDropdown.value;
-      const tabLink = tabLinks.find(link => link.getAttribute('href') === selectedTab);
-      if (tabLink) {
-        setActiveTab(tabLink);
-      }
-    };
+    targetLink.parentElement.classList.add("active");
+  }
 
-    const setActiveTab = (targetLink) => {
-      allTabPanes.forEach(pane => pane.classList.remove("active"));
-      tabLinks.forEach(link => link.parentElement.classList.remove("active"));
+  const tabs = document.querySelector('#tabs');
+  const tabLinks = Array.from(tabs.querySelectorAll('ul.tabs li a'));
 
-      const href = targetLink.getAttribute('href').substr(1);
-      const tabPane = document.getElementById(href);
+  if (tabLinks.length > 0) {
+    setActiveTab(tabLinks[0]);
+  }
 
-      if (tabPane) {
-        tabPane.classList.add("active");
-        const tabPaneWrap = tabPane.querySelector('.data-wrap');
-        accountData.style.height = `${tabPaneWrap.offsetHeight}px`;
-        targetLink.parentElement.classList.add("active");
-      }
-    };
+  tabLinks.forEach(link => {
+    link.addEventListener('click', function (e) {
+      e.preventDefault();
+      setActiveTab(e.target);
+    });
+  });
 
-    const handleTransitionEnd = () => {
+  const allTabPanes = Array.from(tabs.querySelectorAll('.account-data .data-row'));
+
+  allTabPanes.forEach(pane => {
+    pane.addEventListener('transitionend', function () {
       const activeTabPane = tabs.querySelector('.account-data .data-row.active');
       if (activeTabPane) {
         accountData.style.height = `${activeTabPane.clientHeight}px`;
       }
-    };
-
-    if (tabLinks.length > 0) {
-      setActiveTab(tabLinks[0]);
-    }
-
-    tabLinks.forEach(link => link.addEventListener('click', e => {
-      e.preventDefault();
-      setActiveTab(e.target);
-    }));
-
-    allTabPanes.forEach(pane => pane.addEventListener('transitionend', handleTransitionEnd));
-
-    mobileDropdown.addEventListener('change', changeContent);
-
-    $(document).ready(function () {
-      const subscriptionsLink = $('.rc-login a').first().attr('href');
-      $('#subscription-tab').attr('href', subscriptionsLink);
-      $('.rc-login').closest('section').remove();
-      $(`#mobile-dropdown option[value="#subscription-tab"]`).attr('value', subscriptionsLink);
     });
   });
+
+  const mobileDropdown = document.querySelector('#mobile-dropdown');
+  mobileDropdown.addEventListener('change', changeContent);
+
+  // Handle subscriptions link
+  $(document).ready(function () {
+    const subscriptionsLink = $('.rc-login a').first().attr('href');
+    $('#subscription-tab').attr('href', subscriptionsLink);
+    $('.rc-login').closest('section').remove();
+    $('#mobile-dropdown option[value="#subscription-tab"]').attr('value', subscriptionsLink);
+  });
+});
 </script>
 
 <style>
