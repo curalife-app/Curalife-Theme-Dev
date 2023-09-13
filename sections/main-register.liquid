@@ -136,9 +136,7 @@
           {% endif %}
           placeholder="{{ 'customer.register.password' | t }}"
         >
-        <label for="RegisterForm-password">
-          {{ 'customer.register.password' | t }}
-        </label>
+        <label for="RegisterForm-password">{{ 'customer.register.password' | t }}</label>
       </div>
 
       <div class="field b2b" style="display:none;">
@@ -166,20 +164,63 @@
   </div>
 </div>
 
+
+Certainly! I can help optimize the code by adhering to best practices, removing unnecessary parts, and making it easier to read and maintain. Below is the optimized version:
+
+liquid
+Copy code
+{%- style -%}
+  main .shopify-section {
+    background: #fef6ea;
+    padding: 50px 0;
+  }
+  form#create_customer { margin-top: 1em; }
+  .section-{{ section.id }}-padding {
+    padding-top: {{ section.settings.padding_top | times: 0.75 | round: 0 }}px;
+    padding-bottom: {{ section.settings.padding_bottom | times: 0.75 | round: 0 }}px;
+  }
+  @media (min-width: 750px) {
+    .section-{{ section.id }}-padding {
+      padding-top: {{ section.settings.padding_top }}px;
+      padding-bottom: {{ section.settings.padding_bottom }}px;
+    }
+  }
+{%- endstyle -%}
+
+<div class="customer register section-{{ section.id }}-padding bg-white rounded-lg">
+  <div class="container">
+    <svg style="display: none">
+      <!-- SVG content here -->
+    </svg>
+    <h1>{{ 'customer.register.title' | t }}</h1>
+    <input type="checkbox" id="b2bToggle" name="b2b">
+    <label for="b2bToggle">Register as a Business</label>
+
+    {%- form 'create_customer', novalidate: 'novalidate' -%}
+      {% include 'form-errors', form: form %}
+
+      {% include 'form-fields', form: form %}
+
+      {%- if form.errors contains 'password' -%}
+        <span id="RegisterForm-password-error" class="form__message">
+          <!-- SVG and password error messages here -->
+        </span>
+      {%- endif -%}
+      <button>{{ 'customer.register.submit' | t }}</button>
+    {%- endform -%}
+  </div>
+</div>
+
 <script>
   $(document).ready(function() {
-    $('#b2bToggle').on('change', function() {
-      $('.field.b2b').slideToggle(300);  // 300 milliseconds
+    $('#b2bToggle').change(function() {
+      $('.field.b2b').slideToggle(300);
     });
 
-    // Add form submission event handler
-    $('form#create_customer').on('submit', function(e) {
-      if ($('#b2bToggle').is(':checked')) {
-        // Check if B2B fields are empty
-        if ($('#BusinessName').val().trim() === '' || $('#PhoneNumber').val().trim() === '') {
-          alert('Business Name and Phone Number are required for B2B registration.');
-          e.preventDefault(); // Prevent form submission
-        }
+    $('#create_customer').submit(function(e) {
+      if ($('#b2bToggle').is(':checked') && (!$('#BusinessName').val().trim() || !$('#PhoneNumber').val().trim())) {
+        alert('Business Name and Phone Number are required for B2B registration.');
+        e.preventDefault();
       }
     });
   });
