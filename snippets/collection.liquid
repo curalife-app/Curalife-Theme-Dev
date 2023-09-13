@@ -1,0 +1,79 @@
+{% assign collection_products_amount = collections[collection_handle].products | size %}
+
+{% unless collection_products_amount == 0 %}
+  {% if forloop.last %}
+    {% assign isLastCollectionRender = true %}
+  {% endif %}
+
+  <div id="{{ collection_handle }}-collection-section" class="collection-section xl:w-full {% if collections[collection_handle].products.size < 3 %}w-[48%]{% else %}w-full{% endif %} {% if shop.name == 'Curalife Global' %}max-w-[800px] m-auto{% endif %}" data-product-collections="{{ collection_handle }}" >
+    {% unless isNoTitle %}
+      {% if collections[collection_handle].metafields.custom.alternative_title %}
+        {% assign collection_title = collections[collection_handle].metafields.custom.alternative_title %}
+      {% else %}
+        {% assign collection_title = collections[collection_handle].title %}
+      {% endif %}
+
+      <div class="title-wrapper border-b-[1px] border-black">
+        <h2 class="relative mb-0 mt-8 text-[40px] font-thin top-1 w-fit bg-white pr-3">{{ collection_title }}</h2>
+      </div>
+    {% endunless %}
+
+    {% if isDescription %}
+      <p class="description {% if collections[collection_handle].metafields.custom.is_align_center or isCentered %}text-center m-auto{% endif %}">{{ collections[collection_handle].description }}</p>
+    {% endif %}
+
+    <div class="product-grid flex flex-wrap gap-[10px] {% if shop.name == 'CuraLife Global' %}justify-center{% else %}justify-between xl:justify-start{% endif %} {% if isHiddenCollections %}hidden{% endif %}">
+      {% if collections[collection_handle].metafields.custom.collection_banner_img %}
+        <a class="md:w-[49%] h-full .product-link" href="{{ collections[collection_handle].metafields.custom.collection_banner_lnk }}">
+          <img class="h-full md:h-[70vw] md:w-[44vw] max-h-[403px] object-cover" src="{{ collections[collection_handle].metafields.custom.collection_banner_img | image_url }}" alt="">
+        </a>
+      {% endif %}
+
+      {% if collection_products_amount == 1 %}
+        {% assign onlyProduct = collections[collection_handle].products | first %}
+        {% for variant in onlyProduct.variants %}
+          {% if forloop.last and isLastCollectionRender %}
+            {% assign isLastCardRender = true %}
+          {% endif %}
+
+          {% assign product_collections = variant.product.collections | map: 'handle' | join: ' ' %}
+          {% render 'variant-card', variant: variant, variantIndex: forloop.index, productCollections: product_collections, isLastRender: isLastCardRender, isNoPrices: isNoPrices, isLinkToCollection: isLinkToCollection %}
+        {% endfor %}
+      {% else %}
+        {% for product in collections[collection_handle].products %}
+          {% if forloop.last and isLastCollectionRender %}
+            {% assign isLastCardRender = true %}
+          {% endif %}
+
+          {% if isNoBundles %}
+            {% unless product.tags contains 'bundle' %}
+              {% assign product_collections = product.collections | map: 'handle' | join: ' ' %}
+              {% render 'product-card', product: product, productCollections: product_collections, isLastRender: isLastCardRender, isNoPrices: isNoPrices, isLinkToCollection: isLinkToCollection %}
+              {% if isLastCardRender %}{% assign isLastCardRendered = true %}{% endif %}
+            {% endunless %}
+          {% else %}
+            {% assign product_collections = product.collections | map: 'handle' | join: ' ' %}
+            {% render 'product-card', product: product, productCollections: product_collections, isLastRender: isLastCardRender, isNoPrices: isNoPrices, isLinkToCollection: isLinkToCollection %}
+            {% if isLastCardRender %}{% assign isLastCardRendered = true %}{% endif %}
+          {% endif %}
+        {% endfor %}
+      {% endif %}
+
+      {% if isLastCardRendered != true %}
+        {% render 'product-card', isOnlyScriptsAndStyles: true, isNoPrices: isNoPrices, isLinkToCollection: isLinkToCollection %}
+      {% endif %}
+    </div>
+  </div>
+
+  {% if collections[collection_handle].metafields.custom.is_align_center %}
+    <style>
+      .collection-section[data-product-collections="{{ collection_handle }}"] {
+        text-align: center;
+      }
+
+      .collection-section[data-product-collections="{{ collection_handle }}"] .description {
+        margin: 30px auto;
+      }
+    </style>
+  {% endif %}
+{% endunless %}
