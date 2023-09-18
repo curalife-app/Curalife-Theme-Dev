@@ -38,6 +38,7 @@ module.exports = {
         '400px': '400px',
       },
       colors: {
+        blue: '#3A7684',
         darkGrey: '#222222',
         grey: '#838383',
         lightGrey: '#C4C4C4',
