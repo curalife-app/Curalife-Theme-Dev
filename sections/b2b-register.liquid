@@ -150,87 +150,54 @@
 
 <script>
   document.addEventListener("DOMContentLoaded", function() {
-  console.log("DOMContentLoaded event triggered.");  // Debug Log 1
+    const form = document.querySelector('.customer.register form');
+    const submitButton = document.querySelector('button[disabled]');
+    const requiredFields = form.querySelectorAll('input[required]');
+    const submitButtonWrapper = document.getElementById('submit-button-wrapper');
 
-  const form = document.querySelector('.customer.register form');
-  const submitButton = document.querySelector('button[disabled]');
-  const requiredFields = document.querySelectorAll('input[required]');
-  const submitButtonWrapper = document.getElementById('submit-button-wrapper');
+    const checkRequiredFields = () => {
+      let allFilled = Array.from(requiredFields).every(field => field.value.trim());
 
-  console.log("Form: ", form);  // Debug Log 2
-  console.log("Submit Button: ", submitButton);  // Debug Log 3
-  console.log("Required Fields: ", requiredFields);  // Debug Log 4
+      const userTypeRadioButtons = form.querySelectorAll('.user-type-input');
+      const userTypeSelected = Array.from(userTypeRadioButtons).some(radio => radio.checked);
 
-  const checkRequiredFields = () => {
-    console.log("Inside checkRequiredFields function.");  // Debug Log 5
-    let allFilled = true;
-
-    requiredFields.forEach(field => {
-      console.log("Field: ", field);  // Debug Log 6
-      console.log("Field Value: ", field.value);  // Debug Log 7
-
-      if (!field.value.trim()) {
+      if (!userTypeSelected) {
         allFilled = false;
+      }
+
+      submitButton.disabled = !allFilled;
+
+      if (allFilled) {
+        submitButtonWrapper.classList.remove('disabled:bg-gray-600');
+      } else {
+        submitButtonWrapper.classList.add('disabled:bg-gray-600');
+      }
+    };
+
+    submitButtonWrapper.addEventListener('click', function(event) {
+      if (submitButton.disabled) {
+        event.stopPropagation();
+        let missingFields = [];
+
+        requiredFields.forEach(field => {
+          if (!field.value.trim()) {
+            missingFields.push(field.getAttribute("placeholder"));
+          }
+        });
+
+        const userTypeRadioButtons = form.querySelectorAll('input[name="customer[note][User Type]"]');
+        if (!Array.from(userTypeRadioButtons).some(radio => radio.checked)) {
+          missingFields.push("User Type");
+        }
+
+        alert("Please fill the following missing fields: " + missingFields.join(', '));
       }
     });
 
-    const userTypeRadioButtons = form.querySelectorAll('.user-type-input');
-    console.log("User Type Radio Buttons: ", userTypeRadioButtons);
-    const userTypeSelected = Array.from(userTypeRadioButtons).some(radio => radio.checked);
-
-    console.log("allFilled:", allFilled);  // Debug Log 8
-    console.log("userTypeSelected:", userTypeSelected);  // Debug Log 9
-
-    if (!userTypeSelected) {
-      allFilled = false;
-    }
-
-    submitButton.disabled = !allFilled;
-
-    if (allFilled) {
-      submitButtonWrapper.classList.remove('disabled:bg-gray-600');
-      submitButton.disabled = false;
-      console.log("All fields filled, button enabled.");  // Debug Log 10
-    } else {
-      submitButtonWrapper.classList.add('disabled:bg-gray-600');
-      submitButton.disabled = true;
-      console.log("Not all fields filled, button stays disabled.");  // Debug Log 11
-    }
-  };
-
-  submitButtonWrapper.addEventListener('click', function(event) {
-    console.log("Submit button clicked.");  // Debug Log 12
-    if (submitButton.disabled) {
-      event.stopPropagation();
-      let missingFields = [];
-
-      requiredFields.forEach(field => {
-        if (!field.value.trim()) {
-          missingFields.push(field.getAttribute("placeholder"));
-        }
-      });
-
-      const userTypeRadioButtons = form.querySelectorAll('input[name="customer[note][User Type]"]');
-      if (!Array.from(userTypeRadioButtons).some(radio => radio.checked)) {
-        missingFields.push("User Type");
-      }
-
-      alert("Please fill the following missing fields: " + missingFields.join(', '));
-    }
+    requiredFields.forEach(field => field.addEventListener('input', checkRequiredFields));
+    const userTypeRadioButtons = form.querySelectorAll('input[name="customer[note][User Type]"]');
+    userTypeRadioButtons.forEach(radio => radio.addEventListener('change', checkRequiredFields));
   });
-
-  requiredFields.forEach(field => {
-    field.addEventListener('input', checkRequiredFields);
-    console.log("Added input event listener to field: ", field);  // Debug Log 13
-  });
-
-  const userTypeRadioButtons = form.querySelectorAll('input[name="customer[note][User Type]"]');
-  userTypeRadioButtons.forEach(radio => {
-    radio.addEventListener('change', checkRequiredFields);
-    console.log("Added change event listener to radio: ", radio);  // Debug Log 14
-  });
-});
-
 </script>
 
 {% schema %}
