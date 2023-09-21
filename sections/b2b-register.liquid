@@ -30,7 +30,7 @@
 
     <h1>{{ 'customer.register.title' | t }}</h1>
 
-    {%- form 'create_customer' -%}
+    {%- form 'create_customer', novalidate: 'novalidate' -%}
       {%- if form.errors -%}
         <h2 class="form__message" tabindex="-1" autofocus>
           <svg aria-hidden="true" focusable="false"><use href="#icon-error" /></svg>
@@ -44,7 +44,7 @@
           {% assign user_type_title = user_type | split: "|" | first %}
           {% assign user_type_icon = user_type | split: "|" | last %}
           <div class="radio-option flex flex-col w-[100px] gap-2">
-            <input class="hidden" type="radio" id="{{ user_type_title | replace: ' ', '-' | downcase }}" name="customer[note][User Type]" value="{{ user_type_title }}" required>
+            <input class="hidden" type="radio" id="{{ user_type_title | replace: ' ', '-' | downcase }}" name="customer[note][User Type]" value="{{ user_type_title }}">
             <label class="flex flex-col items-center gap-1 cursor-pointer" for="{{ user_type_title | replace: ' ', '-' | downcase }}">
               <i class="fa-thin {{ user_type_icon }} h-[40px] w-[40px] rounded-full bg-[#4B643D] text-white p-4"></i>
               {{ user_type_title }}
@@ -143,6 +143,43 @@
     {%- endform -%}
   </div>
 </div>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function() {
+    const form = document.getElementById('register-form');
+
+    form.addEventListener('submit', function(event) {
+      // Initialize a flag to check if the form is valid
+      let isValid = true;
+
+      // Validate the user type radio button
+      const userTypeRadioButtons = document.querySelectorAll('input[name="customer[note][User Type]"]');
+      const userTypeSelected = Array.from(userTypeRadioButtons).some(radio => radio.checked);
+
+      if (!userTypeSelected) {
+        alert('Please select a user type.');
+        isValid = false;
+      }
+
+      // Validate the other required fields
+      const requiredFields = ['customer[first_name]', 'customer[last_name]', 'customer[email]', 'customer[password]', 'customer[note][B2B: Business Name]', 'customer[note][B2B: Phone'];
+
+      for (const fieldName of requiredFields) {
+        const field = form.querySelector(`input[name="${fieldName}"]`);
+        if (!field.value.trim()) {
+          alert(`Please fill out the ${fieldName.split('[').pop().split(']').shift()} field.`);
+          isValid = false;
+          break;
+        }
+      }
+
+      // If form is not valid, prevent submission
+      if (!isValid) {
+        event.preventDefault();
+      }
+    });
+  });
+</script>
 
 {% schema %}
 {
