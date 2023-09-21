@@ -150,63 +150,111 @@
 
 <script>
   document.addEventListener("DOMContentLoaded", function() {
-    const form = document.querySelector('form');
-    const submitButton = document.querySelector('button[disabled]');
-    const requiredFields = form.querySelectorAll('input[required]');
-    const submitButtonWrapper = document.getElementById('submit-button-wrapper');
 
-    const checkRequiredFields = () => {
-      let allFilled = true;
+  // Step 3: Make sure the DOM is fully loaded
+  console.log("DOM fully loaded and parsed"); // Debug: Step 2
+
+  const form = document.querySelector('form');
+
+  if (!form) {
+    console.error("Form not found!"); // Debug: Step 1
+    return;
+  }
+
+  const submitButton = form.querySelector('button');
+
+  if (!submitButton) {
+    console.error("Submit Button not found!"); // Debug: Step 1
+    return;
+  }
+
+  const requiredFields = form.querySelectorAll('input[required]');
+
+  if (!requiredFields.length) {
+    console.error("Required Fields not found!"); // Debug: Step 1
+    return;
+  }
+
+  const submitButtonWrapper = document.getElementById('submit-button-wrapper');
+
+  if (!submitButtonWrapper) {
+    console.error("Submit Button Wrapper not found!"); // Debug: Step 1
+    return;
+  }
+
+  // Initialize button state
+  submitButton.disabled = true;
+
+  const checkRequiredFields = () => {
+    let allFilled = true;
+
+    requiredFields.forEach(field => {
+      if (!field.value.trim()) {
+        allFilled = false;
+      }
+    });
+
+    const userTypeRadioButtons = form.querySelectorAll('input[name="customer[note][User Type]"]');
+    const userTypeSelected = Array.from(userTypeRadioButtons).some(radio => radio.checked);
+
+    if (!userTypeSelected) {
+      allFilled = false;
+    }
+
+    submitButton.disabled = !allFilled;
+    console.log(`All fields filled: ${allFilled}`); // Debug: Step 2
+  };
+
+  // Alert user for missing fields when they click on the button wrapper
+  submitButtonWrapper.addEventListener('click', function() {
+    if (submitButton.disabled) {
+      let missingFields = [];
 
       requiredFields.forEach(field => {
         if (!field.value.trim()) {
-          allFilled = false;
+          missingFields.push(field.getAttribute("placeholder"));
         }
       });
 
       const userTypeRadioButtons = form.querySelectorAll('input[name="customer[note][User Type]"]');
-      const userTypeSelected = Array.from(userTypeRadioButtons).some(radio => radio.checked);
-
-      // Debugging lines
-      console.log("allFilled:", allFilled);
-      console.log("userTypeSelected:", userTypeSelected);
-
-      if (!userTypeSelected) {
-        allFilled = false;
+      if (!Array.from(userTypeRadioButtons).some(radio => radio.checked)) {
+        missingFields.push("User Type");
       }
 
-      submitButton.disabled = !allFilled;
-    };
-
-    submitButtonWrapper.addEventListener('click', function(event) {
-      if (submitButton.disabled) {
-        event.stopPropagation();
-        let missingFields = [];
-
-        requiredFields.forEach(field => {
-          if (!field.value.trim()) {
-            missingFields.push(field.getAttribute("placeholder"));
-          }
-        });
-
-        const userTypeRadioButtons = form.querySelectorAll('input[name="customer[note][User Type]"]');
-        if (!Array.from(userTypeRadioButtons).some(radio => radio.checked)) {
-          missingFields.push("User Type");
-        }
-
-        alert("Please fill the following missing fields: " + missingFields.join(', '));
-      }
-    });
-
-    requiredFields.forEach(field => {
-      field.addEventListener('input', checkRequiredFields);
-    });
-
-    const userTypeRadioButtons = form.querySelectorAll('input[name="customer[note][User Type]"]');
-    userTypeRadioButtons.forEach(radio => {
-      radio.addEventListener('change', checkRequiredFields);
-    });
+      alert("Please fill the following missing fields: " + missingFields.join(', '));
+    }
   });
+
+  // Event listener to monitor input changes in required fields
+  requiredFields.forEach(field => {
+    field.addEventListener('input', checkRequiredFields);
+    console.log(`Attached input event listener to ${field.name}`); // Debug: Step 2
+  });
+
+  // Event listener to monitor changes in user type radio buttons
+  const userTypeRadioButtons = form.querySelectorAll('input[name="customer[note][User Type]"]');
+  if (!userTypeRadioButtons.length) {
+    console.error("User Type Radio Buttons not found!"); // Debug: Step 1
+    return;
+  }
+
+  userTypeRadioButtons.forEach(radio => {
+    radio.addEventListener('change', checkRequiredFields);
+    console.log(`Attached change event listener to ${radio.id}`); // Debug: Step 2
+  });
+
+  // Attach a submit event listener to the form
+  form.addEventListener('submit', function(e) {
+    e.preventDefault();  // Prevent the default form submission
+    console.log("Form submit event triggered"); // Debug: Step 2
+
+    // Add your validation logic here if any
+
+    // Explicitly submit the form
+    form.submit();
+  });
+});
+
 </script>
 
 
