@@ -155,55 +155,50 @@
 
 <script>
   document.addEventListener("DOMContentLoaded", function() {
-    const form = document.querySelector('.customer.register form');
-    const submitButton = document.querySelector('button[data-disabled]');
-    const requiredFields = form.querySelectorAll('input[required]');
-    const submitButtonWrapper = document.getElementById('submit-button-wrapper');
+  const form = document.querySelector('.customer.register form');
+  const submitButton = document.querySelector('button[data-disabled]');
+  const requiredFields = form.querySelectorAll('input[required]');
 
-    const checkRequiredFields = () => {
-      let allFilled = Array.from(requiredFields).every(field => field.value.trim());
+  const checkRequiredFields = () => {
+    let allFilled = Array.from(requiredFields).every(field => field.value.trim());
 
-      const userTypeRadioButtons = form.querySelectorAll('.user-type-input');
-      const userTypeSelected = Array.from(userTypeRadioButtons).some(radio => radio.checked);
+    const userTypeRadioButtons = form.querySelectorAll('.user-type-input');
+    const userTypeSelected = Array.from(userTypeRadioButtons).some(radio => radio.checked);
 
-      if (allFilled && userTypeSelected) {
-        submitButton.disabled = false;
-        submitButton.setAttribute("data-disabled", "false");
-        submitButtonWrapper.classList.remove('disabled:bg-gray-600');
-      } else {
-        submitButton.disabled = true;
-        submitButton.setAttribute("data-disabled", "true");
-        submitButtonWrapper.classList.add('disabled:bg-gray-600');
-      }
-    };
+    if (allFilled && userTypeSelected) {
+      submitButton.setAttribute("data-disabled", "false");
+    } else {
+      submitButton.setAttribute("data-disabled", "true");
+    }
+  };
 
-    // Attach an event listener to the parent element
-    submitButtonWrapper.addEventListener('click', function(event) {
-      const isDisabled = submitButton.getAttribute("data-disabled") === "true";
-      if (isDisabled) {
-        event.preventDefault();
-        event.stopPropagation();
-        let missingFields = [];
+  submitButton.addEventListener('click', function(event) {
+    const isDisabled = this.getAttribute("data-disabled") === "true";
+    if (isDisabled) {
+      event.preventDefault();
+      let missingFields = [];
 
-        requiredFields.forEach(field => {
-          if (!field.value.trim()) {
-            missingFields.push(field.getAttribute("placeholder"));
-          }
-        });
-
-        const userTypeRadioButtons = form.querySelectorAll('input[name="customer[note][User Type]"]');
-        if (!Array.from(userTypeRadioButtons).some(radio => radio.checked)) {
-          missingFields.push("User Type");
+      requiredFields.forEach(field => {
+        if (!field.value.trim()) {
+          missingFields.push(field.getAttribute("placeholder"));
         }
+      });
 
-        alert("Please fill the following missing fields: " + missingFields.join(', '));
+      const userTypeRadioButtons = form.querySelectorAll('input[name="customer[note][User Type]"]');
+      if (!Array.from(userTypeRadioButtons).some(radio => radio.checked)) {
+        missingFields.push("User Type");
       }
-    });
 
-    requiredFields.forEach(field => field.addEventListener('input', checkRequiredFields));
-    const userTypeRadioButtons = form.querySelectorAll('input[name="customer[note][User Type]"]');
-    userTypeRadioButtons.forEach(radio => radio.addEventListener('change', checkRequiredFields));
+      alert("Please fill the following missing fields: " + missingFields.join(', '));
+    }
   });
+
+  requiredFields.forEach(field => field.addEventListener('input', checkRequiredFields));
+  const userTypeRadioButtons = form.querySelectorAll('input[name="customer[note][User Type]"]');
+  userTypeRadioButtons.forEach(radio => radio.addEventListener('change', checkRequiredFields));
+});
+
+
 </script>
 
 {% schema %}
