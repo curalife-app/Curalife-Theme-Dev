@@ -142,7 +142,7 @@
       </div>
 
       <div id="submit-button-wrapper" class="disabled:bg-gray-600 ">
-        <button class="bg-[#4B643D]" disabled>Create Account</button>
+        <button class="bg-[#4B643D]" data-disabled="true">Create Account</button>
       </div>
     {%- endform -%}
   </div>
@@ -151,7 +151,7 @@
 <script>
   document.addEventListener("DOMContentLoaded", function() {
     const form = document.querySelector('.customer.register form');
-    const submitButton = document.querySelector('button[disabled]');
+    const submitButton = document.querySelector('button[data-disabled]');
     const requiredFields = form.querySelectorAll('input[required]');
     const submitButtonWrapper = document.getElementById('submit-button-wrapper');
 
@@ -161,21 +161,18 @@
       const userTypeRadioButtons = form.querySelectorAll('.user-type-input');
       const userTypeSelected = Array.from(userTypeRadioButtons).some(radio => radio.checked);
 
-      if (!userTypeSelected) {
-        allFilled = false;
-      }
-
-      submitButton.disabled = !allFilled;
-
-      if (allFilled) {
+      if (allFilled && userTypeSelected) {
+        submitButton.setAttribute("data-disabled", "false");
         submitButtonWrapper.classList.remove('disabled:bg-gray-600');
       } else {
+        submitButton.setAttribute("data-disabled", "true");
         submitButtonWrapper.classList.add('disabled:bg-gray-600');
       }
     };
 
     submitButtonWrapper.addEventListener('click', function(event) {
-      if (submitButton.disabled) {
+      const isDisabled = submitButton.getAttribute("data-disabled") === "true";
+      if (isDisabled) {
         event.stopPropagation();
         let missingFields = [];
 
