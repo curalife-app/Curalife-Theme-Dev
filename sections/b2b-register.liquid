@@ -44,7 +44,7 @@
           {% assign user_type_title = user_type | split: "|" | first %}
           {% assign user_type_icon = user_type | split: "|" | last %}
           <div class="radio-option flex flex-col w-[100px] gap-2">
-            <input class="hidden" type="radio" id="{{ user_type_title | replace: ' ', '-' | downcase }}" name="customer[note][User Type]" value="{{ user_type_title }}">
+            <input class="hidden" type="radio" id="{{ user_type_title | replace: ' ', '-' | downcase }}" name="customer[note][User Type]" value="{{ user_type_title }}" required>
             <label class="flex flex-col items-center gap-1 cursor-pointer" for="{{ user_type_title | replace: ' ', '-' | downcase }}">
               <i class="fa-thin {{ user_type_icon }} h-[40px] w-[40px] rounded-full bg-[#4B643D] text-white p-4"></i>
               {{ user_type_title }}
@@ -62,6 +62,7 @@
           {% endif %}
           autocomplete="given-name"
           placeholder="{{ 'customer.register.first_name' | t }}"
+          required
         >
         <label for="RegisterForm-FirstName">{{ 'customer.register.first_name' | t }}</label>
       </div>
@@ -75,6 +76,7 @@
           {% endif %}
           autocomplete="family-name"
           placeholder="{{ 'customer.register.last_name' | t }}"
+          required
         >
         <label for="RegisterForm-LastName">{{ 'customer.register.last_name' | t }}</label>
       </div>
@@ -95,6 +97,7 @@
             aria-describedby="RegisterForm-email-error"
           {% endif %}
           placeholder="{{ 'customer.register.email' | t }}"
+          required
         >
         <label for="RegisterForm-email">{{ 'customer.register.email' | t }}</label>
       </div>
@@ -117,6 +120,7 @@
             aria-describedby="RegisterForm-password-error"
           {% endif %}
           placeholder="{{ 'customer.register.password' | t }}"
+          required
         >
         <label for="RegisterForm-password">{{ 'customer.register.password' | t }}</label>
       </div>
@@ -129,15 +133,15 @@
       {%- endif -%}
 
       <div class="field b2b">
-        <input type="text" name="customer[note][B2B: Business Name]" id="BusinessName" placeholder="Business Name">
+        <input type="text" name="customer[note][B2B: Business Name]" id="BusinessName" placeholder="Business Name" required>
         <label for="BusinessName">Legal Business Name</label>
       </div>
       <div class="field b2b">
-        <input type="text" name="customer[note][B2B: Phone" id="PhoneNumber" placeholder="Phone Number">
+        <input type="text" name="customer[note][B2B: Phone" id="PhoneNumber" placeholder="Phone Number" required>
         <label for="PhoneNumber">Phone Number</label>
       </div>
 
-      <button>
+      <button id="submit-btn">
         {{ 'customer.register.submit' | t }}
       </button>
     {%- endform -%}
@@ -147,36 +151,41 @@
 <script>
   document.addEventListener("DOMContentLoaded", function() {
     const form = document.getElementById('register-form');
+    const submitButton = form.querySelector('button');
+    const requiredFields = form.querySelectorAll('input[required]');
 
-    form.addEventListener('submit', function(event) {
-      // Initialize a flag to check if the form is valid
-      let isValid = true;
+    // Initialize button state
+    submitButton.disabled = true;
 
-      // Validate the user type radio button
-      const userTypeRadioButtons = document.querySelectorAll('input[name="customer[note][User Type]"]');
+    // Helper function to check all required fields
+    const checkRequiredFields = () => {
+      let allFilled = true;
+
+      requiredFields.forEach(field => {
+        if (!field.value.trim()) {
+          allFilled = false;
+        }
+      });
+
+      const userTypeRadioButtons = form.querySelectorAll('input[name="customer[note][User Type]"]');
       const userTypeSelected = Array.from(userTypeRadioButtons).some(radio => radio.checked);
 
       if (!userTypeSelected) {
-        alert('Please select a user type.');
-        isValid = false;
+        allFilled = false;
       }
 
-      // Validate the other required fields
-      const requiredFields = ['customer[first_name]', 'customer[last_name]', 'customer[email]', 'customer[password]', 'customer[note][B2B: Business Name]', 'customer[note][B2B: Phone'];
+      submitButton.disabled = !allFilled;
+    };
 
-      for (const fieldName of requiredFields) {
-        const field = form.querySelector(`input[name="${fieldName}"]`);
-        if (!field.value.trim()) {
-          alert(`Please fill out the ${fieldName.split('[').pop().split(']').shift()} field.`);
-          isValid = false;
-          break;
-        }
-      }
+    // Listen for changes on required fields
+    requiredFields.forEach(field => {
+      field.addEventListener('input', checkRequiredFields);
+    });
 
-      // If form is not valid, prevent submission
-      if (!isValid) {
-        event.preventDefault();
-      }
+    // Listen for changes on radio buttons
+    const userTypeRadioButtons = form.querySelectorAll('input[name="customer[note][User Type]"]');
+    userTypeRadioButtons.forEach(radio => {
+      radio.addEventListener('change', checkRequiredFields);
     });
   });
 </script>
