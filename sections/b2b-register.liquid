@@ -1,3 +1,5 @@
+{% assign user_types = "Healthcare Professional|fa-user-doctor,Retailer|fa-shop,reseller|fa-handshare-simple" | split: "," %}
+
 {{ 'customer.css' | asset_url | stylesheet_tag }}
 
 {%- style -%}
@@ -8,18 +10,6 @@
 
   form#create_customer {
     margin-top: 1em;
-  }
-
-  .section-{{ section.id }}-padding {
-    padding-top: {{ section.settings.padding_top | times: 0.75 | round: 0 }}px;
-    padding-bottom: {{ section.settings.padding_bottom | times: 0.75 | round: 0 }}px;
-  }
-
-  @media screen and (min-width: 750px) {
-    .section-{{ section.id }}-padding {
-      padding-top: {{ section.settings.padding_top }}px;
-      padding-bottom: {{ section.settings.padding_bottom }}px;
-    }
   }
 {%- endstyle -%}
 
@@ -46,27 +36,17 @@
       <!-- New Radio Button Field -->
       <p>Select User Type:</p>
       <div class="user-type-selection flex justify-center gap-4">
-        <div class="radio-option flex flex-col w-[100px] gap-2">
-          <input type="radio" id="healthcare" name="customer[note][User Type]" value="Healthcare Professional">
-          <label class="flex flex-col items-center gap-1 cursor-pointer" for="healthcare">
-            <i class="fa-thin fa-user-doctor h-[40px] w-[40px] rounded-full bg-[#4B643D] text-white p-4"></i>
-            Healthcare Professional
-          </label>
-        </div>
-        <div class="radio-option flex flex-col w-[100px] gap-2">
-          <input type="radio" id="retailer" name="customer[note][User Type]" value="Retailer">
-          <label class="flex flex-col items-center gap-1 cursor-pointer" for="retailer">
-            <i class="fa-thin fa-shop h-[40px] w-[40px] rounded-full bg-[#4B643D] text-white p-4"></i>
-            Retailer
-          </label>
-        </div>
-        <div class="radio-option flex flex-col w-[100px] gap-2">
-          <input type="radio" id="reseller" name="customer[note][User Type]" value="Reseller">
-          <label class="flex flex-col items-center gap-1 cursor-pointer" for="reseller">
-            <i class="fa-thin fa-handshake-simple h-[40px] w-[40px] rounded-full bg-[#4B643D] text-white p-4"></i>
-            Reseller
-          </label>
-        </div>
+        {% for user_type in user_types %}
+          {% assign user_type_title = user_type | split: "|" | first %}
+          {% assign user_type_icon = user_type | split: "|" | last %}
+          <div class="radio-option flex flex-col w-[100px] gap-2">
+            <input type="radio" id="{{ user_type_title | replace: ' ', '-' | downcase }}" name="customer[note][User Type]" value="{{ user_type_title }}">
+            <label class="flex flex-col items-center gap-1 cursor-pointer" for="{{ user_type_title | replace: ' ', '-' | downcase }}">
+              <i class="fa-thin {{ user_type_icon }} h-[40px] w-[40px] rounded-full bg-[#4B643D] text-white p-4"></i>
+              {{ user_type_title }}
+            </label>
+          </div>
+        {% endfor %}
       </div>
       <div class="field">
         <input
