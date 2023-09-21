@@ -151,12 +151,9 @@
 <script>
   document.addEventListener("DOMContentLoaded", function() {
     const form = document.querySelector('form');
-    const submitButton = form.querySelector('button');
+    const submitButton = document.querySelector('button[disabled]');
     const requiredFields = form.querySelectorAll('input[required]');
     const submitButtonWrapper = document.getElementById('submit-button-wrapper');
-
-    // Initialize button state
-    submitButton.disabled = true;
 
     const checkRequiredFields = () => {
       let allFilled = true;
@@ -175,11 +172,16 @@
       }
 
       submitButton.disabled = !allFilled;
+      if (!allFilled) {
+        submitButton.classList.add('disabled:bg-gray-600');
+      } else {
+        submitButton.classList.remove('disabled:bg-gray-600');
+      }
     };
 
-    // Alert user for missing fields when they click on the button wrapper
-    submitButtonWrapper.addEventListener('click', function() {
+    submitButtonWrapper.addEventListener('click', function(event) {
       if (submitButton.disabled) {
+        event.stopPropagation();
         let missingFields = [];
 
         requiredFields.forEach(field => {
@@ -197,25 +199,13 @@
       }
     });
 
-    // Event listener to monitor input changes in required fields
     requiredFields.forEach(field => {
       field.addEventListener('input', checkRequiredFields);
     });
 
-    // Event listener to monitor changes in user type radio buttons
     const userTypeRadioButtons = form.querySelectorAll('input[name="customer[note][User Type]"]');
     userTypeRadioButtons.forEach(radio => {
       radio.addEventListener('change', checkRequiredFields);
-    });
-
-    // Attach a submit event listener to the form
-    form.addEventListener('submit', function(e) {
-      e.preventDefault();  // Prevent the default form submission
-
-      // Add your validation logic here if any
-
-      // Explicitly submit the form
-      form.submit();
     });
   });
 </script>
