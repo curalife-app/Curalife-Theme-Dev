@@ -141,21 +141,23 @@
         <label for="PhoneNumber">Phone Number</label>
       </div>
 
-      <button class="disabled:bg-gray-600 bg-[#4B643D]" disabled>Create Account</button>
+      <div id="submit-button-wrapper">
+        <button class="disabled:bg-gray-600 bg-[#4B643D]" disabled>Create Account</button>
+      </div>
     {%- endform -%}
   </div>
 </div>
 
 <script>
   document.addEventListener("DOMContentLoaded", function() {
-    const form = document.getElementById('register-form');
+    const form = document.querySelector('form');
     const submitButton = form.querySelector('button');
     const requiredFields = form.querySelectorAll('input[required]');
+    const submitButtonWrapper = document.getElementById('submit-button-wrapper');
 
     // Initialize button state
     submitButton.disabled = true;
 
-    // Helper function to check all required fields
     const checkRequiredFields = () => {
       let allFilled = true;
 
@@ -175,12 +177,30 @@
       submitButton.disabled = !allFilled;
     };
 
-    // Listen for changes on required fields
+    // Alert user for missing fields when they click on the button wrapper
+    submitButtonWrapper.addEventListener('click', function() {
+      if (submitButton.disabled) {
+        let missingFields = [];
+
+        requiredFields.forEach(field => {
+          if (!field.value.trim()) {
+            missingFields.push(field.getAttribute("placeholder"));
+          }
+        });
+
+        const userTypeRadioButtons = form.querySelectorAll('input[name="customer[note][User Type]"]');
+        if (!Array.from(userTypeRadioButtons).some(radio => radio.checked)) {
+          missingFields.push("User Type");
+        }
+
+        alert("Please fill the following missing fields: " + missingFields.join(', '));
+      }
+    });
+
     requiredFields.forEach(field => {
       field.addEventListener('input', checkRequiredFields);
     });
 
-    // Listen for changes on radio buttons
     const userTypeRadioButtons = form.querySelectorAll('input[name="customer[note][User Type]"]');
     userTypeRadioButtons.forEach(radio => {
       radio.addEventListener('change', checkRequiredFields);
