@@ -19,25 +19,25 @@
   </div>
 
   <div class="submit-wrap flex flex-col">
-    {% if customer.email == 'yotam@curalife.com' %}
-      {% render 'buy-buttons', block: block, product: product, product_form_id: product_form_id, section_id: section.id %}
-    {% else %}
-      <div class="main-submit-wrapper flex">
-        {% if isBuyQuantity %}
-          <div class="qty">
-            <input type="text" name="qty" maxlength="12" value="1" title="" class="input-text" />
-            <div class="qty_inc_dec">
-              <i class="increment" onclick="incrementQty()">+</i>
-              <i class="decrement" onclick="decrementQty()">-</i>
-            </div>
+    <div class="main-submit-wrapper flex">
+      {% if isBuyQuantity %}
+        <div class="qty">
+          <input type="text" name="quantity" maxlength="12" value="1" title="" class="input-text" />
+          <div class="qty_inc_dec">
+            <i class="increment" onclick="incrementQty()">+</i>
+            <i class="decrement" onclick="decrementQty()">-</i>
           </div>
-        {% endif %}
+        </div>
+      {% endif %}
 
-      <button class="main-btn" id="buy-button"><span>SHOP NOW</span>{% unless isBuyQuantity %}<span class="save" id="save"></span>{% endunless %}</button>
-      </div>
+      {% if customer.email == 'yotam@curalife.com' %}
+        {% render 'buy-buttons', block: block, product: product, product_form_id: product_form_id, section_id: section.id %}
+      {% else %}
+        <button class="main-btn" id="buy-button"><span>SHOP NOW</span>{% unless isBuyQuantity %}<span class="save" id="save"></span>{% endunless %}</button>
+      {% endif %}
+    </div>
 
-      {% render 'buy-with-prime-button' %}
-    {% endif %}
+    {% render 'buy-with-prime-button' %}
   </div>
 
   {% if badgesContent %}
@@ -190,21 +190,21 @@
 
   <script>
     function incrementQty() {
-      var value = document.querySelector('input[name="qty"]').value;
+      var value = document.querySelector('input[name="quantity"]').value;
       var cardQty = document.querySelector(".cart-qty");
       value = isNaN(value) ? 1 : value;
       value++;
-      document.querySelector('input[name="qty"]').value = value;
+      document.querySelector('input[name="quantity"]').value = value;
       cardQty.innerHTML = value;
       cardQty.classList.add("rotate-x");
     }
 
     function decrementQty() {
-      var value = document.querySelector('input[name="qty"]').value;
+      var value = document.querySelector('input[name="quantity"]').value;
       var cardQty = document.querySelector(".cart-qty");
       value = isNaN(value) ? 1 : value;
       value > 1 ? value-- : value;
-      document.querySelector('input[name="qty"]').value = value;
+      document.querySelector('input[name="quantity"]').value = value;
       cardQty.innerHTML = value;
       cardQty.classList.add("rotate-x");
     }
@@ -241,7 +241,7 @@
   $(document).on("click", "#product-actions-{{ section_id }} #buy-button", function () {
     console.log("Buy Button Pushed!")
     let checkedPack = $('#product-actions-{{ section_id }} input[name=pack]:checked').val();
-    let checkedQuantity = {% if isBuyQuantity %}$('#product-actions-{{ section_id }} input[name=qty]').val(){% else %}1{% endif %};
+    let checkedQuantity = {% if isBuyQuantity %}$('#product-actions-{{ section_id }} input[name=quantity]').val(){% else %}1{% endif %};
     let checkoutLink = "https://" + location.hostname + "/cart/" + checkedPack + ":" + checkedQuantity;
     window.location.href = checkoutLink;
 
@@ -257,7 +257,7 @@
         currency: '{{ shop.currency }}',
         item_brand: 'CuraLife',
         item_category: 'CuraLin',
-        quantity: {% if isBuyQuantity %}$('#product-actions-{{ section_id }} input[name=qty]').val(){% else %}1{% endif %}
+        quantity: {% if isBuyQuantity %}$('#product-actions-{{ section_id }} input[name=quantity]').val(){% else %}1{% endif %}
       }]
       },
       email: '{{ customer.email }}',
