@@ -1,3 +1,5 @@
+{% assign user_types = "Healthcare Professional|fa-user-doctor,Retailer|fa-shop,Reseller|fa-handshake-simple" | split: "," %}
+
 {{ 'customer.css' | asset_url | stylesheet_tag }}
 
 {%- style -%}
@@ -10,21 +12,18 @@
     margin-top: 1em;
   }
 
-  .section-{{ section.id }}-padding {
-    padding-top: {{ section.settings.padding_top | times: 0.75 | round: 0 }}px;
-    padding-bottom: {{ section.settings.padding_bottom | times: 0.75 | round: 0 }}px;
+  input[type="radio"]:checked + label svg {
+    background-color: var(--darker-green);
   }
 
-  @media screen and (min-width: 750px) {
-    .section-{{ section.id }}-padding {
-      padding-top: {{ section.settings.padding_top }}px;
-      padding-bottom: {{ section.settings.padding_bottom }}px;
-    }
+  form#create_customer button[data-disabled="true"] {
+    background-color: #ccc;
+    cursor: not-allowed;
   }
 {%- endstyle -%}
 
 <div class="customer register section-{{ section.id }}-padding bg-white rounded-lg">
-  <div class="container">
+  <div class="container p-8">
     <svg style="display: none">
       <symbol id="icon-error" viewBox="0 0 13 13">
         <circle cx="6.5" cy="6.50049" r="5.5" stroke="white" stroke-width="2"/>
@@ -42,21 +41,22 @@
           <svg aria-hidden="true" focusable="false"><use href="#icon-error" /></svg>
           Oops! something went wrong.<br>Please fix the errors below and try again.
         </h2>
-        {% comment %} <ul>
-          {%- for field in form.errors -%}
-            <li>
-              {%- if field == 'form' -%}
-                {{ form.errors.messages[field] }}
-              {%- else -%}
-                <a href="#RegisterForm-{{ field }}">
-                  {{ form.errors.translated_fields[field] | capitalize }}
-                  {{ form.errors.messages[field] }}
-                </a>
-              {%- endif -%}
-            </li>
-          {%- endfor -%}
-        </ul> {% endcomment %}
       {%- endif -%}
+      <!-- New Radio Button Field -->
+      <p>Select User Type:</p>
+      <div class="user-type-selection flex justify-center gap-4">
+        {% for user_type in user_types %}
+          {% assign user_type_title = user_type | split: "|" | first %}
+          {% assign user_type_icon = user_type | split: "|" | last %}
+          <div class="radio-option flex flex-col w-[100px] gap-2">
+            <input class="user-type-input hidden" type="radio" id="{{ user_type_title | replace: ' ', '-' | downcase }}" name="customer[note][User Type]" value="{{ user_type_title }}" required>
+            <label class="flex flex-col items-center gap-1 cursor-pointer" for="{{ user_type_title | replace: ' ', '-' | downcase }}">
+              <i class="fa-thin {{ user_type_icon }} h-[40px] w-[40px] rounded-full bg-[#4B643D] text-white p-4"></i>
+              {{ user_type_title }}
+            </label>
+          </div>
+        {% endfor %}
+      </div>
       <div class="field">
         <input
           type="text"
@@ -67,6 +67,7 @@
           {% endif %}
           autocomplete="given-name"
           placeholder="{{ 'customer.register.first_name' | t }}"
+          required
         >
         <label for="RegisterForm-FirstName">{{ 'customer.register.first_name' | t }}</label>
       </div>
@@ -80,6 +81,7 @@
           {% endif %}
           autocomplete="family-name"
           placeholder="{{ 'customer.register.last_name' | t }}"
+          required
         >
         <label for="RegisterForm-LastName">{{ 'customer.register.last_name' | t }}</label>
       </div>
@@ -100,6 +102,7 @@
             aria-describedby="RegisterForm-email-error"
           {% endif %}
           placeholder="{{ 'customer.register.email' | t }}"
+          required
         >
         <label for="RegisterForm-email">{{ 'customer.register.email' | t }}</label>
       </div>
@@ -122,6 +125,7 @@
             aria-describedby="RegisterForm-password-error"
           {% endif %}
           placeholder="{{ 'customer.register.password' | t }}"
+          required
         >
         <label for="RegisterForm-password">{{ 'customer.register.password' | t }}</label>
       </div>
@@ -134,48 +138,76 @@
       {%- endif -%}
 
       <div class="field b2b">
-        <input type="text" name="customer[note][B2B: Business Name]" id="BusinessName" placeholder="Business Name">
+        <input type="text" name="customer[note][B2B: Business Name]" id="BusinessName" placeholder="Business Name" required>
         <label for="BusinessName">Legal Business Name</label>
       </div>
       <div class="field b2b">
-        <input type="text" name="customer[note][B2B: Phone" id="PhoneNumber" placeholder="Phone Number">
+        <input type="text" name="customer[note][B2B: Phone]" id="PhoneNumber" placeholder="Phone Number" required>
         <label for="PhoneNumber">Phone Number</label>
       </div>
 
-      <button>
-        {{ 'customer.register.submit' | t }}
-      </button>
+      <div id="submit-button-wrapper">
+        <button class="bg-[#4B643D]" data-disabled="true">Create Account</button>
+      </div>
     {%- endform -%}
   </div>
 </div>
 
+<script>
+  document.addEventListener("DOMContentLoaded", function() {
+  const form = document.querySelector('.customer.register form');
+  const submitButton = document.querySelector('button[data-disabled]');
+  const requiredFields = form.querySelectorAll('input[required]');
+
+  const checkRequiredFields = () => {
+    let allFilled = Array.from(requiredFields).every(field => field.value.trim());
+
+    const userTypeRadioButtons = form.querySelectorAll('.user-type-input');
+    const userTypeSelected = Array.from(userTypeRadioButtons).some(radio => radio.checked);
+
+    if (allFilled && userTypeSelected) {
+      submitButton.setAttribute("data-disabled", "false");
+    } else {
+      submitButton.setAttribute("data-disabled", "true");
+    }
+  };
+
+  submitButton.addEventListener('click', function(event) {
+    const isDisabled = this.getAttribute("data-disabled") === "true";
+    if (isDisabled) {
+      event.preventDefault();
+      let missingFields = [];
+
+      requiredFields.forEach(field => {
+        if (!field.value.trim()) {
+          missingFields.push(field.getAttribute("placeholder"));
+        }
+      });
+
+      const userTypeRadioButtons = form.querySelectorAll('input[name="customer[note][User Type]"]');
+      if (!Array.from(userTypeRadioButtons).some(radio => radio.checked)) {
+        missingFields.push("User Type");
+      }
+
+      alert("Please fill the following missing fields: " + missingFields.join(', '));
+    }
+  });
+
+  requiredFields.forEach(field => field.addEventListener('input', checkRequiredFields));
+  const userTypeRadioButtons = form.querySelectorAll('input[name="customer[note][User Type]"]');
+  userTypeRadioButtons.forEach(radio => radio.addEventListener('change', checkRequiredFields));
+});
+
+
+</script>
+
 {% schema %}
 {
-  "name": "t:sections.main-register.name",
-  "settings": [
+  "name": "Business Signup",
+  "settings": [],
+  "presets": [
     {
-      "type": "header",
-      "content": "t:sections.all.padding.section_padding_heading"
-    },
-    {
-      "type": "range",
-      "id": "padding_top",
-      "min": 0,
-      "max": 100,
-      "step": 4,
-      "unit": "px",
-      "label": "t:sections.all.padding.padding_top",
-      "default": 36
-    },
-    {
-      "type": "range",
-      "id": "padding_bottom",
-      "min": 0,
-      "max": 100,
-      "step": 4,
-      "unit": "px",
-      "label": "t:sections.all.padding.padding_bottom",
-      "default": 36
+      "name": "Business Signup"
     }
   ]
 }
