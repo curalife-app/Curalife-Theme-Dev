@@ -16,6 +16,56 @@
   </div>
 
   <div class="purchase-options flex flex-col">
+    <div class="purchase-option-box buy-once {% if shop.name == "CuraLife Global" %}!hidden{% endif %}">
+      <div class="left-side-wrapper">
+        <div class="radio-box">
+          <input type="radio" id="buyonce" name="pack-subscription" data-price="{{ product.variants.first.price | money_without_currency | replace: ".00", "" }}" data-sku="{{ product.variants.first.sku }}"></input>
+          <label for="buyonce"></label>
+        </div>
+
+        <div class="option-info leading-none">
+        <div class="option-title font-semibold">{% if variantQuantity > 1 %}Buy once{% else %}{{ product.variants.first.title }}{% endif %}</div>
+          <div class="option-subtitle text-[14px] subscription-element" {% if product.title == "Curalin 3 Pack" or product.title == "Curalin 6 Pack" %}style="display: none"{% endif %}>One time delivery</div>
+        </div>
+      </div>
+
+      {% if variantQuantity == 1 %}
+        <div class="price">
+          <div class="calculations">
+            <div class="compared-at-price rounded line-through text-[12px]">{{ product.variants.first.compare_at_price | money_without_trailing_zeros }}</div>
+            <div class="real-price no-letters rounded">{{ product.variants.first.price | money_without_trailing_zeros }}</div>
+          </div>
+        </div>
+      {% endif %}
+    </div>
+
+    {% if variantQuantity > 1 %}
+      <div class="variants" style="max-height:0; overflow:hidden;">
+        {% comment %} <div class="cta-title font-bold">Choose Pack</div> {% endcomment %}
+
+        {% for var in product.variants %}
+          {% assign bottle_quantity = var.metafields.my_fields.pack_bottles_quantity %}
+          {% assign item_price = var.price | divided_by: bottle_quantity %}
+          {% assign save_price = original_item_price | minus: item_price | times: quantity %}
+
+          <div class="pack-option {% if forloop.index == 1 %}selected{% endif %}" data-value="{{ var.id }}" data-quantity="{{ var.metafields.my_fields.pack_bottles_quantity }}" data-price="{{ var.price | money_without_currency | replace: ".00", "" }}" data-title="{{ var.title }}" data-sku="{{ var.sku }}" data-save="{{ save_price }}" data-index="{{ forloop.index }}">
+            <div class="thumbnail relative">
+              <img src="{{ var.product.metafields.custom.bottle_image | image_url }}" alt="{{ var.title }}">
+              {% if bottle_quantity > 1 %}<div class="variant-bottle-quantity">X{{ bottle_quantity }}</div>{% endif %}
+              {% if var.metafields.my_fields.subtitle %}<div class="variant-subtitle">{{ var.metafields.my_fields.subtitle }}</div>{% endif %}
+            </div>
+            <div class="variant-info py-2">
+              <div class="variant-price-wrapper flex items-center justify-center gap-1">
+                {% if var.compare_at_price > 0 and var.compare_at_price > var.price %}<div class="variant-cap text-[12px] rounded line-through">{{ var.compare_at_price | money_without_trailing_zeros }}</div>{% endif %}
+                <div class="variant-price font-bold">{{ var.price | money_without_trailing_zeros }}</div>
+              </div>
+              <div class="variant-title text-[14px] md:text-[3.5vw]">{{ var.title }}</div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
     {% if shop.name == "CuraLife" %}
       <div class="purchase-option-box subscription-element">
         <div class="left-side-wrapper">
@@ -40,57 +90,7 @@
         </div>
       </div>
     {% endif %}
-
-    <div class="purchase-option-box buy-once {% if shop.name == "CuraLife Global" %}!hidden{% endif %}">
-      <div class="left-side-wrapper">
-        <div class="radio-box">
-          <input type="radio" id="buyonce" name="pack-subscription" data-price="{{ product.variants.first.price | money_without_currency | replace: ".00", "" }}" data-sku="{{ product.variants.first.sku }}"></input>
-          <label for="buyonce"></label>
-        </div>
-
-        <div class="option-info leading-none">
-        <div class="option-title font-semibold">{% if variantQuantity > 1 %}Buy once{% else %}{{ product.variants.first.title }}{% endif %}</div>
-          <div class="option-subtitle text-[14px] subscription-element" {% if product.title == "Curalin 3 Pack" or product.title == "Curalin 6 Pack" %}style="display: none"{% endif %}>One time delivery</div>
-        </div>
-      </div>
-
-      {% if variantQuantity == 1 %}
-        <div class="price">
-          <div class="calculations">
-            <div class="compared-at-price rounded line-through text-[12px]">{{ product.variants.first.compare_at_price | money_without_trailing_zeros }}</div>
-            <div class="real-price no-letters rounded">{{ product.variants.first.price | money_without_trailing_zeros }}</div>
-          </div>
-        </div>
-      {% endif %}
-    </div>
   </div>
-
-  {% if variantQuantity > 1 %}
-    <div class="variants" style="max-height:0; overflow:hidden;">
-      {% comment %} <div class="cta-title font-bold">Choose Pack</div> {% endcomment %}
-
-      {% for var in product.variants %}
-        {% assign bottle_quantity = var.metafields.my_fields.pack_bottles_quantity %}
-        {% assign item_price = var.price | divided_by: bottle_quantity %}
-        {% assign save_price = original_item_price | minus: item_price | times: quantity %}
-
-        <div class="pack-option {% if forloop.index == 2 %}selected{% endif %}" data-value="{{ var.id }}" data-quantity="{{ var.metafields.my_fields.pack_bottles_quantity }}" data-price="{{ var.price | money_without_currency | replace: ".00", "" }}" data-title="{{ var.title }}" data-sku="{{ var.sku }}" data-save="{{ save_price }}" data-index="{{ forloop.index }}">
-          <div class="thumbnail relative">
-            <img src="{{ var.product.metafields.custom.bottle_image | image_url }}" alt="{{ var.title }}">
-            {% if bottle_quantity > 1 %}<div class="variant-bottle-quantity">X{{ bottle_quantity }}</div>{% endif %}
-            {% if var.metafields.my_fields.subtitle %}<div class="variant-subtitle">{{ var.metafields.my_fields.subtitle }}</div>{% endif %}
-          </div>
-          <div class="variant-info py-2">
-            <div class="variant-price-wrapper flex items-center justify-center gap-1">
-              {% if var.compare_at_price > 0 and var.compare_at_price > var.price %}<div class="variant-cap text-[12px] rounded line-through">{{ var.compare_at_price | money_without_trailing_zeros }}</div>{% endif %}
-              <div class="variant-price font-bold">{{ var.price | money_without_trailing_zeros }}</div>
-            </div>
-            <div class="variant-title text-[14px] md:text-[3.5vw]">{{ var.title }}</div>
-          </div>
-        </div>
-      {% endfor %}
-    </div>
-  {% endif %}
 
   <div class="submit-wrap flex flex-col">
     <button class="main-btn p-0 bg-[#ffb22d]" id="buy-button" onclick="buyButtonHandler()" style="min-height:50px">
