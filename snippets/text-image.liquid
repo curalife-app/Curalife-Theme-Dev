@@ -81,6 +81,176 @@
                 {% endif %}
                 <img class="block-image object-contain" src="{{ block.settings.image | image_url }}" alt="{{ block.settings.image.alt }}" loading="lazy">
               </picture>
+            {% when 'countdown' %}
+              <div id="countdown">
+                <ul>
+                  <li><span id="hours"></span>Hours</li>
+                  <li><span id="minutes"></span>Minutes</li>
+                  <li><span id="seconds"></span>Seconds</li>
+                </ul>
+              </div>
+
+              <style>
+                #countdown {
+                  margin: auto;
+                  max-width: fit-content;
+                }
+
+                #countdown li {
+                  display: inline-block;
+                  font-size: 15px;
+                  list-style-type: none;
+                  text-transform: uppercase;
+                  min-width: 110px;
+                  text-align: center;
+                }
+
+                #countdown li span {
+                  display: block;
+                  font-size: 60px;
+                  font-weight: 400;
+                }
+
+                #countdown li:not(:last-child):before {
+                  content: ":";
+                    display: block;
+                    font-size: 40px;
+                    position: relative;
+                    top: 57px;
+                    left: 57px;
+                }
+
+                @media screen and (max-width: 760px) {
+                    #countdown {
+                        width: 100%;
+                        text-align: center;
+                        top: -45px;
+                    }
+
+                    #countdown li {
+                      padding: 5px;
+                      font-size: 16px;
+                        min-width: 70px;
+                    }
+
+                    #countdown li span {
+                        font-size: 45px;
+                    }
+
+                    #countdown li:not(:last-child):before {
+                        top: 40px;
+                        left: 40px;
+                    }
+
+                }
+              </style>
+
+              <script>
+                // Timer
+                Number.prototype.pad = function() {
+                    return this < 10 ? '0' + this : this;
+                }
+
+                const second = 1000,
+                minute = second * 60,
+                hour = minute * 60;
+
+                let birthday = "{{ block.settings.month }} {{ block.settings.day }}, {{ block.settings.hour }} 09:59:00";
+                let countDown = new Date(birthday).getTime();
+                let x = setInterval(function() {
+                    var now = new Date().getTime();
+                    var distance = countDown - now;
+
+                    document.getElementById("hours").innerText = Math.floor(distance / (hour)).pad(),
+                    document.getElementById("minutes").innerText = Math.floor((distance % (hour)) / (minute)).pad(),
+                    document.getElementById("seconds").innerText = Math.floor((distance % (minute)) / second).pad();
+
+                    // do something later when date is reached
+                    if (distance < 0) {
+                        clearInterval(x);
+                    }
+                //seconds
+                }, 0)
+              </script>
+              {% comment %} <div id="countdown">
+                <ul>
+                  <li><span id="days"></span>days</li>
+                  <li><span id="hours"></span>Hours</li>
+                  <li><span id="minutes"></span>Minutes</li>
+                  <li><span id="seconds"></span>Seconds</li>
+                </ul>
+              </div>
+
+              <script>
+                (function () {
+                  const second = 1000,
+                        minute = second * 60,
+                        hour = minute * 60,
+                        day = hour * 24;
+
+                  //I'm adding this section so I don't have to keep updating this pen every year :-)
+                  //remove this if you don't need it
+                  let today = new Date(),
+                      dd = String(today.getDate()).padStart(2, "0"),
+                      mm = String(today.getMonth() + 1).padStart(2, "0"),
+                      yyyy = today.getFullYear(),
+                      year = {{ block.settings.year }},
+                      dayMonth = "{{ block.settings.month }}/{{ block.settings.day }}/",
+                      birthday = dayMonth + year;
+
+                  today = mm + "/" + dd + "/" + yyyy;
+                  if (today > birthday) {
+                    birthday = dayMonth + nextYear;
+                  }
+                  //end
+
+                  const countDown = new Date(birthday).getTime(),
+                      x = setInterval(function() {
+
+                        const now = new Date().getTime(),
+                              distance = countDown - now;
+
+                        document.getElementById("days").innerText = Math.floor(distance / (day)),
+                          document.getElementById("hours").innerText = Math.floor((distance % (day)) / (hour)),
+                          document.getElementById("minutes").innerText = Math.floor((distance % (hour)) / (minute)),
+                          document.getElementById("seconds").innerText = Math.floor((distance % (minute)) / second);
+
+                        //do something later when date is reached
+                        if (distance < 0) {
+                          document.getElementById("headline").innerText = "It's my birthday!";
+                          document.getElementById("countdown").style.display = "none";
+                          document.getElementById("content").style.display = "block";
+                          clearInterval(x);
+                        }
+                        //seconds
+                      }, 0)
+                  }());
+              </script>
+
+              <style>
+                li {
+                  display: inline-block;
+                  font-size: 1.5em;
+                  list-style-type: none;
+                  padding: 1em;
+                  text-transform: uppercase;
+                }
+
+                li span {
+                  display: block;
+                  font-size: 4.5rem;
+                }
+
+                @media all and (max-width: 768px) {
+                  li {
+                    font-size: calc(1.125rem * var(--smaller));
+                  }
+
+                  li span {
+                    font-size: calc(3.375rem * var(--smaller));
+                  }
+                }
+              </style> {% endcomment %}
             {% endcase %}
           {% endfor %}
         </div>
