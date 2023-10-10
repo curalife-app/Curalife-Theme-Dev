@@ -259,11 +259,15 @@
 </script>
 
 <script>
+  // Get the product value from the URL
   function getProductValue() {
     const urlParams = new URLSearchParams(window.location.search);
-    return urlParams.get("product");
+    const productValue = urlParams.get("product");
+    console.log("%c🚀 product value is: " + productValue);
+    return productValue;
   }
 
+  // Replace the product segment in the URL
   function replaceProductSegment(targetUrl, productValue) {
     if (!productValue) return targetUrl;
 
@@ -272,23 +276,36 @@
     const newBaseUrl = baseUrl.replace(productSegment, productValue);
 
     const newUrlParams = new URLSearchParams(queryString);
-    newUrlParams.delete("product");
+    newUrlParams.set('product', productValue);
 
     const finalQueryString = newUrlParams.toString() ? '?' + newUrlParams.toString() : "";
     return newBaseUrl + finalQueryString;
   }
 
+  // Replace all links on the page with the product value
+  function replaceLinks(productReplacement) {
+    $('a').each(function () {
+      const currLink = $(this).attr('href');
+      if (currLink) {
+        try {
+          const newURL = replaceProductSegment(currLink, productReplacement);
+          console.log("Replacing link: " + currLink + " with: " + newURL);
+          $(this).attr('href', newURL);
+        } catch (error) {
+          console.log("Error attempting to replace link: " + currLink + " with: " + newURL);
+          console.log(error);
+        }
+      }
+    });
+  }
+
+  // When the page loads, replace all links
   $(document).ready(function () {
     const productReplacement = getProductValue();
+    console.log("%c🚀 ")
 
     if (productReplacement) {
-      $('a').each(function () {
-        const currLink = $(this).attr('href');
-        if (currLink) {
-          const newURL = replaceProductSegment(currLink, productReplacement);
-          $(this).attr('href', newURL);
-        }
-      });
+      replaceLinks(productReplacement);
     }
   });
 </script>
