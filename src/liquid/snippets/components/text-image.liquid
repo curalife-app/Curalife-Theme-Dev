@@ -32,7 +32,7 @@
     {% endunless %}
 
     {% if main_image or main_mobile_image %}
-      <div class="image-wrapper z-[1] h-auto {% if main_mobile_image and main_image == blank %}mobile{% endif %} {% if itemsDirection == 'horizontal' %}max-w-1/2{% else %}w-full{% endif %} {% if is_image_bottom %}self-end md:self-auto{% endif %}">
+      <div class="image-wrapper z-[1] h-auto {% if main_mobile_image and main_image == blank %}mobile{% endif %} {% if itemsDirection == 'vertical' %}w-full{% endif %} {% if is_image_bottom %}self-end md:self-auto{% endif %}">
         <picture>
           {% if main_mobile_image %}
             <source media="(max-width: 768px)" srcset="{{ main_mobile_image | image_url }}">
@@ -42,7 +42,8 @@
       </div>
     {% endif %}
 
-    {% if title != blank or content != blank %}
+    {% assign blocks_amount = section_blocks | size %}
+    {% if title != blank or content != blank or blocks_amount > 0 %}
       <div class="content-wrapper break-word z-[1] flex md:py-0 md:!w-full gap-12 md:gap-4 md:m-auto {% if alignment == 'center' %}justify-center m-auto{% endif %} {% if itemsDirection == 'horizontal' %}w-45%{% else %}w-70%{% endif %}" {% if content_animation != 'none'%}data-aos="{{ content_animation }}" data-aos-duration="{{ animation_duration }}"{% endif %}>
         {% if number != blank %}<div class="number self-center"><div class="add-number">{{ number }}</div></div>{% endif %}
 
@@ -52,14 +53,16 @@
           {% endif %}
 
           {% if subtitle != blank %}
-            <p class="subtitle {% if title_tag == 'h1' %}text-[30px]{% else %}text-xl{% endif %} {% if is_no_p_margin %}m-0{% endif %}">{{ subtitle }}</s>
+            <p class="subtitle {% if title_tag == 'h1' %}text-[30px]{% else %}text-xl{% endif %} {% if is_no_p_margin %}m-0{% endif %}">{{ subtitle }}</p>
           {% endif %}
 
           {% if is_line_seperator %}
             <div class="line-seperator my-2 border-b border-black w-[100px] md:w-[30vw]"></div>
           {% endif %}
 
-          <div class="description {% if is_hide_description_on_mobile %}md:hidden{% endif %} text-{{ alignment }} md:text-{{ mobile_alignment }}">{{ content }}</div>
+          {% if content != blank %}
+            <div class="description {% if is_hide_description_on_mobile %}md:hidden{% endif %} text-{{ alignment }} md:text-{{ mobile_alignment }}">{{ content }}</div>
+          {% endif %}
 
           {% for block in section_blocks %}
             {% case block.type %}
@@ -180,6 +183,7 @@
     {% endif %}
   </div>
 </div>
+
 
 <style>
   section.text-image .content-wrapper em {
@@ -322,6 +326,10 @@
     width: {{ content_width }}%;
   }
 
+  #section-{{ section_id }} .image-wrapper {
+    max-width: calc(100% - {{ content_width }}%);
+  }
+
   #section-{{ section_id }} .content-wrapper {
     font-size: {{ text_size }}px;
   }
@@ -364,7 +372,7 @@
     }
 
     section.text-image .image-wrapper {
-      max-width: unset;
+      max-width: unset !important;
     }
 
     section.text-image .add-number {
