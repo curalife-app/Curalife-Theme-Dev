@@ -14,18 +14,17 @@
         if (currentLink.startsWith("/") || currentLink.startsWith(".") ||
           (currentLink.startsWith("http") && currentLink.includes(currentHostname))) {
 
-          // Parse existing query parameters in the link
           let url = new URL(currentLink, `http://${currentHostname}`);
           let linkParams = new URLSearchParams(url.search);
 
-          // Merge or replace parameters
+          // Only add parameters from urlParams if they do not already exist in linkParams
           urlParams.forEach((value, key) => {
-            linkParams.set(key, value);
+            if (!linkParams.has(key)) {
+              linkParams.set(key, value);
+            }
           });
 
-          // Update the search parameters of the link
           url.search = linkParams.toString();
-
           link.setAttribute('href', url.pathname + url.search);
         }
       });
@@ -34,14 +33,14 @@
       let blogUrl = new URL("https://curalife.com/blogs/blog", `http://${currentHostname}`);
       let blogParams = new URLSearchParams(blogUrl.search);
 
-      // Merge or replace parameters for blog link as well
+      // Only add parameters from urlParams if they do not already exist in blogParams
       urlParams.forEach((value, key) => {
-        blogParams.set(key, value);
+        if (!blogParams.has(key)) {
+          blogParams.set(key, value);
+        }
       });
 
-      // Update the search parameters of the blog link
       blogUrl.search = blogParams.toString();
-
       blogLinks.attr("href", blogUrl.pathname + blogUrl.search);
     }
   });
