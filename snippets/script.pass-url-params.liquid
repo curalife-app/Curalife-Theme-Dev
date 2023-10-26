@@ -13,15 +13,36 @@
 
         if (currentLink.startsWith("/") || currentLink.startsWith(".") ||
           (currentLink.startsWith("http") && currentLink.includes(currentHostname))) {
-          if (currentLink.includes("?")) {
-            link.setAttribute('href', currentLink + "&" + queryString.substring(1));
-          } else {
-            link.setAttribute('href', currentLink + queryString);
-          }
+
+          // Parse existing query parameters in the link
+          let url = new URL(currentLink, `http://${currentHostname}`);
+          let linkParams = new URLSearchParams(url.search);
+
+          // Merge or replace parameters
+          urlParams.forEach((value, key) => {
+            linkParams.set(key, value);
+          });
+
+          // Update the search parameters of the link
+          url.search = linkParams.toString();
+
+          link.setAttribute('href', url.pathname + url.search);
         }
       });
 
-      let blogLinks = $("header li a span:contains('Blog')").parent().attr("href", "https://curalife.com/blogs/blog" + queryString);
+      let blogLinks = $("header li a span:contains('Blog')").parent();
+      let blogUrl = new URL("https://curalife.com/blogs/blog", `http://${currentHostname}`);
+      let blogParams = new URLSearchParams(blogUrl.search);
+
+      // Merge or replace parameters for blog link as well
+      urlParams.forEach((value, key) => {
+        blogParams.set(key, value);
+      });
+
+      // Update the search parameters of the blog link
+      blogUrl.search = blogParams.toString();
+
+      blogLinks.attr("href", blogUrl.pathname + blogUrl.search);
     }
   });
 </script>
