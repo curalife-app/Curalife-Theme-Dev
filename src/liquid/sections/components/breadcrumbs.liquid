@@ -1,50 +1,70 @@
 {% if template.name != "index" %}
   <div class="container">
-    <nav class="breadcrumb absolute top-[10px] z-10 text-[14px]">
-      <a href="/">Home</a>
+    <nav class="breadcrumb absolute top-[10px] z-10 text-[14px]" itemscope itemtype="https://schema.org/BreadcrumbList">
+      <span itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a href="/" itemprop="item"><span itemprop="name">Home</span></a>
+        <meta itemprop="position" content="1" />
+      </span>
+
+      {% assign position = 1 %}
+
       {% if collection %}
-        <span class="breadcrumb-separator px-2"> &gt; </span>
-        <a href="{{ collection.url }}">{{ collection.title }}</a>
+        {% assign position = position | plus: 1 %}
+        {% render 'breadcrumb-item', title: collection.title, is_current: true, position: position %}
       {% elsif page %}
-        <span class="breadcrumb-separator px-2"> &gt; </span>
-        <span>{{ page.title }}</span>
+        {% assign position = position | plus: 1 %}
+        {% render 'breadcrumb-item', title: page.title, is_current: true, position: position %}
       {% elsif blog and article %}
-        <span class="breadcrumb-separator px-2"> &gt; </span>
-        <a href="/blogs/{{ blog.handle }}">{{ blog.title }}</a>
-        <span class="breadcrumb-separator px-2"> &gt; </span>
-        <span>{{ article.title }}</span>
+        {% assign position = position | plus: 1 %}
+        {% render 'breadcrumb-item', link: "/blogs/" | append: blog.handle, title: blog.title, position: position %}
+        {% assign position = position | plus: 1 %}
+        {% render 'breadcrumb-item', title: article.title, is_current: true, position: position %}
       {% elsif blog %}
-        <span class="breadcrumb-separator px-2"> &gt; </span>
-        <span>{{ blog.title }}</span>
+        {% assign position = position | plus: 1 %}
+        {% render 'breadcrumb-item', title: blog.title, is_current: true, position: position %}
       {% elsif template.name == 'list-collections' %}
-        <span class="breadcrumb-separator px-2"> &gt; </span>
-        <span>Collections</span>
+        {% assign position = position | plus: 1 %}
+        {% render 'breadcrumb-item', title: 'Collections', is_current: true, position: position %}
       {% elsif template.name == 'cart' %}
-        <span class="breadcrumb-separator px-2"> &gt; </span>
-        <span>Cart</span>
+        {% assign position = position | plus: 1 %}
+        {% render 'breadcrumb-item', title: 'Cart', is_current: true, position: position %}
       {% elsif template.name == 'search' %}
-        <span class="breadcrumb-separator px-2"> &gt; </span>
-        <span>Search</span>
+        {% assign position = position | plus: 1 %}
+        {% render 'breadcrumb-item', title: 'Search', is_current: true, position: position %}
+      {% elsif template.name == 'account' or request.path contains '/tools/recurring/portal' %}
+        {% assign position = position | plus: 1 %}
+        {% render 'breadcrumb-item', link: "/account", title: 'My Account', position: position %}
+        {% if request.path contains '/tools/recurring/portal' %}
+          {% assign position = position | plus: 1 %}
+          {% render 'breadcrumb-item', title: 'Subscriptions', is_current: true, position: position %}
+        {% endif %}
       {% endif %}
 
       {% if product %}
-        {% if product.collections.size > 0 %}
-          {% assign current_collection = product.collections.first %}
-          <span class="breadcrumb-separator px-2"> &gt; </span>
-          <a href="{{ current_collection.url }}">{{ current_collection.title }}</a>
-        {% endif %}
-        <span class="breadcrumb-separator px-2"> &gt; </span>
-        <span>{{ product.title }}</span>
+        {% assign position = position | plus: 1 %}
+        {% render 'breadcrumb-item', link: "/collections", title: 'Shop', position: position %}
+        {% assign position = position | plus: 1 %}
+        {% render 'breadcrumb-item', title: product.title, is_current: true, position: position %}
       {% endif %}
     </nav>
   </div>
-{% endif %}
 
+  <style>
+    .current-page {
+      color: {{ section.settings.current_color }};
+    }
+  </style>
+{% endif %}
 
 {% schema  %}
 {
   "name": "Breadcrumb",
   "settings": [
+    {
+      "type": "color",
+      "id": "current_color",
+      "label": "Current page color"
+    }
   ],
   "presets": [
     {
