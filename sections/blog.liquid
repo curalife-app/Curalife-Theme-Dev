@@ -1,7 +1,12 @@
 {% assign blog_categories = "Awareness Dates,CuraFood Recipes,Health Education,Healthy Living" %}
+{% assign filters_data = shop.metafields.custom.filters %}
 
 <section class="blog-page">
   <div class="container">
+    <div id="filters-section">
+      <!-- Filters will be dynamically inserted here -->
+    </div>
+
       {% paginate blog.articles by 9 %}
       <div class="page-title">
         <div class="subtitle text-center">
@@ -55,6 +60,58 @@
 </div>
 
 {% render 'newsletter-form' %}
+
+{% if filters_data %}
+  <script>
+    $(document).ready(function() {
+      const filtersJson = '{{ filters_data | json }}';
+      const filtersData = JSON.parse(filtersJson);
+
+      // Generate filter checkboxes based on filtersData
+      for (let filterName in filtersData) {
+        let filterOptions = filtersData[filterName];
+        let filterDiv = $('<div class="filter-group"></div>');
+        let filterLabel = $(`<label>${filterName}</label>`);
+        filterDiv.append(filterLabel);
+        filterOptions.forEach(option => {
+          let checkbox = $(`<input type="checkbox" value="${option}" name="${filterName}">`);
+          let optionLabel = $(`<label>${option}</label>`);
+          filterDiv.append(checkbox);
+          filterDiv.append(optionLabel);
+        });
+        $('#filters-section').append(filterDiv);
+      }
+
+      // Attach event listeners to checkboxes
+      $('input[type="checkbox"]').change(function() {
+        let selectedFilters = {};
+        $('input[type="checkbox"]:checked').each(function() {
+          let filterName = $(this).attr('name');
+          let filterValue = $(this).val();
+          if (!selectedFilters[filterName]) {
+            selectedFilters[filterName] = [];
+          }
+          selectedFilters[filterName].push(filterValue);
+        });
+
+        // AJAX call to update the blog articles
+        $.ajax({
+          url: '/path/to/your/blog/api', // Make sure to update this
+          type: 'GET',
+          data: selectedFilters,
+          success: function(data) {
+            // Implement logic to update your blog articles section
+            // For example, assuming 'data' contains the new articles HTML:
+            $('#article-list').html(data);
+          },
+          error: function(err) {
+            console.error('Failed to fetch filtered articles', err);
+          }
+        });
+      });
+    });
+  </script>
+{% endif %}
 
 <style>
   .page-title {
