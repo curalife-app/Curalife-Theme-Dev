@@ -1,4 +1,5 @@
 {% assign blog_categories = "Awareness Dates,CuraFood Recipes,Health Education,Healthy Living" %}
+{% assign filters_data = blog.metafields.custom.filters %}
 
 <section class="blog-page">
   <div class="container">
@@ -9,12 +10,19 @@
           <p>The latest advice and research for a healthier life</p>
         </div>
 
+        {% if filters_data %}
+          <div id="filters">
+            <h3>Filter By:</h3>
+            <!-- Filters will be dynamically inserted here -->
+          </div>
+        {% endif %}
+
         <div class="blog-category">
           <div class="category-wrap">
             <div class="touch-scroll">
               <div class="scroll-wrap">
                 <ul>
-                  <li  {% if current_tags == blank  %} class="active" {% endif%} ><a href="{{ blog.url }}">All</a></li>
+                  <li {% if current_tags == blank  %}class="active"{% endif %}><a href="{{ blog.url }}">All</a></li>
                   {% for tag in blog.all_tags %}
                     {% if blog_categories contains tag %}
                         {% assign crTag = tag  %}
@@ -26,13 +34,21 @@
                         <li class="{{cls}}"  > <a href="{{ blog.url }}/tagged/{{ tag | handleize }}">{{ tag }}</a></li>
                     {% endif %}
                   {% endfor %}
+
+                  {%- if customer.tags contains '30-day-challenge' -%}
+                    <li {% if current_tags contains 'workout'  %}class="active"{% endif %}><a href="/blogs/workouts">Workouts</a></li>
+                  {%- endif -%}
                 </ul>
               </div>
             </div>
           </div>
         </div>
       </div>
-      <div class="article-list">
+      <!-- New container for AJAX-loaded articles -->
+      <div id="ajax-articles-container" style="display: none;">
+        <!-- AJAX-loaded articles will go here -->
+      </div>
+      <div id="articles-container" class="article-list">
         {% for article in blog.articles %}
           {% if forloop.index <= 2 %}
             {% assign desc = true %}
@@ -51,6 +67,78 @@
 </div>
 
 {% render 'newsletter-form' %}
+
+{% if filters_data %}
+  <script>
+    $(document).ready(function() {
+      // Parse filters_data from Liquid to JavaScript object
+      const filtersJson = '{{ filters_data }}';
+      const filtersData = JSON.parse(filtersJson);
+      console.log('filtersData:', filtersData);
+
+      // Generate dynamic filters
+      let filterHTML = "";
+      for(const filter of filtersData) {
+        filterHTML += `<li><a href="#">${filter}</a></li>`;
+      }
+
+      $("#filters").html(filterHTML);
+
+      // Attach event listener to dynamic filter links
+      $("#dynamic-filters li a").click(function(event) {
+        event.preventDefault();
+        const tag = $(this).text().trim();
+        fetchArticles(tag);
+      });
+
+      // Attach event listener to the blog-category links
+      $(".blog-category ul li a").click(function(event) {
+        event.preventDefault();
+
+        const tag = $(this).text().trim();
+        if(tag === "All") {
+          $("#articles-container").show();
+          $("#ajax-articles-container").hide().empty();
+          return;
+        }
+
+        fetchArticles(tag);
+      });
+
+      // Function to fetch articles based on tag
+      function fetchArticles(tag) {
+        const url = `/blogs/{{ blog.handle }}/articles.json?tag=${tag}`;
+
+        $.ajax({
+          url: url,
+          type: "GET",
+          dataType: "json",
+          success: function(data) {
+            const articles = data.articles;
+            let html = "";
+
+            for(const article of articles) {
+              html += `
+                <div class="article-item">
+                  <h3>${article.title}</h3>
+                  <p>${article.content}</p>
+                  <a href="${article.url}">Read More</a>
+                </div>
+              `;
+            }
+
+            $("#ajax-articles-container").html(html).show();
+            $("#articles-container").hide();
+          },
+          error: function(err) {
+            console.error("Error fetching articles:", err);
+          }
+        });
+      }
+    });
+  </script>
+{% endif %}
+
 
 <style>
   .page-title {

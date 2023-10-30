@@ -1,8 +1,8 @@
 <script>
   document.addEventListener('DOMContentLoaded', function() {
+    let urlDontPassParams = ['page', 'category', 'default-variant'];
     let urlParams = new URLSearchParams(window.location.search);
-    urlParams.delete('page'); // Delete the 'page' parameter
-    urlParams.delete('category'); // Delete the 'category' parameter
+    urlDontPassParams.forEach(param => urlParams.delete(param));
 
     let queryString = urlParams.toString() ? "?" + urlParams.toString() : "";
     let currentHostname = window.location.hostname;
@@ -13,15 +13,35 @@
 
         if (currentLink.startsWith("/") || currentLink.startsWith(".") ||
           (currentLink.startsWith("http") && currentLink.includes(currentHostname))) {
-          if (currentLink.includes("?")) {
-            link.setAttribute('href', currentLink + "&" + queryString.substring(1));
-          } else {
-            link.setAttribute('href', currentLink + queryString);
-          }
+
+          let url = new URL(currentLink, `http://${currentHostname}`);
+          let linkParams = new URLSearchParams(url.search);
+
+          // Only add parameters from urlParams if they do not already exist in linkParams
+          urlParams.forEach((value, key) => {
+            if (!linkParams.has(key)) {
+              linkParams.set(key, value);
+            }
+          });
+
+          url.search = linkParams.toString();
+          link.setAttribute('href', url.pathname + url.search);
         }
       });
 
-      let blogLinks = $("header li a span:contains('Blog')").parent().attr("href", "https://curalife.com/blogs/blog" + queryString);
+      let blogLinks = $("header li a span:contains('Blog')").parent();
+      let blogUrl = new URL("https://curalife.com/blogs/blog", `http://${currentHostname}`);
+      let blogParams = new URLSearchParams(blogUrl.search);
+
+      // Only add parameters from urlParams if they do not already exist in blogParams
+      urlParams.forEach((value, key) => {
+        if (!blogParams.has(key)) {
+          blogParams.set(key, value);
+        }
+      });
+
+      blogUrl.search = blogParams.toString();
+      blogLinks.attr("href", blogUrl.pathname + blogUrl.search);
     }
   });
 </script>
