@@ -44,6 +44,10 @@
           </div>
         </div>
       </div>
+      <!-- New container for AJAX-loaded articles -->
+      <div id="ajax-articles-container" style="display: none;">
+        <!-- AJAX-loaded articles will go here -->
+      </div>
       <div id="articles-container" class="article-list">
         {% for article in blog.articles %}
           {% if forloop.index <= 2 %}
@@ -67,17 +71,18 @@
 {% if filters_data %}
   <script>
     $(document).ready(function() {
+      // Existing code for metafields
       const filtersJson = '{{ filters_data }}';
       const filtersData = JSON.parse(filtersJson);
       console.log('filtersData', filtersData);
 
-      // Attach event listener
-      $("#filters li a").click(function(event) {
+      // Attach event listener to the blog-category links
+      $(".blog-category ul li a").click(function(event) {
         event.preventDefault();
 
         const tag = $(this).text().trim();
         if(tag === "All") {
-          $("#article-container").show();
+          $("#articles-container").show();  // Corrected ID
           $("#ajax-articles-container").hide().empty();
           return;
         }
@@ -86,7 +91,7 @@
       });
 
       function fetchArticles(tag) {
-        var url = "/blogs/{{ blog.name }}/articles.json?tag=" + tag;
+        const url = "/blogs/{{ blog.handle }}/articles.json?tag=" + tag;  // Use blog.handle
 
         $.ajax({
           url: url,
@@ -100,14 +105,14 @@
               html += `
                 <div class="article-item">
                   <h3>${article.title}</h3>
-                  <p>${article.summary}</p>
+                  <p>${article.content}</p>  // Assuming article.content exists
                   <a href="${article.url}">Read More</a>
                 </div>
               `;
             });
 
             $("#ajax-articles-container").html(html).show();
-            $("#article-list").hide();
+            $("#articles-container").hide();  // Corrected ID
           },
           error: function(err) {
             console.error("Error fetching articles:", err);
