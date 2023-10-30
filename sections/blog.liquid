@@ -6,7 +6,7 @@
     {% paginate blog.articles by 9 %}
 
       {% if filters_data %}
-        <div id="dynamic-filters"></div>
+        <div id="dynamic-filters" data-active="{{ current_tags.first }}"></div>
       {% else %}
         <div class="blog-category">
           <div class="category-wrap">
@@ -71,42 +71,10 @@
       }
       $("#dynamic-filters").html(filterHTML);
 
-      // Attach event listener to dynamic filter links
-      // $("#filters").on("click", "#dynamic-filters li a", function(event) {
-      //   event.preventDefault();
-      //   const tag = $(this).data("value");
-      //   fetchArticles(tag);
-      // });
-
-      // Function to fetch articles based on tag
-      function fetchArticles(tag) {
-        const url = `/blogs/{{ blog.handle }}/articles.json?tag=${tag}`;
-
-        $.ajax({
-          url: url,
-          type: "GET",
-          dataType: "json",
-          success: function(data) {
-            const articles = data.articles;
-            let html = "";
-
-            for(const article of articles) {
-              html += `
-                <div class="article-item">
-                  <h3>${article.title}</h3>
-                  <p>${article.content}</p>
-                  <a href="${article.url}">Read More</a>
-                </div>
-              `;
-            }
-
-            $("#ajax-articles-container").html(html).show();
-            $("#articles-container").hide();
-          },
-          error: function(err) {
-            console.error("Error fetching articles:", err);
-          }
-        });
+      // Highlight active filter
+      const activeTag = $('#dynamic-filters').data('active');
+      if (activeTag) {
+        $(`#dynamic-filters [data-value="${activeTag}"]`).addClass('active');
       }
     });
   </script>
