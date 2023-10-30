@@ -71,10 +71,24 @@
 {% if filters_data %}
   <script>
     $(document).ready(function() {
-      // Existing code for metafields
-      const filtersJson = '{{ filters_data }}';
+      // Parse filters_data from Liquid to JavaScript object
+      const filtersJson = '{{ filters_data | json }}';
       const filtersData = JSON.parse(filtersJson);
-      console.log('filtersData', filtersData);
+      console.log('filtersData:', filtersData);
+
+      // Generate dynamic filters
+      let filterHTML = "";
+      for(const filter of filtersData) {
+        filterHTML += `<li><a href="#">${filter}</a></li>`;
+      }
+      $("#dynamic-filters").html(filterHTML);
+
+      // Attach event listener to dynamic filter links
+      $("#dynamic-filters li a").click(function(event) {
+        event.preventDefault();
+        const tag = $(this).text().trim();
+        fetchArticles(tag);
+      });
 
       // Attach event listener to the blog-category links
       $(".blog-category ul li a").click(function(event) {
@@ -82,7 +96,7 @@
 
         const tag = $(this).text().trim();
         if(tag === "All") {
-          $("#articles-container").show();  // Corrected ID
+          $("#articles-container").show();
           $("#ajax-articles-container").hide().empty();
           return;
         }
@@ -90,8 +104,9 @@
         fetchArticles(tag);
       });
 
+      // Function to fetch articles based on tag
       function fetchArticles(tag) {
-        const url = "/blogs/{{ blog.handle }}/articles.json?tag=" + tag;  // Use blog.handle
+        const url = `/blogs/{{ blog.handle }}/articles.json?tag=${tag}`;
 
         $.ajax({
           url: url,
@@ -101,18 +116,18 @@
             const articles = data.articles;
             let html = "";
 
-            articles.forEach(function(article) {
+            for(const article of articles) {
               html += `
                 <div class="article-item">
                   <h3>${article.title}</h3>
-                  <p>${article.content}</p>  // Assuming article.content exists
+                  <p>${article.content}</p>
                   <a href="${article.url}">Read More</a>
                 </div>
               `;
-            });
+            }
 
             $("#ajax-articles-container").html(html).show();
-            $("#articles-container").hide();  // Corrected ID
+            $("#articles-container").hide();
           },
           error: function(err) {
             console.error("Error fetching articles:", err);
@@ -122,6 +137,7 @@
     });
   </script>
 {% endif %}
+
 
 <style>
   .page-title {
