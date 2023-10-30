@@ -11,7 +11,7 @@
         </div>
 
         {% if filters_data %}
-          <div id="filters-section">
+          <div id="filters">
             <h3>Filter By:</h3>
             <!-- Filters will be dynamically inserted here -->
           </div>
@@ -44,7 +44,7 @@
           </div>
         </div>
       </div>
-      <div class="article-list">
+      <div id="articles-container" class="article-list">
         {% for article in blog.articles %}
           {% if forloop.index <= 2 %}
             {% assign desc = true %}
@@ -67,52 +67,49 @@
 {% if filters_data %}
   <script>
     $(document).ready(function() {
-      const filtersJson = '{{ filters_data }}';
-      const filtersData = JSON.parse(filtersJson);
-      console.log('filtersData', filtersData);
+      // Attach event listener
+      $("#filters li a").click(function(event) {
+        event.preventDefault();
 
-      // Generate filter checkboxes based on filtersData
-      for (let filterName in filtersData) {
-        let filterOptions = filtersData[filterName];
-        let filterDiv = $('<div class="filter-group"></div>');
-        let filterLabel = $(`<label>${filterName}</label>`);
-        filterDiv.append(filterLabel);
-        filterOptions.forEach(option => {
-          let checkbox = $(`<input type="checkbox" value="${option}" name="${filterName}">`);
-          let optionLabel = $(`<label>${option}</label>`);
-          filterDiv.append(checkbox);
-          filterDiv.append(optionLabel);
-        });
-        $('#filters-section').append(filterDiv);
-      }
+        const tag = $(this).text().trim();
+        if(tag === "All") {
+          $("#article-container").show();
+          $("#ajax-articles-container").hide().empty();
+          return;
+        }
 
-      // Attach event listeners to checkboxes
-      $('input[type="checkbox"]').change(function() {
-        let selectedFilters = {};
-        $('input[type="checkbox"]:checked').each(function() {
-          let filterName = $(this).attr('name');
-          let filterValue = $(this).val();
-          if (!selectedFilters[filterName]) {
-            selectedFilters[filterName] = [];
-          }
-          selectedFilters[filterName].push(filterValue);
-        });
+        fetchArticles(tag);
+      });
 
-        // AJAX call to update the blog articles
+      function fetchArticles(tag) {
+        var url = "/blogs/{{ blog.name }}/articles.json?tag=" + tag;
+
         $.ajax({
-          url: '/blogs/{{ blog.name }}/articles.json',
-          type: 'GET',
-          data: selectedFilters,
+          url: url,
+          type: "GET",
+          dataType: "json",
           success: function(data) {
-            // Implement logic to update your blog articles section
-            // For example, assuming 'data' contains the new articles HTML:
-            $('#article-list').html(data);
+            const articles = data.articles;
+            let html = "";
+
+            articles.forEach(function(article) {
+              html += `
+                <div class="article-item">
+                  <h3>${article.title}</h3>
+                  <p>${article.summary}</p>
+                  <a href="${article.url}">Read More</a>
+                </div>
+              `;
+            });
+
+            $("#ajax-articles-container").html(html).show();
+            $("#article-list").hide();
           },
           error: function(err) {
-            console.error('Failed to fetch filtered articles', err);
+            console.error("Error fetching articles:", err);
           }
         });
-      });
+      }
     });
   </script>
 {% endif %}
