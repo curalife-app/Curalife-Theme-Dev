@@ -1,411 +1,423 @@
-{% assign blog_categories = "Awareness Dates,CuraFood Recipes,Health Education,Healthy Living" %}
-{% assign filters_data = blog.metafields.custom.filters %}
+{% assign showOnTag = blog.metafields.custom.show_on_tag %}
+{% if showOnTag != blank %}
+  {% if customer %}
+    {% if customer.tags contains showOnTag %}
+      {% assign hideForTag = false %}
+    {% else %}
+      {% assign hideForTag = true %}
+    {% endif %}
+  {% else %}
+    {% assign hideForTag = true %}
+  {% endif %}
+{% endif %}
 
-<section class="blog-page">
-  <div class="container">
+{% comment %} {% if customer.email == 'yotam@curalife.com' %}
+  {% assign hideForTag = false %}
+{% endif %} {% endcomment %}
+
+{% if hideForTag != true %}
+  {% assign blog_categories = "Awareness Dates,CuraFood Recipes,Health Education,Healthy Living" %}
+  {% assign filters_data = blog.metafields.custom.filters %}
+
+  <section class="blog-page">
+    <div class="container">
       {% paginate blog.articles by 9 %}
-      <div class="page-title">
-        <div class="subtitle text-center">
-          <h1>Curalife's Blog</h1>
-          <p>The latest advice and research for a healthier life</p>
-        </div>
 
         {% if filters_data %}
-          <div id="filters">
-            <h3>Filter By:</h3>
-            <!-- Filters will be dynamically inserted here -->
+          <div id="dynamic-filters" data-active="{{ current_tags.first | replace: ' ', '-' }}"></div>
+        {% else %}
+          <div class="blog-category">
+            <div class="category-wrap">
+              <div class="touch-scroll">
+                <div class="scroll-wrap">
+                  <ul>
+                    <li {% if current_tags == blank  %}class="active"{% endif %}><a href="{{ blog.url }}">All</a></li>
+                    {% for tag in blog.all_tags %}
+                      {% if blog_categories contains tag %}
+                          {% assign crTag = tag  %}
+                          {% if current_tags contains crTag  %}
+                          {% assign cls="active" %}
+                          {% else %}
+                          {% assign cls="" %}
+                          {% endif %}
+                          <li class="{{cls}}"  > <a href="{{ blog.url }}/tagged/{{ tag | handleize }}">{{ tag }}</a></li>
+                      {% endif %}
+                    {% endfor %}
+                  </ul>
+                </div>
+              </div>
+            </div>
           </div>
         {% endif %}
 
-        <div class="blog-category">
-          <div class="category-wrap">
-            <div class="touch-scroll">
-              <div class="scroll-wrap">
-                <ul>
-                  <li {% if current_tags == blank  %}class="active"{% endif %}><a href="{{ blog.url }}">All</a></li>
-                  {% for tag in blog.all_tags %}
-                    {% if blog_categories contains tag %}
-                        {% assign crTag = tag  %}
-                        {% if current_tags contains crTag  %}
-                        {% assign cls="active" %}
-                        {% else %}
-                        {% assign cls="" %}
-                        {% endif %}
-                        <li class="{{cls}}"  > <a href="{{ blog.url }}/tagged/{{ tag | handleize }}">{{ tag }}</a></li>
-                    {% endif %}
-                  {% endfor %}
+        <div id="articles-container" class="article-list">
+          {% for article in blog.articles %}
+            {% if forloop.index <= 2 %}
+              {% assign desc = true %}
+            {% else %}
+              {% assign desc = false %}
+            {% endif %}
+            {% render 'blog-card-grid', article: article, description: desc, blog_categories: blog_categories %}
+          {% endfor %}
+        </div>
+        {%- if paginate.pages > 1 -%}
+        {% assign totalPage = paginate.pages %}
+            {% render 'blog-pagination', paginate: paginate, totalPage: totalPage %}
+          {%- endif -%}
+        {% endpaginate %}
+    </div>
+  </div>
 
-                  {%- if customer.tags contains '30-day-challenge' -%}
-                    <li {% if current_tags contains 'workout'  %}class="active"{% endif %}><a href="/blogs/workouts">Workouts</a></li>
-                  {%- endif -%}
-                </ul>
-              </div>
+  {% render 'newsletter-form' %}
+
+  {% if filters_data %}
+    <script>
+      function titleCase(str) {
+        var splitStr = str.toLowerCase().split(' ');
+        for (var i = 0; i < splitStr.length; i++) {
+            splitStr[i] = splitStr[i].charAt(0).toUpperCase() + splitStr[i].substring(1);
+        }
+        return splitStr.join(' ');
+      }
+
+
+      $(document).ready(function() {
+        // Parse filters_data from Liquid to JavaScript object
+        const filtersJson = '{{ filters_data }}';
+        const filtersData = JSON.parse(filtersJson);
+        console.log('filtersData:', filtersData);
+
+        // Generate dynamic filters
+        let filterHTML = "";
+        for(const [key, values] of Object.entries(filtersData)) {
+          filterHTML += `<div class="filter-group"><h4>${titleCase(key.replace('-',' '))}</h4><ul>`;
+          for(const value of values) {
+            filterHTML += `<li><a href="/blogs/{{ blog.handle }}/tagged/${value}" data-category="${key}" data-value="${value}">${titleCase(value.replace('-',' '))}</a></li>`;
+          }
+          filterHTML += `</ul></div>`;
+        }
+        $("#dynamic-filters").html(filterHTML);
+
+        // Highlight active filter
+        const activeTag = $('#dynamic-filters').data('active');
+        if (activeTag) {
+          $(`#dynamic-filters [data-value="${activeTag}"]`).first.parent.addClass('active');
+        }
+      });
+    </script>
+  {% endif %}
+
+  <style>
+    #dynamic-filters {
+      display: flex;
+      justify-content: center;
+      text-align: center;
+      gap: 1rem;
+    }
+
+    #dynamic-filters .filter-group {
+      padding: 1rem;
+    }
+
+    #dynamic-filters .filter-group ul {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+    }
+
+    #dynamic-filters .filter-group ul li {
+      border-radius: 30px;
+      border: 1px solid var(--blue);
+      padding: 0.5rem 1rem;
+    }
+
+    #dynamic-filters .filter-group ul li.active {
+      background: var(--blue);
+      color: white;
+    }
+  </style>
+
+  <style>
+    .page-title {
+        padding: 30px 0;
+    }
+
+    .blog-category {
+        padding-top: 15px;
+        display: flex;
+        justify-content: center;
+    }
+    .blog-category .category-wrap {
+        max-width: 100%;
+        padding: 0 10px;
+    }
+    .touch-scroll {
+        width: 100%;
+    }
+    .touch-scroll .scroll-wrap {
+        display: flex;
+        flex-wrap: nowrap;
+        overflow: hidden;
+    }
+
+    .blog-category ul {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+    .blog-category ul li {
+        display: flex;
+        text-align: center;
+        margin-bottom: 10px;
+        padding-right: 13px;
+    }
+    .blog-category ul li a {
+        display: flex;
+        align-items: center;
+        padding: 10px 15px;
+        font-weight: 400;
+        font-size: 18px;
+        line-height: 1;
+        letter-spacing: -.284583px;
+        color: var(--blue);
+        white-space: nowrap;
+        border: 1px solid var(--blue);
+        border-radius: 5px;
+        transition: color var(--transition),border-color var(--transition),background-color var(--transition);
+    }
+    .blog-category ul li.active a {
+        color: #fff;
+        background: var(--blue);
+    }
+    .article-list {
+        display: flex;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+
+    .article-card {
+        width: 30%;
+        display: flex;
+        flex-direction: column;
+        padding: 17px 10px;
+    }
+    /* .article-list .article-card:first-child {
+        width: 100%;
+        flex-direction: row;
+    } */
+    .article-card .picture {
+        overflow: hidden;
+        position: relative;
+        border-radius: 5px;
+    }
+    /* .article-list .article-card:first-child .picture {
+        width: 57.7%;
+    } */
+    .article-card .picture:before {
+        content: "";
+        display: block;
+        padding-bottom: 83%;
+        pointer-events: none;
+    }
+    /* .article-list .article-card:first-child .picture:before {
+        padding-bottom: 57.7%;
+    } */
+    .article-card .picture .main-link {
+        display: block;
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 3;
+    }
+    .article-card .picture img {
+        width: 100%;
+        height: 100%;
+        -o-object-fit: cover;
+        object-fit: cover;
+        position: absolute;
+        top: 0;
+        left: 0;
+        z-index: -1;
+        will-change: transform;
+        transition: transform .7s ease-in-out;
+    }
+
+    .article-card .picture .category {
+        max-width: 100%;
+        padding: 17px 20px;
+        background: var(--blue);
+        border-radius: 0 2px 2px 0;
+        position: absolute;
+        left: 0;
+        bottom: 20px;
+        z-index: 3;
+        min-width:140px;
+        text-align: center;;
+    }
+    .article-card .picture .category p {
+        margin: 0;
+        font-size: 16px;
+        color: #fff;
+    }
+    .article-card .info {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        flex: 1;
+    }
+
+    /* .article-list .article-card:first-child .info .main-info {
+        padding: 0 5%;
+    }
+
+    .article-list .article-card:first-child {
+        width: 100%;
+        flex-direction: row;
+    }
+
+    .article-list .article-card:first-child .info .main-info .title {
+        padding-top: 10px;
+    } */
+    .article-card .info .main-info .title {
+        padding-top: 15px;
+    }
+    .article-card .info .main-info .title h3 {
+        font-size: 22px;
+          line-height: 1.2;
+          margin:0;
+          color: black;
+    }
+
+    .article-card .info .main-info .offer p {
+        margin: 0;
+        font-weight: 400;
+        font-size: 18px;
+        line-height: 1.33;
+        color: var(--dark);
+    }
+    /* .article-list .article-card:first-child .info .main-info .description {
+        padding-top: 20px;
+        -webkit-line-clamp: unset;
+    } */
+    .article-card .info .main-info .description {
+        text-overflow: ellipsis;
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        display: none;
+    }
+    .article-card .info .main-info .description p {
+        margin: 0;
+        font-weight: 400;
+        font-size: 18px;
+        line-height: 1.57;
+        color: var(--dark);
+    }
+
+    /* .article-list .article-card:first-child .info .article-author {
+        padding: 0 5%;
+    } */
+
+      .article-card .info .article-author {
+          display: flex;
+          align-items: center;
+      }
+    .article-author .photo {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        overflow: hidden;
+    }
+    .article-author .photo img {
+        width: 100%;
+        height: 100%;
+        -o-object-fit: cover;
+        object-fit: cover;
+    }
+    .article-author .details {
+        width: calc(100% - 60px);
+        color: grey !important;
+    }
+    .article-author .details h4 {
+        margin: 0;
+        font-weight: 400;
+        font-size: 16px;
+        line-height: 1.5;
+    }
+
+    @media screen and (max-width: 768px) {
+      .blog-page {
+          padding-bottom: 100px;
+      }
+
+      .blog-category {
+          padding-top: 20px;
+      }
+      .article-card {
+          width: 100%;
+      }
+      /* .article-list .article-card:first-child {
+          flex-direction: column;
+      }
+      .article-list .article-card:first-child .picture {
+          width: 100%;
+      } */
+      .article-list .article-card .picture:before {
+          padding-bottom: 67.7%;
+      }
+      /* .article-list .article-card:first-child .picture:before {
+          padding-bottom: 67.7%;
+      }
+
+      .article-list .article-card:first-child .info .main-info {
+          padding: 0;
+      }
+
+      .article-list .article-card:first-child {
+          flex-direction: column;
+      }
+      .article-list .article-card:first-child .info .main-info .title {
+          padding-top: 12px;
+      } */
+      .article-card .info .main-info .title {
+          padding-top: 12px;
+      }
+
+      /* .article-list .article-card:first-child .info .main-info .description {
+          display: none;
+      } */
+
+      .article-card .info .article-author {
+          padding-top: 22px;
+          display: none;
+      }
+      .article-author .details {
+          width: calc(100% - 60px);
+          padding-left: 20px;
+      }
+      .article-author .details h4 {
+          font-size: 16px;
+      }
+    }
+
+  </style>
+{% else %}
+  <div class="container">
+    <div class="article-list">
+      <div class="article-card">
+        <div class="info">
+          <div class="main-info">
+            <div class="title">
+              <h3 class="text-center">No Articles Available</h3>
             </div>
           </div>
         </div>
       </div>
-      <!-- New container for AJAX-loaded articles -->
-      <div id="ajax-articles-container" style="display: none;">
-        <!-- AJAX-loaded articles will go here -->
-      </div>
-      <div id="articles-container" class="article-list">
-        {% for article in blog.articles %}
-          {% if forloop.index <= 2 %}
-            {% assign desc = true %}
-          {% else %}
-            {% assign desc = false %}
-          {% endif %}
-          {% render 'blog-card-grid', article: article, description: desc, blog_categories: blog_categories %}
-        {% endfor %}
-      </div>
-      {%- if paginate.pages > 1 -%}
-      {% assign totalPage = paginate.pages %}
-          {% render 'blog-pagination', paginate: paginate, totalPage: totalPage %}
-        {%- endif -%}
-      {% endpaginate %}
-  </div>
-</div>
-
-{% render 'newsletter-form' %}
-
-{% if filters_data %}
-  <script>
-    $(document).ready(function() {
-      // Parse filters_data from Liquid to JavaScript object
-      const filtersJson = '{{ filters_data }}';
-      const filtersData = JSON.parse(filtersJson);
-      console.log('filtersData:', filtersData);
-
-      // Generate dynamic filters
-      let filterHTML = "";
-      for(const filter of filtersData) {
-        filterHTML += `<li><a href="#">${filter}</a></li>`;
-      }
-
-      $("#filters").html(filterHTML);
-
-      // Attach event listener to dynamic filter links
-      $("#dynamic-filters li a").click(function(event) {
-        event.preventDefault();
-        const tag = $(this).text().trim();
-        fetchArticles(tag);
-      });
-
-      // Attach event listener to the blog-category links
-      $(".blog-category ul li a").click(function(event) {
-        event.preventDefault();
-
-        const tag = $(this).text().trim();
-        if(tag === "All") {
-          $("#articles-container").show();
-          $("#ajax-articles-container").hide().empty();
-          return;
-        }
-
-        fetchArticles(tag);
-      });
-
-      // Function to fetch articles based on tag
-      function fetchArticles(tag) {
-        const url = `/blogs/{{ blog.handle }}/articles.json?tag=${tag}`;
-
-        $.ajax({
-          url: url,
-          type: "GET",
-          dataType: "json",
-          success: function(data) {
-            const articles = data.articles;
-            let html = "";
-
-            for(const article of articles) {
-              html += `
-                <div class="article-item">
-                  <h3>${article.title}</h3>
-                  <p>${article.content}</p>
-                  <a href="${article.url}">Read More</a>
-                </div>
-              `;
-            }
-
-            $("#ajax-articles-container").html(html).show();
-            $("#articles-container").hide();
-          },
-          error: function(err) {
-            console.error("Error fetching articles:", err);
-          }
-        });
-      }
-    });
-  </script>
+    </div>
 {% endif %}
-
-
-<style>
-  .page-title {
-      padding: 30px 0;
-  }
-
-  .blog-category {
-      padding-top: 15px;
-      display: flex;
-      justify-content: center;
-  }
-  .blog-category .category-wrap {
-      max-width: 100%;
-      padding: 0 10px;
-  }
-  .touch-scroll {
-      width: 100%;
-  }
-  .touch-scroll .scroll-wrap {
-      display: flex;
-      flex-wrap: nowrap;
-      overflow: hidden;
-  }
-
-  .blog-category ul {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-  }
-  .blog-category ul li {
-      display: flex;
-      text-align: center;
-      margin-bottom: 10px;
-      padding-right: 13px;
-  }
-  .blog-category ul li a {
-      display: flex;
-      align-items: center;
-      padding: 10px 15px;
-      font-weight: 400;
-      font-size: 18px;
-      line-height: 1;
-      letter-spacing: -.284583px;
-      color: var(--blue);
-      white-space: nowrap;
-      border: 1px solid var(--blue);
-      border-radius: 5px;
-      transition: color var(--transition),border-color var(--transition),background-color var(--transition);
-  }
-  .blog-category ul li.active a {
-      color: #fff;
-      background: var(--blue);
-  }
-  .article-list {
-      display: flex;
-      flex-wrap: wrap;
-  }
-
-  .article-card {
-      width: 30%;
-      display: flex;
-      flex-direction: column;
-      padding: 17px 10px;
-  }
-  .article-list .article-card:first-child {
-      width: 100%;
-      flex-direction: row;
-  }
-  .article-card .picture {
-      overflow: hidden;
-      position: relative;
-      border-radius: 5px;
-  }
-  .article-list .article-card:first-child .picture {
-      width: 57.7%;
-  }
-  .article-card .picture:before {
-      content: "";
-      display: block;
-      padding-bottom: 83%;
-      pointer-events: none;
-  }
-  .article-list .article-card:first-child .picture:before {
-      padding-bottom: 57.7%;
-  }
-  .article-card .picture .main-link {
-      display: block;
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      z-index: 3;
-  }
-  .article-card .picture img {
-      width: 100%;
-      height: 100%;
-      -o-object-fit: cover;
-      object-fit: cover;
-      position: absolute;
-      top: 0;
-      left: 0;
-      z-index: -1;
-      will-change: transform;
-      transition: transform .7s ease-in-out;
-  }
-
-  .article-card .picture .category {
-      max-width: 100%;
-      padding: 17px 20px;
-      background: var(--blue);
-      border-radius: 0 2px 2px 0;
-      position: absolute;
-      left: 0;
-      bottom: 20px;
-      z-index: 3;
-      min-width:140px;
-      text-align: center;;
-  }
-  .article-card .picture .category p {
-      margin: 0;
-      font-size: 16px;
-      color: #fff;
-  }
-  .article-card .info {
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      flex: 1;
-  }
-
-  .article-list .article-card:first-child .info .main-info {
-      padding: 0 5%;
-  }
-
-  .article-list .article-card:first-child {
-      width: 100%;
-      flex-direction: row;
-  }
-
-  .article-list .article-card:first-child .info .main-info .title {
-      padding-top: 10px;
-  }
-  .article-card .info .main-info .title {
-      padding-top: 15px;
-  }
-  .article-card .info .main-info .title h3 {
-      font-size: 22px;
-        line-height: 1.2;
-        margin:0;
-        color: black;
-  }
-
-  .article-card .info .main-info .offer p {
-      margin: 0;
-      font-weight: 400;
-      font-size: 18px;
-      line-height: 1.33;
-      color: var(--dark);
-  }
-  .article-list .article-card:first-child .info .main-info .description {
-      padding-top: 20px;
-      -webkit-line-clamp: unset;
-  }
-  .article-card .info .main-info .description {
-      text-overflow: ellipsis;
-      display: -webkit-box;
-      -webkit-line-clamp: 3;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-      display: none;
-  }
-  .article-card .info .main-info .description p {
-      margin: 0;
-      font-weight: 400;
-      font-size: 18px;
-      line-height: 1.57;
-      color: var(--dark);
-  }
-
-  .article-list .article-card:first-child .info .article-author {
-      padding: 0 5%;
-  }
-
-    .article-card .info .article-author {
-        display: flex;
-        align-items: center;
-    }
-  .article-author .photo {
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      overflow: hidden;
-  }
-  .article-author .photo img {
-      width: 100%;
-      height: 100%;
-      -o-object-fit: cover;
-      object-fit: cover;
-  }
-  .article-author .details {
-      width: calc(100% - 60px);
-      color: grey !important;
-  }
-  .article-author .details h4 {
-      margin: 0;
-      font-weight: 400;
-      font-size: 16px;
-      line-height: 1.5;
-  }
-
-  @media screen and (max-width: 768px) {
-    .blog-page {
-        padding-bottom: 100px;
-    }
-
-    .blog-category {
-        padding-top: 20px;
-    }
-    .article-card {
-        width: 100%;
-    }
-    .article-list .article-card:first-child {
-        flex-direction: column;
-    }
-    .article-list .article-card:first-child .picture {
-        width: 100%;
-    }
-    .article-list .article-card .picture:before {
-        padding-bottom: 67.7%;
-    }
-    .article-list .article-card:first-child .picture:before {
-        padding-bottom: 67.7%;
-    }
-
-    .article-list .article-card:first-child .info .main-info {
-        padding: 0;
-    }
-
-    .article-list .article-card:first-child {
-        flex-direction: column;
-    }
-    .article-list .article-card:first-child .info .main-info .title {
-        padding-top: 12px;
-    }
-    .article-card .info .main-info .title {
-        padding-top: 12px;
-    }
-
-    .article-list .article-card:first-child .info .main-info .description {
-        display: none;
-    }
-
-    .article-card .info .article-author {
-        padding-top: 22px;
-        display: none;
-    }
-    .article-author .details {
-        width: calc(100% - 60px);
-        padding-left: 20px;
-    }
-    .article-author .details h4 {
-        font-size: 16px;
-    }
-  }
-
-</style>
 
 {% schema %}
   {

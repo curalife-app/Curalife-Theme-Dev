@@ -14,23 +14,33 @@
       {% elsif page %}
         {% assign position = position | plus: 1 %}
         {% render 'breadcrumb-item', title: page.title, is_current: true, position: position %}
-      {% elsif blog and article %}
+      {% elsif article %}
         {% assign position = position | plus: 1 %}
         {% render 'breadcrumb-item', link: "/blogs/" | append: blog.handle, title: blog.title, position: position %}
         {% assign position = position | plus: 1 %}
         {% render 'breadcrumb-item', title: article.title, is_current: true, position: position %}
       {% elsif blog %}
-        {% assign position = position | plus: 1 %}
-        {% render 'breadcrumb-item', title: blog.title, is_current: true, position: position %}
+        {% assign blog_link = "/blogs/" | append: blog.handle %}
+
+        {% if request.path contains '/tagged/' %}
+          {% assign url_parts = request.path | split: '/' %}
+          {% assign blog_handle = url_parts[2] %}
+          {% assign tag_name = url_parts[4] | replace: '-', ' ' | capitalize %}
+
+          {% assign position = position | plus: 1 %}
+          {% render 'breadcrumb-item', link: blog_link, title: blog.title, position: position %}
+          {% assign position = position | plus: 1 %}
+          {% render 'breadcrumb-item', title: tag_name, is_current: true, position: position %}
+        {% else %}
+          {% assign position = position | plus: 1 %}
+          {% render 'breadcrumb-item', link: blog_link, title: blog.title, is_current: true, position: position %}
+        {% endif %}
       {% elsif template.name == 'list-collections' %}
         {% assign position = position | plus: 1 %}
         {% render 'breadcrumb-item', title: 'Collections', is_current: true, position: position %}
       {% elsif template.name == 'cart' %}
         {% assign position = position | plus: 1 %}
         {% render 'breadcrumb-item', title: 'Cart', is_current: true, position: position %}
-      {% elsif template.name == 'search' %}
-        {% assign position = position | plus: 1 %}
-        {% render 'breadcrumb-item', title: 'Search', is_current: true, position: position %}
       {% elsif template.name == 'account' or request.path contains '/tools/recurring/portal' %}
         {% assign position = position | plus: 1 %}
         {% render 'breadcrumb-item', link: "/account", title: 'My Account', position: position %}
@@ -49,11 +59,7 @@
     </nav>
   </div>
 
-  <style>
-    .current-page {
-      color: {{ section.settings.current_color }};
-    }
-  </style>
+  <style>.current-page {color: {{ section.settings.current_color }};}</style>
 {% endif %}
 
 {% schema  %}
