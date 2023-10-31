@@ -20,8 +20,19 @@
         {% assign position = position | plus: 1 %}
         {% render 'breadcrumb-item', title: article.title, is_current: true, position: position %}
       {% elsif blog %}
-        {% assign position = position | plus: 1 %}
-        {% render 'breadcrumb-item', link: "/blogs/" | append: blog.handle, title: blog.title, is_current: true, position: position %}
+        {% if request.path contains '/tagged/' %}
+          {% assign url_parts = request.path | split: '/' %}
+          {% assign blog_handle = url_parts[2] %}
+          {% assign tag_name = url_parts[4] | replace: '-', ' ' | capitalize %}
+
+          {% assign position = position | plus: 1 %}
+          {% render 'breadcrumb-item', link: "/blogs/" | append: blog_handle, title: blog_handle | capitalize, position: position %}
+          {% assign position = position | plus: 1 %}
+          {% render 'breadcrumb-item', title: tag_name, is_current: true, position: position %}
+        {% else %}
+          {% assign position = position | plus: 1 %}
+          {% render 'breadcrumb-item', link: "/blogs/" | append: blog.handle, title: blog.title, is_current: true, position: position %}
+        {% endif %}
       {% elsif template.name == 'list-collections' %}
         {% assign position = position | plus: 1 %}
         {% render 'breadcrumb-item', title: 'Collections', is_current: true, position: position %}
