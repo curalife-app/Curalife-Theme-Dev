@@ -7,9 +7,9 @@
 
 {%- assign b_id = blog.id  -%}
 
-  {%- assign blog_ids = "72392212631,84678049943,84686209175,84686241943,84686274711,84683325591"  -%}
+  {%- assign blog_ids = "84683325591,72392212631,84678049943"  -%}
 
-      {%- assign blog_handle_arr = "blog,recipes,onboarding,onboarding-1,tips,workouts" | split: "," -%}
+      {%- assign blog_handle_arr = blog.handle -%}
   
 {%- assign blog_flag = "false" -%}
 
@@ -57,26 +57,12 @@
     {%- unless ex_frmpool_id contains article.id -%}
 
     
-      {%- assign atitle_temp = article.title | remove : " " | split: "" -%}
-      {%- assign flag = "false" -%}
-      {%- for word in atitle_temp -%}
-      {%- if article_title_arr contains word -%}
-      {%- assign flag = "true" -%}
-      {%- break -%}
+      {%- for tag in article.tags -%}
+      {%- if current_post_tags contains tag -%}
+      {%- assign related_posts = related_posts | append:article.id | append : "," -%}
       {%- endif -%}
       {%- endfor -%}
 
-      {%- assign t_flag = "false" -%}
-      {%- for tag in current_post_tags -%}
-      {%- if article.tags contains tag -%}
-      {%- assign t_flag = "true" -%}
-      {%- break -%}
-      {%- endif -%}
-      {%- endfor -%}
-
-      {%- if t_flag == "true"  or article_author ==  article.author or flag == "true" -%}
-      {%- assign related_posts = related_posts | append:article.id | append : ","-%}
-      {%- endif -%}
     
     {%- endunless -%}
     {%- endfor -%}
@@ -154,6 +140,11 @@
       {%- break -%}
       {%- endif -%}
       <div class="rb_blog-grid-two">
+                  {%- if article.image -%}
+          <a href="{{ article.url }}"><img src="{{ article.image.src | img_url: '' }}" alt="{{ article.title }}" /></a>
+          {%- else -%}
+          <div class="rb_no_image"></div>
+          {%- endif -%}
         
         <h5 class="rb_title">
           <a href='{{ article.url }}'>{{ article.title }}</a>
