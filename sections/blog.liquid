@@ -19,6 +19,17 @@
   {% assign blog_categories = "Awareness Dates,CuraFood Recipes,Health Education,Healthy Living" %}
   {% assign filters_data = blog.metafields.custom.filters %}
 
+  {% assign tag_count = hash %}
+  {% for article in blog.articles %}
+    {% for tag in article.tags %}
+      {% if tag_count[tag] %}
+        {% assign tag_count[tag] = tag_count[tag] | plus: 1 %}
+      {% else %}
+        {% assign tag_count[tag] = 1 %}
+      {% endif %}
+    {% endfor %}
+  {% endfor %}
+
   <section class="blog-page">
     <div class="container">
       {% paginate blog.articles by 9 %}
@@ -40,7 +51,7 @@
                           {% else %}
                           {% assign cls="" %}
                           {% endif %}
-                          <li class="{{cls}}"  > <a href="{{ blog.url }}/tagged/{{ tag | handleize }}">{{ tag }}</a></li>
+                          <li class="{{cls}}"><a href="{{ blog.url }}/tagged/{{ tag | handleize }}">{{ tag }}</a></li>
                       {% endif %}
                     {% endfor %}
                   </ul>
@@ -91,6 +102,9 @@
         // Generate dynamic filters
         let filterHTML = "";
         for(const [key, values] of Object.entries(filtersData)) {
+          if key == '' {
+            continue;
+          }
           filterHTML += `<div class="filter-group"><h4>${titleCase(key.replace('-',' '))}</h4><ul>`;
           for(const value of values) {
             filterHTML += `<li><a href="/blogs/{{ blog.handle }}/tagged/${value}" data-category="${key}" data-value="${value}">${titleCase(value.replace('-',' '))}</a></li>`;
@@ -104,21 +118,6 @@
         if (activeTag) {
           $(`#dynamic-filters [data-value="${activeTag}"]`)[0].parentElement.classList.add('active');
         }
-      });
-
-      // Check for unused tags
-      $('#dynamic-filters a').each(function() {
-        const tagURL = $(this).attr('href');
-        $.get(tagURL)
-          .done(function(data) {
-            console.log('data:', data);
-            if ($(data).find('.article-list').length === 0) {
-              $(this).parent().hide(); // Hide the tag if no articles are found
-            }
-          }.bind(this))
-          .fail(function() {
-            $(this).parent().hide(); // Hide the tag if the AJAX call fails
-          }.bind(this));
       });
     </script>
   {% endif %}
