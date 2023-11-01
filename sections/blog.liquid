@@ -105,6 +105,20 @@
           $(`#dynamic-filters [data-value="${activeTag}"]`)[0].parentElement.classList.add('active');
         }
       });
+
+      // Check for unused tags
+      $('#dynamic-filters a').each(function() {
+        const tagURL = $(this).attr('href');
+        $.get(tagURL)
+          .done(function(data) {
+            if ($(data).find('.article-list').length === 0) {
+              $(this).parent().hide(); // Hide the tag if no articles are found
+            }
+          }.bind(this))
+          .fail(function() {
+            $(this).parent().hide(); // Hide the tag if the AJAX call fails
+          }.bind(this));
+      });
     </script>
   {% endif %}
 
@@ -136,6 +150,21 @@
     #dynamic-filters .filter-group ul li.active {
       background: var(--blue);
       color: white;
+    }
+
+    @media screen and (max-width: 768px) {
+      #dynamic-filters .filter-group ul {
+        padding: unset;
+        font-size: 3vw;
+      }
+
+      #dynamic-filters .filter-group ul {
+        flex-wrap: wrap;
+      }
+
+      #dynamic-filters .filter-group ul li {
+        margin-bottom: 1rem;
+      }
     }
   </style>
 
