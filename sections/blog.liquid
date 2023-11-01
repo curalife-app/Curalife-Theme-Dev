@@ -121,39 +121,32 @@
   {% endif %}
 
   <script>
-    document.addEventListener('DOMContentLoaded', async () => {
-      const articlesContainer = document.getElementById('articles-container');
+    $(document).ready(function() {
+      $.ajax({
+        url: '/blogs/my-blog/articles.json',
+        type: 'GET',
+        dataType: 'json',
+        success: function(data) {
+          const articles = data.articles;
+          // Sort by date
+          articles.sort((a, b) => new Date(b.published_at) - new Date(a.published_at));
 
-      try {
-        // Fetch articles from Shopify API
-        const response = await fetch('/admin/api/2023-07/blogs/{{ blog.handle }}/articles.json');
-        const data = await response.json();
-        const articles = data.articles;
-
-        // Sort articles by date (newest first)
-        articles.sort((a, b) => {
-          const dateA = new Date(a.published_at);
-          const dateB = new Date(b.published_at);
-          return dateB - dateA;
-        });
-
-        // Clear container and add sorted articles
-        articlesContainer.innerHTML = '';
-
-        articles.forEach(article => {
-          const articleDiv = document.createElement('div');
-          articleDiv.classList.add('article'); // Add class name
-          articleDiv.innerHTML = `
-            <h2>${article.title}</h2>
-            <p>${article.content}</p>  <!-- Shorten content as necessary -->
-            <p>${article.published_at}</p>
-          `;
-
-          articlesContainer.appendChild(articleDiv);
-        });
-      } catch (error) {
-        console.error('Error fetching articles:', error);
-      }
+          // Clear container and append sorted articles
+          $('#articles-container').empty();
+          articles.forEach(article => {
+            const articleDiv = $('<div></div>').addClass('article');
+            articleDiv.html(`
+              <h2>${article.title}</h2>
+              <p>${article.content}</p>
+              <p>${article.published_at}</p>
+            `);
+            $('#articles-container').append(articleDiv);
+          });
+        },
+        error: function(error) {
+          console.log("Error fetching articles:", error);
+        }
+      });
     });
   </script>
 
