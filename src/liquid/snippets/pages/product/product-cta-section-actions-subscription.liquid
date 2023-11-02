@@ -6,8 +6,8 @@
 
 {% assign variantQuantity = product.variants | size %}
 {% assign tooltipTitle = "Curalin's Subscription Is Simple." %}
-{% assign tooltipDescription = "Receive your first Curalin a few days after ordering. Then you'll receive a new Curalin bottle every 1 month after that initial order." %}
-{% assign tooltipFeatures = "Every 4th subscription bottle is FREE.|Free US shipping on all orders.|Subscriber-only gifts and product drops.|Cancel anytime." | split: "|" %}
+{% assign tooltipDescription = "Receive your first Curalin a few days after ordering. Then you'll receive the order of Curalin bottles pack every X month after that initial order." %}
+{% assign tooltipFeatures = product.metafields.susbscription.subtitle | append: "|Free US shipping on all orders.|Subscriber-only gifts and product drops.|Cancel anytime." | split: "|" %}
 
 <div id="product-actions-{{ section_id }}" class="product-actions">
   <div class="top-wrapper subscription-element flex items-center justify-between" {% if shop.name == "Curalife Global" %}{% if product.title == "Curalin 3 Pack" or product.title == "Curalin 6 Pack" %}style="display: none"{% endif %}{% endif %}>
@@ -73,18 +73,27 @@
           </div>
 
           <div class="option-info leading-none">
-            <div class="option-title flex items-center font-semibold">Subscribe & <span>Save 25%</span></div>
-            <div class="option-subtitle text-[14px]">Every 4th bottle - <b>FREE!</b></div>
+            <div class="option-title flex items-center font-semibold">Subscribe & <span>Save {{ product.metafields.subscription.visible_discount_percentage }}%</span></div>
+            {% if product.metafields.susbscription.subtitle != blank %}
+              <div class="option-subtitle text-[14px]">{{ product.metafields.susbscription.subtitle }}</div>
+            {% endif %}
           </div>
         </div>
 
         <div class="price">
           <div class="calculations">
-            {% comment %} <div class="compared-at-price rounded line-through text-[12px]">{{ all_products['curalin'].variants.first.price | money_without_trailing_zeros }}</div> {% endcomment %}
-            <div class="real-price no-letters rounded">{{ subscriptionPrice | times: 100 | money_without_trailing_zeros }}</div>
+          {% if product.variants[0].compare_at_price > 0 and product.variants[0].compare_at_price > product.variants[0].price %}<div class="variant-cap text-[12px] rounded line-through">{{ product.variants[0].compare_at_price | money_without_trailing_zeros }}</div>{% endif %}
+            <div class="real-price no-letters rounded">
+              {% if product.selling_plan_groups[0].selling_plans[0].price_adjustments[0].value_type == "percentage" %}
+                {% assign totalPaymentPercent = 100 | minus: product.selling_plan_groups[0].selling_plans[0].price_adjustments[0].value %}
+                {% assign finalPrice = product.price | divided_by: 100 | times: totalPaymentPercent | money_without_trailing_zeros %}
+                {{ finalPrice }}
+              {% else %}
+                {{ subscriptionPrice | times: 100 | money_without_trailing_zeros }}
+              {% endif %}
+            </div>
           </div>
-
-          <p class="per-month">Per Month</p>
+          {% unless product.handle == 'curalin' %}<p class="per-month">Per Month</p>{% endunless %}
         </div>
       </div>
     {% endif %}
@@ -252,6 +261,7 @@
     else {
       {% comment %} buySubscription({{ product.variants.first.id }}, 1, {{ product.selling_plan_groups[0].selling_plans[0].id }}); {% endcomment %}
       //buySubscription(43162416873623, 1, 5594513559);
+      // console.log("Selected Subscription Selling Plan ID:{{ product.selling_plan_groups[0].selling_plans[0].id }}");
       buySubscription({{ product.metafields.custom.subscription_product_id }}, 1, {{ product.metafields.custom.subscription_selling_plan_id }})
     }
 
