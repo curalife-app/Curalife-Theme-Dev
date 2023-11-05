@@ -6,7 +6,11 @@
 
 {% assign variantQuantity = product.variants | size %}
 {% assign tooltipTitle = "Curalin's Subscription Is Simple." %}
-{% assign tooltipDescription = "Receive your first Curalin a few days after ordering. Then you'll receive the order of Curalin bottles pack every X month after that initial order." %}
+{% if product.handle == 'curalin' %}
+  {% assign tooltipDescription = "Receive your first Curalin a few days after ordering. Then you'll receive a new Curalin bottle every 1 month after that initial order." %}
+{% else %}
+  {% assign tooltipDescription = "Receive your first Curalin a few days after ordering. Then you'll receive the order of Curalin bottles pack every X month after that initial order." %}
+{% endif %}
 {% assign tooltipFeatures = product.metafields.susbscription.subtitle | append: "|Free US shipping on all orders.|Subscriber-only gifts and product drops.|Cancel anytime." | split: "|" %}
 
 <div id="product-actions-{{ section_id }}" class="product-actions">
@@ -93,7 +97,7 @@
               {% endif %}
             </div>
           </div>
-          {% unless product.handle == 'curalin' %}<p class="per-month">Per Month</p>{% endunless %}
+            {% if product.handle == 'curalin' %}<p class="per-month">Per Month</p>{% endif %}
         </div>
       </div>
     {% endif %}
@@ -243,26 +247,30 @@
 
   // On Buy Button Click
   function buyButtonHandler() {
-    console.log("Buy Button Pushed!")
+    console.log("Buy Button Pushed!");
     document.querySelector('#product-actions-{{ section_id }} #loader').style.display = 'block';
     document.querySelector('#product-actions-{{ section_id }} #button-text').style.display = 'none';
 
     if ($('#product-actions-{{ section_id }} .purchase-option-box.subscription-element').find('input:checked').length === 0) {
       {% if variantQuantity > 1 %}
         let checkedPack = $('#product-actions-{{ section_id }} .pack-option.selected').first().attr('data-value');
+        console.log("Selected Variant ID: " + checkedPack);
       {% else %}
         let checkedPack = {{ product.variants.first.id }};
+        console.log("Selected Variant ID else: " + checkedPack);
       {% endif %}
 
       let checkedQuantity = 1;
       let checkoutLink = "https://" + location.hostname + "/cart/" + checkedPack + ":" + checkedQuantity;
+      console.log("Checkout Link: " + checkoutLink);
       window.location.href = checkoutLink;
     }
     else {
       {% comment %} buySubscription({{ product.variants.first.id }}, 1, {{ product.selling_plan_groups[0].selling_plans[0].id }}); {% endcomment %}
       //buySubscription(43162416873623, 1, 5594513559);
       // console.log("Selected Subscription Selling Plan ID:{{ product.selling_plan_groups[0].selling_plans[0].id }}");
-      buySubscription({{ product.metafields.custom.subscription_product_id }}, 1, {{ product.metafields.custom.subscription_selling_plan_id }})
+      buySubscription({{ product.variants.first.id }}, 1, {{ product.selling_plan_groups[0].selling_plans[0].id }})
+      // buySubscription({{ product.metafields.custom.subscription_product_id }}, 1, {{ product.metafields.custom.subscription_selling_plan_id }})
     }
 
     // window.dataLayer = window.dataLayer || [];
@@ -479,20 +487,9 @@
       padding: 10px 0;
       width: 95%;
     }
-
-    .cta-section-{{ section_id }} .purchase-option-box .price {
-      position: absolute;
-      right: 10px;
-      bottom: 10px;
-      margin-right: unset;
-    }
   }
 
   @media screen and (max-width: 768px) {
-    .cta-section-{{ section_id }} .purchase-option-box {
-      justify-content: unset;
-    }
-
     .cta-section-{{ section_id }} .purchase-option-box .option-info .option-title {
       font-size: 4vw;
     }
