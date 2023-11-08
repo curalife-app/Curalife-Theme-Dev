@@ -4,7 +4,9 @@
   {% elsif section.settings.section_additional_classes contains 'prime' or section.settings.section_additional_classes contains 'subscription' %}
     {% assign hideSection = true %}
   {% endif %}
-{% elsif section.settings.display_on_pages != blank %}
+{% endif %}
+
+{% if section.settings.display_on_pages != blank %}
   {% assign isDisplayOnThisPage = false %}
   {% assign displayOnPagesArray = section.settings.display_on_pages | split: ',' %}
   {% for currentPage in displayOnPagesArray %}
@@ -17,7 +19,6 @@
     {% assign hideSection = true %}
   {% endunless %}
 {% endif %}
-
 
 {% unless hideSection %}
   <section id="section-{{ section.id }}" class="text-image text-image-{{ section.id }} {% if section.settings.is_image_overlap %}min-h-[500px] md:min-h-auto{% endif %} {% if section.settings.is_decor_relative_full %}static{% endif %} {% unless section.settings.is_dynamic_height %}min-h-400px{% endunless %} {% if section.settings.is_remove_padding_top %}pt-0{% endif %} {% if section.settings.is_remove_padding_bottom %}pb-0{% endif %} {% if section.settings.display_on_utm_parmeters != blank %}!hidden{% endif %} {% if section.settings.is_image_overlap_style %}mb-[150px] md:mb-0{% endif %} {{ section.settings.section_additional_classes }}">
@@ -60,6 +61,7 @@
         is_remove_container_padding_mobile: section.settings.is_remove_container_padding_mobile,
         is_no_wrap: section.settings.is_no_wrap,
         is_image_overlap_style: section.settings.is_image_overlap_style,
+        is_dont_lazyload: section.settings.is_dont_lazyload,
         limit_height: section.settings.limit_height,
         content_animation: section.settings.content_animation,
         image_animation: section.settings.image_animation,
@@ -163,7 +165,9 @@
         @media screen and (max-width: 768px) {
           /* #shopify-section-{{ section.id }} + .shopify-section, */
           .shopify-section:has(> sticky-header) {
-            margin-top: {{ section.settings.image_mobile.height | plus: section.settings.padding_top_mobile | plus: section.settings.padding_bottom_mobile }}px;
+            {% assign paddingTop = section.settings.padding_top_mobile |  default: section.settings.padding_top %}
+            {% assign paddingBottom = section.settings.padding_bottom_mobile |  default: section.settings.padding_bottom %}
+            margin-top: {{ section.settings.image_mobile.height | plus: paddingTop | plus: paddingBottom }}px;
           }
         }
       </style>
@@ -591,6 +595,11 @@
       "type": "checkbox",
       "id": "is_image_overlap_style",
       "label": "Overlap Image Style"
+    },
+    {
+      "type": "checkbox",
+      "id": "is_dont_lazyload",
+      "label": "Don't Lazyload Image"
     },
     {
       "type": "header",
