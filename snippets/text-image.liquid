@@ -33,19 +33,24 @@
 
     {% if customer.email == 'yotam@curalife.com' %}
       {% if main_image or main_mobile_image %}
-      <div class="image-wrapper z-[1] relative {% if itemsDirection == 'vertical' %}w-full{% endif %} {% if is_image_bottom %}self-end md:self-auto{% endif %}"
-        style="{% if main_image %}padding-top: {{ 100 | divided_by: main_image.aspect_ratio }}%;{% elsif main_mobile_image %}padding-top: {{ 100 | divided_by: main_mobile_image.aspect_ratio }}%;{% endif %}">
+      <div class="image-wrapper z-[1] h-auto {% if main_mobile_image and main_image == blank %}mobile{% endif %} {% if itemsDirection == 'vertical' %}w-full{% endif %} {% if is_image_bottom %}self-end md:self-auto{% endif %}">
         <picture>
           {% if main_mobile_image %}
-            <source media="(max-width: 768px)" srcset="{{ main_mobile_image | img_url: '800x' }}">
+            <!-- Use 'srcset' and 'sizes' to specify mobile images and their dimensions -->
+            <source media="(max-width: 768px)" srcset="{{ main_mobile_image | img_url: '800x' }}" sizes="(max-width: 768px) 100vw">
           {% endif %}
-          <img
-            class="absolute top-0 left-0 w-full h-full object-contain {% if is_hide_image_on_mobile %}hidden md:block{% endif %}"
+          <!-- The 'srcset' can also be used here for different screen densities -->
+          <img class="{% if is_limit_image_size %}max-h-500px{% endif %} relative z-auto object-contain {% if is_hide_image_on_mobile %}hidden md:block{% endif %}"
             src="{{ main_image | default: main_mobile_image | img_url: '1200x' }}"
-            alt="{{ main_image.alt | default: main_mobile_image.alt }}"
+            alt="{{ main_image.alt }}"
+            {% if main_image.width and main_image.height %}
+              width="{{ main_image.width }}"
+              height="{{ main_image.height }}"
+            {% else %}
+              style="width: 100%; height: auto;"
+            {% endif %}
             loading="lazy"
-            {% if image_animation != 'none'%}data-aos="{{ image_animation }}" data-aos-duration="{{ animation_duration }}"{% endif %}
-          >
+            {% if image_animation != 'none' %}data-aos="{{ image_animation }}" data-aos-duration="{{ animation_duration }}" {% endif %}>
         </picture>
       </div>
     {% endif %}
