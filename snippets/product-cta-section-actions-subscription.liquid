@@ -89,15 +89,12 @@
           {% if product.variants[0].compare_at_price > 0 and product.variants[0].compare_at_price > product.variants[0].price %}<div class="variant-cap text-[12px] rounded line-through">{{ product.variants[0].compare_at_price | money_without_trailing_zeros }}</div>{% endif %}
             <div class="real-price no-letters rounded">
               {% if product.selling_plan_groups[0].selling_plans[0].price_adjustments[0].value_type == "percentage" %}
-                {% if product.metafields.custom.subscription_selling_plan_index == 0 %}
-                  <script>console.log("selling plan index - 0")</script>
+                {% if product.metafields.custom.subscription_price %}
+                  {% assign finalPrice = product.metafields.custom.subscription_price %}
+                {% else %}
                   {% assign totalPaymentPercent = 100 | minus: product.selling_plan_groups[0].selling_plans[0].price_adjustments[0].value %}
-                {% elsif product.metafields.custom.subscription_selling_plan_index == 1 %}
-                  <script>console.log("selling plan index - 1")</script>
-                  {% assign totalPaymentPercent = 100 | minus: product.selling_plan_groups[0].selling_plans[1].price_adjustments[0].value %}
+                  {% assign finalPrice = product.price | divided_by: 100 | times: totalPaymentPercent | money_without_trailing_zeros %}
                 {% endif %}
-
-                {% assign finalPrice = product.price | divided_by: 100 | times: totalPaymentPercent | money_without_trailing_zeros %}
                 {{ finalPrice }}
               {% else %}
                 {{ subscriptionPrice | times: 100 | money_without_trailing_zeros }}
