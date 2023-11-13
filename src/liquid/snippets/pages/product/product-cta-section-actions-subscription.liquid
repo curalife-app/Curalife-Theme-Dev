@@ -29,7 +29,7 @@
 
         <div class="option-info leading-none">
         <div class="option-title font-semibold">{% if variantQuantity > 1 %}Buy once{% else %}{{ product.variants.first.title }}{% endif %}</div>
-          <div class="option-subtitle text-[14px] subscription-element" {% if product.title == "Curalin 3 Pack" or product.title == "Curalin 6 Pack" %}style="display: none"{% endif %}>One time delivery</div>
+          <div class="option-subtitle text-[14px] subscription-element">{% if product.handle == "curalin-3-pack" or product.handle == "curalin-6-pack" %}{{ product.variants[0].metafields.my_fields.subtitle }}{% else %}One time delivery{% endif %}</div>
         </div>
       </div>
 
@@ -78,7 +78,7 @@
 
           <div class="option-info leading-none">
             <div class="option-title flex items-center font-semibold">Subscribe & <span>Save {{ product.metafields.subscription.visible_discount_percentage }}%</span></div>
-            {% if product.metafields.susbscription.subtitle != blank %}
+            {% if product.metafields.susbscription.subtitle %}
               <div class="option-subtitle text-[14px]">{{ product.metafields.susbscription.subtitle }}</div>
             {% endif %}
           </div>
@@ -89,9 +89,13 @@
           {% if product.variants[0].compare_at_price > 0 and product.variants[0].compare_at_price > product.variants[0].price %}<div class="variant-cap text-[12px] rounded line-through">{{ product.variants[0].compare_at_price | money_without_trailing_zeros }}</div>{% endif %}
             <div class="real-price no-letters rounded">
               {% if product.selling_plan_groups[0].selling_plans[0].price_adjustments[0].value_type == "percentage" %}
-                {% assign totalPaymentPercent = 100 | minus: product.selling_plan_groups[0].selling_plans[0].price_adjustments[0].value %}
-                {% assign finalPrice = product.price | divided_by: 100 | times: totalPaymentPercent | money_without_trailing_zeros %}
-                {{ finalPrice }}
+                {% if product.metafields.custom.subscription_price %}
+                  {{ product.metafields.custom.subscription_price | times: 100 |  money_without_trailing_zeros }}
+                {% else %}
+                  {% assign totalPaymentPercent = 100 | minus: product.selling_plan_groups[0].selling_plans[0].price_adjustments[0].value %}
+                  {% assign finalPrice = product.price | divided_by: 100 | times: totalPaymentPercent | money_without_trailing_zeros %}
+                  {{ finalPrice }}
+                {% endif %}
               {% else %}
                 {{ subscriptionPrice | times: 100 | money_without_trailing_zeros }}
               {% endif %}
@@ -266,11 +270,9 @@
       window.location.href = checkoutLink;
     }
     else {
-      {% comment %} buySubscription({{ product.variants.first.id }}, 1, {{ product.selling_plan_groups[0].selling_plans[0].id }}); {% endcomment %}
-      //buySubscription(43162416873623, 1, 5594513559);
-      // console.log("Selected Subscription Selling Plan ID:{{ product.selling_plan_groups[0].selling_plans[0].id }}");
-      buySubscription({{ product.variants.first.id }}, 1, {{ product.selling_plan_groups[0].selling_plans[0].id }})
-      // buySubscription({{ product.metafields.custom.subscription_product_id }}, 1, {{ product.metafields.custom.subscription_selling_plan_id }})
+      // buySubscription(ID Of the variant, 1, External ID of the selling plan);
+      // buySubscription({{ product.variants.first.id }}, 1, {{ product.selling_plan_groups[0].selling_plans[0].id }})
+      buySubscription({{ product.metafields.custom.subscription_product_id }}, 1, {{ product.metafields.custom.subscription_selling_plan_id }})
     }
 
     // window.dataLayer = window.dataLayer || [];
