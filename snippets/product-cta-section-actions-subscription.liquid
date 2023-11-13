@@ -89,7 +89,12 @@
           {% if product.variants[0].compare_at_price > 0 and product.variants[0].compare_at_price > product.variants[0].price %}<div class="variant-cap text-[12px] rounded line-through">{{ product.variants[0].compare_at_price | money_without_trailing_zeros }}</div>{% endif %}
             <div class="real-price no-letters rounded">
               {% if product.selling_plan_groups[0].selling_plans[0].price_adjustments[0].value_type == "percentage" %}
-                {% assign totalPaymentPercent = 100 | minus: product.selling_plan_groups[0].selling_plans[product.metafields.custom.subscription_selling_plan_index].price_adjustments[0].value %}
+                {% if product.metafields.custom.subscription_selling_plan_index == 0 %}
+                  {% assign totalPaymentPercent = 100 | minus: product.selling_plan_groups[0].selling_plans[0].price_adjustments[0].value %}
+                {% elsif product.metafields.custom.subscription_selling_plan_index == 1 %}
+                  {% assign totalPaymentPercent = 100 | minus: product.selling_plan_groups[0].selling_plans[1].price_adjustments[0].value %}
+                {% endif %}
+
                 {% assign finalPrice = product.price | divided_by: 100 | times: totalPaymentPercent | money_without_trailing_zeros %}
                 {{ finalPrice }}
               {% else %}
