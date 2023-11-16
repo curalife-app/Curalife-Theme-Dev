@@ -137,14 +137,29 @@
     "@context": "https://schema.org",
     "@type": "FAQPage",
     "mainEntity": [
-      {% for textFAQItem in faqItems %}{
-          "@type": "Question",
-          "name": "{{ textFAQItem | split: ":" | first }}",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "{{ textFAQItem | split: ":" | last }}"
+      {% for textFAQItem in faqItems %}
+        {% assign parsedTextFAQItem = textFAQItem | json %}
+        {% if data_type == "json" %}
+          {
+            "@type": "Question",
+            "name": "{{ textFAQItem.question }}",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "{{ textFAQItem.answer }}"
+            }
           }
-        }{% unless forloop.last %},{% endunless %}{% endfor %}
+        {% elsif data_type == "string" %}
+          {
+            "@type": "Question",
+            "name": "{{ textFAQItem | split: ":" | first | json }}",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "{{ textFAQItem | split: ":" | last | json }}"
+            }
+          }
+        {% endif %}
+        {% unless forloop.last %},{% endunless %}
+      {% endfor %}
     ]
   }
 </script>
