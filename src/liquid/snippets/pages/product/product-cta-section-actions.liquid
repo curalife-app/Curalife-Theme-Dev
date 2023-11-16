@@ -241,11 +241,19 @@
   });
 
   // On Buy Button Click
-  $(document).on("click", "#product-actions-{{ section_id }} #buy-button", function () {
-    console.log("Buy Button Pushed!")
-    let checkedPack = $('#product-actions-{{ section_id }} input[name=pack]:checked').val();
-    let checkedQuantity = {% if isBuyQuantity %}$('#product-actions-{{ section_id }} input[name=quantity]').val(){% else %}1{% endif %};
-    let checkoutLink = "https://" + location.hostname + "/cart/" + checkedPack + ":" + checkedQuantity;
-    window.location.href = checkoutLink;
+  const buyButton = document.querySelector('#product-actions-{{ section_id }} #buy-button');
+  buyButton.addEventListener('click', function() {
+    try {
+
+      let packValue = document.querySelector('#product-actions-{{ section_id }} input[name=pack]:checked')?.value;
+      packValue = document.querySelector('#product-actions-{{ section_id }} input[name=pack]:checked').getAttribute("data-ref-variant") || packValue;
+      if (!packValue) throw new Error('No pack selected');
+
+      let quantityValue = {% if isBuyQuantity %}document.querySelector('#product-actions-{{ section_id }} input[name=quantity]')?.value || 1{% else %}1{% endif %};
+      window.location.href = `https://${location.hostname}/cart/${packValue}:${quantityValue}`;
+    } catch (error) {
+      console.error(error);
+      alert("Something went wrong! Please contact our support team.");
+    }
   });
 </script>
