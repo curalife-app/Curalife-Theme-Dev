@@ -52,47 +52,7 @@
 
   {% render 'newsletter-form' %}
 
-  {% if filters_data %}
-    {% assign allTags = '' %}
-    {% for tag in blog.all_tags %}
-      {% assign allTags = allTags | append: tag | append: ',' %}
-    {% endfor %}
 
-    <script>
-      const toTitleCase = str =>
-        str.toLowerCase().split(' ')
-          .map(word => word[0].toUpperCase() + word.slice(1))
-          .join(' ');
-
-      const generateFilterHTML = (filtersData, allTags) => {
-        const normalizedTags = new Set(
-          allTags.toLowerCase().split(',').map(tag => tag.trim().replace(/\s+/g, '-'))
-        );
-
-        return Object.entries(filtersData).reduce((html, [key, values]) => {
-          const titleHTML = key ? `<h4>${toTitleCase(key.replace('-', ' '))}</h4>` : '';
-          const listItems = values.reduce((listHtml, value) => {
-            const normalizedValue = value.toLowerCase().replace(/\s+/g, '-');
-            return `${listHtml}<li><a href="${normalizedTags.has(normalizedValue) ? `/blogs/{{ blog.handle }}/tagged/${normalizedValue}` : '#'}"
-                    data-category="${key}" data-value="${normalizedValue}"
-                    class="${normalizedTags.has(normalizedValue) ? '' : 'disabled'}">${toTitleCase(value.replace('-', ' '))}</a></li>`;
-          }, '');
-          return `${html}<div class="filter-group">${titleHTML}<ul>${listItems}</ul></div>`;
-        }, '');
-      };
-
-      $(() => {
-        try {
-          const filtersData = JSON.parse('{{ filters_data }}');
-          const dynamicFilters = $("#dynamic-filters");
-          dynamicFilters.html(generateFilterHTML(filtersData, '{{ allTags | downcase }}'))
-            .find(`[data-value="${dynamicFilters.data('active')}"]`).parent().addClass('active');
-        } catch (error) {
-          console.error('Error generating filters:', error);
-        }
-      });
-    </script>
-  {% endif %}
 
   <style>
     #dynamic-filters {
