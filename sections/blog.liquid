@@ -44,17 +44,29 @@
                 <div class="scroll-wrap">
                   <ul>
                     <li {% if current_tags == blank  %}class="active"{% endif %}><a href="{{ blog.url }}">All</a></li>
-                    {% for tag in blog.all_tags %}
-                      {% if blog_categories contains tag %}
-                          {% assign crTag = tag  %}
-                          {% if current_tags contains crTag  %}
-                          {% assign cls="active" %}
-                          {% else %}
-                          {% assign cls="" %}
+                      <ul>
+                        {% for tag in blog.all_tags %}
+                          {% if blog_categories contains tag %}
+                            {% assign crTag = tag  %}
+                            {% if current_tags contains crTag  %}
+                              {% assign cls="active" %}
+                            {% else %}
+                              {% assign cls="" %}
+                            {% endif %}
+                            {% assign tag_in_articles = false %}
+                            {% for article in blog.articles %}
+                              {% if article.tags contains crTag %}
+                                {% assign tag_in_articles = true %}
+                              {% endif %}
+                            {% endfor %}
+                            {% if tag_in_articles %}
+                              <li class="{{cls}}"><a href="{{ blog.url }}/tagged/{{ tag | handleize }}">{{ tag }}</a></li>
+                            {% else %}
+                              <li class="{{cls}}"><a href="#" class="disabled border-gray-500">{{ tag }}</a></li>
+                            {% endif %}
                           {% endif %}
-                          <li class="{{cls}}"><a href="{{ blog.url }}/tagged/{{ tag | handleize }}">{{ tag }}</a></li>
-                      {% endif %}
-                    {% endfor %}
+                        {% endfor %}
+                      </ul>
                   </ul>
                 </div>
               </div>
