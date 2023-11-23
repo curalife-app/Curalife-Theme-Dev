@@ -59,46 +59,34 @@
     {% endfor %}
 
     <script>
-      // Function to convert a string to title case
       const toTitleCase = str =>
         str.toLowerCase().split(' ')
-          .map(word => word.charAt(0).toUpperCase() + word.substring(1))
+          .map(word => word[0].toUpperCase() + word.slice(1))
           .join(' ');
 
-      // Function to generate filter HTML
       const generateFilterHTML = (filtersData, allTags) => {
-        const allTagsNormalized = allTags.toLowerCase().split(',').map(tag => tag.trim().replace(' ', '-'));
-        return Object.entries(filtersData).map(([key, values]) => {
+        const normalizedTags = new Set(
+          allTags.toLowerCase().split(',').map(tag => tag.trim().replace(/\s+/g, '-'))
+        );
+
+        return Object.entries(filtersData).reduce((html, [key, values]) => {
           const titleHTML = key ? `<h4>${toTitleCase(key.replace('-', ' '))}</h4>` : '';
-          const listItems = values.map(value => {
-            const normalizedValue = value.toLowerCase().replace(' ', '-');
-            return `
-              <li>
-                <a href="${allTagsNormalized.includes(normalizedValue) ? `/blogs/{{ blog.handle }}/tagged/${normalizedValue}` : '#'}"
-                  data-category="${key}"
-                  data-value="${normalizedValue}"
-                  class="${allTagsNormalized.includes(normalizedValue) ? '' : 'disabled'}">
-                  ${toTitleCase(value.replace('-', ' '))}
-                </a>
-              </li>`;
-          }).join('');
-          return `<div class="filter-group">${titleHTML}<ul>${listItems}</ul></div>`;
-        }).join('');
+          const listItems = values.reduce((listHtml, value) => {
+            const normalizedValue = value.toLowerCase().replace(/\s+/g, '-');
+            return `${listHtml}<li><a href="${normalizedTags.has(normalizedValue) ? `/blogs/{{ blog.handle }}/tagged/${normalizedValue}` : '#'}"
+                    data-category="${key}" data-value="${normalizedValue}"
+                    class="${normalizedTags.has(normalizedValue) ? '' : 'disabled'}">${toTitleCase(value.replace('-', ' '))}</a></li>`;
+          }, '');
+          return `${html}<div class="filter-group">${titleHTML}<ul>${listItems}</ul></div>`;
+        }, '');
       };
 
-      // Document ready function
-      $(document).ready(() => {
+      $(() => {
         try {
           const filtersData = JSON.parse('{{ filters_data }}');
-          const filterHTML = generateFilterHTML(filtersData, '{{ allTags | downcase }}');
           const dynamicFilters = $("#dynamic-filters");
-          dynamicFilters.html(filterHTML);
-
-          // Highlight active filter
-          const activeTag = dynamicFilters.data('active');
-          if (activeTag) {
-            dynamicFilters.find(`[data-value="${activeTag}"]`).parent().addClass('active');
-          }
+          dynamicFilters.html(generateFilterHTML(filtersData, '{{ allTags | downcase }}'))
+            .find(`[data-value="${dynamicFilters.data('active')}"]`).parent().addClass('active');
         } catch (error) {
           console.error('Error generating filters:', error);
         }
