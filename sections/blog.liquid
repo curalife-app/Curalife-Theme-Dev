@@ -96,6 +96,23 @@
   {% render 'newsletter-form' %}
 
   {% if filters_data %}
+    {% assign disabledTags = '' %}
+    {% for tag in blog.all_tags %}
+      {% if blog_categories contains tag %}
+        {% assign crTag = tag %}
+        {% assign tag_in_articles = false %}
+        {% for article in blog.articles %}
+          {% if article.tags contains crTag %}
+            {% assign tag_in_articles = true %}
+            {% break %}
+          {% endif %}
+        {% endfor %}
+        {% unless tag_in_articles %}
+          {% assign disabledTags = disabledTags | append: tag | append: ',' %}
+        {% endunless %}
+      {% endif %}
+    {% endfor %}
+
     <script>
       function titleCase(str) {
         var splitStr = str.toLowerCase().split(' ');
@@ -116,20 +133,9 @@
         for(const [key, values] of Object.entries(filtersData)) {
           titleHTML = key ? `<h4>${titleCase(key.replace('-',' '))}</h4>` : '';
           filterHTML += `<div class="filter-group">${titleHTML}<ul>`;
-          let tag_in_articles = false;
           for(const value of values) {
-            tag_in_articles = false;
-            {% for article in blog.articles %}
-              {% if article.tags contains value %}
-                tag_in_articles = true;
-                {% break %}
-              {% endif %}
-            {% endfor %}
-            if (tag_in_articles) {
-              filterHTML += `<li><a href="/blogs/{{ blog.handle }}/tagged/${value}" data-category="${key}" data-value="${value}">${titleCase(value.replace('-',' '))}</a></li>`;
-            } else {
-              filterHTML += `<li><a href="#" class="disabled border-gray-500">${titleCase(value.replace('-',' '))}</a></li>`;
-            }
+            const disabled = '{{ disabledTags }}'.includes(value) ? 'disabled border-gray-500' : '';
+            filterHTML += `<li><a href="/blogs/{{ blog.handle }}/tagged/${value}" data-category="${key}" data-value="${value}" class="${disabled}">${titleCase(value.replace('-',' '))}</a></li>`;
           }
           filterHTML += `</ul></div>`;
         }
@@ -143,7 +149,6 @@
       });
     </script>
   {% endif %}
-
   <style>
     #dynamic-filters {
       display: flex;
