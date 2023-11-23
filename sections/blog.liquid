@@ -60,10 +60,8 @@
                               {% endif %}
                             {% endfor %}
                             {% if tag_in_articles %}
-                              <script>console.log("tag found in some articles!")</script>
                               <li class="{{cls}}"><a href="{{ blog.url }}/tagged/{{ tag | handleize }}">{{ tag }}</a></li>
                             {% else %}
-                              <script>console.log("tag not found in any articles!")</script>
                               <li class="{{cls}}"><a href="#" class="disabled border-gray-500">{{ tag }}</a></li>
                             {% endif %}
                           {% endif %}
@@ -118,8 +116,20 @@
         for(const [key, values] of Object.entries(filtersData)) {
           titleHTML = key ? `<h4>${titleCase(key.replace('-',' '))}</h4>` : '';
           filterHTML += `<div class="filter-group">${titleHTML}<ul>`;
+          let tag_in_articles = false;
           for(const value of values) {
-            filterHTML += `<li><a href="/blogs/{{ blog.handle }}/tagged/${value}" data-category="${key}" data-value="${value}">${titleCase(value.replace('-',' '))}</a></li>`;
+            tag_in_articles = false;
+            {% for article in blog.articles %}
+              {% if article.tags contains value %}
+                tag_in_articles = true;
+                {% break %}
+              {% endif %}
+            {% endfor %}
+            if (tag_in_articles) {
+              filterHTML += `<li><a href="/blogs/{{ blog.handle }}/tagged/${value}" data-category="${key}" data-value="${value}">${titleCase(value.replace('-',' '))}</a></li>`;
+            } else {
+              filterHTML += `<li><a href="#" class="disabled border-gray-500">${titleCase(value.replace('-',' '))}</a></li>`;
+            }
           }
           filterHTML += `</ul></div>`;
         }
