@@ -60,40 +60,44 @@
 
     <script>
       // Function to convert a string to title case
-      function toTitleCase(str) {
-        return str.toLowerCase().split(' ').map(word =>
-          word.charAt(0).toUpperCase() + word.substring(1)
-        ).join(' ');
-      }
+      const toTitleCase = str =>
+        str.toLowerCase().split(' ')
+          .map(word => word.charAt(0).toUpperCase() + word.substring(1))
+          .join(' ');
 
       // Function to generate filter HTML
-      function generateFilterHTML(filtersData, allTags) {
+      const generateFilterHTML = (filtersData, allTags) => {
+        const allTagsNormalized = allTags.toLowerCase().split(',').map(tag => tag.trim().replace(' ', '-'));
         return Object.entries(filtersData).map(([key, values]) => {
           const titleHTML = key ? `<h4>${toTitleCase(key.replace('-', ' '))}</h4>` : '';
           const listItems = values.map(value => {
-            const isDisabled = !allTags.includes(value.toLowerCase());
-            const href = isDisabled ? '#' : `/blogs/{{ blog.handle }}/tagged/${value.replace(' ', '-')}`;
-            const disabledClass = isDisabled ? 'disabled' : '';
-            return `<li><a href="${href}" data-category="${key}" data-value="${value.replaceAll(" ", "-")}" class="${disabledClass}">${toTitleCase(value.replace('-', ' '))}</a></li>`;
+            const normalizedValue = value.toLowerCase().replace(' ', '-');
+            return `
+              <li>
+                <a href="${allTagsNormalized.includes(normalizedValue) ? `/blogs/{{ blog.handle }}/tagged/${normalizedValue}` : '#'}"
+                  data-category="${key}"
+                  data-value="${normalizedValue}"
+                  class="${allTagsNormalized.includes(normalizedValue) ? '' : 'disabled'}">
+                  ${toTitleCase(value.replace('-', ' '))}
+                </a>
+              </li>`;
           }).join('');
           return `<div class="filter-group">${titleHTML}<ul>${listItems}</ul></div>`;
         }).join('');
-      }
+      };
 
       // Document ready function
-      $(document).ready(function() {
+      $(document).ready(() => {
         try {
-          const filtersJson = '{{ filters_data }}';
-          const filtersData = JSON.parse(filtersJson);
-          const allTags = '{{ allTags | downcase }}';
-
-          const filterHTML = generateFilterHTML(filtersData, allTags);
-          $("#dynamic-filters").html(filterHTML);
+          const filtersData = JSON.parse('{{ filters_data }}');
+          const filterHTML = generateFilterHTML(filtersData, '{{ allTags | downcase }}');
+          const dynamicFilters = $("#dynamic-filters");
+          dynamicFilters.html(filterHTML);
 
           // Highlight active filter
-          const activeTag = $('#dynamic-filters').data('active');
+          const activeTag = dynamicFilters.data('active');
           if (activeTag) {
-            $(`#dynamic-filters [data-value="${activeTag}"]`)[0].parentElement.classList.add('active');
+            dynamicFilters.find(`[data-value="${activeTag}"]`).parent().addClass('active');
           }
         } catch (error) {
           console.error('Error generating filters:', error);
