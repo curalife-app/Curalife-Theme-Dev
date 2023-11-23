@@ -1,10 +1,21 @@
 const mix = require('laravel-mix');
 const tailwindcss = require('tailwindcss');
+const path = require('path');
 const fs = require('fs');
+
+console.log("Starting Laravel Mix configuration...");
 
 const getFiles = (dir) => {
   return fs.readdirSync(dir).filter(file => fs.statSync(`${dir}/${file}`).isFile());
 };
+
+function copyFiles(source, destination, isFlattened = false) {
+  mix.copy(source, destination, { flatten: isFlattened });
+}
+
+function processFiles(source, destination) {
+  mix.js(source, destination);
+}
 
 const paths = {
   build_folder: 'Curalife-Theme-Build',
@@ -24,22 +35,55 @@ const paths = {
   tailwindcss_file: 'src/styles/tailwind.scss'
 }
 
+console.log("Configuring Webpack...");
+
+mix.webpackConfig({
+  module: {
+    rules: [
+      {
+        test: /\article.liquid$/,
+        use: [
+          {
+            loader: 'liquid-loader',
+          },
+          path.resolve('webpack-loaders/liquid-css-processor-loader.js')
+        ]
+      }
+    ]
+  }
+});
+
+console.log("Webpack loader for .liquid files configured.");
+console.log("Configuring file copying...");
+
 // Copy all required files to target destination
-mix.copy(paths.script_files, paths.build_assets_folder)
-mix.copy(paths.font_files, paths.build_assets_folder);
-mix.copy(paths.css_folder_files, paths.build_assets_folder);
-mix.copy(paths.image_files, paths.build_assets_folder, { flatten: true });
-mix.copy(paths.layout_folder_files, paths.build_layout_folder);
-mix.copy(paths.sections_folder_files, paths.build_sections_folder);
-mix.copy(paths.snippets_folder_files, paths.build_snippets_folder);
+copyFiles(paths.script_files, paths.build_assets_folder, false);
+copyFiles(paths.font_files, paths.build_assets_folder, false);
+copyFiles(paths.css_folder_files, paths.build_assets_folder, false);
+copyFiles(paths.image_files, paths.build_assets_folder, true);
+
+// copy liquid files
+copyFiles(paths.layout_folder_files, paths.build_layout_folder);
+copyFiles(paths.sections_folder_files, paths.build_sections_folder);
+copyFiles(paths.snippets_folder_files, paths.build_snippets_folder);
+
+// processFiles('src/liquid/sections/pages/blogs/articles/article.liquid', '/')
+
+console.log("File copying configured.");
+console.log("Configuring SCSS compilation...");
 
 // Compile all SCSS source files using TailwindCSS
 mix.sass(paths.tailwindcss_file, paths.build_assets_folder)
   .options({
     processCssUrls: false,
-    postCss: [ tailwindcss('tailwind.config.js') ],
+    postCss: [tailwindcss('tailwind.config.js')],
   });
+
+console.log("SCSS compilation configured.");
+console.log("Compiling individual SCSS files...");
 
 // Compile each individual SCSS into CSS
 getFiles(paths.scss_folder).forEach(filename =>
   mix.sass(`${paths.scss_folder}${filename}`, paths.build_assets_folder));
+
+console.log("Laravel Mix configuration complete.");

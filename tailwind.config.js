@@ -74,5 +74,5 @@ module.exports = {
   variants: {
     textColor: ['odd', 'even']
   },
-  plugins: [],
+  plugins: []
 }

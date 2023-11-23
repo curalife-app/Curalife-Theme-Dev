@@ -93,7 +93,7 @@ const tasks = {
     imagemin.gifsicle({interlaced: true}),
     imagemin.mozjpeg({quality: 75, progressive: true}),
     imagemin.optipng({optimizationLevel: 5}),
-    imagemin.svgo({plugins: [{removeViewBox: true}])
+    imagemin.svgo({plugins: [{removeViewBox: true}]})
   ]))], true),
   scripts: () => processFiles(paths.scripts, paths.assets, [concat('main.js'), uglify()], true),
   sync: () => browserSync.init({server: {baseDir: paths.build}}),
