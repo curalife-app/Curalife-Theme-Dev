@@ -133,11 +133,11 @@
                 }
               </style>
             {% when 'countdown' %}
-              <div id="countdown">
+              <div id="countdown-{{ section.id }}" class="countdown">
                 <ul>
-                  <li><span id="hours"></span>Hours</li>
-                  <li><span id="minutes"></span>Minutes</li>
-                  <li><span id="seconds"></span>Seconds</li>
+                  <li><span id="hours-{{ section.id }}"></span>Hours</li>
+                  <li><span id="minutes-{{ section.id }}"></span>Minutes</li>
+                  <li><span id="seconds-{{ section.id }}"></span>Seconds</li>
                 </ul>
               </div>
 
@@ -147,7 +147,7 @@
                   src: url({{ 'digital-7.ttf' | asset_url }}) format('truetype');
                 }
 
-                #countdown {
+                .countdown {
                   margin: auto;
                   max-width: fit-content;
                   margin-top: -30px;
@@ -155,11 +155,11 @@
                   margin-bottom: 0;
                 }
 
-                #countdown ul {
+                .countdown ul {
                   margin-bottom: unset;
                 }
 
-                #countdown li {
+                .countdown li {
                   display: inline-block;
                   font-size: 12px;
                   list-style-type: none;
@@ -169,18 +169,18 @@
                   padding: unset;
                 }
 
-                #countdown li span {
+                .countdown li span {
                   display: block;
                   font-size: 40px;
                   font-weight: 400;
                   font-family: 'Digital-7', sans-serif;
                 }
 
-                #countdown li:before {
+                .countdown li:before {
                   content: unset;
                 }
 
-                #countdown li:not(:last-child):before {
+                .countdown li:not(:last-child):before {
                   content: ":";
                   color: black;
                   display: block;
@@ -191,19 +191,18 @@
                 }
 
                 @media screen and (max-width: 760px) {
-                    #countdown li {
+                    .countdown li {
                       min-width: 22vw;
                     }
 
-                    #countdown li span {
+                    .countdown li span {
                       position: relative;
                       left: 3vw;
                     }
 
-                    #countdown li:not(:last-child):before {
+                    .countdown li:not(:last-child):before {
                       left: 14vw;
                     }
-
                 }
               </style>
 
@@ -214,39 +213,27 @@
             return this < 10 ? '0' + this : this;
         };
 
-        console.log("Timer script started");
-
         const second = 1000,
               minute = second * 60,
               hour = minute * 60;
 
         let birthday = "{{ block.settings.month }} {{ block.settings.day }}, {{ block.settings.year }} 09:59:00";
-        console.log("Target date set to:", birthday);
 
         let countDown = new Date(birthday).getTime();
-        console.log("Countdown timestamp:", countDown);
 
         let x = setInterval(function() {
             var now = new Date().getTime();
-            console.log("Current timestamp:", now);
 
             var distance = countDown - now;
-            console.log("Time remaining (ms):", distance);
 
-            document.getElementById("hours").innerText = Math.floor(distance / (hour)).pad(),
-            document.getElementById("minutes").innerText = Math.floor((distance % (hour)) / (minute)).pad(),
-            document.getElementById("seconds").innerText = Math.floor((distance % (minute)) / second).pad();
+            document.getElementById("hours-{{ section.id }}").innerText = Math.floor(distance / (hour)).pad(),
+            document.getElementById("minutes-{{ section.id }}").innerText = Math.floor((distance % (hour)) / (minute)).pad(),
+            document.getElementById("seconds-{{ section.id }}").innerText = Math.floor((distance % (minute)) / second).pad();
 
             if (distance < 0) {
-                console.log("Countdown completed");
-
                 clearInterval(x);
-
                 document.getElementById("section-{{ section_id }}").parentElement.remove();
-                console.log("Section element removed");
-
                 document.querySelector('.shopify-section').firstChild.style.marginTop = '0';
-                console.log("Margin of first .shopify-section element set to 0");
             }
             //seconds
         }, 0)
