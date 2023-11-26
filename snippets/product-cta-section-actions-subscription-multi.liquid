@@ -8,95 +8,37 @@
 
 <div id="product-actions-{{ section_id }}" class="product-actions">
   <div class="purchase-options flex flex-col">
-    <div class="purchase-option-box">
-      <div class="radio-box">
-        <input type="radio" id="buyonce" name="pack-subscription" data-variant="{{ product.variants.first.id }}" data-price="{{ product.variants.first.price | money_without_currency | replace: ".00", "" }}" data-sku="{{ product.variants.first.sku }}"></input>
-        <label for="buyonce"></label>
-      </div>
-      <div class="option-title font-semibold">{% if variantQuantity > 1 %}Buy once{% else %}{% if product.variants.first.title == blank or product.variants.first.title == 'Default Title' %}{{ product.title }}{% else %}{{ product.variants.first.title }}{% endif %}{% endif %}</div>
-        <div class="option-subtitle text-[14px] subscription-element {% if product.handle == "curalin-3-pack" or product.handle == "curalin-6-pack" %}bg-[--blue] text-white rounded-xl w-max px-2 py-[2px]{% endif %}">{% if product.handle == "curalin-3-pack" or product.handle == "curalin-6-pack" %}{{ product.variants[0].metafields.my_fields.subtitle }}{% else %}One time delivery{% endif %}</div>
-      </div>
-
-
-      {% if variantQuantity == 1 %}
-        <div class="price">
-          <div class="calculations">
-            <div class="compared-at-price rounded line-through text-[12px]">{{ product.variants.first.compare_at_price | money_without_trailing_zeros }}</div>
-            <div class="real-price no-letters rounded">{{ product.variants.first.price | money_without_trailing_zeros }}</div>
-          </div>
+    {% for var in product.variants %}
+      <div class="purchase-option-box">
+        <div class="radio-box">
+          <input type="radio" id="buyonce" name="pack-subscription" data-variant="{{ product.variants.first.id }}" data-price="{{ product.variants.first.price | money_without_currency | replace: ".00", "" }}" data-sku="{{ product.variants.first.sku }}"></input>
+          <label for="buyonce"></label>
         </div>
+        <div class="option-title font-semibold">{% if variantQuantity > 1 %}Buy once{% else %}{% if product.variants.first.title == blank or product.variants.first.title == 'Default Title' %}{{ product.title }}{% else %}{{ product.variants.first.title }}{% endif %}{% endif %}</div>
+          <div class="option-subtitle text-[14px] subscription-element {% if product.handle == "curalin-3-pack" or product.handle == "curalin-6-pack" %}bg-[--blue] text-white rounded-xl w-max px-2 py-[2px]{% endif %}">{% if product.handle == "curalin-3-pack" or product.handle == "curalin-6-pack" %}{{ product.variants[0].metafields.my_fields.subtitle }}{% else %}One time delivery{% endif %}</div>
+        </div>
+
+
+        {% if variantQuantity == 1 %}
+          <div class="price">
+            <div class="calculations">
+              <div class="compared-at-price rounded line-through text-[12px]">{{ product.variants.first.compare_at_price | money_without_trailing_zeros }}</div>
+              <div class="real-price no-letters rounded">{{ product.variants.first.price | money_without_trailing_zeros }}</div>
+            </div>
+          </div>
+        {% endif %}
       {% endif %}
 
-    {% if variantQuantity > 1 %}
-      <div class="variants">
-        {% for var in product.variants %}
-          {% assign bottle_quantity = var.metafields.my_fields.pack_bottles_quantity %}
-          {% assign item_price = var.price | divided_by: bottle_quantity %}
-          {% assign save_price = original_item_price | minus: item_price | times: quantity %}
-
-          <div class="pack-option {% if forloop.index == 1 %}selected{% endif %}" data-value="{{ var.id }}" data-quantity="{{ var.metafields.my_fields.pack_bottles_quantity }}" data-price="{{ var.price | money_without_currency | replace: ".00", "" }}" data-title="{{ var.title }}" data-sku="{{ var.sku }}" data-save="{{ save_price }}" data-index="{{ forloop.index }}">
-            <div class="thumbnail relative">
-              <img src="{{ var.product.metafields.custom.bottle_image | image_url }}" alt="{{ var.title }}">
-              {% if bottle_quantity > 1 %}<div class="variant-bottle-quantity">X{{ bottle_quantity }}</div>{% endif %}
-              {% if var.metafields.my_fields.subtitle %}<div class="variant-subtitle">{{ var.metafields.my_fields.subtitle }}</div>{% endif %}
-            </div>
-            <div class="variant-info py-2">
-              <div class="variant-price-wrapper flex items-center justify-center gap-1">
-                {% if var.compare_at_price > 0 and var.compare_at_price > var.price %}<div class="variant-cap text-[12px] rounded line-through">{{ var.compare_at_price | money_without_trailing_zeros }}</div>{% endif %}
-                <div class="variant-price font-bold">{{ var.price | money_without_trailing_zeros }}</div>
-              </div>
-              <div class="variant-title text-[14px] md:text-[3.5vw]">{{ var.title }}</div>
-            </div>
+      <div class="submit-wrap flex flex-col">
+        <button class="main-btn p-0 bg-[#ffb22d]" id="buy-button" onclick="buyButtonHandler()" style="min-height:50px">
+          <span id="button-text">SHOP NOW</span>
+          <div id="loader" style="display: none;">
+            <div class="lds-ellipsis"><div></div><div></div><div></div><div></div></div>
           </div>
-        {% endfor %}
+        </button>
       </div>
-    {% endif %}
 
-      <div class="purchase-option-box subscription-element">
-        <div class="left-side-wrapper">
-          <div class="radio-box">
-            <input type="radio" id="subscribe" name="pack-subscription" data-price="{{ all_products['curalin'].variants.first.price | money_without_currency | replace: ".00", "" }}" data-sku="Curalin180"></input>
-            <label for="subscribe"></label>
-          </div>
-
-          <div class="option-info leading-none">
-            <div class="option-title flex items-center font-semibold">Subscribe & <span>Save {{ product.metafields.subscription.visible_discount_percentage }}%</span></div>
-            {% if product.metafields.susbscription.subtitle %}
-              <div class="option-subtitle text-[14px]">{{ product.metafields.susbscription.subtitle }}</div>
-            {% endif %}
-          </div>
-        </div>
-
-        <div class="price">
-          <div class="calculations">
-          {% if product.variants[0].compare_at_price > 0 and product.variants[0].compare_at_price > product.variants[0].price %}<div class="variant-cap text-[12px] rounded line-through">{{ product.variants[0].compare_at_price | money_without_trailing_zeros }}</div>{% endif %}
-            <div class="real-price no-letters rounded">
-              {% if product.selling_plan_groups[0].selling_plans[0].price_adjustments[0].value_type == "percentage" %}
-                {% if product.metafields.custom.subscription_price %}
-                  {{ product.metafields.custom.subscription_price | times: 100 |  money_without_trailing_zeros }}
-                {% else %}
-                  {% assign totalPaymentPercent = 100 | minus: product.selling_plan_groups[0].selling_plans[0].price_adjustments[0].value %}
-                  {% assign finalPrice = product.price | divided_by: 100 | times: totalPaymentPercent | money_without_trailing_zeros %}
-                  {{ finalPrice }}
-                {% endif %}
-              {% else %}
-                {{ subscriptionPrice | times: 100 | money_without_trailing_zeros }}
-              {% endif %}
-            </div>
-          </div>
-            {% if product.handle == 'curalin' %}<p class="per-month">Per Month</p>{% endif %}
-        </div>
-      </div>
-  </div>
-
-  <div class="submit-wrap flex flex-col">
-    <button class="main-btn p-0 bg-[#ffb22d]" id="buy-button" onclick="buyButtonHandler()" style="min-height:50px">
-      <span id="button-text">SHOP NOW</span>
-      <div id="loader" style="display: none;">
-        <div class="lds-ellipsis"><div></div><div></div><div></div><div></div></div>
-      </div>
-    </button>
-  </div>
+    {% endfor %}
 </div>
 
 {% render 'script.round-converted-currency' %}
