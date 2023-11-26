@@ -496,6 +496,8 @@ class StickyHeader extends HTMLElement {
   constructor() {
     super();
     console.log('StickyHeader constructor called');
+    this.mainContent = null;
+    this.originalMainMarginTop = '';
   }
 
   connectedCallback() {
@@ -505,6 +507,11 @@ class StickyHeader extends HTMLElement {
 
     this.headerIsAlwaysSticky = this.getAttribute('data-sticky-type') === 'always' || this.getAttribute('data-sticky-type') === 'reduce-logo-size';
     this.headerBounds = {};
+    this.mainContent = document.querySelector('main');
+    if (!this.mainContent) console.error('Main element not found');
+
+    this.originalMainMarginTop = window.getComputedStyle(this.mainContent).marginTop;
+    console.log('Original main margin-top:', this.originalMainMarginTop);
 
     this.setHeaderHeight();
 
@@ -604,12 +611,24 @@ class StickyHeader extends HTMLElement {
       return;
     }
 
+    const offset = this.getOffsetValue();
+    this.header.style.top = offset + 'px';
+
     this.header.classList.add('shopify-section-header-sticky', 'animate');
     this.header.classList.remove('shopify-section-header-hidden');
 
-    // Set padding-bottom of the header
-    this.header.style.paddingBottom = `${this.header.offsetHeight}px`;
-    console.log('Header padding-bottom set to:', this.header.style.paddingBottom);
+    this.mainContent.style.marginTop = `${this.header.offsetHeight}px`;
+    console.log('Main margin-top set to:', this.mainContent.style.marginTop);
+  }
+
+  getOffsetValue() {
+    console.log('Calculating offset value');
+    const stickyBanners = document.querySelectorAll('.sticky-banner');
+    let totalHeight = 0;
+    stickyBanners.forEach(banner => {
+      totalHeight += banner.offsetHeight;
+    });
+    return totalHeight;
   }
 
   reset() {
@@ -619,8 +638,8 @@ class StickyHeader extends HTMLElement {
       return;
     }
     this.header.classList.remove('shopify-section-header-hidden', 'shopify-section-header-sticky', 'animate');
-    this.header.style.paddingBottom = ''; // Reset padding-bottom
-    console.log('Reset header padding-bottom');
+    this.mainContent.style.marginTop = this.originalMainMarginTop;
+    console.log('Reset main margin-top to original:', this.originalMainMarginTop);
   }
 }
 
