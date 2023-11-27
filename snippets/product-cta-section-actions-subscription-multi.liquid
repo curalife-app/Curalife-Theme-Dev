@@ -15,6 +15,8 @@
       {% assign original_item_price = var.metafields.custom.original_item.value.price %}
       {% assign item_price = var.price | divided_by: bottle_quantity %}
       {% assign save_price = original_item_price | minus: item_price | times: quantity %}
+      {% assign subscription_save_percents = var.metafields.subscription.save_percents %}
+      {% assign subscription_item_price = item_price | times: subscription_save_percents | divided_by: 100 %}
 
       <div class="purchase-option-box flex flex-col items-start p-4 overflow-hidden" data-variant="{{ var.id }}" data-price="{{ var.price | money_without_currency | replace: ".00", "" }}" data-sku="{{ var.sku }}" data-index="{{ forloop.index }}">
         <div class="top-wrapper flex items-center w-full gap-4 pb-4">
@@ -119,23 +121,20 @@
   }
 
   // On Buy Button Click
-  function buyButtonHandler() {
+  function buyButtonHandler(variant_id, subscription_selling_plan_id) {
     document.querySelector('#product-actions-{{ section_id }} #loader').style.display = 'block';
     document.querySelector('#product-actions-{{ section_id }} #button-text').style.display = 'none';
 
     if ($('#product-actions-{{ section_id }} .purchase-option-box').find('input:checked').length === 0) {
-      let checkedPack = $(this).closest('#product-actions-{{ section_id }} .purchase-option-box.selected').attr('data-value');
-      console.log("Selected Variant ID: " + checkedPack);
-
       let checkedQuantity = 1;
-      let checkoutLink = "https://" + location.hostname + "/cart/" + checkedPack + ":" + checkedQuantity;
+      let checkoutLink = "https://" + location.hostname + "/cart/" + variant_id + ":" + checkedQuantity;
       console.log("Checkout Link: " + checkoutLink);
       window.location.href = checkoutLink;
     }
     else {
       // buySubscription(ID Of the variant, 1, External ID of the selling plan);
       // buySubscription({{ product.variants.first.id }}, 1, {{ product.selling_plan_groups[0].selling_plans[0].id }})
-      buySubscription({{ product.metafields.custom.subscription_product_id }}, 1, {{ product.metafields.custom.subscription_selling_plan_id }})
+      buySubscription(variant_id, 1, subscription_selling_plan_id)
     }
   };
 </script>
