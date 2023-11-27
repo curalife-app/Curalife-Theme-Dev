@@ -16,12 +16,9 @@
       {% assign item_price = var.price | divided_by: bottle_quantity %}
       {% assign save_price = original_item_price | minus: item_price | times: quantity %}
 
-      <div class="purchase-option-box flex flex-col items-start p-4 overflow-hidden">
+      <div class="purchase-option-box flex flex-col items-start p-4 overflow-hidden" data-variant="{{ var.id }}" data-price="{{ var.price | money_without_currency | replace: ".00", "" }}" data-sku="{{ var.sku }}">
         <div class="top-wrapper flex items-center w-full gap-4 pb-4">
-          <div class="radio-box">
-            <input type="radio" data-variant="{{ var.id }}" data-price="{{ var.price | money_without_currency | replace: ".00", "" }}" data-sku="{{ var.sku }}"></input>
-            <label for="buyonce"></label>
-          </div>
+          <div class="radio-box"><input type="radio"></input><label for="buyonce"></label></div>
 
           <div class="option-title font-semibold">{{ var.title }} - Save up to {{ var.metafields.subscription.save_percents }}%</div>
         </div>
@@ -69,61 +66,21 @@
       $("#product-actions-{{ section_id }} .purchase-option-box input[type='radio']").prop('checked', false);
       let radioButton = $(this).find('input');
       radioButton.prop('checked', true);
-      {% if variantQuantity > 1 %} checkOption(); {% endif %}
+      checkOption();
+
+      // Slide to Variant Image
+    {% if product.variants.size > 1 and product.images.size > 1 %}
+      if (window.option_clicked_once) {
+        let slideIndex = window.productSliderAllInOne{{ shortSectionID }}.slides.length - ({{ product.variants.size | plus: 1 }} - $(this).attr('data-index'));
+        window.productSliderAllInOne{{ shortSectionID }}.slideTo(slideIndex);
+      }
+    {% endif %}
     });
 
     $(".purchase-option-box").first().trigger('click');
     window.option_clicked_once = true;
   });
-</script>
 
-<script>
-  function updateSelectedVariantInformation(infoAttributeName, targetElementToUpdate) {
-    let varIndex = $('#product-actions-{{ section_id }} .pack-option.selected').first().attr(infoAttributeName);
-
-    $(targetElementToUpdate).fadeOut(300, function () {
-      varIndex > 1 ? $(targetElementToUpdate).text("X" + varIndex) : $(targetElementToUpdate).text("");
-    }).fadeIn(300);
-  }
-
-  $("#product-actions-{{ section_id }} .pack-option").click(function() {
-    $("#product-actions-{{ section_id }} .pack-option").removeClass("selected");
-    $(this).addClass("selected");
-
-    // Slide to Variant Image
-    {% if product.variants.size > 1 and product.images.size > 1 %}
-    if (window.option_clicked_once) {
-      let slideIndex = window.productSliderAllInOne{{ shortSectionID }}.slides.length - ({{ product.variants.size | plus: 1 }} - $(this).attr('data-index'));
-      window.productSliderAllInOne{{ shortSectionID }}.slideTo(slideIndex);
-    }
-    {% endif %}
-
-    window.dataLayer = window.dataLayer || [];
-    window.dataLayer.push({
-      'event': 'variant-click',
-      'label': $(this).attr('data-sku'),
-      'userId': '{{ customer.id }}',
-      'email': '{{ customer.email }}',
-      'country': '{{customer.customer_address.country_code }}',
-      'city': '{{customer.customer_address.city }}',
-      'name': '{{ customer.first_name }}',
-      'surname': '{{ customer.last_name }}',
-      'phone_number': '{{customer.phone }}',
-      'state': '{{customer.customer_address.province }}',       //state or province
-      'zip': '{{customer.customer_address.zip }}'         //ZIP or Postal code
-    });
-
-    // Track in Woopra
-    woopra.track('Product_Variant_Select', {
-      sku: $(this).attr("data-sku"),
-      variant_id: $(this).attr("value"),
-      variant_title: $(this).attr("data-title"),
-      price: $(this).attr("data-price")
-    })
-  });
-</script>
-
-<script>
   function clearCart(callback) {
     jQuery.ajax({
       type: 'POST',
@@ -164,18 +121,12 @@
 
   // On Buy Button Click
   function buyButtonHandler() {
-    console.log("Buy Button Pushed!");
     document.querySelector('#product-actions-{{ section_id }} #loader').style.display = 'block';
     document.querySelector('#product-actions-{{ section_id }} #button-text').style.display = 'none';
 
-    if ($('#product-actions-{{ section_id }} .purchase-option-box.subscription-element').find('input:checked').length === 0) {
-      {% if variantQuantity > 1 %}
-        let checkedPack = $('#product-actions-{{ section_id }} .pack-option.selected').first().attr('data-value');
-        console.log("Selected Variant ID: " + checkedPack);
-      {% else %}
-        let checkedPack = {{ product.variants.first.id }};
-        console.log("Selected Variant ID else: " + checkedPack);
-      {% endif %}
+    if ($('#product-actions-{{ section_id }} .purchase-option-box').find('input:checked').length === 0) {
+      let checkedPack = $(this).closest('#product-actions-{{ section_id }} .purchase-option-box.selected').attr('data-value');
+      console.log("Selected Variant ID: " + checkedPack);
 
       let checkedQuantity = 1;
       let checkoutLink = "https://" + location.hostname + "/cart/" + checkedPack + ":" + checkedQuantity;
@@ -242,24 +193,6 @@
     min-height: 415px;
   }
 
-  .cta-section-{{ section_id }} .product-actions .cta-title {
-    padding: 10px 0;
-  }
-
-  .cta-section-{{ section_id }} .product-actions .variants {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-  }
-
-  .cta-section-{{ section_id }} .product-actions .submit-wrap {
-    display: flex;
-  }
-
-  .cta-section-{{ section_id }} .product-actions .submit-wrap button {
-    background-color: {{ ctaColor }};
-  }
-
   .cta-section-{{ section_id }} .purchase-option-box {
     background: #fff;
     border: 1px solid #cbcbcb;
@@ -283,10 +216,6 @@
 
   .cta-section-{{ section_id }} .purchase-option-box:hover>.radio-box input[type=radio]:after {
     background-color: #a9a9a9;
-  }
-
-  .cta-section-{{ section_id }} .purchase-option-box .left-side-wrapper {
-    display: flex;
   }
 
   .cta-section-{{ section_id }} .purchase-option-box .radio-box {
@@ -358,55 +287,6 @@
     .cta-section-{{ section_id }} .product-actions .submit-wrap button {
       min-height: 15vw;
     }
-  }
-</style>
-
-<style>
-  .cta-section-{{ section_id }} .product-actions .variants .pack-option .thumbnail img {
-    border: 1px solid var(--blue);
-    border-radius: 5px;
-    transition: 0.5s all;
-    cursor: pointer;
-  }
-
-  .cta-section-{{ section_id }} .product-actions .variants .pack-option.selected .thumbnail img {
-    background: var(--beige);
-  }
-
-  .cta-section-{{ section_id }} .product-actions .pack-option {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-  }
-
-  .cta-section-{{ section_id }} .variant-bottle-quantity {
-    position: absolute;
-    right: 5px;
-    top: 5px;
-    border-radius: 50%;
-    background: var(--blue);
-    width: 30px;
-    height: 30px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-weight: bold;
-    font-size: 14px;
-  }
-
-  .cta-section-{{ section_id }} .variant-subtitle {
-    background: var(--blue);
-    position: absolute;
-    bottom: 0;
-    width: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: 14px;
-    padding: 3px 0;
   }
 </style>
 
