@@ -49,8 +49,8 @@
         <div class="submit-wrap flex flex-col w-full mt-4">
           <button class="main-btn p-0 bg-[--orange] hover:bg-[--dark-orange] min-h-[50px]" id="buy-button" onclick="buyButtonHandler({{ variant_id }}, {{ var.metafields.subscription.selling_plan_id }})">
             <span id="button-text pr-4 mr-4 border-r-2 border-white">SHOP NOW</span>
-            <span class="subscription floor">Total {{ subscription_total_price | money_without_trailing_zeros }}</span>
-            <span class="buy-once hidden">Total {{ var.price | money_without_trailing_zeros }}</span>
+            <span class="total-price subscription floor">Total {{ subscription_total_price | money_without_trailing_zeros }}</span>
+            <span class="total-price buy-once hidden">Total {{ var.price | money_without_trailing_zeros }}</span>
             <div id="loader" style="display: none;">
               <div class="lds-ellipsis"><div></div><div></div><div></div><div></div></div>
             </div>
@@ -89,21 +89,19 @@
 
   function togglePriceDisplay(parentBox, isSubscriptionSelected) {
     // Toggling for main price display
-    parentBox.find('.real-price, .total').hide();
+    parentBox.find('.real-price, .total-price').hide();
     if (isSubscriptionSelected) {
-      parentBox.find('.real-price.subscription, .total.subscription').show();
+      parentBox.find('.real-price.subscription, .total-price.subscription').show();
     } else {
-      parentBox.find('.real-price.buy-once, .total.buy-once').show();
+      parentBox.find('.real-price.buy-once, .total-price.buy-once').show();
     }
-
-    // Toggling for total price inside the submit button
-    var submitButton = parentBox.find('.submit-wrap .main-btn');
-    submitButton.find('.total').hide();
-    submitButton.find(isSubscriptionSelected ? '.total.subscription' : '.total.buy-once').show();
   }
 
   function setInitialSelection() {
-    $(".purchase-option-box").first().trigger('click');
+    $(".purchase-option-box").each(function() {
+      updateSelection(this);
+      togglePriceDisplay($(this), true); // Default to subscription selected
+    });
   }
 
   function updateSelection(element) {
