@@ -1,5 +1,3 @@
-{% assign subscriptionPrice = 75 %}
-
 {% comment %} Short Section ID for JS Variables {% endcomment %}
 {% assign sectionIDParts = section_id | split: '-' %}
 {% assign shortSectionID = sectionIDParts[-1] %}
@@ -9,6 +7,7 @@
 <div id="product-actions-{{ section_id }}" class="product-actions">
   <div class="purchase-options flex flex-col gap-2">
     {% for var in product.variants %}
+      {% assign variant_id = var.metafields.custom.reference_variant_id | default: var.id %}
       {% assign bottle_quantity = var.metafields.my_fields.pack_bottles_quantity %}
       {% assign original_item_cap = var.metafields.custom.original_item.value.compare_at_price %}
       {% assign original_item_cap_total = original_item_cap | times: bottle_quantity %}
@@ -18,7 +17,7 @@
       {% assign subscription_save_percents = var.metafields.subscription.save_percents %}
       {% assign subscription_item_price = item_price | times: subscription_save_percents | divided_by: 100 %}
 
-      <div class="purchase-option-box flex flex-col items-start p-4 overflow-hidden" data-variant="{{ var.id }}" data-price="{{ var.price | money_without_currency | replace: ".00", "" }}" data-sku="{{ var.sku }}" data-index="{{ forloop.index }}">
+      <div class="purchase-option-box flex flex-col items-start p-4 overflow-hidden" data-variant="{{ variant_id }}" data-price="{{ var.price | money_without_currency | replace: ".00", "" }}" data-sku="{{ var.sku }}" data-index="{{ forloop.index }}">
         <div class="top-wrapper flex items-center w-full gap-4 pb-4">
           <div class="radio-box"><input type="radio"></input><label for="buyonce"></label></div>
 
@@ -46,7 +45,7 @@
         </div>
 
         <div class="submit-wrap flex flex-col w-full mt-4">
-          <button class="main-btn p-0 bg-[--orange] hover:bg-[--dark-orange] min-h-[50px]" id="buy-button" onclick="buyButtonHandler({{ var.id }}, {{ var.metafields.subscription.selling_plan_id }})">
+          <button class="main-btn p-0 bg-[--orange] hover:bg-[--dark-orange] min-h-[50px]" id="buy-button" onclick="buyButtonHandler({{ variant_id }}, {{ var.metafields.subscription.selling_plan_id }})">
             <span id="button-text">SHOP NOW<span class="pl-4 ml-4 border-l-2 border-white">Total {{ var.price | money_without_trailing_zeros }}</span></span>
             <div id="loader" style="display: none;">
               <div class="lds-ellipsis"><div></div><div></div><div></div><div></div></div>
