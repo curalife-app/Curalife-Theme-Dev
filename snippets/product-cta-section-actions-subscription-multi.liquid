@@ -75,25 +75,42 @@
     $("#product-actions-{{ section_id }} .purchase-option-box").each(function() {
       var isSubscriptionSelected = $(this).find('.purchase-type .subscription').hasClass('selected');
       togglePriceDisplay($(this), isSubscriptionSelected);
+      setMaxHeight(this); // Initialize max-height
     });
 
     $("#product-actions-{{ section_id }} .purchase-option-box").click(function() {
-      updateSelection(this);
-      updateVariantImage(this);
-
-      $('.purchase-option-box').not(this).removeClass('selected').css('max-height', '100px'); // Adjust as needed
-      // Expand or collapse this box
-      if($(this).hasClass('selected')) {
-        $(this).removeClass('selected').css('max-height', '100px'); // Adjust as needed
-      } else {
-        $(this).addClass('selected').css('max-height', '500px'); // Adjust as needed
-      }
+      togglePurchaseBox(this);
     });
 
-    $('.purchase-type button').click(function() {
+    $('.purchase-type button').click(function(event) {
+      event.stopPropagation(); // Prevent the box toggle when clicking buttons
       var parentBox = $(this).closest('.purchase-option-box');
       togglePurchaseType(parentBox, $(this).hasClass('subscription'));
     });
+  }
+
+  function setMaxHeight(element) {
+    // Temporarily set max-height to none to measure the natural height
+    var previousMaxHeight = $(element).css('max-height');
+    $(element).css('max-height', 'none');
+    var fullHeight = $(element).outerHeight();
+    $(element).css('max-height', previousMaxHeight); // Reset max-height
+
+    // If the box is the first one (default selected), set the full height
+    if ($(element).hasClass('selected')) {
+      $(element).css('max-height', fullHeight);
+    }
+
+    $(element).data('full-height', fullHeight); // Store the full height for later use
+  }
+
+  function togglePurchaseBox(element) {
+    if($(element).hasClass('selected')) {
+      $(element).removeClass('selected').css('max-height', '100px');
+    } else {
+      $('.purchase-option-box').removeClass('selected').css('max-height', '100px');
+      $(element).addClass('selected').css('max-height', $(element).data('full-height') + 'px');
+    }
   }
 
   function togglePurchaseType(parentBox, isSubscriptionSelected) {
