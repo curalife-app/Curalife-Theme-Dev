@@ -9,6 +9,13 @@
 <div id="product-actions-{{ section_id }}" class="product-actions">
   <div class="purchase-options flex flex-col gap-2">
     {% for var in product.variants %}
+      {% assign bottle_quantity = var.metafields.my_fields.pack_bottles_quantity %}
+      {% assign original_item_cap = var.metafields.custom.original_item.value.compare_at_price %}
+      {% assign original_item_cap_total = original_item_cap | times: bottle_quantity %}
+      {% assign original_item_price = var.metafields.custom.original_item.value.price %}
+      {% assign item_price = var.price | divided_by: bottle_quantity %}
+      {% assign save_price = original_item_price | minus: item_price | times: quantity %}
+
       <div class="purchase-option-box flex flex-col items-start p-4">
         <div class="top-wrapper flex items-center w-full gap-4 pb-4">
           <div class="radio-box">
@@ -29,17 +36,17 @@
           <div class="info text-[14px]">Save {{ var.metafields.subscription.save_percents }}% every order, guaranteed delivery, make changes any time, prompt VIP support & new subscriber gifts</div>
         </div>
 
-        <div class="option-subtitle text-[14px]">{{ var.title }} <span class="text-[--blue]">{{ var.metafields.my_fields.subtitle }}</span></div>
+        <div class="option-subtitle text-[14px]">{{ var.title }} <span class="text-[--blue] font-bold">{{ var.metafields.my_fields.subtitle }}</span></div>
 
         <div class="price-wrapper">
           <div class="calculations flex items-center gap-2 font-bold leading-10">
-            <div class="real-price no-letters rounded text-[40px]">{{ var.price | money_without_trailing_zeros }}</div>
+            <div class="real-price no-letters rounded text-[40px]">{{ item_price | money_without_trailing_zeros }}</div>
             <div class="compared-at-price rounded line-through text-[25px] text-[--light-blue]">{{ var.compare_at_price | money_without_trailing_zeros }}</div>
           </div>
-          <div>Per Month</div>
+          <div class="font-bold">Per Month</div>
         </div>
 
-        <div class="submit-wrap flex flex-col w-full">
+        <div class="submit-wrap flex flex-col w-full mt-4">
           <button class="main-btn p-0 bg-[--orange]" id="buy-button" onclick="buyButtonHandler()" style="min-height:50px">
             <span id="button-text">SHOP NOW</span>
             <div id="loader" style="display: none;">
