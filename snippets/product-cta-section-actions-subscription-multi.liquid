@@ -75,7 +75,6 @@
     $("#product-actions-{{ section_id }} .purchase-option-box").each(function() {
       var isSubscriptionSelected = $(this).find('.purchase-type .subscription').hasClass('selected');
       togglePriceDisplay($(this), isSubscriptionSelected);
-      setMaxHeight(this); // Initialize max-height
     });
 
     $("#product-actions-{{ section_id }} .purchase-option-box").click(function() {
@@ -83,25 +82,10 @@
     });
 
     $('.purchase-type button').click(function(event) {
-      event.stopPropagation(); // Prevent the box toggle when clicking buttons
+      event.stopPropagation();
       var parentBox = $(this).closest('.purchase-option-box');
       togglePurchaseType(parentBox, $(this).hasClass('subscription'));
     });
-  }
-
-  function setMaxHeight(element) {
-    // Temporarily set max-height to none to measure the natural height
-    var previousMaxHeight = $(element).css('max-height');
-    $(element).css('max-height', 'none');
-    var fullHeight = $(element).outerHeight();
-    $(element).css('max-height', previousMaxHeight); // Reset max-height
-
-    // If the box is the first one (default selected), set the full height
-    if ($(element).hasClass('selected')) {
-      $(element).css('max-height', fullHeight);
-    }
-
-    $(element).data('full-height', fullHeight); // Store the full height for later use
   }
 
   function togglePurchaseBox(element) {
@@ -109,7 +93,9 @@
       $(element).removeClass('selected').css('max-height', '56px');
     } else {
       $('.purchase-option-box').removeClass('selected').css('max-height', '56px');
-      $(element).addClass('selected').css('max-height', $(element).data('full-height') + 'px');
+      // Dynamically calculate the height needed
+      var openHeight = $(element).get(0).scrollHeight;
+      $(element).addClass('selected').css('max-height', openHeight + 'px');
     }
   }
 
