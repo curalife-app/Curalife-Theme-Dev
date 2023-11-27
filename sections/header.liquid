@@ -491,161 +491,130 @@
   });
 </script>
 
-<script>
-class StickyHeader extends HTMLElement {
-  constructor() {
-    super();
-    console.log('StickyHeader constructor called');
-    this.mainContent = null;
-    this.originalMainMarginTop = '';
-  }
-
-  connectedCallback() {
-    console.log('StickyHeader connectedCallback called');
-    this.header = document.querySelector('.section-header');
-    if (!this.header) console.error('Header element not found');
-
-    this.headerIsAlwaysSticky = this.getAttribute('data-sticky-type') === 'always' || this.getAttribute('data-sticky-type') === 'reduce-logo-size';
-    this.headerBounds = {};
-    this.mainContent = document.querySelector('main');
-    if (!this.mainContent) console.error('Main element not found');
-
-    this.originalMainMarginTop = window.getComputedStyle(this.mainContent).marginTop;
-    console.log('Original main margin-top:', this.originalMainMarginTop);
-
-    this.setHeaderHeight();
-
-    window.matchMedia('(max-width: 768px)').addEventListener('change', this.setHeaderHeight.bind(this));
-
-    if (this.headerIsAlwaysSticky) {
-      this.header.classList.add('shopify-section-header-sticky');
+{% javascript %}
+  class StickyHeader extends HTMLElement {
+    constructor() {
+      super();
     }
 
-    this.currentScrollTop = 0;
-    this.preventReveal = false;
-    this.predictiveSearch = this.querySelector('predictive-search');
+    connectedCallback() {
+      this.header = document.querySelector('.section-header');
+      this.headerIsAlwaysSticky = this.getAttribute('data-sticky-type') === 'always' || this.getAttribute('data-sticky-type') === 'reduce-logo-size';
+      this.headerBounds = {};
 
-    this.onScrollHandler = this.onScroll.bind(this);
-    this.hideHeaderOnScrollUp = () => this.preventReveal = true;
+      this.setHeaderHeight();
 
-    this.addEventListener('preventHeaderReveal', this.hideHeaderOnScrollUp);
-    window.addEventListener('scroll', this.onScrollHandler, false);
+      window.matchMedia('(max-width: 768px)').addEventListener('change', this.setHeaderHeight.bind(this));
 
-    this.createObserver();
-  }
+      if (this.headerIsAlwaysSticky) {
+        this.header.classList.add('shopify-section-header-sticky');
+      };
 
-  setHeaderHeight() {
-    console.log('Setting header height');
-    document.documentElement.style.setProperty('--header-height', `${this.header.offsetHeight}px`);
-  }
+      this.currentScrollTop = 0;
+      this.preventReveal = false;
+      this.predictiveSearch = this.querySelector('predictive-search');
 
-  disconnectedCallback() {
-    console.log('StickyHeader disconnectedCallback called');
-    this.removeEventListener('preventHeaderReveal', this.hideHeaderOnScrollUp);
-    window.removeEventListener('scroll', this.onScrollHandler);
-  }
+      this.onScrollHandler = this.onScroll.bind(this);
+      this.hideHeaderOnScrollUp = () => this.preventReveal = true;
 
-  createObserver() {
-    console.log('Creating observer');
-    let observer = new IntersectionObserver((entries, observer) => {
-      this.headerBounds = entries[0].intersectionRect;
-      console.log('Header bounds updated:', this.headerBounds);
-      observer.disconnect();
-    });
+      this.addEventListener('preventHeaderReveal', this.hideHeaderOnScrollUp);
+      window.addEventListener('scroll', this.onScrollHandler, false);
 
-    observer.observe(this.header);
-  }
-
-  onScroll() {
-    console.log('Scroll event triggered');
-    const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-
-    if (this.predictiveSearch && this.predictiveSearch.isOpen) {
-      console.log('Predictive search is open, skipping scroll logic');
-      return;
+      this.createObserver();
     }
 
-    if (scrollTop > this.currentScrollTop && scrollTop > this.headerBounds.bottom) {
-      console.log('Scrolling down past header');
-      this.header.classList.add('scrolled-past-header');
-      if (this.preventHide) {
-        console.log('Preventing hide due to preventHide flag');
-        return;
-      }
-      requestAnimationFrame(this.hide.bind(this));
-    } else if (scrollTop < this.currentScrollTop && scrollTop > this.headerBounds.bottom) {
-      console.log('Scrolling up past header');
-      this.header.classList.add('scrolled-past-header');
-      if (!this.preventReveal) {
-        requestAnimationFrame(this.reveal.bind(this));
-      } else {
-        console.log('Reveal prevented');
-        window.clearTimeout(this.isScrolling);
-        this.isScrolling = setTimeout(() => {
-          this.preventReveal = false;
-        }, 66);
+    setHeaderHeight() {
+      document.documentElement.style.setProperty('--header-height', `${this.header.offsetHeight}px`);
+    }
+
+    disconnectedCallback() {
+      this.removeEventListener('preventHeaderReveal', this.hideHeaderOnScrollUp);
+      window.removeEventListener('scroll', this.onScrollHandler);
+    }
+
+    createObserver() {
+      let observer = new IntersectionObserver((entries, observer) => {
+        this.headerBounds = entries[0].intersectionRect;
+        observer.disconnect();
+      });
+
+      observer.observe(this.header);
+    }
+
+    onScroll() {
+      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+
+      if (this.predictiveSearch && this.predictiveSearch.isOpen) return;
+
+      if (scrollTop > this.currentScrollTop && scrollTop > this.headerBounds.bottom) {
+        this.header.classList.add('scrolled-past-header');
+        if (this.preventHide) return;
         requestAnimationFrame(this.hide.bind(this));
+      } else if (scrollTop < this.currentScrollTop && scrollTop > this.headerBounds.bottom) {
+        this.header.classList.add('scrolled-past-header');
+        if (!this.preventReveal) {
+          requestAnimationFrame(this.reveal.bind(this));
+        } else {
+          window.clearTimeout(this.isScrolling);
+
+          this.isScrolling = setTimeout(() => {
+            this.preventReveal = false;
+          }, 66);
+
+          requestAnimationFrame(this.hide.bind(this));
+        }
+      } else if (scrollTop <= this.headerBounds.top) {
+        this.header.classList.remove('scrolled-past-header');
+        requestAnimationFrame(this.reset.bind(this));
       }
-    } else if (scrollTop <= this.headerBounds.top) {
-      console.log('Header is in view');
-      this.header.classList.remove('scrolled-past-header');
-      requestAnimationFrame(this.reset.bind(this));
+
+      this.currentScrollTop = scrollTop;
     }
 
-    this.currentScrollTop = scrollTop;
-  }
-
-  hide() {
-    console.log('Executing hide');
-    if (this.headerIsAlwaysSticky) {
-      console.log('Header is always sticky, skipping hide');
-      return;
-    }
-    this.header.classList.add('shopify-section-header-hidden', 'shopify-section-header-sticky');
-  }
-
-  reveal() {
-    console.log('Executing reveal');
-    if (this.headerIsAlwaysSticky) {
-      console.log('Header is always sticky, skipping reveal');
-      return;
+    hide() {
+      if (this.headerIsAlwaysSticky) return;
+      this.header.classList.add('shopify-section-header-hidden', 'shopify-section-header-sticky');
+      // this.closeMenuDisclosure();
+      // this.closeSearchModal();
     }
 
-    const offset = this.getOffsetValue();
-    this.header.style.top = offset + 'px';
+    reveal() {
+      if (this.headerIsAlwaysSticky) return;
 
-    this.header.classList.add('shopify-section-header-sticky', 'animate');
-    this.header.classList.remove('shopify-section-header-hidden');
+      const offset = this.getOffsetValue();
+      this.header.style.top = offset + 'px';
 
-    this.mainContent.style.marginTop = `${this.header.offsetHeight}px`;
-    console.log('Main margin-top set to:', this.mainContent.style.marginTop);
-  }
-
-  getOffsetValue() {
-    console.log('Calculating offset value');
-    const stickyBanners = document.querySelectorAll('.sticky-banner');
-    let totalHeight = 0;
-    stickyBanners.forEach(banner => {
-      totalHeight += banner.offsetHeight;
-    });
-    return totalHeight;
-  }
-
-  reset() {
-    console.log('Executing reset');
-    if (this.headerIsAlwaysSticky) {
-      console.log('Header is always sticky, skipping reset');
-      return;
+      this.header.classList.add('shopify-section-header-sticky', 'animate');
+      this.header.classList.remove('shopify-section-header-hidden');
     }
-    this.header.classList.remove('shopify-section-header-hidden', 'shopify-section-header-sticky', 'animate');
-    this.mainContent.style.marginTop = this.originalMainMarginTop;
-    console.log('Reset main margin-top to original:', this.originalMainMarginTop);
+
+    getOffsetValue() {
+      const stickyBanners = document.querySelectorAll('.sticky-banner');
+      let totalHeight = 0;
+      stickyBanners.forEach(banner => {
+        totalHeight += banner.offsetHeight;
+      });
+      return totalHeight;
+    }
+
+    reset() {
+      if (this.headerIsAlwaysSticky) return;
+      this.header.classList.remove('shopify-section-header-hidden', 'shopify-section-header-sticky', 'animate');
+    }
+
+    // closeMenuDisclosure() {
+    //   this.disclosures = this.disclosures || this.header.querySelectorAll('header-menu');
+    //   this.disclosures.forEach(disclosure => disclosure.close());
+    // }
+
+    // closeSearchModal() {
+    //   this.searchModal = this.searchModal || this.header.querySelector('details-modal');
+    //   this.searchModal.close(false);
+    // }
   }
-}
 
-customElements.define('sticky-header', StickyHeader);
-
-</script>
+  customElements.define('sticky-header', StickyHeader);
+{% endjavascript %}
 
 <script type="application/ld+json">
   {
