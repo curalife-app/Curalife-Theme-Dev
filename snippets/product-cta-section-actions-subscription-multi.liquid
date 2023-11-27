@@ -62,25 +62,66 @@
 
 <script>
   document.addEventListener('DOMContentLoaded', function() {
-    $("#product-actions-{{ section_id }} .purchase-option-box").click(function() {
-      $("#product-actions-{{ section_id }} .purchase-option-box").removeClass("selected");
-      $(this).addClass("selected");
-      $("#product-actions-{{ section_id }} .purchase-option-box input[type='radio']").prop('checked', false);
-      let radioButton = $(this).find('input');
-      radioButton.prop('checked', true);
-
-      // Slide to Variant Image
-    {% if product.variants.size > 1 and product.images.size > 1 %}
-      if (window.option_clicked_once) {
-        let slideIndex = window.productSliderAllInOne{{ shortSectionID }}.slides.length - ({{ product.variants.size | plus: 1 }} - $(this).attr('data-index'));
-        window.productSliderAllInOne{{ shortSectionID }}.slideTo(slideIndex);
-      }
-    {% endif %}
-    });
-
-    $(".purchase-option-box").first().trigger('click');
-    window.option_clicked_once = true;
+    initializePurchaseOptionBoxes();
+    setInitialSelection();
   });
+
+  function initializePurchaseOptionBoxes() {
+    $("#product-actions-{{ section_id }} .purchase-option-box").click(function() {
+      updateSelection(this);
+      updateVariantImage(this);
+    });
+  }
+
+  function setInitialSelection() {
+    $(".purchase-option-box").first().click();
+    window.option_clicked_once = true;
+  }
+
+  function updateSelection(element) {
+    let container = $("#product-actions-{{ section_id }}");
+    container.find(".purchase-option-box").removeClass("selected");
+    container.find(".purchase-option-box input[type='radio']").prop('checked', false);
+    $(element).addClass("selected").find('input').prop('checked', true);
+  }
+
+  function updateVariantImage(element) {
+    {% if product.variants.size > 1 and product.images.size > 1 %}
+    if (window.option_clicked_once) {
+      let slideIndex = calculateSlideIndex(element);
+      window.productSliderAllInOne{{ shortSectionID }}.slideTo(slideIndex);
+    }
+    {% endif %}
+  }
+
+  function calculateSlideIndex(element) {
+    return window.productSliderAllInOne{{ shortSectionID }}.slides.length - ({{ product.variants.size | plus: 1 }} - $(element).attr('data-index'));
+  }
+
+  function buyButtonHandler(variant_id, subscription_selling_plan_id) {
+    toggleButtonLoading(true);
+    if (isSubscriptionSelected()) {
+      buySubscription(variant_id, 1, subscription_selling_plan_id);
+    } else {
+      redirectToCheckout(variant_id);
+    }
+  }
+
+  function isSubscriptionSelected() {
+    return $('#product-actions-{{ section_id }} .purchase-option-box').find('input:checked').length > 0;
+  }
+
+  function redirectToCheckout(variant_id) {
+    let checkoutLink = "https://" + location.hostname + "/cart/" + variant_id + ":1";
+    window.location.href = checkoutLink;
+  }
+
+  function toggleButtonLoading(isLoading) {
+    let loader = document.querySelector('#product-actions-{{ section_id }} #loader');
+    let buttonText = document.querySelector('#product-actions-{{ section_id }} #button-text');
+    loader.style.display = isLoading ? 'block' : 'none';
+    buttonText.style.display = isLoading ? 'none' : 'block';
+  }
 
   function clearCart(callback) {
     jQuery.ajax({
