@@ -1,0 +1,388 @@
+{% assign subscriptionPrice = 75 %}
+
+{% comment %} Short Section ID for JS Variables {% endcomment %}
+{% assign sectionIDParts = section_id | split: '-' %}
+{% assign shortSectionID = sectionIDParts[-1] %}
+
+{% assign variantQuantity = product.variants | size %}
+
+<div id="product-actions-{{ section_id }}" class="product-actions">
+  <div class="purchase-options flex flex-col gap-2">
+    {% for var in product.variants %}
+      {% assign bottle_quantity = var.metafields.my_fields.pack_bottles_quantity %}
+      {% assign original_item_cap = var.metafields.custom.original_item.value.compare_at_price %}
+      {% assign original_item_cap_total = original_item_cap | times: bottle_quantity %}
+      {% assign original_item_price = var.metafields.custom.original_item.value.price %}
+      {% assign item_price = var.price | divided_by: bottle_quantity %}
+      {% assign save_price = original_item_price | minus: item_price | times: quantity %}
+      {% assign subscription_save_percents = var.metafields.subscription.save_percents %}
+      {% assign subscription_item_price = item_price | times: subscription_save_percents | divided_by: 100 %}
+
+      <div class="purchase-option-box flex flex-col items-start p-4 overflow-hidden" data-variant="{{ var.id }}" data-price="{{ var.price | money_without_currency | replace: ".00", "" }}" data-sku="{{ var.sku }}" data-index="{{ forloop.index }}">
+        <div class="top-wrapper flex items-center w-full gap-4 pb-4">
+          <div class="radio-box"><input type="radio"></input><label for="buyonce"></label></div>
+
+          <div class="option-title font-semibold">{{ var.title }} - Save up to {{ var.metafields.subscription.save_percents }}%</div>
+        </div>
+
+        <div class="purchase-type flex-nowrap flex w-full gap-2">
+          <button class="subscription selected">Subscribe & Save</button>
+          <button class="buy-once">Buy Once</button>
+        </div>
+
+        <div class="subscription-info bg-[--light-blue] text-[--blue] p-2 flex justify-center gap-2 my-4">
+          <i class="fa-thin fa-badge-percent text-[50px]"></i>
+          <div class="info text-[14px]">Save {{ var.metafields.subscription.save_percents }}% every order, guaranteed delivery, make changes any time, prompt VIP support & new subscriber gifts</div>
+        </div>
+
+        <div class="option-subtitle text-[14px]">{{ var.title }} <span class="text-[--blue] font-bold">{{ var.metafields.my_fields.subtitle }}</span></div>
+
+        <div class="price-wrapper">
+          <div class="calculations flex items-center gap-2 font-bold leading-10">
+            <div class="real-price no-letters rounded text-[40px]">{{ item_price | money_without_trailing_zeros }}</div>
+            <div class="compared-at-price rounded line-through text-[25px] text-[--light-blue]">{{ original_item_cap | money_without_trailing_zeros }}</div>
+          </div>
+          <div class="font-bold">Per Month</div>
+        </div>
+
+        <div class="submit-wrap flex flex-col w-full mt-4">
+          <button class="main-btn p-0 bg-[--orange] hover:bg-[--dark-orange] min-h-[50px]" id="buy-button" onclick="buyButtonHandler({{ var.id }}, {{ var.metafields.subscription.selling_plan_id }})">
+            <span id="button-text">SHOP NOW<span class="pl-4 ml-4 border-l-2 border-white">Total {{ var.price | money_without_trailing_zeros }}</span></span>
+            <div id="loader" style="display: none;">
+              <div class="lds-ellipsis"><div></div><div></div><div></div><div></div></div>
+            </div>
+          </button>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+
+{% render 'script.round-converted-currency' %}
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    initializePurchaseOptionBoxes();
+    setInitialSelection();
+  });
+
+  function initializePurchaseOptionBoxes() {
+    $("#product-actions-{{ section_id }} .purchase-option-box").click(function() {
+      updateSelection(this);
+      updateVariantImage(this);
+    });
+
+    // Toggle Subscription and Buy Once Buttons
+    $('.purchase-type button').click(function() {
+      var parentBox = $(this).closest('.purchase-option-box');
+      parentBox.find('.purchase-type button').removeClass('selected');
+      $(this).addClass('selected');
+    });
+  }
+
+  function setInitialSelection() {
+    $(".purchase-option-box").first().click();
+  }
+
+  function updateSelection(element) {
+    let container = $("#product-actions-{{ section_id }}");
+    container.find(".purchase-option-box").removeClass("selected");
+    container.find(".purchase-option-box input[type='radio']").prop('checked', false);
+    $(element).addClass("selected").find('input').prop('checked', true);
+  }
+
+  function updateVariantImage(element) {
+    {% if product.variants.size > 1 and product.images.size > 1 %}
+    if (window.option_clicked_once) {
+      let slideIndex = calculateSlideIndex(element);
+      window.productSliderAllInOne{{ shortSectionID }}.slideTo(slideIndex);
+    }
+    {% endif %}
+  }
+
+  function calculateSlideIndex(element) {
+    return window.productSliderAllInOne{{ shortSectionID }}.slides.length - ({{ product.variants.size | plus: 1 }} - $(element).attr('data-index'));
+  }
+
+  function buyButtonHandler(variant_id, subscription_selling_plan_id) {
+    toggleButtonLoading(true);
+    if (isSubscriptionSelected()) {
+      buySubscription(variant_id, 1, subscription_selling_plan_id);
+    } else {
+      redirectToCheckout(variant_id);
+    }
+  }
+
+  function isSubscriptionSelected() {
+    return $('#product-actions-{{ section_id }} .purchase-option-box.selected').find('.purchase-type .subscription.selected').length > 0;
+  }
+
+  function redirectToCheckout(variant_id) {
+    let checkoutLink = "https://" + location.hostname + "/cart/" + variant_id + ":1";
+    window.location.href = checkoutLink;
+  }
+
+  function toggleButtonLoading(isLoading) {
+    let loader = document.querySelector('#product-actions-{{ section_id }} #loader');
+    let buttonText = document.querySelector('#product-actions-{{ section_id }} #button-text');
+    loader.style.display = isLoading ? 'block' : 'none';
+    buttonText.style.display = isLoading ? 'none' : 'block';
+  }
+
+  function clearCart(callback) {
+    jQuery.ajax({
+      type: 'POST',
+      url: '/cart/clear.js',
+      success: function() {
+        console.log('Cart cleared');
+        callback();
+      },
+      error: function() {
+        console.log('Failed to clear cart');
+      }
+    });
+  }
+
+  function buySubscription(variant_id, qty, selling_plan) {
+    clearCart(function() {
+      data = {
+        "id": variant_id,
+        "quantity": qty,
+        "selling_plan": selling_plan
+      }
+
+      jQuery.ajax({
+        type: 'POST',
+        url: '/cart/add.js',
+        data: data,
+        dataType: 'json',
+        success: function() {
+          console.log('success');
+          window.location.href = '/checkout';
+        },
+        error: function() {
+          console.log('Failed to add item to cart');
+        }
+      });
+    });
+  }
+
+  // On Buy Button Click
+  function buyButtonHandler(variant_id, subscription_selling_plan_id) {
+    toggleButtonLoading(true);
+    var parentBox = $('#product-actions-{{ section_id }} .purchase-option-box.selected');
+    var isSubscription = parentBox.find('.subscription.selected').length > 0;
+
+    if (isSubscription) {
+      buySubscription(variant_id, 1, subscription_selling_plan_id);
+    } else {
+      redirectToCheckout(variant_id);
+    }
+  }
+</script>
+
+<style>
+  .purchase-type button {
+    border-radius: 5px;
+    font-size: 16px;
+    min-width: 49%;
+    padding: 1rem;
+  }
+
+  .purchase-type button:not(.selected) {
+    background: unset;
+    border: 1px solid var(--blue);
+    color: var(--blue);
+  }
+</style>
+
+<style>
+  .cta-section-{{ section_id }} .radio-box input[type='radio'] {
+    display: none;
+  }
+
+  .cta-section-{{ section_id }} .radio-box label {
+    cursor: pointer;
+    width: 19px;
+    height: 19px;
+    border: 1px solid var(--blue);
+    border-radius: 50%;
+    position: relative;
+  }
+
+  .cta-section-{{ section_id }} .radio-box input[type='radio']:checked + label:after {
+    content: '\2713';
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--blue);
+    text-align: center;
+    line-height: 22px;
+    color: #fff;
+  }
+</style>
+
+
+<style>
+  .cta-section-{{ section_id }} .product-actions {
+    grid-area: 2/2/3/3;
+    max-width: 400px;
+    min-height: 415px;
+  }
+
+  .cta-section-{{ section_id }} .purchase-option-box {
+    background: #fff;
+    border: 1px solid #cbcbcb;
+    cursor: pointer;
+    max-height: 56px;
+    filter: drop-shadow(0px 4px 4px rgba(47, 47, 47, 0.1));
+    transition: max-height .5s;
+    border-radius: 10px;
+    border-color: var(--blue);
+  }
+
+  .cta-section-{{ section_id }} .purchase-option-box.selected {
+    border-width: 3px;
+    max-height: max-content;
+  }
+
+  .cta-section-{{ section_id }} .purchase-option-box:hover,
+  .cta-section-{{ section_id }} .purchase-option-box.selected {
+    filter: drop-shadow(0px 4px 4px rgba(47, 47, 47, 0.3));
+  }
+
+  .cta-section-{{ section_id }} .purchase-option-box:hover>.radio-box input[type=radio]:after {
+    background-color: #a9a9a9;
+  }
+
+  .cta-section-{{ section_id }} .purchase-option-box .radio-box {
+    align-items: center;
+    display: flex;
+  }
+
+  .cta-section-{{ section_id }} .purchase-option-box .option-info {
+    padding: 10px 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.25rem;
+  }
+
+  .cta-section-{{ section_id }} .purchase-option-box .option-info .option-title span {
+    background: var(--blue);
+    color: white;
+    border-radius: 10px;
+    padding: 0 8px;
+    font-size: 15px;
+    margin-left: 5px;
+    font-weight: normal;
+    line-height: 1.2;
+  }
+
+  .cta-section-{{ section_id }} .purchase-option-box .option-info .option-infos p {
+    font-weight: 200;
+    display: inline-block;
+    margin: 0;
+    font-size: 14px;
+  }
+
+  @media screen and (max-width: 1270px) {
+    .cta-section-{{ section_id }} .purchase-option-box {
+      width: 100%
+    }
+
+    .cta-section-{{ section_id }} .purchase-option-box .option-info {
+      padding: 10px 0;
+      width: 95%;
+    }
+  }
+
+  @media screen and (max-width: 768px) {
+    .cta-section-{{ section_id }} .purchase-option-box .option-info .option-title {
+      font-size: 4vw;
+    }
+
+    .cta-section-{{ section_id }} .purchase-option-box .option-info .option-infos p {
+      font-size: 3vw;
+    }
+
+    .cta-section-{{ section_id }} .purchase-option-box .radio-box {
+      padding: 3vw;
+    }
+
+    .cta-section-{{ section_id }} .product-actions {
+      grid-area: unset;
+      grid-row: 3;
+      max-width: unset;
+      min-height: unset;
+    }
+
+    .cta-section-{{ section_id }} .product-actions .submit-wrap button {
+      font-size: 4vw;
+    }
+
+    .cta-section-{{ section_id }} .product-actions .submit-wrap button {
+      min-height: 15vw;
+    }
+  }
+</style>
+
+<style>
+  .cta-section-{{ section_id }} .lds-ellipsis {
+    display: inline-block;
+    position: relative;
+    width: 80px;
+    top:-10px;
+  }
+  .cta-section-{{ section_id }} .lds-ellipsis div {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #fff;
+    animation-timing-function: cubic-bezier(0, 1, 1, 0);
+  }
+  .cta-section-{{ section_id }} .lds-ellipsis div:nth-child(1) {
+    left: 8px;
+    animation: lds-ellipsis1 0.6s infinite;
+  }
+  .cta-section-{{ section_id }} .lds-ellipsis div:nth-child(2) {
+    left: 8px;
+    animation: lds-ellipsis2 0.6s infinite;
+  }
+  .cta-section-{{ section_id }} .lds-ellipsis div:nth-child(3) {
+    left: 32px;
+    animation: lds-ellipsis2 0.6s infinite;
+  }
+  .cta-section-{{ section_id }} .lds-ellipsis div:nth-child(4) {
+    left: 56px;
+    animation: lds-ellipsis3 0.6s infinite;
+  }
+  @keyframes lds-ellipsis1 {
+    0% {
+      transform: scale(0);
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+  @keyframes lds-ellipsis3 {
+    0% {
+      transform: scale(1);
+    }
+    100% {
+      transform: scale(0);
+    }
+  }
+  @keyframes lds-ellipsis2 {
+    0% {
+      transform: translate(0, 0);
+    }
+    100% {
+      transform: translate(24px, 0);
+    }
+  }
+</style>
