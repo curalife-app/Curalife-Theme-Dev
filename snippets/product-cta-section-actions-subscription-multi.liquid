@@ -106,18 +106,18 @@
 
   function togglePurchaseBox(element) {
     if (!$(element).hasClass('selected')) {
-      // Slide up any open box before sliding down the new one
-      $('.purchase-option-box.selected').slideUp('fast', function() {
-        $(this).removeClass('selected');
-      });
-
-      // Slide down the new box
-      $(element).slideDown('fast', function() {
-        $(this).addClass('selected');
-      });
-
-      // Update radio button state
+      $('.purchase-option-box.selected').removeClass('selected').css('max-height', '');
       $('.purchase-option-box').find("input[type='radio']").prop('checked', false);
+
+      // Check screen width
+      if (window.innerWidth > 768) {
+        var openHeight = $(element).get(0).scrollHeight;
+        $(element).addClass('selected').css('max-height', openHeight + 'px');
+      } else {
+        // For mobile, let CSS handle the max-height
+        $(element).addClass('selected');
+      }
+
       $(element).find("input[type='radio']").prop('checked', true);
 
       {% if product.variants.size > 1 and product.images.size > 1 %}
@@ -258,6 +258,15 @@
     background: unset;
     border: 1px solid var(--blue);
     color: var(--blue);
+  }
+
+  .purchase-option-box {
+    overflow: hidden;
+    transition: max-height 0.5s ease-in-out;
+  }
+
+  .purchase-option-box.selected {
+    max-height: 360px; /* Max height when expanded, adjust as needed */
   }
 
   @media screen and (max-width: 768px) {
