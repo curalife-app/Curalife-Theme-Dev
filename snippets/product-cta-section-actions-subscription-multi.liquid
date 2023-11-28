@@ -104,10 +104,27 @@
       $('.purchase-option-box.selected').removeClass('selected').css('max-height', '56px');
       $('.purchase-option-box').find("input[type='radio']").prop('checked', false);
 
-      // Calculate the natural height of the element
-      var openHeight = calculateNaturalHeight(element);
-      $(element).addClass('selected').css('max-height', openHeight + 'px');
+      $(element).addClass('selected');
       $(element).find("input[type='radio']").prop('checked', true);
+
+      // Initialize a mutation observer to watch for changes in the content
+      var observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+          var newHeight = calculateNaturalHeight(element);
+          $(element).css('max-height', newHeight + 'px');
+        });
+      });
+
+      // Configuration of the observer
+      var config = { childList: true, subtree: true };
+
+      // Start observing the target element
+      observer.observe(element, config);
+
+      // You may also want to disconnect the observer at some point to avoid memory leaks
+      setTimeout(function() {
+        observer.disconnect();
+      }, 5000); // Adjust the time as needed
     }
   }
 
