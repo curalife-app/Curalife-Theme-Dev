@@ -85,16 +85,18 @@
         const isSubscriptionSelected = box.find('.purchase-type .subscription').hasClass('selected');
         togglePurchaseType(box, isSubscriptionSelected);
 
-        box.css('max-height', index === 0 ? box.get(0).scrollHeight + 'px' : '54px');
-        if (index === 0) box.find("input[type='radio']").prop('checked', true);
+        box.css('max-height', index === 0 ? box.get(0).scrollHeight + 'px' : '54px')
+           .find("input[type='radio']").prop('checked', index === 0);
       });
     }
 
     function setupMutationObserver() {
       const observer = new MutationObserver(mutations => {
-        mutations.forEach(mutation => {
-          const targetBox = $(mutation.target).closest('.purchase-option-box');
-          if (targetBox.hasClass('selected')) adjustMaxHeight(targetBox);
+        mutations.forEach(({ target }) => {
+          const targetBox = $(target).closest('.purchase-option-box');
+          if (targetBox.hasClass('selected')) {
+            adjustMaxHeight(targetBox);
+          }
         });
       });
 
@@ -102,15 +104,14 @@
     }
 
     function attachEventHandlers() {
-      productActions.on('click', '.purchase-option-box', function() { togglePurchaseBox($(this)); });
-      productActions.on('click', '.purchase-type button', function(event) { handlePurchaseTypeClick(event, $(this)); });
-      productActions.on('click', '.main-btn', function(event) { handleMainButtonClick(event, $(this)); });
+      productActions.on('click', '.purchase-option-box', function() { togglePurchaseBox($(this)); })
+                    .on('click', '.purchase-type button', function(event) { handlePurchaseTypeClick(event, $(this)); })
+                    .on('click', '.main-btn', function(event) { handleMainButtonClick(event, $(this)); });
     }
 
     function handlePurchaseTypeClick(event, button) {
       event.stopPropagation();
-      const parentBox = button.closest('.purchase-option-box');
-      togglePurchaseType(parentBox, button.hasClass('subscription'));
+      togglePurchaseType(button.closest('.purchase-option-box'), button.hasClass('subscription'));
     }
 
     function handleMainButtonClick(event, button) {
