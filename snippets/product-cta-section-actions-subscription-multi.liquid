@@ -131,27 +131,30 @@
     $(element).css('max-height', openHeight + 'px');
   }
 
-function togglePurchaseBox(element) {
-    var wasSelected = $(element).hasClass('selected');
-    $('.purchase-option-box.selected').removeClass('selected').css('max-height', '').find('.toggle-icon').hide(); // Hide the 'v' icon in all boxes
+  function togglePurchaseBox(element) {
+      var wasSelected = $(element).hasClass('selected');
 
-    if (!wasSelected) {
-        if (window.innerWidth > 768) {
-            $(element).addClass('selected');
-            adjustMaxHeight(element);
-        } else {
-            $(element).addClass('selected'); // For mobile, let CSS handle the max-height
-        }
+      // Prevent collapsing the currently opened box
+      if (wasSelected) {
+          return;
+      }
 
-        $(element).find("input[type='radio']").prop('checked', true);
-        $(element).find('.toggle-icon').show(); // Show the 'v' icon in the expanded box
+      // Collapse any currently expanded box
+      $('.purchase-option-box.selected').removeClass('selected').each(function() {
+          $(this).css('max-height', '54px');
+          $(this).find('.toggle-icon').hide(); // Hide the 'v' icon for collapsed boxes
+      });
 
-        {% if product.variants.size > 1 and product.images.size > 1 %}
-        updateVariantImage(element);
-        {% endif %}
-    }
-}
+      // Expand the clicked box
+      $(element).addClass('selected');
+      adjustMaxHeight(element);
+      $(element).find("input[type='radio']").prop('checked', true);
+      $(element).find('.toggle-icon').show(); // Show the 'v' icon in the expanded box
 
+      {% if product.variants.size > 1 and product.images.size > 1 %}
+      updateVariantImage(element);
+      {% endif %}
+  }
 
   function togglePurchaseType(parentBox, isSubscriptionSelected) {
     parentBox.find('.purchase-type button').removeClass('selected');
