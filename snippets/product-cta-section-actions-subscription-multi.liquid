@@ -75,54 +75,48 @@
     const productActions = $("#product-actions-{{ section_id }}");
     const purchaseOptionBoxes = productActions.find('.purchase-option-box');
 
-    initializePurchaseOptions(purchaseOptionBoxes);
-    setupMutationObserver(purchaseOptionBoxes);
-    attachEventHandlers(productActions);
+    initializePurchaseOptions();
+    setupMutationObserver();
+    attachEventHandlers();
 
-    function initializePurchaseOptions(elements) {
-      elements.each(function(index) {
-        const isSubscriptionSelected = $(this).find('.purchase-type .subscription').hasClass('selected');
-        togglePurchaseType($(this), isSubscriptionSelected);
+    function initializePurchaseOptions() {
+      purchaseOptionBoxes.each(function(index) {
+        const box = $(this);
+        const isSubscriptionSelected = box.find('.purchase-type .subscription').hasClass('selected');
+        togglePurchaseType(box, isSubscriptionSelected);
 
-        if (index === 0) {
-          $(this).find("input[type='radio']").prop('checked', true);
-          adjustMaxHeight(this);
-        } else {
-          $(this).css('max-height', '54px');
-        }
+        box.css('max-height', index === 0 ? box.get(0).scrollHeight + 'px' : '54px');
+        if (index === 0) box.find("input[type='radio']").prop('checked', true);
       });
     }
 
-    function setupMutationObserver(elements) {
-      var observer = new MutationObserver(mutations => {
+    function setupMutationObserver() {
+      const observer = new MutationObserver(mutations => {
         mutations.forEach(mutation => {
-          if (mutation.target.closest('.purchase-option-box') && $(mutation.target).hasClass('selected')) {
-            adjustMaxHeight(mutation.target);
-          }
+          const targetBox = $(mutation.target).closest('.purchase-option-box');
+          if (targetBox.hasClass('selected')) adjustMaxHeight(targetBox);
         });
       });
 
-      elements.each((_, element) => observer.observe(element, { attributes: true, childList: true, subtree: true }));
+      purchaseOptionBoxes.each((_, element) => observer.observe(element, { attributes: true, childList: true, subtree: true }));
     }
 
-    function attachEventHandlers(container) {
-      container.on('click', '.purchase-option-box', function() { togglePurchaseBox(this); });
-      container.on('click', '.purchase-type button', function(event) { handlePurchaseTypeClick(event, this); });
-      container.on('click', '.main-btn', function(event) { handleMainButtonClick(event, this); });
+    function attachEventHandlers() {
+      productActions.on('click', '.purchase-option-box', function() { togglePurchaseBox($(this)); });
+      productActions.on('click', '.purchase-type button', function(event) { handlePurchaseTypeClick(event, $(this)); });
+      productActions.on('click', '.main-btn', function(event) { handleMainButtonClick(event, $(this)); });
     }
 
     function handlePurchaseTypeClick(event, button) {
       event.stopPropagation();
-      const parentBox = $(button).closest('.purchase-option-box');
-      togglePurchaseType(parentBox, $(button).hasClass('subscription'));
+      const parentBox = button.closest('.purchase-option-box');
+      togglePurchaseType(parentBox, button.hasClass('subscription'));
     }
 
     function handleMainButtonClick(event, button) {
       event.stopPropagation();
-      const parentBox = $(button).closest('.purchase-option-box');
-      const variantId = parentBox.data('variant');
-      const subscriptionSellingPlanId = parentBox.data('subscription-selling-plan-id');
-      buyButtonHandler(variantId, subscriptionSellingPlanId, button);
+      const parentBox = button.closest('.purchase-option-box');
+      buyButtonHandler(parentBox.data('variant'), parentBox.data('subscription-selling-plan-id'), button);
     }
 
     function adjustMaxHeight(element) {
