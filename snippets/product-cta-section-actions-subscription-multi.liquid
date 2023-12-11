@@ -85,8 +85,25 @@
             $(this).find("input[type='radio']").prop('checked', true);
             adjustMaxHeight(this); // Adjust max-height for the first box
         } else {
-            $(this).css('max-height', '55px'); // Collapse other boxes
+            $(this).css('max-height', '0'); // Collapse other boxes
         }
+    });
+
+    // Initialize MutationObserver
+    var observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+            if (mutation.target.closest('.purchase-option-box')) {
+                adjustMaxHeight(mutation.target.closest('.purchase-option-box'));
+            }
+        });
+    });
+
+    // Observer configuration
+    var config = { attributes: true, childList: true, subtree: true };
+
+    // Attach observer to each purchase-option-box
+    $('.purchase-option-box').each(function() {
+        observer.observe(this, config);
     });
 
     $("#product-actions-{{ section_id }} .purchase-option-box").click(function() {
