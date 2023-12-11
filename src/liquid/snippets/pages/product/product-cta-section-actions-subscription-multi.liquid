@@ -1,5 +1,3 @@
-{% assign subscriptionPrice = 75 %}
-
 {% comment %} Short Section ID for JS Variables {% endcomment %}
 {% assign sectionIDParts = section_id | split: '-' %}
 {% assign shortSectionID = sectionIDParts[-1] %}
@@ -9,20 +7,22 @@
 <div id="product-actions-{{ section_id }}" class="product-actions">
   <div class="purchase-options flex flex-col gap-2">
     {% for var in product.variants %}
+      {% assign variant_id = var.metafields.custom.reference_variant_id | default: var.id %}
       {% assign bottle_quantity = var.metafields.my_fields.pack_bottles_quantity %}
       {% assign original_item_cap = var.metafields.custom.original_item.value.compare_at_price %}
       {% assign original_item_cap_total = original_item_cap | times: bottle_quantity %}
       {% assign original_item_price = var.metafields.custom.original_item.value.price %}
       {% assign item_price = var.price | divided_by: bottle_quantity %}
-      {% assign save_price = original_item_price | minus: item_price | times: quantity %}
       {% assign subscription_save_percents = var.metafields.subscription.save_percents %}
-      {% assign subscription_item_price = item_price | times: subscription_save_percents | divided_by: 100 %}
+      {% assign subscription_item_price_save = original_item_cap | times: subscription_save_percents | divided_by: 100 %}
+      {% assign subscription_item_price = original_item_cap | minus: subscription_item_price_save %}
+      {% assign subscription_total_price = subscription_item_price | times: bottle_quantity %}
 
-      <div class="purchase-option-box flex flex-col items-start p-4 overflow-hidden" data-variant="{{ var.id }}" data-price="{{ var.price | money_without_currency | replace: ".00", "" }}" data-sku="{{ var.sku }}" data-index="{{ forloop.index }}">
-        <div class="top-wrapper flex items-center w-full gap-4 pb-4">
+    <div class="purchase-option-box flex flex-col items-start p-4 overflow-hidden {% if forloop.first %}selected{% endif %}" data-variant="{{ variant_id }}" data-subscription-selling-plan-id="{{ var.metafields.subscription.selling_plan_id }}" data-price="{{ var.price | money_without_currency | replace: ".00", "" }}" data-sku="{{ var.sku }}" data-index="{{ forloop.index }}">
+        <div class="top-wrapper flex items-center w-full gap-4 md:gap-2 pb-4">
           <div class="radio-box"><input type="radio"></input><label for="buyonce"></label></div>
 
-          <div class="option-title font-semibold">{{ var.title }} - Save up to {{ var.metafields.subscription.save_percents }}%</div>
+          <div class="option-title font-semibold text-[--blue]">{{ var.title }} - Save up to {{ var.metafields.subscription.save_percents }}%</div>
         </div>
 
         <div class="purchase-type flex-nowrap flex w-full gap-2">
@@ -30,25 +30,34 @@
           <button class="buy-once">Buy Once</button>
         </div>
 
-        <div class="subscription-info bg-[--light-blue] text-[--blue] p-2 flex justify-center gap-2 my-4">
+        <div class="subscription-info bg-[--light-blue] text-[--blue] p-2 flex justify-center gap-2 mt-4">
           <i class="fa-thin fa-badge-percent text-[50px]"></i>
-          <div class="info text-[14px]">Save {{ var.metafields.subscription.save_percents }}% every order, guaranteed delivery, make changes any time, prompt VIP support & new subscriber gifts</div>
+          <div class="info text-[13px]">Save {{ var.metafields.subscription.save_percents }}% every order, guaranteed delivery, make changes any time, prompt VIP support & new subscriber gifts</div>
         </div>
 
-        <div class="option-subtitle text-[14px]">{{ var.title }} <span class="text-[--blue] font-bold">{{ var.metafields.my_fields.subtitle }}</span></div>
+        <div class="option-subtitles my-2">
+          <div class="option-subtitle subscription text-[14px]">{{ var.title }} <span class="save-title text-[--blue]">Save {{ var.metafields.subscription.save_percents }}%</span></div>
+          <div class="option-subtitle buy-once text-[14px] hidden">{{ var.title }} <span class="save-title text-[--blue] font-bold">Save {{ var.metafields.custom.save_percents }}%</span> or<br><span class="save-title text-[--blue] font-bold">Subscribe & Save MORE</span></div>
+        </div>
 
         <div class="price-wrapper">
           <div class="calculations flex items-center gap-2 font-bold leading-10">
-            <div class="real-price no-letters rounded text-[40px]">{{ item_price | money_without_trailing_zeros }}</div>
-            <div class="compared-at-price rounded line-through text-[25px] text-[--light-blue]">{{ original_item_cap | money_without_trailing_zeros }}</div>
+            <div class="real-price no-letters text-[40px] subscription"><span class="floor rounded">{{ subscription_item_price | money_without_trailing_zeros }}</span></div>
+            <div class="real-price no-letters text-[40px] buy-once hidden"><span class="floor rounded">{{ item_price | money_without_trailing_zeros }}</span></div>
+            <div class="compared-at-price rounded line-through text-[30px] font-normal text-[#baced5]">{{ original_item_cap | money_without_trailing_zeros }}</div>
           </div>
           <div class="font-bold">Per Month</div>
         </div>
 
         <div class="submit-wrap flex flex-col w-full mt-4">
-          <button class="main-btn p-0 bg-[--orange] hover:bg-[--dark-orange] min-h-[50px]" id="buy-button" onclick="buyButtonHandler({{ var.id }}, {{ var.metafields.subscription.selling_plan_id }})">
-            <span id="button-text">SHOP NOW<span class="pl-4 ml-4 border-l-2 border-white">Total {{ var.price | money_without_trailing_zeros }}</span></span>
-            <div id="loader" style="display: none;">
+          <button class="main-btn p-0 bg-[--orange] hover:bg-[--dark-orange] min-h-[50px]" id="buy-button">
+            <div class="button-text flex md:text-[5vw]">
+              <span class="w-1/2 border-r-2 border-white">SHOP NOW</span>
+              <span class="total-price subscription w-1/2">Total <span class="floor rounded">{{ subscription_total_price | money_without_trailing_zeros }}</span></span>
+              <span class="total-price buy-once hidden w-1/2">Total <span class="floor rounded">{{ var.price | money_without_trailing_zeros }}</span></span>
+            </div>
+
+            <div class="loader" style="display: none;">
               <div class="lds-ellipsis"><div></div><div></div><div></div><div></div></div>
             </div>
           </button>
@@ -60,28 +69,119 @@
 
 {% render 'script.round-converted-currency' %}
 
+
 <script>
   document.addEventListener('DOMContentLoaded', function() {
     initializePurchaseOptionBoxes();
-    setInitialSelection();
   });
 
   function initializePurchaseOptionBoxes() {
-    $("#product-actions-{{ section_id }} .purchase-option-box").click(function() {
-      updateSelection(this);
-      updateVariantImage(this);
+    $("#product-actions-{{ section_id }} .purchase-option-box").each(function(index) {
+        var isSubscriptionSelected = $(this).find('.purchase-type .subscription').hasClass('selected');
+        togglePriceDisplay($(this), isSubscriptionSelected);
+        togglePurchaseType($(this), isSubscriptionSelected);
+
+        if (index === 0) {
+            $(this).find("input[type='radio']").prop('checked', true);
+            adjustMaxHeight(this);
+        } else {
+            $(this).css('max-height', '54px');
+        }
     });
 
-    // Toggle Subscription and Buy Once Buttons
-    $('.purchase-type button').click(function() {
+    // Initialize MutationObserver
+    var observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+            if (mutation.target.closest('.purchase-option-box')) {
+                if ($(mutation.target.closest('.purchase-option-box')).hasClass('selected')) {
+                    adjustMaxHeight(mutation.target.closest('.purchase-option-box'));
+                }
+            }
+        });
+    });
+
+    // Observer configuration
+    var config = { attributes: true, childList: true, subtree: true };
+
+    // Attach observer to each purchase-option-box
+    $('.purchase-option-box').each(function() {
+        observer.observe(this, config);
+    });
+
+    $("#product-actions-{{ section_id }} .purchase-option-box").click(function() {
+      togglePurchaseBox(this);
+    });
+
+    $('.purchase-type button').click(function(event) {
+      event.stopPropagation();
       var parentBox = $(this).closest('.purchase-option-box');
-      parentBox.find('.purchase-type button').removeClass('selected');
-      $(this).addClass('selected');
+      togglePurchaseType(parentBox, $(this).hasClass('subscription'));
+    });
+
+    $('#product-actions-{{ section_id }} .main-btn').click(function(event) {
+      event.stopPropagation(); // Prevents the event from bubbling up
+      var variantId = $(this).closest('.purchase-option-box').data('variant');
+      var subscriptionSellingPlanId = $(this).closest('.purchase-option-box').data('subscription-selling-plan-id');
+      buyButtonHandler(variantId, subscriptionSellingPlanId, this); // Pass 'this' as the button element
     });
   }
 
-  function setInitialSelection() {
-    $(".purchase-option-box").first().click();
+  function adjustMaxHeight(element) {
+    var openHeight = $(element).get(0).scrollHeight;
+    $(element).css('max-height', openHeight + 'px');
+}
+
+function togglePurchaseBox(element) {
+    var wasSelected = $(element).hasClass('selected');
+    $('.purchase-option-box.selected').removeClass('selected').css('max-height', '').find('.toggle-icon').hide(); // Hide the 'v' icon in all boxes
+
+    if (!wasSelected) {
+        if (window.innerWidth > 768) {
+            $(element).addClass('selected');
+            adjustMaxHeight(element);
+        } else {
+            $(element).addClass('selected'); // For mobile, let CSS handle the max-height
+        }
+
+        $(element).find("input[type='radio']").prop('checked', true);
+        $(element).find('.toggle-icon').show(); // Show the 'v' icon in the expanded box
+
+        {% if product.variants.size > 1 and product.images.size > 1 %}
+        updateVariantImage(element);
+        {% endif %}
+    }
+}
+
+
+  function togglePurchaseType(parentBox, isSubscriptionSelected) {
+    parentBox.find('.purchase-type button').removeClass('selected');
+    parentBox.find(isSubscriptionSelected ? '.subscription' : '.buy-once').addClass('selected');
+    togglePriceDisplay(parentBox, isSubscriptionSelected);
+
+    var optionSubtitleToHide = isSubscriptionSelected ? '.option-subtitle.buy-once' : '.option-subtitle.subscription';
+    var optionSubtitleToShow = isSubscriptionSelected ? '.option-subtitle.subscription' : '.option-subtitle.buy-once';
+
+    parentBox.find(optionSubtitleToHide).fadeOut('fast', function() {
+      parentBox.find(optionSubtitleToShow).fadeIn('fast');
+    });
+
+    // Toggle subscription info
+    if (isSubscriptionSelected) {
+      parentBox.find('.subscription-info').slideDown('fast');
+    } else {
+      parentBox.find('.subscription-info').slideUp('fast');
+    }
+
+    adjustMaxHeight(parentBox);
+  }
+
+  function togglePriceDisplay(parentBox, isSubscriptionSelected) {
+    var pricesToHide = isSubscriptionSelected ? '.real-price.buy-once, .total-price.buy-once' : '.real-price.subscription, .total-price.subscription';
+    var pricesToShow = isSubscriptionSelected ? '.real-price.subscription, .total-price.subscription' : '.real-price.buy-once, .total-price.buy-once';
+
+    parentBox.find(pricesToHide).fadeOut('fast', function() {
+      parentBox.find(pricesToShow).fadeIn('fast').css("display","inline-block");
+    });
   }
 
   function updateSelection(element) {
@@ -92,20 +192,16 @@
   }
 
   function updateVariantImage(element) {
-    {% if product.variants.size > 1 and product.images.size > 1 %}
-    if (window.option_clicked_once) {
-      let slideIndex = calculateSlideIndex(element);
-      window.productSliderAllInOne{{ shortSectionID }}.slideTo(slideIndex);
-    }
-    {% endif %}
+    let slideIndex = calculateSlideIndex(element);
+    window.productSliderAllInOne{{ shortSectionID }}.slideTo(slideIndex);
   }
 
   function calculateSlideIndex(element) {
     return window.productSliderAllInOne{{ shortSectionID }}.slides.length - ({{ product.variants.size | plus: 1 }} - $(element).attr('data-index'));
   }
 
-  function buyButtonHandler(variant_id, subscription_selling_plan_id) {
-    toggleButtonLoading(true);
+  function buyButtonHandler(variant_id, subscription_selling_plan_id, buttonElement) {
+    toggleButtonLoading(buttonElement, true);
     if (isSubscriptionSelected()) {
       buySubscription(variant_id, 1, subscription_selling_plan_id);
     } else {
@@ -122,11 +218,22 @@
     window.location.href = checkoutLink;
   }
 
-  function toggleButtonLoading(isLoading) {
-    let loader = document.querySelector('#product-actions-{{ section_id }} #loader');
-    let buttonText = document.querySelector('#product-actions-{{ section_id }} #button-text');
-    loader.style.display = isLoading ? 'block' : 'none';
-    buttonText.style.display = isLoading ? 'none' : 'block';
+  function toggleButtonLoading(buttonElement, isLoading) {
+    let loader = $(buttonElement).closest('.purchase-option-box').find('.loader');
+    let buttonText = $(buttonElement).find('.button-text');
+
+    if (loader.length === 0) {
+        console.error("Loader element not found");
+        return;
+    }
+
+    if (isLoading) {
+        loader.show();
+        buttonText.hide();
+    } else {
+        loader.hide();
+        buttonText.show();
+    }
   }
 
   function clearCart(callback) {
@@ -166,19 +273,6 @@
       });
     });
   }
-
-  // On Buy Button Click
-  function buyButtonHandler(variant_id, subscription_selling_plan_id) {
-    toggleButtonLoading(true);
-    var parentBox = $('#product-actions-{{ section_id }} .purchase-option-box.selected');
-    var isSubscription = parentBox.find('.subscription.selected').length > 0;
-
-    if (isSubscription) {
-      buySubscription(variant_id, 1, subscription_selling_plan_id);
-    } else {
-      redirectToCheckout(variant_id);
-    }
-  }
 </script>
 
 <style>
@@ -186,7 +280,7 @@
     border-radius: 5px;
     font-size: 16px;
     min-width: 49%;
-    padding: 1rem;
+    padding: 0.5rem;
   }
 
   .purchase-type button:not(.selected) {
@@ -194,34 +288,56 @@
     border: 1px solid var(--blue);
     color: var(--blue);
   }
+
+  .purchase-option-box {
+    overflow: hidden;
+    transition: max-height 0.5s ease-in-out;
+    max-height: 54px;
+  }
+
+  .purchase-option-box.selected {
+    max-height: 360px; /* Max height when expanded, adjust as needed */
+  }
+
+  @media screen and (max-width: 768px) {
+    .purchase-option-box {
+      font-size: 4vw;
+      padding-top: 1.5vw;
+    }
+
+    .purchase-option-box.selected {
+      max-height: 100vw;
+    }
+  }
 </style>
 
 <style>
-  .cta-section-{{ section_id }} .radio-box input[type='radio'] {
-    display: none;
+  .cta-section-{{ section_id }} .purchase-option-box .radio-box input[type='radio'] {
+      display: none;
   }
 
-  .cta-section-{{ section_id }} .radio-box label {
-    cursor: pointer;
-    width: 19px;
-    height: 19px;
-    border: 1px solid var(--blue);
-    border-radius: 50%;
-    position: relative;
+  .cta-section-{{ section_id }} .purchase-option-box .radio-box label {
+      cursor: pointer;
+      width: 19px;
+      height: 19px;
+      border: 1px solid var(--blue);
+      border-radius: 50%;
+      position: relative;
   }
 
-  .cta-section-{{ section_id }} .radio-box input[type='radio']:checked + label:after {
-    content: '\2713';
-    position: absolute;
-    top: -2px;
-    left: -2px;
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: var(--blue);
-    text-align: center;
-    line-height: 22px;
-    color: #fff;
+  /* This will only apply the style when the variant box is selected and the radio button is checked */
+  .cta-section-{{ section_id }} .purchase-option-box.selected .radio-box input[type='radio']:checked + label:after {
+      content: '\2713';
+      position: absolute;
+      top: -2px;
+      left: -2px;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--blue);
+      text-align: center;
+      line-height: 22px;
+      color: #fff;
   }
 </style>
 
@@ -229,7 +345,7 @@
 <style>
   .cta-section-{{ section_id }} .product-actions {
     grid-area: 2/2/3/3;
-    max-width: 400px;
+    max-width: 360px;
     min-height: 415px;
   }
 
@@ -237,7 +353,7 @@
     background: #fff;
     border: 1px solid #cbcbcb;
     cursor: pointer;
-    max-height: 56px;
+    max-height: 54px;
     filter: drop-shadow(0px 4px 4px rgba(47, 47, 47, 0.1));
     transition: max-height .5s;
     border-radius: 10px;
