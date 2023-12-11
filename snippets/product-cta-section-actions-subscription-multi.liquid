@@ -126,14 +126,26 @@
     });
   }
 
-  function adjustMaxHeight(element) {
-    var openHeight = $(element).get(0).scrollHeight;
-    $(element).css('max-height', openHeight + 'px');
+  function adjustMaxHeight(element, isOpening) {
+      if (isOpening) {
+          // Temporarily reset max-height for natural height calculation
+          $(element).css('max-height', 'none');
+          var openHeight = $(element).get(0).scrollHeight;
+
+          // Use a short timeout to ensure the transition is applied
+          setTimeout(function() {
+              $(element).css('max-height', (openHeight + 10) + 'px'); // Add a little extra space
+          }, 10);
+      } else {
+          // Collapse the box
+          $(element).css('max-height', '54px');
+      }
   }
 
 function togglePurchaseBox(element) {
     var wasSelected = $(element).hasClass('selected');
     $('.purchase-option-box.selected').removeClass('selected').css('max-height', '').find('.toggle-icon').hide(); // Hide the 'v' icon in all boxes
+    adjustMaxHeight(this, !wasSelected);
 
     if (!wasSelected) {
         if (window.innerWidth > 768) {
