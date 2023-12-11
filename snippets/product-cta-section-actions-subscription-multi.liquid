@@ -104,26 +104,29 @@
     });
   }
 
+  function adjustMaxHeight(element) {
+    var openHeight = $(element).get(0).scrollHeight;
+    $(element).css('max-height', openHeight + 'px');
+  }
+
   function togglePurchaseBox(element) {
-    if (!$(element).hasClass('selected')) {
-      $('.purchase-option-box.selected').removeClass('selected').css('max-height', '');
-      $('.purchase-option-box').find("input[type='radio']").prop('checked', false);
+      if (!$(element).hasClass('selected')) {
+          $('.purchase-option-box.selected').removeClass('selected').css('max-height', '');
+          $('.purchase-option-box').find("input[type='radio']").prop('checked', false);
 
-      // Check screen width
-      if (window.innerWidth > 768) {
-        var openHeight = $(element).get(0).scrollHeight;
-        $(element).addClass('selected').css('max-height', openHeight + 'px');
-      } else {
-        // For mobile, let CSS handle the max-height
-        $(element).addClass('selected');
+          if (window.innerWidth > 768) {
+              $(element).addClass('selected');
+              adjustMaxHeight(element); // Adjust the max-height
+          } else {
+              $(element).addClass('selected'); // For mobile, let CSS handle the max-height
+          }
+
+          $(element).find("input[type='radio']").prop('checked', true);
+
+          {% if product.variants.size > 1 and product.images.size > 1 %}
+          updateVariantImage(element);
+          {% endif %}
       }
-
-      $(element).find("input[type='radio']").prop('checked', true);
-
-      {% if product.variants.size > 1 and product.images.size > 1 %}
-        updateVariantImage(element);
-      {% endif %}
-    }
   }
 
   function togglePurchaseType(parentBox, isSubscriptionSelected) {
@@ -144,6 +147,8 @@
     } else {
       parentBox.find('.subscription-info').slideUp('fast');
     }
+
+    adjustMaxHeight(parentBox);
   }
 
   function togglePriceDisplay(parentBox, isSubscriptionSelected) {
