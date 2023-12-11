@@ -71,211 +71,211 @@
 
 
 <script>
-  document.addEventListener('DOMContentLoaded', function() {
-    initializePurchaseOptionBoxes();
-  });
+  $(document).ready(function() {
+    const productActions = $("#product-actions-{{ section_id }}");
+    const purchaseOptionBoxes = productActions.find('.purchase-option-box');
 
-  function initializePurchaseOptionBoxes() {
-    $("#product-actions-{{ section_id }} .purchase-option-box").each(function(index) {
-        var isSubscriptionSelected = $(this).find('.purchase-type .subscription').hasClass('selected');
-        togglePriceDisplay($(this), isSubscriptionSelected);
+    initializePurchaseOptions(purchaseOptionBoxes);
+    setupMutationObserver(purchaseOptionBoxes);
+    attachEventHandlers(productActions);
+
+    function initializePurchaseOptions(elements) {
+      elements.each(function(index) {
+        const isSubscriptionSelected = $(this).find('.purchase-type .subscription').hasClass('selected');
         togglePurchaseType($(this), isSubscriptionSelected);
 
         if (index === 0) {
-            $(this).find("input[type='radio']").prop('checked', true);
-            adjustMaxHeight(this);
+          $(this).find("input[type='radio']").prop('checked', true);
+          adjustMaxHeight(this);
         } else {
-            $(this).css('max-height', '54px');
+          $(this).css('max-height', '54px');
         }
-    });
+      });
+    }
 
-    // Initialize MutationObserver
-    var observer = new MutationObserver(function(mutations) {
-        mutations.forEach(function(mutation) {
-            if (mutation.target.closest('.purchase-option-box')) {
-                if ($(mutation.target.closest('.purchase-option-box')).hasClass('selected')) {
-                    adjustMaxHeight(mutation.target.closest('.purchase-option-box'));
-                }
-            }
+    function setupMutationObserver(elements) {
+      var observer = new MutationObserver(mutations => {
+        mutations.forEach(mutation => {
+          if (mutation.target.closest('.purchase-option-box') && $(mutation.target).hasClass('selected')) {
+            adjustMaxHeight(mutation.target);
+          }
         });
-    });
+      });
 
-    // Observer configuration
-    var config = { attributes: true, childList: true, subtree: true };
+      elements.each((_, element) => observer.observe(element, { attributes: true, childList: true, subtree: true }));
+    }
 
-    // Attach observer to each purchase-option-box
-    $('.purchase-option-box').each(function() {
-        observer.observe(this, config);
-    });
+    function attachEventHandlers(container) {
+      container.on('click', '.purchase-option-box', function() { togglePurchaseBox(this); });
+      container.on('click', '.purchase-type button', function(event) { handlePurchaseTypeClick(event, this); });
+      container.on('click', '.main-btn', function(event) { handleMainButtonClick(event, this); });
+    }
 
-    $("#product-actions-{{ section_id }} .purchase-option-box").click(function() {
-      togglePurchaseBox(this);
-    });
-
-    $('.purchase-type button').click(function(event) {
+    function handlePurchaseTypeClick(event, button) {
       event.stopPropagation();
-      var parentBox = $(this).closest('.purchase-option-box');
-      togglePurchaseType(parentBox, $(this).hasClass('subscription'));
-    });
+      const parentBox = $(button).closest('.purchase-option-box');
+      togglePurchaseType(parentBox, $(button).hasClass('subscription'));
+    }
 
-    $('#product-actions-{{ section_id }} .main-btn').click(function(event) {
-      event.stopPropagation(); // Prevents the event from bubbling up
-      var variantId = $(this).closest('.purchase-option-box').data('variant');
-      var subscriptionSellingPlanId = $(this).closest('.purchase-option-box').data('subscription-selling-plan-id');
-      buyButtonHandler(variantId, subscriptionSellingPlanId, this); // Pass 'this' as the button element
-    });
-  }
+    function handleMainButtonClick(event, button) {
+      event.stopPropagation();
+      const parentBox = $(button).closest('.purchase-option-box');
+      const variantId = parentBox.data('variant');
+      const subscriptionSellingPlanId = parentBox.data('subscription-selling-plan-id');
+      buyButtonHandler(variantId, subscriptionSellingPlanId, button);
+    }
 
-  function adjustMaxHeight(element) {
-    var openHeight = $(element).get(0).scrollHeight;
-    $(element).css('max-height', openHeight + 'px');
-  }
+    function adjustMaxHeight(element) {
+      var openHeight = $(element).get(0).scrollHeight;
+      $(element).css('max-height', openHeight + 'px');
+    }
 
-  function togglePurchaseBox(element) {
-      var wasSelected = $(element).hasClass('selected');
+    function togglePurchaseBox(element) {
+        var wasSelected = $(element).hasClass('selected');
 
-      // Prevent collapsing the currently opened box
-      if (wasSelected) {
+        // Prevent collapsing the currently opened box
+        if (wasSelected) {
+            return;
+        }
+
+        // Collapse any currently expanded box
+        $('.purchase-option-box.selected').removeClass('selected').each(function() {
+            $(this).css('max-height', '54px');
+            $(this).find('.toggle-icon').hide(); // Hide the 'v' icon for collapsed boxes
+        });
+
+        // Expand the clicked box
+        $(element).addClass('selected');
+        adjustMaxHeight(element);
+        $(element).find("input[type='radio']").prop('checked', true);
+        $(element).find('.toggle-icon').show(); // Show the 'v' icon in the expanded box
+
+        {% if product.variants.size > 1 and product.images.size > 1 %}
+        updateVariantImage(element);
+        {% endif %}
+    }
+
+    function togglePurchaseType(parentBox, isSubscriptionSelected) {
+      parentBox.find('.purchase-type button').removeClass('selected');
+      parentBox.find(isSubscriptionSelected ? '.subscription' : '.buy-once').addClass('selected');
+      togglePriceDisplay(parentBox, isSubscriptionSelected);
+
+      var optionSubtitleToHide = isSubscriptionSelected ? '.option-subtitle.buy-once' : '.option-subtitle.subscription';
+      var optionSubtitleToShow = isSubscriptionSelected ? '.option-subtitle.subscription' : '.option-subtitle.buy-once';
+
+      parentBox.find(optionSubtitleToHide).fadeOut('fast', function() {
+        parentBox.find(optionSubtitleToShow).fadeIn('fast');
+      });
+
+      // Toggle subscription info
+      if (isSubscriptionSelected) {
+        parentBox.find('.subscription-info').slideDown('fast');
+      } else {
+        parentBox.find('.subscription-info').slideUp('fast');
+      }
+
+      adjustMaxHeight(parentBox);
+    }
+
+    function togglePriceDisplay(parentBox, isSubscriptionSelected) {
+      var pricesToHide = isSubscriptionSelected ? '.real-price.buy-once, .total-price.buy-once' : '.real-price.subscription, .total-price.subscription';
+      var pricesToShow = isSubscriptionSelected ? '.real-price.subscription, .total-price.subscription' : '.real-price.buy-once, .total-price.buy-once';
+
+      parentBox.find(pricesToHide).fadeOut('fast', function() {
+        parentBox.find(pricesToShow).fadeIn('fast').css("display","inline-block");
+      });
+    }
+
+    function updateSelection(element) {
+      let container = $("#product-actions-{{ section_id }}");
+      container.find(".purchase-option-box").removeClass("selected");
+      container.find(".purchase-option-box input[type='radio']").prop('checked', false);
+      $(element).addClass("selected").find('input').prop('checked', true);
+    }
+
+    function updateVariantImage(element) {
+      let slideIndex = calculateSlideIndex(element);
+      window.productSliderAllInOne{{ shortSectionID }}.slideTo(slideIndex);
+    }
+
+    function calculateSlideIndex(element) {
+      return window.productSliderAllInOne{{ shortSectionID }}.slides.length - ({{ product.variants.size | plus: 1 }} - $(element).attr('data-index'));
+    }
+
+    function buyButtonHandler(variant_id, subscription_selling_plan_id, buttonElement) {
+      toggleButtonLoading(buttonElement, true);
+      if (isSubscriptionSelected()) {
+        buySubscription(variant_id, 1, subscription_selling_plan_id);
+      } else {
+        redirectToCheckout(variant_id);
+      }
+    }
+
+    function isSubscriptionSelected() {
+      return $('#product-actions-{{ section_id }} .purchase-option-box.selected').find('.purchase-type .subscription.selected').length > 0;
+    }
+
+    function redirectToCheckout(variant_id) {
+      let checkoutLink = "https://" + location.hostname + "/cart/" + variant_id + ":1";
+      window.location.href = checkoutLink;
+    }
+
+    function toggleButtonLoading(buttonElement, isLoading) {
+      let loader = $(buttonElement).closest('.purchase-option-box').find('.loader');
+      let buttonText = $(buttonElement).find('.button-text');
+
+      if (loader.length === 0) {
+          console.error("Loader element not found");
           return;
       }
 
-      // Collapse any currently expanded box
-      $('.purchase-option-box.selected').removeClass('selected').each(function() {
-          $(this).css('max-height', '54px');
-          $(this).find('.toggle-icon').hide(); // Hide the 'v' icon for collapsed boxes
-      });
-
-      // Expand the clicked box
-      $(element).addClass('selected');
-      adjustMaxHeight(element);
-      $(element).find("input[type='radio']").prop('checked', true);
-      $(element).find('.toggle-icon').show(); // Show the 'v' icon in the expanded box
-
-      {% if product.variants.size > 1 and product.images.size > 1 %}
-      updateVariantImage(element);
-      {% endif %}
-  }
-
-  function togglePurchaseType(parentBox, isSubscriptionSelected) {
-    parentBox.find('.purchase-type button').removeClass('selected');
-    parentBox.find(isSubscriptionSelected ? '.subscription' : '.buy-once').addClass('selected');
-    togglePriceDisplay(parentBox, isSubscriptionSelected);
-
-    var optionSubtitleToHide = isSubscriptionSelected ? '.option-subtitle.buy-once' : '.option-subtitle.subscription';
-    var optionSubtitleToShow = isSubscriptionSelected ? '.option-subtitle.subscription' : '.option-subtitle.buy-once';
-
-    parentBox.find(optionSubtitleToHide).fadeOut('fast', function() {
-      parentBox.find(optionSubtitleToShow).fadeIn('fast');
-    });
-
-    // Toggle subscription info
-    if (isSubscriptionSelected) {
-      parentBox.find('.subscription-info').slideDown('fast');
-    } else {
-      parentBox.find('.subscription-info').slideUp('fast');
-    }
-
-    adjustMaxHeight(parentBox);
-  }
-
-  function togglePriceDisplay(parentBox, isSubscriptionSelected) {
-    var pricesToHide = isSubscriptionSelected ? '.real-price.buy-once, .total-price.buy-once' : '.real-price.subscription, .total-price.subscription';
-    var pricesToShow = isSubscriptionSelected ? '.real-price.subscription, .total-price.subscription' : '.real-price.buy-once, .total-price.buy-once';
-
-    parentBox.find(pricesToHide).fadeOut('fast', function() {
-      parentBox.find(pricesToShow).fadeIn('fast').css("display","inline-block");
-    });
-  }
-
-  function updateSelection(element) {
-    let container = $("#product-actions-{{ section_id }}");
-    container.find(".purchase-option-box").removeClass("selected");
-    container.find(".purchase-option-box input[type='radio']").prop('checked', false);
-    $(element).addClass("selected").find('input').prop('checked', true);
-  }
-
-  function updateVariantImage(element) {
-    let slideIndex = calculateSlideIndex(element);
-    window.productSliderAllInOne{{ shortSectionID }}.slideTo(slideIndex);
-  }
-
-  function calculateSlideIndex(element) {
-    return window.productSliderAllInOne{{ shortSectionID }}.slides.length - ({{ product.variants.size | plus: 1 }} - $(element).attr('data-index'));
-  }
-
-  function buyButtonHandler(variant_id, subscription_selling_plan_id, buttonElement) {
-    toggleButtonLoading(buttonElement, true);
-    if (isSubscriptionSelected()) {
-      buySubscription(variant_id, 1, subscription_selling_plan_id);
-    } else {
-      redirectToCheckout(variant_id);
-    }
-  }
-
-  function isSubscriptionSelected() {
-    return $('#product-actions-{{ section_id }} .purchase-option-box.selected').find('.purchase-type .subscription.selected').length > 0;
-  }
-
-  function redirectToCheckout(variant_id) {
-    let checkoutLink = "https://" + location.hostname + "/cart/" + variant_id + ":1";
-    window.location.href = checkoutLink;
-  }
-
-  function toggleButtonLoading(buttonElement, isLoading) {
-    let loader = $(buttonElement).closest('.purchase-option-box').find('.loader');
-    let buttonText = $(buttonElement).find('.button-text');
-
-    if (loader.length === 0) {
-        console.error("Loader element not found");
-        return;
-    }
-
-    if (isLoading) {
-        loader.show();
-        buttonText.hide();
-    } else {
-        loader.hide();
-        buttonText.show();
-    }
-  }
-
-  function clearCart(callback) {
-    jQuery.ajax({
-      type: 'POST',
-      url: '/cart/clear.js',
-      success: function() {
-        console.log('Cart cleared');
-        callback();
-      },
-      error: function() {
-        console.log('Failed to clear cart');
+      if (isLoading) {
+          loader.show();
+          buttonText.hide();
+      } else {
+          loader.hide();
+          buttonText.show();
       }
-    });
-  }
+    }
 
-  function buySubscription(variant_id, qty, selling_plan) {
-    clearCart(function() {
-      data = {
-        "id": variant_id,
-        "quantity": qty,
-        "selling_plan": selling_plan
-      }
-
+    function clearCart(callback) {
       jQuery.ajax({
         type: 'POST',
-        url: '/cart/add.js',
-        data: data,
-        dataType: 'json',
+        url: '/cart/clear.js',
         success: function() {
-          console.log('success');
-          window.location.href = '/checkout';
+          console.log('Cart cleared');
+          callback();
         },
         error: function() {
-          console.log('Failed to add item to cart');
+          console.log('Failed to clear cart');
         }
       });
-    });
-  }
+    }
+
+    function buySubscription(variant_id, qty, selling_plan) {
+      clearCart(function() {
+        data = {
+          "id": variant_id,
+          "quantity": qty,
+          "selling_plan": selling_plan
+        }
+
+        jQuery.ajax({
+          type: 'POST',
+          url: '/cart/add.js',
+          data: data,
+          dataType: 'json',
+          success: function() {
+            console.log('success');
+            window.location.href = '/checkout';
+          },
+          error: function() {
+            console.log('Failed to add item to cart');
+          }
+        });
+      });
+    }
+  });
 </script>
 
 <style>
