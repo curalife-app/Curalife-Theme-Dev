@@ -4,31 +4,47 @@
     let urlParams = new URLSearchParams(window.location.search);
     urlDontPassParams.forEach(param => urlParams.delete(param));
 
-    document.querySelectorAll("[href]").forEach(link => {
-      let currentLink = link.getAttribute('href');
-      let isFullUrl = currentLink.startsWith("http://") || currentLink.startsWith("https://");
-      let baseUrl = isFullUrl ? currentLink : `${window.location.protocol}//${window.location.host}`;
-      let url = new URL(baseUrl);
+    let queryString = urlParams.toString() ? "?" + urlParams.toString() : "";
+    let currentHostname = window.location.hostname;
 
-      urlParams.forEach((value, key) => {
-        if (!url.searchParams.has(key)) {
-          url.searchParams.set(key, value);
+    if (queryString) {
+      document.querySelectorAll("[href]").forEach(link => {
+        let currentLink = link.getAttribute('href');
+
+        console.log(currentLink)
+        console.log(currentHostname)
+
+        if (currentLink.startsWith("/") || currentLink.startsWith(".") ||
+          (currentLink.startsWith("http") && currentLink.includes(currentHostname))) {
+
+          let url = new URL(currentLink, `http://${currentHostname}`);
+          let linkParams = new URLSearchParams(url.search);
+
+          // Only add parameters from urlParams if they do not already exist in linkParams
+          urlParams.forEach((value, key) => {
+            if (!linkParams.has(key)) {
+              linkParams.set(key, value);
+            }
+          });
+
+          url.search = linkParams.toString();
+          link.setAttribute('href', url.pathname + url.search);
         }
       });
 
-      link.setAttribute('href', url.href);
-    });
+      let blogLinks = $("header li a span:contains('Blog')").parent();
+      let blogUrl = new URL("https://curalife.com/blogs/blog", `http://${currentHostname}`);
+      let blogParams = new URLSearchParams(blogUrl.search);
 
-    // Special handling for blog links
-    let blogLinks = $("header li a span:contains('Blog')").parent();
-    let blogUrl = new URL("https://curalife.com/blogs/blog", window.location.origin);
+      // Only add parameters from urlParams if they do not already exist in blogParams
+      urlParams.forEach((value, key) => {
+        if (!blogParams.has(key)) {
+          blogParams.set(key, value);
+        }
+      });
 
-    urlParams.forEach((value, key) => {
-      if (!blogUrl.searchParams.has(key)) {
-        blogUrl.searchParams.set(key, value);
-      }
-    });
-
-    blogLinks.attr("href", blogUrl.href);
+      blogUrl.search = blogParams.toString();
+      blogLinks.attr("href", blogUrl.pathname + blogUrl.search);
+    }
   });
 </script>
