@@ -10,14 +10,13 @@
     if (queryString) {
       document.querySelectorAll("[href]").forEach(link => {
         let currentLink = link.getAttribute('href');
+        let isFullUrl = currentLink.startsWith("http://") || currentLink.startsWith("https://");
 
-        if (currentLink.startsWith("/") || currentLink.startsWith(".") ||
-          (currentLink.startsWith("http") && currentLink.includes(currentHostname))) {
-
-          let url = new URL(currentLink, `http://${currentHostname}`);
+        if (currentLink.startsWith("/") || currentLink.startsWith(".") || isFullUrl) {
+          let baseUrl = isFullUrl ? '' : `${window.location.protocol}//${currentHostname}`;
+          let url = new URL(currentLink, baseUrl);
           let linkParams = new URLSearchParams(url.search);
 
-          // Only add parameters from urlParams if they do not already exist in linkParams
           urlParams.forEach((value, key) => {
             if (!linkParams.has(key)) {
               linkParams.set(key, value);
@@ -25,8 +24,7 @@
           });
 
           url.search = linkParams.toString();
-          console.log(url.pathname + url.search);
-          link.setAttribute('href', url.pathname + url.search);
+          link.setAttribute('href', url.href);
         }
       });
 
