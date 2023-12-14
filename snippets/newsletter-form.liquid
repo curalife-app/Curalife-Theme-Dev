@@ -118,106 +118,56 @@
 </style>
 
 <script>
-  function getGeo() {
-    $.get("https://geo.curalife.com/", function(data) {
-      let country = JSON
-        .parse(data)
-        .country;
-      $('[data-name="lead_geo"]').val(country);
-    });
-  }
-
-  function getOperatingSys() {
-    var os = 'unknown';
-    if (navigator.userAgent.indexOf("Win") != -1) os = "Windows";
-    if (navigator.userAgent.indexOf("Mac") != -1) os = "MacOS";
-    if (navigator.userAgent.indexOf("X11") != -1) os = "UNIX";
-    if (navigator.userAgent.indexOf("Linux") != -1) os = "Linux";
-    return os;
-  }
-
-  const getDeviceType = () => {
-    let ua = navigator.userAgent;
-    if (/(tablet|ipad|playbook|silk)|(android(?!.*mobi))/i.test(ua)) {
-      return "tablet";
-    }
-    if (/Mobile|iP(hone|od)|Android|BlackBerry|IEMobile|Kindle|Silk-Accelerated|(hpw|web)OS|Opera M(obi|ini)/.test(ua)) {
-      return "mobile";
-    }
-    return "desktop";
-  };
-
-  window.onload = function() {
-    let queryString = window.location.search;
-    let urlParams = new URLSearchParams(queryString);
-    $('[data-name="lead_source"]').val("NewsLetter");
-    $('[data-name="lead_utm_source"]').val(urlParams.get('utm_source'));
-    $('[data-name="lead_utm_medium"]').val(urlParams.get('utm_medium'));
-    $('[data-name="lead_utm_campaign"]').val(urlParams.get('utm_campaign'));
-    $('[data-name="lead_utm_term"]').val(urlParams.get('utm_term'));
-    $('[data-name="lead_utm_content"]').val(urlParams.get('utm_content'));
-    $('[data-name="lead_source_date"]').val(new Date().toUTCString());
-    $('[data-name="lead_os"]').val(getOperatingSys());
-    $('[data-name="lead_device"]').val(getDeviceType());
-    $('[data-name="lead_url"]').val(window.location.href);
-    getGeo();
-  }
-
-  function runAfterElementExists(jquery_selector, callback) {
-    var checker = window.setInterval(function () {
-      if ($(jquery_selector).length) {
-        clearInterval(checker);
-        callback();
+  document.addEventListener('DOMContentLoaded', function() {
+    let observer = new MutationObserver((mutations, obs) => {
+      const subscribeButton = document.querySelector('.go2198125486');
+      if (subscribeButton) {
+        obs.disconnect();
+        subscribeButton.addEventListener('click', handleNewsletterSubscribe);
       }
-    }, 200);
-  }
+    });
 
-  runAfterElementExists(".go2198125486", function () {
-    $('.go2198125486').on('click', function() {
-      let email = $('#email_87364185').val();
+    observer.observe(document, { childList: true, subtree: true });
+
+    function handleNewsletterSubscribe() {
+      const emailInput = document.getElementById('email_87364185');
+      if (emailInput) {
+        trackNewsletterSubscribe(emailInput.value);
+      } else {
+        console.error('Email input not found');
+      }
+    }
+
+    // Define your tracking function here
+    function trackNewsletterSubscribe(email) {
       console.log('Event Tracking: newsletter_subscribe', email);
 
       woopra.identify({'email': email});
-      woopra.track('newsletter subscribe', {}, {
-        queue: true
-      });
-
-      console.log('Event Tracking: newsletter_subscribe', 'click');
-    });
-  })
-
-  // Woopra Subscribe Event Tracking
-  document.addEventListener('submit', function(e) {
-    const form = e.target;
-    const formData = new FormData(form);
-    const entries = formData.entries();
-    const data = Object.fromEntries(entries);
-
-    console.log('Event Tracking: newsletter_subscribe', form);
-    console.log('Event Tracking: newsletter_subscribe', data);
-    console.log('Event Tracking: newsletter_subscribe', data["email"]);
-
-    for (var key in data) {
-      var fieldEl = form.querySelector(`[name="${key}"]`);
-      if (fieldEl.type === 'password') {
-        delete data[key];
-      }
-    }
-
-    if (form.className.indexOf('klaviyo-form') !== -1) {
-      console.log('Event Tracking: newsletter_signup');
-
-      window.dataLayer = window.dataLayer || [];
-      window.dataLayer.push({
-        'event' : 'newsletter_signup'
-      });
-
-      woopra.identify({
-      'email': data["email"]
-      });
-      woopra.track('newsletter subscribe', {}, {
-        queue: true
-      });
+      woopra.track('newsletter subscribe', {}, {queue: true});
     }
   });
+
+
+  // function runAfterElementExists(jquery_selector, callback) {
+  //   var checker = window.setInterval(function () {
+  //     if ($(jquery_selector).length) {
+  //       clearInterval(checker);
+  //       callback();
+  //     }
+  //   }, 200);
+  // }
+
+  // runAfterElementExists(".go2198125486", function () {
+  //   $('.go2198125486').on('click', function() {
+  //     let email = $('#email_87364185').val();
+  //     console.log('Event Tracking: newsletter_subscribe', email);
+
+  //     woopra.identify({'email': email});
+  //     woopra.track('newsletter subscribe', {}, {
+  //       queue: true
+  //     });
+
+  //     console.log('Event Tracking: newsletter_subscribe', 'click');
+  //   });
+  // })
 </script>
