@@ -22,9 +22,9 @@
 
 {% unless hideSection %}
   <section id="section-{{ section.id }}" class="text-image text-image-{{ section.id }} {% if section.settings.is_sticky %}sticky-banner{% endif %} {% if section.settings.is_image_overlap %}min-h-[500px] md:min-h-auto{% endif %} {% if section.settings.is_decor_relative_full %}static{% endif %} {% unless section.settings.is_dynamic_height %}min-h-400px{% endunless %} {% if section.settings.is_remove_padding_top %}pt-0{% endif %} {% if section.settings.is_remove_padding_bottom %}pb-0{% endif %} {% if section.settings.display_on_utm_parmeters != blank %}!hidden{% endif %} {% if section.settings.is_image_overlap_style %}mb-[150px] md:mb-0{% endif %} {{ section.settings.section_additional_classes }}">
-    <div class="container flex flex-col justify-center text-center {% if section.settings.is_decor_relative_full %}static{% endif %}">
+    <div class="container main-container flex flex-col justify-center text-center {% if section.settings.is_decor_relative_full %}static{% endif %}">
       {% if section.settings.main_title != blank or section.settings.main_subtitle != blank %}
-        {% render 'title', section_id: section.id, title: section.settings.main_title, title_tag: 'h2', subtitle: section.settings.main_subtitle, title_color: section.settings.main_title_color, title_swoosh_color: section.settings.title_swoosh_color, span_color: section.settings.title_highlight_color, padding_bottom: 30, is_reverse: is_reverse_main_titles %}
+        {% render 'title', section_id: section.id, title: section.settings.main_title, title_tag: 'h2', subtitle: section.settings.main_subtitle, title_color: section.settings.main_title_color, title_swoosh_color: section.settings.title_swoosh_color, span_color: section.settings.title_highlight_color, padding_bottom: 30, is_reverse: section.settings.is_reverse_main_titles %}
       {% endif %}
 
       {% render 'text-image',
@@ -38,6 +38,7 @@
         title: section.settings.title,
         subtitle: section.settings.subtitle,
         content: section.settings.content,
+        title_icon: section.settings.title_icon,
         content_width: section.settings.content_width,
         text_size: section.settings.text_size,
         title_tag: section.settings.title_tag,
@@ -122,8 +123,8 @@
       }
     {% endif %}
 
-    #section-{{ section.id }} .container {
-      max-width: {{ section.settings.max_width }}px !important;
+    #section-{{ section.id }} .container.main-container {
+      max-width: {{ section.settings.max_width }}px;
 
       {% if section.settings.bg_width == 'container' %}
         {% unless section.settings.bg_color contains 'rgba(0,0,0,0)' %}background-color: {{ section.settings.bg_color }};{% endunless %}
@@ -133,9 +134,15 @@
         width: unset;
       {% endif %}
 
+      {% if section.settings.container_bg_color != blank %}
+        background: {{ section.settings.container_bg_color }};
+        padding: 1rem;
+        border-radius: 5px;
+      {% endif %}
+
       {% if section.settings.border_color != blank %}
-        border-bottom: 1px solid {{ section.settings.border_color }};
-        padding-bottom: 30px;
+        border: 1px solid {{ section.settings.border_color }};
+        padding: 1rem;
       {% endif %}
 
       {% if section.settings.is_full_width %}
@@ -265,11 +272,6 @@
       "content": "Main Title"
     },
     {
-      "type": "color",
-      "id": "main_title_color",
-      "label": "Main Title Color"
-    },
-    {
       "type": "text",
       "id": "main_title",
       "label": "Main Title"
@@ -278,6 +280,16 @@
       "type": "text",
       "id": "main_subtitle",
       "label": "Main Subtitle"
+    },
+    {
+      "type": "color",
+      "id": "main_title_color",
+      "label": "Main Title Color"
+    },
+    {
+      "type": "checkbox",
+      "id": "is_reverse_main_titles",
+      "label": "Reverse Main Titles"
     },
     {
       "type": "header",
@@ -319,6 +331,11 @@
       "label": "Content"
     },
     {
+      "type": "text",
+      "id": "title_icon",
+      "label": "Title Icon (fa class)"
+    },
+    {
       "type": "header",
       "content": "Colors"
     },
@@ -336,6 +353,11 @@
       "type": "color",
       "id": "text_color",
       "label": "Text Color"
+    },
+    {
+      "type": "color",
+      "id": "container_bg_color",
+      "label": "Container Background Color"
     },
     {
       "type": "color",
@@ -601,11 +623,6 @@
       "type": "checkbox",
       "id": "is_dont_lazyload",
       "label": "Don't Lazyload Image"
-    },
-    {
-      "type": "checkbox",
-      "id": "is_reverse_main_titles",
-      "label": "Reverse Main Titles"
     },
     {
       "type": "header",
