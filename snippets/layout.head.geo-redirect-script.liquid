@@ -46,10 +46,16 @@
 
 {% unless admin %}
   <script>
-    function redirectTo(url) {
-      const path = window.location.pathname;       // Get the current path
-      const queryString = window.location.search;  // Get the query string
-      window.location.href = url + path + queryString; // Redirect with both path and query string
+    function redirectTo(url, keepPath) {
+      let redirectUrl = url;
+
+      if (keepPath) {
+        const path = window.location.pathname;       // Get the current path
+        const queryString = window.location.search;  // Get the query string
+        redirectUrl += path + queryString;           // Append path and query string if needed
+      }
+
+      window.location.href = redirectUrl;
     }
 
     function detectRobot(userAgent) {
@@ -90,11 +96,11 @@
       };
 
       if (countryUrls[country]) {
-        redirectTo(countryUrls[country]);
+        redirectTo(countryUrls[country], false);
       } else if (host === 'USA' && !countriesUs.includes(country) && !{{ isBlog }}) {
-        redirectTo('https://global.curalife.com');
+        redirectTo('https://global.curalife.com', true);
       } else if (host === 'Global' && countriesUs.includes(country) && !{{ isBlog }}) {
-        redirectTo('https://curalife.com');
+        redirectTo('https://curalife.com', true);
       }
     }
 
