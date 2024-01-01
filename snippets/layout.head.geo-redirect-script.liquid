@@ -19,14 +19,19 @@
   <script>console.log("Redirect Cause User Is Employee")</script>
 {% endif %}
 
-{%- comment -%} remove redirect for blog pages {%- endcomment -%}
 {% assign isBlog = false %}
 {% if request.path contains '/blogs/' %}
   {% assign isBlog = true %}
   <script>console.log("Redirect Disabled For Blog")</script>
 {% endif %}
 
-{%- comment -%} remove redirect for affiliate page {%- endcomment -%}
+{% assign isCuralinSubPage = false %}
+{% if request.path contains '/products/curalin-pack-sub' %}
+  {% assign isCuralinSubPage = true %}
+  {% assign redirectGlobalToPath = 'products/curalin' %}
+  <script>console.log("Redirect Adjusted for Curalin Subscription Page")</script>
+{% endif %}
+
 {% if request.path contains '/pages/curalin-clinically-tested-blood-sugar-support' %}
   {% assign admin = true %}
   <script>console.log("Redirect Disabled For Affiliate Page")</script>
@@ -92,7 +97,11 @@
       if (countryUrls[country]) {
         redirectTo(countryUrls[country], false);
       } else if (host === 'USA' && !countriesUs.includes(country) && !{{ isBlog }}) {
-        redirectTo('https://global.curalife.com', true);
+        if ({{ isCuralinSubPage }}) {
+          redirectTo('https://global.curalife.com/{{ redirectGlobalToPath }}', false);
+        } else {
+          redirectTo('https://global.curalife.com', true);
+        }
       } else if (host === 'Global' && countriesUs.includes(country) && !{{ isBlog }}) {
         redirectTo('https://curalife.com', true);
       }
