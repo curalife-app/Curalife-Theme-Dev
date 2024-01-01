@@ -44,132 +44,120 @@
 
 
 {% unless admin %}
-  <script defer>
-    function createRedirectOverlay() {
-      // Create the overlay div
-      var overlay = document.createElement('div');
-      overlay.id = 'redirect-overlay';
-      overlay.style.position = 'fixed';
-      overlay.style.top = '0';
-      overlay.style.left = '0';
-      overlay.style.width = '100%';
-      overlay.style.height = '100%';
-      overlay.style.background = 'rgba(0, 0, 0, 0.5)';
-      overlay.style.zIndex = '10000';
-      overlay.style.justifyContent = 'center';
-      overlay.style.alignItems = 'center';
-      overlay.style.textAlign = 'center';
-      overlay.style.display = 'flex';
-
-      // Create the message div
-      var message = document.createElement('div');
-      message.className = 'redirect-message';
-      message.style.color = 'white';
-      message.style.fontSize = '1.5em';
-      message.style.marginBottom = '20px';
-      message.innerText = 'Redirecting to the right store by country';
-
-      // Append the message to the overlay
-      overlay.appendChild(message);
-
-      // Append the overlay to the body
-      document.body.appendChild(overlay);
-    }
-
-    function redirectTo(url, keepPath) {
-      let redirectUrl = url;
-
-      if (keepPath) {
-        const path = window.location.pathname;       // Get the current path
-        const queryString = window.location.search;  // Get the query string
-        redirectUrl += path + queryString;           // Append path and query string if needed
-      }
-
-      // Create and display the overlay
-      createRedirectOverlay();
-
-      // Wait for 3 seconds before redirecting
-      setTimeout(function() {
-        window.location.href = redirectUrl;
-      }, 3000);
-    }
-
-    function detectRobot(userAgent) {
-      const combinedRobotRegex = /bot|spider|crawl|APIs-Google|AdsBot|Googlebot|mediapartners|Google Favicon|FeedFetcher|Google-Read-Aloud|DuplexWeb-Google|googleweblight|bing|yandex|baidu|duckduck|yahoo|ecosia|ia_archiver|facebook|instagram|pinterest|reddit|slack|twitter|whatsapp|youtube|semrush/;
-
-      return combinedRobotRegex.test(userAgent);
-    }
-
-    function getCountryFromService() {
-      return fetch('https://geo.curalife.com/')
-        .then(response => response.json())
-        .then(data => data.country)
-        .catch(error => {
-          console.error('Error fetching country data:', error);
-          return null;
-        });
-    }
-
-    function handleRedirectionForCountry(country) {
-      const host = location.hostname === 'global.curalife.com' ? 'Global' : 'USA';
-      const countriesUs = ['US', 'PR', 'CA', 'AU'];
-      const countryUrls = {
-        'LT': 'https://curalife.lv',
-        'LV': 'https://curalife.lv',
-        'AT': 'https://curalife.at',
-        'KW': 'https://trycuralife.com'
-      };
-
-      if (countryUrls[country]) {
-        redirectTo(countryUrls[country], false);
-      } else if (host === 'USA' && !countriesUs.includes(country) && !{{ isBlog }}) {
-        if ({{ isCuralinSubPage }}) {
-          redirectTo('https://global.curalife.com/{{ redirectGlobalToPath }}', false);
-        } else {
-          redirectTo('https://global.curalife.com', true);
-        }
-      } else if (host === 'Global' && countriesUs.includes(country) && !{{ isBlog }}) {
-        redirectTo('https://curalife.com', true);
-      }
-    }
-
-    const userAgent = navigator.userAgent;
-    const isRobot = detectRobot(userAgent);
-
-    if (!isRobot) {
-      const cachedCountry = localStorage.getItem('country');
-      if (cachedCountry) {
-        handleRedirectionForCountry(cachedCountry);
+  <script>
+    (function checkBodyAndInitialize() {
+      if (document.body) {
+        initRedirectionScript();
       } else {
-        getCountryFromService().then(country => {
-          if (country) {
-            localStorage.setItem('country', country);
-            handleRedirectionForCountry(country);
+        setTimeout(checkBodyAndInitialize, 10); // Check again after 10 milliseconds
+      }
+    })();
+
+    function initRedirectionScript() {
+      function createRedirectOverlay() {
+        // Create the overlay div
+        var overlay = document.createElement('div');
+        overlay.id = 'redirect-overlay';
+        overlay.style.position = 'fixed';
+        overlay.style.top = '0';
+        overlay.style.left = '0';
+        overlay.style.width = '100%';
+        overlay.style.height = '100%';
+        overlay.style.background = 'rgba(0, 0, 0, 0.5)';
+        overlay.style.zIndex = '10000';
+        overlay.style.justifyContent = 'center';
+        overlay.style.alignItems = 'center';
+        overlay.style.textAlign = 'center';
+        overlay.style.display = 'flex';
+
+        // Create the message div
+        var message = document.createElement('div');
+        message.className = 'redirect-message';
+        message.style.color = 'white';
+        message.style.fontSize = '1.5em';
+        message.style.marginBottom = '20px';
+        message.innerText = 'Redirecting to the right store by country';
+
+        // Append the message to the overlay
+        overlay.appendChild(message);
+
+        // Append the overlay to the body
+        document.body.appendChild(overlay);
+      }
+
+      function redirectTo(url, keepPath) {
+        let redirectUrl = url;
+
+        if (keepPath) {
+          const path = window.location.pathname;       // Get the current path
+          const queryString = window.location.search;  // Get the query string
+          redirectUrl += path + queryString;           // Append path and query string if needed
+        }
+
+        // Create and display the overlay
+        createRedirectOverlay();
+
+        // Wait for 3 seconds before redirecting
+        setTimeout(function() {
+          window.location.href = redirectUrl;
+        }, 3000);
+      }
+
+      function detectRobot(userAgent) {
+        const combinedRobotRegex = /bot|spider|crawl|APIs-Google|AdsBot|Googlebot|mediapartners|Google Favicon|FeedFetcher|Google-Read-Aloud|DuplexWeb-Google|googleweblight|bing|yandex|baidu|duckduck|yahoo|ecosia|ia_archiver|facebook|instagram|pinterest|reddit|slack|twitter|whatsapp|youtube|semrush/;
+
+        return combinedRobotRegex.test(userAgent);
+      }
+
+      function getCountryFromService() {
+        return fetch('https://geo.curalife.com/')
+          .then(response => response.json())
+          .then(data => data.country)
+          .catch(error => {
+            console.error('Error fetching country data:', error);
+            return null;
+          });
+      }
+
+      function handleRedirectionForCountry(country) {
+        const host = location.hostname === 'global.curalife.com' ? 'Global' : 'USA';
+        const countriesUs = ['US', 'PR', 'CA', 'AU'];
+        const countryUrls = {
+          'LT': 'https://curalife.lv',
+          'LV': 'https://curalife.lv',
+          'AT': 'https://curalife.at',
+          'KW': 'https://trycuralife.com'
+        };
+
+        if (countryUrls[country]) {
+          redirectTo(countryUrls[country], false);
+        } else if (host === 'USA' && !countriesUs.includes(country) && !{{ isBlog }}) {
+          if ({{ isCuralinSubPage }}) {
+            redirectTo('https://global.curalife.com/{{ redirectGlobalToPath }}', false);
+          } else {
+            redirectTo('https://global.curalife.com', true);
           }
-        });
+        } else if (host === 'Global' && countriesUs.includes(country) && !{{ isBlog }}) {
+          redirectTo('https://curalife.com', true);
+        }
+      }
+
+      const userAgent = navigator.userAgent;
+      const isRobot = detectRobot(userAgent);
+
+      if (!isRobot) {
+        const cachedCountry = localStorage.getItem('country');
+        if (cachedCountry) {
+          handleRedirectionForCountry(cachedCountry);
+        } else {
+          getCountryFromService().then(country => {
+            if (country) {
+              localStorage.setItem('country', country);
+              handleRedirectionForCountry(country);
+            }
+          });
+        }
       }
     }
   </script>
-
-  <style>
-    .redirect-overlay {
-      display: none;
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.5);
-      z-index: 10000;
-      justify-content: center;
-      align-items: center;
-      text-align: center;
-    }
-
-    .redirect-message {
-      color: white;
-      font-size: 1.5em;
-      margin-bottom: 20px;
-    }
-  </style>
 {% endunless %}
