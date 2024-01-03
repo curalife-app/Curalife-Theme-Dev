@@ -4,7 +4,7 @@
     <div class="container">
       <div class="data-wrap">
         <div class="sub-title">
-          <h3><b>{{ section.settings.title_1 }}</b> {{ section.settings.title_2 }}</h3>
+          <h2>{{ section.settings.title_1 }} {{ section.settings.title_2 }}</h2>
         </div>
 
         <div class="success-list">
@@ -56,6 +56,10 @@
     margin-bottom: 3.375rem;
     position: relative;
     z-index: 1
+  }
+
+  .survey .success-list ul li::before {
+    content: '';
   }
 
   .survey .success-list ul li:last-child {
@@ -201,33 +205,56 @@
 </style>
 
 <script>
-const counters = document.querySelectorAll('.survey .success-list ul li .percentage p span');
-const countingSpeed = 6000;
-let animateCounters = true;
+document.addEventListener('DOMContentLoaded', () => {
+  const counters = document.querySelectorAll('.percentage span[data-count]');
+  let animateCounters = true;
 
-window.addEventListener('scroll', (e) => {
-  let last_known_scroll_position = window.scrollY;
-   if (counters && animateCounters && window.innerHeight > document.querySelector('.survey .data-wrap').getBoundingClientRect().top && window.innerHeight < document.querySelector('.survey .data-wrap').getBoundingClientRect().top + document.querySelector('.survey .line').getBoundingClientRect().top) {
-    animateCounters = false;
-    counters.forEach(counter => {
-      const animate = () => {
-        const value = parseFloat(+counter.getAttribute('data-count'));
-        const dataLine = counter.closest('li').querySelector('.line span');
-        const data = +counter.innerText;
+  const animate = (counter) => {
+    const value = parseFloat(counter.getAttribute('data-count'));
+    const dataLine = counter.closest('.survey-item').querySelector('.line span');
+    let data = +counter.innerText;
 
-        const time = value / countingSpeed;
-        if (data < value) {
-          counter.innerText = Math.ceil(data + time);
-          dataLine.style.width = Math.ceil(data + time) + '%';
-          setTimeout(animate, 0.1);
-        } else {
-          counter.innerText = value;
-          dataLine.style.width = value + '%';
+    const time = value / 6000;
+    if (data < value) {
+      counter.innerText = Math.ceil(data + time);
+      dataLine.style.width = counter.innerText + '%';
+      setTimeout(() => animate(counter), 1);
+    } else {
+      counter.innerText = value;
+      dataLine.style.width = value + '%';
+    }
+  };
+
+  const onScroll = () => {
+    if (animateCounters) {
+      counters.forEach(counter => {
+        const dataWrapTop = document.querySelector('.survey .container').getBoundingClientRect().top;
+        const windowHeight = window.innerHeight;
+        if (windowHeight > dataWrapTop) {
+          animateCounters = false;
+          animate(counter);
         }
-      }
-      animate();
-    });
-  }
+      });
+    }
+  };
+
+  // Debounce function to optimize performance
+  const debounce = (func, wait = 20, immediate = true) => {
+    let timeout;
+    return () => {
+      const context = this, args = arguments;
+      const later = () => {
+        timeout = null;
+        if (!immediate) func.apply(context, args);
+      };
+      const callNow = immediate && !timeout;
+      clearTimeout(timeout);
+      timeout = setTimeout(later, wait);
+      if (callNow) func.apply(context, args);
+    };
+  };
+
+  window.addEventListener('scroll', debounce(onScroll));
 });
 </script>
 
