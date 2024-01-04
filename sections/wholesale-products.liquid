@@ -2,26 +2,32 @@
   <section id="wholesale-products-{{ section.id }}">
     <div class="container">
       <div class="products flex justify-center gap-8">
-        {% for wholesale_product in section.settings.wholesale_products %}
-          {% assign wholesale_product_id = wholesale_product.id %}
-          {% assign wholesale_product_variant_id = wholesale_product.selected_or_first_available_variant.id %}
-          <script>console.log("id: {{ wholesale_product_id }}")</script>
-          <script>console.log("variant id: {{ wholesale_product_variant_id }}")</script>
-          <div class="product flex w-[400px] gap-4 p-2 items-center">
+        {% for prod in section.settings.wholesale_products %}
+          <div class="product flex w-[400px] gap-4 p-2 items-center" data-product-id="{{ prod.id }}">
             <div class="left w-[25%]">
-              <img src="{{ wholesale_product.featured_image | img_url: 'medium' }}" alt="{{ wholesale_product.title }}">
+              <img src="{{ prod.featured_image | img_url: 'medium' }}" alt="{{ prod.title }}">
             </div>
             <div class="right w-[75%]">
-              <h6>{{ wholesale_product.title }}</h6>
-              <p>{{ wholesale_product.price | money }}</p>
+              <h6>{{ prod.title }}</h6>
+              <p>{{ prod.price | money }}</p>
 
               <div class="submit-wrap">
                 <script src="{{ 'product-info.js' | asset_url }}" defer="defer"></script>
                 <script src="{{ 'product-form.js' | asset_url }}" defer="defer"></script>
 
                 <product-form class="product-form" data-hide-errors="false" data-section-id="{{ section.id }}">
-                  {%- form 'product', wholesale_product -%}
-                    <input type="hidden" name="id" value="{{ wholesale_product_variant_id }}" disabled class="product-variant-id">
+                  <div class="product-form__error-message-wrapper" role="alert" hidden>
+                    <svg aria-hidden="true" focusable="false" class="icon icon-error" viewBox="0 0 13 13">
+                      <circle cx="6.5" cy="6.50049" r="5.5" stroke="white" stroke-width="2"/>
+                      <circle cx="6.5" cy="6.5" r="5.5" fill="#EB001B" stroke="#EB001B" stroke-width="0.7"/>
+                      <path d="M5.87413 3.52832L5.97439 7.57216H7.02713L7.12739 3.52832H5.87413ZM6.50076 9.66091C6.88091 9.66091 7.18169 9.37267 7.18169 9.00504C7.18169 8.63742 6.88091 8.34917 6.50076 8.34917C6.12061 8.34917 5.81982 8.63742 5.81982 9.00504C5.81982 9.37267 6.12061 9.66091 6.50076 9.66091Z" fill="white"/>
+                      <path d="M5.87413 3.17832H5.51535L5.52424 3.537L5.6245 7.58083L5.63296 7.92216H5.97439H7.02713H7.36856L7.37702 7.58083L7.47728 3.537L7.48617 3.17832H7.12739H5.87413ZM6.50076 10.0109C7.06121 10.0109 7.5317 9.57872 7.5317 9.00504C7.5317 8.43137 7.06121 7.99918 6.50076 7.99918C5.94031 7.99918 5.46982 8.43137 5.46982 9.00504C5.46982 9.57872 5.94031 10.0109 6.50076 10.0109Z" fill="white" stroke="#EB001B" stroke-width="0.7">
+                    </svg>
+                    <span class="product-form__error-message"></span>
+                  </div>
+
+                  {%- form 'product', prod, id: prod.id, class: 'form', novalidate: 'novalidate', data-type: 'add-to-cart-form' -%}
+                    <input type="hidden" name="id" value="{{ prod.selected_or_first_available_variant.id }}" disabled class="product-variant-id">
 
                     <div class="product-form__buttons main-submit-wrapper flex">
                       <div class="qty">
@@ -31,7 +37,7 @@
                           <i class="decrement" onclick="updateQuantity('-')">-</i>
                         </div>
                       </div>
-                      <button id="ProductSubmitButton-{{ section.id }}" type="submit" name="add" class="product-form__submit button button--full-width button--primary">
+                      <button id="ProductSubmitButton-{{ section_id }}" type="submit" name="add" class="product-form__submit button button--full-width button--primary">
                         <span>Add To Cart</span>
                         <div class="loading-overlay__spinner hidden">
                           <svg aria-hidden="true" focusable="false" class="spinner" viewBox="0 0 66 66" xmlns="http://www.w3.org/2000/svg">
@@ -42,6 +48,7 @@
                     </div>
                   {%- endform -%}
                 </product-form>
+                <script>$('form#product_form_{{ prod.id }}').find('input[name=id]').val('{{ prod.selected_or_first_available_variant.id }}')</script>
               </div>
             </div>
           </div>
