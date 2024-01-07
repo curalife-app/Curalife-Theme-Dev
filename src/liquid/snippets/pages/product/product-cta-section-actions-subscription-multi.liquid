@@ -18,7 +18,7 @@
       {% assign subscription_item_price = original_item_cap | minus: subscription_item_price_save %}
       {% assign subscription_total_price = subscription_item_price | times: bottle_quantity %}
 
-    <div class="purchase-option-box flex flex-col items-start p-4 overflow-hidden {% if forloop.first %}selected{% endif %}" data-variant="{{ variant_id }}" data-subscription-selling-plan-id="{{ var.metafields.subscription.selling_plan_id }}" data-price="{{ var.price | money_without_currency | replace: ".00", "" }}" data-sku="{{ var.sku }}" data-index="{{ forloop.index }}">
+      <div class="purchase-option-box flex flex-col items-start p-4 overflow-hidden {% if forloop.first %}selected{% endif %}" data-variant="{{ variant_id }}" data-subscription-selling-plan-id="{{ var.metafields.subscription.selling_plan_id }}" data-price="{{ var.price | money_without_currency | replace: ".00", "" }}" data-sku="{{ var.sku }}" data-index="{{ forloop.index }}" data-item-price="{{ item_price }}" data-subscription-item-price="{{ subscription_item_price }}" data-original-item-cap="{{ original_item_cap }}">
         <div class="top-wrapper md:gap-2 flex items-center w-full gap-4 pb-4">
           <div class="radio-box"><input type="radio"></input><label for="buyonce"></label></div>
 
@@ -44,7 +44,7 @@
           <div class="calculations flex items-center gap-2 font-bold leading-10">
             <div class="real-price no-letters text-[40px] subscription"><span class="floor rounded">{{ subscription_item_price | money_without_trailing_zeros }}</span></div>
             <div class="real-price no-letters text-[40px] buy-once hidden"><span class="floor rounded">{{ item_price | money_without_trailing_zeros }}</span></div>
-            {% if original_item_price > item_price %}<div class="compared-at-price rounded line-through text-[30px] font-normal text-[#baced5]">{{ original_item_cap | money_without_trailing_zeros }}</div>{% endif %}
+            <div class="compared-at-price rounded line-through text-[30px] font-normal text-[#baced5]">{{ original_item_cap | money_without_trailing_zeros }}</div>
           </div>
           <div class="font-bold">Per Month</div>
         </div>
@@ -84,7 +84,7 @@
         const box = $(this);
         togglePurchaseType(box, box.find('.purchase-type .subscription').hasClass('selected'));
         box.css('max-height', index === 0 ? this.scrollHeight + 'px' : '54px')
-           .find("input[type='radio']").prop('checked', index === 0);
+          .find("input[type='radio']").prop('checked', index === 0);
       });
     }
 
@@ -119,6 +119,23 @@
     function adjustMaxHeight(element) {
       var openHeight = $(element).get(0).scrollHeight;
       $(element).css('max-height', openHeight + 'px');
+    }
+
+    function updateComparedAtPriceDisplay(parentBox) {
+      let isSubscriptionSelected = parentBox.find('.purchase-type .subscription').hasClass('selected');
+
+      let itemPrice = parseFloat(parentBox.data('item-price'));
+      let subscriptionItemPrice = parseFloat(parentBox.data('subscription-item-price'));
+      let originalItemCap = parseFloat(parentBox.data('original-item-cap'));
+
+      let currentPrice = isSubscriptionSelected ? subscriptionItemPrice : itemPrice;
+
+      let comparedAtPriceElement = parentBox.find('.compared-at-price');
+      if (originalItemCap > currentPrice) {
+        comparedAtPriceElement.fadeIn();
+      } else {
+        comparedAtPriceElement.fadeOut();
+      }
     }
 
     function togglePurchaseBox(element) {
@@ -166,6 +183,7 @@
       }
 
       adjustMaxHeight(parentBox);
+      updateComparedAtPriceDisplay(parentBox);
     }
 
     function togglePriceDisplay(parentBox, isSubscriptionSelected) {
@@ -313,7 +331,6 @@
       color: #fff;
   }
 </style>
-
 
 <style>
   .cta-section-{{ section_id }} .product-actions {
