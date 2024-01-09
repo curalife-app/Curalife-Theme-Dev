@@ -1,23 +1,57 @@
 <header class="simple-header">
   <div class="main-container container">
     <div class="header-content flex items-center justify-between p-4">
+      <!-- Logo -->
       <div class="header__logo">
         <img class="max-h-[50px]" src="{{ section.settings.logo_img | image_url }}" alt="{{ shop.name }}">
       </div>
 
+      <!-- Mobile Menu Icon -->
+      <div class="menu-icon" onclick="toggleMenu()">
+        <i class="fa-light fa-bars"></i>
+      </div>
+
+      <!-- Navigation Links -->
       <div class="header-links flex items-center gap-8">
         {% for block in section.blocks %}
-          <a {% if block.settings.is_button_style %}class="link-button"{% endif %} href="{{ block.settings.link_url }}" {% if block.settings.link_new_tab %}target="_blank"{% endif %}>{{ block.settings.link_title }}</a>
+          <a {% if block.settings.is_button_style %}class="link-button"{% endif %} href="{% if shop.name == 'CuraLife Global' %}{{ block.settings.link_url_global }}{% else %}{{ block.settings.link_url }}{% endif %}" {% if block.settings.link_new_tab %}target="_blank"{% endif %}>
+            {{ block.settings.link_title }}
+          </a>
         {% endfor %}
       </div>
     </div>
   </div>
 </header>
 
+<script>
+  function toggleMenu(forceClose = false) {
+    const links = document.querySelector('.header-links');
+    const logo = document.querySelector('.header__logo');
+    const menuIcon = document.querySelector('.menu-icon');
+
+    // Condition to either toggle or force close the menu
+    if (forceClose || links.classList.contains('mobile-visible')) {
+      links.classList.remove('mobile-visible');
+      logo.classList.remove('hidden');
+      menuIcon.classList.remove('hidden');
+    } else {
+      links.classList.add('mobile-visible');
+      logo.classList.add('hidden');
+      menuIcon.classList.add('hidden');
+    }
+  }
+
+  // Attaching event listeners to each link
+  document.querySelectorAll('.header-links a').forEach(link => {
+    link.addEventListener('click', () => toggleMenu(true));
+  });
+</script>
+
 <style>
+  /* Original Styles */
   header.simple-header {
-    background-color: {{ section.settings.bg_color }};
-    color: {{ section.settings.text_color }};
+    background-color: {{ section.settings.bg_color }}; /* Assuming you have a CSS variable for bg-color */
+    color: {{ section.settings.text_color }}; /* Assuming you have a CSS variable for text-color */
   }
 
   header.simple-header .header-links a.link-button {
@@ -25,6 +59,52 @@
     color: black;
     border-radius: 30px;
     padding: 0.5rem 1rem;
+  }
+
+  /* Styles for Menu Icon (Hamburger Icon) */
+  header .menu-icon {
+    display: none; /* Hidden on larger screens */
+    color: white;
+  }
+
+  /* Responsive Styles for Mobile */
+  @media (max-width: 768px) {
+    header .header__logo img {
+      max-height: 40px; /* Smaller logo for mobile */
+    }
+
+    header .header-links {
+      display: none; /* Hidden by default */
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: {{ section.settings.bg_color }}; /* Ensure this color provides contrast */
+      z-index: 1000; /* Front of other elements */
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+    }
+
+    /* Displaying links when mobile-visible class is added */
+    header .header-links.mobile-visible {
+      display: flex; /* This will show the links */
+    }
+
+    header .header-links a {
+      font-size: 1.5rem; /* Larger text for full screen links */
+      padding: 1rem; /* Larger padding */
+    }
+
+    header .menu-icon,
+    header .header__logo {
+      display: block;
+    }
+
+    header .hidden {
+      display: none; /* Hide when menu is open */
+    }
   }
 </style>
 
@@ -62,6 +142,11 @@
           "type": "url",
           "id": "link_url",
           "label": "Link URL"
+        },
+        {
+          "type": "url",
+          "id": "link_url_global",
+          "label": "Link URL on Global"
         },
         {
           "type": "checkbox",
