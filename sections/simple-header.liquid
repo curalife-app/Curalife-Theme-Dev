@@ -28,16 +28,25 @@
 <script>
   function toggleMenu(forceClose = false) {
     const header = document.querySelector('.simple-header');
-    header.classList.toggle('mobile-visible', !forceClose);
+    const isMenuVisible = header.classList.contains('mobile-visible');
 
-    // Event delegation for closing menu on link click
-    header.addEventListener('click', (event) => {
-      if (event.target.tagName === 'A') {
-        toggleMenu(true);
-      }
-    });
+    if (forceClose || isMenuVisible) {
+      header.classList.remove('mobile-visible');
+    } else {
+      header.classList.add('mobile-visible');
+    }
+
+    // Attach event listener only if the menu is opened
+    if (!isMenuVisible) {
+      header.addEventListener('click', (event) => {
+        if (event.target.tagName === 'A') {
+          toggleMenu(true);
+        }
+      });
+    }
   }
 
+  // This part may not be needed if we are using event delegation in the toggleMenu function
   document.querySelectorAll('.header-links a').forEach(link => {
     link.addEventListener('click', () => toggleMenu(true));
   });
@@ -87,6 +96,10 @@
       flex-direction: column;
       justify-content: center;
       align-items: center;
+    }
+
+    header.simple-header.mobile-visible .header-links {
+      display: flex;
     }
 
     header .header-links.mobile-visible {
