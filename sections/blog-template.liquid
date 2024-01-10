@@ -1,0 +1,70 @@
+<div class="blog-page">
+  <div class="container">
+    <div class="mini-wrap">
+      {% paginate blog.articles by 9 %}
+      <div class="page-title">
+        <div class="sub-title">
+          <h1>{{ blog.title }}</h1>
+          <p>{{ section.settings.blg_des }}</p>
+        </div>
+
+        <div class="blog-category">
+          <div class="category-wrap">
+            <div class="touch-scroll">
+              <div class="scroll-wrap">
+                <ul>
+                  <li  {% if current_tags == blank  %} class="active" {% endif%} ><a href="{{ blog.url }}">All</a></li>
+                  {% for tag in blog.all_tags %}
+                  {% assign crTag = tag  %}
+                  {% if current_tags contains crTag  %}
+                  {% assign cls="active" %}
+                  {% else %}
+                  {% assign cls="" %}
+                  {% endif %}
+                  <li class="{{cls}}"  > <a href="{{ blog.url }}/tagged/{{ tag | handleize }}">{{ tag }}</a></li>
+                  {% endfor %}
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="article-list">
+        {% for article in blog.articles %}
+          {% if forloop.index <= 2 %}
+            {% assign desc = true %}
+          {% else %}
+            {% assign desc = false %}
+          {% endif %}
+          {% render 'blog-card-grid', article: article, description: desc %}
+        {% endfor %}
+      </div>
+      {%- if paginate.pages > 1 -%}
+      {% assign totalPage = paginate.pages %}
+          {% render 'blog-pagination', paginate: paginate, totalPage:totalPage %}
+        {%- endif -%}
+      {% endpaginate %}
+    </div>
+  </div>
+</div>
+
+{% render 'newsletter-form' %}
+
+{% schema %}
+  {
+    "name": "Blog",
+    "settings": [
+      {
+        "type": "text",
+        "id": "blg_des",
+        "label": "Blog Description",
+        "default": "Enter Blog Description"
+      },
+      {
+        "type": "image_picker",
+        "id": "authr_blgimg",
+        "label": "Select Author Image"
+      }
+    ]
+  }
+{% endschema %}

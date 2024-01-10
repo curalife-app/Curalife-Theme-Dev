@@ -1,0 +1,21 @@
+{% comment %}
+This file needs to be created in your templates. Create a template for search and name it to json.
+The final file name would be search.json.liquid
+{% endcomment %}
+{% layout none %}
+{% comment %} Inspired by: http://ecommerce.shopify.com/c/ecommerce-design/t/diy-implementing-autocomplete-with-search-144104 {% endcomment %}
+{% paginate search.results by 10 %}
+ {% capture output %}
+ {% for result in search.results %}
+        {% assign thumbURL = result.images[0] | product_img_url: 'thumb' %}
+
+        {"title":"{{ result.title | replace: '\\', '\\\\' | replace: '"', '\\"' | replace:  '/','\\/' }}",
+           "url":"{{ result.url   | replace: '\\', '\\\\' | replace: '"', '\\"' | replace:  '/','\\/' }}",
+         "thumb":"{{ thumbURL     | replace: '\\', '\\\\' | replace: '"', '\\"' | replace:  '/','\\/' }}",
+            "id":{{result.id}} }{% unless forloop.last %},{% endunless %}
+    {% endfor %}
+{% endcapture %}
+
+{% comment %} Output the json object {% endcomment %}
+{"results_total":{{paginate.items}},"results":[{{ output | strip_newlines }}]}
+{% endpaginate %}

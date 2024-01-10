@@ -1,0 +1,234 @@
+<div class="container-fluid" style="position:relative; margin-top: 45px">
+  	{% if section.settings.newsleter-bg-image != 'blank' %}
+      <img class="d-none d-lg-block" src="{{ section.settings.newsleter-bg-image | img_url: 'master'}}" style="position:absolute; width: 20vw;  max-width: 240px; bottom: -60px;right: 0;z-index: 10" loading="lazy" />
+	{% endif %}
+      <div class="row">
+        <div class="col-12 col-lg-6">
+          <div class="offset-lg-1">
+            <div class="d-none d-lg-block" style="height:35px"></div>
+			{% if section.settings.title  != 'blank' %} 
+              <div class="responsive-h1" style="font-weight:700; line-height: 1.25">
+                   {{ section.settings.title }}
+              </div>
+            {% endif %}
+            {% if section.section.subheading != 'blank' %}
+              <div style="font-weight: 600">
+					{{ section.settings.subheading }}
+              </div>
+            {% endif %}
+            <div class="d-none d-lg-block" style="height: 16px"></div>
+            <div style="font-weight: 600">
+              <table>
+                <tr>
+                  <td style="vertical-align: bottom">
+                    <ls-static-433874>by</ls-static-433874>
+                  </td>
+                  {% if section.settings.newsleter-site-logo != 'blank' %}
+                  <td>
+                    <img src="{{ section.settings.newsleter-site-logo | img_url: 'master'}}" style="margin-left: 2px; margin-bottom: 6px; width: 130px; min-width: 100px; max-width: 26vw; height: auto"  loading="lazy" />
+                  </td>
+                  {% endif %}
+                </tr>
+              </table>
+            </div>
+			 {% if section.settings.newsletter-description != 'blank' %}
+              <div style="margin-top: 24px">
+                	{{ section.settings.newsletter-description }}
+                <br class="d-none d-lg-block" /><br class="d-none d-lg-block" />
+              </div>
+            {% endif %}
+
+            <div style="height: 20px"></div>
+            
+			
+            {% if section.settings.newsletter-form == 'true' %}
+            <div class="signupForm">
+              <style>
+                .signupForm .hide {
+                  display: none!important;
+                }
+                .signupForm .errors ul {
+                  list-style: none;
+                  padding: 0;
+                  margin: 0;
+                  font-size: 20px;
+                  margin: 0px;
+                  color: #c1272d;
+                  margin-bottom: 10px;
+                }
+                .signupForm .errors ul li {
+                  padding: 5px 0;
+                }
+                .signupForm #newsletter_text {
+                  width: 100%;
+                  max-width: 440px;
+                  padding: 10px 20px;
+                  border-radius: 30px;
+                  border: 1px solid #18446b;
+                  margin-left: -14px;
+                  outline: none;
+                }
+                .signupForm #newsletter_submit {
+                  margin-top: 14px;
+                  font-size: 1.4em;
+                  background: #39B34A;
+                  color: #FFFFFF;
+                  font-weight: 700;
+                  border: none;
+                  border-radius: 30px;
+                  padding: 6px;
+                  width: 100%;
+                  max-width: 230px;
+                  text-align: center;
+                  outline: none;
+                }
+                .signupForm #newsletter-wrapper p {
+                  margin: 0;
+                  padding: 0 0 14px 0;
+                  font-weight: 600;
+                  white-space: nowrap;
+                }
+              </style>
+              {% if customer %}
+              
+              {% form 'customer', name: "subscription" %}
+              {{ form.errors | default_errors }}
+              <input type="hidden" name="contact[tags]" value="newsletter">
+              
+              <div {% unless form.posted_successfully? %}class="hide"{% endunless %}>
+                <div class="lds-dual-ring newsletter-spinner hide"></div>
+                <p class="note form-success">
+                  <strong>{{ 'general.newsletter_form.thanks' | t }}</strong>
+                </p>
+              </div>
+              {% if customer.accepts_marketing == true %}
+              <input type="hidden" name="contact[email]" id="Email" value="{{ customer.email }}">
+              <div class="errors{% if form.posted_successfully? %} hide{% endif %}"><ul><li><ls-static-622207>You already subscribed.</ls-static-622207></li></ul></div>
+              <script>
+                let formData = new FormData(document.forms.subscription);
+                let xhr = new XMLHttpRequest();
+                xhr.withCredentials = true;
+                xhr.open("POST", "http://loyalty.curalife.com/?source=US&email={{ customer.email }}");
+                         xhr.send(formData);
+                xhr.onload = () => console.log(xhr.response);
+              </script>
+              {% else %}
+              <div id="newsletter-wrapper" {% if form.posted_successfully? %}class="hide"{% endif %}>
+                <p><ls-static-945569>Enter your email address to join</ls-static-945569></p>
+                <input id="newsletter_text" type="email" value="{% if customer %}{{ customer.email }}{% endif %}" placeholder="{{ 'general.newsletter_form.newsletter_text' | t }}" name="contact[email]" id="Email" class="input-group-field email" aria-label="{{ 'general.newsletter_form.newsletter_text' | t }}" autocorrect="off" autocapitalize="off" required="required" >
+                <button type="submit" id="newsletter_submit" name="commit"><ls-static-799717>Send ></ls-static-799717></button>
+              </div>
+              {% endif %}
+              {% endform %}
+              
+              
+              {% else %}
+              <div class="errors"><ul><li><ls-static-761529>You need to login first!</ls-static-761529></li></ul></div>
+              {% endif %}	
+            </div>
+            {% endif %}	
+            
+            
+
+            <div class="d-lg-none" style="height: 140px"></div>
+          </div>
+        </div>
+		
+        {% if section.settings.newsleter-banner-image != 'blank' %}
+          <div class="col-12 col-lg-6 d-none d-lg-block text-center" style="padding: 0 60px 0 60px">
+           	 <img src="{{ section.settings.newsleter-banner-image | img_url: 'master'}}" style="width: 100%; max-width: 470px"  loading="lazy" />
+          </div> 
+        {% endif %}
+      </div>
+</div>    
+
+{% schema %}
+{
+    "name": {
+        "en": "Newsletter Header",
+        "de": "Newsletter-Header",
+        "es": "Encabezado del boletín",
+        "fr": "En-tête de la newsletter",
+        "pt-PT": "Cabeçalho do boletim informativo"
+    },
+    "class": "newsletter-section-header",
+    "settings": [
+		{
+          "type": "image_picker",
+          "id": "newsleter-bg-image",
+          "label": {
+				"en":"Background Image",
+				"de": "Hintergrundbild",
+             	"es": "Imagen de fondo",
+             	"fr": "Image de fond",
+              	"pt-PT": "Imagem de fundo"
+			}
+		},
+		{
+          "type": "text",
+          "id": "title",
+          "label": {
+              "en": "Heading",
+              "de": "Überschrift",
+              "es": "Encabezado",
+              "fr": "Rubrique",
+              "pt-PT": "Título"
+          }
+        },
+        {
+          "type": "html",
+          "id": "subheading",
+          "label": {
+            "en": "Subheading",
+            "de": "Unterüberschrift",
+            "es": "Subencabezado",
+            "fr": "Sous-rubrique",
+            "pt-PT": "Subtítulo"
+          }
+        },
+		{
+          "type": "image_picker",
+          "id": "newsleter-site-logo",
+          "label": {
+				"en":"Logo Image",
+				"de": "Logo Bild",
+             	"es": "Logotipo",
+             	"fr": "Image logo",
+              	"pt-PT": "Imagem do logotipo"
+			}
+		},
+        {
+            "id": "newsletter-description",
+            "type": "html",
+            "label": {
+              "en": "Description",
+              "de": "Description",
+              "es": "descripción",
+              "fr": "La description",
+              "pt-PT": "Descrição"
+            }
+        },
+		{
+          "type": "radio",
+          "id": "newsletter-form",
+          "label": "Newsletter Form",
+          "default": "true",
+          "options": [
+          	{ "value": "true", "label": "Show form" },
+          	{ "value": "false", "label": "Hide form" }
+          ]
+        },
+		{
+          "type": "image_picker",
+          "id": "newsleter-banner-image",
+          "label": {
+				"en":"Image",
+				"de": "Bild",
+             	"es": "Imagen",
+             	"fr": "Image",
+              	"pt-PT": "Imagem"
+			}
+		}
+    ]
+}
+{% endschema %}

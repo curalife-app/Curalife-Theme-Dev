@@ -1,0 +1,199 @@
+<div class="catalog-page">
+  <div class="container">
+    <div class="mini-wrap">
+      <h1>Choose Your CuraLin Bundle</h1>
+      <div class="product-list">
+        {% for product in collection.products  -%}
+        <div class="product-card" style="width: calc(100% / {{ collection.products.size }})">
+            <div class="wrap">
+              <div class="picture">
+                {% if section.settings.prdct_bgimg != blank %}
+                  <div class="bg">
+                    <img src="{{section.settings.prdct_bgimg | img_url: '383x254' }}"  width="376px" height="270px" alt="">
+                  </div>
+                {% endif %}
+
+                {% if product.featured_image.src != blank %}
+                  <a href="{{ product.url }}">
+                    <div class="img">
+                      <img src="{{ product.featured_image.src | img_url: '367x265' }}" width="376px" height="265px" alt="">
+                    </div>
+                  </a>
+                {% endif %}
+
+                  {% assign quantity = product.metafields.my_fields.pack_items_quantity %}
+                  {% assign quantity_by_cents = quantity | times: 100 %}
+                  {% assign item_price = product.price | divided_by: quantity_by_cents | times: 100 %}
+                  {% assign original_item_price = product.metafields.my_fields.original_item.value.price %}
+
+                  {% if localization.country.iso_code == 'CA' %}
+                    {% assign cap = product.metafields.my_fields.ca_cap %}
+                  {% elsif localization.country.iso_code == 'AU' %}
+                    {% assign cap = product.metafields.my_fields.au_cap %}
+                  {% else %}
+                    {% assign cap = product.compare_at_price | money_without_currency | replace: ".00", "" %}
+                  {% endif %}
+                  <script>console.log("cap: {{cap}}");console.log("prod: {{product.price}}");</script>
+                  {% if quantity > 1 %}
+                  <div class="discount">
+                    <p>SAVE {{ cap | times: 100.0 | minus: product.price | money_with_currency | replace: ".00", "" | replace: "AUD", "" | replace: "CAD", "" }}</p>
+                  </div>
+                  {% elsif product.compare_at_price_max > product.price %}
+                  <div class="discount" style="display:none">
+                    <p>{{ product.compare_at_price_max | minus: product.price | times: 100.0 | divided_by: product.compare_at_price_max | money_without_currency | times: 100 | remove: '.0'}}% discount</p>
+                  </div>
+                  {% endif %} 
+              </div>
+              <div class="info">
+                <div class="main">
+                  <div class="name">
+                    <h3>
+                      {% if product.metafields.my_fields.alternative_title.value %}
+                      <a href="{{ product.url }}">{{ product.metafields.my_fields.alternative_title.value }}</a>
+                      {% else %}
+                      <a href="{{ product.url }}">{{ product.title }}</a>
+                      {% endif %}
+                    </h3>
+                  </div>
+                  <p class="supply-days">Up To {{ product.metafields.my_fields.supply_days }} Days Supply</p>
+                  <div class="price">
+                    {% if quantity > 1 %}
+                      <p id="divided-price">{{ item_price | money_with_currency | replace: ".00", "" }}<strike>{{ original_item_price | money_with_currency | replace: ".00", "" | replace: "AUD", "" | replace: "CAD", "" }}</strike> Per Bottle</p>
+                    {% elsif product.compare_at_price > product.price %}
+                      <p id="discounted-price">{{ product.price | money_with_currency | replace: ".00", "" }}<strike>{{ product.compare_at_price | money_with_currency | replace: ".00", "" | replace: "AUD", "" | replace: "CAD", "" }}</strike></p>
+                    {% else %}
+                      <p id="original-price">{{ product.price | money_with_currency | replace: ".00", "" }}</p>
+                    {% endif %}
+                  </div>
+                  {% unless forloop.index == 1 %}
+                  <img class="free-shipping geo" src="{{ "collection-free-shipping-badge.png" | asset_img_url: 'compact' }}" width="160px" height="28px" alt="" loading="lazy" style="display:none">
+                  {% endunless %}
+                </div>
+                <form action="/cart/add" method="post">
+                  <input type="hidden" name="id" value="{{ product.variants.first.id }}"/>
+                  <input name="return_to" type="hidden" value="/cart/">
+
+                  <div class="btn">
+                    <button class="main-btn" id='AddTCart' type="submit" title="{{product.title}}" prod-id="{{product.selected_or_first_available_variant.sku}}" price="{{product.selected_or_first_available_variant.price | money_without_currency}}" discount="{% if product.compare_at_price > product.price %}{{ product.compare_at_price | minus: product.price | times: 0.01 }}{% else %}0{% endif %}"><i class="icon-cart"></i>Add To Cart</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.catalog-page h1 {
+  text-align: center;
+  padding-top: 30px;
+}
+
+.price p strike {
+  color: #01C6B2;
+}
+
+.supply-days {
+  font-size: 16px;
+  text-align: center;
+  line-height: 0;
+  font-weight: 200;
+}
+
+.free-shipping {
+  margin-top: 5px;
+}
+
+.product-card .picture .discount {
+  background-image: url({{ 'collection-product-badge.png' | asset_url }});
+  background-repeat: no-repeat;
+  background-size: contain;
+  position: absolute;
+  top: 5px;
+  right: 0;
+  left: auto;
+  width: 100px;
+  height: 100px;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.product-card .picture .discount p {
+  background: unset;
+  font-size: 22px;
+  font-weight: bold;
+  border: 0;
+  color: black;
+}
+
+.product-card .picture:after {
+  background-image: url({{ 'ellipse.svg' | asset_url }});
+}
+
+@media screen and (max-width: 760px) {
+  .product-card {
+    width: 100% !important;
+  }
+}
+</style>
+
+<script>
+  $(document).on("click", "#AddTCart", function () {
+    window.dataLayer = window.dataLayer || [];
+    window.dataLayer.push({
+      event: 'add_to_cart',       
+      ecommerce: {                          
+      items: [{                           
+        item_name: $(this).attr("title"),
+        item_id: $(this).attr("prod-id"),
+        affiliation: '{{ shop.name }}',
+        price: $(this).attr("price"),
+        currency: '{{ shop.currency }}',
+        item_brand: 'CuraLife',
+        item_category: 'CuraLin',
+        quantity: 1               
+      }]
+      },
+      email: '{{ customer.email }}',
+      phone: '{{ customer.phone }}',
+      name: '{{ customer.first_name }}',
+      surname: '{{ customer.last_name }}',
+      city: '{{ customer.customer_address.city }}',
+      state: '{{ customer.customer_address.province }}',
+      zip: '{{ customer.customer_address.zip }}',
+      country: '{{customer.customer_address.country_code | t}}',
+      user_agent: navigator.userAgent
+    });
+
+    woopra.track('add to cart', {
+      product_sku: $(this).attr("prod-id"),
+      product_name: $(this).attr("title"),
+      product_price: $(this).attr("price"),
+      currency: '{{ shop.currency }}',
+      quantity: 1
+    });
+  });
+</script> 
+
+{% schema %}
+{
+  "name": "Collection Products",
+  "class": "collection-products",
+  "settings": [
+    {
+      "type": "image_picker",
+      "id": "prdct_bgimg",
+      "label": "Select Product Background Image"
+    }, {
+      "type": "image_picker",
+      "id": "clcbnr_btmimg",
+      "label": "Select Bottom Banner Image"
+    }
+  ]
+}
+{% endschema %}

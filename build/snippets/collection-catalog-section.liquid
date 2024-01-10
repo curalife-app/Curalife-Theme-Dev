@@ -1,0 +1,124 @@
+<section id="collections-catalog-section">
+  <div class="container">
+    <ul class="category-tabs">
+      <li><a href="#" data-collection-handle="all" class="active">All</a></li>
+      {% for collection_handle in collectionsHandles %}
+        <li><a href="#" data-collection-handle="{{ collection_handle }}" data-collection-description="{{ collections[collection_handle].description }}" {% if request.path contains collection.handle %}class="active"{% endif %}>{{ collections[collection_handle].title }}</a></li>
+      {% endfor %}
+    </ul>
+
+    {% for collection_handle in collectionsHandles %}
+      {% if forloop.last %}
+        {% assign isLastCollectionRender = true %}
+      {% endif %}
+
+      <div class="collection-section" data-product-collections="{{ collection_handle }}" >
+        <h2>{{ collections[collection_handle].title }}</h2>
+        {% if isDescription %}
+          <p class="description">{{ collections[collection_handle].description }}</p>
+        {% endif %}
+
+        <div class="product-grid" {% if isHiddenCollections %}style="display: none"{% endif %}>
+          {% assign isProductCardLast = value %}
+          {% for product in collections[collection_handle].products %}
+            {% if forloop.last and isLastCollectionRender %}
+              {% assign isLastCardRender = true %}
+            {% endif %}
+
+            {% assign product_collections = product.collections | map: 'handle' | join: ' ' %}
+            {% render 'product-card-new', product: product, productCollections: product_collections, isLastRender: isLastCardRender %}
+          {% endfor %}
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+</section>
+
+<style>
+  #collections-catalog-section {
+    padding: 20px 0;
+    font-size: 20px;
+  }
+
+  #collections-catalog-section h2 {
+    margin: 20px 0;
+    font-size: 40px;
+  }
+
+  #collections-catalog-section .description {
+    max-width: 800px;
+    margin-bottom: 30px;
+  }
+
+  #collections-catalog-section .line {
+    border-bottom: 1px solid black;
+    width: 300px;
+    margin: 30px 0;
+  }
+
+  #collections-catalog-section .product-grid {
+    display: flex;
+    justify-content: start;
+    flex-wrap: wrap;
+    gap: 40px;
+  }
+
+  #collections-catalog-section .category-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 50px;
+    margin: 15px 0;
+  }
+
+  #collections-catalog-section .category-tabs li a {
+    color: var(--light-green);
+    padding: 10px 20px;
+    border-radius: 20px;
+    font-size: 20px;
+    transition: all 0.3s ease-in-out;
+  }
+
+  #collections-catalog-section .category-tabs li a.active {
+    background: var(--vomit);
+    color: var(--dark-green);
+  }
+
+  @media screen and (max-width: 768px) {
+    #collections-catalog-section h1 {
+      font-size: 10vw;
+    }
+
+    #collections-catalog-section .category-tabs {
+      gap: 1vw;
+    }
+
+    #collections-catalog-section .category-tabs li a {
+      padding: 1vw 4vw;
+      font-size: 5vw;
+    }
+  }
+</style>
+
+<script>
+  $('.category-tabs a').click(function (e) {
+    e.preventDefault();
+
+    $('.category-tabs a').removeClass('active');
+    $(this).addClass('active');
+
+    const collectionHandle = $(this).data('collection-handle');
+    if (collectionHandle == "all") {
+      $('.collection-section').fadeIn();
+      $('.category-badges-section').fadeOut();
+    }
+    else {
+      $('.collection-section').fadeOut();
+      $('.collection-section[data-product-collections*="' + collectionHandle + '"]').fadeIn();
+
+      $('.category-badges-section').fadeOut();
+      $('.category-badges-section[data-product-collections*="' + collectionHandle + '"]').fadeIn();
+    }
+  });
+
+  $('.category-tabs a[data-collection-handle="{{ activeCollection }}"]').click();
+</script>
