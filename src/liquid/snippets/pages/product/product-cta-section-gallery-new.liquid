@@ -10,6 +10,8 @@
   {% endif %}
 {% endif %}
 
+{%- assign first_3d_model = product.media | where: 'media_type', 'model' | first -%}
+
 <div id="product-thumbnails-{{ section_id }}" class="product-thumbnails">
   <div class="product-slider">
     <div class="sliders-group">
@@ -37,6 +39,13 @@
                     </div>
                   {% endif %}
                 {% endfor %}
+
+                {%- if first_3d_model -%}
+                  <div class="swiper-slide cursor-pointer !h-auto">
+                    <img class="object-contain p-1" src="https://cdn.shopify.com/s/files/1/0452/2459/1511/files/single_supp.png?v=1704621391" width="291" height="278" alt="Product Image" loading="lazy">
+                    <i class="fa-light fa-360-degrees model-icon"></i>
+                  </div>
+                {%- endif -%}
 
                 {% comment %} Render Vaiants on Thumbs Slider {% endcomment %}
                 {% comment %} {% unless isMultiplierVariants %}
@@ -85,6 +94,13 @@
                 {% endif %}
               {% endfor %}
 
+              {%- if first_3d_model -%}
+                <div class="swiper-slide">
+                  <model-viewer class="w-full h-[500px] md:h-[80vw]" alt="Curalin" src="{{ first_3d_model.sources.first.url }}" poster="//curalife.com/cdn/shop/files/curalinsdsdv.png?v=1704651801" shadow-intensity="1" camera-controls camera-orbit="300deg 80deg" auto-rotate></model-viewer>
+                </div>
+              {%- endif -%}
+
+
               {% comment %} Render Vaiants on Main Slider {% endcomment %}
               {% if isMultiplierVariants %}
                 {% for var in product.variants %}
@@ -131,6 +147,22 @@
 {% endunless %}
 
 <style>
+  {% if first_3d_model %}
+    #product-thumbnails-{{ section_id }} .model-icon {
+      position: absolute;
+      top: 25%;
+      left: 25%;
+      font-size: 10px;
+      color: white;
+      border-radius: 50%;
+      border: 2px solid white;
+      width: 30%;
+      height: 30%;
+      padding: 0.5rem;
+      background: rgba(255,255,255,0.2)
+    }
+  {% endif %}
+
   {% if badgeImage %}
     #product-thumbnails-{{ section_id }} .sale-badge {
       position: absolute;
@@ -198,7 +230,9 @@
   }
 
   #product-thumbnails-{{ section_id }} .product-slider .main-slider .nav::after {
-    font-size: 30px;
+    font-size: 12px;
+    color: var(--blue);
+    font-weight: bold;
   }
 
   #product-thumbnails-{{ section_id }} .product-slider .thumbs-slider .swiper-wrapper img {
@@ -217,6 +251,11 @@
   #product-thumbnails-{{ section_id }} .swiper-button-next {
     color: grey;
     transition: opacity .5s;
+    background: white;
+    border-radius: 50%;
+    width: 10vw;
+    height: 10vw;
+    box-shadow: 0px 3px 5px 0px rgba(0,0,0,0.15);
   }
 
   #product-thumbnails-{{ section_id }} .swiper-button-prev.disabled,
@@ -338,10 +377,11 @@
     slidesPerView: 1,
     spaceBetween: 15,
     watchSlidesVisibility: true,
-    grabCursor: true,
+    grabCursor: false,
     slideToClickedSlide: true,
     breakpoints: {
       0: {
+        allowTouchMove: false,
         navigation: {
           nextEl: '#product-main-slider-nav-next-{{ section_id }}',
           prevEl: '#product-main-slider-nav-prev-{{ section_id }}',
@@ -349,6 +389,7 @@
         }
       },
       760: {
+        allowTouchMove: false,
         navigation: {}
       }
     }
