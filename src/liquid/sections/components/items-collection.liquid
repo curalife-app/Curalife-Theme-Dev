@@ -31,13 +31,13 @@
 
           <{% if section.settings.is_slider %}swiper-slide{% else %}div{% endif %} class="item relative">
             <div class="item-content flex flex-col items-center justify-{% if section.settings.item_layout_mobile == 'row' %}start{% else %}center{% endif %} {% if section.settings.is_slider %}md:p-8{% endif %} p-4 md:p-1 text-center gap-4 m-auto">
-              <div class="img-wrapper">
+              <div class="img-wrapper flex items-center">
                 {% if block.settings.image or block.settings.image_mobile %}
                   <picture>
                     {% if block.settings.image_mobile %}
                       <source media="(max-width: 768px)" srcset="{{ block.settings.image_mobile | image_url }}" width="{{ block.settings.image_mobile.width }}" height="{{ block.settings.image_mobile.height }}">
                     {% endif %}
-                    <img class="max-h-350px m-0" src="{{ block.settings.image | image_url }}" alt="{{ block.settings.image.alt }}" width="{{ block.settings.image.width }}" height="{{ block.settings.image.height }}" loading="lazy">
+                    <img class="max-h-350px object-contain m-0" src="{{ block.settings.image | image_url }}" alt="{{ block.settings.image.alt }}" width="{{ block.settings.image.width }}" height="{{ block.settings.image.height }}" loading="lazy">
                   </picture>
                 {% elsif block.settings.icon != blank %}
                   <i class="{{ block.settings.icon }}"></i>
@@ -45,7 +45,7 @@
               </div>
               {% if block.settings.title != blank or block.settings.description != blank or block.settings.link_title != blank %}
                 <div class="text-wrapper flex flex-col gap-2 {% if section.settings.item_layout_mobile == 'row' %}md:items-start md:w-[70vw]{% endif %}">
-                  {% if block.settings.title != blank %}<h3 class="title-tag m-0 {{ section.settings.title_tag }}">{{ block.settings.title }}</h3>{% endif %}
+                  {% if block.settings.title != blank %}<h3 class="title-tag flex justify-center items-center m-0 {{ section.settings.title_tag }}">{{ block.settings.title }}</h3>{% endif %}
                   {% if block.settings.description != blank %}<div class="description">{{ block.settings.description }}</div>{% endif %}
                   {% if section.settings.link_style == 'a' %}
                     <a class="underline" href="{{ block.settings.link_url }}">{{ block.settings.link_title }}</a>
@@ -89,6 +89,47 @@
     </script>
   {% endif %}
 
+  <script>
+    function getMaxHeightOfElements(selector) {
+      var maxHeight = 0;
+      document.querySelectorAll(selector).forEach(function(element) {
+        element.style.height = '';
+        maxHeight = Math.max(maxHeight, element.offsetHeight);
+      });
+      return maxHeight;
+    }
+
+    function setHeightOfElements(selector, height) {
+      document.querySelectorAll(selector).forEach(function(element) {
+        element.style.height = height + 'px';
+      });
+    }
+
+    function adjustTitleHeight() {
+      var titleMaxHeight = getMaxHeightOfElements('.title-tag');
+      setHeightOfElements('.title-tag', titleMaxHeight);
+    }
+
+    function adjustImageWrapperHeight() {
+      var imageMaxHeight = 0;
+      document.querySelectorAll('.img-wrapper img').forEach(function(img) {
+        var attrHeight = parseInt(img.getAttribute('height'));
+        if (!isNaN(attrHeight)) {
+          imageMaxHeight = Math.max(imageMaxHeight, attrHeight);
+        }
+      });
+      setHeightOfElements('.img-wrapper', imageMaxHeight);
+    }
+
+    window.onload = adjustTitleHeight();
+    adjustImageWrapperHeight();
+
+
+    window.onresize = function() {
+      adjustTitleHeight();
+      adjustImageWrapperHeight();
+    };
+  </script>
 
   <style>
     #section-{{ section.id }} .items {
@@ -138,7 +179,7 @@
     }
 
     .items-collection .item-content .text-wrapper strong {
-      background: var(--dark-green);
+      background: var(--blue);
       color: white;
       border-radius: 5px;
       padding: 0 5px;
@@ -153,7 +194,7 @@
 
     .items-collection .item-content .description ul li::before {
       content: "✔";
-      background-color: #3A7684;
+      background-color: var(--blue);
       border-radius: 50%;
       color: white;
       font-size: 12px;
@@ -168,7 +209,7 @@
     }
 
     .items-collection .item-content .title-tag {
-      color: inherit;
+      color: {% if section.settings.item_title_color != transparent %}{{ section.settings.item_title_color }}{% else %}inherit{% endif %};
     }
 
     {% if section.settings.padding_top != 50 and section.settings.padding_top != blank %}
@@ -323,6 +364,11 @@
       "type": "color",
       "id": "title_color",
       "label": "Title Color"
+    },
+    {
+      "type": "color",
+      "id": "item_title_color",
+      "label": "Items Title Color"
     },
     {
       "type": "color",
