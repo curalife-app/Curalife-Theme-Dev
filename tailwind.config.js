@@ -17,6 +17,8 @@ module.exports = {
       md: { max: "768px" },
       lg: { max: "1024px" },
       xl: { max: "1200px" },
+      mbl: { max: "768px" },
+      dsk: { min: "768px"}
     },
     extend: {
       spacing: {
