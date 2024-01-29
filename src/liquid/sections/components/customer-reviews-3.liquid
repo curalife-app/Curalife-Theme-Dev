@@ -11,15 +11,15 @@
               <div class="name text-[26px] text-[#3A7684] mb-4">{{ review.settings.name }}</div>
               <div class="title font-italic mb-8 font-bold text-black">{{ review.settings.title }}</div>
               <div class="stars pb-6 text-center">{% for star in (1..5) %}<i class="fa-sharp fa-solid fa-star text-[#FFB22D] mr-1"></i>{% endfor %}</div>
-              <div class="quote text-black">{{ review.settings.quote }}</div>
+              <blockquote class="quote p-0 text-black border-0">{{ review.settings.quote }}</blockquote>
             </div>
           </div>
         {% endfor %}
       </div>
     </div>
 
-    <div class="swiper-nav swiper-button-prev"></div>
-    <div class="swiper-nav swiper-button-next"></div>
+    <div class="swiper-nav swiper-button-prev desktop"></div>
+    <div class="swiper-nav swiper-button-next desktop"></div>
     <div class="swiper-pagination mobile"></div>
   </div>
 </section>
@@ -30,31 +30,36 @@
 <style>
   :root {
     --swiper-navigation-sides-offset: -40px;
+    --swiper-navigation-sides-offset-mobile: -8vw;
     --swiper-pagination-bullet-height: 12px;
     --swiper-pagination-bullet-size: 12px;
+    --color-primary: #3A7684;
+    --color-star: #FFB22D;
+    --swiper-nav-size: 50px;
+    --swiper-nav-size-mobile: 10vw;
   }
 
   .customer-reviews .review.no-image .name {
     margin-top: 60px;
+    font-size: 26px;
   }
 
   .customer-reviews .review.no-image .quote {
     font-size: 26px;
   }
 
-  .customer-reviews .review.no-image .stars {
+  .customer-reviews .review:not(.no-image) .stars {
     position: absolute;
     bottom: 0;
   }
 
   .customer-reviews .swiper-nav::after {
-    color: #3A7684;
+    color: var(--color-primary);
     background: white;
-    border: 2px solid #3A7684;
-    border-left-width: 2px;
+    border: 2px solid var(--color-primary);
     border-radius: 50%;
-    min-width: 50px;
-    height: 50px;
+    min-width: var(--swiper-nav-size);
+    height: var(--swiper-nav-size);
     font-size: 30px;
     display: flex;
     align-items: center;
@@ -63,51 +68,44 @@
 
   @media screen and (max-width: 768px) {
     :root {
-      --swiper-navigation-sides-offset: -8vw;
+      --swiper-navigation-sides-offset: var(--swiper-navigation-sides-offset-mobile);
     }
 
     .customer-reviews .swiper-nav::after {
-      min-width: 10vw;
-      height: 10vw;
+      min-width: var(--swiper-nav-size-mobile);
+      height: var(--swiper-nav-size-mobile);
       font-size: 20px;
     }
 
     .customer-reviews .swiper-pagination {
-      bottom: -8vw;
+      bottom: var(--swiper-navigation-sides-offset-mobile);
     }
   }
 </style>
 
 <script>
-  const swiper = new Swiper('.customer-reviews .swiper', {
-    grabCursor: true,
-    slidesPerView: 3,
-    loop: true,
-    spaceBetween: 30,
-    autoplay: { delay: 5000 },
-    navigation: window.innerWidth < 768 ? false : {
-      nextEl: '.customer-reviews .swiper-button-next',
-      prevEl: '.customer-reviews .swiper-button-prev',
-    },
-    pagination: window.innerWidth > 768 ? false : {
-      el: '.customer-reviews .swiper-pagination',
-      clickable: true
-    },
-    autoHeight: window.innerWidth > 768 ? false : true
+  document.addEventListener('DOMContentLoaded', () => {
+    const swiper = new Swiper('.customer-reviews .swiper', {
+      grabCursor: true,
+      slidesPerView: 3,
+      loop: true,
+      spaceBetween: 30,
+      autoplay: { delay: 5000 },
+      navigation: {
+        nextEl: '.customer-reviews .swiper-button-next',
+        prevEl: '.customer-reviews .swiper-button-prev',
+      },
+      pagination: {
+        el: '.customer-reviews .swiper-pagination',
+        clickable: true
+      },
+      breakpoints: {
+        320: { slidesPerView: 1, spaceBetween: 10, autoHeight: true },
+        501: { slidesPerView: 2, spaceBetween: 20 },
+        725: { slidesPerView: 3, spaceBetween: 30 }
+      }
+    });
   });
-
-  window.onresize = queryResizer;
-  queryResizer();
-  function queryResizer() {
-    if (window.innerWidth >= 725) {
-        swiper.params.slidesPerView = 3;
-    } else if (window.innerWidth >= 501 && window.innerWidth < 725) {
-        swiper.params.slidesPerView = 2;
-    } else if (window.innerWidth < 501) {
-        swiper.params.slidesPerView = 1;
-    }
-    swiper.update();
-}
 </script>
 
 {% schema %}
