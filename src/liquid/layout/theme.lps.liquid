@@ -57,22 +57,52 @@
     </main>
     <script>console.log("LPS Page")</script>
 
-    <script>
-      // Ensure VWO is fully loaded
-      if (window.VWO && VWO.data && VWO.data.vi) {
-        var campaigns = VWO.data.vi;
+    {% if request.path contains 'thank-you-aff' %}
+      <script>
+        async function checkCookieAndContinue() {
+          async function waitForCookie(name, timeout = 30000) {
+            const checkInterval = 100; // milliseconds
+            const endTime = Date.now() + timeout;
 
-        for (var campaignId in campaigns) {
-          if (campaigns.hasOwnProperty(campaignId)) {
-            var variationId = campaigns[campaignId].combination_chosen;
-            console.log('Campaign ID:', campaignId, 'Variation ID:', variationId);
-            // You can then use these IDs as needed
+            // Poll for the cookie until it's found or timeout
+            while (Date.now() < endTime) {
+              const value = getCookie(name);
+              if (value) return value;
+              await new Promise((resolve) => setTimeout(resolve, checkInterval));
+            }
+
+            // Timeout reached, return undefined or handle as needed
+            return undefined;
+          }
+
+          // Your original getCookie function remains unchanged
+          function getCookie(name) {
+            var value = "; " + document.cookie;
+            var parts = value.split("; " + name + "=");
+            if (parts.length == 2)
+              return parts.pop().split(";").shift();
+          }
+
+          // Use await to wait for the cookie
+          const cookieValue = await waitForCookie("_vis_opt_exp_7_combi");
+
+          // Proceed based on the cookie value
+          if (cookieValue) {
+            if (cookieValue == "1") {
+              console.log("EXP: Original Variant");
+            } else if (cookieValue == "2") {
+              console.log("EXP: New Variant");
+              $(".bonuses .item img").first().attr("src", "https://cdn.shopify.com/s/files/1/0452/2459/1511/files/mealplan-gift.png?v=1706700418");
+            }
+          } else {
+            console.log("EXP: no cookie");
           }
         }
-      } else {
-        console.log('VWO data not available yet.');
-      }
-    </script>
+
+        // Call the function to execute
+        checkCookieAndContinue();
+      </script>
+    {% endif %}
 
     {% unless request.design_mode %}
       {% render 'layout.footer.woopra-snippet' %}
