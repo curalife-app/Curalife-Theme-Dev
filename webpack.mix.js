@@ -24,6 +24,7 @@ const paths = {
   build_layout_folder: 'Curalife-Theme-Build/layout',
   build_sections_folder: 'Curalife-Theme-Build/sections',
   build_snippets_folder: 'Curalife-Theme-Build/snippets',
+  build_blocks_folder: 'Curalife-Theme-Build/blocks',
   css_folder_files: 'src/styles/css/**',
   font_files: 'src/fonts/**/*.{woff,woff2,eot,ttf,otf}',
   image_files: 'src/images/**/*.{png,jpg,jpeg,gif,svg}',
@@ -32,6 +33,7 @@ const paths = {
   script_files: 'src/scripts/**/*.js',
   sections_folder_files: 'src/liquid/sections/**/*.liquid',
   snippets_folder_files: 'src/liquid/snippets/**/*.liquid',
+  blocks_folder_files: 'src/liquid/blocks/**/*.liquid',
   tailwindcss_file: 'src/styles/tailwind.scss'
 }
 
@@ -66,6 +68,7 @@ copyFiles(paths.image_files, paths.build_assets_folder, true);
 copyFiles(paths.layout_folder_files, paths.build_layout_folder);
 copyFiles(paths.sections_folder_files, paths.build_sections_folder);
 copyFiles(paths.snippets_folder_files, paths.build_snippets_folder);
+copyFiles(paths.blocks_folder_files, paths.build_blocks_folder);
 
 // processFiles('src/liquid/sections/pages/blogs/articles/article.liquid', '/')
 
