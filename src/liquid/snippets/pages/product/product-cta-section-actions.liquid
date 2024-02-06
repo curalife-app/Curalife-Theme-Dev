@@ -44,6 +44,10 @@
     {% endunless %} {% endcomment %}
   </div>
 
+  {% if customer.email == 'yotam@curalife.com' %}
+    <div class="subscriptions_app_embed_block"></div>
+  {% endif %}
+
   {% if customer %}
     {% unless customer.b2b? %}
       {% render 'yotpo-product-points-widget' %}
@@ -256,10 +260,18 @@
   const buyButton = document.querySelector('#product-actions-{{ section_id }} #buy-button');
   buyButton.addEventListener('click', function() {
     try {
+      let checkedVariantInput = document.querySelector('#product-actions-{{ section_id }} input[name=pack]:checked');
 
-      let packValue = document.querySelector('#product-actions-{{ section_id }} input[name=pack]:checked')?.value;
-      packValue = document.querySelector('#product-actions-{{ section_id }} input[name=pack]:checked').getAttribute("data-ref-variant") || packValue;
+      let packValue = checkedVariantInput?.value;
+      packValue = checkedVariantInput.getAttribute("data-ref-variant") || packValue;
       if (!packValue) throw new Error('No pack selected');
+
+      // Handle alternative checkout link
+      let checkoutLink = checkedVariantInput.getAttribute("data-checkout-link");
+      if (checkoutLink) {
+        window.location.href = checkoutLink;
+        return;
+      }
 
       let quantityValue = {% if isBuyQuantity %}document.querySelector('#product-actions-{{ section_id }} input[name=quantity]')?.value || 1{% else %}1{% endif %};
       window.location.href = `https://${location.hostname}/cart/${packValue}:${quantityValue}`;
