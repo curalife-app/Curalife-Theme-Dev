@@ -58,14 +58,23 @@
           <div class="per-month font-bold">Per Month</div>
         </div>
 
-        {% assign giftBundlesProductIDs = "8122558742679,8122155991191" | split: ',' %}
-        <div class="gift-products flex">
-          {% for prodID in giftBundlesProductIDs %}
-            <div class="gift-product" data-product-id="{{ prodID }}">
-              <img src="{{ all_products[prodID].images.first.src | image_url }}" alt="{{ all_products[prodID].title }}">
-            </div>
-          {% endfor %}
-        </div>
+        {% assign giftBundlesProductHandles = "joint-care,restful-sleep,magnesium-glycinate,immune-care" | split: ',' %}
+        {% if var.metafields.gifts.amount %}
+        <div class="gifts">
+            {% for i in (1..var.metafields.gifts.amount) %}
+              <div class="first:mt-2">Choose a gift:</div>
+              <div class="gift-products flex gap-2">
+                {% for prodHandle in giftBundlesProductHandles %}
+                  {% assign prod = all_products[prodHandle] %}
+                  <div class="gift-product flex flex-col items-center w-[80px]" data-product-id="{{ prod.id }}">
+                    <img class="active:bg-[--light-blue] border border-[--blue] rounded-md m-0" src="{{ prod.metafields.custom.bottle_image | image_url }}" alt="{{ prod.title }}">
+                    <p class="text-xs text-center">{{ prod.title }}</p>
+                  </div>
+                {% endfor %}
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
 
         <div class="submit-wrap flex flex-col w-full mt-4">
           <button class="main-btn p-0 bg-[--orange] hover:bg-[--dark-orange] min-h-[50px]" id="buy-button">
@@ -100,11 +109,19 @@
 
 {% render 'script.round-converted-currency' %}
 
+<style>
+  .gift-product.selected img {
+    background-color: var(--light-blue);
+    border-width: 2px;
+  }
+</style>
+
 <script>
   $(document).ready(function() {
     const productActions = $("#product-actions-{{ section_id }}");
     const purchaseOptionBoxes = productActions.find('.purchase-option-box');
 
+    handleGiftSelection();
     initializePurchaseOptions();
     setupMutationObserver();
     attachEventHandlers();
@@ -115,6 +132,58 @@
         togglePurchaseType(box, box.find('.purchase-type .subscription').hasClass('selected'));
         box.css('max-height', index === 0 ? this.scrollHeight + 'px' : '54px')
           .find("input[type='radio']").prop('checked', index === 0);
+      });
+    }
+
+    function handleGiftSelection() {
+      const productActions = $("#product-actions-{{ section_id }}");
+      productActions.on('click', '.gift-product', function() {
+        const giftsElement = $(this).closest('.gifts');
+        const currentlySelectedGifts = giftsElement.find('.gift-product.selected');
+
+        $(this).siblings('.selected').removeClass('selected');
+        $(this).addClass('selected');
+
+        let selectableGiftsProductIDs = giftsElement.find('.gift-product.selected').map(function() {
+          return $(this).attr('data-product-id');
+        }).get();
+
+        const singleSelectionMapping = {
+          "7896199463063": "43680761839767",
+          "7896197660823": "43680760594583",
+          "8009619243159": "43680762593431",
+          "7911564345495": "43680762429591"
+        };
+
+        const handleTwoSelections = (ids) => {
+          const combinations = {
+            "7896199463063_7896197660823": "43680615202967",
+            "7896199463063_8009619243159": "43680725139607",
+            "7896199463063_7911564345495": "43680725401751",
+            "7896197660823_8009619243159": "43680726319255",
+            "7896197660823_7911564345495": "43680726024343",
+            "8009619243159_7911564345495": "43680726450327",
+            "7896199463063_7896199463063": "43680761872535",
+            "7896197660823_7896197660823": "43680760627351",
+            "7911564345495_7911564345495": "43680762626199",
+            "8009619243159_8009619243159": "43680762462359"
+          };
+
+          ids.sort();
+          return combinations[ids.join('_')];
+        };
+
+        if (selectableGiftsProductIDs.length === 1) {
+          const bundleProductID = singleSelectionMapping[selectableGiftsProductIDs[0]];
+          if (bundleProductID) {
+            giftsElement.attr('data-bundle-product-id', bundleProductID);
+          }
+        } else if (selectableGiftsProductIDs.length === 2) {
+          const bundleProductID = handleTwoSelections(selectableGiftsProductIDs);
+          if (bundleProductID) {
+            giftsElement.attr('data-bundle-product-id', bundleProductID);
+          }
+        }
       });
     }
 
@@ -255,7 +324,13 @@
       if (isSubscriptionSelected()) {
         buySubscription(variant_id, 1, subscription_selling_plan_id);
       } else {
-        redirectToCheckout(variant_id);
+        let giftProductID = buttonElement.parent().siblings('.gifts').attr('data-bundle-product-id');
+        if (giftProductID){
+          redirectToCheckout(giftProductID);
+        }
+        else {
+          redirectToCheckout(variant_id);
+        }
       }
     }
 
