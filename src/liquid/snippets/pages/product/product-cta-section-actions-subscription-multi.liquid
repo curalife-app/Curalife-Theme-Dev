@@ -46,9 +46,9 @@
 
         <div class="price-wrapper">
           <div class="calculations flex items-center gap-2 font-bold leading-10">
-            <div class="real-price no-letters text-[40px] subscription"><span class="floor rounded">{% if product.metafields.custom.price_per == 'month' %}{{ subscription_item_price | money_without_trailing_zeros }}{% else %}{{ subscription_total_price | money_without_trailing_zeros }}{% endif %}</span></div>
-            <div class="real-price no-letters text-[40px] buy-once hidden"><span class="floor rounded">{% if product.metafields.custom.price_per == 'month' %}{{ item_price | money_without_trailing_zeros }}{% else %}{{ var.price | money_without_trailing_zeros }}{% endif %}</span></div>
-            <div class="compared-at-price rounded line-through text-[30px] font-normal text-[#baced5]">{% if product.metafields.custom.price_per == 'month' %}{{ original_item_cap | money_without_trailing_zeros }}{% else %}{{ original_item_cap_total | money_without_trailing_zeros }}{% endif %}</div>
+            <div class="real-price no-letters text-[40px] subscription"><span class="floor rounded">{% if product.metafields.custom.price_per == 'month' %}{{ subscription_item_price | money }}{% else %}{{ subscription_total_price | money }}{% endif %}</span></div>
+            <div class="real-price no-letters text-[40px] buy-once hidden"><span class="floor rounded">{% if product.metafields.custom.price_per == 'month' %}{{ item_price | money }}{% else %}{{ var.price | money }}{% endif %}</span></div>
+            <div class="compared-at-price rounded line-through text-[30px] font-normal text-[#baced5]">{% if product.metafields.custom.price_per == 'month' %}{{ original_item_cap | money }}{% else %}{{ original_item_cap_total | money }}{% endif %}</div>
           </div>
 
           <div class="per-month font-bold">Per Month</div>
@@ -62,7 +62,7 @@
               <div class="gift-products flex gap-2">
                 {% for prodHandle in giftBundlesProductHandles %}
                   {% assign prod = all_products[prodHandle] %}
-                  <div class="gift-product flex flex-col items-center w-[80px]" data-product-id="{{ prod.id }}">
+                  <div class="gift-product flex flex-col items-center" data-product-id="{{ prod.id }}">
                     <img class="active:bg-[--light-blue] border border-[--blue] rounded-md m-0" src="{{ prod.metafields.custom.bottle_image | image_url }}" alt="{{ prod.title }}">
                     <div class="text-[12px] text-center">{{ prod.title }}</div>
                   </div>
@@ -77,8 +77,8 @@
             <div class="button-text flex justify-center md:text-[5vw]">
               <span class="w-1/2">SHOP NOW</span>
               {% if product.metafields.custom.price_per == 'month' %}
-                <span class="total-price subscription w-1/2 border-l-2 border-white">Total <span class="floor rounded">{{ subscription_total_price | money_without_trailing_zeros }}</span></span>
-                <span class="total-price buy-once hidden w-1/2 border-l-2 border-white">Total <span class="floor rounded">{{ var.price | money_without_trailing_zeros }}</span></span>
+                <span class="total-price subscription w-1/2 border-l-2 border-white">Total <span class="floor rounded">{{ subscription_total_price | money }}</span></span>
+                <span class="total-price buy-once hidden w-1/2 border-l-2 border-white">Total <span class="floor rounded">{{ var.price | money }}</span></span>
               {% endif %}
             </div>
 
@@ -102,7 +102,8 @@
   {% endif %}
 </div>
 
-{% render 'script.round-converted-currency' %}
+
+{% comment %} {% render 'script.round-converted-currency' %} {% endcomment %}
 
 {% if product.handle == 'curalin-gifts' %}
   <script>
@@ -146,6 +147,7 @@
     function handleGiftSelection() {
       const productActions = $("#product-actions-{{ section_id }}");
       productActions.on('click', '.gift-product', function() {
+        console.log('Gift product clicked');
         const giftsElement = $(this).closest('.gifts');
         const currentlySelectedGifts = giftsElement.find('.gift-product.selected');
 
@@ -156,14 +158,17 @@
           return $(this).attr('data-product-id');
         }).get();
 
+        console.log('Selectable Gifts Product IDs:', selectableGiftsProductIDs);
+
         const singleSelectionMapping = {
-          "7896199463063": "43683670327447",
-          "7896197660823": "43683661316247",
-          "8009619243159": "43683737534615",
-          "7911564345495": "43683641983127"
+          "7896199463063": "43685308366999",
+          "7896197660823": "43685309743255",
+          "8009619243159": "43685309022359",
+          "7911564345495": "43685305188503"
         };
 
         const handleTwoSelections = (ids) => {
+          console.log('Handling two selections with IDs:', ids);
           const combinations = {
             "7896199463063_7896197660823": "43680615202967",
             "7896199463063_8009619243159": "43680725139607",
@@ -171,23 +176,35 @@
             "7896197660823_8009619243159": "43680726319255",
             "7896197660823_7911564345495": "43680726024343",
             "8009619243159_7911564345495": "43680726450327",
-            "7896199463063_7896199463063": "43683670425751",
-            "7896197660823_7896197660823": "43683661414551",
-            "8009619243159_8009619243159": "43683737632919",
-            "7911564345495_7911564345495": "43683642081431"
+            "7896199463063_7896199463063": "43685308465303",
+            "7896197660823_7896197660823": "43685309841559",
+            "8009619243159_8009619243159": "43685309120663",
+            "7911564345495_7911564345495": "43685305286807"
           };
 
-          ids.sort();
-          return combinations[ids.join('_')];
+          // Generate both possible keys
+          const key1 = `${ids[0]}_${ids[1]}`;
+          const key2 = `${ids[1]}_${ids[0]}`;
+
+          // Check for existence and return the bundleProductID
+          if (combinations[key1]) {
+            return combinations[key1];
+          } else if (combinations[key2]) {
+            return combinations[key2];
+          }
         };
 
         if (selectableGiftsProductIDs.length === 1) {
+          console.log('Single selection processing');
           const bundleProductID = singleSelectionMapping[selectableGiftsProductIDs[0]];
+          console.log('Bundle Product ID for single selection:', bundleProductID);
           if (bundleProductID) {
             giftsElement.attr('data-bundle-product-id', bundleProductID);
           }
         } else if (selectableGiftsProductIDs.length === 2) {
+          console.log('Two selections processing');
           const bundleProductID = handleTwoSelections(selectableGiftsProductIDs);
+          console.log('Bundle Product ID for two selections:', bundleProductID);
           if (bundleProductID) {
             giftsElement.attr('data-bundle-product-id', bundleProductID);
           }
