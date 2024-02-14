@@ -18,11 +18,7 @@
       {% assign subscription_item_price = original_item_cap | minus: subscription_item_price_save %}
       {% assign subscription_total_price = subscription_item_price | times: bottle_quantity %}
 
-      <script>console.log("subscription_save_percents: {{ subscription_save_percents }}")</script>
-      <script>console.log("subscription_item_price_save: {{ subscription_item_price_save }}")</script>
-      <script>console.log("subscription_item_price: {{ subscription_item_price }}")</script>
-
-      <div class="purchase-option-box flex flex-col items-start p-4 overflow-hidden {% if forloop.first %}selected{% endif %}" data-variant="{{ variant_id }}" data-subscription-selling-plan-id="{{ var.metafields.subscription.selling_plan_id }}" data-price="{{ var.price | money_without_currency | replace: ".00", "" }}" data-sku="{{ var.sku }}" data-index="{{ forloop.index }}" data-item-price="{{ item_price }}" data-subscription-item-price="{{ subscription_item_price }}" data-original-item-cap="{{ original_item_cap }}">
+      <div class="purchase-option-box flex flex-col items-start p-4 overflow-hidden {% if forloop.first %}selected{% endif %}" data-variant="{{ variant_id }}" data-subscription-selling-plan-id="{{ var.metafields.subscription.selling_plan_id }}" data-price="{{ var.price | money_without_currency | replace: ".00", "" }}" data-sku="{{ var.sku }}" data-index="{{ forloop.index }}" data-item-price="{{ item_price }}" data-subscription-item-price="{{ subscription_item_price }}" data-original-item-cap="{{ original_item_cap }}" data-dc="{{ var.metafields.custom.discount_code | base64_encode }}">
         <div class="top-wrapper md:gap-2 flex items-center w-full gap-4 pb-4">
           <div class="radio-box"><input type="radio"></input><label for="buyonce"></label></div>
 
@@ -50,21 +46,39 @@
 
         <div class="price-wrapper">
           <div class="calculations flex items-center gap-2 font-bold leading-10">
-            <div class="real-price no-letters text-[40px] subscription"><span class="floor rounded">{{ subscription_item_price | money_without_trailing_zeros }}</span></div>
-            <div class="real-price no-letters text-[40px] buy-once hidden"><span class="floor rounded">{{ item_price | money_without_trailing_zeros }}</span></div>
-            <div class="compared-at-price rounded line-through text-[30px] font-normal text-[#baced5]">{{ original_item_cap | money_without_trailing_zeros }}</div>
+            <div class="real-price no-letters text-[40px] subscription"><span class="floor rounded">{% if product.metafields.custom.price_per == 'month' %}{{ subscription_item_price | money_without_trailing_zeros }}{% else %}{{ subscription_total_price | money_without_trailing_zeros }}{% endif %}</span></div>
+            <div class="real-price no-letters text-[40px] buy-once hidden"><span class="floor rounded">{% if product.metafields.custom.price_per == 'month' %}{{ item_price | money_without_trailing_zeros }}{% else %}{{ var.price | money_without_trailing_zeros }}{% endif %}</span></div>
+            <div class="compared-at-price rounded line-through text-[30px] font-normal text-[#baced5]">{% if product.metafields.custom.price_per == 'month' %}{{ original_item_cap | money_without_trailing_zeros }}{% else %}{{ original_item_cap_total | money_without_trailing_zeros }}{% endif %}</div>
           </div>
 
           <div class="per-month font-bold">Per Month</div>
         </div>
 
+        {% assign giftBundlesProductHandles = "joint-care,restful-sleep,magnesium-glycinate,immune-care" | split: ',' %}
+        {% if var.metafields.gifts.amount %}
+          <div class="gifts">
+            {% for i in (1..var.metafields.gifts.amount) %}
+            <div class="font-bold text-[16px] mt-2 mb-1">Choose {% if var.metafields.gifts.amount > 1 %}{% if forloop.first %}first{% else %}second{% endif %}{% else %}a{% endif %} gift:</div>
+              <div class="gift-products flex gap-2">
+                {% for prodHandle in giftBundlesProductHandles %}
+                  {% assign prod = all_products[prodHandle] %}
+                  <div class="gift-product flex flex-col items-center w-[80px]" data-product-id="{{ prod.id }}">
+                    <img class="active:bg-[--light-blue] border border-[--blue] rounded-md m-0" src="{{ prod.metafields.custom.bottle_image | image_url }}" alt="{{ prod.title }}">
+                    <div class="text-[12px] text-center">{{ prod.title }}</div>
+                  </div>
+                {% endfor %}
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+
         <div class="submit-wrap flex flex-col w-full mt-4">
           <button class="main-btn p-0 bg-[--orange] hover:bg-[--dark-orange] min-h-[50px]" id="buy-button">
             <div class="button-text flex justify-center md:text-[5vw]">
-              <span class="w-1/2 {% if product.handle contains 'curalin' %}border-r-2 border-white{% endif %}">SHOP NOW</span>
-              {% if product.handle contains 'curalin' %}
-                <span class="total-price subscription w-1/2">Total <span class="floor rounded">{{ subscription_total_price | money_without_trailing_zeros }}</span></span>
-                <span class="total-price buy-once hidden w-1/2">Total <span class="floor rounded">{{ var.price | money_without_trailing_zeros }}</span></span>
+              <span class="w-1/2">SHOP NOW</span>
+              {% if product.metafields.custom.price_per == 'month' %}
+                <span class="total-price subscription w-1/2 border-l-2 border-white">Total <span class="floor rounded">{{ subscription_total_price | money_without_trailing_zeros }}</span></span>
+                <span class="total-price buy-once hidden w-1/2 border-l-2 border-white">Total <span class="floor rounded">{{ var.price | money_without_trailing_zeros }}</span></span>
               {% endif %}
             </div>
 
@@ -88,14 +102,34 @@
   {% endif %}
 </div>
 
-
 {% render 'script.round-converted-currency' %}
+
+{% if product.handle == 'curalin-gifts' %}
+  <script>
+    // Function to colorize text after the '+' character
+    function colorizeAfterPlus(inputString) {
+      const plusIndex = inputString.indexOf('+');
+      if (plusIndex !== -1) {
+        const beforePlus = inputString.substring(0, plusIndex);
+        const afterPlus = inputString.substring(plusIndex);
+        return `${beforePlus}<span class="text-[--bronze]">${afterPlus}</span>`;
+      }
+      return inputString;
+    }
+
+    const optionTitles = document.querySelectorAll('.option-title');
+    optionTitles.forEach((element) => {
+      element.innerHTML = colorizeAfterPlus(element.textContent);
+    });
+  </script>
+{% endif %}
 
 <script>
   $(document).ready(function() {
     const productActions = $("#product-actions-{{ section_id }}");
     const purchaseOptionBoxes = productActions.find('.purchase-option-box');
 
+    handleGiftSelection();
     initializePurchaseOptions();
     setupMutationObserver();
     attachEventHandlers();
@@ -106,6 +140,58 @@
         togglePurchaseType(box, box.find('.purchase-type .subscription').hasClass('selected'));
         box.css('max-height', index === 0 ? this.scrollHeight + 'px' : '54px')
           .find("input[type='radio']").prop('checked', index === 0);
+      });
+    }
+
+    function handleGiftSelection() {
+      const productActions = $("#product-actions-{{ section_id }}");
+      productActions.on('click', '.gift-product', function() {
+        const giftsElement = $(this).closest('.gifts');
+        const currentlySelectedGifts = giftsElement.find('.gift-product.selected');
+
+        $(this).siblings('.selected').removeClass('selected');
+        $(this).addClass('selected');
+
+        let selectableGiftsProductIDs = giftsElement.find('.gift-product.selected').map(function() {
+          return $(this).attr('data-product-id');
+        }).get();
+
+        const singleSelectionMapping = {
+          "7896199463063": "43683670327447",
+          "7896197660823": "43683661316247",
+          "8009619243159": "43683737534615",
+          "7911564345495": "43683641983127"
+        };
+
+        const handleTwoSelections = (ids) => {
+          const combinations = {
+            "7896199463063_7896197660823": "43680615202967",
+            "7896199463063_8009619243159": "43680725139607",
+            "7896199463063_7911564345495": "43680725401751",
+            "7896197660823_8009619243159": "43680726319255",
+            "7896197660823_7911564345495": "43680726024343",
+            "8009619243159_7911564345495": "43680726450327",
+            "7896199463063_7896199463063": "43683670425751",
+            "7896197660823_7896197660823": "43683661414551",
+            "8009619243159_8009619243159": "43683737632919",
+            "7911564345495_7911564345495": "43683642081431"
+          };
+
+          ids.sort();
+          return combinations[ids.join('_')];
+        };
+
+        if (selectableGiftsProductIDs.length === 1) {
+          const bundleProductID = singleSelectionMapping[selectableGiftsProductIDs[0]];
+          if (bundleProductID) {
+            giftsElement.attr('data-bundle-product-id', bundleProductID);
+          }
+        } else if (selectableGiftsProductIDs.length === 2) {
+          const bundleProductID = handleTwoSelections(selectableGiftsProductIDs);
+          if (bundleProductID) {
+            giftsElement.attr('data-bundle-product-id', bundleProductID);
+          }
+        }
       });
     }
 
@@ -199,10 +285,10 @@
       // Toggle subscription info
       if (isSubscriptionSelected) {
         parentBox.find('.subscription-info').slideDown('fast');
-        {% unless pricePer == 'month' %}parentBox.find('.per-month').show();{% endunless %} // Show the "per month" title when subscription is selected
+        {% unless product.metafields.custom.price_per == 'month' %}parentBox.find('.per-month').show();{% endunless %} // Show the "per month" title when subscription is selected
       } else {
         parentBox.find('.subscription-info').slideUp('fast');
-        {% unless pricePer == 'month' %}parentBox.find('.per-month').hide();{% endunless %} // Hide the "per month" title when subscription is not selected
+        {% unless product.metafields.custom.price_per == 'month' %}parentBox.find('.per-month').hide();{% endunless %} // Hide the "per month" title when subscription is not selected
       }
 
       // Yotpo Widget Points Amount Change
@@ -246,7 +332,15 @@
       if (isSubscriptionSelected()) {
         buySubscription(variant_id, 1, subscription_selling_plan_id);
       } else {
-        redirectToCheckout(variant_id);
+        let dc = $(buttonElement).closest('.purchase-option-box').data('dc');
+        let giftProductID = buttonElement.parent().siblings('.gifts').attr('data-bundle-product-id');
+
+        if (giftProductID){
+          redirectToCheckout(giftProductID, dc);
+        }
+        else {
+          redirectToCheckout(variant_id, dc);
+        }
       }
     }
 
@@ -254,9 +348,15 @@
       return $('#product-actions-{{ section_id }} .purchase-option-box.selected').find('.purchase-type .subscription.selected').length > 0;
     }
 
-    function redirectToCheckout(variant_id) {
-      let checkoutLink = "https://" + location.hostname + "/cart/" + variant_id + ":1";
-      window.location.href = checkoutLink;
+    function redirectToCheckout(variant_id, dc) {
+      let checkoutLink = "https://" + location.hostname + "/cart/" + variant_id + ":1"
+      if (dc) {checkoutLink += "?discount=" + atob(dc);}
+
+      {% if customer.email == 'yotam1@curalife.com' %}
+        console.log(checkoutLink);
+      {% else %}
+        window.location.href = checkoutLink;
+      {% endif %}
     }
 
     function toggleButtonLoading(buttonElement, isLoading) {
@@ -318,6 +418,11 @@
 </script>
 
 <style>
+  .gift-product.selected img {
+    background-color: var(--light-blue);
+    border-width: 2px;
+  }
+
   .purchase-type button {
     border-radius: 5px;
     font-size: 16px;
