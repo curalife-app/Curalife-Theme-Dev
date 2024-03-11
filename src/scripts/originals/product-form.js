@@ -24,6 +24,7 @@ if (!customElements.get('product-form')) {
 
         this.submitButton.setAttribute('aria-disabled', true);
         this.submitButton.classList.add('loading');
+        this.querySelector('.submit-title').classList.add('hidden');
         this.querySelector('.loading-overlay__spinner').classList.remove('hidden');
 
         const config = fetchConfig('javascript');
@@ -91,6 +92,7 @@ if (!customElements.get('product-form')) {
             this.submitButton.classList.remove('loading');
             if (this.cart && this.cart.classList.contains('is-empty')) this.cart.classList.remove('is-empty');
             if (!this.error) this.submitButton.removeAttribute('aria-disabled');
+            this.querySelector('.submit-title').classList.remove('hidden');
             this.querySelector('.loading-overlay__spinner').classList.add('hidden');
             this.form.querySelector('[name=quantity]').value = 1;
           });
