@@ -8,6 +8,7 @@
   <div class="purchase-options md:p-2 flex flex-col gap-2">
     {% for var in product.variants %}
       {% assign variant_id = var.metafields.custom.reference_variant_id | default: var.id %}
+      {% assign selling_plan_id = var.metafields.subscription.selling_plan_id %}
       {% assign bottle_quantity = var.metafields.my_fields.pack_bottles_quantity %}
       {% assign original_item_cap = var.metafields.custom.original_item.value.compare_at_price | default: var.metafields.custom.original_item.value.price %}
       {% assign original_item_cap_total = original_item_cap | times: bottle_quantity %}
@@ -18,14 +19,14 @@
       {% assign subscription_item_price = original_item_cap | minus: subscription_item_price_save %}
       {% assign subscription_total_price = subscription_item_price | times: bottle_quantity %}
 
-      <div class="purchase-option-box flex flex-col items-start p-4 overflow-hidden {% if forloop.first %}selected{% endif %}" data-variant="{{ variant_id }}" data-subscription-selling-plan-id="{{ var.metafields.subscription.selling_plan_id }}" data-price="{{ var.price | money_without_currency | replace: ".00", "" }}" data-sku="{{ var.sku }}" data-index="{{ forloop.index }}" data-item-price="{{ item_price }}" data-subscription-item-price="{{ subscription_item_price }}" data-original-item-cap="{{ original_item_cap }}" data-dc="{{ var.metafields.custom.discount_code | base64_encode }}">
+      <div class="purchase-option-box flex flex-col items-start p-4 overflow-hidden {% if forloop.first %}selected{% endif %}" data-variant="{{ variant_id }}" data-subscription-selling-plan-id="{{ selling_plan_id }}" data-price="{{ var.price | money_without_currency | replace: ".00", "" }}" data-sku="{{ var.sku }}" data-index="{{ forloop.index }}" data-item-price="{{ item_price }}" data-subscription-item-price="{{ subscription_item_price }}" data-original-item-cap="{{ original_item_cap }}" data-dc="{{ var.metafields.custom.discount_code | base64_encode }}">
         <div class="top-wrapper md:gap-2 flex items-center w-full gap-4 pb-4">
           <div class="radio-box"><input type="radio"></input><label for="buyonce"></label></div>
 
           <div class="option-title font-semibold text-[--blue]">{{ var.title }}{% if var.metafields.subscription.save_percents > 0 %} - Save up to {{ var.metafields.subscription.save_percents }}%{% endif %}</div>
         </div>
 
-        {% if var.metafields.subscription.selling_plan_id != blank %}
+        {% if selling_plan_id != blank %}
           <div class="purchase-type flex-nowrap flex w-full gap-2">
             <button class="subscription selected">Subscribe & Save</button>
             <button class="buy-once">Buy Once</button>
@@ -37,7 +38,7 @@
           <div class="info text-[13px]">Save {{ var.metafields.subscription.save_percents }}% every order, guaranteed delivery, make changes any time, prompt VIP support & new subscriber gifts</div>
         </div>
 
-        {% if var.metafields.subscription.selling_plan_id != blank %}
+        {% if selling_plan_id != blank %}
           <div class="option-subtitles w-full my-2">
             <div class="option-subtitle subscription text-[14px]">{{ var.title }} <span class="save-title text-[--blue]">Save {{ var.metafields.subscription.save_percents }}%</span></div>
             <div class="option-subtitle buy-once text-[14px] hidden">{{ var.title }} {% if var.compare_at_price > var.price %}<span class="save-title text-[--blue] font-bold">Save {{ var.metafields.custom.save_percents }}%</span> or {% endif %}<br><span class="save-title text-[--blue] font-bold">Subscribe & Save MORE</span></div>
@@ -45,15 +46,10 @@
         {% endif %}
 
         <div class="price-wrapper">
-          {% if product.metafields.custom.is_price_per_month %}
-            <div class="total-price mb-1 text-[14px] text-[--dark-blue]">
-              {% if subscription_total_price > subscription_item_price %}
-                <span class="subscription">Total <span class="floor rounded">{{ subscription_total_price | money }}</span></span>
-              {% endif %}
-
-              {% if var.price > item_price %}
-                <span class="buy-once hidden">Total <span class="floor rounded">{{ var.price | money }}</span></span>
-              {% endif %}
+          {% if product.metafields.custom.is_price_per_month and var.price > item_price %}
+            <div class="total-price-wrapper mb-1 text-[14px] text-[--dark-blue]">
+              <span class="total-price subscription">Total <span class="floor rounded">{{ subscription_total_price | money }}</span></span>
+              <span class="total-price buy-once hidden">Total <span class="floor rounded">{{ var.price | money }}</span></span>
             </div>
           {% endif %}
           <div class="calculations flex items-center gap-2 font-bold leading-10">
@@ -85,11 +81,12 @@
 
         <div class="submit-wrap flex flex-col w-full mt-4">
           <div class="add-to-cart-button buy-once hidden">
-            {% render 'buy-buttons', product: product, product_form_id: product_form_id, section_id: section.id %}
+            {% render 'buy-buttons', product: product, variant: variant_id, product_form_id: product_form_id, section_id: section.id %}
           </div>
 
           <div class="checkout-button subscription">
-            <button class="main-btn p-0 bg-[--orange] hover:bg-[--dark-orange] min-h-[50px] w-full" id="buy-button">
+            {% render 'buy-buttons', product: product, variant: variant_id, selling_plan_id: selling_plan_id , product_form_id: product_form_id, section_id: section.id %}
+            {% comment %} <button class="main-btn p-0 bg-[--orange] hover:bg-[--dark-orange] min-h-[50px] w-full" id="buy-button">
               <div class="button-text flex justify-center md:text-[5vw]">
                 <span class="w-1/2">Subscribe Now</span>
                 {% comment %} {% if product.metafields.custom.is_price_per_month %}
@@ -101,7 +98,7 @@
               <div class="loader" style="display: none;">
                 <div class="lds-ellipsis"><div></div><div></div><div></div><div></div></div>
               </div>
-            </button>
+            </button> {% endcomment %}
           </div>
         </div>
 
@@ -247,7 +244,9 @@
 
     function handlePurchaseTypeClick(event, button) {
       event.stopPropagation();
-      togglePurchaseType(button.closest('.purchase-option-box'), button.hasClass('subscription'));
+      const parentBox = button.closest('.purchase-option-box');
+      const isSubscriptionSelected = button.hasClass('subscription');
+      togglePurchaseType(parentBox, isSubscriptionSelected);
     }
 
     function handleMainButtonClick(event, button) {
@@ -313,15 +312,11 @@
         {% unless product.metafields.custom.is_price_per_month %}parentBox.find('.per-month').show();{% endunless %}
         parentBox.find('.checkout-button').show();
         parentBox.find('.add-to-cart-button').hide();
-        parentBox.find('.total-price .subscription').show();
-        parentBox.find('.total-price .buy-once').hide();
       } else {
         parentBox.find('.subscription-info').slideUp('fast');
         {% unless product.metafields.custom.is_price_per_month %}parentBox.find('.per-month').hide();{% endunless %}
         parentBox.find('.add-to-cart-button').show();
         parentBox.find('.checkout-button').hide();
-        parentBox.find('.total-price .buy-once').show();
-        parentBox.find('.total-price .subscription').hide();
       }
 
       updateYotpoPointsWidget(parentBox, isSubscriptionSelected);
@@ -341,11 +336,16 @@
     }
 
     function togglePriceDisplay(parentBox, isSubscriptionSelected) {
-      var pricesToHide = isSubscriptionSelected ? '.real-price.buy-once, .total-price.buy-once' : '.real-price.subscription, .total-price.subscription';
-      var pricesToShow = isSubscriptionSelected ? '.real-price.subscription, .total-price.subscription' : '.real-price.buy-once, .total-price.buy-once';
-
-      parentBox.find(pricesToHide).fadeOut('fast', function() {
-        parentBox.find(pricesToShow).fadeIn('fast').css("display","inline-block");
+      // Hide all prices initially to prepare for toggle animation
+      parentBox.find('.real-price, .total-price').stop().fadeOut('fast', function() {
+        // Determine which prices to show based on the selected purchase option
+        if (isSubscriptionSelected) {
+          parentBox.find('.real-price.subscription, .total-price.subscription').fadeIn('fast');
+          parentBox.find('.real-price.buy-once, .total-price.buy-once').hide();
+        } else {
+          parentBox.find('.real-price.buy-once, .total-price.buy-once').fadeIn('fast');
+          parentBox.find('.real-price.subscription, .total-price.subscription').hide();
+        }
       });
     }
 
@@ -375,7 +375,7 @@
 
     function buyButtonHandler(variant_id, subscription_selling_plan_id, buttonElement) {
       toggleButtonLoading(buttonElement, true);
-      if (isSubscriptionSelected()) {
+      if (isSubscriptionSelected() || true) {
         buySubscription(variant_id, 1, subscription_selling_plan_id);
       } else {
         let dc = $(buttonElement).closest('.purchase-option-box').data('dc');
