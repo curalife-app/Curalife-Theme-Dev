@@ -1,0 +1,502 @@
+{% comment %} Short Section ID for JS Variables {% endcomment %}
+{% assign sectionIDParts = section_id | split: '-' %}
+{% assign shortSectionID = sectionIDParts[-1] %}
+
+{% assign variantQuantity = product.variants | size %}
+
+<div id="product-actions-{{ section_id }}" class="product-actions">
+  <div class="notice-box bg-[--beige] rounded-sm text-[--bronze]">Pre order today <br>& GET 20% OFF with code SLIM20</div>
+  <div class="variant-box">
+    <div class="product-info">
+      <strong>Stop Counting Calories with a Natural GLP-1 boost for effective weight loss that lasts.</strong>
+      <strong>Curaslim has been shown to help you lose big by:</strong>
+      <ul>
+        <li>Feeling Fuller Faster & Staying Full Longer.*</li>
+        <li>Suppressing appetite for easier portion control & cravings reduction. *</li>
+        <li>Boosting metabolism to make your body an efficient fat burning machine.*</li>
+      </ul>
+
+      <div class="price-wrapper">
+        <div class="calculations flex items-center gap-2 font-bold leading-10">
+          <div class="real-price no-letters text-[40px] subscription"><span class="floor rounded">{% if product.metafields.custom.is_price_per_month %}{{ subscription_item_price | money }}{% else %}{{ subscription_total_price | money }}{% endif %}</span></div>
+          <div class="real-price no-letters text-[40px] buy-once hidden"><span class="floor rounded">{% if product.metafields.custom.is_price_per_month %}{{ item_price | money }}{% else %}{{ var.price | money }}{% endif %}</span></div>
+          <div class="compared-at-price rounded line-through text-[30px] font-normal text-[#baced5]">{% if product.metafields.custom.is_price_per_month %}{{ original_item_cap | money }}{% else %}{{ original_item_cap_total | money }}{% endif %}</div>
+        </div>
+
+        <div class="per-month font-bold">Per Month</div>
+      </div>
+
+      <div class="submit-wrap flex flex-col w-full mt-4">
+          <button class="main-btn p-0 bg-[--orange] hover:bg-[--dark-orange] min-h-[50px]" id="buy-button">
+            <div class="button-text flex justify-center md:text-[5vw]">
+              <span class="w-1/2">Pre-Order Now</span>
+              {% if product.metafields.custom.is_price_per_month %}
+                <span class="total-price subscription w-1/2 border-l-2 border-white">Total <span class="floor rounded">{{ subscription_total_price | money }}</span></span>
+                <span class="total-price buy-once hidden w-1/2 border-l-2 border-white">Total <span class="floor rounded">{{ var.price | money }}</span></span>
+              {% endif %}
+            </div>
+
+            <div class="loader" style="display: none;">
+              <div class="lds-ellipsis"><div></div><div></div><div></div><div></div></div>
+            </div>
+          </button>
+        </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  $(document).ready(function() {
+    const productActions = $("#product-actions-{{ section_id }}");
+    const purchaseOptionBoxes = productActions.find('.purchase-option-box');
+
+    // handleGiftSelection();
+    initializePurchaseOptions();
+    setupMutationObserver();
+    attachEventHandlers();
+
+    function initializePurchaseOptions() {
+      purchaseOptionBoxes.each(function(index) {
+        const box = $(this);
+        togglePurchaseType(box, box.find('.purchase-type .subscription').hasClass('selected'));
+        box.css('max-height', index === 0 ? this.scrollHeight + 'px' : '54px')
+          .find("input[type='radio']").prop('checked', index === 0);
+      });
+    }
+
+    function setupMutationObserver() {
+      const observer = new MutationObserver(mutations => {
+        mutations.forEach(({ target }) => {
+          const targetBox = $(target).closest('.purchase-option-box');
+          if (targetBox.hasClass('selected')) adjustMaxHeight(targetBox);
+        });
+      });
+
+      purchaseOptionBoxes.each((_, element) => observer.observe(element, { attributes: true, childList: true, subtree: true }));
+    }
+
+    function attachEventHandlers() {
+      productActions.on('click', '.purchase-option-box', event => togglePurchaseBox($(event.currentTarget)))
+                    .on('click', '.purchase-type button', event => handlePurchaseTypeClick(event, $(event.currentTarget)));
+                    //.on('click', '.main-btn', event => handleMainButtonClick(event, $(event.currentTarget)));
+    }
+
+    function handlePurchaseTypeClick(event, button) {
+      event.stopPropagation();
+      const parentBox = button.closest('.purchase-option-box');
+      const isSubscriptionSelected = button.hasClass('subscription');
+      togglePurchaseType(parentBox, isSubscriptionSelected);
+    }
+
+    // function handleMainButtonClick(event, button) {
+    //   event.stopPropagation();
+    //   const parentBox = button.closest('.purchase-option-box');
+    //   buyButtonHandler(parentBox.data('variant'), parentBox.data('subscription-selling-plan-id'), button);
+    // }
+
+    function adjustMaxHeight(element) {
+      var openHeight = $(element).get(0).scrollHeight;
+      $(element).css('max-height', openHeight + 'px');
+    }
+
+    function updateComparedAtPriceDisplay(parentBox) {
+      let isSubscriptionSelected = parentBox.find('.purchase-type .subscription').hasClass('selected');
+
+      let itemPrice = parseFloat(parentBox.data('item-price'));
+      let subscriptionItemPrice = parseFloat(parentBox.data('subscription-item-price'));
+      let originalItemCap = parseFloat(parentBox.data('original-item-cap'));
+
+      let currentPrice = isSubscriptionSelected ? subscriptionItemPrice : itemPrice;
+
+      let comparedAtPriceElement = parentBox.find('.compared-at-price');
+      if (originalItemCap > currentPrice) {
+        comparedAtPriceElement.fadeIn();
+      } else {
+        comparedAtPriceElement.fadeOut();
+      }
+    }
+
+    function togglePurchaseBox(element) {
+      var wasSelected = $(element).hasClass('selected');
+
+      if (wasSelected) {
+          return;
+      }
+
+      $('.purchase-option-box.selected').removeClass('selected').each(function() {
+          $(this).css('max-height', '54px');
+          $(this).find('.toggle-icon').hide();
+      });
+
+      $(element).addClass('selected');
+      adjustMaxHeight(element);
+      $(element).find("input[type='radio']").prop('checked', true);
+      $(element).find('.toggle-icon').show(); // Show the 'v' icon in the expanded box
+
+      {% if product.variants.size > 1 and product.images.size > 1 %}
+        updateVariantImage(element);
+      {% endif %}
+    }
+
+    function togglePurchaseType(parentBox, isSubscriptionSelected) {
+      parentBox.find('.purchase-type button').removeClass('selected');
+      parentBox.find(isSubscriptionSelected ? '.subscription' : '.buy-once').addClass('selected');
+
+      // Toggle subscription info
+      if (isSubscriptionSelected) {
+        parentBox.find('.subscription-info').slideDown('fast');
+        {% unless product.metafields.custom.is_price_per_month %}parentBox.find('.per-month').show();{% endunless %}
+        parentBox.find('.checkout-button').show();
+        parentBox.find('.add-to-cart-button').hide();
+      } else {
+        parentBox.find('.subscription-info').slideUp('fast');
+        {% unless product.metafields.custom.is_price_per_month %}parentBox.find('.per-month').hide();{% endunless %}
+        parentBox.find('.add-to-cart-button').show();
+        parentBox.find('.checkout-button').hide();
+      }
+
+      updateYotpoPointsWidget(parentBox, isSubscriptionSelected);
+      toggleOptionSubtitles(parentBox, isSubscriptionSelected);
+      togglePriceDisplay(parentBox, isSubscriptionSelected);
+      adjustMaxHeight(parentBox);
+      updateComparedAtPriceDisplay(parentBox);
+    }
+
+    function toggleOptionSubtitles(parentBox, isSubscriptionSelected) {
+      var optionSubtitleToHide = isSubscriptionSelected ? '.option-subtitle.buy-once' : '.option-subtitle.subscription';
+      var optionSubtitleToShow = isSubscriptionSelected ? '.option-subtitle.subscription' : '.option-subtitle.buy-once';
+
+      parentBox.find(optionSubtitleToHide).fadeOut('fast', function() {
+        parentBox.find(optionSubtitleToShow).fadeIn('fast');
+      });
+    }
+
+    function togglePriceDisplay(parentBox, isSubscriptionSelected) {
+      parentBox.find('.real-price, .total-price').stop().fadeOut('fast', function() {
+        if (isSubscriptionSelected) {
+          parentBox.find('.real-price.subscription, .total-price.subscription').fadeIn('fast');
+          parentBox.find('.real-price.buy-once, .total-price.buy-once').hide();
+        } else {
+          parentBox.find('.real-price.buy-once, .total-price.buy-once').fadeIn('fast');
+          parentBox.find('.real-price.subscription, .total-price.subscription').hide();
+        }
+      });
+    }
+
+    function updateYotpoPointsWidget(parentBox, isSubscriptionSelected) {
+      var newPoints = isSubscriptionSelected
+        ? Math.floor(Number(parentBox.data('subscription-item-price')) / 100)
+        : Math.floor(Number(parentBox.data('item-price')) / 100);
+
+      parentBox.find('.reward-points-widget .current-price').html(newPoints);
+    }
+
+    function updateSelection(element) {
+      let container = $("#product-actions-{{ section_id }}");
+      container.find(".purchase-option-box").removeClass("selected");
+      container.find(".purchase-option-box input[type='radio']").prop('checked', false);
+      $(element).addClass("selected").find('input').prop('checked', true);
+    }
+
+    function updateVariantImage(element) {
+      let slideIndex = calculateSlideIndex(element);
+      window.productSliderAllInOne{{ shortSectionID }}.slideTo(slideIndex);
+    }
+
+    function calculateSlideIndex(element) {
+      return window.productSliderAllInOne{{ shortSectionID }}.slides.length - ({{ product.variants.size | plus: 1 }} - $(element).attr('data-index'));
+    }
+
+    // function buyButtonHandler(variant_id, subscription_selling_plan_id, buttonElement) {
+    //   toggleButtonLoading(buttonElement, true);
+    //   if (isSubscriptionSelected() || true) {
+    //     buySubscription(variant_id, 1, subscription_selling_plan_id);
+    //   } else {
+    //     let dc = $(buttonElement).closest('.purchase-option-box').data('dc');
+    //     let giftProductID = buttonElement.parent().siblings('.gifts').attr('data-bundle-product-id');
+
+    //     if (giftProductID){
+    //       redirectToCheckout(giftProductID, dc);
+    //     }
+    //     else {
+    //       redirectToCheckout(variant_id, dc);
+    //     }
+    //   }
+    // }
+
+    function isSubscriptionSelected() {
+      return $('#product-actions-{{ section_id }} .purchase-option-box.selected').find('.purchase-type .subscription.selected').length > 0;
+    }
+
+    // function redirectToCheckout(variant_id, dc) {
+    //   let checkoutLink = "https://" + location.hostname + "/cart/" + variant_id + ":1"
+    //   if (dc) {checkoutLink += "?discount=" + atob(dc);}
+    //   window.location.href = checkoutLink;
+    // }
+
+    // function toggleButtonLoading(buttonElement, isLoading) {
+    //   let loader = $(buttonElement).closest('.purchase-option-box').find('.loader');
+    //   let buttonText = $(buttonElement).find('.button-text');
+
+    //   if (loader.length === 0) {
+    //       console.error("Loader element not found");
+    //       return;
+    //   }
+
+    //   if (isLoading) {
+    //       loader.show();
+    //       buttonText.hide();
+    //   } else {
+    //       loader.hide();
+    //       buttonText.show();
+    //   }
+    // }
+
+    // function clearCart(callback) {
+    //   jQuery.ajax({
+    //     type: 'POST',
+    //     url: '/cart/clear.js',
+    //     success: function() {
+    //       console.log('Cart cleared');
+    //       callback();
+    //     },
+    //     error: function() {
+    //       console.log('Failed to clear cart');
+    //     }
+    //   });
+    // }
+
+    // function buySubscription(variant_id, qty, selling_plan) {
+    //   clearCart(function() {
+    //     data = {
+    //       "id": variant_id,
+    //       "quantity": qty,
+    //       "selling_plan": selling_plan
+    //     }
+
+    //     jQuery.ajax({
+    //       type: 'POST',
+    //       url: '/cart/add.js',
+    //       data: data,
+    //       dataType: 'json',
+    //       success: function() {
+    //         console.log('success');
+    //         window.location.href = '/checkout';
+    //       },
+    //       error: function() {
+    //         console.log('Failed to add item to cart');
+    //       }
+    //     });
+    //   });
+    // }
+  });
+</script>
+
+<style>
+  .gift-product.selected img {
+    background-color: var(--light-blue);
+    border-width: 2px;
+  }
+
+  .purchase-type button {
+    border-radius: 5px;
+    font-size: 16px;
+    min-width: 49%;
+    padding: 0.5rem;
+  }
+
+  .purchase-type button:not(.selected) {
+    background: unset;
+    border: 1px solid var(--blue);
+    color: var(--blue);
+  }
+</style>
+
+<style>
+  .cta-section-{{ section_id }} .purchase-option-box .radio-box input[type='radio'] {
+      display: none;
+  }
+
+  .cta-section-{{ section_id }} .purchase-option-box .radio-box label {
+      cursor: pointer;
+      width: 19px;
+      height: 19px;
+      border: 1px solid var(--blue);
+      border-radius: 50%;
+      position: relative;
+  }
+
+  /* This will only apply the style when the variant box is selected and the radio button is checked */
+  .cta-section-{{ section_id }} .purchase-option-box.selected .radio-box input[type='radio']:checked + label:after {
+      content: '\2713';
+      position: absolute;
+      top: -2px;
+      left: -2px;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--blue);
+      text-align: center;
+      line-height: 22px;
+      color: #fff;
+  }
+</style>
+
+<style>
+  .cta-section-{{ section_id }} .product-actions {
+    grid-area: 2/2/3/3;
+    max-width: 410px;
+    min-height: 415px;
+  }
+
+  .cta-section-{{ section_id }} .purchase-option-box {
+    background: #fff;
+    border: 1px solid #cbcbcb;
+    cursor: pointer;
+    max-height: 54px;
+    filter: drop-shadow(0px 4px 4px rgba(47, 47, 47, 0.1));
+    transition: max-height 0.5s ease-in-out;
+    border-radius: 10px;
+    border-color: var(--blue);
+    overflow: hidden;
+  }
+
+  .cta-section-{{ section_id }} .purchase-option-box.selected {
+    border-width: 3px;
+    max-height: max-content;
+  }
+
+  .cta-section-{{ section_id }} .purchase-option-box:hover,
+  .cta-section-{{ section_id }} .purchase-option-box.selected {
+    filter: drop-shadow(0px 4px 4px rgba(47, 47, 47, 0.3));
+  }
+
+  .cta-section-{{ section_id }} .purchase-option-box:hover>.radio-box input[type=radio]:after {
+    background-color: #a9a9a9;
+  }
+
+  .cta-section-{{ section_id }} .purchase-option-box .radio-box {
+    align-items: center;
+    display: flex;
+  }
+
+  .cta-section-{{ section_id }} .purchase-option-box .option-info {
+    padding: 10px 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.25rem;
+  }
+
+  .cta-section-{{ section_id }} .purchase-option-box .option-info .option-title span {
+    background: var(--blue);
+    color: white;
+    border-radius: 10px;
+    padding: 0 8px;
+    font-size: 15px;
+    margin-left: 5px;
+    font-weight: normal;
+    line-height: 1.2;
+  }
+
+  .cta-section-{{ section_id }} .purchase-option-box .option-info .option-infos p {
+    font-weight: 200;
+    display: inline-block;
+    margin: 0;
+    font-size: 14px;
+  }
+
+  @media screen and (max-width: 1270px) {
+    .cta-section-{{ section_id }} .purchase-option-box {
+      width: 100%
+    }
+
+    .cta-section-{{ section_id }} .purchase-option-box .option-info {
+      padding: 10px 0;
+      width: 95%;
+    }
+  }
+
+  @media screen and (max-width: 768px) {
+    .cta-section-{{ section_id }} .purchase-option-box {
+      font-size: 4vw;
+      padding-top: 1.5vw;
+    }
+
+    .cta-section-{{ section_id }} .purchase-option-box .option-info .option-title {
+      font-size: 4vw;
+    }
+
+    .cta-section-{{ section_id }} .purchase-option-box .option-info .option-infos p {
+      font-size: 3vw;
+    }
+
+    .cta-section-{{ section_id }} .purchase-option-box .radio-box {
+      padding: 3vw 0;
+    }
+
+    .cta-section-{{ section_id }} .product-actions {
+      grid-area: unset;
+      grid-row: 3;
+      max-width: unset;
+      min-height: unset;
+    }
+  }
+</style>
+
+<style>
+  .cta-section-{{ section_id }} .lds-ellipsis {
+    display: inline-block;
+    position: relative;
+    width: 80px;
+    top:-10px;
+  }
+  .cta-section-{{ section_id }} .lds-ellipsis div {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #fff;
+    animation-timing-function: cubic-bezier(0, 1, 1, 0);
+  }
+  .cta-section-{{ section_id }} .lds-ellipsis div:nth-child(1) {
+    left: 8px;
+    animation: lds-ellipsis1 0.6s infinite;
+  }
+  .cta-section-{{ section_id }} .lds-ellipsis div:nth-child(2) {
+    left: 8px;
+    animation: lds-ellipsis2 0.6s infinite;
+  }
+  .cta-section-{{ section_id }} .lds-ellipsis div:nth-child(3) {
+    left: 32px;
+    animation: lds-ellipsis2 0.6s infinite;
+  }
+  .cta-section-{{ section_id }} .lds-ellipsis div:nth-child(4) {
+    left: 56px;
+    animation: lds-ellipsis3 0.6s infinite;
+  }
+  @keyframes lds-ellipsis1 {
+    0% {
+      transform: scale(0);
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+  @keyframes lds-ellipsis3 {
+    0% {
+      transform: scale(1);
+    }
+    100% {
+      transform: scale(0);
+    }
+  }
+  @keyframes lds-ellipsis2 {
+    0% {
+      transform: translate(0, 0);
+    }
+    100% {
+      transform: translate(24px, 0);
+    }
+  }
+</style>

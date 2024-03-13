@@ -35,10 +35,7 @@ module.exports = {
         '1/4': '25%',
         '30%': '30%'
       },
-      minHeight: {
-        '350px': '350px',
-        '400px': '400px',
-      },
+
       colors: {
         blue: '#3A7684',
         darkGrey: '#222222',
