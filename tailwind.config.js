@@ -35,7 +35,9 @@ module.exports = {
         '1/4': '25%',
         '30%': '30%'
       },
-
+      minWidth: {
+        '1/2': '50%'
+      },
       colors: {
         blue: '#3A7684',
         darkGrey: '#222222',
