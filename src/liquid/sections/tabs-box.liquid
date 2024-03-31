@@ -1,6 +1,11 @@
 {% assign tabs_amount = section.blocks.size %}
 
-<section id="tab-box-{{ section.id }}" class="tabs-box-section admin-hidden text-center">
+<section id="tab-box-{{ section.id }}" class="tabs-box-section text-center">
+  <div class="titles-wrapper mb-4">
+    <h2 class="m-2">Let us help you reach your health Goals!</h2>
+    <div class="subtitle desktop">Transforming Challenges into Triumphs: Your Wellness, Our Science-Driven Mission</div>
+  </div>
+
   <div class="container pt-4">
     <div class="tabbed-content tabs-side">
       <nav class="tabs min-w-[300px] xl:min-w-fit">
@@ -13,12 +18,13 @@
         {% for tab_block in section.blocks %}
           <div id="item-{{ forloop.index }}" class="item {% if forloop.first %}active always-active{% endif %}" data-title="{{ tab_block.settings.tab_name }}">
             <div class="item-content flex items-center">
+              <p class="mobile-title mobile h6 font-bold text-[--blue] text-center mt-[30px] mb-0">How we help</p>
               {% render 'responsive-image', img: tab_block.settings.tab_image, img_mobile: tab_block.settings.tab_image_mobile, classes: "min-w-1/2 max-w-1/2 mbl:max-w-full mbl:w-[90%] mbl:mt-[5vw]" %}
 
               <div class="content mbl:p-4 p-8">
-                <p class="h5 font-bold text-[--blue]">How we help</p>
+                <p class="desktop-title h6 desktop font-bold text-[--blue]">How we help</p>
                 <p class="mbl:text-[4.5vw]">{{ tab_block.settings.tab_description }}</p>
-                <a href="{{ tab_block.settings.tab_link }}" class="text-[--blue] underline">Learn More</a>
+                {% if tab_block.settings.tab_link != blank %}<a href="{{ tab_block.settings.tab_link }}" class="text-[--blue] underline">Learn More</a>{% endif %}
               </div>
             </div>
           </div>
@@ -115,11 +121,16 @@
     if (!tabBox) return;
 
     tabBox.addEventListener('click', function(event) {
-      const target = event.target;
-      if (target.tagName !== 'A') return;
+      let target = event.target;
 
-      event.preventDefault();
+      if (target.tagName !== 'A' || !target.closest('.tab')) return;
+
+      event.preventDefault(); // Prevent default only for tab control clicks
+
       const href = target.getAttribute('href');
+
+      if (!href.startsWith('#')) return;
+
       const targetItem = document.querySelector(href);
       if (!targetItem) return;
 

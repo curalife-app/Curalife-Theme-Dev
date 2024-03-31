@@ -1,347 +1,148 @@
-<section class="hero-banner bg-{{ section.settings.bg_position }}">
-  <div class="background absolute w-full h-full">
-    <div class="images left">
-      {% for block in section.blocks %}
-        <img class="absolute h-full w-1/2 object-cover" src="{{ block.settings.left_image | image_url }}" alt="">
-      {% endfor %}
-    </div>
+<section class="hero-banner">
+  <h1 class="hidden">Curalife - Clean, natural, effective products you can trust</h1>
 
-    <div class="images right">
-      {% for block in section.blocks %}
-        <img class="absolute h-full w-1/2 left-1/2 object-cover" src="{{ block.settings.right_image | image_url }}" alt="">
-      {% endfor %}
-    </div>
-  </div>
+  <div class="slides-container">
+    {% for block in section.blocks %}
+      <div class="slide flex items-center" style="background-color: {{ block.settings.slide_bg_color }};">
+        <div class="slide-content">
+          {% if block.settings.title %}
+            <span class="small-title">{{ block.settings.title }}</span>
+          {% endif %}
 
-  <div class="md:justify-{{ section.settings.mobile_alignment }} container !w-full flex flex-col justify-{{ section.settings.vertical_align_desktop }}">
-    <h1 class="max-w-1/2 md:max-w-full md:text-{{ section.settings.text_align_mobile }} font-thin">
-      {% if section.settings.flip %} <span class="font-bold">{{ section.settings.big_title }}</span> <br>
-        {% if section.settings.small_title %}<span class="small-title">{{ section.settings.small_title }}</span>{% endif %}
-      {% else %}
-        {% if section.settings.small_title %}<span class="small-title">{{ section.settings.small_title }}</span>{% endif %}
-        <br>
-        <span class="font-bold">{{ section.settings.big_title }}</span>
-      {% endif %}
-    </h1>
+          {% if block.settings.subtitle %}
+            <h2>{{ block.settings.subtitle }}</h2>
+          {% endif %}
 
-    {% if section.settings.button_link != blank %}
-      <a href="{{ section.settings.button_link }}" {% if section.settings.is_button_link_new_window %}target="_blank"{% endif %}><button>{{ section.settings.button_title }}</button></a>
-    {% endif %}
+          {% if block.settings.slide_button_title and block.settings.slide_button_link %}
+            <a href="{{ block.settings.slide_button_link }}" {% if block.settings.slide_is_button_link_new_window %}target="_blank"{% endif %}>
+              <button>{{ block.settings.slide_button_title }}</button>
+            </a>
+          {% endif %}
+        </div>
 
-    {% if section.settings.bottom_content %}<div class="bottom-content"><p>{{ section.settings.bottom_content }}</p></div>{% endif %}
+        {% if block.settings.image %}
+          <img src="{{ block.settings.image | img_url: 'master' }}" alt="{{ block.settings.title }}">
+        {% endif %}
+      </div>
+    {% endfor %}
   </div>
 </section>
 
 <style>
-  .hero-banner .background img {
-    opacity: 0;
-    animation: change-img-anim 30s infinite;
-  }
-
-  {% assign delay = 0 %}
-  {% for block in section.blocks %}
-    .hero-banner .background .images.left img:nth-child({{ forloop.index }}) {
-      animation-delay: {{ delay }}s;
-    }
-
-    .hero-banner .background .images.right img:nth-child({{ forloop.index }}) {
-      animation-delay: {{ delay | plus: 1 }}s;
-    }
-
-    {% assign delay = delay | plus: 10 %}
-  {% endfor %}
-
-@keyframes change-img-anim {
-	0%{ opacity: 0;}
-	10%{ opacity: 1;}
-	90%{ opacity: 1;}
-	100%{ opacity: 0;}
-}
-</style>
-
-<style>
-  section.hero-banner {
-    background-image: url('{{ section.settings.bg_image | image_url }}');
-    background-size: cover;
-    background-repeat: no-repeat;
-    height: 500px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  section.hero-banner h1 {
-    {% if section.settings.title_color %}color: {{ section.settings.title_color }};{% endif %}
-    {% if section.settings.is_title_right %}margin-inline-start: 50%;{% endif %}
-    {% if section.settings.is_title_shadow %}text-shadow: 0px 0px 8px rgba(0, 0, 0, 0.55);{% endif %}
-  }
-
-  {% if section.settings.is_disable_br_desktop %}
-    section.hero-banner br {
-      display: none;
-    }
-
-    section.hero-banner h1 .small-title {
-      padding-top: {% if section.settings.flip %} 20px{% endif %};
-    }
-
-    @media (max-width: 768px) {
-      section.hero-banner br {
-        display: block;
-      }
-    }
-  {% endif %}
-
-  section.hero-banner h1 .small-title {
-    display: inline-block;
-    font-size: 30px;
-    padding-top: {% if section.settings.flip %} 2vw{% endif %};
-  }
-
-  section.hero-banner .bottom-content p {
+  .hero-banner {
     position: relative;
-    bottom: 0;
+    height: 500px;
+    overflow: hidden;
+  }
+
+  .hero-banner .slides-container {
+    width: 100%;
+    height: 100%;
+    position: relative;
+  }
+
+  .hero-banner .slide {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-size: cover;
+    background-position: center;
+    opacity: 0;
+    transition: opacity 1s ease-in-out;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .hero-banner .slide-content {
     text-align: center;
-    max-width: {{ section.settings.bottom_content_max_width }}%;
-    margin: auto;
-    margin-inline: auto;
-    margin-bottom: -100px;
   }
 
-  section.hero-banner a {
-    width: fit-content;
+  .hero-banner .small-title, .hero-banner h1 {
+    color: {{ section.settings.title_color }};
+    text-shadow: {% if section.settings.is_title_shadow %}0px 0px 8px rgba(0, 0, 0, 0.55){% else %}none{% endif %};
   }
 
-  section.hero-banner a button {
+  .hero-banner a button {
     background-color: {{ section.settings.button_color }};
     color: {{ section.settings.button_title_color }};
   }
 
-  @media (max-width: 768px) {
-    {% if section.settings.bg_image_mobile %}
-      section.hero-banner {
-        background-image: url('{{ section.settings.bg_image_mobile | image_url }}');
-        {% comment %} max-height: calc(100vw - 80px); {% endcomment %}
-      }
-    {% endif %}
-
-    section.hero-banner h1 {
-      max-width: 100%;
-      margin-inline-start: unset;
-    }
-
-    section.hero-banner h1 .small-title {
-      font-size: 5vw;
-    }
+  /* First slide visible by default */
+  .hero-banner .slide:first-child {
+    opacity: 1;
   }
 </style>
 
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  const slides = document.querySelectorAll(".hero-banner .slide");
+  let currentSlide = 0;
+
+  function changeSlide() {
+    slides[currentSlide].style.opacity = 0;
+    currentSlide = (currentSlide + 1) % slides.length;
+    slides[currentSlide].style.opacity = 1;
+  }
+
+  setInterval(changeSlide, 5000); // Change slide every 5 seconds
+});
+</script>
+
 {% schema %}
 {
-  "name": "Hero Slider",
-  "disabled_on": {
-    "groups": ["header", "footer"]
-  },
-  "settings": [
-    {
-      "type": "image_picker",
-      "id": "bg_image",
-      "label": "Background Image"
-    },
-    {
-      "type": "image_picker",
-      "id": "bg_image_mobile",
-      "label": "Background Image on Mobile"
-    },
-    {
-      "type": "text",
-      "id": "small_title",
-      "label": "Small Title"
-    },
-    {
-      "type": "text",
-      "id": "big_title",
-      "label": "Big Title"
-    },
-    {
-      "type": "textarea",
-      "id": "bottom_content",
-      "label": "Bottom Content"
-    },
-    {
-      "type": "header",
-      "content": "Options"
-    },
-    {
-      "type": "checkbox",
-      "id": "flip",
-      "label": "Flip Between Titles"
-    },
-    {
-      "type": "select",
-      "id": "text_align_mobile",
-      "label": "Text Align on Mobile",
-      "options": [
-        {
-          "value": "start",
-          "label": "Left"
-        },
-        {
-          "value": "center",
-          "label": "Center"
-        }
-      ],
-      "default": "center"
-    },
-    {
-      "type": "select",
-      "id": "vertical_align_desktop",
-      "label": "Vertical Align on Desktop",
-      "options": [
-        {
-          "value": "start",
-          "label": "Top"
-        },
-        {
-          "value": "center",
-          "label": "Center"
-        },
-        {
-          "value": "end",
-          "label": "Bottom"
-        }
-      ],
-      "default": "center"
-    },
-    {
-      "type": "select",
-      "id": "mobile_alignment",
-      "label": "Vertical Align on Mobile",
-      "options": [
-        {
-          "value": "start",
-          "label": "Top"
-        },
-        {
-          "value": "center",
-          "label": "Center"
-        },
-        {
-          "value": "end",
-          "label": "Bottom"
-        }
-      ],
-      "default": "start"
-    },
-    {
-      "type": "select",
-      "id": "bg_position",
-      "label": "Background Image Position",
-      "options": [
-        {
-          "value": "top",
-          "label": "Top"
-        },
-        {
-          "value": "center",
-          "label": "Center"
-        },
-        {
-          "value": "bottom",
-          "label": "Bottom"
-        },
-        {
-          "value": "right",
-          "label": "Right"
-        },
-        {
-          "value": "left",
-          "label": "Left"
-        }
-      ],
-      "default": "center"
-    },
-    {
-      "type": "range",
-      "id": "bottom_content_max_width",
-      "label": "Bottom Content Maximum Width",
-      "min": 0,
-      "max": 100,
-      "step": 1,
-      "unit": "%",
-      "default": 70
-    },
-    {
-      "type": "color",
-      "id": "title_color",
-      "label": "Title Color"
-    },
-    {
-      "type": "checkbox",
-      "id": "is_title_right",
-      "label": "Place Title Right"
-    },
-    {
-      "type": "checkbox",
-      "id": "is_disable_br_desktop",
-      "label": "Disable <br> on desktop"
-    },
-    {
-      "type": "checkbox",
-      "id": "is_title_shadow",
-      "label": "Title Shadow"
-    },
-    {
-      "type": "header",
-      "content": "Button"
-    },
-    {
-      "type": "text",
-      "id": "button_title",
-      "label": "Button Title"
-    },
-    {
-      "type": "text",
-      "id": "button_link",
-      "label": "Button Link"
-    },
-    {
-      "type": "checkbox",
-      "id": "is_button_link_new_window",
-      "label": "Open Button Link in New Window"
-    },
-    {
-      "type": "color",
-      "id": "button_color",
-      "label": "Button Color"
-    },
-    {
-      "type": "color",
-      "id": "button_title_color",
-      "label": "Button Title Color"
-    }
-  ],
+  "name": "Dynamic Hero Slider",
+  "settings": [],
   "blocks": [
     {
-      "type": "image",
-      "name": "Images Set",
+      "type": "slide",
+      "name": "Slide",
       "settings": [
         {
-          "type": "image_picker",
-          "id": "right_image",
-          "label": "Right Image"
+          "type": "color",
+          "id": "slide_bg_color",
+          "label": "Slide Background Color"
         },
         {
           "type": "image_picker",
-          "id": "left_image",
-          "label": "Left Image"
+          "id": "image",
+          "label": "Slide Image"
+        },
+        {
+          "type": "text",
+          "id": "title",
+          "label": "Main Title"
+        },
+        {
+          "type": "text",
+          "id": "subtitle",
+          "label": "Subtitle"
+        },
+        {
+          "type": "text",
+          "id": "slide_button_title",
+          "label": "Slide Button Title"
+        },
+        {
+          "type": "url",
+          "id": "slide_button_link",
+          "label": "Slide Button Link"
+        },
+        {
+          "type": "checkbox",
+          "id": "slide_is_button_link_new_window",
+          "label": "Open Slide Button Link in New Window",
+          "default": false
         }
       ]
     }
   ],
   "presets": [
     {
-      "name": "Hero Slider"
+      "name": "Default Hero Slider",
+      "category": "Hero"
     }
   ]
 }
