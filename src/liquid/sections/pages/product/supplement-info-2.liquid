@@ -1,59 +1,78 @@
-<section class="supplement-info overflow-visible">
+{% if request.path contains 'store-locator-lp' %}
+  {% assign titleTag = 'h1' %}
+{% else %}
+  {% assign titleTag = 'h2' %}
+{% endif %}
+
+<section id="supplement-info-{{ section.id }}" class="supplement-info overflow-visible">
   <div class="container">
-    <div class="titles text-center">
-      <h1 class="text-white">Curalin</h1>
-      <p>Harness the Power of Natural Blood Sugar Support with Curalin.</p>
+    <div class="titles mbl:text-center">
+      <{{ titleTag }} class="mb-2 text-white">{{ section.settings.title }}</{{ titleTag }}>
+      <p class="text-[22px]">{{ section.settings.subtitle }}</p>
     </div>
 
-    <img src="{{ section.settings.overview_image | image_url }}" alt="Curalin" class="mbl:max-w-[75%]">
-
     <div class="tabs">
-      <div class="tab active">Overview <i class="fa-light fa-angle-right"></i></div>
-      <div class="tab">Ingredients <i class="fa-light fa-angle-right"></i></div>
+      <div class="tab active">Overview <i class="fa-light fa-angle-right desktop"></i></div>
+      <div class="tab">Ingredients <i class="fa-light fa-angle-right desktop"></i></div>
+      {% if section.settings.faq_product != blank %}<div class="tab">FAQ <i class="fa-light fa-angle-right desktop"></i></div>{% endif %}
     </div>
 
     <div class="content-wrapper">
       <div class="content overview active">
-        <p>Experience the clinically proven power of Curalin for healthy blood sugar and optimal health.</p>
+        <div class="wrapper mbl:flex-col-reverse flex items-center">
+          <div class="text-content max-w-[60%] mbl:max-w-full">
+            {% if section.settings.content %}
+              {{ section.settings.content }}
+            {% else %}
+              <p>Experience the clinically proven power of Curalin for healthy blood sugar and optimal health.</p>
 
-        <ul>
-          <li><b>Keep Sugar in Check:</b> Keep your blood sugar healthy with Curalin's support.*</li>
-          <li><b>Reduce Cravings for Sugars & Carbs:</b> Curb your sugar and carb cravings supported by Curalin.*</li>
-          <li><b>Metabolic Harmony:</b> Boost your body's efficiency for a balanced approach to health and weight management.*</li>
-          <li><b>Elevate Energy:</b> Power through your day with sustained, natural energy.*</li>
-          <li><b>Feel Good Factor:</b> Feel fresh every day with Curalin’s holistic support.*</li>
-        </ul>
+              <ul>
+                <li><b>Keep Sugar in Check:</b> Keep your blood sugar healthy with Curalin's support.*</li>
+                <li><b>Reduce Cravings for Sugars & Carbs:</b> Curb your sugar and carb cravings supported by Curalin.*</li>
+                <li><b>Metabolic Harmony:</b> Boost your body's efficiency for a balanced approach to health and weight management.*</li>
+                <li><b>Elevate Energy:</b> Power through your day with sustained, natural energy.*</li>
+                <li><b>Feel Good Factor:</b> Feel fresh every day with Curalin’s holistic support.*</li>
+              </ul>
+            {% endif %}
+          </div>
+
+          <img src="{{ section.settings.overview_image | image_url }}" alt="Curalin" class="absolute right-0 bottom-[-50px] mbl:static mbl:max-w-[75%]">
+        </div>
       </div>
 
       <div class="content ingredients">
-        {% render 'responsive-image', img: section.settings.ingredients_image, img_mobile: section.settings.ingredients_image_mobile, classes: "mbl:w-full" %}
+        {% render 'responsive-image', img: section.settings.ingredients_image, img_mobile: section.settings.ingredients_image_mobile, classes: "mbl:w-full block w-fit" %}
       </div>
-    </div>
 
-    <a href="#shopify-section-template--16767989776535__b35f1c03-cc08-4f40-bdc2-8dae3e82ec8b"><button>Find Curalin Near You</button></a>
+      {% if section.settings.faq_product != blank %}
+        <div class="content faq">
+          {% render 'product-faq-section', section_id: section.id, is_allow_one_open: true, titles_color: "white", data_type: "json", faqItems: section.settings.faq_product.metafields.custom.faq.value %}
+        </div>
+      {% endif %}
+    </div>
   </div>
 </section>
 
 <script>
   $(document).ready(function() {
-      $('.supplement-info .tab').click(function() {
+      $('#supplement-info-{{ section.id }} .tab').click(function() {
           var index = $(this).index();
-          $('.supplement-info .tab').removeClass('active');
+          $('#supplement-info-{{ section.id }} .tab').removeClass('active');
           $(this).addClass('active');
 
-          $('.supplement-info .content.active').fadeOut(300, function() {
+          $('#supplement-info-{{ section.id }} .content.active').fadeOut(300, function() {
               $(this).removeClass('active');
 
-              $('.supplement-info .content').eq(index).fadeIn(300).addClass('active');
+              $('#supplement-info-{{ section.id }} .content').eq(index).fadeIn(300).addClass('active');
           });
       });
   });
 </script>
 
 <style>
-  .supplement-info {
-    background-color: var(--blue);
-    color: white;
+  #supplement-info-{{ section.id }} {
+    background-color: {{ section.settings.background_color }};
+    color: {{ section.settings.text_color }};
 
     a:has(button) {
       display: flex;
@@ -77,9 +96,9 @@
         transition: background-color 0.3s ease-in-out, color 0.3s ease-in-out;
         text-align: center;
         padding: 1rem;
-        background-color: var(--blue);
+        background-color: {{ section.settings.background_color }};
         color: white;
-        width: 250px;
+        width: 200px;
         border-radius: 30px;
         border-color: white;
         border-width: 1px;
@@ -89,7 +108,7 @@
         &:hover {
           cursor: pointer;
           background-color: var(--light-blue);
-          color: var(--blue);
+          color: {{ section.settings.background_color }};
           font-weight: bold;
         }
       }
@@ -108,11 +127,11 @@
         ul {
           li {
             &:before {
-              background: var(--orange);
+              background: {{ section.settings.titles_color }};
             }
 
-            b {
-              color: var(--orange);
+            strong {
+              color: {{ section.settings.titles_color }};
             }
           }
         }
@@ -121,7 +140,7 @@
   }
 
   @media screen and (max-width: 768px) {
-    .supplement-info {
+    #supplement-info-{{ section.id }} {
       .tabs {
         gap: 0.5rem;
 
@@ -142,6 +161,36 @@
       "name": "Supplement Info 2",
       "settings": [
         {
+          "type": "color",
+          "id": "background_color",
+          "label": "Background Color"
+        },
+        {
+          "type": "color",
+          "id": "titles_color",
+          "label": "Titles Color"
+        },
+        {
+          "type": "color",
+          "id": "text_color",
+          "label": "Titles Color"
+        },
+        {
+          "type": "text",
+          "id": "title",
+          "label": "Title"
+        },
+        {
+          "type": "text",
+          "id": "subtitle",
+          "label": "Subtitle"
+        },
+        {
+          "type": "richtext",
+          "id": "content",
+          "label": "Content"
+        },
+        {
           "type": "image_picker",
           "id": "overview_image",
           "label": "Overview Image"
@@ -155,6 +204,11 @@
           "type": "image_picker",
           "id": "ingredients_image_mobile",
           "label": "Ingredients Image Mobile"
+        },
+        {
+          "type": "product",
+          "id": "faq_product",
+          "label": "FAQ From Product"
         }
       ],
       "presets": [
