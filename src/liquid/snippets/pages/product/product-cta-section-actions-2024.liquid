@@ -81,8 +81,8 @@
         {% endif %} {% endcomment %}
 
         <div class="submit-wrap flex flex-col w-full mt-4">
-          <div class="add-to-cart-button buy-once hidden">{% render 'buy-buttons', product: product, variant: variant_id, product_form_id: product_form_id, section_id: section.id %}</div>
-          <div class="checkout-button subscription">{% render 'buy-buttons', product: product, variant: variant_id, selling_plan_id: selling_plan_id , product_form_id: product_form_id, section_id: section.id %}</div>
+          <div class="add-to-cart-button buy-once hidden">{% render 'buy-buttons', product: product, variant: variant_id, product_form_id: product_form_id, buyType: buyType, section_id: section.id %}</div>
+          <div class="checkout-button subscription">{% render 'buy-buttons', product: product, variant: variant_id, selling_plan_id: selling_plan_id , product_form_id: product_form_id, buyType: buyType, section_id: section.id %}</div>
         </div>
 
         {% if customer %}
@@ -213,8 +213,8 @@
 
     function attachEventHandlers() {
       productActions.on('click', '.purchase-option-box', event => togglePurchaseBox($(event.currentTarget)))
-                    .on('click', '.purchase-type button', event => handlePurchaseTypeClick(event, $(event.currentTarget)));
-                    //.on('click', '.main-btn', event => handleMainButtonClick(event, $(event.currentTarget)));
+                    .on('click', '.purchase-type button', event => handlePurchaseTypeClick(event, $(event.currentTarget)))
+                    .on('click', '.main-btn', event => handleMainButtonClick(event, $(event.currentTarget)));
     }
 
     function handlePurchaseTypeClick(event, button) {
@@ -224,11 +224,11 @@
       togglePurchaseType(parentBox, isSubscriptionSelected);
     }
 
-    // function handleMainButtonClick(event, button) {
-    //   event.stopPropagation();
-    //   const parentBox = button.closest('.purchase-option-box');
-    //   buyButtonHandler(parentBox.data('variant'), parentBox.data('subscription-selling-plan-id'), button);
-    // }
+    function handleMainButtonClick(event, button) {
+      event.stopPropagation();
+      const parentBox = button.closest('.purchase-option-box');
+      buyButtonHandler(parentBox.data('variant'), parentBox.data('subscription-selling-plan-id'), button);
+    }
 
     function adjustMaxHeight(element) {
       var openHeight = $(element).get(0).scrollHeight;
@@ -343,88 +343,88 @@
       return window.productSliderAllInOne{{ shortSectionID }}.slides.length - ({{ product.variants.size | plus: 1 }} - $(element).attr('data-index'));
     }
 
-    // function buyButtonHandler(variant_id, subscription_selling_plan_id, buttonElement) {
-    //   toggleButtonLoading(buttonElement, true);
-    //   if (isSubscriptionSelected() || true) {
-    //     buySubscription(variant_id, 1, subscription_selling_plan_id);
-    //   } else {
-    //     let dc = $(buttonElement).closest('.purchase-option-box').data('dc');
-    //     let giftProductID = buttonElement.parent().siblings('.gifts').attr('data-bundle-product-id');
+    function buyButtonHandler(variant_id, subscription_selling_plan_id, buttonElement) {
+      toggleButtonLoading(buttonElement, true);
+      if (isSubscriptionSelected() || true) {
+        buySubscription(variant_id, 1, subscription_selling_plan_id);
+      } else {
+        let dc = $(buttonElement).closest('.purchase-option-box').data('dc');
+        let giftProductID = buttonElement.parent().siblings('.gifts').attr('data-bundle-product-id');
 
-    //     if (giftProductID){
-    //       redirectToCheckout(giftProductID, dc);
-    //     }
-    //     else {
-    //       redirectToCheckout(variant_id, dc);
-    //     }
-    //   }
-    // }
+        if (giftProductID){
+          redirectToCheckout(giftProductID, dc);
+        }
+        else {
+          redirectToCheckout(variant_id, dc);
+        }
+      }
+    }
 
     function isSubscriptionSelected() {
       return $('#product-actions-{{ section_id }} .purchase-option-box.selected').find('.purchase-type .subscription.selected').length > 0;
     }
 
-    // function redirectToCheckout(variant_id, dc) {
-    //   let checkoutLink = "https://" + location.hostname + "/cart/" + variant_id + ":1"
-    //   if (dc) {checkoutLink += "?discount=" + atob(dc);}
-    //   window.location.href = checkoutLink;
-    // }
+    function redirectToCheckout(variant_id, dc) {
+      let checkoutLink = "https://" + location.hostname + "/cart/" + variant_id + ":1"
+      if (dc) {checkoutLink += "?discount=" + atob(dc);}
+      window.location.href = checkoutLink;
+    }
 
-    // function toggleButtonLoading(buttonElement, isLoading) {
-    //   let loader = $(buttonElement).closest('.purchase-option-box').find('.loader');
-    //   let buttonText = $(buttonElement).find('.button-text');
+    function toggleButtonLoading(buttonElement, isLoading) {
+      let loader = $(buttonElement).closest('.purchase-option-box').find('.loader');
+      let buttonText = $(buttonElement).find('.button-text');
 
-    //   if (loader.length === 0) {
-    //       console.error("Loader element not found");
-    //       return;
-    //   }
+      if (loader.length === 0) {
+          console.error("Loader element not found");
+          return;
+      }
 
-    //   if (isLoading) {
-    //       loader.show();
-    //       buttonText.hide();
-    //   } else {
-    //       loader.hide();
-    //       buttonText.show();
-    //   }
-    // }
+      if (isLoading) {
+          loader.show();
+          buttonText.hide();
+      } else {
+          loader.hide();
+          buttonText.show();
+      }
+    }
 
-    // function clearCart(callback) {
-    //   jQuery.ajax({
-    //     type: 'POST',
-    //     url: '/cart/clear.js',
-    //     success: function() {
-    //       console.log('Cart cleared');
-    //       callback();
-    //     },
-    //     error: function() {
-    //       console.log('Failed to clear cart');
-    //     }
-    //   });
-    // }
+    function clearCart(callback) {
+      jQuery.ajax({
+        type: 'POST',
+        url: '/cart/clear.js',
+        success: function() {
+          console.log('Cart cleared');
+          callback();
+        },
+        error: function() {
+          console.log('Failed to clear cart');
+        }
+      });
+    }
 
-    // function buySubscription(variant_id, qty, selling_plan) {
-    //   clearCart(function() {
-    //     data = {
-    //       "id": variant_id,
-    //       "quantity": qty,
-    //       "selling_plan": selling_plan
-    //     }
+    function buySubscription(variant_id, qty, selling_plan) {
+      clearCart(function() {
+        data = {
+          "id": variant_id,
+          "quantity": qty,
+          "selling_plan": selling_plan
+        }
 
-    //     jQuery.ajax({
-    //       type: 'POST',
-    //       url: '/cart/add.js',
-    //       data: data,
-    //       dataType: 'json',
-    //       success: function() {
-    //         console.log('success');
-    //         window.location.href = '/checkout';
-    //       },
-    //       error: function() {
-    //         console.log('Failed to add item to cart');
-    //       }
-    //     });
-    //   });
-    // }
+        jQuery.ajax({
+          type: 'POST',
+          url: '/cart/add.js',
+          data: data,
+          dataType: 'json',
+          success: function() {
+            console.log('success');
+            window.location.href = '/checkout';
+          },
+          error: function() {
+            console.log('Failed to add item to cart');
+          }
+        });
+      });
+    }
   });
 </script>
 
@@ -446,9 +446,7 @@
     border: 1px solid var(--blue);
     color: var(--blue);
   }
-</style>
 
-<style>
   .cta-section-{{ section_id }} .purchase-option-box .radio-box input[type='radio'] {
       display: none;
   }
