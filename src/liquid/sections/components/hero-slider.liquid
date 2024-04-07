@@ -1,9 +1,9 @@
-<section class="hero-banner admin-hidden p-0">
+<section class="hero-banner p-0">
   <h1 class="hidden">Curalife - Clean, natural, effective products you can trust</h1>
 
   <div class="slides-container">
     {% for block in section.blocks %}
-      <div class="slide" style="background-color: {{ block.settings.slide_bg_color }};">
+      <div class="slide" id="slide-{{ block.id }}" style="background-color: {{ block.settings.slide_bg_color }};">
         <div class="mbl:flex-col-reverse mbl:p-0 container flex items-center">
           <div class="slide-content text-start mbl:text-center max-w-[35%] mbl:max-w-full mbl:px-4">
             <h2 style="color: {{ block.settings.slide_title_color }}">{{ block.settings.title }}</h2>
@@ -11,7 +11,7 @@
 
             {% if block.settings.slide_button_title and block.settings.slide_button_link %}
               <a href="{{ block.settings.slide_button_link }}" {% if block.settings.slide_is_button_link_new_window %}target="_blank"{% endif %}>
-                <button>{{ block.settings.slide_button_title }}</button>
+                <button style="color: {{ block.settings.button_text_color }}">{{ block.settings.slide_button_title }}</button>
               </a>
             {% endif %}
 
@@ -50,14 +50,12 @@
     background-position: center;
     opacity: 0;
     transition: opacity 1s ease-in-out;
-    display: flex;
-    justify-content: center;
-    align-items: center;
   }
 
   .hero-banner a button {
     background-color: white;
     color: var(--blue);
+    font-weight: bold;
   }
 
   /* First slide visible by default */
@@ -74,6 +72,10 @@
   }
 
   @media (max-width: 767px) {
+    .hero-banner {
+      min-height: 113vh;
+    }
+
     .hero-banner .slide img {
       min-width: 100%;
     }
@@ -83,8 +85,37 @@
 <script>
 document.addEventListener("DOMContentLoaded", function() {
   const slides = document.querySelectorAll(".hero-banner .slide");
-  let currentSlide = 0;
+  const slidesContainer = document.querySelector(".hero-banner");
+  let maxHeight = 0;
 
+  // Function to adjust height for mobile
+  function adjustHeightForMobile() {
+    // Check if screen width indicates mobile device
+    if (window.innerWidth <= 767) {
+      // Reset maxHeight to recalculate
+      maxHeight = 0;
+      // Find the tallest slide
+      slides.forEach(slide => {
+        const slideHeight = slide.offsetHeight;
+        if (slideHeight > maxHeight) {
+          maxHeight = slideHeight;
+        }
+      });
+      // Set the hero banner's height to the tallest slide's height
+      slidesContainer.style.height = `${maxHeight}px`;
+    } else {
+      // For non-mobile, you can reset to default or leave as is
+      slidesContainer.style.height = '490px'; // Example default height, adjust as needed
+    }
+  }
+
+  // Adjust height on initial load
+  adjustHeightForMobile();
+
+  // Adjust height on resize to handle orientation changes or resizing
+  window.addEventListener('resize', adjustHeightForMobile);
+
+  let currentSlide = 0;
   function changeSlide() {
     slides[currentSlide].style.opacity = 0;
     currentSlide = (currentSlide + 1) % slides.length;
@@ -118,6 +149,11 @@ document.addEventListener("DOMContentLoaded", function() {
           "type": "color",
           "id": "slide_subtitle_color",
           "label": "Slide Subtitle Color"
+        },
+        {
+          "type": "color",
+          "id": "button_text_color",
+          "label": "Button Text Color"
         },
         {
           "type": "image_picker",
