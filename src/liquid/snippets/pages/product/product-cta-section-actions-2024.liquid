@@ -8,7 +8,6 @@
   <div class="purchase-options md:p-2 flex flex-col gap-2">
     {% for var in product.variants %}
       {% assign variant_id = var.metafields.custom.reference_variant_id | default: var.id %}
-      {% assign selling_plan_id = var.metafields.subscription.selling_plan_id %}
       {% assign bottle_quantity = var.metafields.my_fields.pack_bottles_quantity %}
       {% assign original_item_cap = var.metafields.custom.original_item.value.compare_at_price | default: var.metafields.custom.original_item.value.price %}
       {% assign original_item_cap_total = original_item_cap | times: bottle_quantity %}
@@ -18,7 +17,13 @@
       {% assign subscription_item_price_save = original_item_cap | times: subscription_save_percents | divided_by: 100 %}
       {% assign subscription_item_price = original_item_cap | minus: subscription_item_price_save %}
       {% assign subscription_total_price = subscription_item_price | times: bottle_quantity %}
-
+      {% if var.metafields.custom.referenced_variant_product_handle %}
+        {% assign referenced_product = all_products[var.metafields.custom.referenced_variant_product_handle] %}
+        {% assign referenced_variant = referenced_product.variants | where: 'id', variant_id | first %}
+        {% assign selling_plan_id = referenced_variant.metafields.subscription.selling_plan_id %}
+      {% else %}
+        {% assign selling_plan_id = var.metafields.subscription.selling_plan_id %}
+      {% endif %}
       <div class="purchase-option-box flex flex-col items-start p-4 overflow-hidden {% if forloop.first %}selected{% endif %}" data-variant="{{ variant_id }}" data-subscription-selling-plan-id="{{ selling_plan_id }}" data-price="{{ var.price | money_without_currency | replace: ".00", "" }}" data-sku="{{ var.sku }}" data-index="{{ forloop.index }}" data-item-price="{{ item_price }}" data-subscription-item-price="{{ subscription_item_price }}" data-original-item-cap="{{ original_item_cap }}" data-dc="{{ var.metafields.custom.discount_code | base64_encode }}">
         <div class="top-wrapper md:gap-2 flex items-center w-full gap-4 pb-4">
           <div class="radio-box"><input type="radio"></input><label for="buyonce"></label></div>
