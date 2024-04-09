@@ -1,0 +1,88 @@
+{% assign variant_id = var.metafields.custom.reference_variant_id | default: var.id %}
+{% assign bottle_quantity = var.metafields.my_fields.pack_bottles_quantity %}
+{% assign original_item_cap = var.metafields.custom.original_item.value.compare_at_price | default: var.metafields.custom.original_item.value.price %}
+{% assign original_item_cap_total = original_item_cap | times: bottle_quantity %}
+{% assign original_item_price = var.metafields.custom.original_item.value.price %}
+{% assign item_price = var.price | divided_by: bottle_quantity %}
+{% assign subscription_save_percents = var.metafields.subscription.save_percents %}
+{% assign subscription_item_price_save = original_item_cap | times: subscription_save_percents | divided_by: 100 %}
+{% assign subscription_item_price = original_item_cap | minus: subscription_item_price_save %}
+{% assign subscription_total_price = subscription_item_price | times: bottle_quantity %}
+{% if var.metafields.custom.referenced_variant_product_handle %}
+  {% assign prod = all_products[var.metafields.custom.referenced_variant_product_handle] %}
+  {% assign referenced_variant = prod.variants | where: 'id', variant_id | first %}
+  {% assign selling_plan_id = referenced_variant.metafields.subscription.selling_plan_id %}
+{% else %}
+  {% assign selling_plan_id = var.metafields.subscription.selling_plan_id %}
+{% endif %}
+
+<div class="purchase-option-box flex flex-col items-start p-4 overflow-hidden {% if forloop.first %}selected{% endif %}" data-variant="{{ variant_id }}" data-subscription-selling-plan-id="{{ selling_plan_id }}" data-price="{{ var.price | money_without_currency | replace: ".00", "" }}" data-sku="{{ var.sku }}" data-index="{{ forloop.index }}" data-item-price="{{ item_price }}" data-subscription-item-price="{{ subscription_item_price }}" data-original-item-cap="{{ original_item_cap }}" data-dc="{{ var.metafields.custom.discount_code | base64_encode }}">
+  <div class="top-wrapper md:gap-2 flex items-center w-full gap-4 pb-4">
+    <div class="radio-box"><input type="radio"></input><label for="buyonce"></label></div>
+
+    <div class="option-title font-semibold text-[--blue]">{% if var.title == 'Default Title' %}{{ prod.title }}{% else %}{{ var.title }}{% endif %}{% if var.metafields.subscription.save_percents > 0 %} - Save up to {{ var.metafields.subscription.save_percents }}%{% endif %}</div>
+  </div>
+
+  {% if selling_plan_id != blank %}
+    <div class="purchase-type flex-nowrap flex w-full gap-2">
+      <button class="subscription selected">Subscribe & Save</button>
+      <button class="buy-once">Buy Once</button>
+    </div>
+  {% endif %}
+
+  <div class="subscription-info bg-[--light-blue] text-[--blue] p-2 flex justify-center gap-2 mt-4">
+    <i class="fa-thin fa-badge-percent text-[50px]"></i>
+    <div class="info text-[13px]">Save {{ var.metafields.subscription.save_percents }}% every order, guaranteed delivery, make changes any time, prompt VIP support & new subscriber gifts</div>
+  </div>
+
+  {% if selling_plan_id != blank %}
+    <div class="option-subtitles w-full my-2">
+      <div class="option-subtitle subscription text-[14px]">{{ var.title }} <span class="save-title text-[--blue]">Save {{ var.metafields.subscription.save_percents }}%</span></div>
+      <div class="option-subtitle buy-once text-[14px] hidden">{{ var.title }} {% if var.compare_at_price > var.price %}<span class="save-title text-[--blue] font-bold">Save {{ var.metafields.custom.save_percents }}%</span> or {% endif %}<br><span class="save-title text-[--blue] font-bold">Subscribe & Save MORE</span></div>
+    </div>
+  {% endif %}
+
+  <div class="price-wrapper">
+    {% if prod.metafields.custom.is_price_per_month and var.price > item_price %}
+      <div class="total-price-wrapper mb-1 text-[14px] text-[--dark-blue]">
+        <span class="total-price subscription">Total <span class="floor rounded">{{ subscription_total_price | money }}</span></span>
+        <span class="total-price buy-once hidden">Total <span class="floor rounded">{{ var.price | money }}</span></span>
+      </div>
+    {% endif %}
+
+    <div class="calculations flex items-center gap-2 font-bold leading-10">
+      <div class="real-price no-letters text-[40px] subscription"><span class="floor rounded">{% if prod.metafields.custom.is_price_per_month %}{{ subscription_item_price | money }}{% else %}{{ subscription_total_price | money }}{% endif %}</span></div>
+      <div class="real-price no-letters text-[40px] buy-once hidden"><span class="floor rounded">{% if prod.metafields.custom.is_price_per_month %}{{ item_price | money }}{% else %}{{ var.price | money }}{% endif %}</span></div>
+      <div class="compared-at-price rounded line-through text-[30px] font-normal text-[#baced5]">{% if prod.metafields.custom.is_price_per_month %}{{ original_item_cap | money }}{% else %}{{ original_item_cap_total | money }}{% endif %}</div>
+    </div>
+
+    <div class="per-month font-bold">Per Month</div>
+  </div>
+
+  {% comment %} {% assign giftBundlesProductHandles = "joint-care,restful-sleep,magnesium-glycinate,immune-care" | split: ',' %}
+  {% if var.metafields.gifts.amount %}
+    <div class="gifts">
+      {% for i in (1..var.metafields.gifts.amount) %}
+      <div class="font-bold text-[16px] mt-2 mb-1">Choose {% if var.metafields.gifts.amount > 1 %}{% if forloop.first %}first{% else %}second{% endif %}{% else %}a{% endif %} gift:</div>
+        <div class="gift-products flex gap-2">
+          {% for prodHandle in giftBundlesProductHandles %}
+            {% assign prod = all_products[prodHandle] %}
+            <div class="gift-product flex flex-col items-center" data-product-id="{{ prod.id }}">
+              <img class="active:bg-[--light-blue] border border-[--blue] rounded-md m-0" src="{{ prod.metafields.custom.bottle_image | image_url }}" alt="{{ prod.title }}">
+              <div class="text-[12px] text-center">{{ prod.title }}</div>
+            </div>
+          {% endfor %}
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %} {% endcomment %}
+
+  <div class="submit-wrap flex flex-col w-full mt-4">
+    <div class="add-to-cart-button buy-once hidden">{% render 'buy-buttons', product: prod, variant: variant_id, product_form_id: product_form_id, buyType: buyType, section_id: section.id %}</div>
+    <div class="checkout-button subscription">{% render 'buy-buttons', product: prod, variant: variant_id, selling_plan_id: selling_plan_id , product_form_id: product_form_id, buyType: buyType, section_id: section.id %}</div>
+  </div>
+
+  {% if customer %}
+    {% render 'yotpo-product-points-widget' %}
+  {% endif %}
+</div>
