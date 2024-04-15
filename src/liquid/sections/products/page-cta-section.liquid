@@ -22,6 +22,52 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@9/swiper-bundle.min.css" />
 <script src="https://cdn.jsdelivr.net/npm/swiper@9/swiper-bundle.min.js"></script>
 
+<script>
+  window.addEventListener('load', function() {
+  var _learnq = window._learnq || [];
+  function addedToCart() {
+    fetch(`${window.location.origin}/cart.js`)
+    .then(res => res.clone().json().then(data => {
+      var cart = {
+        total_price: data.total_price/100,
+        $value: data.total_price/100,
+        total_discount: data.total_discount,
+        original_total_price: data.original_total_price/100,
+        items: data.items
+      }
+      if (item !== 'undefined') {
+        cart = Object.assign(cart, item)
+      }
+      if (klAjax) {
+          _learnq.push(['track', 'Added to Cart', cart]);
+          klAjax = false;
+        }
+    }))
+  };
+  (function (ns, fetch) {
+    ns.fetch = function() {
+      const response = fetch.apply(this, arguments);
+      response.then(res => {
+        if (`${window.location.origin}/cart/add.js`
+          .includes(res.url)) {
+            addedToCart()
+        }
+      });
+      return response
+    }
+  }(window, window.fetch));
+  var klAjax = true;
+  var atcButtons = document.querySelectorAll("form[action*='/cart/add'] button[type='submit']");
+  for (var i = 0; i < atcButtons.length; i++) {
+      atcButtons[i].addEventListener("click", function() {
+        if (klAjax) {
+          _learnq.push(['track', 'Added to Cart', item]);
+          klAjax = false;
+        }
+      })
+  }
+  });
+</script>
 
 {% schema %}
 {
