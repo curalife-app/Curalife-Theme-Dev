@@ -1,4 +1,5 @@
-{% assign collection_products_amount = collections[collection_handle].products | size %}
+{% assign currentCollection = collections[collection_handle] %}
+{% assign collection_products_amount = currentCollection.products | size %}
 {% assign bundleVariantsCollections = "magnesium,sleep,joint-care,immune-care" | split: "," %}
 
 {% if collection_handle == 'glucose-support' and shop.name == 'CuraLife Global' %}
@@ -6,12 +7,12 @@
 {% endif %}
 
 {% unless collection_products_amount == 0 %}
-  <div id="{{ collection_handle }}-collection-section" class="collection-section xl:w-full {% if collections[collection_handle].products.size < 3 %}w-[48%]{% else %}w-full{% endif %} {% if shop.name == 'Curalife Global' or customer.tags contains 'B2B' %}max-w-[800px] m-auto{% endif %}" data-product-collections="{{ collection_handle }}" >
+  <div id="{{ collection_handle }}-collection-section" class="collection-section xl:w-full {% if currentCollection.products.size < 3 %}w-[48%]{% else %}w-full{% endif %} {% if shop.name == 'Curalife Global' or customer.tags contains 'B2B' %}max-w-[800px] m-auto{% endif %}" data-product-collections="{{ collection_handle }}" >
     {% unless isNoTitle %}
-      {% if collections[collection_handle].metafields.custom.alternative_title %}
-        {% assign collection_title = collections[collection_handle].metafields.custom.alternative_title %}
+      {% if currentCollection.metafields.custom.alternative_title %}
+        {% assign collection_title = currentCollection.metafields.custom.alternative_title %}
       {% else %}
-        {% assign collection_title = collections[collection_handle].title %}
+        {% assign collection_title = currentCollection.title %}
       {% endif %}
 
       <div class="title-wrapper border-b-[1px] border-black">
@@ -20,24 +21,24 @@
     {% endunless %}
 
     {% if isDescription %}
-      <p class="description {% if collections[collection_handle].metafields.custom.is_align_center or isCentered %}text-center m-auto{% endif %}">{{ collections[collection_handle].description }}</p>
+      <p class="description {% if currentCollection.metafields.custom.is_align_center or isCentered %}text-center m-auto{% endif %}">{{ currentCollection.description }}</p>
     {% endif %}
 
     <div class="product-grid flex flex-wrap {% if isGlucoseGlobal or customer.tags contains 'B2B' %}justify-center{% else %}justify-between xl:justify-start{% endif %} {% if isHiddenCollections %}hidden{% endif %}">
-      {% if collections[collection_handle].metafields.custom.collection_banner_img and template.name != 'collection'%}
+      {% if currentCollection.metafields.custom.collection_banner_img and template.name != 'collection'%}
         <div class="image-wrapper {% if collection_handle == 'glucose-support' %}max-w-1/4 md:max-w-1/2{% else %}max-w-1/2{% endif %}">
-          {% if collections[collection_handle].metafields.custom.collection_banner_lnk %}
-            <a class="product-link" href="{{ collections[collection_handle].metafields.custom.collection_banner_lnk }}">
-              {% render 'responsive-image', img: collections[collection_handle].metafields.custom.collection_banner_img, img_mobile: collections[collection_handle].metafields.custom.collection_banner_img_mobile, classes: "m-0 h-full md:h-[82vw] md:w-[44vw] block max-h-[420px] object-cover" %}
+          {% if currentCollection.metafields.custom.collection_banner_lnk %}
+            <a class="product-link" href="{{ currentCollection.metafields.custom.collection_banner_lnk }}">
+              {% render 'responsive-image', img: currentCollection.metafields.custom.collection_banner_img, img_mobile: currentCollection.metafields.custom.collection_banner_img_mobile, classes: "m-0 h-full md:h-[82vw] md:w-[44vw] block max-h-[420px] object-cover" %}
             </a>
           {% else %}
-            {% render 'responsive-image', img: collections[collection_handle].metafields.custom.collection_banner_img, img_mobile: collections[collection_handle].metafields.custom.collection_banner_img_mobile, classes: "m-0 h-full md:h-[82vw] md:w-[44vw] block max-h-[420px] object-cover" %}
+            {% render 'responsive-image', img: currentCollection.metafields.custom.collection_banner_img, img_mobile: currentCollection.metafields.custom.collection_banner_img_mobile, classes: "m-0 h-full md:h-[82vw] md:w-[44vw] block max-h-[420px] object-cover" %}
           {% endif %}
         </div>
       {% endif %}
 
       {% if collection_handle != 'wholesale' and bundleVariantsCollections contains collection_handle %}
-        {% assign onlyProduct = collections[collection_handle].products | first %}
+        {% assign onlyProduct = currentCollection.products | first %}
         {% for variant in onlyProduct.variants %}
           {% if forloop.last and isLastCollectionRender %}
             {% assign isLastCardRender = true %}
@@ -47,7 +48,7 @@
           {% render 'variant-card', variant: variant, variantIndex: forloop.index, productCollections: product_collections, isLastRender: isLastCardRender, isNoPrices: isNoPrices, isLinkToCollection: isLinkToCollection %}
         {% endfor %}
       {% else %}
-        {% for product in collections[collection_handle].products %}
+        {% for product in currentCollection.products %}
           {% if forloop.last and isLastCollectionRender %}
             {% assign isLastCardRender = true %}
           {% endif %}
@@ -64,6 +65,12 @@
         {% endfor %}
       {% endif %}
 
+      {% if customer.email == 'yotam@curalife.com' %}
+        {% for additionalVar in currentCollection.metafields.custom.additional_variants.value %}
+          {% render 'variant-card', variant: additionalVar, variantIndex: forloop.index, productCollections: product_collections, isLastRender: isLastCardRender, isNoPrices: isNoPrices, isLinkToCollection: isLinkToCollection %}
+        {% endfor %}
+      {% endif %}
+
       {% if isLastCardRendered != true %}
         {% render 'product-card', isOnlyScriptsAndStyles: true, isNoPrices: isNoPrices, isLinkToCollection: isLinkToCollection %}
       {% endif %}
@@ -76,7 +83,7 @@
     }
   </style>
 
-  {% if collections[collection_handle].metafields.custom.is_align_center %}
+  {% if currentCollection.metafields.custom.is_align_center %}
     <style>
       #{{ collection_handle }}-collection-section {
         text-align: center;
