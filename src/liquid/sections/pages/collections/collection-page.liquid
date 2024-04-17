@@ -1,26 +1,35 @@
+{% if collection.handle == 'all' %}{% assign heroTitle = 'Explore Our Products' %}{% else %}{% assign heroTitle = collection.title %}{% endif %}
+
 <div class="collection-page">
   <div class="collection-hero">
     <div class="container flex items-center justify-between h-full">
-      <img class="left-img" src="{{ collection.metafields.hero.left_img | image_url }}" alt="{{ collection.metafields.hero.left_img.alt | escape }}" />
+      <img class="left-img desktop" src="{{ collection.metafields.hero.left_img | image_url }}" alt="{{ collection.metafields.hero.left_img.alt | escape }}" />
 
       <div class="titles w-f flex flex-col text-center">
-        <h1>{{ collection.title }}</h1>
+        <h1>{{ heroTitle }}</h1>
         <div class="subtitle">{{ collection.metafields.hero.subtitle }}</div>
       </div>
 
-      <img class="right-img" src="{{ collection.metafields.hero.right_img | image_url }}" alt="{{ collection.metafields.hero.right_img.alt | escape }}" />
+      <img class="right-img desktop" src="{{ collection.metafields.hero.right_img | image_url }}" alt="{{ collection.metafields.hero.right_img.alt | escape }}" />
     </div>
   </div>
 
   <section class="collection-page-wrapper">
-    <div class="container flex gap-4">
-      <div class="collections-menu side-menu">
+    <div class="mbl:flex-col container flex gap-4">
+      <div class="collections-menu side-menu desktop">
         {% comment %} <div class="menu-item {% if template.name == 'collection-list' %}active{% endif %}"><a href="/collections">Shop All</a></div> {% endcomment %}
 
         {% for collectionItem in section.settings.collection_list %}
-          <script>console.log("Collection Render: {{ collectionItem.title }}")</script>
           <div class="menu-item {% if collectionItem.handle == collection.handle %}active{% endif %}"><a href="{{ collectionItem.url }}">{{ collectionItem.title }}</a></div>
         {% endfor %}
+      </div>
+
+      <div class="account-menu-mobile-dropdown mobile w-full">
+        <select id="mobile-dropdown">
+          {% for collectionItem in section.settings.collection_list %}
+            <option value="{{ collectionItem.url }}" {% if collectionItem.handle == collection.handle %}selected{% endif %}>{{ collectionItem.title }}</option>
+          {% endfor %}
+        </select>
       </div>
 
       {% render 'collection', collection_handle: collection.handle, isDescription: false, isNoTitle: true, isNoPrices: false, isLinkToCollection: false, isCentered: customer.b2b?, isNoBundles: false, isLastCollectionRender: isLastCollectionRender %}
@@ -28,10 +37,29 @@
   </section>
 </div>
 
+<script>
+  document.getElementById("mobile-dropdown").addEventListener('change', event => {
+    window.location.href = event.target.value;
+  });
+</script>
+
+
 <style>
   .breadcrumbs {
     position: relative;
     top: 150px;
+  }
+
+  #mobile-dropdown {
+    width: 100%;
+    background: var(--light-blue);
+    border: 2px solid var(--blue);
+    border-radius: 10px;
+    color: var(--blue);
+    text-align: center;
+    padding: 10px;
+    font-weight: bold;
+    box-shadow: 1px 4px 18px -16px rgba(0,0,0,0.75);
   }
 
   .collection-hero {
