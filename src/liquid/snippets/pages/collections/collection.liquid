@@ -1,97 +1,101 @@
 {% assign currentCollection = collections[collection_handle] %}
-{% assign collection_products_amount = currentCollection.products | size %}
+{% assign collection_products_amount = currentCollection.products.size %}
 {% assign bundleVariantsCollections = "magnesium,sleep,joint-care,immune-care" | split: "," %}
 
 {% if collection_handle == 'glucose-support' and shop.name == 'CuraLife Global' %}
   {% assign isGlucoseGlobal = true %}
 {% endif %}
 
-{% unless collection_products_amount == 0 %}
-  <div id="{{ collection_handle }}-collection-section" class="collection-section xl:w-full {% if currentCollection.products.size < 3 %}w-[48%]{% else %}w-full{% endif %} {% if shop.name == 'Curalife Global' or customer.tags contains 'B2B' %}max-w-[800px] m-auto{% endif %}" data-product-collections="{{ collection_handle }}" >
-    {% unless isNoTitle %}
-      {% if currentCollection.metafields.custom.alternative_title %}
-        {% assign collection_title = currentCollection.metafields.custom.alternative_title %}
-      {% else %}
-        {% assign collection_title = currentCollection.title %}
-      {% endif %}
-
-      <div class="title-wrapper border-b-[1px] border-black">
-        <h2 class="relative mb-0 text-[40px] font-thin top-1 w-fit bg-white pr-3">{{ collection_title }}</h2>
-      </div>
-    {% endunless %}
-
-    {% if isDescription %}
-      <p class="description {% if currentCollection.metafields.custom.is_align_center or isCentered %}text-center m-auto{% endif %}">{{ currentCollection.description }}</p>
+<div id="{{ collection_handle }}-collection-section" class="collection-section xl:w-full w-full {% if shop.name == 'Curalife Global' or customer.tags contains 'B2B' %}max-w-[800px] m-auto{% endif %}" data-product-collections="{{ collection_handle }}" >
+  {% unless isNoTitle %}
+    {% if currentCollection.metafields.custom.alternative_title %}
+      {% assign collection_title = currentCollection.metafields.custom.alternative_title %}
+    {% else %}
+      {% assign collection_title = currentCollection.title %}
     {% endif %}
 
-    <div class="product-grid flex flex-wrap {% if isGlucoseGlobal or customer.tags contains 'B2B' %}justify-center{% else %}justify-between xl:justify-start{% endif %} {% if isHiddenCollections %}hidden{% endif %}">
-      {% if currentCollection.metafields.custom.collection_banner_img and template.name != 'collection'%}
-        <div class="image-wrapper {% if collection_handle == 'glucose-support' %}max-w-1/4 md:max-w-1/2{% else %}max-w-1/2{% endif %}">
-          {% if currentCollection.metafields.custom.collection_banner_lnk %}
-            <a class="product-link" href="{{ currentCollection.metafields.custom.collection_banner_lnk }}">
-              {% render 'responsive-image', img: currentCollection.metafields.custom.collection_banner_img, img_mobile: currentCollection.metafields.custom.collection_banner_img_mobile, classes: "m-0 h-full md:h-[82vw] md:w-[44vw] block max-h-[420px] object-cover" %}
-            </a>
-          {% else %}
+    <div class="title-wrapper border-b-[1px] border-black">
+      <h2 class="relative mb-0 text-[40px] font-thin top-1 w-fit bg-white pr-3">{{ collection_title }}</h2>
+    </div>
+  {% endunless %}
+
+  {% if isDescription %}
+    <p class="description {% if currentCollection.metafields.custom.is_align_center or isCentered %}text-center m-auto{% endif %}">{{ currentCollection.description }}</p>
+  {% endif %}
+
+  <div class="product-grid flex flex-wrap {% if isGlucoseGlobal or customer.tags contains 'B2B' %}justify-center{% else %}justify-between xl:justify-start{% endif %} {% if isHiddenCollections %}hidden{% endif %}">
+    {% if currentCollection.metafields.custom.collection_banner_img and template.name != 'collection'%}
+      <div class="image-wrapper {% if collection_handle == 'glucose-support' %}max-w-1/4 md:max-w-1/2{% else %}max-w-1/2{% endif %}">
+        {% if currentCollection.metafields.custom.collection_banner_lnk %}
+          <a class="product-link" href="{{ currentCollection.metafields.custom.collection_banner_lnk }}">
             {% render 'responsive-image', img: currentCollection.metafields.custom.collection_banner_img, img_mobile: currentCollection.metafields.custom.collection_banner_img_mobile, classes: "m-0 h-full md:h-[82vw] md:w-[44vw] block max-h-[420px] object-cover" %}
-          {% endif %}
-        </div>
-      {% endif %}
+          </a>
+        {% else %}
+          {% render 'responsive-image', img: currentCollection.metafields.custom.collection_banner_img, img_mobile: currentCollection.metafields.custom.collection_banner_img_mobile, classes: "m-0 h-full md:h-[82vw] md:w-[44vw] block max-h-[420px] object-cover" %}
+        {% endif %}
+      </div>
+    {% endif %}
 
-      {% if collection_handle != 'wholesale' and bundleVariantsCollections contains collection_handle %}
-        {% assign onlyProduct = currentCollection.products | first %}
-        {% for variant in onlyProduct.variants %}
-          {% if forloop.last and isLastCollectionRender %}
-            {% assign isLastCardRender = true %}
-          {% endif %}
+    {% if collection_handle != 'wholesale' and bundleVariantsCollections contains collection_handle %}
+      {% assign onlyProduct = currentCollection.products | first %}
+      {% for variant in onlyProduct.variants %}
+        {% if forloop.last and isLastCollectionRender %}
+          {% assign isLastCardRender = true %}
+        {% endif %}
 
-          {% assign product_collections = variant.product.collections | map: 'handle' | join: ' ' %}
-          {% render 'variant-card', variant: variant, variantIndex: forloop.index, productCollections: product_collections, isLastRender: isLastCardRender, isNoPrices: isNoPrices, isLinkToCollection: isLinkToCollection %}
-        {% endfor %}
-      {% else %}
-        {% for product in currentCollection.products %}
-          {% if forloop.last and isLastCollectionRender %}
-            {% assign isLastCardRender = true %}
-          {% endif %}
+        {% assign product_collections = variant.product.collections | map: 'handle' | join: ' ' %}
+        {% render 'variant-card', variant: variant, variantIndex: forloop.index, productCollections: product_collections, isLastRender: isLastCardRender, isNoPrices: isNoPrices, isLinkToCollection: isLinkToCollection %}
+      {% endfor %}
+    {% else %}
+      {% for product in currentCollection.products %}
+        {% if forloop.last and isLastCollectionRender %}
+          {% assign isLastCardRender = true %}
+        {% endif %}
 
-          {% if isNoBundles %}
-            {% unless product.tags contains 'bundle' %}
-              {% render 'product-card', product: product, isLastRender: isLastCardRender, isNoPrices: isNoPrices, isLinkToCollection: isLinkToCollection %}
-              {% if isLastCardRender %}{% assign isLastCardRendered = true %}{% endif %}
-            {% endunless %}
-          {% else %}
+        {% if isNoBundles %}
+          {% unless product.tags contains 'bundle' %}
             {% render 'product-card', product: product, isLastRender: isLastCardRender, isNoPrices: isNoPrices, isLinkToCollection: isLinkToCollection %}
             {% if isLastCardRender %}{% assign isLastCardRendered = true %}{% endif %}
+          {% endunless %}
+        {% else %}
+          {% render 'product-card', product: product, isLastRender: isLastCardRender, isNoPrices: isNoPrices, isLinkToCollection: isLinkToCollection %}
+          {% if isLastCardRender %}{% assign isLastCardRendered = true %}{% endif %}
+        {% endif %}
+      {% endfor %}
+    {% endif %}
+
+    {% if customer.email == 'yotam@curalife.com' %}
+      {% for additionalVar in currentCollection.metafields.custom.additional_variants.value %}
+        {% assign varProd = additionalVar.product %}
+        {% for vari in additionalVar.product.variants %}
+          {% if vari.handle == additionalVar.handle %}
+            {% assign varIndex = forloop.index %}
           {% endif %}
         {% endfor %}
-      {% endif %}
+        {% render 'variant-card', variant: additionalVar, variantIndex: varIndex, productCollections: product_collections, isLastRender: isLastCardRender, isNoPrices: isNoPrices, isLinkToCollection: isLinkToCollection %}
+      {% endfor %}
+    {% endif %}
 
-      {% if customer.email == 'yotam@curalife.com' %}
-        {% for additionalVar in currentCollection.metafields.custom.additional_variants.value %}
-          {% render 'variant-card', variant: additionalVar, variantIndex: forloop.index, productCollections: product_collections, isLastRender: isLastCardRender, isNoPrices: isNoPrices, isLinkToCollection: isLinkToCollection %}
-        {% endfor %}
-      {% endif %}
-
-      {% if isLastCardRendered != true %}
-        {% render 'product-card', isOnlyScriptsAndStyles: true, isNoPrices: isNoPrices, isLinkToCollection: isLinkToCollection %}
-      {% endif %}
-    </div>
+    {% if isLastCardRendered != true %}
+      {% render 'product-card', isOnlyScriptsAndStyles: true, isNoPrices: isNoPrices, isLinkToCollection: isLinkToCollection %}
+    {% endif %}
   </div>
+</div>
 
+<style>
+  .image-wrapper img {
+    border-radius: 25px;
+  }
+</style>
+
+{% if currentCollection.metafields.custom.is_align_center %}
   <style>
-    .image-wrapper img {
-      border-radius: 25px;
+    #{{ collection_handle }}-collection-section {
+      text-align: center;
+    }
+
+    #{{ collection_handle }}-collection-section .description {
+      margin: 30px auto;
     }
   </style>
-
-  {% if currentCollection.metafields.custom.is_align_center %}
-    <style>
-      #{{ collection_handle }}-collection-section {
-        text-align: center;
-      }
-
-      #{{ collection_handle }}-collection-section .description {
-        margin: 30px auto;
-      }
-    </style>
-  {% endif %}
-{% endunless %}
+{% endif %}
