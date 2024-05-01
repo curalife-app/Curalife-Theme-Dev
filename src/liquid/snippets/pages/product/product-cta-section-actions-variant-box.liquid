@@ -2,10 +2,20 @@
 {% assign sectionIDParts = section_id | split: '-' %}
 {% assign shortSectionID = sectionIDParts[-1] %}
 
+{% if var.metafields.custom.original_item.value %}
+  {% assign original_item = var.metafields.custom.original_item.value %}
+{% else %}
+  {% if var.product.variants.size == 1 %}
+    {% assign isSingleDefaultVariant = true %}
+    {% assign original_item = product %}
+  {% else %}
+    {% assign original_item = var %}
+  {% endif %}
+{% endif %}
 {% assign bottle_quantity = var.metafields.my_fields.pack_bottles_quantity %}
-{% assign original_item_cap = var.metafields.custom.original_item.value.compare_at_price %}
+{% assign original_item_cap = original_item.compare_at_price %}
 {% assign original_item_cap_total = original_item_cap | times: bottle_quantity %}
-{% assign original_item_price = var.metafields.custom.original_item.value.price %}
+{% assign original_item_price = original_item.price %}
 {% assign item_price = var.price | divided_by: bottle_quantity %}
 {% assign save_price = original_item_price | minus: item_price | times: quantity %}
 
@@ -17,7 +27,7 @@
     </div>
 
     <div class="variant-info">
-      <p class="variant-title">{% if var.title == blank or var.title == 'Default Title' %}{{ product.title }}{% else %}{{ var.title }}{% endif %}</p>
+      <p class="variant-title">{% if isSingleDefaultVariant %}{{ var.product.title }}{% else %}{{ var.title }}{% endif %}</p>
 
       {% if var.metafields.my_fields.subtitle %}
         <div class="variant-infos">
