@@ -47,11 +47,12 @@
           </div>
         {% endif %}
 
-        <a class="product-link" href="{{ product.url }}"><button class="main-btn" title="{{ product.title }}" prod-sku="{{ product.selected_or_first_available_variant.sku }}" prod-id="{{ product.variants.first.id }}" price="{{ product.selected_or_first_available_variant.price | money_without_currency }}" discount="{% if product.compare_at_price > product.price %}{{ product.compare_at_price | minus: product.price | times: 0.01 }}{% else %}0{% endif %}"></i>SHOP NOW</button></a>
+        {% unless product.metafields.custom.file_url != blank %}
+          <a class="product-link" href="{{ product.url }}"><button class="main-btn" title="{{ product.title }}" prod-sku="{{ product.selected_or_first_available_variant.sku }}" prod-id="{{ product.variants.first.id }}" price="{{ product.selected_or_first_available_variant.price | money_without_currency }}" discount="{% if product.compare_at_price > product.price %}{{ product.compare_at_price | minus: product.price | times: 0.01 }}{% else %}0{% endif %}"></i>SHOP NOW</button></a>
+        {% endunless %}
       </div>
     </div>
   {% comment %} </a> {% endcomment %}
-
 
   {% if product.metafields.custom.badge_image and isNoPrices != true %}
     {% unless product.metafields.custom.is_badge_collection %}
@@ -92,6 +93,7 @@
 
     .product-card .product-image {
       height: 250px;
+      border-radius: 10px;
       object-fit: contain;
     }
 
@@ -173,107 +175,112 @@
     }
   </style>
 
-{% if customer.email == 'yotam@curalife.com' or customer.b2b? %}
-  <style>
-    .product-card .submit-wrap button {
-      background-color: var(--orange);
-      border-radius: 0px 10px 10px 0;
-      font-size: 18px;
-      padding: 0.5rem;
-      min-width: fit-content;
-      min-height: unset;
-      color: black;
+  {% if customer.email == 'yotam@curalife.com' or customer.b2b? %}
+    <style>
+      .product-card .submit-wrap button {
+        background-color: var(--orange);
+        border-radius: 0px 10px 10px 0;
+        font-size: 18px;
+        padding: 0.5rem;
+        min-width: fit-content;
+        min-height: unset;
+        color: black;
 
 
-      &:hover {
-        background-color: var(--dark-orange);
-      }
-    }
-
-    .product-card .submit-wrap button.secondary {
-      border-radius: 10px;
-      background-color: var(--blue);
-      color: white;
-      width: 100%;
-    }
-  </style>
-
-  <style>
-    .product-card .submit-wrap .qty {
-      display: flex;
-      -webkit-user-select: none;
-      -moz-user-select: none;
-      -ms-user-select: none;
-      user-select: none;
-    }
-
-    .product-card .submit-wrap .qty_inc_dec .increment,
-    .product-card .submit-wrap .qty_inc_dec .decrement {
-      cursor: pointer;
-      height: 50%;
-      background-color: #fff2dd !important;;
-      border: 1px solid #ccc;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      font-style: normal;
-    }
-
-    .product-card .submit-wrap .qty_inc_dec .increment {
-      border-bottom: 0;
-      line-height: 25px;
-    }
-
-    .product-card .submit-wrap .qty_inc_dec {
-      width: 30px;
-    }
-
-    .product-card .submit-wrap .qty input[type=text] {
-      font-family: "Open Sans", sans-serif;
-      text-align: center;
-      width: 50px;
-      border: 1px solid #ccc;
-      border-right: 0;
-      border-radius: 10px 0 0 10px;
-      font-weight: bold;
-    }
-
-    /* Quantity Selector Transition */
-    .product-card .submit-wrap .qty {
-      transition: width 0.3s ease;
-      width: -webkit-fill-available;
-      flex-basis: content;
-    }
-
-    .product-card .submit-wrap .qty_inc_dec {
-      transition: opacity 0.3s ease;
-    }
-  </style>
-
-  <script src="{{ 'product-info.js' | asset_url }}" defer="defer"></script>
-  <script src="{{ 'product-form.js' | asset_url }}" defer="defer"></script>
-
-  <script>
-    function updateQuantity(action) {
-      var qty_element = $(event.target).closest('.qty');
-      var quantityField = qty_element.find('input[name="quantity"]');
-      var value = parseInt(quantityField.val(), 10);
-      value = isNaN(value) ? 1 : value;
-
-      if (action === "+") {
-        value++;
-      } else if (action === "-") {
-        value = Math.max(1, value - 1);
+        &:hover {
+          background-color: var(--dark-orange);
+        }
       }
 
-      quantityField.val(value);
-    }
+      .product-card .submit-wrap button.secondary {
+        border-radius: 10px;
+        background-color: var(--blue);
+        color: white;
+        width: 100%;
 
-    function resetQuantity() {
-      console.log("onclick event")
-      var qty_element = $(event.target).closest('.qty');
-      var quantityField = qty_element.find('input[name="quantity"]');
-      quantityField.val(1);
-    }
-  </script>
+        &:hover {
+          background-color: var(--dark-blue);
+        }
+      }
+    </style>
+
+    <style>
+      .product-card .submit-wrap .qty {
+        display: flex;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+      }
+
+      .product-card .submit-wrap .qty_inc_dec .increment,
+      .product-card .submit-wrap .qty_inc_dec .decrement {
+        cursor: pointer;
+        height: 50%;
+        background-color: #fff2dd !important;;
+        border: 1px solid #ccc;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-style: normal;
+      }
+
+      .product-card .submit-wrap .qty_inc_dec .increment {
+        border-bottom: 0;
+        line-height: 25px;
+      }
+
+      .product-card .submit-wrap .qty_inc_dec {
+        width: 30px;
+      }
+
+      .product-card .submit-wrap .qty input[type=text] {
+        font-family: "Open Sans", sans-serif;
+        text-align: center;
+        width: 50px;
+        border: 1px solid #ccc;
+        border-right: 0;
+        border-radius: 10px 0 0 10px;
+        font-weight: bold;
+      }
+
+      /* Quantity Selector Transition */
+      .product-card .submit-wrap .qty {
+        transition: width 0.3s ease;
+        width: -webkit-fill-available;
+        flex-basis: content;
+      }
+
+      .product-card .submit-wrap .qty_inc_dec {
+        transition: opacity 0.3s ease;
+      }
+    </style>
+
+    <script src="{{ 'product-info.js' | asset_url }}" defer="defer"></script>
+    <script src="{{ 'product-form.js' | asset_url }}" defer="defer"></script>
+
+    <script>
+      function updateQuantity(action) {
+        var qty_element = $(event.target).closest('.qty');
+        var quantityField = qty_element.find('input[name="quantity"]');
+        var value = parseInt(quantityField.val(), 10);
+        value = isNaN(value) ? 1 : value;
+
+        if (action === "+") {
+          value++;
+        } else if (action === "-") {
+          value = Math.max(1, value - 1);
+        }
+
+        quantityField.val(value);
+      }
+
+      function resetQuantity() {
+        console.log("onclick event")
+        var qty_element = $(event.target).closest('.qty');
+        var quantityField = qty_element.find('input[name="quantity"]');
+        quantityField.val(1);
+      }
+    </script>
+  {% endif %}
 {% endif %}
