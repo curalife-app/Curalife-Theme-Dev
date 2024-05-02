@@ -1,5 +1,5 @@
 {% unless isOnlyScriptsAndStyles %}
-  <a class="product-link" href="{% if isLinkToCollection %}/collections?cat={{ collection.handle }}{% else %}{{ product.url }}{% endif %}">
+  {% comment %} <a class="product-link" href="{{ product.url }}"> {% endcomment %}
     <div id="{{ product.handle }}" class="product-card {% if isRecommended %}recommended{% endif %}" id="product-card-section">
       <img class="product-image" src="{{ product.featured_image.src | image_url }}" width="512" height="475" alt="" loading="lazy">
 
@@ -15,10 +15,133 @@
           {% endunless %}
         </div>
 
-        <button class="main-btn" title="{{ product.title }}" prod-sku="{{ product.selected_or_first_available_variant.sku }}" prod-id="{{ product.variants.first.id }}" price="{{ product.selected_or_first_available_variant.price | money_without_currency }}" discount="{% if product.compare_at_price > product.price %}{{ product.compare_at_price | minus: product.price | times: 0.01 }}{% else %}0{% endif %}"></i>SHOP NOW</button>
+
+        {% if customer.email == 'yotam@curalife.com' %}
+          <script src="{{ 'product-info.js' | asset_url }}" defer="defer"></script>
+          <script src="{{ 'product-form.js' | asset_url }}" defer="defer"></script>
+          <div class="submit-wrap flex flex-col gap-2 mb-1">
+            <product-form class="product-form" data-hide-errors="false" data-section-id="{{ section.id }}">
+              {%- form 'product', product, id: product.id, class: 'form', novalidate: 'novalidate', data-type: 'add-to-cart-form' -%}
+                <input type="hidden" name="id" value="{{ product.selected_or_first_available_variant.id }}" disabled class="product-variant-id">
+
+                <div class="product-form__buttons main-submit-wrapper flex">
+                  <div class="qty">
+                    <input type="text" name="quantity" maxlength="100" value="{{ product.variants.first.quantity_rule.min }}" title="" class="input-text" />
+                    <div class="qty_inc_dec">
+                      <i class="increment" onclick="updateQuantity('+')">+</i>
+                      <i class="decrement" onclick="updateQuantity('-')">-</i>
+                    </div>
+                  </div>
+                  <button id="ProductSubmitButton-{{ section_id }}" type="submit" name="add" class="product-form__submit button button--full-width button--primary">
+                    <span class="submit-title">Add To Cart</span>
+                    <div class="loading-overlay__spinner hidden">
+                      <svg aria-hidden="true" focusable="false" class="spinner" viewBox="0 0 66 66" xmlns="http://www.w3.org/2000/svg">
+                        <circle class="path" fill="none" stroke-width="6" cx="33" cy="33" r="30"></circle>
+                      </svg>
+                    </div>
+                  </button>
+                </div>
+              {%- endform -%}
+            </product-form>
+
+            {% if product.metafields.custom.file_url != blank %}
+              <a href="{{ product.metafields.custom.file_url }}"><button class="secondary">Download PDF</button></a>
+            {% endif %}
+          </div>
+
+          <style>
+            .product-link .submit-wrap button {
+              background-color: var(--orange);
+              border-radius: 0px 10px 10px 0;
+              font-size: 18px;
+              padding: 0.5rem;
+              min-width: fit-content;
+              min-height: unset;
+              color: black;
+            }
+
+            .product-link .submit-wrap button.secondary {
+              border-radius: 10px;
+              background-color: var(--blue);
+              color: white;
+              width: 100%;
+            }
+          </style>
+
+          <style>
+            .product-link .submit-wrap .qty {
+              display: flex;
+              -webkit-user-select: none;
+              -moz-user-select: none;
+              -ms-user-select: none;
+              user-select: none;
+            }
+
+            .product-link .submit-wrap .qty_inc_dec .increment,
+            .product-link .submit-wrap .qty_inc_dec .decrement {
+              cursor: pointer;
+              height: 50%;
+              background-color: #fff;
+              border: 1px solid #ccc;
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              font-style: normal;
+            }
+
+            .product-link .submit-wrap .qty_inc_dec .increment {
+              border-bottom: 0;
+              line-height: 25px;
+            }
+
+            .product-link .submit-wrap .qty_inc_dec {
+              width: 30px;
+            }
+
+            .product-link .submit-wrap .qty input[type=text] {
+              font-family: "Open Sans", sans-serif;
+              text-align: center;
+              width: 50px;
+              border: 1px solid #ccc;
+              border-right: 0;
+              border-radius: 10px 0 0 10px;
+            }
+
+            /* Quantity Selector Transition */
+            .product-link .submit-wrap .qty {
+              transition: width 0.3s ease;
+              width: -webkit-fill-available;
+              flex-basis: content;
+            }
+
+            .product-link .submit-wrap .qty_inc_dec {
+              transition: opacity 0.3s ease;
+            }
+          </style>
+
+          <script>
+            function updateQuantity(action) {
+              var product_element = $(event.target).closest('.product');
+              var quantityField = product_element.find('input[name="quantity"]');
+              var value = parseInt(quantityField.val(), 10);
+              value = isNaN(value) ? 1 : value;
+
+              if (action === "+") {
+                value++;
+              } else if (action === "-") {
+                value = Math.max(1, value - 1);
+              }
+
+              quantityField.val(value);
+              $(".cart-qty").text(value).addClass("rotate-x");
+            }
+          </script>
+        {% endif %}
+        <a class="product-link" href="{{ product.url }}"><button class="main-btn" title="{{ product.title }}" prod-sku="{{ product.selected_or_first_available_variant.sku }}" prod-id="{{ product.variants.first.id }}" price="{{ product.selected_or_first_available_variant.price | money_without_currency }}" discount="{% if product.compare_at_price > product.price %}{{ product.compare_at_price | minus: product.price | times: 0.01 }}{% else %}0{% endif %}"></i>SHOP NOW</button></a>
       </div>
     </div>
-  </a>
+  {% comment %} </a> {% endcomment %}
+
 
   {% if product.metafields.custom.badge_image and isNoPrices != true %}
     {% unless product.metafields.custom.is_badge_collection %}
@@ -85,11 +208,11 @@
       padding: 6px;
       border-radius: 3px;
       font-weight: bold;
-      border-radius: 20px !important;
+      border-radius: 20px;
     }
 
     @media screen and (max-width: 768px) {
-      .product-link {
+      .product-link  {
         margin-bottom: 3vw;
         width: 49%;
       }
