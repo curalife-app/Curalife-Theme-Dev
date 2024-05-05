@@ -6,291 +6,71 @@
   {% assign variantTitle = "Curalin 6 Pack" %}
 {% endif %}
 
-{% unless isOnlyScriptsAndStyles %}
-  {% assign quantity = variant.metafields.my_fields.pack_items_quantity %}
-  {% assign quantity_by_cents = quantity | times: 100 %}
-  {% assign item_price = variant.price | times: 100.0 | divided_by: quantity_by_cents %}
+{% assign quantity = variant.metafields.my_fields.pack_items_quantity %}
+{% assign quantity_by_cents = quantity | times: 100 %}
+{% assign item_price = variant.price | times: 100.0 | divided_by: quantity_by_cents %}
 
-  {% assign original_item_cap_total = original_item_cap | times: quantity %}
-  {% assign original_item_cap = variant.metafields.my_fields.original_item.value.compare_at_price %}
-  {% assign save_price = original_item_cap | minus: item_price | times: quantity | money_with_currency | replace: ".00", "" | replace: "GBP", "" | replace: "AUD", "" | replace: "CAD", "" %}
+{% assign original_item_cap_total = original_item_cap | times: quantity %}
+{% assign original_item_cap = variant.metafields.my_fields.original_item.value.compare_at_price %}
+{% assign save_price = original_item_cap | minus: item_price | times: quantity | money_with_currency | replace: ".00", "" | replace: "GBP", "" | replace: "AUD", "" | replace: "CAD", "" %}
 
-  <div id="variant-{{ variant.id }}" class="product-card" data-product-collections="{{ productCollections }}">
-    <a class="product-link" href="{{ product.url }}"><img class="product-image" src="{{ variant.image.src | image_url }}" width="512" height="475" alt="" loading="lazy"></a>
+{% assign variantURL = variant.product.url | append: '?default-variant=' | append: variantIndex %}
 
-    <div class="info w-full text-center">
-      <div class="main">
-        <div class="product-titles min-h-[50px] mb-2">
-          <a class="product-link" href="{{ product.url }}"><h3 class="text-[22px] m-0">{{ variantTitle | default: variant.metafields.custom.alternative_title | default: variant.title }}</h3></a>
-          {% if variant.metafields.subscription.price %}<p class="subtitle text-[--bronze]">Subscription Price!</p>{% endif %}
-        </div>
+<div id="variant-{{ variant.id }}" class="product-card" data-product-collections="{{ productCollections }}">
+  <a class="product-link" href="{{ variantURL }}"><img class="product-image" src="{{ variant.image.src | image_url }}" width="512" height="475" alt="" loading="lazy"></a>
 
-        {% unless isNoPrices %}
-          {% render 'price-new', prod: variant, isLastRender: isLastRender, productType: "variant" %}
-        {% endunless %}
+  <div class="info w-full text-center">
+    <div class="main">
+      <div class="product-titles min-h-[50px] mb-2">
+        <a class="product-link" href="{{ variantURL }}"><h3 class="text-[22px] m-0">{{ variantTitle | default: variant.metafields.custom.alternative_title | default: variant.title }}</h3></a>
+        {% if variant.metafields.subscription.price %}<p class="subtitle text-[--bronze]">Subscription Price!</p>{% endif %}
       </div>
 
-      {% if customer.b2b? %}
-        <div class="submit-wrap flex flex-col gap-2 mb-1">
-          <product-form class="product-form" data-hide-errors="false" data-section-id="{{ section.id }}">
-            {%- form 'product', variant.product, id: variant.product.id, class: 'form', novalidate: 'novalidate', data-type: 'add-to-cart-form' -%}
-              <input type="hidden" name="id" value="{{ variant.id }}" disabled class="product-variant-id">
-
-              <div class="product-form__buttons main-submit-wrapper flex">
-                <div class="qty">
-                  <input type="text" name="quantity" maxlength="100" value="{{ variant.quantity_rule.min }}" title="" class="input-text" />
-                  <div class="qty_inc_dec">
-                    <i class="increment" onclick="updateQuantity('+')">+</i>
-                    <i class="decrement" onclick="updateQuantity('-')">-</i>
-                  </div>
-                </div>
-                <button id="ProductSubmitButton-{{ section_id }}" type="submit" name="add" onclick="resetQuantity()" class="product-form__submit button button--full-width button--primary">
-                  <span class="submit-title">Add To Cart</span>
-                  <div class="loading-overlay__spinner hidden">
-                    <svg aria-hidden="true" focusable="false" class="spinner" viewBox="0 0 66 66" xmlns="http://www.w3.org/2000/svg">
-                      <circle class="path" fill="none" stroke-width="6" cx="33" cy="33" r="30"></circle>
-                    </svg>
-                  </div>
-                </button>
-              </div>
-            {%- endform -%}
-          </product-form>
-        </div>
-      {% endif %}
-
-      <a class="product-link" href="{{ product.url }}"><button class="main-btn" title="{{ variant.title }}" prod-sku="{{ variant.sku }}" prod-id="{{ variants.id }}" price="{{ variant.price | money_without_currency }}" discount="{% if variant.compare_at_price > variant.price %}{{ variant.compare_at_price | minus: variant.price | times: 0.01 }}{% else %}0{% endif %}"></i>SHOP NOW</button></a>
+      {% unless isNoPrices %}
+        {% render 'price-new', prod: variant, isLastRender: isLastRender, productType: "variant" %}
+      {% endunless %}
     </div>
+
+    {% if customer.b2b? %}
+      <div class="submit-wrap flex flex-col gap-2 mb-1">
+        <product-form class="product-form" data-hide-errors="false" data-section-id="{{ section.id }}">
+          {%- form 'product', variant.product, id: variant.product.id, class: 'form', novalidate: 'novalidate', data-type: 'add-to-cart-form' -%}
+            <input type="hidden" name="id" value="{{ variant.id }}" disabled class="product-variant-id">
+
+            <div class="product-form__buttons main-submit-wrapper flex">
+              <div class="qty">
+                <input type="text" name="quantity" maxlength="100" value="{{ variant.quantity_rule.min }}" title="" class="input-text" />
+                <div class="qty_inc_dec">
+                  <i class="increment" onclick="updateQuantity('+')">+</i>
+                  <i class="decrement" onclick="updateQuantity('-')">-</i>
+                </div>
+              </div>
+              <button id="ProductSubmitButton-{{ section_id }}" type="submit" name="add" onclick="resetQuantity()" class="product-form__submit button button--full-width button--primary">
+                <span class="submit-title">Add To Cart</span>
+                <div class="loading-overlay__spinner hidden">
+                  <svg aria-hidden="true" focusable="false" class="spinner" viewBox="0 0 66 66" xmlns="http://www.w3.org/2000/svg">
+                    <circle class="path" fill="none" stroke-width="6" cx="33" cy="33" r="30"></circle>
+                  </svg>
+                </div>
+              </button>
+            </div>
+          {%- endform -%}
+        </product-form>
+      </div>
+    {% endif %}
+
+    <a class="product-link" href="{{ variantURL }}"><button class="main-btn" title="{{ variant.title }}" prod-sku="{{ variant.sku }}" prod-id="{{ variants.id }}" price="{{ variant.price | money_without_currency }}" discount="{% if variant.compare_at_price > variant.price %}{{ variant.compare_at_price | minus: variant.price | times: 0.01 }}{% else %}0{% endif %}"></i>SHOP NOW</button></a>
   </div>
+</div>
 
-  {% if variant.product.metafields.custom.badge_image and isNoPrices != true %}
-    {% unless variant.product.metafields.custom.is_badge_collection %}
-      <style>
-        .product-card#variant-{{ variant.id }}::before {
-          content: "";
-          background-image: url("{{ variant.product.metafields.custom.badge_image | image_url }}");
-          background-repeat: no-repeat;
-        }
-      </style>
-    {% endunless %}
-  {% endif %}
-{% endunless %}
-
-
-{% if isLastRender or isOnlyScriptsAndStyles %}
-  <style>
-    .product-card {
-      position: relative;
-      max-width: 270px;
-      padding: 10px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-direction: column;
-      border: 1px solid var(--light-blue);
-    }
-
-    .product-card::before {
-      background-size: contain;
-      position: absolute;
-      top: 30px;
-      right: 10px;
-      width: 68px;
-      height: 68px;
-    }
-
-    .product-card .product-image {
-      height: 250px;
-      border-radius: 10px;
-      object-fit: contain;
-    }
-
-    .product-card .promotion-title {
-      font-size: 18px;
-      margin: unset;
-      color: #404733;
-    }
-
-    .product-card .info {
-      width: 100%;
-    }
-
-    .product-card .info .main {
-      text-align: center;
-      {% unless isNoPrices %}min-height: 80px;{% endunless %}
-    }
-
-    .product-card .product-titles p {
-      margin: unset;
-    }
-
-    .product-card .subtitle {
-      font-size: 14px;
-    }
-
-    .product-card button {
-      min-width: -webkit-fill-available;
-      padding: 6px;
-      border-radius: 3px;
-      font-weight: bold;
-    }
-
-    @media screen and (max-width: 768px) {
-      .product-link {
-        margin-bottom: 3vw;
-        width: 49%;
-      }
-
-      .product-card .product-image {
-        height: unset;
-      }
-
-      .product-card button {
-        font-size: 4vw;
-      }
-
-      .product-grid {
-        gap: 1vw;
-      }
-
-      .product-card {
-        padding: 1vw;
-        margin-top: unset;
-        max-width: unset;
-        width: unset;
-      }
-
-      .product-card .product-titles {
-        min-height: 2.2em;
-        margin: unset;
-      }
-
-      .product-card .product-titles h3 {
-        font-size: 5vw;
-        line-height: 1em;
-      }
-
-      .product-card .subtitle {
-        font-size: 4vw;
-      }
-
-      .product-card .info .price strike {
-        font-size: 4vw;
-      }
-
-      .product-card .info .price .rounded.current-price {
-        font-size: 41px;
-        padding-left: 1vw;
-        padding-right: 1vw;
-      }
-    }
-  </style>
-
-  {% if isSkipCart %}
-    <script>
-      // Buy Button Functionality
-      $(".add-to-cart-btn").click(function() {
-        let checkedPack = $(this).attr("prod-id");
-        let checkoutLink = "https://" + location.hostname + "/cart/" + checkedPack + ":1";
-        window.location.href = checkoutLink;
-      })
-    </script>
-  {% endif %}
-
-  {% if customer.b2b? %}
+{% if variant.product.metafields.custom.badge_image and isNoPrices != true %}
+  {% unless variant.product.metafields.custom.is_badge_collection %}
     <style>
-      .product-card .submit-wrap button {
-        background-color: var(--orange);
-        border-radius: 0px 10px 10px 0;
-        font-size: 18px;
-        padding: 0.5rem;
-        min-width: fit-content;
-        min-height: unset;
-        color: black;
-
-        &:hover {
-          background-color: var(--dark-orange);
-        }
-      }
-
-      .product-card .submit-wrap button.secondary {
-        border-radius: 10px;
-        background-color: var(--blue);
-        color: white;
-        width: 100%;
-
-        &:hover {
-          background-color: var(--dark-blue);
-        }
+      .product-card#variant-{{ variant.id }}::before {
+        content: "";
+        background-image: url("{{ variant.product.metafields.custom.badge_image | image_url }}");
+        background-repeat: no-repeat;
       }
     </style>
-
-    <style>
-      .product-card .submit-wrap .qty {
-        display: flex;
-        -webkit-user-select: none;
-        -moz-user-select: none;
-        -ms-user-select: none;
-        user-select: none;
-      }
-
-      .product-card .submit-wrap .qty_inc_dec .increment,
-      .product-card .submit-wrap .qty_inc_dec .decrement {
-        cursor: pointer;
-        height: 50%;
-        background-color: #fff2dd !important;;
-        border: 1px solid #ccc;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        font-style: normal;
-      }
-
-      .product-card .submit-wrap .qty_inc_dec .increment {
-        border-bottom: 0;
-        line-height: 25px;
-      }
-
-      .product-card .submit-wrap .qty_inc_dec {
-        width: 30px;
-      }
-
-      .product-card .submit-wrap .qty input[type=text] {
-        font-family: "Open Sans", sans-serif;
-        text-align: center;
-        width: 50px;
-        border: 1px solid #ccc;
-        border-right: 0;
-        border-radius: 10px 0 0 10px;
-        font-weight: bold;
-      }
-
-      /* Quantity Selector Transition */
-      .product-card .submit-wrap .qty {
-        transition: width 0.3s ease;
-        width: -webkit-fill-available;
-        flex-basis: content;
-      }
-
-      .product-card .submit-wrap .qty_inc_dec {
-        transition: opacity 0.3s ease;
-      }
-    </style>
-
-    <script>
-      function updateQuantity(action) {
-        var qty_element = $(event.target).closest('.qty');
-        var quantityField = qty_element.find('input[name="quantity"]');
-        var value = parseInt(quantityField.val(), 10);
-        value = isNaN(value) ? 1 : value;
-
-        if (action === "+") {
-          value++;
-        } else if (action === "-") {
-          value = Math.max(1, value - 1);
-        }
-
-        quantityField.val(value);
-      }
-    </script>
-  {% endif %}
+  {% endunless %}
 {% endif %}

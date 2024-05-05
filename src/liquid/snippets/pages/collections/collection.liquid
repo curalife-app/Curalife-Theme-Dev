@@ -32,32 +32,23 @@
     {% endif %}
 
     {% for product in currentCollection.products %}
-      {% if forloop.last and isLastCollectionRender %}
-        {% assign isLastCardRender = true %}
-      {% endif %}
-
-      {% render 'product-card', product: product, isLastRender: isLastCardRender, isNoPrices: isNoPrices %}
-      {% if isLastCardRender %}{% assign isLastCardRendered = true %}{% endif %}
+      {% render 'product-card', product: product, isNoPrices: isNoPrices %}
     {% endfor %}
 
     {% for additionalVar in currentCollection.metafields.custom.additional_variants.value %}
       {% for vari in additionalVar.product.variants %}
         {% if vari.id == additionalVar.id %}
-          {% assign varIndex = forloop.index %}
+          {% assign variantIndex = forloop.index %}
           {% break %}
         {% endif %}
       {% endfor %}
 
       {% if additionalVar.product.variants.size == 1 %}
-        {% render 'product-card', product: additionalVar.product, isLastRender: isLastCardRender, isNoPrices: isNoPrices %}
+        {% render 'product-card', product: additionalVar.product, isNoPrices: isNoPrices %}
       {% else %}
-        {% render 'variant-card', variant: additionalVar, variantIndex: varIndex, productCollections: product_collections, isLastRender: isLastCardRender, isNoPrices: isNoPrices %}
+        {% render 'variant-card', variant: additionalVar, variantIndex: variantIndex, productCollections: product_collections, isNoPrices: isNoPrices %}
       {% endif %}
     {% endfor %}
-
-    {% if isLastCardRendered != true %}
-      {% render 'product-card', isOnlyScriptsAndStyles: true, isNoPrices: isNoPrices %}
-    {% endif %}
   </div>
 </div>
 
@@ -66,6 +57,224 @@
     border-radius: 25px;
   }
 </style>
+
+<style>
+  .product-card {
+    position: relative;
+    max-width: 270px;
+    padding: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-direction: column;
+    gap: 1rem;
+    border: 1px solid var(--light-blue);
+    border-radius: 10px;
+    /* box-shadow: 0px 10px 10px 0px rgba(0, 0, 0, 0.1); */
+  }
+
+  .product-card::before {
+    background-size: contain;
+    position: absolute;
+    top: 30px;
+    right: 10px;
+    width: 68px;
+    height: 68px;
+  }
+
+  .product-card .product-image {
+    height: 250px;
+    border-radius: 10px;
+    object-fit: contain;
+  }
+
+  .product-card .promotion-title {
+    font-size: 18px;
+    margin: unset;
+    color: var(--blue);
+  }
+
+  .product-card .product-titles p {
+    margin: unset;
+  }
+
+  .product-card .subtitle {
+    font-size: 14px;
+  }
+
+  .product-card button:hover {
+    background: var(--dark-blue);
+  }
+
+  .product-card button {
+    min-width: -webkit-fill-available;
+    padding: 6px;
+    border-radius: 3px;
+    font-weight: bold;
+    border-radius: 10px;
+    min-height: 45px;
+  }
+
+  @media screen and (max-width: 768px) {
+    .product-card  {
+      margin-bottom: 3vw;
+      width: 49%;
+    }
+
+    .product-card .product-image {
+      height: 45vw;
+    }
+
+    .product-card button {
+      font-size: 4vw;
+    }
+
+    .product-grid {
+      gap: 1vw;
+    }
+
+    .product-card {
+      padding: 1vw;
+      margin-top: unset;
+      max-width: unset;
+      width: unset;
+      border-radius: 5vw !important;
+    }
+
+    .product-card .product-titles {
+      min-height: 2.2em;
+      margin: unset;
+    }
+
+    .product-card .product-titles h3 {
+      font-size: 5vw;
+      line-height: 1em;
+    }
+
+    .product-card .subtitle {
+      font-size: 4vw;
+    }
+
+    .product-card .info .price strike {
+      font-size: 4vw;
+    }
+
+    .product-card .info .price .rounded.current-price {
+      font-size: 41px;
+      padding-left: 1vw;
+      padding-right: 1vw;
+    }
+  }
+</style>
+
+{% if customer.b2b? %}
+  <style>
+    .product-card .submit-wrap button {
+      background-color: var(--orange);
+      border-radius: 0px 10px 10px 0;
+      font-size: 18px;
+      padding: 0.5rem;
+      min-width: fit-content;
+      min-height: unset;
+      color: black;
+
+
+      &:hover {
+        background-color: var(--dark-orange);
+      }
+    }
+
+    .product-card .submit-wrap button.secondary {
+      border-radius: 10px;
+      background-color: var(--blue);
+      color: white;
+      width: 100%;
+
+      &:hover {
+        background-color: var(--dark-blue);
+      }
+    }
+  </style>
+
+  <style>
+    .product-card .submit-wrap .qty {
+      display: flex;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+    }
+
+    .product-card .submit-wrap .qty_inc_dec .increment,
+    .product-card .submit-wrap .qty_inc_dec .decrement {
+      cursor: pointer;
+      height: 50%;
+      background-color: #fff2dd !important;;
+      border: 1px solid #ccc;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-style: normal;
+    }
+
+    .product-card .submit-wrap .qty_inc_dec .increment {
+      border-bottom: 0;
+      line-height: 25px;
+    }
+
+    .product-card .submit-wrap .qty_inc_dec {
+      width: 30px;
+    }
+
+    .product-card .submit-wrap .qty input[type=text] {
+      font-family: "Open Sans", sans-serif;
+      text-align: center;
+      width: 50px;
+      border: 1px solid #ccc;
+      border-right: 0;
+      border-radius: 10px 0 0 10px;
+      font-weight: bold;
+    }
+
+    /* Quantity Selector Transition */
+    .product-card .submit-wrap .qty {
+      transition: width 0.3s ease;
+      width: -webkit-fill-available;
+      flex-basis: content;
+    }
+
+    .product-card .submit-wrap .qty_inc_dec {
+      transition: opacity 0.3s ease;
+    }
+  </style>
+
+  <script src="{{ 'product-info.js' | asset_url }}" defer="defer"></script>
+  <script src="{{ 'product-form.js' | asset_url }}" defer="defer"></script>
+
+  <script>
+    function updateQuantity(action) {
+      var qty_element = $(event.target).closest('.qty');
+      var quantityField = qty_element.find('input[name="quantity"]');
+      var value = parseInt(quantityField.val(), 10);
+      value = isNaN(value) ? 1 : value;
+
+      if (action === "+") {
+        value++;
+      } else if (action === "-") {
+        value = Math.max(1, value - 1);
+      }
+
+      quantityField.val(value);
+    }
+
+    function resetQuantity() {
+      console.log("onclick event")
+      var qty_element = $(event.target).closest('.qty');
+      var quantityField = qty_element.find('input[name="quantity"]');
+      quantityField.val(1);
+    }
+  </script>
+{% endif %}
 
 {% if currentCollection.metafields.custom.is_align_center %}
   <style>
