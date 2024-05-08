@@ -39,20 +39,39 @@
 </div>
 
 {% if customer.email == 'yotam@curalife.com' %}
-  <div id="map"></div>
-
+  <div class="container">
+    <div id="map" style="width: 100%; height: 600px;"></div>
+  </div>
   <script>
-    var marker = L.marker([32.07590875446296, 34.81425831511402]).addTo(map);
+    var data = '{{ 'leaflet_data.csv' | asset_url }}';
+    var lines = data.split("\n");
+    var markers = [];
 
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-    }).addTo(map);
+    for (var i = 1; i < lines.length; i++) {
+        var row = lines[i].split(",");
+        var marker = L.marker([parseFloat(row[1]), parseFloat(row[2])])
+            .bindPopup(row[0]);
+        markers.push(marker);
+    }
+
+    // const map = L.map('map').setView([32.07590875446296, 34.81429050162211], 13);
+
+    // const tiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    //   maxZoom: 19,
+    //   attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    // }).addTo(map);
+
+    // const marker = L.marker([32.07590875446296, 34.81429050162211]).addTo(map)
+    //   .bindPopup('<b>Hello world!</b><br />I am a popup.').openPopup();
+
+    // const popup = L.popup()
+    //   .setLatLng([51.513, -0.09])
+    //   .setContent('I am a standalone popup.')
+    //   .openOn(map);
+
+    // map.on('click', onMapClick);
+
   </script>
-
-  <style>
-    #map { height: 180px; }
-  </style>
 {% endif %}
 
 <script>
@@ -60,7 +79,6 @@
     window.location.href = event.target.value;
   });
 </script>
-
 
 <style>
   .breadcrumbs {
