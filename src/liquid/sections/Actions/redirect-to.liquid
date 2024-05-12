@@ -1,0 +1,71 @@
+<script>
+  function redirectToRelative(relative_path, new_relativePath) {
+    if (window.location.pathname == relative_path) {
+      window.location.replace(new_relativePath);
+    }
+  }
+
+  {% if section.settings.b2b_url and customer.b2b? %}
+    window.location.replace('{{ section.settings.b2b_url }}');
+  {% elsif section.settings.url %}
+    window.location.replace('{{ section.settings.url }}');
+  {% endif %}
+
+  {% for block in section_blocks %}
+    {% if block.settings.from and block.settings.to %}
+      {% if block.settings.is_b2b and customer.b2b? %}
+        redirectToRelative('{{ block.settings.from }}', '{{ block.settings.to }}')
+      {% else %}
+        {% unless customer.b2b? %}
+          redirectToRelative('{{ block.settings.from }}', '{{ block.settings.to }}')
+        {% endunless %}
+      {% endif %}
+    {% endif %}
+  {% endfor %}
+</script>
+
+{% schema %}
+  {
+    "name": "Redirects",
+    "settings": [
+      {
+        "type": "url",
+        "id": "url",
+        "label": "Redirect To"
+      },
+      {
+        "type": "url",
+        "id": "b2b_url",
+        "label": "Redirect To - on B2B Channel"
+      }
+    ],
+    "blocks": [
+      {
+      "name":"Redirect",
+      "type":"Redirect",
+      "settings":[
+        {
+          "type": "url",
+          "id": "from",
+          "label": "Redirect From"
+        },
+        {
+          "type": "url",
+          "id": "to",
+          "label": "Redirect To"
+        },
+        {
+          "type": "checkbox",
+          "id": "is_b2b",
+          "label": "Only on B2B Channel"
+        }
+      ]
+    }
+    ],
+    "presets": [
+      {
+        "name": "Redirect"
+      }
+    ]
+  }
+  {% endschema %}
