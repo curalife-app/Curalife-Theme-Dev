@@ -1,4 +1,8 @@
-{% if customer.tags contains 'B2B' %}
+{% comment %} Short Section ID for JS Variables {% endcomment %}
+{% assign sectionIDParts = section_id | split: '-' %}
+{% assign shortSectionID = sectionIDParts[-1] %}
+
+{% if customer.b2b? %}
   {% assign isBuyQuantity = true %}
 {% endif %}
 
@@ -33,9 +37,9 @@
       {% endif %}
 
       <button class="main-btn" id="buy-button">
-        <span>SHOP NOW</span>
+        <span class="w-1/2">SHOP NOW</span>
         {% if product.metafields.custom.is_price_per_month %}
-          <span class="total-price w-1/2 border-l-2">Total <span class="total-price-amount"></span></span>
+          <span class="total-price w-1/2 border-l-2 border-black">Total <span class="total-price-amount"></span></span>
         {% endif %}
         {% comment %} {% unless isBuyQuantity %}<span class="save" id="save"></span>{% endunless %} {% endcomment %}
       </button>
@@ -90,7 +94,6 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 20px;
     min-width: 320px;
     transition: width 0.3s ease;
     font-weight: bold;
@@ -303,13 +306,6 @@
     justify-content: right;
   }
 
-  /* .variant-box .price .calculations p::after {
-    content: "00";
-    font-size: 0.6rem;
-    vertical-align: super;
-    margin-right: 5px;
-  } */
-
   .variant-box .price .calculations p.compared-at-price::after {
     font-size: 0.3rem;
   }
@@ -399,19 +395,14 @@
       $(".qty").removeClass("qty_expanded");
       $(".submit-wrap button").css("width", "100%");
     }
-  });
-</script>
 
-{% if product.metafields.custom.is_price_per_month %}
-  <script>
-    $("#product-actions-{{ section_id }} .variant-box").click(function() {
+    {% if product.metafields.custom.is_price_per_month %}
       let inputElement = $(this).find('input[name=pack]');
       let variantTotalPrice = inputElement.data('price');
-      console.log("variant total: " + variantTotalPrice);
       $('.total-price .total-price-amount').text(variantTotalPrice);
-    });
-  </script>
-{% endif %}
+    {% endif %}
+  });
+</script>
 
 <script>
   $(document).ready(function() {
@@ -427,8 +418,7 @@
   });
 
   // On Buy Button Click
-  const buyButton = document.querySelector('#product-actions-{{ section_id }} #buy-button');
-  buyButton.addEventListener('click', function() {
+  document.querySelector('#product-actions-{{ section_id }} #buy-button').addEventListener('click', function() {
     try {
       let checkedVariantInput = document.querySelector('#product-actions-{{ section_id }} input[name=pack]:checked');
 
@@ -452,7 +442,6 @@
   });
 
   function updateCTA() {
-    console.log("update CTA")
     {% if ctaTextType %}
       let checkedInputElement = $('#variant-box-{{ section_id }} input[name=pack]:checked');
 
@@ -487,14 +476,14 @@
 
     {% assign collection_products_amount = var.product.collections.last.products | size %}
     {% if collection_products_amount == 1 and var.product.tags contains 'supplement' %}
-      window.didClickVariant = true;
+      window.didClickVariant{{ shortSectionID }} = true;
     {% endif %}
 
-    if (window.didClickVariant) {
+    if (window.didClickVariant{{ shortSectionID }}) {
       {% unless customer.b2b? %}
         // Slide to Variant Image
         {% assign variantsAmount = product.variants.size | plus: product.metafields.custom.additional_variants.value.size %}
-        {% if variantsAmount > 1 %}
+        {% if variantsAmount > 1 and product.variants.first.featured_image.src != blank %}
           let slideIndex = window.productSliderAllInOne{{ shortSectionID }}.slides.length - $(this).find('input[name=pack]:checked').attr('data-index');
           window.productSliderAllInOne{{ shortSectionID }}.slideTo(slideIndex);
         {% endif %}
@@ -525,7 +514,7 @@
       })
     }
     else {
-      window.didClickVariant = true;
+      window.didClickVariant{{ shortSectionID }} = true;
     }
   });
 </script>
