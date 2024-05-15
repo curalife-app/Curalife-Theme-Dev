@@ -71,33 +71,92 @@
 </style>
 
 <script>
-    (function() {
-        // Timer
-        Number.prototype.pad = function() {
-            return this < 10 ? '0' + this : this;
-        };
+    // Define pad function globally if it is used in both blocks
+    Number.prototype.pad = function() {
+        return this < 10 ? '0' + this : this;
+    };
 
-        const second = 1000,
-              minute = second * 60,
-              hour = minute * 60;
+    {% if urgencyMinutes > 0 %}
+        (function() {
+            const second = 1000,
+                  minute = second * 60,
+                  hour = minute * 60,
+                  duration = {{ urgencyMinutes }} * minute;
 
-        let birthday = "{{ month }} {{ day }}, {{ year }} 09:59:00";
-        let countDown = new Date(birthday).getTime();
-
-        let x = setInterval(function() {
-            var now = new Date().getTime();
-
-            var distance = countDown - now;
-
-            document.getElementById("hours-{{ section_id }}").innerText = Math.floor(distance / (hour)).pad(),
-            document.getElementById("minutes-{{ section_id }}").innerText = Math.floor((distance % (hour)) / (minute)).pad(),
-            document.getElementById("seconds-{{ section_id }}").innerText = Math.floor((distance % (minute)) / second).pad();
-
-            if (distance < 0) {
-                clearInterval(x);
-                document.getElementById("section-{{ section_id }}").parentElement.remove();
-                document.querySelector('.shopify-section').firstChild.style.marginTop = '0';
+            function getCookie(name) {
+                let dc = document.cookie;
+                let prefix = name + "=";
+                let begin = dc.indexOf("; " + prefix);
+                if (begin === -1) {
+                    begin = dc.indexOf(prefix);
+                    if (begin !== 0) return null;
+                } else {
+                    begin += 2;
+                }
+                let end = document.cookie.indexOf(";", begin);
+                if (end === -1) {
+                    end = dc.length;
+                }
+                return decodeURI(dc.substring(begin + prefix.length, end));
             }
-        }, 0)
-    })();
+
+            function setCookie(name, value, seconds) {
+                let expires = "";
+                if (seconds) {
+                    let date = new Date();
+                    date.setTime(date.getTime() + seconds * 1000);
+                    expires = "; expires=" + date.toUTCString();
+                }
+                document.cookie = name + "=" + (value || "") + expires + "; path=/";
+            }
+
+            let countDown;
+            let existingTime = getCookie('countdownEndTime');
+            if (!existingTime) {
+                countDown = new Date().getTime() + duration;
+                setCookie('countdownEndTime', countDown, duration / 1000);
+            } else {
+                countDown = parseInt(existingTime, 10);
+            }
+
+            let x = setInterval(function() {
+                var now = new Date().getTime();
+                var distance = countDown - now;
+
+                document.getElementById("hours-{{ section_id }}").innerText = Math.floor(distance / hour).pad(),
+                document.getElementById("minutes-{{ section_id }}").innerText = Math.floor((distance % hour) / minute).pad(),
+                document.getElementById("seconds-{{ section_id }}").innerText = Math.floor((distance % minute) / second).pad();
+
+                if (distance < 0) {
+                    clearInterval(x);
+                    setCookie('countdownEndTime', null, -1); // Delete the cookie
+                    countDown = new Date().getTime() + duration;
+                    setCookie('countdownEndTime', countDown, duration / 1000);
+                }
+            }, 1000);
+        })();
+    {% else %}
+        (function() {
+            const second = 1000,
+                  minute = second * 60,
+                  hour = minute * 60;
+            let birthday = "{{ month }} {{ day }}, {{ year }} 09:59:00";
+            let countDown = new Date(birthday).getTime();
+
+            let x = setInterval(function() {
+                var now = new Date().getTime();
+                var distance = countDown - now;
+
+                document.getElementById("hours-{{ section_id }}").innerText = Math.floor(distance / hour).pad(),
+                document.getElementById("minutes-{{ section_id }}").innerText = Math.floor((distance % hour) / minute).pad(),
+                document.getElementById("seconds-{{ section_id }}").innerText = Math.floor((distance % minute) / second).pad();
+
+                if (distance < 0) {
+                    clearInterval(x);
+                    document.getElementById("section-{{ section_id }}").parentElement.remove();
+                    document.querySelector('.shopify-section').firstChild.style.marginTop = '0';
+                }
+            }, 0)
+        })();
+    {% endif %}
 </script>
