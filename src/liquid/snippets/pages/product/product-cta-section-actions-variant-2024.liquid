@@ -15,11 +15,14 @@
 {% elsif var.metafields.subscription.selling_plan_id %}
   {% assign selling_plan_id = var.metafields.subscription.selling_plan_id %}
 {% elsif var.selling_plan_allocations.size > 0 %}
-  {% assign selling_plan_id = var.selected_selling_plan_allocation.first.selling_plan.id %}
+  {% for allocation in var.selling_plan_allocations %}
+    {% if allocation.selling_plan.name contains bottle_quantity %}
+      {% assign selling_plan_id = var.selling_plan_allocations.first.selling_plan.id %}
+    {% endif %}
+  {% endfor %}
+{% else %}
+  <script>console.log("Didn't find selling plan for the variant")</script>
 {% endif %}
-
-<script>console.log("size: {{var.selling_plan_allocations.size}}")</script>
-<script>console.log("selling-plan: {{selling_plan_id}}")</script>
 
 <div class="purchase-option-box flex flex-col items-start p-4 overflow-hidden {% if index == 1 %}selected{% endif %}" data-variant="{{ variant_id }}" data-subscription-selling-plan-id="{{ selling_plan_id }}" data-price="{{ var.price | money_without_currency | replace: ".00", "" }}" data-sku="{{ var.sku }}" data-index="{{ index }}" data-item-price="{{ item_price }}" data-subscription-item-price="{{ subscription_item_price }}" data-original-item-cap="{{ original_item_cap }}" data-dc="{{ var.metafields.custom.discount_code | base64_encode }}">
   <div class="top-wrapper md:gap-2 flex items-center w-full gap-4 pb-4">
@@ -51,7 +54,9 @@
   <div class="price-wrapper">
     {% if prod.metafields.custom.is_price_per_month and var.price > item_price %}
       <div class="total-price-wrapper mb-1 text-[14px] text-[--dark-blue]">
-        <span class="total-price subscription">Total <span class="floor rounded">{{ var.metafields.subscription.price | metafield_text | default: subscription_total_price | money }}</span></span>
+        {% assign staticSubscriptionTotalPrice = var.metafields.subscription.price | metafield_text %}
+        {% assign dynamicSubscriptionTotalPrice = subscription_total_price | money %}
+        <span class="total-price subscription">Total <span class="floor rounded">{{ staticSubscriptionTotalPrice | default: dynamicSubscriptionTotalPrice }}</span></span>
         <span class="total-price buy-once hidden">Total <span class="floor rounded">{{ var.price | money }}</span></span>
       </div>
     {% endif %}
