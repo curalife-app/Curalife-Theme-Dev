@@ -7,8 +7,8 @@
 <div id="product-actions-{{ section_id }}" class="product-actions">
   <div class="purchase-options md:p-2 flex flex-col gap-2">
     <div class="purchase-type flex-nowrap flex w-full gap-2">
-      <button class="subscription selected">Subscribe & Save</button>
-      <button class="buy-once">Buy Once</button>
+      <button class="subscription selected" aria-label="Subscribe & Save">Subscribe & Save</button>
+      <button class="buy-once" aria-label="Buy Once">Buy Once</button>
     </div>
 
     {% for var in product.variants %}
@@ -44,8 +44,8 @@
       {% endfor %}
     {% endif %}
 
-    <div class="submit-wrap flex flex-col w-full mt-4">
-      <div class="add-to-cart-button buy-once hidden">{% render 'buy-buttons', product: product, variant: '', product_form_id: product_form_id, buyType: buyType, section_id: section.id %}</div>
+    <div class="submit-wrap flex flex-col w-full">
+      {% comment %} <div class="add-to-cart-button buy-once hidden">{% render 'buy-buttons', product: product, variant: '', product_form_id: product_form_id, buyType: buyType, section_id: section.id %}</div> {% endcomment %}
       <div class="checkout-button subscription">{% render 'buy-buttons', product: product, variant: '', selling_plan_id: selling_plan_id , product_form_id: product_form_id, buyType: buyType, section_id: section.id %}</div>
     </div>
   </div>
@@ -53,17 +53,16 @@
 
 <script>
   $(document).ready(function() {
-    const productActions = $("#product-actions-{{ section_id }}");
-    const purchaseOptionBoxes = productActions.find('.purchase-option-box');
+    const $productActions = $("#product-actions-{{ section_id }}");
+    const $purchaseOptionBoxes = $productActions.find('.purchase-option-box');
 
     attachEventHandlers();
     initializePurchaseOptions();
     setupMutationObserver();
 
     function initializePurchaseOptions() {
-      purchaseOptionBoxes.each(function(index) {
+      $purchaseOptionBoxes.each(function(index) {
         const box = $(this);
-        // Toggle purchase type based on initial selection
         togglePurchaseType(box, box.find('.purchase-type .subscription').hasClass('selected'));
         box.css('max-height', '54px').find('input[type="radio"]').prop('checked', true);
       });
@@ -72,9 +71,14 @@
       let defaultVariant = urlParams.get('default-variant');
 
       if (defaultVariant) {
-        purchaseOptionBoxes.eq(defaultVariant - 1).trigger("click");
+        $purchaseOptionBoxes.eq(defaultVariant - 1).trigger("click");
       } else {
-        purchaseOptionBoxes.{% if variantsAmount == 1 %}first(){% elsif defaultSelectionIndex %}eq({{ defaultSelectionIndex | minus: 1 }}){% else %}first(){% endif %}.trigger("click");
+        let initialBox = $purchaseOptionBoxes.{% if variantsAmount == 1 %}first(){% elsif defaultSelectionIndex %}eq({{ defaultSelectionIndex | minus: 1 }}){% else %}first(){% endif %};
+        initialBox.addClass('selected');
+        initialBox.find('input[type="radio"]').prop('checked', true);
+        let isSubscriptionSelected = true;
+        togglePurchaseType(initialBox, isSubscriptionSelected);
+        console.log("Initial purchase type:", isSubscriptionSelected ? "Subscription" : "Buy once");
       }
     }
 
@@ -86,14 +90,14 @@
         });
       });
 
-      purchaseOptionBoxes.each((_, element) => observer.observe(element, { attributes: true, childList: true, subtree: true }));
+      $purchaseOptionBoxes.each((_, element) => observer.observe(element, { attributes: true, childList: true, subtree: true }));
     }
 
     function attachEventHandlers() {
-      productActions.on('click', '.purchase-option-box', event => togglePurchaseBox($(event.currentTarget)))
-                    .on('click', '.purchase-type button', event => handlePurchaseTypeClick(event, $(event.currentTarget)))
-                    .on('click', '.checkout-button.subscription', event => handleMainButtonClick(event, $(event.currentTarget)))
-                    .on('click', '.add-to-cart-button.buy-once', event => handleMainButtonClick(event, $(event.currentTarget)));
+      $productActions.on('click', '.purchase-option-box', event => togglePurchaseBox($(event.currentTarget)))
+                      .on('click', '.purchase-type button', event => handlePurchaseTypeClick(event, $(event.currentTarget)))
+                      .on('click', '.checkout-button.subscription', event => handleMainButtonClick(event, $(event.currentTarget)))
+                      .on('click', '.add-to-cart-button.buy-once', event => handleMainButtonClick(event, $(event.currentTarget)));
     }
 
     function handlePurchaseTypeClick(event, button) {
@@ -108,7 +112,7 @@
     }
 
     function togglePurchaseTypeAllVariants(isSubscriptionSelected) {
-      purchaseOptionBoxes.each(function() {
+      $purchaseOptionBoxes.each(function() {
         const parentBox = $(this);
         togglePurchaseType(parentBox, isSubscriptionSelected);
       });
@@ -191,11 +195,11 @@
         {% if isSlideOnLoad %}
           updateVariantImage(element);
         {% else %}
-          if (window.isFirstToggle) {
+          if (window.hasInitialImageUpdateHappened) {
             updateVariantImage(element);
           }
 
-          window.isFirstToggle = true
+          window.hasInitialImageUpdateHappened = true
         {% endif %}
       {% endif %}
     }
@@ -258,7 +262,7 @@
     }
 
     function redirectToCheckout(variant_id, dc) {
-      let checkoutLink = "https://" + location.hostname + "/cart/" + variant_id + ":1"
+      let checkoutLink = `https://${location.hostname}/cart/${variant_id}:1`
       if (dc) {checkoutLink += "?discount=" + atob(dc);}
       window.location.href = checkoutLink;
     }
@@ -268,16 +272,16 @@
       let buttonText = $(buttonElement).find('.button-text');
 
       if (loader.length === 0) {
-          console.error("Loader element not found");
-          return;
+        console.error("Loader element not found");
+        return;
       }
 
       if (isLoading) {
-          loader.show();
-          buttonText.hide();
+        loader.show();
+        buttonText.hide();
       } else {
-          loader.hide();
-          buttonText.show();
+        loader.hide();
+        buttonText.show();
       }
     }
 
@@ -330,7 +334,7 @@
   }
 
   .purchase-type button:not(.selected) {
-    background: unset;
+    background: var(--light-blue);
     border: 1px solid var(--blue);
     color: var(--blue);
   }
