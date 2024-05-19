@@ -7,7 +7,7 @@
 <div id="product-actions-{{ section_id }}" class="product-actions">
   <div class="purchase-options md:p-2 flex flex-col gap-2">
     <div class="purchase-type flex-nowrap flex w-full gap-2">
-      <button class="subscription selected" aria-label="Subscribe & Save">Subscribe & Save</button>
+      <button class="subscription selected flex justify-center gap-2" aria-label="Subscribe & Save">Subscribe & Save{% render 'tooltip', section_id: section_id, linkTitle: '<i class="fa-duotone fa-circle-info text-[18px]"></i>', title: 'Subscription Details', description: 'Save on every order, guaranteed delivery, make changes any time, prompt VIP support & new subscriber gifts', features: tooltipFeatures %}</button>
       <button class="buy-once" aria-label="Buy Once">Buy Once</button>
     </div>
 
@@ -63,8 +63,9 @@
     function initializePurchaseOptions() {
       $purchaseOptionBoxes.each(function(index) {
         const box = $(this);
-        togglePurchaseType(box, box.find('.purchase-type .subscription').hasClass('selected'));
-        box.css('max-height', '54px').find('input[type="radio"]').prop('checked', true);
+        let isSubscriptionSelected = $('.purchase-type .subscription').hasClass('selected');
+        togglePurchaseType(box, isSubscriptionSelected);
+        box.css('max-height', '68px').find('input[type="radio"]').prop('checked', true);
       });
 
       let urlParams = new URLSearchParams(window.location.search);
@@ -78,7 +79,6 @@
         initialBox.find('input[type="radio"]').prop('checked', true);
         let isSubscriptionSelected = true;
         togglePurchaseType(initialBox, isSubscriptionSelected);
-        console.log("Initial purchase type:", isSubscriptionSelected ? "Subscription" : "Buy once");
       }
     }
 
@@ -104,7 +104,6 @@
       event.stopPropagation();
       const isSubscriptionSelected = button.hasClass('subscription');
 
-      // Toggle the selected class for the buttons
       $('.purchase-type button').removeClass('selected');
       button.addClass('selected');
 
@@ -124,7 +123,6 @@
 
       // Toggle subscription info
       if (isSubscriptionSelected) {
-        let saveDiscount = parentBox.data('subscription-discount');
         parentBox.find('.subscription-info').slideDown('fast');
         {% unless product.metafields.custom.is_price_per_month %}parentBox.find('.per-month').show();{% endunless %}
         parentBox.find('.checkout-button').show();
@@ -132,7 +130,6 @@
         let sellingPlanId = parentBox.data('subscription-selling-plan-id');
         $('.submit-selling-plan-id').val(sellingPlanId);
       } else {
-        let saveDiscount = parentBox.data('subscription-discount');
         parentBox.find('.subscription-info').slideUp('fast');
         {% unless product.metafields.custom.is_price_per_month %}parentBox.find('.per-month').hide();{% endunless %}
         parentBox.find('.add-to-cart-button').show();
@@ -140,17 +137,10 @@
         $('.submit-selling-plan-id').val('');
       }
 
-      updateSavePercents(parentBox, isSubscriptionSelected);
       updateYotpoPointsWidget(parentBox, isSubscriptionSelected);
       toggleOptionSubtitles(parentBox, isSubscriptionSelected);
       togglePriceDisplay(parentBox, isSubscriptionSelected);
       updateComparedAtPriceDisplay(parentBox);
-    }
-
-    function updateSavePercents(parentBox, isSubscriptionSelected) {
-      let saveDiscount = isSubscriptionSelected ? parentBox.data('subscription-discount') : parentBox.data('buy-once-discount');
-      saveDiscount ? parentBox.find('.save-title').show() : parentBox.find('.save-title').hide();
-      parentBox.find('.save-title .percents').text(saveDiscount);
     }
 
     function handleMainButtonClick(event, button) {
@@ -164,7 +154,7 @@
     }
 
     function updateComparedAtPriceDisplay(parentBox) {
-      let isSubscriptionSelected = parentBox.find('.purchase-type .subscription').hasClass('selected');
+      let isSubscriptionSelected = $('.purchase-type .subscription').hasClass('selected');
 
       let itemPrice = parseFloat(parentBox.data('item-price'));
       let subscriptionItemPrice = parseFloat(parentBox.data('subscription-item-price'));
@@ -188,7 +178,7 @@
       }
 
       $('.purchase-option-box.selected').removeClass('selected').each(function() {
-        $(this).css('max-height', '54px');
+        $(this).css('max-height', '68px');
         $(this).find('.toggle-icon').hide();
       });
 
@@ -199,6 +189,9 @@
       adjustMaxHeight(element);
       $(element).find("input[type='radio']").prop('checked', true);
       $(element).find('.toggle-icon').show(); // Show the 'v' icon in the expanded box
+
+      let isSubscriptionSelected = $('.purchase-type .subscription').hasClass('selected');
+      updateYotpoPointsWidget(element, isSubscriptionSelected);
 
       {% if variantsAmount > 1 %}
         {% if isSlideOnLoad %}
@@ -223,13 +216,13 @@
     }
 
     function togglePriceDisplay(parentBox, isSubscriptionSelected) {
-      parentBox.find('.real-price, .total-price').stop().fadeOut('fast', function() {
+      parentBox.find('.subscription-content, .buy-once-content').stop().fadeOut('fast', function() {
         if (isSubscriptionSelected) {
-          parentBox.find('.real-price.subscription, .total-price.subscription').fadeIn('fast');
-          parentBox.find('.real-price.buy-once, .total-price.buy-once').hide();
+          parentBox.find('.subscription-content').fadeIn('fast');
+          parentBox.find('.buy-once-content').hide();
         } else {
-          parentBox.find('.real-price.buy-once, .total-price.buy-once').fadeIn('fast');
-          parentBox.find('.real-price.subscription, .total-price.subscription').hide();
+          parentBox.find('.buy-once-content').fadeIn('fast');
+          parentBox.find('.subscription-content').hide();
         }
       });
     }
@@ -239,7 +232,7 @@
         ? Math.floor(Number(parentBox.data('subscription-item-price')) / 100)
         : Math.floor(Number(parentBox.data('item-price')) / 100);
 
-      parentBox.find('.reward-points-widget .current-price').html(newPoints);
+      $('#product-actions-{{ section_id }} .reward-points-widget .current-price').html(newPoints);
     }
 
     function updateSelection(element) {
@@ -340,12 +333,12 @@
     font-size: 16px;
     min-width: 49%;
     padding: 0.5rem;
-  }
 
-  .purchase-type button:not(.selected) {
-    background: var(--light-blue);
-    border: 1px solid var(--blue);
-    color: var(--blue);
+    &:not(.selected) {
+      background: var(--light-blue);
+      border: 1px solid var(--blue);
+      color: var(--blue);
+    }
   }
 </style>
 
@@ -384,18 +377,34 @@
     grid-area: 2/2/3/3;
     max-width: 410px;
     min-height: 415px;
+
+    @media (width < 768px) {
+      grid-area: unset;
+      grid-row: 3;
+      max-width: unset;
+      min-height: unset;
+    }
   }
 
   .cta-section-{{ section_id }} .purchase-option-box {
     background: #fff;
     border: 1px solid #cbcbcb;
     cursor: pointer;
-    max-height: 54px;
+    max-height: 68px;
     filter: drop-shadow(0px 4px 4px rgba(47, 47, 47, 0.1));
     transition: max-height 0.5s ease-in-out;
     border-radius: 10px;
     border-color: var(--blue);
     overflow: hidden;
+    padding: 0.75rem 1rem;
+
+    @media (width < 1270px) {
+      width: 100%;
+    }
+
+    @media (width < 768px) {
+      font-size: 4vw;
+    }
   }
 
   .cta-section-{{ section_id }} .purchase-option-box.selected {
@@ -415,6 +424,10 @@
   .cta-section-{{ section_id }} .purchase-option-box .radio-box {
     align-items: center;
     display: flex;
+
+    @media (width < 768px) {
+      padding: 3vw 0;
+    }
   }
 
   .cta-section-{{ section_id }} .purchase-option-box .option-info {
@@ -423,6 +436,11 @@
     flex-direction: column;
     justify-content: center;
     gap: 0.25rem;
+
+    @media (width < 1270px) {
+      padding: 10px 0;
+      width: 95%;
+    }
   }
 
   .cta-section-{{ section_id }} .purchase-option-box .option-info .option-title span {
@@ -441,50 +459,15 @@
     display: inline-block;
     margin: 0;
     font-size: 14px;
-  }
 
-  @media screen and (max-width: 1270px) {
-    .cta-section-{{ section_id }} .purchase-option-box {
-      width: 100%
-    }
-
-    .cta-section-{{ section_id }} .purchase-option-box .option-info {
-      padding: 10px 0;
-      width: 95%;
+    @media (width < 768px) {
+      font-size: 3vw;
     }
   }
 
   @media screen and (max-width: 768px) {
-    .cta-section-{{ section_id }} .purchase-option-box {
-      font-size: 4vw;
-      padding-top: 1.5vw;
-    }
-
     .cta-section-{{ section_id }} .purchase-option-box .option-info .option-title {
       font-size: 4vw;
-    }
-
-    .cta-section-{{ section_id }} .purchase-option-box .option-info .option-infos p {
-      font-size: 3vw;
-    }
-
-    .cta-section-{{ section_id }} .purchase-option-box .radio-box {
-      padding: 3vw 0;
-    }
-
-    .cta-section-{{ section_id }} .product-actions {
-      grid-area: unset;
-      grid-row: 3;
-      max-width: unset;
-      min-height: unset;
-    }
-
-    .cta-section-{{ section_id }} .product-actions .submit-wrap button {
-      font-size: 4vw;
-    }
-
-    .cta-section-{{ section_id }} .product-actions .submit-wrap button {
-      min-height: 15vw;
     }
   }
 </style>
