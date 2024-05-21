@@ -63,9 +63,9 @@
     function initializePurchaseOptions() {
       $purchaseOptionBoxes.each(function(index) {
         const box = $(this);
+        box.find('input[type="radio"]').prop('checked', true);
         let isSubscriptionSelected = $('.purchase-type .subscription').hasClass('selected');
         togglePurchaseType(box, isSubscriptionSelected);
-        box.css('max-height', '68px').find('input[type="radio"]').prop('checked', true);
       });
 
       let urlParams = new URLSearchParams(window.location.search);
@@ -121,24 +121,16 @@
       parentBox.find('.purchase-type button').removeClass('selected');
       parentBox.find(isSubscriptionSelected ? '.subscription' : '.buy-once').addClass('selected');
 
-      // Toggle subscription info
       if (isSubscriptionSelected) {
-        parentBox.find('.subscription-info').slideDown('fast');
         {% unless product.metafields.custom.is_price_per_month %}parentBox.find('.per-month').show();{% endunless %}
-        parentBox.find('.checkout-button').show();
-        parentBox.find('.add-to-cart-button').hide();
         let sellingPlanId = parentBox.data('subscription-selling-plan-id');
         $('.submit-selling-plan-id').val(sellingPlanId);
       } else {
-        parentBox.find('.subscription-info').slideUp('fast');
         {% unless product.metafields.custom.is_price_per_month %}parentBox.find('.per-month').hide();{% endunless %}
-        parentBox.find('.add-to-cart-button').show();
-        parentBox.find('.checkout-button').hide();
         $('.submit-selling-plan-id').val('');
       }
 
       updateYotpoPointsWidget(parentBox, isSubscriptionSelected);
-      toggleOptionSubtitles(parentBox, isSubscriptionSelected);
       togglePriceDisplay(parentBox, isSubscriptionSelected);
       updateComparedAtPriceDisplay(parentBox);
     }
@@ -206,24 +198,17 @@
       {% endif %}
     }
 
-    function toggleOptionSubtitles(parentBox, isSubscriptionSelected) {
-      var optionSubtitleToHide = isSubscriptionSelected ? '.option-subtitle.buy-once' : '.option-subtitle.subscription';
-      var optionSubtitleToShow = isSubscriptionSelected ? '.option-subtitle.subscription' : '.option-subtitle.buy-once';
-
-      parentBox.find(optionSubtitleToHide).fadeOut('fast', function() {
-        parentBox.find(optionSubtitleToShow).fadeIn('fast');
-      });
-    }
-
     function togglePriceDisplay(parentBox, isSubscriptionSelected) {
-      parentBox.find('.subscription-content, .buy-once-content').stop().fadeOut('fast', function() {
-        if (isSubscriptionSelected) {
-          parentBox.find('.subscription-content').fadeIn('fast');
-          parentBox.find('.buy-once-content').hide();
-        } else {
-          parentBox.find('.buy-once-content').fadeIn('fast');
-          parentBox.find('.subscription-content').hide();
-        }
+      const subscriptionContent = parentBox.find('.subscription-content');
+      const buyOnceContent = parentBox.find('.buy-once-content');
+      const contentToShow = isSubscriptionSelected ? subscriptionContent : buyOnceContent;
+      const contentToHide = isSubscriptionSelected ? buyOnceContent : subscriptionContent;
+
+      subscriptionContent.stop();
+      buyOnceContent.stop();
+
+      contentToHide.fadeOut('fast', function() {
+        contentToShow.fadeIn('fast');
       });
     }
 
@@ -260,7 +245,7 @@
     }
 
     function isSubscriptionSelected() {
-      return $('#product-actions-{{ section_id }} .purchase-option-box.selected').find('.purchase-type .subscription.selected').length > 0;
+      return $('#product-actions-{{ section_id }} .purchase-type .subscription.selected').length > 0;
     }
 
     function redirectToCheckout(variant_id, dc) {
@@ -398,6 +383,16 @@
     overflow: hidden;
     padding: 0.75rem 1rem;
 
+    &:hover {
+      filter: drop-shadow(0px 4px 4px rgba(77, 53, 98, 0.3));
+    }
+
+    &.selected {
+      filter: drop-shadow(0px 4px 4px rgba(77, 53, 98, 0.3));
+      border-width: 3px;
+      max-height: max-content;
+    }
+
     @media (width < 1270px) {
       width: 100%;
     }
@@ -405,69 +400,14 @@
     @media (width < 768px) {
       font-size: 4vw;
     }
-  }
 
-  .cta-section-{{ section_id }} .purchase-option-box.selected {
-    border-width: 3px;
-    max-height: max-content;
-  }
+    .radio-box {
+      align-items: center;
+      display: flex;
 
-  .cta-section-{{ section_id }} .purchase-option-box:hover,
-  .cta-section-{{ section_id }} .purchase-option-box.selected {
-    filter: drop-shadow(0px 4px 4px rgba(47, 47, 47, 0.3));
-  }
-
-  .cta-section-{{ section_id }} .purchase-option-box:hover>.radio-box input[type=radio]:after {
-    background-color: #a9a9a9;
-  }
-
-  .cta-section-{{ section_id }} .purchase-option-box .radio-box {
-    align-items: center;
-    display: flex;
-
-    @media (width < 768px) {
-      padding: 3vw 0;
-    }
-  }
-
-  .cta-section-{{ section_id }} .purchase-option-box .option-info {
-    padding: 10px 0;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 0.25rem;
-
-    @media (width < 1270px) {
-      padding: 10px 0;
-      width: 95%;
-    }
-  }
-
-  .cta-section-{{ section_id }} .purchase-option-box .option-info .option-title span {
-    background: var(--blue);
-    color: white;
-    border-radius: 10px;
-    padding: 0 8px;
-    font-size: 15px;
-    margin-left: 5px;
-    font-weight: normal;
-    line-height: 1.2;
-  }
-
-  .cta-section-{{ section_id }} .purchase-option-box .option-info .option-infos p {
-    font-weight: 200;
-    display: inline-block;
-    margin: 0;
-    font-size: 14px;
-
-    @media (width < 768px) {
-      font-size: 3vw;
-    }
-  }
-
-  @media screen and (max-width: 768px) {
-    .cta-section-{{ section_id }} .purchase-option-box .option-info .option-title {
-      font-size: 4vw;
+      @media (width < 768px) {
+        padding: 3vw 0;
+      }
     }
   }
 </style>
@@ -477,32 +417,38 @@
     display: inline-block;
     position: relative;
     width: 80px;
-    top:-10px;
+    top: -10px;
+
+    div {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #fff;
+      animation-timing-function: cubic-bezier(0, 1, 1, 0);
+
+      &:nth-child(1) {
+        left: 8px;
+        animation: lds-ellipsis1 0.6s infinite;
+      }
+
+      &:nth-child(2) {
+        left: 8px;
+        animation: lds-ellipsis2 0.6s infinite;
+      }
+
+      &:nth-child(3) {
+        left: 32px;
+        animation: lds-ellipsis2 0.6s infinite;
+      }
+
+      &:nth-child(4) {
+        left: 56px;
+        animation: lds-ellipsis3 0.6s infinite;
+      }
+    }
   }
-  .cta-section-{{ section_id }} .lds-ellipsis div {
-    position: absolute;
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background: #fff;
-    animation-timing-function: cubic-bezier(0, 1, 1, 0);
-  }
-  .cta-section-{{ section_id }} .lds-ellipsis div:nth-child(1) {
-    left: 8px;
-    animation: lds-ellipsis1 0.6s infinite;
-  }
-  .cta-section-{{ section_id }} .lds-ellipsis div:nth-child(2) {
-    left: 8px;
-    animation: lds-ellipsis2 0.6s infinite;
-  }
-  .cta-section-{{ section_id }} .lds-ellipsis div:nth-child(3) {
-    left: 32px;
-    animation: lds-ellipsis2 0.6s infinite;
-  }
-  .cta-section-{{ section_id }} .lds-ellipsis div:nth-child(4) {
-    left: 56px;
-    animation: lds-ellipsis3 0.6s infinite;
-  }
+
   @keyframes lds-ellipsis1 {
     0% {
       transform: scale(0);
@@ -511,6 +457,7 @@
       transform: scale(1);
     }
   }
+
   @keyframes lds-ellipsis3 {
     0% {
       transform: scale(1);
@@ -519,6 +466,7 @@
       transform: scale(0);
     }
   }
+
   @keyframes lds-ellipsis2 {
     0% {
       transform: translate(0, 0);
