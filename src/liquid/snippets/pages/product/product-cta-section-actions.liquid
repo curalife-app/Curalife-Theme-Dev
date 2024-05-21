@@ -1,12 +1,14 @@
 {% comment %} Short Section ID for JS Variables {% endcomment %}
-{% assign sectionIDParts = section_id | split: '-' %}
+{% assign sectionIDParts = section_id | split: '_' %}
 {% assign shortSectionID = sectionIDParts[-1] %}
+{% assign shortSectionIDParts = shortSectionID | split: '-' %}
+{% assign SID = shortSectionIDParts[-1] %}
 
 {% if customer.b2b? %}
   {% assign isBuyQuantity = true %}
 {% endif %}
 
-<div id="product-actions-{{ section_id }}" class="product-actions">
+<div id="product-actions-{{ SID }}" class="product-actions">
   {% assign variantQuantity = product.variants | size %}
   {% if title != blank and variantQuantity > 1 %}
     <div class="cta-title">{{ title }}</div>
@@ -14,12 +16,12 @@
 
   <div class="variants">
     {% for var in product.variants %}
-      {% render 'product-cta-section-actions-variant-box', section_id: section_id, ctaTextType: ctaTextType, isVariantNotice: isVariantNotice, var: var, index: forloop.index, isHighlightSubtitle: isHighlightSubtitle, isUpdateSaveTitle: true, pricePer: pricePer %}
+      {% render 'product-cta-section-actions-variant-box', SID: SID, ctaTextType: ctaTextType, isVariantNotice: isVariantNotice, var: var, index: forloop.index, isHighlightSubtitle: isHighlightSubtitle, isUpdateSaveTitle: true, pricePer: pricePer %}
     {% endfor %}
 
     {% if request.path == '/products/curaslim-pack' or customer.email == 'ana@curalife.com' or customer.email == 'yotam@curalife.com' %}
       {% for additionalVariant in product.metafields.custom.additional_variants.value %}
-        {% render 'product-cta-section-actions-variant-box', ctaTextType: ctaTextType, isVariantNotice: isVariantNotice, var: additionalVariant, index: forloop.index, isHighlightSubtitle: isHighlightSubtitle, isUpdateSaveTitle: true, isPricePerUnit: isPricePerUnit, challenge_value: challenge_value, curaeats_value: curaeats_value %}
+        {% render 'product-cta-section-actions-variant-box', SID: SID, ctaTextType: ctaTextType, isVariantNotice: isVariantNotice, var: additionalVariant, index: forloop.index, isHighlightSubtitle: isHighlightSubtitle, isUpdateSaveTitle: true, isPricePerUnit: isPricePerUnit, challenge_value: challenge_value, curaeats_value: curaeats_value %}
       {% endfor %}
     {% endif %}
   </div>
@@ -65,7 +67,7 @@
 
 
 <style>
-  #product-actions-{{ section_id }} {
+  #product-actions-{{ SID }} {
     grid-area: 2/2/3/3;
     max-width: 400px;
     /* {% if isHideInfo %}
@@ -74,20 +76,20 @@
     {% endif %} */
   }
 
-  #product-actions-{{ section_id }} .cta-title {
+  #product-actions-{{ SID }} .cta-title {
     padding: 10px 0;
   }
 
-  #product-actions-{{ section_id }} .variants {
+  #product-actions-{{ SID }} .variants {
     display: flex;
     flex-direction: {% if isReversed %}column-reverse{% else %}column{% endif %};
   }
 
-  #product-actions-{{ section_id }} .submit-wrap {
+  #product-actions-{{ SID }} .submit-wrap {
     display: flex;
   }
 
-  #product-actions-{{ section_id }} .submit-wrap button {
+  #product-actions-{{ SID }} .submit-wrap button {
     {% unless isBuyQuantity %}width: 100%;{% endunless %}
     {% if isBuyQuantity %}border-radius: 0 25px 25px 0;{% endif %}
     background-color: {{ ctaColor }};
@@ -98,27 +100,27 @@
     transition: width 0.3s ease;
   }
 
-  #product-actions-{{ section_id }} .submit-wrap:hover {
+  #product-actions-{{ SID }} .submit-wrap:hover {
     border-color: #ea9f1c;
   }
 
-  #product-actions-{{ section_id }} .submit-wrap:hover button {
+  #product-actions-{{ SID }} .submit-wrap:hover button {
     background-color: #ea9f1c;
   }
 
-  #product-actions-{{ section_id }} .submit-wrap button span.save {
+  #product-actions-{{ SID }} .submit-wrap button span.save {
     font-weight: 100;
     border-left: 1px solid white;
     padding-left: 20px;
   }
 
-  #product-actions-{{ section_id }} .submit-wrap .qty-data .qty-control {
+  #product-actions-{{ SID }} .submit-wrap .qty-data .qty-control {
     border: 0;
     background: white;
   }
 
   @media screen and (max-width: 768px) {
-    #product-actions-{{ section_id }} {
+    #product-actions-{{ SID }} {
       grid-area: unset;
       grid-row: 3;
       max-width: unset;
@@ -127,11 +129,11 @@
       {% endif %}
     }
 
-    #product-actions-{{ section_id }} .submit-wrap .qty-data .qty-control {
+    #product-actions-{{ SID }} .submit-wrap .qty-data .qty-control {
       border: 1px solid {{ ctaColor }};
     }
 
-    #product-actions-{{ section_id }} .submit-wrap button {
+    #product-actions-{{ SID }} .submit-wrap button {
       min-height: 15vw;
     }
   }
@@ -385,8 +387,8 @@
 </script>
 
 <script>
-  $("#product-actions-{{ section_id }} .variant-box").click(function() {
-    if ($(this).find('input[name=pack{{ shortSectionID }}]:checked').attr('data-sku') == "Curalin180") {
+  $("#product-actions-{{ SID }} .variant-box").click(function() {
+    if ($(this).find('input[name=pack{{ SID }}]:checked').attr('data-sku') == "Curalin180") {
       $(".qty").addClass("qty_expanded");
       $(".submit-wrap button").css("width", "unset");
     }
@@ -396,7 +398,7 @@
     }
 
     {% if product.metafields.custom.is_price_per_month %}
-      let inputElement = $(this).find('input[name=pack{{ shortSectionID }}]');
+      let inputElement = $(this).find('input[name=pack{{ SID }}]');
       let variantTotalPrice = inputElement.data('price');
       $('.total-price .total-price-amount').text(variantTotalPrice);
     {% endif %}
@@ -409,17 +411,17 @@
     let defaultVariant = urlParams.get('default-variant');
 
     if (defaultVariant) {
-      $("#product-actions-{{ section_id }} .variant-box").eq(defaultVariant - 1).trigger("click");
+      $("#product-actions-{{ SID }} .variant-box").eq(defaultVariant - 1).trigger("click");
     }
     else {
-      $("#product-actions-{{ section_id }} .variant-box").{% if defaultSelectionIndex %}eq({{ defaultSelectionIndex | minus: 1 }}){% else %}first(){% endif %}.trigger( "click" );
+      $("#product-actions-{{ SID }} .variant-box").{% if defaultSelectionIndex %}eq({{ defaultSelectionIndex | minus: 1 }}){% else %}first(){% endif %}.trigger( "click" );
     }
   });
 
   // On Buy Button Click
-  document.querySelector('#product-actions-{{ section_id }} #buy-button').addEventListener('click', function() {
+  document.querySelector('#product-actions-{{ SID }} #buy-button').addEventListener('click', function() {
     try {
-      let checkedVariantInput = document.querySelector('#product-actions-{{ section_id }} input[name=pack{{ shortSectionID }}]:checked');
+      let checkedVariantInput = document.querySelector('#product-actions-{{ SID }} input[name=pack{{ SID }}]:checked');
 
       let packValue = checkedVariantInput?.value;
       packValue = checkedVariantInput.getAttribute("data-ref-variant") || packValue;
@@ -432,7 +434,7 @@
         return;
       }
 
-      let quantityValue = {% if isBuyQuantity %}document.querySelector('#product-actions-{{ section_id }} input[name=quantity]')?.value || 1{% else %}1{% endif %};
+      let quantityValue = {% if isBuyQuantity %}document.querySelector('#product-actions-{{ SID }} input[name=quantity]')?.value || 1{% else %}1{% endif %};
       window.location.href = `https://${location.hostname}/cart/${packValue}:${quantityValue}`;
     } catch (error) {
       console.error(error);
@@ -442,7 +444,7 @@
 
   function updateCTA() {
     {% if ctaTextType %}
-      let checkedInputElement = $('#variant-box-{{ section_id }} input[name=pack{{ shortSectionID }}]:checked');
+      let checkedInputElement = $('#variant-box-{{ SID }} input[name=pack{{ SID }}]:checked');
 
       {% if ctaTextType == "save" %}
         if (checkedInputElement.attr('data-discount') == 0) {
@@ -455,36 +457,36 @@
         let ctaText = "Total " + "{{ cart.currency.symbol }}" + checkedInputElement.attr('data-price');
       {% endif %}
 
-      $("#product-actions-{{ section_id }} #save").fadeOut(300, function () {$(this).text(ctaText);}).fadeIn(300);
+      $("#product-actions-{{ SID }} #save").fadeOut(300, function () {$(this).text(ctaText);}).fadeIn(300);
     {% endif %}
   }
 
   function updateSelectedVariantInformation(infoAttributeName, targetElementToUpdate) {
-    let varIndex = $('#variant-box-{{ section_id }} input[name=pack{{ shortSectionID }}]:checked').attr(infoAttributeName);
+    let varIndex = $('#variant-box-{{ SID }} input[name=pack{{ SID }}]:checked').attr(infoAttributeName);
 
     $(targetElementToUpdate).fadeOut(300, function () {
       varIndex > 1 ? $(targetElementToUpdate).text("X" + varIndex) : $(targetElementToUpdate).text("");
     }).fadeIn(300);
   }
 
-  $("#product-actions-{{ section_id }} .variant-box").click(function() {
-    $(this).find('input[name=pack{{ shortSectionID }}]').prop('checked', true);
+  $("#product-actions-{{ SID }} .variant-box").click(function() {
+    $(this).find('input[name=pack{{ SID }}]').prop('checked', true);
     updateCTA();
     updateSelectedVariantInformation('data-quantity', '.multiplier');
     updateSelectedVariantInformation('data-save', '.save-badge');
 
     {% assign collection_products_amount = var.product.collections.last.products | size %}
     {% if collection_products_amount == 1 and var.product.tags contains 'supplement' %}
-      window.didClickVariant{{ shortSectionID }} = true;
+      window.didClickVariant{{ SID }} = true;
     {% endif %}
 
-    if (window.didClickVariant{{ shortSectionID }}) {
+    if (window.didClickVariant{{ SID }}) {
       {% unless customer.b2b? %}
         // Slide to Variant Image
         {% assign variantsAmount = product.variants.size | plus: product.metafields.custom.additional_variants.value.size %}
         {% if variantsAmount > 1 and product.variants.first.featured_image.src != blank %}
-          let slideIndex = window.productSliderAllInOne{{ shortSectionID }}.slides.length - $(this).find('input[name=pack{{ shortSectionID }}]:checked').attr('data-index');
-          window.productSliderAllInOne{{ shortSectionID }}.slideTo(slideIndex);
+          let slideIndex = window.productSliderAllInOne{{ SID }}.slides.length - $(this).find('input[name=pack{{ SID }}]:checked').attr('data-index');
+          window.productSliderAllInOne{{ SID }}.slideTo(slideIndex);
         {% endif %}
       {% endunless %}
 
@@ -492,7 +494,7 @@
       window.dataLayer = window.dataLayer || [];
       window.dataLayer.push({
         'event': 'variant-click',
-        'label': $(this).find('input[name=pack{{ shortSectionID }}]:checked').attr('data-sku'),
+        'label': $(this).find('input[name=pack{{ SID }}]:checked').attr('data-sku'),
         'userId': '{{ customer.id }}',
         'email': '{{ customer.email }}',
         'country': '{{customer.customer_address.country_code }}',
@@ -506,14 +508,14 @@
 
       // Track in Woopra
       woopra.track('Product_Variant_Select', {
-        sku: $(this).find('input[name=pack{{ shortSectionID }}]:checked').attr("data-sku"),
-        variant_id: $(this).find('input[name=pack{{ shortSectionID }}]:checked').attr("value"),
-        variant_title: $(this).find('input[name=pack{{ shortSectionID }}]:checked').attr("data-title"),
-        price: $(this).find('input[name=pack{{ shortSectionID }}]:checked').attr("data-price")
+        sku: $(this).find('input[name=pack{{ SID }}]:checked').attr("data-sku"),
+        variant_id: $(this).find('input[name=pack{{ SID }}]:checked').attr("value"),
+        variant_title: $(this).find('input[name=pack{{ SID }}]:checked').attr("data-title"),
+        price: $(this).find('input[name=pack{{ SID }}]:checked').attr("data-price")
       })
     }
     else {
-      window.didClickVariant{{ shortSectionID }} = true;
+      window.didClickVariant{{ SID }} = true;
     }
   });
 </script>

@@ -1,24 +1,27 @@
 {% comment %} Short Section ID for JS Variables {% endcomment %}
-{% assign sectionIDParts = section_id | split: '-' %}
+{% assign sectionIDParts = section_id | split: '_' %}
 {% assign shortSectionID = sectionIDParts[-1] %}
+{% assign shortSectionIDParts = shortSectionID | split: '-' %}
+{% assign SID = shortSectionIDParts[-1] %}
 
 {% assign variantsAmount = product.variants.size %}
 
-<div id="product-actions-{{ section_id }}" class="product-actions">
+<div id="product-actions-{{ SID }}" class="product-actions">
   <div class="purchase-options md:p-2 flex flex-col gap-2">
     <div class="purchase-type flex-nowrap flex w-full gap-2">
-      <button class="subscription selected flex justify-center gap-2" aria-label="Subscribe & Save">Subscribe & Save{% render 'tooltip', section_id: section_id, linkTitle: '<i class="fa-duotone fa-circle-info text-[18px]"></i>', title: 'Subscription Details', description: 'Save on every order, guaranteed delivery, make changes any time, prompt VIP support & new subscriber gifts', features: tooltipFeatures %}</button>
+      {% assign subscriptionFeatures = "Save on every order,Guaranteed delivery,Make changes anytime,VIP support,New subscribers gifs" | split: ',' %}
+      <button class="subscription selected flex justify-center gap-2" aria-label="Subscribe & Save">Subscribe & Save{% render 'tooltip', SID: SID, linkTitle: '<i class="fa-duotone fa-circle-info text-[18px]"></i>', title: 'Subscription Details', description: '', features: subscriptionFeatures %}</button>
       <button class="buy-once" aria-label="Buy Once">Buy Once</button>
     </div>
 
     {% for var in product.variants %}
-      {% render 'product-cta-section-actions-variant-2024-new', prod: product, var: var, index: forloop.index %}
+      {% render 'product-cta-section-actions-variant-2024-new', SID: SID, prod: product, var: var, index: forloop.index %}
     {% endfor %}
 
     {% if customer.email == 'yotam@curalife.com' and false %}
       {% for additionalVariant in product.metafields.custom.additional_variants.value %}
         {% assign variantsAmount = variantsAmount | plus: 1 %}
-        {% render 'product-cta-section-actions-variant-2024-new', prod: additionalVariant.product, var: additionalVariant, index: variantsAmount %}
+        {% render 'product-cta-section-actions-variant-2024-new', SID: SID, prod: additionalVariant.product, var: additionalVariant, index: variantsAmount %}
       {% endfor %}
 
       {% for block in blocks %}
@@ -37,7 +40,7 @@
               {% endfor %}
 
               {% if referenced_variant != blank %}
-                {% render 'product-cta-section-actions-variant-2024', prod: referenced_variant_product, var: referenced_variant %}
+                {% render 'product-cta-section-actions-variant-2024-new', SID: SID, prod: referenced_variant_product, var: referenced_variant %}
               {% endif %}
             {% endif %}
         {% endcase %}
@@ -53,7 +56,7 @@
 
 <script>
   $(document).ready(function() {
-    const $productActions = $("#product-actions-{{ section_id }}");
+    const $productActions = $("#product-actions-{{ SID }}");
     const $purchaseOptionBoxes = $productActions.find('.purchase-option-box');
 
     attachEventHandlers();
@@ -217,19 +220,19 @@
         ? Math.floor(Number(parentBox.data('subscription-item-price')) / 100)
         : Math.floor(Number(parentBox.data('item-price')) / 100);
 
-      $('#product-actions-{{ section_id }} .reward-points-widget .current-price').html(newPoints);
+      $('#product-actions-{{ SID }} .reward-points-widget .current-price').html(newPoints);
     }
 
     function updateSelection(element) {
-      let container = $("#product-actions-{{ section_id }}");
+      let container = $("#product-actions-{{ SID }}");
       container.find(".purchase-option-box").removeClass("selected");
       container.find(".purchase-option-box input[type='radio']").prop('checked', false);
       $(element).addClass("selected").find('input').prop('checked', true);
     }
 
     function updateVariantImage(element) {
-      let slideIndex = window.productSliderAllInOne{{ shortSectionID }}.slides.length - ({{ variantsAmount | plus: 1 }} - $(element).attr('data-index'));
-      window.productSliderAllInOne{{ shortSectionID }}.slideTo(slideIndex);
+      let slideIndex = window.productSliderAllInOne{{ SID }}.slides.length - ({{ variantsAmount | plus: 1 }} - $(element).attr('data-index'));
+      window.productSliderAllInOne{{ SID }}.slideTo(slideIndex);
     }
 
     function buyButtonHandler(variant_id, subscription_selling_plan_id, buttonElement) {
@@ -245,7 +248,7 @@
     }
 
     function isSubscriptionSelected() {
-      return $('#product-actions-{{ section_id }} .purchase-type .subscription.selected').length > 0;
+      return $('#product-actions-{{ SID }} .purchase-type .subscription.selected').length > 0;
     }
 
     function redirectToCheckout(variant_id, dc) {
