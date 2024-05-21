@@ -48,8 +48,7 @@
     {% endif %}
 
     <div class="submit-wrap flex flex-col w-full">
-      {% comment %} <div class="add-to-cart-button buy-once hidden">{% render 'buy-buttons', product: product, variant: '', product_form_id: product_form_id, buyType: buyType, section_id: section.id %}</div> {% endcomment %}
-      <div class="checkout-button subscription">{% render 'buy-buttons', product: product, variant: '', selling_plan_id: selling_plan_id , product_form_id: product_form_id, buyType: buyType, section_id: section.id %}</div>
+      <div class="checkout-button">{% render 'buy-buttons', product: product, variant: '', selling_plan_id: selling_plan_id , product_form_id: product_form_id, buyType: buyType, section_id: section.id %}</div>
     </div>
   </div>
 </div>
@@ -127,10 +126,18 @@
       if (isSubscriptionSelected) {
         {% unless product.metafields.custom.is_price_per_month %}parentBox.find('.per-month').show();{% endunless %}
         let sellingPlanId = parentBox.data('subscription-selling-plan-id');
-        $('.submit-selling-plan-id').val(sellingPlanId);
+        if (sellingPlanId > 0) {
+          $('.submit-selling-plan-id').val(sellingPlanId);
+        } else {
+          parentBox.attr('inert', '');
+          parentBox.removeClass('selected');
+          parentBox.removeAttr('style');
+          $purchaseOptionBoxes.filter(':not([inert])').first().trigger('click');
+        }
       } else {
         {% unless product.metafields.custom.is_price_per_month %}parentBox.find('.per-month').hide();{% endunless %}
         $('.submit-selling-plan-id').val('');
+        parentBox.removeAttr('inert');
       }
 
       updateYotpoPointsWidget(parentBox, isSubscriptionSelected);
@@ -394,6 +401,16 @@
       filter: drop-shadow(0px 4px 4px rgba(77, 53, 98, 0.3));
       border-width: 3px;
       max-height: max-content;
+    }
+
+    &[inert] {
+      max-height: 68px !important;
+      background: #ededed;
+      opacity: 0.6;
+
+      .option-title {
+        color: grey;
+      }
     }
 
     @media (width < 1270px) {
