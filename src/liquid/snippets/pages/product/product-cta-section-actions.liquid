@@ -384,28 +384,7 @@
     cardQty.innerHTML = value;
     cardQty.classList.add("rotate-x");
   }
-</script>
 
-<script>
-  $("#product-actions-{{ SID }} .variant-box").click(function() {
-    if ($(this).find('input[name=pack{{ SID }}]:checked').attr('data-sku') == "Curalin180") {
-      $(".qty").addClass("qty_expanded");
-      $(".submit-wrap button").css("width", "unset");
-    }
-    else {
-      $(".qty").removeClass("qty_expanded");
-      $(".submit-wrap button").css("width", "100%");
-    }
-
-    {% if product.metafields.custom.is_price_per_month %}
-      let inputElement = $(this).find('input[name=pack{{ SID }}]');
-      let variantTotalPrice = inputElement.data('price');
-      $('.total-price .total-price-amount').text(variantTotalPrice);
-    {% endif %}
-  });
-</script>
-
-<script>
   $(document).ready(function() {
     let urlParams = new URLSearchParams(window.location.search);
     let defaultVariant = urlParams.get('default-variant');
@@ -444,7 +423,7 @@
 
   function updateCTA() {
     {% if ctaTextType %}
-      let checkedInputElement = $('#variant-box-{{ SID }} input[name=pack{{ SID }}]:checked');
+      let checkedInputElement = $('#product-actions-{{ SID }} input[name=pack{{ SID }}]:checked');
 
       {% if ctaTextType == "save" %}
         if (checkedInputElement.attr('data-discount') == 0) {
@@ -462,7 +441,7 @@
   }
 
   function updateSelectedVariantInformation(infoAttributeName, targetElementToUpdate) {
-    let varIndex = $('#variant-box-{{ SID }} input[name=pack{{ SID }}]:checked').attr(infoAttributeName);
+    let varIndex = $('#product-actions-{{ SID }} input[name=pack{{ SID }}]:checked').attr(infoAttributeName);
 
     $(targetElementToUpdate).fadeOut(300, function () {
       varIndex > 1 ? $(targetElementToUpdate).text("X" + varIndex) : $(targetElementToUpdate).text("");
@@ -472,8 +451,22 @@
   $("#product-actions-{{ SID }} .variant-box").click(function() {
     $(this).find('input[name=pack{{ SID }}]').prop('checked', true);
     updateCTA();
-    updateSelectedVariantInformation('data-quantity', '.multiplier');
     updateSelectedVariantInformation('data-save', '.save-badge');
+
+    if ($(this).find('input[name=pack{{ SID }}]:checked').attr('data-sku') == "Curalin180") {
+      $(".qty").addClass("qty_expanded");
+      $(".submit-wrap button").css("width", "unset");
+    }
+    else {
+      $(".qty").removeClass("qty_expanded");
+      $(".submit-wrap button").css("width", "100%");
+    }
+
+    {% if product.metafields.custom.is_price_per_month %}
+      let inputElement = $(this).find('input[name=pack{{ SID }}]');
+      let variantTotalPrice = inputElement.data('price');
+      $('.total-price .total-price-amount').text(variantTotalPrice);
+    {% endif %}
 
     {% assign collection_products_amount = var.product.collections.last.products | size %}
     {% if collection_products_amount == 1 and var.product.tags contains 'supplement' %}
