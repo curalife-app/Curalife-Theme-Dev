@@ -63,28 +63,20 @@
     setupMutationObserver();
 
     function isSubscriptionSelected() {
-      return $('#product-actions-{{ SID }} .purchase-type .subscription').hasClass('selected');
+      let selectedButton = $('#product-actions-{{ SID }} .purchase-type button.selected');
+      let isSubscription = selectedButton.hasClass('subscription');
+      console.log("Is subscription selected: ", isSubscription);
+      return isSubscription;
     }
 
     function initializePurchaseOptions() {
-      $purchaseOptionBoxes.each(function(index) {
-        const box = $(this);
-        box.find('input[type="radio"]').prop('checked', true);
-        togglePurchaseType(box, isSubscriptionSelected());
-      });
-
       let urlParams = new URLSearchParams(window.location.search);
       let defaultVariant = urlParams.get('default-variant');
 
-      if (defaultVariant) {
-        $purchaseOptionBoxes.eq(defaultVariant - 1).trigger("click");
-      } else {
-        let initialBox = $purchaseOptionBoxes.{% if variantsAmount == 1 %}first(){% elsif defaultSelectionIndex %}eq({{ defaultSelectionIndex | minus: 1 }}){% else %}first(){% endif %};
-        initialBox.addClass('selected');
-        initialBox.find('input[type="radio"]').prop('checked', true);
-        let isSubscriptionSelected = true;
-        togglePurchaseType(initialBox, isSubscriptionSelected);
-      }
+      $('#product-actions-{{ SID }} .purchase-type .subscription').addClass('selected');
+
+      InitialDefaultVariant = defaultVariant ? defaultVariant - 1 : 1;
+      $purchaseOptionBoxes.eq(InitialDefaultVariant);
     }
 
     function setupMutationObserver() {
@@ -112,25 +104,25 @@
       $('#product-actions-{{ SID }} .purchase-type button').removeClass('selected');
       button.addClass('selected');
 
-      togglePurchaseTypeAllVariants(isSubscriptionSelected);
+      togglePurchaseTypeAllVariants();
     }
 
-    function togglePurchaseTypeAllVariants(isSubscriptionSelected) {
+    function togglePurchaseTypeAllVariants() {
       $purchaseOptionBoxes.each(function() {
         const parentBox = $(this);
-        togglePurchaseType(parentBox, isSubscriptionSelected);
+        togglePurchaseType(parentBox);
       });
     }
 
-    function togglePurchaseType(parentBox, isSubscriptionSelected) {
-      parentBox.find('#product-actions-{{ SID }} .purchase-type button').removeClass('selected');
-      parentBox.find(isSubscriptionSelected ? '.subscription' : '.buy-once').addClass('selected');
+    function togglePurchaseType(parentBox) {
+      $('#product-actions-{{ SID }} .purchase-type button').removeClass('selected');
+      parentBox.find('.purchase-type button').hasClass('subscription') ? $('#product-actions-{{ SID }} .purchase-type button.subscription').addClass('selected') : $('#product-actions-{{ SID }} .purchase-type button.buy-once').addClass('selected');
 
-      if (isSubscriptionSelected) {
+      if (isSubscriptionSelected()) {
         {% unless product.metafields.custom.is_price_per_month %}parentBox.find('.per-month').show();{% endunless %}
         let sellingPlanId = parentBox.data('subscription-selling-plan-id');
         if (sellingPlanId > 0) {
-          $('.submit-selling-plan-id').val(sellingPlanId);
+          $('#product-actions-{{ SID }} .submit-selling-plan-id').val(sellingPlanId);
         } else {
           parentBox.attr('inert', '');
           parentBox.removeClass('selected');
@@ -174,6 +166,7 @@
     }
 
     function togglePurchaseBox(element) {
+      console.log("Toggling purchase box");
       var wasSelected = $(element).hasClass('selected');
 
       if (wasSelected) {
@@ -189,6 +182,7 @@
       $('#product-actions-{{ SID }} .submit-variant-id').val(element.data('variant'));
 
       $(element).addClass('selected');
+      console.log("Selected variant: ", element.data('variant'));
       adjustMaxHeight(element);
       $(element).find("input[type='radio']").prop('checked', true);
       $(element).find('.toggle-icon').show(); // Show the 'v' icon in the expanded box
@@ -244,7 +238,7 @@
 
     function buyButtonHandler(variant_id, subscription_selling_plan_id, buttonElement) {
       toggleButtonLoading(buttonElement, true);
-      if (isSubscriptionSelected() || true) {
+      if (isSubscriptionSelected()) {
         buySubscription(variant_id, 1, subscription_selling_plan_id);
       } else {
         let dc = $(buttonElement).closest('.purchase-option-box').data('dc');

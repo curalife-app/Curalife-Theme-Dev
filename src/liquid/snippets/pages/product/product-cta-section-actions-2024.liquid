@@ -10,7 +10,7 @@
       {% render 'product-cta-section-actions-variant-2024', prod: product, var: var, index: forloop.index %}
     {% endfor %}
 
-    {% if customer.email == 'ana@curalife.com' or customer.email == 'yotam@curalife.com' %}
+    {% if customer.email == 'ana@curalife.com' or customer.email == 'yotam@curalife.com' and false %}
       {% for additionalVariant in product.metafields.custom.additional_variants.value %}
         {% assign variantsAmount = variantsAmount | plus: 1 %}
         {% render 'product-cta-section-actions-variant-2024', prod: additionalVariant.product, var: additionalVariant, index: variantsAmount %}
@@ -74,8 +74,9 @@
     function initializePurchaseOptions() {
       purchaseOptionBoxes.each(function(index) {
         const box = $(this);
-        togglePurchaseType(box, box.find('.purchase-type .subscription').hasClass('selected'));
-        box.css('max-height', '54px').find('input[type="radio"]').prop('checked', true);
+        let isSubscriptionSelected = $(this).find('.purchase-type .subscription').hasClass('selected');
+        togglePurchaseType($(this), isSubscriptionSelected);
+        $(this).css('max-height', '54px').find('input[type="radio"]').prop('checked', true);
       });
 
       let urlParams = new URLSearchParams(window.location.search);
@@ -245,11 +246,13 @@
 
       // Toggle subscription info
       if (isSubscriptionSelected) {
+        console.log('Subscription selected')
         parentBox.find('.subscription-info').slideDown('fast');
         {% unless product.metafields.custom.is_price_per_month %}parentBox.find('.per-month').show();{% endunless %}
         parentBox.find('.checkout-button').show();
         parentBox.find('.add-to-cart-button').hide();
       } else {
+        console.log('Buy once selected')
         parentBox.find('.subscription-info').slideUp('fast');
         {% unless product.metafields.custom.is_price_per_month %}parentBox.find('.per-month').hide();{% endunless %}
         parentBox.find('.add-to-cart-button').show();
@@ -305,10 +308,14 @@
     }
 
     function buyButtonHandler(variant_id, subscription_selling_plan_id, buttonElement) {
+      let isSubscriptionSelected = buttonElement.closest('.purchase-option-box').find('.purchase-type .subscription').hasClass('selected');
       toggleButtonLoading(buttonElement, true);
-      if (isSubscriptionSelected() || true) {
+
+      if (isSubscriptionSelected) {
+        console.log('Buying subscription')
         buySubscription(variant_id, 1, subscription_selling_plan_id);
       } else {
+        console.log('Buying once')
         let dc = $(buttonElement).closest('.purchase-option-box').data('dc');
         let giftProductID = buttonElement.parent().siblings('.gifts').attr('data-bundle-product-id');
 
@@ -319,10 +326,6 @@
           redirectToCheckout(variant_id, dc);
         }
       }
-    }
-
-    function isSubscriptionSelected() {
-      return $('#product-actions-{{ section.id }} .purchase-option-box.selected').find('.purchase-type .subscription.selected').length > 0;
     }
 
     function redirectToCheckout(variant_id, dc) {

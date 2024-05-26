@@ -94,7 +94,8 @@ if (!customElements.get('product-form')) {
             if (!this.error) this.submitButton.removeAttribute('aria-disabled');
             this.querySelector('.submit-title').classList.remove('hidden');
             this.querySelector('.loading-overlay__spinner').classList.add('hidden');
-            this.form.querySelector('[name=quantity]').value = 1;
+            let quantityElement = this.form.querySelector('[name=quantity]');
+            if (quantityElement) quantityElement.value = 1;
           });
       }
 
