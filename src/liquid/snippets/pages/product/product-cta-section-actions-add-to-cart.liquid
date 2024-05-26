@@ -1,4 +1,4 @@
-<div id="product-actions-{{ section_id }}" class="product-actions">
+<div id="product-actions-{{ section.id }}" class="product-actions">
   {% if customer.b2b? and customer.company_available_locations.current? == false %}
     <div class="not-approved-warning">You are not approved yet for wholesale prices, please wait or reach our wholesale manager <a href="mailto:remy@curalife.com?subject=Please Approve My Wholesale User">here</a></div>
   {% endif %}
@@ -11,15 +11,15 @@
   <div class="variants">
     {% for var in product.variants %}
       {% if forloop.last %}
-        {% render 'product-cta-section-actions-variant-box', section_id: section_id, ctaTextType: ctaTextType, isVariantNotice: isVariantNotice, var: var, index: forloop.index, isHighlightSubtitle: isHighlightSubtitle, isUpdateSaveTitle: true, pricePer: pricePer, isLastRender: true %}
+        {% render 'product-cta-section-actions-variant-box', section.id: section.id, ctaTextType: ctaTextType, isVariantNotice: isVariantNotice, var: var, index: forloop.index, isHighlightSubtitle: isHighlightSubtitle, isUpdateSaveTitle: true, pricePer: pricePer, isLastRender: true %}
       {% else %}
-        {% render 'product-cta-section-actions-variant-box', section_id: section_id, ctaTextType: ctaTextType, isVariantNotice: isVariantNotice, var: var, index: forloop.index, isHighlightSubtitle: isHighlightSubtitle, isUpdateSaveTitle: true, pricePer: pricePer %}
+        {% render 'product-cta-section-actions-variant-box', section.id: section.id, ctaTextType: ctaTextType, isVariantNotice: isVariantNotice, var: var, index: forloop.index, isHighlightSubtitle: isHighlightSubtitle, isUpdateSaveTitle: true, pricePer: pricePer %}
       {% endif %}
     {% endfor %}
   </div>
 
   <div class="submit-wrap flex flex-col">
-    {% render 'buy-buttons', product: product, variant: "dynamic", product_form_id: product_form_id, section_id: section.id, quantity_selector: true %}
+    {% render 'buy-buttons', product: product, variant: "dynamic", product_form_id: product_form_id, section.id: section.id, quantity_selector: true %}
   </div>
 
   {% if badgesContent %}
@@ -28,25 +28,25 @@
 </div>
 
 <style>
-  #product-actions-{{ section_id }} {
+  #product-actions-{{ section.id }} {
     grid-area: 2/2/3/3;
     max-width: 400px;
   }
 
-  #product-actions-{{ section_id }} .cta-title {
+  #product-actions-{{ section.id }} .cta-title {
     padding: 10px 0;
   }
 
-  #product-actions-{{ section_id }} .variants {
+  #product-actions-{{ section.id }} .variants {
     display: flex;
     flex-direction: {% if isReversed %}column-reverse{% else %}column{% endif %};
   }
 
-  #product-actions-{{ section_id }} .submit-wrap {
+  #product-actions-{{ section.id }} .submit-wrap {
     display: flex;
   }
 
-  #product-actions-{{ section_id }} .submit-wrap button {
+  #product-actions-{{ section.id }} .submit-wrap button {
     background-color: {{ ctaColor }};
     {% unless isBuyQuantity %}width: 100%;{% endunless %}
     display: flex;
@@ -58,29 +58,29 @@
     border-radius: 0px 10px 10px 0;
   }
 
-  #product-actions-{{ section_id }} .submit-wrap button span.save {
+  #product-actions-{{ section.id }} .submit-wrap button span.save {
     font-weight: 100;
     border-left: 1px solid white;
     padding-left: 20px;
   }
 
-  #product-actions-{{ section_id }} .submit-wrap .qty-data .qty-control {
+  #product-actions-{{ section.id }} .submit-wrap .qty-data .qty-control {
     border: 0;
     background: white;
   }
 
   @media screen and (max-width: 768px) {
-    #product-actions-{{ section_id }} {
+    #product-actions-{{ section.id }} {
       grid-area: unset;
       grid-row: 3;
       max-width: unset
     }
 
-    #product-actions-{{ section_id }} .submit-wrap .qty-data .qty-control {
+    #product-actions-{{ section.id }} .submit-wrap .qty-data .qty-control {
       border: 1px solid {{ ctaColor }};
     }
 
-    #product-actions-{{ section_id }} .submit-wrap button {
+    #product-actions-{{ section.id }} .submit-wrap button {
       min-width: 70vw;
     }
   }
@@ -335,9 +335,9 @@
 {% endif %}
 
 <script>
-  $("#product-actions-{{ section_id }} .variant-box").click(function() {
+  $("#product-actions-{{ section.id }} .variant-box").click(function() {
     $(this).find("input[type=radio]").prop("checked", true);
-    $("#product-actions-{{ section_id }} .product-form input[name='id']").val($(this).find("input[type=radio").val());
+    $("#product-actions-{{ section.id }} .product-form input[name='id']").val($(this).find("input[type=radio").val());
   });
 </script>
 
@@ -347,19 +347,19 @@
     let defaultVariant = urlParams.get('default-variant');
 
     if (defaultVariant) {
-      $("#product-actions-{{ section_id }} .variant-box").eq(defaultVariant - 1).trigger("click");
+      $("#product-actions-{{ section.id }} .variant-box").eq(defaultVariant - 1).trigger("click");
     }
     else {
-      $("#product-actions-{{ section_id }} .variant-box").{% if product.variants.size == 1 or request.path contains 'prime' %}first(){% elsif defaultSelectionIndex %}eq({{ defaultSelectionIndex | minus: 1 }}){% else %}first(){% endif %}.trigger( "click" );
+      $("#product-actions-{{ section.id }} .variant-box").{% if product.variants.size == 1 or request.path contains 'prime' %}first(){% elsif defaultSelectionIndex %}eq({{ defaultSelectionIndex | minus: 1 }}){% else %}first(){% endif %}.trigger( "click" );
     }
   });
 
   {% comment %}
   // On Buy Button Click
-  $(document).on("click", "#ProductSubmitButton-{{ section_id }}", function () {
+  $(document).on("click", "#ProductSubmitButton-{{ section.id }}", function () {
     console.log("Buy Button Pushed!")
-    let checkedPack = $('#product-actions-{{ section_id }} input[name=pack]:checked').val();
-    let checkedQuantity = {% if isBuyQuantity %}$('#product-actions-{{ section_id }} input[name=quantity]').val(){% else %}1{% endif %};
+    let checkedPack = $('#product-actions-{{ section.id }} input[name=pack]:checked').val();
+    let checkedQuantity = {% if isBuyQuantity %}$('#product-actions-{{ section.id }} input[name=quantity]').val(){% else %}1{% endif %};
     let checkoutLink = "https://" + location.hostname + "/cart/" + checkedPack + ":" + checkedQuantity;
     window.location.href = checkoutLink;
   });

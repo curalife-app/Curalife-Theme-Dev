@@ -1,7 +1,7 @@
 {% assign subscriptionPrice = 75 %}
 
 {% comment %} Short Section ID for JS Variables {% endcomment %}
-{% assign sectionIDParts = section_id | split: '-' %}
+{% assign sectionIDParts = section.id | split: '-' %}
 {% assign shortSectionID = sectionIDParts[-1] %}
 
 {% assign variantQuantity = product.variants | size %}
@@ -13,10 +13,10 @@
 {% endif %}
 {% assign tooltipFeatures = product.metafields.susbscription.subtitle | append: "|Free US shipping on all orders.|Subscriber-only gifts and product drops.|Cancel anytime." | split: "|" %}
 
-<div id="product-actions-{{ section_id }}" class="product-actions">
+<div id="product-actions-{{ section.id }}" class="product-actions">
   <div class="top-wrapper subscription-element flex items-center justify-between" {% if shop.name == "Curalife Global" %}{% if product.title == "Curalin 3 Pack" or product.title == "Curalin 6 Pack" %}style="display: none"{% endif %}{% endif %}>
     {% if variantQuantity > 1 or product.tags contains 'subscription' %}<div class="cta-title font-bold">{{ title }}</div>{% endif %}
-  {% if shop.name == "CuraLife" %}{% render 'tooltip', section_id: section_id, title: tooltipTitle, description: tooltipDescription, features: tooltipFeatures %}{% endif %}
+  {% if shop.name == "CuraLife" %}{% render 'tooltip', section.id: section.id, title: tooltipTitle, description: tooltipDescription, features: tooltipFeatures %}{% endif %}
   </div>
 
   <div class="purchase-options flex flex-col">
@@ -121,11 +121,11 @@
 
 <script>
   document.addEventListener('DOMContentLoaded', function() {
-    var subscriptionOption = document.querySelector('#product-actions-{{ section_id }} .subscription-element .radio-box input[type=radio]');
-    var oneTimeOption = document.querySelector('#product-actions-{{ section_id }} .buy-once .radio-box input[type=radio]');
+    var subscriptionOption = document.querySelector('#product-actions-{{ section.id }} .subscription-element .radio-box input[type=radio]');
+    var oneTimeOption = document.querySelector('#product-actions-{{ section.id }} .buy-once .radio-box input[type=radio]');
 
     {% if variantQuantity > 1 %}
-      var variants = document.querySelector('#product-actions-{{ section_id }} .variants');
+      var variants = document.querySelector('#product-actions-{{ section.id }} .variants');
 
       variants.style.transition = 'max-height 0.15s ease-out, opacity 0.3s ease-in-out';
       variants.style.overflow = 'hidden';
@@ -147,15 +147,15 @@
       };
     {% endif %}
 
-    $("#product-actions-{{ section_id }} .purchase-option-box").click(function() {
-      $("#product-actions-{{ section_id }} .pack-option").removeClass("selected");
-      $("#product-actions-{{ section_id }} .purchase-option-box input[type='radio']").prop('checked', false);
+    $("#product-actions-{{ section.id }} .purchase-option-box").click(function() {
+      $("#product-actions-{{ section.id }} .pack-option").removeClass("selected");
+      $("#product-actions-{{ section.id }} .purchase-option-box input[type='radio']").prop('checked', false);
       let radioButton = $(this).find('input');
       radioButton.prop('checked', true);
       {% if variantQuantity > 1 %} checkOption(); {% endif %}
 
       if ($(this).hasClass('buy-once')) {
-        $("#product-actions-{{ section_id }} .pack-option").first().trigger('click');
+        $("#product-actions-{{ section.id }} .pack-option").first().trigger('click');
       }
     });
 
@@ -166,15 +166,15 @@
 
   <script>
     function updateSelectedVariantInformation(infoAttributeName, targetElementToUpdate) {
-      let varIndex = $('#product-actions-{{ section_id }} .pack-option.selected').first().attr(infoAttributeName);
+      let varIndex = $('#product-actions-{{ section.id }} .pack-option.selected').first().attr(infoAttributeName);
 
       $(targetElementToUpdate).fadeOut(300, function () {
         varIndex > 1 ? $(targetElementToUpdate).text("X" + varIndex) : $(targetElementToUpdate).text("");
       }).fadeIn(300);
     }
 
-    $("#product-actions-{{ section_id }} .pack-option").click(function() {
-      $("#product-actions-{{ section_id }} .pack-option").removeClass("selected");
+    $("#product-actions-{{ section.id }} .pack-option").click(function() {
+      $("#product-actions-{{ section.id }} .pack-option").removeClass("selected");
       $(this).addClass("selected");
 
       // Slide to Variant Image
@@ -252,12 +252,12 @@
   // On Buy Button Click
   function buyButtonHandler() {
     console.log("Buy Button Pushed!");
-    document.querySelector('#product-actions-{{ section_id }} #loader').style.display = 'block';
-    document.querySelector('#product-actions-{{ section_id }} #button-text').style.display = 'none';
+    document.querySelector('#product-actions-{{ section.id }} #loader').style.display = 'block';
+    document.querySelector('#product-actions-{{ section.id }} #button-text').style.display = 'none';
 
-    if ($('#product-actions-{{ section_id }} .purchase-option-box.subscription-element').find('input:checked').length === 0) {
+    if ($('#product-actions-{{ section.id }} .purchase-option-box.subscription-element').find('input:checked').length === 0) {
       {% if variantQuantity > 1 %}
-        let checkedPack = $('#product-actions-{{ section_id }} .pack-option.selected').first().attr('data-value');
+        let checkedPack = $('#product-actions-{{ section.id }} .pack-option.selected').first().attr('data-value');
         console.log("Selected Variant ID: " + checkedPack);
       {% else %}
         let checkedPack = {{ product.variants.first.id }};
@@ -278,11 +278,11 @@
 </script>
 
 <style>
-  .cta-section-{{ section_id }} .radio-box input[type='radio'] {
+  #cta-section-{{ section.id }} .radio-box input[type='radio'] {
     display: none;
   }
 
-  .cta-section-{{ section_id }} .radio-box label {
+  #cta-section-{{ section.id }} .radio-box label {
     cursor: pointer;
     width: 19px;
     height: 19px;
@@ -291,7 +291,7 @@
     position: relative;
   }
 
-  .cta-section-{{ section_id }} .radio-box input[type='radio']:checked + label:after {
+  #cta-section-{{ section.id }} .radio-box input[type='radio']:checked + label:after {
     content: '\2713';
     position: absolute;
     top: -1px;
@@ -308,31 +308,31 @@
 
 
 <style>
-  .cta-section-{{ section_id }} .product-actions {
+  #cta-section-{{ section.id }} .product-actions {
     grid-area: 2/2/3/3;
     max-width: 400px;
     min-height: 415px;
   }
 
-  .cta-section-{{ section_id }} .product-actions .cta-title {
+  #cta-section-{{ section.id }} .product-actions .cta-title {
     padding: 10px 0;
   }
 
-  .cta-section-{{ section_id }} .product-actions .variants {
+  #cta-section-{{ section.id }} .product-actions .variants {
     display: flex;
     gap: 10px;
     align-items: center;
   }
 
-  .cta-section-{{ section_id }} .product-actions .submit-wrap {
+  #cta-section-{{ section.id }} .product-actions .submit-wrap {
     display: flex;
   }
 
-  .cta-section-{{ section_id }} .product-actions .submit-wrap button {
+  #cta-section-{{ section.id }} .product-actions .submit-wrap button {
     background-color: {{ ctaColor }};
   }
 
-  .cta-section-{{ section_id }} .purchase-option-box {
+  #cta-section-{{ section.id }} .purchase-option-box {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -350,26 +350,26 @@
     border-color: var(--blue);
   }
 
-  .cta-section-{{ section_id }} .purchase-option-box:hover {
+  #cta-section-{{ section.id }} .purchase-option-box:hover {
     border-color: var(--blue);
     filter: drop-shadow(0px 4px 4px rgba(47, 47, 47, 0.3));
   }
 
-  .cta-section-{{ section_id }} .purchase-option-box:hover>.radio-box input[type=radio]:after {
+  #cta-section-{{ section.id }} .purchase-option-box:hover>.radio-box input[type=radio]:after {
     background-color: #a9a9a9;
   }
 
-  .cta-section-{{ section_id }} .purchase-option-box .left-side-wrapper {
+  #cta-section-{{ section.id }} .purchase-option-box .left-side-wrapper {
     display: flex;
   }
 
-  .cta-section-{{ section_id }} .purchase-option-box .radio-box {
+  #cta-section-{{ section.id }} .purchase-option-box .radio-box {
     align-items: center;
     display: flex;
     padding: 20px;
   }
 
-  .cta-section-{{ section_id }} .purchase-option-box .option-info {
+  #cta-section-{{ section.id }} .purchase-option-box .option-info {
     padding: 10px 0;
     display: flex;
     flex-direction: column;
@@ -377,7 +377,7 @@
     gap: 0.25rem;
   }
 
-  .cta-section-{{ section_id }} .purchase-option-box .option-info .option-title span {
+  #cta-section-{{ section.id }} .purchase-option-box .option-info .option-title span {
     background: var(--blue);
     color: white;
     border-radius: 10px;
@@ -388,7 +388,7 @@
     line-height: 1.2;
   }
 
-  .cta-section-{{ section_id }} .purchase-option-box .option-info .option-infos p {
+  #cta-section-{{ section.id }} .purchase-option-box .option-info .option-infos p {
     font-weight: 200;
     display: inline-block;
     margin: 0;
@@ -401,11 +401,11 @@
     {% endif %}
   }
 
-  .cta-section-{{ section_id }} .purchase-option-box .option-info .option-infos p b {
+  #cta-section-{{ section.id }} .purchase-option-box .option-info .option-infos p b {
     font-weight: 700;
   }
 
-  .cta-section-{{ section_id }} .purchase-option-box .price {
+  #cta-section-{{ section.id }} .purchase-option-box .price {
     display: flex;
     min-width: 70px;
     margin-right: 10px;
@@ -414,11 +414,11 @@
     gap: unset;
   }
 
-  .cta-section-{{ section_id }} .purchase-option-box .price p {
+  #cta-section-{{ section.id }} .purchase-option-box .price p {
     margin: unset;
   }
 
-  .cta-section-{{ section_id }} .purchase-option-box .price .calculations {
+  #cta-section-{{ section.id }} .purchase-option-box .price .calculations {
     display: flex;
     align-items: center;
     justify-content: right;
@@ -426,87 +426,87 @@
     line-height: 1;
   }
 
-  .cta-section-{{ section_id }} .purchase-option-box .price .calculations p::after {
+  #cta-section-{{ section.id }} .purchase-option-box .price .calculations p::after {
     content: "00";
     font-size: 0.6rem;
     vertical-align: super;
     margin-right: 5px;
   }
 
-  .cta-section-{{ section_id }} .purchase-option-box .price .calculations p.compared-at-price::after {
+  #cta-section-{{ section.id }} .purchase-option-box .price .calculations p.compared-at-price::after {
     font-size: 0.3rem;
   }
 
-  .cta-section-{{ section_id }} .purchase-option-box .price .per-month {
+  #cta-section-{{ section.id }} .purchase-option-box .price .per-month {
     color: var(--grey);
     font-size: 16px;
   }
 
-  .cta-section-{{ section_id }} .purchase-option-box .price .real-price {
+  #cta-section-{{ section.id }} .purchase-option-box .price .real-price {
     font-size: 20px;
   }
 
   @media screen and (max-width: 1270px) {
-    .cta-section-{{ section_id }} .purchase-option-box {
+    #cta-section-{{ section.id }} .purchase-option-box {
       width: 100%
     }
 
-    .cta-section-{{ section_id }} .purchase-option-box .option-info {
+    #cta-section-{{ section.id }} .purchase-option-box .option-info {
       padding: 10px 0;
       width: 95%;
     }
   }
 
   @media screen and (max-width: 768px) {
-    .cta-section-{{ section_id }} .purchase-option-box .option-info .option-title {
+    #cta-section-{{ section.id }} .purchase-option-box .option-info .option-title {
       font-size: 4vw;
     }
 
-    .cta-section-{{ section_id }} .purchase-option-box .option-info .option-infos p {
+    #cta-section-{{ section.id }} .purchase-option-box .option-info .option-infos p {
       font-size: 3vw;
     }
 
-    .cta-section-{{ section_id }} .purchase-option-box .radio-box {
+    #cta-section-{{ section.id }} .purchase-option-box .radio-box {
       padding: 3vw;
     }
 
-    .cta-section-{{ section_id }} .product-actions {
+    #cta-section-{{ section.id }} .product-actions {
       grid-area: unset;
       grid-row: 3;
       max-width: unset;
       min-height: unset;
     }
 
-    .cta-section-{{ section_id }} .product-actions .submit-wrap button {
+    #cta-section-{{ section.id }} .product-actions .submit-wrap button {
       font-size: 4vw;
     }
 
-    .cta-section-{{ section_id }} .product-actions .submit-wrap button {
+    #cta-section-{{ section.id }} .product-actions .submit-wrap button {
       min-height: 15vw;
     }
   }
 </style>
 
 <style>
-  .cta-section-{{ section_id }} .product-actions .variants .pack-option .thumbnail img {
+  #cta-section-{{ section.id }} .product-actions .variants .pack-option .thumbnail img {
     border: 1px solid var(--blue);
     border-radius: 5px;
     transition: 0.5s all;
     cursor: pointer;
   }
 
-  .cta-section-{{ section_id }} .product-actions .variants .pack-option.selected .thumbnail img {
+  #cta-section-{{ section.id }} .product-actions .variants .pack-option.selected .thumbnail img {
     background: var(--beige);
   }
 
-  .cta-section-{{ section_id }} .product-actions .pack-option {
+  #cta-section-{{ section.id }} .product-actions .pack-option {
     display: flex;
     flex-direction: column;
     align-items: center;
     text-align: center;
   }
 
-  .cta-section-{{ section_id }} .variant-bottle-quantity {
+  #cta-section-{{ section.id }} .variant-bottle-quantity {
     position: absolute;
     right: 5px;
     top: 5px;
@@ -522,7 +522,7 @@
     font-size: 14px;
   }
 
-  .cta-section-{{ section_id }} .variant-subtitle {
+  #cta-section-{{ section.id }} .variant-subtitle {
     background: var(--blue);
     position: absolute;
     bottom: 0;
@@ -537,13 +537,13 @@
 </style>
 
 <style>
-  .cta-section-{{ section_id }} .lds-ellipsis {
+  #cta-section-{{ section.id }} .lds-ellipsis {
     display: inline-block;
     position: relative;
     width: 80px;
     top:-10px;
   }
-  .cta-section-{{ section_id }} .lds-ellipsis div {
+  #cta-section-{{ section.id }} .lds-ellipsis div {
     position: absolute;
     width: 10px;
     height: 10px;
@@ -551,19 +551,19 @@
     background: #fff;
     animation-timing-function: cubic-bezier(0, 1, 1, 0);
   }
-  .cta-section-{{ section_id }} .lds-ellipsis div:nth-child(1) {
+  #cta-section-{{ section.id }} .lds-ellipsis div:nth-child(1) {
     left: 8px;
     animation: lds-ellipsis1 0.6s infinite;
   }
-  .cta-section-{{ section_id }} .lds-ellipsis div:nth-child(2) {
+  #cta-section-{{ section.id }} .lds-ellipsis div:nth-child(2) {
     left: 8px;
     animation: lds-ellipsis2 0.6s infinite;
   }
-  .cta-section-{{ section_id }} .lds-ellipsis div:nth-child(3) {
+  #cta-section-{{ section.id }} .lds-ellipsis div:nth-child(3) {
     left: 32px;
     animation: lds-ellipsis2 0.6s infinite;
   }
-  .cta-section-{{ section_id }} .lds-ellipsis div:nth-child(4) {
+  #cta-section-{{ section.id }} .lds-ellipsis div:nth-child(4) {
     left: 56px;
     animation: lds-ellipsis3 0.6s infinite;
   }
