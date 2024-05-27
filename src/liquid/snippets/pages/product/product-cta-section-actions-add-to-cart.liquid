@@ -19,7 +19,7 @@
   </div>
 
   <div class="submit-wrap flex flex-col">
-    {% render 'buy-buttons', product: product, variant: "dynamic", product_form_id: product_form_id, section.id: section.id, quantity_selector: true %}
+    {% render 'buy-buttons', product: product, variant: "dynamic", product_form_id: product_form_id, section.id: section.id, quantity_selector: isBuyQuantity %}
   </div>
 
   {% if badgesContent %}
@@ -55,7 +55,7 @@
     gap: 20px;
     min-width: 320px;
     transition: width 0.3s ease;
-    border-radius: 0px 10px 10px 0;
+    border-radius: {% if isBuyQuantity %}0px 10px 10px 0{% else %}50px{% endif %};
   }
 
   #product-actions-{{ section.id }} .submit-wrap button span.save {
@@ -146,6 +146,29 @@
   transition: opacity 0.3s ease;
 }
   </style>
+
+  <script>
+    function incrementQty() {
+      var value = document.querySelector('input[name="quantity"]').value;
+      var cardQty = document.querySelector(".cart-qty");
+      value = isNaN(value) ? 1 : value;
+      value++;
+      document.querySelector('input[name="quantity"]').value = value;
+      cardQty.innerHTML = value;
+      cardQty.classList.add("rotate-x");
+    }
+
+    function decrementQty() {
+      var value = document.querySelector('input[name="quantity"]').value;
+      var cardQty = document.querySelector(".cart-qty");
+      value = isNaN(value) ? 1 : value;
+      value > 1 ? value-- : value;
+      document.querySelector('input[name="quantity"]').value = value;
+      cardQty.innerHTML = value;
+      cardQty.classList.add("rotate-x");
+    }
+  </script>
+{% endif %}
 
 <style>
   .variant-notice p {
@@ -310,29 +333,6 @@
     }
   }
 </style>
-
-  <script>
-    function incrementQty() {
-      var value = document.querySelector('input[name="quantity"]').value;
-      var cardQty = document.querySelector(".cart-qty");
-      value = isNaN(value) ? 1 : value;
-      value++;
-      document.querySelector('input[name="quantity"]').value = value;
-      cardQty.innerHTML = value;
-      cardQty.classList.add("rotate-x");
-    }
-
-    function decrementQty() {
-      var value = document.querySelector('input[name="quantity"]').value;
-      var cardQty = document.querySelector(".cart-qty");
-      value = isNaN(value) ? 1 : value;
-      value > 1 ? value-- : value;
-      document.querySelector('input[name="quantity"]').value = value;
-      cardQty.innerHTML = value;
-      cardQty.classList.add("rotate-x");
-    }
-  </script>
-{% endif %}
 
 <script>
   $("#product-actions-{{ section.id }} .variant-box").click(function() {
