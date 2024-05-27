@@ -65,7 +65,7 @@
     function isSubscriptionSelected() {
       let selectedButton = $('#product-actions-{{ SID }} .purchase-type button.selected');
       let isSubscription = selectedButton.hasClass('subscription');
-      console.log("Is subscription selected: ", isSubscription);
+
       return isSubscription;
     }
 
@@ -75,8 +75,8 @@
 
       $('#product-actions-{{ SID }} .purchase-type .subscription').addClass('selected');
 
-      InitialDefaultVariant = defaultVariant ? defaultVariant - 1 : 1;
-      $purchaseOptionBoxes.eq(InitialDefaultVariant);
+      InitialDefaultVariant = defaultVariant ? defaultVariant - 1 : 0;
+      $purchaseOptionBoxes.eq(InitialDefaultVariant).trigger('click').find("input[type='radio']").prop('checked', true);
     }
 
     function setupMutationObserver() {
@@ -104,21 +104,22 @@
       $('#product-actions-{{ SID }} .purchase-type button').removeClass('selected');
       button.addClass('selected');
 
-      togglePurchaseTypeAllVariants();
+      togglePurchaseTypeAllVariants(isSubscriptionSelected);
     }
 
-    function togglePurchaseTypeAllVariants() {
+    function togglePurchaseTypeAllVariants(isSubscriptionSelected) {
       $purchaseOptionBoxes.each(function() {
         const parentBox = $(this);
-        togglePurchaseType(parentBox);
+        togglePurchaseType(parentBox, isSubscriptionSelected);
       });
     }
 
-    function togglePurchaseType(parentBox) {
-      $('#product-actions-{{ SID }} .purchase-type button').removeClass('selected');
-      parentBox.find('.purchase-type button').hasClass('subscription') ? $('#product-actions-{{ SID }} .purchase-type button.subscription').addClass('selected') : $('#product-actions-{{ SID }} .purchase-type button.buy-once').addClass('selected');
 
-      if (isSubscriptionSelected()) {
+    function togglePurchaseType(parentBox, isSubscriptionSelected) {
+      $('#product-actions-{{ SID }} .purchase-type button').removeClass('selected');
+      isSubscriptionSelected ? $('#product-actions-{{ SID }} .purchase-type button.subscription').addClass('selected') : $('#product-actions-{{ SID }} .purchase-type button.buy-once').addClass('selected');
+
+      if (isSubscriptionSelected) {
         {% unless product.metafields.custom.is_price_per_month %}parentBox.find('.per-month').show();{% endunless %}
         let sellingPlanId = parentBox.data('subscription-selling-plan-id');
         if (sellingPlanId > 0) {
@@ -166,7 +167,6 @@
     }
 
     function togglePurchaseBox(element) {
-      console.log("Toggling purchase box");
       var wasSelected = $(element).hasClass('selected');
 
       if (wasSelected) {
@@ -182,7 +182,6 @@
       $('#product-actions-{{ SID }} .submit-variant-id').val(element.data('variant'));
 
       $(element).addClass('selected');
-      console.log("Selected variant: ", element.data('variant'));
       adjustMaxHeight(element);
       $(element).find("input[type='radio']").prop('checked', true);
       $(element).find('.toggle-icon').show(); // Show the 'v' icon in the expanded box
