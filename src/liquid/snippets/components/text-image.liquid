@@ -18,12 +18,16 @@
 
     {% if main_image or main_mobile_image %}
       <div class="image-wrapper z-[1] h-auto md:mb-0 {% if main_mobile_image and main_image == blank %}mobile{% endif %} {% if itemsDirection == 'vertical' %}w-full{% endif %} {% if is_image_bottom %}self-end md:self-auto{% endif %}">
-        <picture>
-          {% if main_mobile_image %}
-            <source media="(max-width: 768px)" srcset="{{ main_mobile_image | image_url }}" width="{{ main_mobile_image.width }}" height="{{ main_mobile_image.height }}">
-          {% endif %}
-          <img class="{% if is_limit_image_size %}max-h-500px{% endif %} relative z-auto object-contain {% if is_hide_image_on_mobile %}md:hidden{% endif %} {% if is_image_overlap_style %} h-[calc(100%+135px)] object-cover object-left{% endif %}" src="{{ main_image | default: main_mobile_image | image_url }}" alt="{{ main_image.alt }}" width="{{ main_image.width }}" height="{{ main_image.height }}" {% unless is_dont_lazyload %}loading="lazy"{% endunless %} {% if image_animation != 'none'%}data-aos="{{ image_animation }}" data-aos-duration="{{ animation_duration }}"{% endif %}>
-        </picture>
+        {% if videoEmbed %}
+          {{ videoEmbed }}
+        {% else %}
+          <picture>
+            {% if main_mobile_image %}
+              <source media="(max-width: 768px)" srcset="{{ main_mobile_image | image_url }}" width="{{ main_mobile_image.width }}" height="{{ main_mobile_image.height }}">
+            {% endif %}
+            <img class="{% if is_limit_image_size %}max-h-500px{% endif %} relative z-auto object-contain {% if is_hide_image_on_mobile %}md:hidden{% endif %} {% if is_image_overlap_style %} h-[calc(100%+135px)] object-cover object-left{% endif %}" src="{{ main_image | default: main_mobile_image | image_url }}" alt="{{ main_image.alt }}" width="{{ main_image.width }}" height="{{ main_image.height }}" {% unless is_dont_lazyload %}loading="lazy"{% endunless %} {% if image_animation != 'none'%}data-aos="{{ image_animation }}" data-aos-duration="{{ animation_duration }}"{% endif %}>
+          </picture>
+        {% endif %}
       </div>
     {% endif %}
 
@@ -86,7 +90,7 @@
                   button_id: block.id
                 %}
               {% when 'image' %}
-                <picture id="text-{{ block_index }}" class="{{ block.settings.additional_classes }}">
+                <picture id="text-{{ section_id }}" class="{{ block.settings.additional_classes }}">
                   {% if block.settings.image_mobile %}
                     <source media="(max-width: 768px)" srcset="{{ block.settings.image_mobile | image_url }}">
                   {% endif %}
@@ -94,7 +98,7 @@
                 </picture>
 
                 {% if block.settings.is_image_before_content %}
-                  <script>$('#text-{{ block_index }}').prependTo('#shopify-section-{{ section.id }} .description');</script>
+                  <script>$('#text-{{ section_id }}').prependTo('#shopify-section-{{ section.id }} .description');</script>
                 {% endif %}
               {% when 'countdown' %}
                   {% render 'countdown-timer', section_id: section.id, day: block.settings.day, month: block.settings.month, year: block.settings.year, urgencyMinutes: block.settings.urgency_minutes %}

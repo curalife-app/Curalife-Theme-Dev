@@ -71,24 +71,28 @@
     }
 
     function initializePurchaseOptions() {
-      let urlParams = new URLSearchParams(window.location.search);
-      let defaultVariant = urlParams.get('default-variant');
+      const urlParams = new URLSearchParams(window.location.search);
+      const defaultVariant = urlParams.get('default-variant');
 
       $('#product-actions-{{ SID }} .purchase-type .subscription').addClass('selected');
 
-      InitialDefaultVariant = defaultVariant ? defaultVariant - 1 : 0;
+      const InitialDefaultVariant = defaultVariant ? defaultVariant - 1 : 0;
       $purchaseOptionBoxes.eq(InitialDefaultVariant).trigger('click').find("input[type='radio']").prop('checked', true);
     }
 
     function setupMutationObserver() {
       const observer = new MutationObserver(mutations => {
-        mutations.forEach(({ target }) => {
-          const targetBox = $(target).closest('.purchase-option-box');
-          if (targetBox.hasClass('selected')) adjustMaxHeight(targetBox);
+        mutations.forEach(mutation => {
+          if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+            const targetBox = $(mutation.target).closest('.purchase-option-box');
+            if (targetBox.hasClass('selected')) adjustMaxHeight(targetBox);
+          }
         });
       });
 
-      $purchaseOptionBoxes.each((_, element) => observer.observe(element, { attributes: true, childList: true, subtree: true }));
+      $purchaseOptionBoxes.each((_, element) => {
+        observer.observe(element, { attributes: true, attributeFilter: ['class'] });
+      });
     }
 
     function attachEventHandlers() {
@@ -116,13 +120,16 @@
     }
 
 
-    function togglePurchaseType(parentBox, isSubscriptionSelected) {
+    function togglePurchaseType(parentBox) {
+      const isSubscription = isSubscriptionSelected();
       $('#product-actions-{{ SID }} .purchase-type button').removeClass('selected');
-      isSubscriptionSelected ? $('#product-actions-{{ SID }} .purchase-type button.subscription').addClass('selected') : $('#product-actions-{{ SID }} .purchase-type button.buy-once').addClass('selected');
 
-      if (isSubscriptionSelected) {
+      if (isSubscription) {
+        $('#product-actions-{{ SID }} .purchase-type button.subscription').addClass('selected');
         {% unless product.metafields.custom.is_price_per_month %}parentBox.find('.per-month').show();{% endunless %}
-        let sellingPlanId = parentBox.data('subscription-selling-plan-id');
+        const selectedBox = $('#product-actions-{{ SID }} .purchase-option-box.selected');
+        const sellingPlanId = selectedBox.data('subscription-selling-plan-id');
+
         if (sellingPlanId > 0) {
           $('#product-actions-{{ SID }} .submit-selling-plan-id').val(sellingPlanId);
         } else {
@@ -132,6 +139,7 @@
           $purchaseOptionBoxes.filter(':not([inert])').first().trigger('click');
         }
       } else {
+        $('#product-actions-{{ SID }} .purchase-type button.buy-once').addClass('selected');
         {% unless product.metafields.custom.is_price_per_month %}parentBox.find('.per-month').hide();{% endunless %}
         $('.submit-selling-plan-id').val('');
         parentBox.removeAttr('inert');
@@ -168,7 +176,8 @@
     }
 
     function togglePurchaseBox(element) {
-      var wasSelected = $(element).hasClass('selected');
+      const isSubscription = isSubscriptionSelected();
+      const wasSelected = $(element).hasClass('selected');
 
       if (wasSelected) {
           return;
@@ -179,7 +188,7 @@
         $(this).find('.toggle-icon').hide();
       });
 
-      $('#product-actions-{{ SID }} .submit-selling-plan-id').val(element.data('subscription-selling-plan-id'));
+      $('#product-actions-{{ SID }} .submit-selling-plan-id').val(isSubscription ? element.data('subscription-selling-plan-id') : '');
       $('#product-actions-{{ SID }} .submit-variant-id').val(element.data('variant'));
 
       $(element).addClass('selected');
