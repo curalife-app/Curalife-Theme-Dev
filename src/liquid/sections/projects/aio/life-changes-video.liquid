@@ -1,25 +1,83 @@
-
 <section class="life-changes">
-  <div class="container">
+  <div class="container overflow-hidden">
     <h2 class="text-center">{{ section.settings.title }}</h2>
 
-    <div class="video-wrapper">
-      {% for block in section.blocks %}
-        <div class="video-block-item-overlay-col">
-          <div class="video-block-item">
-            <div class="video-player">
-              <iframe src="{{ block.settings.vidURL | escape }}" frameborder="0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen title="{{ block.settings.video_title }}"></iframe>
+    <div class="swiper-container">
+      <div class="swiper-wrapper">
+        {% for block in section.blocks %}
+          <div class="swiper-slide">
+            <div class="video-block-item">
+              <div class="video-player">
+                <iframe src="{{ block.settings.vidURL | escape }}" frameborder="0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen title="{{ block.settings.video_title }}"></iframe>
               </div>
-
-            <div class="video-headline"><p>"{{ block.settings.video_description }}"</p></div>
+              <div class="video-headline"><p>"{{ block.settings.video_description }}"</p></div>
+            </div>
           </div>
-        </div>
-      {% endfor %}
+        {% endfor %}
+      </div>
+
+      <div class="swiper-pagination"></div>
+      <div class="swiper-button swiper-button-next"></div>
+      <div class="swiper-button swiper-button-prev"></div>
     </div>
   </div>
 </section>
 
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const swiper = new Swiper('.swiper-container', {
+      slidesPerView: 1,
+      spaceBetween: 10,
+      loop: true,
+      navigation: {
+        nextEl: '.swiper-button-next',
+        prevEl: '.swiper-button-prev',
+      },
+      breakpoints: {
+        640: {
+          slidesPerView: 1,
+          spaceBetween: 20,
+        },
+        768: {
+          slidesPerView: 2,
+          spaceBetween: 30,
+        },
+        1024: {
+          slidesPerView: 3,
+          spaceBetween: 40,
+        },
+      },
+      on: {
+        init: function() {
+          const firstSlideIframe = document.querySelector('.swiper-slide-active iframe');
+          if (firstSlideIframe) {
+            firstSlideIframe.click();
+          }
+        },
+      },
+    });
+
+    swiper.on('slideChange', function () {
+      const activeSlideIframe = document.querySelector('.swiper-slide-active iframe');
+      if (activeSlideIframe) {
+        activeSlideIframe.click();
+      }
+    });
+  });
+</script>
+
 <style>
+  .swiper-button {
+    background: white;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+  }
+
+  .swiper-button::after {
+    font-size: 20px;
+  }
+
   .life-changes {
     margin-top: unset !important;
   }
@@ -66,7 +124,7 @@
       margin: 0 auto;
       position: relative;
       border: 1px solid {{ section.settings.border_color }};
-      max-width: 18.125rem
+      max-width: 368px;
     }
 
     .video-wrapper .video-player #frame .lvo-playbtn {
@@ -243,11 +301,62 @@
     }
 </style>
 
-<script>
-  function showvideo() {
-    this.classList.add('show-video');
-  }
-</script>
+<style>
+  .life-changes {
+  margin-top: unset !important;
+}
+
+.video-player {
+  width: 100%;
+  position: relative;
+  object-fit: cover;
+}
+
+.video-player:before {
+  content: "";
+  display: block;
+  padding-bottom: 78.5%;
+  pointer-events: none;
+}
+
+.video-player * {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  right: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.video-headline {
+  text-align: center;
+  padding: 1rem;
+}
+
+.video-headline p {
+  min-height: 3.8125rem;
+  margin: 0;
+}
+
+.swiper-container {
+  width: 100%;
+  height: 100%;
+}
+
+.swiper-slide {
+  display: flex;
+  justify-content: center;
+}
+
+.video-block-item {
+  width: 100%;
+  max-width: 368px;
+  height: 100%;
+  border: 1px solid {{ section.settings.border_color }};
+}
+</style>
 
 
 
