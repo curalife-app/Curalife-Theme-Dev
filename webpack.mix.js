@@ -31,7 +31,7 @@ const paths = {
   layout_folder_files: 'src/liquid/layout/**',
   scss_folder: 'src/styles/scss/',
   script_files: 'src/scripts/**/*.js',
-  sections_folder_files: 'src/liquid/sections/**/*.{liquid,json}',
+  sections_folder_files: 'src/liquid/sections/**/*.liquid',
   snippets_folder_files: 'src/liquid/snippets/**/*.liquid',
   blocks_folder_files: 'src/liquid/blocks/**/*.liquid',
   tailwindcss_file: 'src/styles/tailwind.scss'
