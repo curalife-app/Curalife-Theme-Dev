@@ -6,6 +6,14 @@
   {% assign variantTitle = "Curalin 6 Pack" %}
 {% endif %}
 
+{% if customer.b2b? or customer.email contains "@curalife.com" %}
+  {% assign isAddToCart = true %}
+{% endif %}
+
+{% if variant.metafields.subscription.price and request.path contains '/collections/subscribe-save' %}
+  {% assign isSubscription = true %}
+{% endif %}
+
 {% assign quantity = variant.metafields.my_fields.pack_items_quantity %}
 {% assign quantity_by_cents = quantity | times: 100 %}
 {% assign item_price = variant.price | times: 100.0 | divided_by: quantity_by_cents %}
@@ -23,32 +31,35 @@
     <div class="main">
       <div class="product-titles min-h-[65px] mb-2">
         <a class="product-link" href="{{ variantURL }}"><h3 class="text-[22px] m-0">{{ variantTitle | default: variant.metafields.custom.alternative_title | default: variant.title }}</h3></a>
-        {% if variant.metafields.subscription.price %}<p class="subtitle text-[--bronze]">Subscription Price!</p>{% endif %}
       </div>
 
       {% unless isNoPrices %}
-        {% render 'price-new', prod: variant, isLastRender: isLastRender, productType: "variant" %}
+        {% render 'price-new', prod: variant, isLastRender: isLastRender, isSubscription: isSubscription, productType: "variant" %}
       {% endunless %}
     </div>
   </div>
 
   <div class="submit-wrapper w-full">
-    {% if customer.b2b? or customer.email contains '@curalife.com' %}
+    {% if isAddToCart %}
       <div class="submit-wrap flex flex-col gap-2 mb-1">
         <product-form class="product-form" data-hide-errors="false" data-section-id="{{ section.id }}">
           {%- form 'product', variant.product, id: variant.product.id, class: 'form', novalidate: 'novalidate', data-type: 'add-to-cart-form' -%}
             <input type="hidden" name="id" value="{{ variant.id }}" disabled class="product-variant-id">
+            {% if isSubscription %}<input class="submit-selling-plan-id" type="hidden" name="selling_plan" value="{{ variant.metafields.subscription.selling_plan_id }}">{% endif %}
 
             <div class="product-form__buttons main-submit-wrapper flex">
-              <div class="qty">
-                <input type="text" name="quantity" maxlength="100" value="{{ variant.quantity_rule.min }}" title="" class="input-text" />
-                <div class="qty_inc_dec">
-                  <i class="increment" onclick="updateQuantity('+')">+</i>
-                  <i class="decrement" onclick="updateQuantity('-')">-</i>
+              {% unless isSubscription %}
+                <div class="qty desktop">
+                  <input type="text" name="quantity" maxlength="100" value="{{ variant.quantity_rule.min }}" title="" class="input-text" />
+                  <div class="qty_inc_dec">
+                    <i class="increment" onclick="updateQuantity('+')">+</i>
+                    <i class="decrement" onclick="updateQuantity('-')">-</i>
+                  </div>
                 </div>
-              </div>
+              {% endunless %}
+
               <button id="ProductSubmitButton-{{ section_id }}" type="submit" name="add" onclick="resetQuantity()" class="product-form__submit button button--full-width button--primary">
-                <span class="submit-title">Add To Cart</span>
+            <span class="submit-title">{% if isSubscription %}Subscribe Now{% else %}Add To Cart{% endif %}</span>
                 <div class="loading-overlay__spinner hidden">
                   <svg aria-hidden="true" focusable="false" class="spinner" viewBox="0 0 66 66" xmlns="http://www.w3.org/2000/svg">
                     <circle class="path" fill="none" stroke-width="6" cx="33" cy="33" r="30"></circle>
@@ -61,9 +72,14 @@
       </div>
     {% endif %}
 
-    <a class="product-link w-full" href="{{ variantURL }}"><button class="main-btn w-full" title="{{ variant.title }}" prod-sku="{{ variant.sku }}" prod-id="{{ variants.id }}" price="{{ variant.price | money_without_currency }}" discount="{% if variant.compare_at_price > variant.price %}{{ variant.compare_at_price | minus: variant.price | times: 0.01 }}{% else %}0{% endif %}"></i>Shop Now</button></a>
+    <a class="product-link w-full" href="{{ variantURL }}">
+      <button class="main-btn w-full" title="{{ variant.title }}" prod-sku="{{ variant.sku }}" prod-id="{{ variants.id }}" price="{{ variant.price | money_without_currency }}" discount="{% if variant.compare_at_price > variant.price %}{{ variant.compare_at_price | minus: variant.price | times: 0.01 }}{% else %}0{% endif %}">
+        {% if isAddToCart %}Learn More{% else %}Shop Now{% endif %}
+      </button>
+    </a>
   </div>
 </div>
+
 
 {% if variant.product.metafields.custom.badge_image and isNoPrices != true %}
   {% unless variant.product.metafields.custom.is_badge_collection %}
