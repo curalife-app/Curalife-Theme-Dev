@@ -1,24 +1,62 @@
 {% assign siteID = 'vgi1gktcrd' %}
 {% assign widgetID = 'w-9AFp3mUw0t1xcJ0LkU4hT0' %}
-{% assign productSKU = prodSKU | default: product.sku | default: product.selected_or_first_available_variant.sku | default: 'Curalin180' %}
+{% comment %} {% assign productSKU = prodSKU | default: product.sku | default: product.selected_or_first_available_variant.sku | default: 'Curalin180' %} {% endcomment %}
+{% assign productSKU = 'Curalin180x2' %}
 
-<div class="buy-with-prime-button">
-  <script async fetchpriority='high' src='https://code.buywithprime.amazon.com/bwp.v1.js'></script>
+<div class="buy-with-prime-button mt-[-10px] min-h-[150px]">
   <div id="amzn-bwp-cart" data-site-id="{{ siteID }}" data-widget-id="{{ widgetID }}"></div>
   <div id="amzn-buy-now" data-site-id="{{ siteID }}" data-widget-id="{{ widgetID }}" data-sku="{{ productSKU }}"></div>
 </div>
 
+<style>.hide {pointer-events: none;}</style>
+
 <script>
-  console.log("Buy With Prime Activated On Page");
-  $(".product-actions .variant-box").click(function() {
-    console.log("Variant Box Clicked");
-    if ($(this).find('input[name=pack]:checked').attr('data-sku') == "{{ prodSKU }}") {
-      console.log("{{prodSKU}} Variant Selected");
-      $(".buy-with-prime-button").fadeIn(300);
+  function reloadIframe(newSku) {
+    console.log("Reloading iframe with new SKU:", newSku);
+
+    // Remove the existing iframe if it exists
+    const existingIframe = document.getElementById('bwpFrame');
+    if (existingIframe) {
+      existingIframe.remove();
     }
-    else {
-      console.log("{{prodSKU}} Variant Not Selected");
-      $(".buy-with-prime-button").fadeOut(300);
+
+    // Update the SKU on the div
+    const buyNowDiv = $("#amzn-buy-now");
+    buyNowDiv.attr('data-sku', newSku);
+
+    // Remove old script tag if it exists
+    $('script[src="https://code.buywithprime.amazon.com/bwp.v1.js"]').remove();
+
+    // Add a new script tag to force reload
+    const script = document.createElement('script');
+    script.src = 'https://code.buywithprime.amazon.com/bwp.v1.js';
+    script.async = true;
+    script.fetchpriority = 'high';
+    script.onload = () => {
+      console.log("BuyWithPrime script loaded, initializing button");
+    };
+    document.body.appendChild(script);
+  }
+
+  $(".product-actions .variant-box").click(function() {
+    let acceptableSKUs = ["Curalin180", "Curalin180x2", "Curalin180x3", "Curalin180x6"];
+    let variantSKU = $(this).find('input').attr('data-sku');
+    console.log("Variant clicked:", variantSKU);
+
+    if (acceptableSKUs.includes(variantSKU)) {
+      console.log("SKU is acceptable:", variantSKU);
+      $(".buy-with-prime-button").fadeTo(300, 1).removeClass('hide');
+      reloadIframe(variantSKU);
+    } else {
+      console.log("SKU is not acceptable:", variantSKU);
+      $(".buy-with-prime-button").fadeTo(300, 0).addClass('hide');
     }
   });
+
+  // Initial load of the script
+  const initialScript = document.createElement('script');
+  initialScript.src = 'https://code.buywithprime.amazon.com/bwp.v1.js';
+  initialScript.async = true;
+  initialScript.fetchpriority = 'high';
+  document.body.appendChild(initialScript);
 </script>
