@@ -3,12 +3,14 @@
 {% comment %} {% assign productSKU = prodSKU | default: product.sku | default: product.selected_or_first_available_variant.sku | default: 'Curalin180' %} {% endcomment %}
 {% assign productSKU = 'Curalin180x2' %}
 
-<div class="buy-with-prime-button mt-[-10px] min-h-[150px]">
+<div class="buy-with-prime-button mt-[-10px]" style="min-height: 250px;">
   <div id="amzn-bwp-cart" data-site-id="{{ siteID }}" data-widget-id="{{ widgetID }}"></div>
   <div id="amzn-buy-now" data-site-id="{{ siteID }}" data-widget-id="{{ widgetID }}" data-sku="{{ productSKU }}"></div>
 </div>
 
-<style>.hide {pointer-events: none;}</style>
+<style>
+  .hide {pointer-events: none;}
+</style>
 
 <script>
   function reloadIframe(newSku) {
@@ -24,18 +26,21 @@
     const buyNowDiv = $("#amzn-buy-now");
     buyNowDiv.attr('data-sku', newSku);
 
-    // Remove old script tag if it exists
-    $('script[src="https://code.buywithprime.amazon.com/bwp.v1.js"]').remove();
+    // Ensure the new div is in place before reinitializing the script
+    setTimeout(() => {
+      // Remove old script tag if it exists
+      $('script[src="https://code.buywithprime.amazon.com/bwp.v1.js"]').remove();
 
-    // Add a new script tag to force reload
-    const script = document.createElement('script');
-    script.src = 'https://code.buywithprime.amazon.com/bwp.v1.js';
-    script.async = true;
-    script.fetchpriority = 'high';
-    script.onload = () => {
-      console.log("BuyWithPrime script loaded, initializing button");
-    };
-    document.body.appendChild(script);
+      // Add a new script tag to force reload
+      const script = document.createElement('script');
+      script.src = 'https://code.buywithprime.amazon.com/bwp.v1.js';
+      script.async = true;
+      script.fetchpriority = 'high';
+      script.onload = () => {
+        console.log("BuyWithPrime script loaded, initializing button");
+      };
+      document.body.appendChild(script);
+    }, 100); // Adjust this delay if necessary to ensure the new div is rendered
   }
 
   $(".product-actions .variant-box").click(function() {
