@@ -27,7 +27,7 @@
 <div id="variant-{{ variant.id }}" class="product-card" data-product-collections="{{ productCollections }}">
   <a class="product-link" href="{{ variantURL }}"><img class="product-image" src="{{ variant.image.src | image_url }}" width="512" height="475" alt="{{ variant.image.alt }}" loading="lazy"></a>
 
-  <div class="info w-full text-center">
+  <div class="info h-max text-center">
     <div class="main">
       <div class="product-titles min-h-[65px] mb-2">
         <a class="product-link" href="{{ variantURL }}"><h3 class="text-[22px] m-0">{{ variantTitle | default: variant.metafields.custom.alternative_title | default: variant.title }}</h3></a>
@@ -48,15 +48,17 @@
             {% if isSubscription %}<input class="submit-selling-plan-id" type="hidden" name="selling_plan" value="{{ variant.metafields.subscription.selling_plan_id }}">{% endif %}
 
             <div class="product-form__buttons main-submit-wrapper flex">
-              {% comment %} {% unless isSubscription %}
-                <div class="qty desktop">
-                  <input type="text" name="quantity" maxlength="100" value="{{ variant.quantity_rule.min }}" title="" class="input-text" />
-                  <div class="qty_inc_dec">
-                    <i class="increment" onclick="updateQuantity('+')">+</i>
-                    <i class="decrement" onclick="updateQuantity('-')">-</i>
+              {% if customer.b2b? %}
+                {% unless isSubscription %}
+                  <div class="qty desktop">
+                    <input type="text" name="quantity" maxlength="100" value="{{ variant.quantity_rule.min }}" title="" class="input-text" />
+                    <div class="qty_inc_dec">
+                      <i class="increment" onclick="updateQuantity('+')">+</i>
+                      <i class="decrement" onclick="updateQuantity('-')">-</i>
+                    </div>
                   </div>
-                </div>
-              {% endunless %} {% endcomment %}
+                {% endunless %}
+              {% endif %}
 
               <button id="ProductSubmitButton-{{ section_id }}" type="submit" name="add" onclick="resetQuantity()" class="product-form__submit button button--full-width button--primary">
             <span class="submit-title">{% if isSubscription %}Subscribe Now{% else %}Add To Cart{% endif %}</span>
@@ -74,7 +76,7 @@
 
     <a class="product-link w-full" href="{{ variantURL }}">
       <button class="main-btn w-full" title="{{ variant.title }}" prod-sku="{{ variant.sku }}" prod-id="{{ variants.id }}" price="{{ variant.price | money_without_currency }}" discount="{% if variant.compare_at_price > variant.price %}{{ variant.compare_at_price | minus: variant.price | times: 0.01 }}{% else %}0{% endif %}">
-        {% if isAddToCart %}Learn More{% else %}Shop Now{% endif %}
+        <span>{% if isAddToCart %}Learn More{% else %}Shop Now{% endif %}</span>
       </button>
     </a>
   </div>
