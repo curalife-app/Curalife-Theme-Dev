@@ -210,6 +210,8 @@
     function togglePurchaseBox(element) {
       const isSubscription = isSubscriptionSelected();
       const wasSelected = $(element).hasClass('selected');
+      const subscriptionPlanID = isSubscription ? element.data('subscription-selling-plan-id') : '';
+      const variantID = isSubscriptionSelected() ? $(element).data('original-variant') : $(element).data('variant');
 
       if (wasSelected) {
           return;
@@ -220,8 +222,8 @@
         $(this).find('.toggle-icon').hide();
       });
 
-      $('#product-actions-{{ SID }} .submit-selling-plan-id').val(isSubscription ? element.data('subscription-selling-plan-id') : '');
-      $('#product-actions-{{ SID }} .submit-variant-id').val(element.data('variant'));
+      $('#product-actions-{{ SID }} .submit-selling-plan-id').val(subscriptionPlanID);
+      $('#product-actions-{{ SID }} .submit-variant-id').val(variantID);
 
       $(element).addClass('selected');
       adjustMaxHeight(element);
@@ -277,11 +279,15 @@
       window.productSliderAllInOne{{ SID }}.slideTo(slideIndex);
     }
 
-    function buyButtonHandler(variant_id, subscription_selling_plan_id, buttonElement) {
+    function buyButtonHandler(subscription_selling_plan_id, buttonElement) {
+      const selectedBox = $('#product-actions-{{ SID }} .purchase-option-box.selected');
       toggleButtonLoading(buttonElement, true);
+
       if (isSubscriptionSelected()) {
+        let variant_id = selectedBox.data('original-variant');
         buySubscription(variant_id, 1, subscription_selling_plan_id);
       } else {
+        let variant_id = selectedBox.data('variant');
         let dc = $(buttonElement).closest('.purchase-option-box').data('dc');
         let giftProductID = buttonElement.parent().siblings('.gifts').attr('data-bundle-product-id');
 
