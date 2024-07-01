@@ -45,14 +45,9 @@
       <div class="checkout-button">{% render 'buy-buttons', product: product, variant: '', selling_plan_id: selling_plan_id , product_form_id: product_form_id, buyType: buyType %}</div>
 
       {% if customer.email contains '@curalife.com' %}
-        <script defer src='https://code.buywithprime.amazon.com/default.variant.selector.shopify.js'></script>
-        <script async fetchpriority='high' src='https://code.buywithprime.amazon.com/bwp.v1.js'></script>
-
-        {% comment %} <div class="buy-with-prime-buttons"> {% endcomment %}
-          {% comment %} {% for var in product.variants %} {% endcomment %}
-            {% render 'buy-with-prime-button', ProdSKU: var.sku, isNoScript: True %}
-          {% comment %} {% endfor %} {% endcomment %}
-        {% comment %} </div> {% endcomment %}
+        <div class="bwp-button">
+          {% render 'buy-with-prime-button', ProdSKU: var.sku %}
+        </div>
       {% endif %}
     </div>
   </div>
@@ -131,10 +126,13 @@
 
       const buyOnceSubtitle = parentBox.find('.subtitle.buy-once');
       const subscriptionSubtitle = parentBox.find('.subtitle.subscription');
+      const bwpButton = $('#product-actions-{{ SID }} .bwp-button');
 
       if (isSubscription) {
         $('#product-actions-{{ SID }} .purchase-type button.subscription').addClass('selected');
         {% unless product.metafields.custom.is_price_per_month %}parentBox.find('.per-month').show();{% endunless %}
+        bwpButton.hide(); // Hide the bwp-button
+
         const selectedBox = $('#product-actions-{{ SID }} .purchase-option-box.selected');
         const sellingPlanId = selectedBox.data('subscription-selling-plan-id');
 
@@ -169,6 +167,7 @@
       } else {
         $('#product-actions-{{ SID }} .purchase-type button.buy-once').addClass('selected');
         {% unless product.metafields.custom.is_price_per_month %}parentBox.find('.per-month').hide();{% endunless %}
+        bwpButton.show(); // Show the bwp-button
         $('.submit-selling-plan-id').val('');
         parentBox.removeAttr('inert');
 
@@ -192,6 +191,7 @@
       togglePriceDisplay(parentBox);
       updateComparedAtPriceDisplay(parentBox);
     }
+
 
     function handleMainButtonClick(event, button) {
       event.stopPropagation();
