@@ -27,17 +27,27 @@
 
       <{% if section.settings.is_slider %}swiper-container{% else %}div{% endif %} class="items overflow-{{ section.settings.overflow }} z-10 flex flex-wrap {% if section.settings.items_align == 'center' %}items-center{% else %}items-start{% endif %} {% if section.settings.collection_align == 'center' %}m-auto{% endif %} justify-center overflow-visible" {% if section.settings.is_slider %}id="swiper-container-{{ section.id }}" centered-slide="true" grab-cursor="true" slides-per-view="auto" auto-height="{{ section.settings.is_auto_height }}" {% if section.settings.is_arrows %}navigation="true"{% endif %} {% if section.settings.is_dots %}pagination="true" pagination-clickable="true"{% endif %} {% if section.settings.is_ticker %}inject-styles="['.swiper-wrapper {transition-timing-function: linear !important;}']" loop="true" autoplay-delay="0" speed="1500" autoplay-disable-on-interaction="false"{% endif %} lazy="true"{% endif %}>
         {% for block in section.blocks %}
-          {% if block.settings.link_url and section.settings.link_style == 'item' %}<a class="contents" href="{{ block.settings.link_url }}">{% endif %}
+          {% if shop.name == 'CuraLife Global' %}
+            {% assign imageLink = block.settings.image_global | default: block.settings.image %}
+            {% assign imageMobileLink = block.settings.image_mobile_global | default: block.settings.image_mobile %}
+            {% assign linkUrl = block.settings.link_url_global | default: block.settings.link_url %}
+          {% else %}
+            {% assign imageLink = block.settings.image %}
+            {% assign imageMobileLink = block.settings.image_mobile %}
+            {% assign linkUrl = block.settings.link_url %}
+          {% endif %}
+
+          {% if linkUrl and section.settings.link_style == 'item' %}<a class="contents" href="{{ linkUrl }}">{% endif %}
 
           <{% if section.settings.is_slider %}swiper-slide{% else %}div{% endif %} class="item relative">
             <div class="item-content flex flex-col items-center justify-{% if section.settings.item_layout_mobile == 'row' %}start{% else %}center{% endif %} {% if section.settings.is_slider %}md:p-8{% endif %} p-4 md:p-1 text-center gap-4 m-auto">
               <div class="img-wrapper flex items-center">
-                {% if block.settings.image or block.settings.image_mobile %}
+                {% if imageLink != blank or imageMobileLink != blank %}
                   <picture>
-                    {% if block.settings.image_mobile %}
-                      <source media="(max-width: 768px)" srcset="{{ block.settings.image_mobile | image_url }}" width="{{ block.settings.image_mobile.width }}" height="{{ block.settings.image_mobile.height }}">
+                    {% if imageMobileLink != blank %}
+                      <source media="(max-width: 768px)" srcset="{{ imageMobileLink | image_url }}" width="{{ imageMobileLink.width }}" height="{{ imageMobileLink.height }}">
                     {% endif %}
-                    <img class="max-h-350px object-contain m-0" src="{{ block.settings.image | image_url }}" alt="{{ block.settings.image.alt }}" width="{{ block.settings.image.width }}" height="{{ block.settings.image.height }}" loading="lazy">
+                    <img class="max-h-350px object-contain m-0" src="{{ imageLink | image_url }}" alt="{{ imageLink.alt }}" width="{{ imageLink.width }}" height="{{ imageLink.height }}" loading="lazy">
                   </picture>
                 {% elsif block.settings.icon != blank %}
                   <i class="{{ block.settings.icon }}"></i>
@@ -48,16 +58,16 @@
                   {% if block.settings.title != blank %}<h3 class="title-tag flex gap-1 w-fit m-auto justify-center items-center {{ section.settings.title_tag }}">{{ block.settings.title }}</h3>{% endif %}
                   {% if block.settings.description != blank %}<div class="description">{{ block.settings.description }}</div>{% endif %}
                   {% if section.settings.link_style == 'a' %}
-                    <a class="underline" href="{{ block.settings.link_url }}">{{ block.settings.link_title }}</a>
+                    <a class="underline" href="{{ linkUrl }}">{{ block.settings.link_title }}</a>
                   {% elsif section.settings.link_style == 'button' %}
-                    <a class="w-max m-auto" href="{{ block.settings.link_url }}"><button>{{ block.settings.link_title }}</button></a>
+                    <a class="w-max m-auto" href="{{ linkUrl }}"><button>{{ block.settings.link_title }}</button></a>
                   {% endif %}
                 </div>
               {% endif %}
             </div>
           </{% if section.settings.is_slider %}swiper-slide{% else %}div{% endif %}>
 
-          {% if block.settings.link_url and section.settings.link_style == 'item' %}</a>{% endif %}
+          {% if linkUrl and section.settings.link_style == 'item' %}</a>{% endif %}
         {% endfor %}
       </{% if section.settings.is_slider %}swiper-container{% else %}div{% endif %}>
 
@@ -894,6 +904,25 @@
           "type": "url",
           "id": "link_url",
           "label": "Link URL"
+        },
+        {
+          "type": "header",
+          "content": "Global Store Settings"
+        },
+        {
+          "type": "image_picker",
+          "id": "image_global",
+          "label": "Image - Global"
+        },
+        {
+          "type": "image_picker",
+          "id": "image_mobile_global",
+          "label": "Image on Mobile - Global"
+        },
+        {
+          "type": "url",
+          "id": "link_url_global",
+          "label": "Link URL - Global"
         }
       ]
     }
