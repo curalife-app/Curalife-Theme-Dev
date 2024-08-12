@@ -7,8 +7,12 @@
   {% assign isGlucoseGlobal = true %}
 {% endif %}
 
-{% if customer.b2b? %}
+{% if customer.b2b? or true %}
   {% assign isAddToCart = true %}
+
+  {% if customer.b2b? %}
+    {% assign isAddToCartQuantity = true %}
+  {% endif %}
 {% endif %}
 
 <div id="{{ collection_handle }}-collection-section" class="collection-section xl:w-full {% if collection_total_items_amount < 3 and template.name == 'list-collections' %}w-[48%]{% else %}w-full{% endif %} {% if shop.name == 'Curalife Global' or customer.tags contains 'B2B' %}max-w-[800px] m-auto{% endif %}" data-product-collections="{{ collection_handle }}" >
@@ -36,7 +40,7 @@
     {% endif %}
 
     {% for product in currentCollection.products %}
-      {% render 'product-card', product: product, isNoPrices: isNoPrices, isAddToCart: isAddToCart %}
+      {% render 'product-card', product: product, isNoPrices: isNoPrices, isAddToCart: isAddToCart, isAddToCartQuantity: isAddToCartQuantity %}
     {% endfor %}
 
     {% for additionalVar in currentCollection.metafields.custom.additional_variants.value %}
@@ -48,9 +52,9 @@
       {% endfor %}
 
       {% if additionalVar.product.variants.size == 1 %}
-        {% render 'product-card', product: additionalVar.product, isNoPrices: isNoPrices, isAddToCart: isAddToCart %}
+        {% render 'product-card', product: additionalVar.product, isNoPrices: isNoPrices, isAddToCart: isAddToCart, isAddToCartQuantity: isAddToCartQuantity %}
       {% else %}
-        {% render 'variant-card', variant: additionalVar, variantIndex: variantIndex, productCollections: product_collections, isNoPrices: isNoPrices, isAddToCart: isAddToCart %}
+        {% render 'variant-card', variant: additionalVar, variantIndex: variantIndex, productCollections: product_collections, isNoPrices: isNoPrices, isAddToCart: isAddToCart, isAddToCartQuantity: isAddToCartQuantity %}
       {% endif %}
     {% endfor %}
   </div>
@@ -72,7 +76,6 @@
     gap: 1rem;
     border: 1px solid var(--light-blue);
     border-radius: 10px;
-    /* box-shadow: 0px 10px 10px 0px rgba(0, 0, 0, 0.1); */
   }
 
   .product-card::before {
@@ -172,12 +175,13 @@
       min-height: 45px;
     }
 
-    @media (width > 768px) {
-      .product-card .submit-wrap:has(.qty) button {
-        border-radius: 0px 10px 10px 0;
+    {% if isAddToCartQuantity %}
+      @media (width > 768px) {
+        .product-card .submit-wrap:has(.qty) button {
+          border-radius: 0px 10px 10px 0;
+        }
       }
-    }
-
+    {% endif %}
 
     .product-card .submit-wrap .qty_inc_dec i:hover {
       background-color: #ffe3ae !important;
