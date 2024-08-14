@@ -119,12 +119,41 @@
         updateContent('weight-loss');
     </script>
 
+    <script>
+      const slider = document.querySelector('.tabs');
+let isDown = false;
+let startX;
+let scrollLeft;
+
+slider.addEventListener('mousedown', (e) => {
+  isDown = true;
+  slider.classList.add('active');
+  startX = e.pageX - slider.offsetLeft;
+  scrollLeft = slider.scrollLeft;
+});
+slider.addEventListener('mouseleave', () => {
+  isDown = false;
+  slider.classList.remove('active');
+});
+slider.addEventListener('mouseup', () => {
+  isDown = false;
+  slider.classList.remove('active');
+});
+slider.addEventListener('mousemove', (e) => {
+  if(!isDown) return;
+  e.preventDefault();
+  const x = e.pageX - slider.offsetLeft;
+  const walk = (x - startX) * 3; //scroll-fast
+  slider.scrollLeft = scrollLeft - walk;
+  console.log(walk);
+});
+    </script>
+
 <style>
   .results-widget {
       text-align: center;
       max-width: 1200px;
       margin: 0 auto;
-      padding: 2rem;
   }
   .results-widget h2 {
       font-size: 2.5rem;
@@ -139,10 +168,12 @@
   }
   .results-widget .tabs {
       display: flex;
-      justify-content: center;
-      flex-wrap: wrap;
+      justify-content: start;
       gap: 1rem;
       margin-bottom: 2rem;
+      overflow-y: scroll;
+      scrollbar-width: none;
+      cursor: grab;
   }
   .results-widget .tab {
       padding: 0.75rem 1.5rem;
@@ -152,6 +183,8 @@
       border-radius: 100px;
       font-size: 1rem;
       transition: all 0.3s ease;
+      min-inline-size: max-content;
+
   }
   .results-widget .tab:hover {
       background: #d1d1d1;
@@ -190,6 +223,10 @@
       flex-direction: column;
       align-items: center;
       gap: 0.5rem;
+
+      @media screen and (max-width: 768px) {
+          gap: unset;
+      }
   }
   .results-widget .usage {
       font-size: 2.5rem;
@@ -202,6 +239,12 @@
       border-left: 3px solid #EDEDED;
       text-align: start;
       font-size: 1.1rem;
+
+      @media screen and (max-width: 768px) {
+        border-left: unset;
+        border-top: 3px solid #EDEDED;
+        text-align: center;
+      }
   }
   .results-widget .image {
       width: 180px;
