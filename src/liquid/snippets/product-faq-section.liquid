@@ -16,86 +16,79 @@
 
 <style>
   #faq-section-{{ section.id }} .faq-item {
-    {% if seperator_color %}border-bottom: 2px solid {{ seperator_color }};{% endif %}
-    {% if closed_bg_color %}background-color: {{ closed_bg_color }};{% endif %}
-    transition: background-color .2s ease-out;
+  {% if seperator_color %}border-bottom: 2px solid {{ seperator_color }};{% endif %}
+  {% if closed_bg_color %}background-color: {{ closed_bg_color }};{% endif %}
+  transition: background-color .2s ease-out;
+}
 
-    {% if opened_bg_color %}
-      &::has(.question.active) {
-        background-color: {{ opened_bg_color }};
-      }
-    {% endif %}
-  }
+#faq-section-{{ section.id }} .faq-item.active {
+  {% if opened_bg_color %}background-color: {{ opened_bg_color }};{% endif %}
+}
 
-  {% if closed_bg_color %}
-    #faq-section-{{ section.id }} .faq-item {
-      border-bottom: 2px solid {{ seperator_color }};
-    }
-  {% endif %}
+#faq-{{ section_id }} .faq-item .question {
+  padding: 1.5rem 3rem 1.5rem 0;
+  {% if titles_color %}color: {{ titles_color }};{% endif %}
+}
 
+#faq-{{ section_id }} .faq-item .question p {
+  margin-bottom: unset;
+}
+
+#faq-{{ section_id }} .faq-item .question + .answer {
+  transition: margin-bottom .2s ease-out;
+}
+
+#faq-{{ section_id }} .faq-item:not(.active) .question + .answer {
+  margin-bottom: 0;
+}
+
+#faq-{{ section_id }} .faq-item .question:after {
+  content: "+";
+  font-size: 2rem;
+  position: absolute;
+  right: 1rem;
+  transition: transform 0.3s;
+}
+
+#faq-{{ section_id }} .faq-item.active .question:after {
+  transform: rotate(45deg);
+}
+
+#faq-{{ section_id }} .faq-item .answer {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height .2s ease-out;
+}
+
+@media screen and (max-width:768px) {
   #faq-{{ section_id }} .faq-item .question {
-    padding: 1.5rem 3rem 1.5rem 0;
-    {% if titles_color %}color: {{ titles_color }};{% endif %}
-  }
-
-  #faq-{{ section_id }} .faq-item .question p {
-    margin-bottom: unset;
-  }
-
-  #faq-{{ section_id }} .faq-item .question + .answer {
-    transition: margin-bottom .2s ease-out;
-  }
-
-  #faq-{{ section_id }} .faq-item .question:not(.active) + .answer {
-    margin-bottom: 0;
-  }
-
-  #faq-{{ section_id }} .faq-item .question:after {
-    content: "+";
-    font-size: 2rem;
-    position: absolute;
-    right: 1rem;
-    transition: transform 0.3s;
-  }
-
-  #faq-{{ section_id }} .faq-item .question.active:after {
-    transform: rotate(45deg);
+    font-size: 5vw;
   }
 
   #faq-{{ section_id }} .faq-item .answer {
-    max-height: 0;
-    overflow: hidden;
-    transition: max-height .2s ease-out;
+    font-size: 4vw;
+    line-height: 1.5;
   }
+}
 
-  @media screen and (max-width:768px) {
-    #faq-{{ section_id }} .faq-item .question {
-      font-size: 5vw;
-    }
-
-    #faq-{{ section_id }} .faq-item .answer {
-      font-size: 4vw;
-      line-height: 1.5;
-    }
-  }
 </style>
 
 <script>
-  var accordionItemHeadersObject = document.querySelectorAll("#faq-{{ section_id }} .question");
+  var accordionItems = document.querySelectorAll("#faq-{{ section_id }} .faq-item");
 
-  accordionItemHeadersObject.forEach(accordionItemHeader => {
-    accordionItemHeader.addEventListener("click", event => {
+  accordionItems.forEach(accordionItem => {
+    accordionItem.querySelector(".question").addEventListener("click", event => {
       {% if is_allow_one_open %}
-        var currentlyActiveAccordionItemHeader = document.querySelector("#faq-{{ section_id }} .question.active");
-        if (currentlyActiveAccordionItemHeader && currentlyActiveAccordionItemHeader!==accordionItemHeader) {
-          currentlyActiveAccordionItemHeader.classList.toggle("active");
-          currentlyActiveAccordionItemHeader.nextElementSibling.style.maxHeight = 0;
+        var currentlyActiveAccordionItem = document.querySelector("#faq-{{ section_id }} .faq-item.active");
+        if (currentlyActiveAccordionItem && currentlyActiveAccordionItem !== accordionItem) {
+          currentlyActiveAccordionItem.classList.toggle("active");
+          currentlyActiveAccordionItem.querySelector(".answer").style.maxHeight = 0;
         }
       {% endif %}
 
-      accordionItemHeader.classList.toggle("active");
-      var accordionItemBody = accordionItemHeader.nextElementSibling;
-      if (accordionItemHeader.classList.contains("active")) {
+      accordionItem.classList.toggle("active");
+      var accordionItemBody = accordionItem.querySelector(".answer");
+      if (accordionItem.classList.contains("active")) {
         accordionItemBody.style.maxHeight = accordionItemBody.scrollHeight + "px";
       }
       else {
@@ -120,10 +113,10 @@
     });
   {% endif %}
 
-  $('#faq-{{ section_id }} .question').click(function() {
+  $('#faq-{{ section_id }} .faq-item .question').click(function() {
     woopra.track('Open FAQ', {
       question_display_text: $(this).text(),
-      question_order:  $(this).parents('#faq-{{ section_id }} .faq-item').index() + 1
+      question_order:  $(this).parents('.faq-item').index() + 1
     })
   });
 </script>
