@@ -1,0 +1,196 @@
+<div id="product-actions-{{ SID }}" class="product-actions">
+  <div class="buying-options">
+    <h3>Buying Options:</h3>
+
+    <div class="purchase-type">
+      <label class="option">
+        <input type="radio" name="purchase-type" value="one-time" checked>
+        <span class="option-text">One Time Purchase</span>
+        <span class="popular-tag">Popular</span>
+      </label>
+
+      <label class="option">
+        <input type="radio" name="purchase-type" value="subscription">
+        <span class="option-text">Purchase With Subscription</span>
+        <span class="best-value-tag">Best Value<br>30% Off</span>
+      </label>
+    </div>
+
+    <div class="quantity-options">
+      <div class="quantity-option">
+        <input type="radio" name="quantity" id="qty-1" value="1">
+        <label for="qty-1">
+          <span class="buy-text">Buy 1</span>
+          <span class="price">£39.90</span>
+        </label>
+      </div>
+
+      <div class="quantity-option selected">
+        <input type="radio" name="quantity" id="qty-3" value="3" checked>
+        <label for="qty-3">
+          <span class="buy-text">Buy 3</span>
+          <span class="price">£109.90</span>
+          <span class="original-price">£129.90</span>
+          <span class="save-tag">Save 20%</span>
+        </label>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .product-actions {
+    font-family: Arial, sans-serif;
+    max-width: 400px;
+    margin: 0 auto;
+    padding: 20px;
+    background-color: #f0f8ff;
+    border-radius: 10px;
+  }
+
+  .buying-options h3 {
+    margin-bottom: 15px;
+  }
+
+  .purchase-type {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  .option {
+    display: flex;
+    align-items: center;
+    background-color: white;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    padding: 10px;
+    cursor: pointer;
+  }
+
+  .option input[type="radio"] {
+    margin-right: 10px;
+  }
+
+  .popular-tag, .best-value-tag {
+    margin-left: auto;
+    padding: 2px 5px;
+    border-radius: 3px;
+    font-size: 0.8em;
+  }
+
+  .popular-tag {
+    background-color: #ffd700;
+  }
+
+  .best-value-tag {
+    background-color: #32cd32;
+    color: white;
+    text-align: center;
+  }
+
+  .quantity-options {
+    display: flex;
+    gap: 10px;
+  }
+
+  .quantity-option {
+    flex: 1;
+    background-color: white;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    overflow: hidden;
+  }
+
+  .quantity-option input[type="radio"] {
+    display: none;
+  }
+
+  .quantity-option label {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px;
+    cursor: pointer;
+  }
+
+  .quantity-option.selected {
+    border-color: #4169e1;
+    box-shadow: 0 0 5px rgba(65, 105, 225, 0.5);
+  }
+
+  .buy-text {
+    font-weight: bold;
+  }
+
+  .price {
+    color: #4169e1;
+    font-weight: bold;
+  }
+
+  .original-price {
+    text-decoration: line-through;
+    color: #888;
+    font-size: 0.9em;
+  }
+
+  .save-tag {
+    background-color: #32cd32;
+    color: white;
+    padding: 2px 5px;
+    border-radius: 3px;
+    font-size: 0.8em;
+    margin-top: 5px;
+  }
+</style>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const purchaseTypeInputs = document.querySelectorAll('.purchase-type input[type="radio"]');
+    const quantityOptions = document.querySelectorAll('.quantity-option');
+
+    purchaseTypeInputs.forEach(input => {
+      input.addEventListener('change', updatePricing);
+    });
+
+    quantityOptions.forEach(option => {
+      option.addEventListener('click', function() {
+        quantityOptions.forEach(opt => opt.classList.remove('selected'));
+        this.classList.add('selected');
+        this.querySelector('input[type="radio"]').checked = true;
+        updatePricing();
+      });
+    });
+
+    function updatePricing() {
+      const isSubscription = document.querySelector('input[name="purchase-type"]:checked').value === 'subscription';
+      const selectedQuantity = document.querySelector('.quantity-option.selected input').value;
+
+      // Here you would typically fetch the updated prices from your backend
+      // For this example, we'll just use placeholder logic
+      const basePrice = 39.90;
+      const discount = isSubscription ? 0.3 : (selectedQuantity === '3' ? 0.2 : 0);
+      const finalPrice = (basePrice * selectedQuantity * (1 - discount)).toFixed(2);
+      const originalPrice = (basePrice * selectedQuantity).toFixed(2);
+
+      const selectedPriceElement = document.querySelector('.quantity-option.selected .price');
+      const selectedOriginalPriceElement = document.querySelector('.quantity-option.selected .original-price');
+      const selectedSaveTagElement = document.querySelector('.quantity-option.selected .save-tag');
+
+      selectedPriceElement.textContent = `£${finalPrice}`;
+      if (discount > 0) {
+        selectedOriginalPriceElement.textContent = `£${originalPrice}`;
+        selectedOriginalPriceElement.style.display = 'block';
+        selectedSaveTagElement.textContent = `Save ${discount * 100}%`;
+        selectedSaveTagElement.style.display = 'block';
+      } else {
+        selectedOriginalPriceElement.style.display = 'none';
+        selectedSaveTagElement.style.display = 'none';
+      }
+    }
+
+    // Initial update
+    updatePricing();
+  });
+</script>

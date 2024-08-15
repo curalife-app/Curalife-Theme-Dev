@@ -25,7 +25,7 @@
         {% render 'title', section_id: section.id, title: section.settings.main_title, title_tag: 'h2', subtitle: section.settings.main_subtitle, title_color: section.settings.title_color, span_color: section.settings.title_highlight_color, padding_bottom: '30', padding_top: 0 %}
       {% endif %}
 
-      <{% if section.settings.is_slider %}swiper-container{% else %}div{% endif %} class="items overflow-{{ section.settings.overflow }} z-10 p-8 flex flex-wrap gap-4 {% if section.settings.items_align == 'center' %}items-center{% else %}items-start{% endif %} {% if section.settings.collection_align == 'center' %}m-auto{% endif %} justify-center overflow-visible" {% if section.settings.is_slider %}id="swiper-container-{{ section.id }}" centered-slide="true" space-between="15" grab-cursor="true" slides-per-view="{% if section.settings.items_in_row != 'all' %}{{ section.settings.items_in_row }}{% else %}auto{% endif %}" auto-height="{{ section.settings.is_auto_height }}" {% if section.settings.is_arrows %}navigation="true"{% endif %} {% if section.settings.is_dots %}pagination="true" pagination-clickable="true"{% endif %} {% if section.settings.is_ticker %}inject-styles="['.swiper-wrapper {transition-timing-function: linear !important;}']" loop="true" autoplay-delay="0" speed="1500" autoplay-disable-on-interaction="false"{% endif %} lazy="true"{% endif %}>
+      <{% if section.settings.is_slider %}swiper-container{% else %}div{% endif %} class="items overflow-{{ section.settings.overflow }} z-10 py-8 flex flex-wrap gap-4 {% if section.settings.items_align == 'center' %}items-center{% else %}items-start{% endif %} {% if section.settings.collection_align == 'center' %}m-auto{% endif %} justify-center overflow-visible" {% if section.settings.is_slider %}id="swiper-container-{{ section.id }}" centered-slide="true" space-between="15" grab-cursor="true" slides-per-view="{% if section.settings.items_in_row != 'all' %}{{ section.settings.items_in_row }}{% else %}auto{% endif %}" auto-height="{{ section.settings.is_auto_height }}" {% if section.settings.is_arrows %}navigation="true"{% endif %} {% if section.settings.is_dots %}pagination="true" pagination-clickable="true"{% endif %} {% if section.settings.is_ticker %}inject-styles="['.swiper-wrapper {transition-timing-function: linear !important;}']" loop="true" autoplay-delay="0" speed="1500" autoplay-disable-on-interaction="false"{% endif %} lazy="true"{% endif %}>
         {% for block in section.blocks %}
           {% if shop.name == 'CuraLife Global' %}
             {% assign imageLink = block.settings.image_global | default: block.settings.image %}
@@ -40,7 +40,7 @@
           {% if linkUrl and section.settings.link_style == 'item' %}<a class="contents" href="{{ linkUrl }}">{% endif %}
 
           <{% if section.settings.is_slider %}swiper-slide{% else %}div{% endif %} class="item relative">
-            <div class="item-content flex flex-col items-center justify-{% if section.settings.item_layout_mobile == 'row' %}start{% else %}center{% endif %} {% if section.settings.is_slider %}md:p-8{% endif %} p-4 md:p-1 text-center gap-4 m-auto">
+            <div class="item-content flex flex-col items-center justify-{% if section.settings.item_layout_mobile == 'row' %}start{% else %}center{% endif %} {% if section.settings.is_slider %}md:p-8{% endif %} p-4 text-center gap-4 m-auto">
               <div class="img-wrapper flex items-center">
                 {% if imageLink != blank or imageMobileLink != blank %}
                   <picture>
@@ -80,6 +80,11 @@
 
   {% if section.settings.is_slider %}
     <script src="https://cdn.jsdelivr.net/npm/swiper@9/swiper-element-bundle.min.js"></script>
+    <script>
+      if (window.innerWidth < 768) {
+        $("swiper-container").attr("slides-per-view", 1);
+      }
+    </script>
   {% endif %}
 
   {% if section.settings.display_on_utm_parmeters != blank %}
@@ -206,8 +211,13 @@
     {% endif %}
 
     #section-{{ section.id }} .item {
-      {% unless section.settings.is_slider %}flex: 1;{% endunless %}
       width: calc(100% / {% if section.settings.items_in_row == 'all' %}{{ section.blocks.size }}{% else %}{{ section.settings.items_in_row }}{% endif %});
+
+      {% unless section.settings.is_slider %}
+        @media screen and (min-width: 768px) {
+          flex: 1;
+        }
+      {% endunless %}
     }
 
     #section-{{ section.id }} .item-content {
