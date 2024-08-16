@@ -25,7 +25,7 @@
         {% render 'title', section_id: section.id, title: section.settings.main_title, title_tag: 'h2', subtitle: section.settings.main_subtitle, title_color: section.settings.title_color, span_color: section.settings.title_highlight_color, padding_bottom: '0', padding_top: 0 %}
       {% endif %}
 
-      <{% if section.settings.is_slider %}swiper-container{% else %}div{% endif %} class="items overflow-{{ section.settings.overflow }} z-10 py-8 flex flex-wrap gap-4 {% if section.settings.items_align == 'center' %}items-center{% else %}items-start{% endif %} {% if section.settings.collection_align == 'center' %}m-auto{% endif %} justify-center overflow-visible" id="items-container-{{ section.id }}" {% if section.settings.is_slider %}centered-slide="true" space-between="15" grab-cursor="true" slides-per-view="{% if section.settings.items_in_row != 'all' %}{{ section.settings.items_in_row }}{% else %}auto{% endif %}" auto-height="{{ section.settings.is_auto_height }}" {% if section.settings.is_arrows %}navigation="true"{% endif %} {% if section.settings.is_dots %}pagination="true" pagination-clickable="true"{% endif %} {% if section.settings.is_ticker %}inject-styles="['.swiper-wrapper {transition-timing-function: linear !important;}']" loop="true" autoplay-delay="0" speed="1500" autoplay-disable-on-interaction="false"{% endif %} lazy="true"{% endif %}>
+      <{% if section.settings.is_slider %}swiper-container{% else %}div{% endif %} class="items overflow-{{ section.settings.overflow }} z-10 py-8 flex flex-wrap gap-4 {% if section.settings.items_align == 'center' %}items-center{% else %}items-start{% endif %} {% if section.settings.collection_align == 'center' %}m-auto{% endif %} justify-center mbl:justify-between overflow-visible" id="items-container-{{ section.id }}" {% if section.settings.is_slider %}centered-slide="true" space-between="15" grab-cursor="true" slides-per-view="{% if section.settings.items_in_row != 'all' %}{{ section.settings.items_in_row }}{% else %}auto{% endif %}" auto-height="{{ section.settings.is_auto_height }}" {% if section.settings.is_arrows %}navigation="true"{% endif %} {% if section.settings.is_dots %}pagination="true" pagination-clickable="true"{% endif %} {% if section.settings.is_ticker %}inject-styles="['.swiper-wrapper {transition-timing-function: linear !important;}']" loop="true" autoplay-delay="0" speed="1500" autoplay-disable-on-interaction="false"{% elsif section.settings.slider_autoplay_speed > 0 %}loop="true" autoplay-delay="0" speed="{{ section.settings.slider_autoplay_speed }}"{% endif %} lazy="true"{% endif %}>
         {% for block in section.blocks %}
           {% if shop.name == 'CuraLife Global' %}
             {% assign imageLink = block.settings.image_global | default: block.settings.image %}
@@ -47,7 +47,7 @@
                     {% if imageMobileLink != blank %}
                       <source media="(max-width: 768px)" srcset="{{ imageMobileLink | image_url }}" width="{{ imageMobileLink.width }}" height="{{ imageMobileLink.height }}">
                     {% endif %}
-                    <img class="max-h-350px object-contain m-0" src="{{ imageLink | image_url }}" alt="{{ imageLink.alt }}" width="{{ imageLink.width }}" height="{{ imageLink.height }}" loading="lazy">
+                    <img class="max-h-350px object-contain m-0" src="{{ imageLink | image_url }}" alt="{{ imageLink.alt | default: "Curalife list item image" | escape }}" width="{{ imageLink.width }}" height="{{ imageLink.height }}" loading="lazy">
                   </picture>
                 {% elsif block.settings.icon != blank %}
                   <i class="{{ block.settings.icon }}"></i>
@@ -55,7 +55,7 @@
               </div>
               {% if block.settings.title != blank or block.settings.description != blank or block.settings.link_title != blank %}
                 <div class="text-wrapper flex flex-col gap-2 {% if section.settings.item_layout_mobile == 'row' %}md:items-start md:w-[70vw]{% endif %}">
-                  {% if block.settings.title != blank %}<h3 class="title-tag flex gap-1 w-fit m-auto justify-center items-center {{ section.settings.title_tag }}">{{ block.settings.title }}</h3>{% endif %}
+                  {% if block.settings.title != blank %}<h3 class="title-tag flex gap-1 w-fit justify-center items-center {% if block.settings.description %}m-auto{% else %}m-0{% endif %} {{ section.settings.title_tag }}">{{ block.settings.title }}</h3>{% endif %}
                   {% if block.settings.description != blank %}<div class="description">{{ block.settings.description }}</div>{% endif %}
                   {% if section.settings.link_style == 'a' %}
                     <a class="underline" href="{{ linkUrl }}">{{ block.settings.link_title }}</a>
@@ -118,33 +118,32 @@
       });
     }
 
-    function adjustTitleHeight() {
-      var titleMaxHeight = getMaxHeightOfElements('section-{{ section.id }} .title-tag');
-      setHeightOfElements('section-{{ section.id }} .title-tag', titleMaxHeight);
-    }
-
-    function adjustImageWrapperHeight() {
-      var imageMaxHeight = 0;
-      document.querySelectorAll('section-{{ section.id }} .img-wrapper img').forEach(function(img) {
-        var attrHeight = parseInt(img.getAttribute('height'));
-        if (!isNaN(attrHeight)) {
-          imageMaxHeight = Math.max(imageMaxHeight, attrHeight);
-        }
-      });
-
-      if (imageMaxHeight > 0) {
-        setHeightOfElements('section-{{ section.id }} .img-wrapper', imageMaxHeight);
-      }
-    }
-
-    window.onload = adjustTitleHeight();
+    function adjustHeights() {
+    adjustTitleHeight();
     adjustImageWrapperHeight();
+  }
 
+  window.onload = adjustHeights;
+  window.onresize = adjustHeights;
 
-    window.onresize = function() {
-      adjustTitleHeight();
-      adjustImageWrapperHeight();
-    };
+  function adjustTitleHeight() {
+    var titleMaxHeight = getMaxHeightOfElements('section-{{ section.id }} .title-tag');
+    setHeightOfElements('section-{{ section.id }} .title-tag', titleMaxHeight);
+  }
+
+  function adjustImageWrapperHeight() {
+    var imageMaxHeight = 0;
+    document.querySelectorAll('section-{{ section.id }} .img-wrapper img').forEach(function(img) {
+      var attrHeight = parseInt(img.getAttribute('height'));
+      if (!isNaN(attrHeight)) {
+        imageMaxHeight = Math.max(imageMaxHeight, attrHeight);
+      }
+    });
+
+    if (imageMaxHeight > 0) {
+      setHeightOfElements('section-{{ section.id }} .img-wrapper', imageMaxHeight);
+    }
+  }
   </script>
 
 {% comment %} {% if section.settings.is_ticker %}
@@ -317,8 +316,11 @@
             {% assign itemsOnMobileCounter = itemsOnMobileCounter | minus: 1 %}
           {% endif %}
         {% endfor %}
-        width: calc(100% / {% if section.settings.items_in_row_mobile == 'all' %}{{ itemsOnMobileCounter }}{% else %}{{ section.settings.items_in_row_mobile }}{% endif %});
+
+        {% assign gapsInRow = itemsOnMobileCounter | minus: 1 %}
+        width: calc(100% / {% if section.settings.items_in_row_mobile == 'all' %}{{ itemsOnMobileCounter }}{% else %}{{ section.settings.items_in_row_mobile }}{% endif %} - {{ gapsInRow }}rem);
         max-width: unset;
+        flex: 1;
       }
 
       #section-{{ section.id }} .item-content {
@@ -698,6 +700,16 @@
     {
       "type": "header",
       "content": "Slider Settings"
+    },
+    {
+      "type": "range",
+      "id": "slider_autoplay_speed",
+      "label": "Autoplay Speed",
+      "min": 0,
+      "max": 3000,
+      "step": 100,
+      "unit": "mls",
+      "default": 0
     },
     {
       "type": "checkbox",
