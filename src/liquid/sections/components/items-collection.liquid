@@ -25,7 +25,7 @@
         {% render 'title', section_id: section.id, title: section.settings.main_title, title_tag: 'h2', subtitle: section.settings.main_subtitle, title_color: section.settings.title_color, span_color: section.settings.title_highlight_color, padding_bottom: '0', padding_top: 0 %}
       {% endif %}
 
-      <{% if section.settings.is_slider %}swiper-container{% else %}div{% endif %} class="items overflow-{{ section.settings.overflow }} z-10 py-8 flex flex-wrap gap-4 {% if section.settings.items_align == 'center' %}items-center{% else %}items-start{% endif %} {% if section.settings.collection_align == 'center' %}m-auto{% endif %} justify-center mbl:justify-between overflow-visible" id="items-container-{{ section.id }}" {% if section.settings.is_slider %}centered-slide="true" space-between="15" grab-cursor="true" slides-per-view="{% if section.settings.items_in_row != 'all' %}{{ section.settings.items_in_row }}{% else %}auto{% endif %}" auto-height="{{ section.settings.is_auto_height }}" {% if section.settings.is_arrows %}navigation="true"{% endif %} {% if section.settings.is_dots %}pagination="true" pagination-clickable="true"{% endif %} {% if section.settings.is_ticker %}inject-styles="['.swiper-wrapper {transition-timing-function: linear !important;}']" loop="true" autoplay-delay="0" speed="1500" autoplay-disable-on-interaction="false"{% elsif section.settings.slider_autoplay_speed > 0 %}loop="true" autoplay-delay="0" speed="{{ section.settings.slider_autoplay_speed }}"{% endif %} lazy="true"{% endif %}>
+      <{% if section.settings.is_slider %}swiper-container{% else %}div{% endif %} class="items overflow-{{ section.settings.overflow }} z-10 py-8 flex flex-wrap {% if section.settings.items_align == 'center' %}items-center{% else %}items-start{% endif %} {% if section.settings.collection_align == 'center' %}m-auto{% endif %} justify-center mbl:justify-between overflow-visible" id="items-container-{{ section.id }}" {% if section.settings.is_slider %}centered-slide="true" space-between="15" grab-cursor="true" slides-per-view="{% if section.settings.items_in_row != 'all' %}{{ section.settings.items_in_row }}{% else %}auto{% endif %}" auto-height="{{ section.settings.is_auto_height }}" {% if section.settings.is_arrows %}navigation="true"{% endif %} {% if section.settings.is_dots %}pagination="true" pagination-clickable="true"{% endif %} {% if section.settings.is_ticker %}inject-styles="['.swiper-wrapper {transition-timing-function: linear !important;}']" loop="true" autoplay-delay="0" speed="1500" autoplay-disable-on-interaction="false"{% elsif section.settings.slider_autoplay_speed > 0 %}loop="true" autoplay-delay="0" speed="{{ section.settings.slider_autoplay_speed }}"{% endif %} lazy="true"{% endif %}>
         {% for block in section.blocks %}
           {% if shop.name == 'CuraLife Global' %}
             {% assign imageLink = block.settings.image_global | default: block.settings.image %}
@@ -40,7 +40,7 @@
           {% if linkUrl and section.settings.link_style == 'item' %}<a class="contents" href="{{ linkUrl }}">{% endif %}
 
           <{% if section.settings.is_slider %}swiper-slide{% else %}div{% endif %} class="item relative">
-            <div class="item-content flex flex-col items-center justify-{% if section.settings.item_layout_mobile == 'row' %}start{% else %}center{% endif %} {% if section.settings.is_slider %}md:p-8{% endif %} p-4 text-center gap-4 m-auto">
+            <div class="item-content flex flex-col items-center justify-{% if section.settings.item_layout_mobile == 'row' %}start{% else %}center{% endif %} {% if section.settings.is_slider %}md:p-8{% else %}mbl:p-0{% endif %} p-4 text-center gap-4 m-auto">
               <div class="img-wrapper flex items-center">
                 {% if imageLink != blank or imageMobileLink != blank %}
                   <picture>
@@ -55,7 +55,7 @@
               </div>
               {% if block.settings.title != blank or block.settings.description != blank or block.settings.link_title != blank %}
                 <div class="text-wrapper flex flex-col gap-2 {% if section.settings.item_layout_mobile == 'row' %}md:items-start md:w-[70vw]{% endif %}">
-                  {% if block.settings.title != blank %}<h3 class="title-tag flex gap-1 w-fit justify-center items-center {% if block.settings.description %}m-auto{% else %}m-0{% endif %} {{ section.settings.title_tag }}">{{ block.settings.title }}</h3>{% endif %}
+                  {% if block.settings.title != blank %}<h3 class="title-tag flex gap-1 w-fit justify-center items-center {% if block.settings.description != blank %}m-auto{% else %}!m-0{% endif %} {{ section.settings.title_tag }}">{{ block.settings.title }}</h3>{% endif %}
                   {% if block.settings.description != blank %}<div class="description">{{ block.settings.description }}</div>{% endif %}
                   {% if section.settings.link_style == 'a' %}
                     <a class="underline" href="{{ linkUrl }}">{{ block.settings.link_title }}</a>
@@ -146,6 +146,7 @@
   }
   </script>
 
+
 {% comment %} {% if section.settings.is_ticker %}
   <script type="module">
     import { register } from 'swiper/element/bundle';
@@ -187,6 +188,7 @@
 
       width: {{ section.settings.collection_width }}%;
       row-gap: {{ section.settings.row_gap }}rem;
+      column-gap: {{ section.settings.column_gap }}rem;
     }
 
     #section-{{ section.id }} {
@@ -216,13 +218,8 @@
         {% assign itemsInRow = section.settings.items_in_row %}
       {% endif %}
       {% assign gapsInRow = itemsInRow | minus: 1 %}
-      width: calc(100% / {{ itemsInRow }} - {{ gapsInRow }}rem);
-
-      {% unless section.settings.is_slider %}
-        @media screen and (min-width: 768px) {
-          flex: 1;
-        }
-      {% endunless %}
+      width: calc((100% / {{ itemsInRow }}) - ({{ gapsInRow }} * ({{ section.settings.column_gap }}rem / {{ itemsInRow }})));
+      padding: {{ section.settings.item_padding }}rem;
     }
 
     #section-{{ section.id }} .item-content {
@@ -274,6 +271,7 @@
 
     #section-{{ section.id }} .items-collection .item-content .title-tag.p {
       margin: unset;
+      line-height: 1.2;
     }
 
     {% if section.settings.padding_top != 50 and section.settings.padding_top != blank %}
@@ -310,17 +308,20 @@
       }
 
       #section-{{ section.id }} .item {
-        {% assign itemsOnMobileCounter = section.blocks.size %}
-        {% for block in section.blocks %}
-          {% if block.settings.is_hide_on_mobile %}
-            {% assign itemsOnMobileCounter = itemsOnMobileCounter | minus: 1 %}
-          {% endif %}
-        {% endfor %}
+        {% if section.settings.items_in_row_mobile == 'all' %}
+          {% assign itemsInRowMobile = section.blocks.size %}
+          {% for block in section.blocks %}
+            {% if block.settings.is_hide_on_mobile %}
+              {% assign itemsInRowMobile = itemsInRowMobile | minus: 1 %}
+            {% endif %}
+          {% endfor %}
+        {% else %}
+          {% assign itemsInRowMobile = section.settings.items_in_row_mobile %}
+        {% endif %}
 
-        {% assign gapsInRow = itemsOnMobileCounter | minus: 1 %}
-        width: calc(100% / {% if section.settings.items_in_row_mobile == 'all' %}{{ itemsOnMobileCounter }}{% else %}{{ section.settings.items_in_row_mobile }}{% endif %} - {{ gapsInRow }}rem);
+        {% assign gapsInRowMobile = itemsInRowMobile | minus: 1 %}
+        width: calc((100% / {{ itemsInRowMobile }}) - ({{ gapsInRowMobile }} * ({{ section.settings.column_gap }}rem / {{ itemsInRowMobile }})));
         max-width: unset;
-        flex: 1;
       }
 
       #section-{{ section.id }} .item-content {
@@ -630,6 +631,26 @@
         }
       ],
       "default": "1"
+    },
+    {
+      "type": "range",
+      "id": "item_padding",
+      "label": "Item Padding",
+      "min": 0,
+      "max": 5,
+      "step": 1,
+      "unit": "rem",
+      "default": 1
+    },
+    {
+      "type": "range",
+      "id": "column_gap",
+      "label": "Column Gap",
+      "min": 0,
+      "max": 5,
+      "step": 1,
+      "unit": "rem",
+      "default": 0
     },
     {
       "type": "range",
