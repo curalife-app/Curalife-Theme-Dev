@@ -18,6 +18,10 @@
   {% endif %}
 {% endif %}
 
+{% if customer.email contains 'curalife' %}
+  {% assign admin = true %}
+{% endif %}
+
 {% unless hideSection %}
   <section id="section-{{ section.id }}" class="items-collection {% if section.settings.is_decor_relative_full %}static{% endif %} {{ section.settings.section_additional_classes }} {% if section.settings.display_on_utm_parmeters != blank %}!hidden{% endif %}">
     <div class="container main-container {% if section.settings.is_decor_relative_full %}static{% endif %}">
@@ -25,64 +29,101 @@
         {% render 'title', section_id: section.id, title: section.settings.main_title, title_tag: 'h2', subtitle: section.settings.main_subtitle, title_color: section.settings.title_color, span_color: section.settings.title_highlight_color, padding_bottom: '0', padding_top: 0 %}
       {% endif %}
 
-      <{% if section.settings.is_slider %}swiper-container{% else %}div{% endif %} class="items overflow-{{ section.settings.overflow }} z-10 py-8 flex flex-wrap {% if section.settings.items_align == 'center' %}items-center{% else %}items-start{% endif %} {% if section.settings.collection_align == 'center' %}m-auto{% endif %} justify-center mbl:justify-between overflow-visible" id="items-container-{{ section.id }}" {% if section.settings.is_slider %}centered-slide="true" space-between="15" grab-cursor="true" slides-per-view="{% if section.settings.items_in_row != 'all' %}{{ section.settings.items_in_row }}{% else %}auto{% endif %}" auto-height="{{ section.settings.is_auto_height }}" {% if section.settings.is_arrows %}navigation="true"{% endif %} {% if section.settings.is_dots %}pagination="true" pagination-clickable="true"{% endif %} {% if section.settings.is_ticker %}inject-styles="['.swiper-wrapper {transition-timing-function: linear !important;}']" loop="true" autoplay-delay="0" speed="1500" autoplay-disable-on-interaction="false"{% elsif section.settings.slider_autoplay_speed > 0 %}loop="true" autoplay-delay="0" speed="{{ section.settings.slider_autoplay_speed }}"{% endif %} lazy="true"{% endif %}>
-        {% for block in section.blocks %}
-          {% if shop.name == 'CuraLife Global' %}
-            {% assign imageLink = block.settings.image_global | default: block.settings.image %}
-            {% assign imageMobileLink = block.settings.image_mobile_global | default: block.settings.image_mobile %}
-            {% assign linkUrl = block.settings.link_url_global | default: block.settings.link_url %}
-          {% else %}
-            {% assign imageLink = block.settings.image %}
-            {% assign imageMobileLink = block.settings.image_mobile %}
-            {% assign linkUrl = block.settings.link_url %}
-          {% endif %}
+      {% if admin %}
+        {% if section.settings.is_slider %}
+          <div class="swiper items overflow-{{ section.settings.overflow }} z-10 !py-4 overflow-visible" id="items-container-{{ section.id }}">
+            <div class="swiper-wrapper">
+        {% else %}
+          <div class="items overflow-{{ section.settings.overflow }} z-10 py-8 flex flex-wrap {% if section.settings.items_align == 'center' %}items-center{% else %}items-start{% endif %} {% if section.settings.collection_align == 'center' %}m-auto{% endif %} justify-center mbl:justify-between overflow-visible" id="items-container-{{ section.id }}">
+        {% endif %}
+      {% else %}
+        <{% if section.settings.is_slider %}swiper-container{% else %}div{% endif %} class="items overflow-{{ section.settings.overflow }} z-10 py-8 flex flex-wrap {% if section.settings.items_align == 'center' %}items-center{% else %}items-start{% endif %} {% if section.settings.collection_align == 'center' %}m-auto{% endif %} justify-center mbl:justify-between overflow-visible" id="items-container-{{ section.id }}" {% if section.settings.is_slider %}centered-slide="true" space-between="15" grab-cursor="true" slides-per-view="{% if section.settings.items_in_row != 'all' %}{{ section.settings.items_in_row }}{% else %}auto{% endif %}" auto-height="{{ section.settings.is_auto_height }}" {% if section.settings.is_arrows %}navigation="true"{% endif %} {% if section.settings.is_dots %}pagination="true" pagination-clickable="true"{% endif %} {% if section.settings.is_ticker %}inject-styles="['.swiper-wrapper {transition-timing-function: linear !important;}']" loop="true" autoplay-delay="0" speed="1500" autoplay-disable-on-interaction="false"{% elsif section.settings.slider_autoplay_speed > 0 %}loop="true" autoplay-delay="0" speed="{{ section.settings.slider_autoplay_speed }}"{% endif %} lazy="true"{% endif %}>
+      {% endif %}
 
-          {% if linkUrl and section.settings.link_style == 'item' %}<a class="contents" href="{{ linkUrl }}">{% endif %}
-          {% assign itemID = 'item-' | append: section.id | append: forloop.index %}
+      {% for block in section.blocks %}
+        {% if shop.name == 'CuraLife Global' %}
+          {% assign imageLink = block.settings.image_global | default: block.settings.image %}
+          {% assign imageMobileLink = block.settings.image_mobile_global | default: block.settings.image_mobile %}
+          {% assign linkUrl = block.settings.link_url_global | default: block.settings.link_url %}
+        {% else %}
+          {% assign imageLink = block.settings.image %}
+          {% assign imageMobileLink = block.settings.image_mobile %}
+          {% assign linkUrl = block.settings.link_url %}
+        {% endif %}
 
+        {% if linkUrl and section.settings.link_style == 'item' %}<a class="contents" href="{{ linkUrl }}">{% endif %}
+        {% assign itemID = 'item-' | append: section.id | append: forloop.index %}
+
+        {% if admin %}
+          <div class="{% if section.settings.is_slider %}swiper-slide{% endif %} item {% unless section.settings.is_slider %}relative h-auto{% endunless %}" id="{{ itemID }}">
+        {% else %}
           <{% if section.settings.is_slider %}swiper-slide{% else %}div{% endif %} class="item relative h-auto" id="{{ itemID }}">
-            <div class="item-content flex flex-col items-center justify-{% if section.settings.item_layout_mobile == 'row' %}start{% else %}center{% endif %} {% if section.settings.is_slider %}md:p-8{% else %}mbl:p-0{% endif %} p-4 text-center gap-4 m-auto">
-              {% unless block.settings.is_image_background %}
-                <div class="img-wrapper flex items-center">
-                    {% if imageLink != blank or imageMobileLink != blank %}
-                      <picture>
-                        {% if imageMobileLink != blank %}
-                          <source media="(max-width: 768px)" srcset="{{ imageMobileLink | image_url }}" width="{{ imageMobileLink.width }}" height="{{ imageMobileLink.height }}">
-                        {% endif %}
-                        <img class="max-h-350px object-contain m-0" src="{{ imageLink | image_url }}" alt="{{ imageLink.alt | default: "Curalife list item image" | escape }}" width="{{ imageLink.width }}" height="{{ imageLink.height }}" loading="lazy">
-                      </picture>
-                    {% elsif block.settings.icon != blank %}
-                      <i class="{{ block.settings.icon }}"></i>
+        {% endif %}
+          <div class="item-content flex flex-col items-center justify-{% if section.settings.item_layout_mobile == 'row' %}start{% else %}center{% endif %} {% if section.settings.is_slider %}md:p-8{% else %}mbl:p-0{% endif %} p-4 text-center gap-4 m-auto">
+            {% unless block.settings.is_image_background %}
+              <div class="img-wrapper flex items-center">
+                {% if imageLink != blank or imageMobileLink != blank %}
+                  <picture>
+                    {% if imageMobileLink != blank %}
+                      <source media="(max-width: 768px)" srcset="{{ imageMobileLink | image_url }}" width="{{ imageMobileLink.width }}" height="{{ imageMobileLink.height }}">
                     {% endif %}
-                  </div>
-                  {% if block.settings.title != blank or block.settings.description != blank or block.settings.link_title != blank %}
-                    <div class="text-wrapper flex flex-col gap-2 {% if section.settings.item_layout_mobile == 'row' %}md:items-start md:w-[70vw]{% endif %}">
-                      {% if block.settings.title != blank %}<h3 class="title-tag flex gap-1 w-fit justify-center items-center {% if block.settings.description != blank %}m-auto{% else %}!m-0{% endif %} {{ section.settings.title_tag }}">{{ block.settings.title }}</h3>{% endif %}
-                      {% if block.settings.description != blank %}<div class="description">{{ block.settings.description }}</div>{% endif %}
-                      {% if section.settings.link_style == 'a' %}
-                        <a class="underline" href="{{ linkUrl }}">{{ block.settings.link_title }}</a>
-                      {% elsif section.settings.link_style == 'button' %}
-                        <a class="w-max m-auto" href="{{ linkUrl }}"><button>{{ block.settings.link_title }}</button></a>
-                      {% endif %}
-                    </div>
+                    <img class="max-h-350px object-contain m-0" src="{{ imageLink | image_url }}" alt="{{ imageLink.alt | default: "Curalife list item image" | escape }}" width="{{ imageLink.width }}" height="{{ imageLink.height }}" loading="lazy">
+                  </picture>
+                {% elsif block.settings.icon != blank %}
+                  <i class="{{ block.settings.icon }}"></i>
+                {% endif %}
+              </div>
+              {% if block.settings.title != blank or block.settings.description != blank or block.settings.link_title != blank %}
+                <div class="text-wrapper flex flex-col gap-2 {% if section.settings.item_layout_mobile == 'row' %}md:items-start md:w-[70vw]{% endif %}">
+                  {% if block.settings.title != blank %}<h3 class="title-tag flex gap-1 w-fit justify-center items-center {% if block.settings.description != blank %}m-auto{% else %}!m-0{% endif %} {{ section.settings.title_tag }}">{{ block.settings.title }}</h3>{% endif %}
+                  {% if block.settings.description != blank %}<div class="description">{{ block.settings.description }}</div>{% endif %}
+                  {% if section.settings.link_style == 'a' %}
+                    <a class="underline" href="{{ linkUrl }}">{{ block.settings.link_title }}</a>
+                  {% elsif section.settings.link_style == 'button' %}
+                    <a class="w-max m-auto" href="{{ linkUrl }}"><button>{{ block.settings.link_title }}</button></a>
                   {% endif %}
                 </div>
-              {% endunless %}
+              {% endif %}
+            {% endunless %}
+          </div>
+        {% if admin %}
+          </div>
+        {% else %}
           </{% if section.settings.is_slider %}swiper-slide{% else %}div{% endif %}>
+        {% endif %}
 
-          {% if linkUrl and section.settings.link_style == 'item' %}</a>{% endif %}
+        {% if linkUrl and section.settings.link_style == 'item' %}</a>{% endif %}
 
-          {% if block.settings.is_image_background %}
-            <style>
-              #{{ itemID }} {
-                background-image: url("{{ imageLink | image_url }}") !important;
-                background-size: cover;
-                background-position: center;
-              }
-            </style>
+        {% if block.settings.is_image_background %}
+          <style>
+            #{{ itemID }} {
+              background-image: url("{{ imageLink | image_url }}") !important;
+              background-size: cover;
+              background-position: center;
+            }
+          </style>
+        {% endif %}
+      {% endfor %}
+
+        {% if admin %}
+          </div>
+          {% if section.settings.is_slider %}
+            {% if section.settings.is_arrows %}
+              <div class="swiper-button-next"></div>
+              <div class="swiper-button-prev"></div>
+            {% endif %}
+            {% if section.settings.is_dots %}
+              <div class="swiper-pagination"></div>
+            {% endif %}
+            {% if section.settings.is_scrollbar %}
+              <div class="swiper-scrollbar"></div>
+            {% endif %}
           {% endif %}
-        {% endfor %}
-      </{% if section.settings.is_slider %}swiper-container{% else %}div{% endif %}>
+
+          {% if section.settings.is_slider %}</div>{% endif %}
+        {% else %}
+          </{% if section.settings.is_slider %}swiper-container{% else %}div{% endif %}>
+        {% endif %}
 
       {% if section.settings.decor_img %}
         {% render 'decoration', id: section.id, decor_img: section.settings.decor_img, decor_position_top: section.settings.decor_position_top, decor_position_left: section.settings.decor_position_left, decor_position_top_mobile: section.settings.decor_position_top_mobile, decor_position_left_mobile: section.settings.decor_position_left_mobile, decor_opacity: section.settings.decor_opacity, decor_max_width: section.settings.decor_max_width, is_decor_above: section.settings.is_decor_above, is_decor_bg: section.settings.is_decor_bg, is_decor_relative_full: section.settings.is_decor_relative_full, is_decor_remove_on_mobile: section.settings.is_decor_remove_on_mobile %}
@@ -91,14 +132,64 @@
   </section>
 
 
-  {% if section.settings.is_slider %}
-    <script src="https://cdn.jsdelivr.net/npm/swiper@9/swiper-element-bundle.min.js"></script>
-    <script>
-      if (window.innerWidth < 768) {
-        $("swiper-container").attr("slides-per-view", 1);
-      }
-    </script>
+  {% if admin %}
+    {% if section.settings.is_slider %}
+      <script>
+        var itemsSwiper = new Swiper('#items-container-{{ section.id }}', {
+          spaceBetween: 15,
+          grabCursor: true,
+          slidesPerView: {% if section.settings.items_in_row != 'all' %}{{ section.settings.items_in_row }}{% else %}'auto'{% endif %},
+          autoHeight: {{ section.settings.is_auto_height }},
+          {% if section.settings.is_arrows %}navigation: {
+            nextEl: '#items-container-{{ section.id }} .swiper-button-next',
+            prevEl: '#items-container-{{ section.id }} .swiper-button-prev',
+          },{% endif %}
+          {% if section.settings.is_dots %}pagination: {
+            el: '#items-container-{{ section.id }} .swiper-pagination',
+            clickable: true
+          },{% endif %}
+          {% if section.settings.is_scrollbar %}scrollbar: {
+            el: '#items-container-{{ section.id }} .swiper-scrollbar',
+          },{% endif %}
+          {% if section.settings.is_ticker %}
+            loop: true,
+            speed: 1500,
+            autoplay: {
+              delay: 0,
+              disableOnInteraction: false
+            },
+          {% elsif section.settings.slider_autoplay_speed > 0 %}
+            loop: true,
+            speed: {{ section.settings.slider_autoplay_speed }},
+            autoplay: {
+              delay: {{ section.settings.slider_autoplay_speed }},
+            },
+          {% endif %}
+          lazy: true,
+          breakpoints: {
+            768: {
+              slidesPerView: {{ section.settings.items_in_row_mobile }}
+            },
+            1200: {
+              slidesPerView: {{ section.settings.items_in_row }}
+            }
+          }
+        });
+      </script>
+    {% endif %}
   {% endif %}
+
+
+  {% unless admin %}
+    {% if section.settings.is_slider %}
+      <script src="https://cdn.jsdelivr.net/npm/swiper@9/swiper-element-bundle.min.js"></script>
+      <script>
+        if (window.innerWidth < 768) {
+          $("swiper-container").attr("slides-per-view", 1);
+        }
+      </script>
+    {% endif %}
+  {% endunless %}
 
   {% if section.settings.display_on_utm_parmeters != blank %}
     <script>
@@ -230,9 +321,12 @@
       {% else %}
         {% assign itemsInRow = section.settings.items_in_row %}
       {% endif %}
+
       {% assign gapsInRow = itemsInRow | minus: 1 %}
+
       width: calc((100% / {{ itemsInRow }}) - ({{ gapsInRow }} * ({{ section.settings.column_gap }}rem / {{ itemsInRow }})));
       padding: {{ section.settings.item_padding }}rem;
+      align-self: stretch;
     }
 
     #section-{{ section.id }} .item-content {
@@ -407,7 +501,7 @@
           margin-top: 0;
         }
 
-        #section-{{ section.id }} swiper-slide.swiper-slide-active img {
+        #section-{{ section.id }} .swiper-slide-active img {
           transform: scale(1) !important;
           margin-bottom: 0;
         }
@@ -770,6 +864,11 @@
       "id": "is_dots",
       "label": "Show Dots",
       "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "is_scrollbar",
+      "label": "Show ScrollBar"
     },
     {
       "type": "checkbox",
