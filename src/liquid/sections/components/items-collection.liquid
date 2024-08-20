@@ -18,10 +18,6 @@
   {% endif %}
 {% endif %}
 
-{% if customer.email contains 'curalife' %}
-  {% assign admin = true %}
-{% endif %}
-
 {% unless hideSection %}
   <section id="section-{{ section.id }}" class="items-collection {% if section.settings.is_decor_relative_full %}static{% endif %} {{ section.settings.section_additional_classes }} {% if section.settings.display_on_utm_parmeters != blank %}!hidden{% endif %}">
     <div class="container main-container {% if section.settings.is_decor_relative_full %}static{% endif %}">
@@ -29,15 +25,11 @@
         {% render 'title', section_id: section.id, title: section.settings.main_title, title_tag: 'h2', subtitle: section.settings.main_subtitle, title_color: section.settings.title_color, span_color: section.settings.title_highlight_color, padding_bottom: '0', padding_top: 0 %}
       {% endif %}
 
-      {% if admin %}
-        {% if section.settings.is_slider %}
-          <div class="swiper items overflow-{{ section.settings.overflow }} z-10 !py-4 overflow-visible" id="items-container-{{ section.id }}">
-            <div class="swiper-wrapper">
-        {% else %}
-          <div class="items overflow-{{ section.settings.overflow }} z-10 py-8 flex flex-wrap {% if section.settings.items_align == 'center' %}items-center{% else %}items-start{% endif %} {% if section.settings.collection_align == 'center' %}m-auto{% endif %} justify-center mbl:justify-between overflow-visible" id="items-container-{{ section.id }}">
-        {% endif %}
+      {% if section.settings.is_slider %}
+        <div class="swiper items overflow-{{ section.settings.overflow }} z-10 !pb-8 !overflow-{{ section.settings.overflow }}" id="items-container-{{ section.id }}">
+          <div class="swiper-wrapper">
       {% else %}
-        <{% if section.settings.is_slider %}swiper-container{% else %}div{% endif %} class="items overflow-{{ section.settings.overflow }} z-10 py-8 flex flex-wrap {% if section.settings.items_align == 'center' %}items-center{% else %}items-start{% endif %} {% if section.settings.collection_align == 'center' %}m-auto{% endif %} justify-center mbl:justify-between overflow-visible" id="items-container-{{ section.id }}" {% if section.settings.is_slider %}centered-slide="true" space-between="15" grab-cursor="true" slides-per-view="{% if section.settings.items_in_row != 'all' %}{{ section.settings.items_in_row }}{% else %}auto{% endif %}" auto-height="{{ section.settings.is_auto_height }}" {% if section.settings.is_arrows %}navigation="true"{% endif %} {% if section.settings.is_dots %}pagination="true" pagination-clickable="true"{% endif %} {% if section.settings.is_ticker %}inject-styles="['.swiper-wrapper {transition-timing-function: linear !important;}']" loop="true" autoplay-delay="0" speed="1500" autoplay-disable-on-interaction="false"{% elsif section.settings.slider_autoplay_speed > 0 %}loop="true" autoplay-delay="0" speed="{{ section.settings.slider_autoplay_speed }}"{% endif %} lazy="true"{% endif %}>
+        <div class="items overflow-{{ section.settings.overflow }} z-10 py-8 flex flex-wrap {% if section.settings.items_align == 'center' %}items-center{% else %}items-start{% endif %} {% if section.settings.collection_align == 'center' %}m-auto{% endif %} justify-center mbl:justify-between overflow-visible" id="items-container-{{ section.id }}">
       {% endif %}
 
       {% for block in section.blocks %}
@@ -54,12 +46,8 @@
         {% if linkUrl and section.settings.link_style == 'item' %}<a class="contents" href="{{ linkUrl }}">{% endif %}
         {% assign itemID = 'item-' | append: section.id | append: forloop.index %}
 
-        {% if admin %}
-          <div class="{% if section.settings.is_slider %}swiper-slide{% endif %} item {% unless section.settings.is_slider %}relative h-auto{% endunless %}" id="{{ itemID }}">
-        {% else %}
-          <{% if section.settings.is_slider %}swiper-slide{% else %}div{% endif %} class="item relative h-auto" id="{{ itemID }}">
-        {% endif %}
-          <div class="item-content flex flex-col items-center justify-{% if section.settings.item_layout_mobile == 'row' %}start{% else %}center{% endif %} {% if section.settings.is_slider %}md:p-8{% else %}mbl:p-0{% endif %} p-4 text-center gap-4 m-auto">
+        <div class="{% if section.settings.is_slider %}swiper-slide{% endif %} item {% unless section.settings.is_slider %}relative h-auto{% endunless %}" id="{{ itemID }}">
+          <div class="item-content flex flex-col items-center justify-{% if section.settings.item_layout_mobile == 'row' %}start{% else %}center{% endif %} text-center gap-4 m-auto">
             {% unless block.settings.is_image_background %}
               <div class="img-wrapper flex items-center">
                 {% if imageLink != blank or imageMobileLink != blank %}
@@ -86,11 +74,7 @@
               {% endif %}
             {% endunless %}
           </div>
-        {% if admin %}
-          </div>
-        {% else %}
-          </{% if section.settings.is_slider %}swiper-slide{% else %}div{% endif %}>
-        {% endif %}
+        </div>
 
         {% if linkUrl and section.settings.link_style == 'item' %}</a>{% endif %}
 
@@ -104,26 +88,24 @@
           </style>
         {% endif %}
       {% endfor %}
+        </div>
 
-        {% if admin %}
-          </div>
-          {% if section.settings.is_slider %}
-            {% if section.settings.is_arrows %}
-              <div class="swiper-button-next"></div>
-              <div class="swiper-button-prev"></div>
-            {% endif %}
-            {% if section.settings.is_dots %}
-              <div class="swiper-pagination"></div>
-            {% endif %}
-            {% if section.settings.is_scrollbar %}
-              <div class="swiper-scrollbar"></div>
-            {% endif %}
+      {% if section.settings.is_slider %}
+        <div class="swiper-navigations relative">
+          {% if section.settings.is_arrows %}
+            <div class="swiper-nav swiper-button-next"></div>
+            <div class="swiper-nav swiper-button-prev"></div>
           {% endif %}
+          {% if section.settings.is_dots %}
+            <div class="swiper-pagination"></div>
+          {% endif %}
+          {% if section.settings.is_scrollbar %}
+            <div class="swiper-scrollbar"></div>
+          {% endif %}
+        </div>
+      {% endif %}
 
-          {% if section.settings.is_slider %}</div>{% endif %}
-        {% else %}
-          </{% if section.settings.is_slider %}swiper-container{% else %}div{% endif %}>
-        {% endif %}
+      {% if section.settings.is_slider %}</div>{% endif %}
 
       {% if section.settings.decor_img %}
         {% render 'decoration', id: section.id, decor_img: section.settings.decor_img, decor_position_top: section.settings.decor_position_top, decor_position_left: section.settings.decor_position_left, decor_position_top_mobile: section.settings.decor_position_top_mobile, decor_position_left_mobile: section.settings.decor_position_left_mobile, decor_opacity: section.settings.decor_opacity, decor_max_width: section.settings.decor_max_width, is_decor_above: section.settings.is_decor_above, is_decor_bg: section.settings.is_decor_bg, is_decor_relative_full: section.settings.is_decor_relative_full, is_decor_remove_on_mobile: section.settings.is_decor_remove_on_mobile %}
@@ -131,14 +113,12 @@
     </div>
   </section>
 
-
-  {% if admin %}
-    {% if section.settings.is_slider %}
-      <script>
+  {% if section.settings.is_slider %}
+    <script>
         var itemsSwiper = new Swiper('#items-container-{{ section.id }}', {
           spaceBetween: 15,
           grabCursor: true,
-          slidesPerView: {% if section.settings.items_in_row != 'all' %}{{ section.settings.items_in_row }}{% else %}'auto'{% endif %},
+          slidesPerView: 'auto',
           autoHeight: {{ section.settings.is_auto_height }},
           {% if section.settings.is_arrows %}navigation: {
             nextEl: '#items-container-{{ section.id }} .swiper-button-next',
@@ -149,7 +129,7 @@
             clickable: true
           },{% endif %}
           {% if section.settings.is_scrollbar %}scrollbar: {
-            el: '#items-container-{{ section.id }} .swiper-scrollbar',
+            el: '#items-container-{{ section.id }} .swiper-scrollbar'
           },{% endif %}
           {% if section.settings.is_ticker %}
             loop: true,
@@ -171,25 +151,12 @@
               slidesPerView: {{ section.settings.items_in_row_mobile }}
             },
             1200: {
-              slidesPerView: {{ section.settings.items_in_row }}
+              slidesPerView: {% if section.settings.items_in_row != 'all' %}{{ section.settings.items_in_row }}{% else %}'auto'{% endif %}
             }
           }
         });
-      </script>
-    {% endif %}
+    </script>
   {% endif %}
-
-
-  {% unless admin %}
-    {% if section.settings.is_slider %}
-      <script src="https://cdn.jsdelivr.net/npm/swiper@9/swiper-element-bundle.min.js"></script>
-      <script>
-        if (window.innerWidth < 768) {
-          $("swiper-container").attr("slides-per-view", 1);
-        }
-      </script>
-    {% endif %}
-  {% endunless %}
 
   {% if section.settings.display_on_utm_parmeters != blank %}
     <script>
@@ -250,49 +217,60 @@
   }
   </script>
 
+<style>
+  #section-{{ section.id }} .swiper-slide {
+    opacity: 0;
+    transition: opacity 1s ease;
+  }
 
-{% comment %} {% if section.settings.is_ticker %}
-  <script type="module">
-    import { register } from 'swiper/element/bundle';
+  #section-{{ section.id }} .swiper-slide-active {
+    opacity: 1;
+  }
 
-    // pass false to prevent automatic styles injection
-    register(false);
+  {% if section.settings.items_in_row == 'all' %}
+    {% assign items_in_row = section.blocks.size %}
+  {% else %}
+    {% assign items_in_row = section.settings.items_in_row | minus: 1 %}
+  {% endif %}
 
-    const swiperEl = document.querySelector('#items-container-{{ section.id }}');
+  {% for i in (1..items_in_row) %}
+    #section-{{ section.id }} .swiper-slide-active{% for j in (1..i) %} + .swiper-slide{% endfor %} {
+      opacity: 1;
+    }
+  {% endfor %}
 
-    const params = {
-      injectStyles: [
-        `
-        :root {
-          --swiper-transition-timing-function: linear;
-        }
-        `,
-      ]
-    };
+  @media (max-width: 768px) {
+    #section-{{ section.id }} .swiper-slide-active {
+      opacity: 1;
+    }
 
-    Object.assign(swiperEl, params);
+    {% if section.settings.items_in_row_mobile == 'all' %}
+      {% assign items_in_row_mobile = section.blocks.size %}
+    {% else %}
+      {% assign items_in_row_mobile = section.settings.items_in_row_mobile | minus: 1 %}
+    {% endif %}
 
-    swiperEl.initialize();
-  </script>
-{% endif %} {% endcomment %}
+    {% for i in (1..items_in_row_mobile) %}
+      #section-{{ section.id }} .swiper-slide-active{% for j in (1..i) %} + .swiper-slide{% endfor %} {
+        opacity: 1;
+      }
+    {% endfor %}
+  }
+</style>
 
   <style>
 
-    /* {% if section.settings.is_ticker %}
+    {% if section.settings.is_ticker %}
       :root {
         --swiper-transition-timing-function: linear;
       }
-    {% endif %} */
+    {% endif %}
 
     #section-{{ section.id }} .items {
-      --swiper-theme-color: var(--primary);
-      --swiper-navigation-size: 18px;
-      --swiper-navigation-top-offset: 50%;
-      --swiper-navigation-sides-offset: 0;
-
       width: {{ section.settings.collection_width }}%;
       row-gap: {{ section.settings.row_gap }}rem;
       column-gap: {{ section.settings.column_gap }}rem;
+      align-items: stretch;
     }
 
     #section-{{ section.id }} {
@@ -327,6 +305,7 @@
       width: calc((100% / {{ itemsInRow }}) - ({{ gapsInRow }} * ({{ section.settings.column_gap }}rem / {{ itemsInRow }})));
       padding: {{ section.settings.item_padding }}rem;
       align-self: stretch;
+      border-radius: 15px;
     }
 
     #section-{{ section.id }} .item-content {
