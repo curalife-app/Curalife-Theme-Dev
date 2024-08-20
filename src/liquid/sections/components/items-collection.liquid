@@ -38,36 +38,49 @@
           {% endif %}
 
           {% if linkUrl and section.settings.link_style == 'item' %}<a class="contents" href="{{ linkUrl }}">{% endif %}
+          {% assign itemID = 'item-' | append: section.id | append: forloop.index %}
 
-          <{% if section.settings.is_slider %}swiper-slide{% else %}div{% endif %} class="item relative h-auto">
+          <{% if section.settings.is_slider %}swiper-slide{% else %}div{% endif %} class="item relative h-auto" id="{{ itemID }}">
             <div class="item-content flex flex-col items-center justify-{% if section.settings.item_layout_mobile == 'row' %}start{% else %}center{% endif %} {% if section.settings.is_slider %}md:p-8{% else %}mbl:p-0{% endif %} p-4 text-center gap-4 m-auto">
-              <div class="img-wrapper flex items-center">
-                {% if imageLink != blank or imageMobileLink != blank %}
-                  <picture>
-                    {% if imageMobileLink != blank %}
-                      <source media="(max-width: 768px)" srcset="{{ imageMobileLink | image_url }}" width="{{ imageMobileLink.width }}" height="{{ imageMobileLink.height }}">
+              {% unless block.settings.is_image_background %}
+                <div class="img-wrapper flex items-center">
+                    {% if imageLink != blank or imageMobileLink != blank %}
+                      <picture>
+                        {% if imageMobileLink != blank %}
+                          <source media="(max-width: 768px)" srcset="{{ imageMobileLink | image_url }}" width="{{ imageMobileLink.width }}" height="{{ imageMobileLink.height }}">
+                        {% endif %}
+                        <img class="max-h-350px object-contain m-0" src="{{ imageLink | image_url }}" alt="{{ imageLink.alt | default: "Curalife list item image" | escape }}" width="{{ imageLink.width }}" height="{{ imageLink.height }}" loading="lazy">
+                      </picture>
+                    {% elsif block.settings.icon != blank %}
+                      <i class="{{ block.settings.icon }}"></i>
                     {% endif %}
-                    <img class="max-h-350px object-contain m-0" src="{{ imageLink | image_url }}" alt="{{ imageLink.alt | default: "Curalife list item image" | escape }}" width="{{ imageLink.width }}" height="{{ imageLink.height }}" loading="lazy">
-                  </picture>
-                {% elsif block.settings.icon != blank %}
-                  <i class="{{ block.settings.icon }}"></i>
-                {% endif %}
-              </div>
-              {% if block.settings.title != blank or block.settings.description != blank or block.settings.link_title != blank %}
-                <div class="text-wrapper flex flex-col gap-2 {% if section.settings.item_layout_mobile == 'row' %}md:items-start md:w-[70vw]{% endif %}">
-                  {% if block.settings.title != blank %}<h3 class="title-tag flex gap-1 w-fit justify-center items-center {% if block.settings.description != blank %}m-auto{% else %}!m-0{% endif %} {{ section.settings.title_tag }}">{{ block.settings.title }}</h3>{% endif %}
-                  {% if block.settings.description != blank %}<div class="description">{{ block.settings.description }}</div>{% endif %}
-                  {% if section.settings.link_style == 'a' %}
-                    <a class="underline" href="{{ linkUrl }}">{{ block.settings.link_title }}</a>
-                  {% elsif section.settings.link_style == 'button' %}
-                    <a class="w-max m-auto" href="{{ linkUrl }}"><button>{{ block.settings.link_title }}</button></a>
+                  </div>
+                  {% if block.settings.title != blank or block.settings.description != blank or block.settings.link_title != blank %}
+                    <div class="text-wrapper flex flex-col gap-2 {% if section.settings.item_layout_mobile == 'row' %}md:items-start md:w-[70vw]{% endif %}">
+                      {% if block.settings.title != blank %}<h3 class="title-tag flex gap-1 w-fit justify-center items-center {% if block.settings.description != blank %}m-auto{% else %}!m-0{% endif %} {{ section.settings.title_tag }}">{{ block.settings.title }}</h3>{% endif %}
+                      {% if block.settings.description != blank %}<div class="description">{{ block.settings.description }}</div>{% endif %}
+                      {% if section.settings.link_style == 'a' %}
+                        <a class="underline" href="{{ linkUrl }}">{{ block.settings.link_title }}</a>
+                      {% elsif section.settings.link_style == 'button' %}
+                        <a class="w-max m-auto" href="{{ linkUrl }}"><button>{{ block.settings.link_title }}</button></a>
+                      {% endif %}
+                    </div>
                   {% endif %}
                 </div>
-              {% endif %}
-            </div>
+              {% endunless %}
           </{% if section.settings.is_slider %}swiper-slide{% else %}div{% endif %}>
 
           {% if linkUrl and section.settings.link_style == 'item' %}</a>{% endif %}
+
+          {% if block.settings.is_image_background %}
+            <style>
+              #{{ itemID }} {
+                background-image: url("{{ imageLink | image_url }}") !important;
+                background-size: cover;
+                background-position: center;
+              }
+            </style>
+          {% endif %}
         {% endfor %}
       </{% if section.settings.is_slider %}swiper-container{% else %}div{% endif %}>
 
@@ -242,6 +255,10 @@
       font-size: 0.8em;
       position: relative;
       bottom: 0.1em;
+    }
+
+    #section-{{ section.id }} .items-collection .item-content .description p:last-child {
+      margin-bottom: 0;
     }
 
     #section-{{ section.id }} .items-collection .item-content .description ul li {
@@ -939,6 +956,11 @@
           "type": "richtext",
           "id": "description",
           "label": "Description"
+        },
+        {
+          "type": "checkbox",
+          "id": "is_image_background",
+          "label": "Image is Background"
         },
         {
           "type": "checkbox",
