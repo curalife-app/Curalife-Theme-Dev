@@ -53,81 +53,84 @@
               <div class="swiper-slide product-image-slide">
                 <img src="{{ thumbnailImage | image_url }}" alt="Curalin" loading="lazy">
               </div>
-            {% endif %}
-            {% comment %} Render Product Images on Main Slider {% endcomment %}
-            {% for img in product.images %}
-              {% if forloop.index == 1 %}
-                {% assign currentImg = img %}
-                {% assign img = thumbnailImage | default: currentImg %}
+
+              <style>#product-main-slider-sc-{{ section.id }} .swiper-nav {display: none}</style>
+            {% else %}
+              {% comment %} Render Product Images on Main Slider {% endcomment %}
+              {% for img in product.images %}
+                {% if forloop.index == 1 %}
+                  {% assign currentImg = img %}
+                  {% assign img = thumbnailImage | default: currentImg %}
+                {% endif %}
+
+                <div class="swiper-slide product-image-slide">
+                  <img src="{{ img | image_url }}" alt="{{ img.alt | escape }}">
+                </div>
+              {% endfor %}
+
+              {% if badgeImage %}
+                <img src="{{ badgeImage | image_url }}" alt="Curalin" class="sale-badge" loading="lazy">
               {% endif %}
 
-              <div class="swiper-slide product-image-slide">
-                <img src="{{ img | image_url }}" alt="{{ img.alt | escape }}">
-              </div>
-            {% endfor %}
-
-            {% if badgeImage %}
-              <img src="{{ badgeImage | image_url }}" alt="Curalin" class="sale-badge" loading="lazy">
-            {% endif %}
-
-            {% comment %} Render Section Images on Main Slider {% endcomment %}
-            {% for block in blocks %}
-              {% if block.type == 'image' %}
-                <div class="swiper-slide image-block-slide">
-                  <img src="{{ block.settings.product_img | image_url }}" alt="Product Image" loading="lazy">
-                </div>
-                {% elsif block.type == 'video' %}
-                  <div class="swiper-slide video-block-slide">
-                    <div class="product-video">
-                      <iframe id="product-video-iframe" src="https://player.vimeo.com/video/{{ block.settings.vimeo_video_id }}?playsinline=0" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen loading="lazy"></iframe>
-                    </div>
+              {% comment %} Render Section Images on Main Slider {% endcomment %}
+              {% for block in blocks %}
+                {% if block.type == 'image' %}
+                  <div class="swiper-slide image-block-slide">
+                    <img src="{{ block.settings.product_img | image_url }}" alt="Product Image" loading="lazy">
                   </div>
+                  {% elsif block.type == 'video' %}
+                    <div class="swiper-slide video-block-slide">
+                      <div class="product-video">
+                        <iframe id="product-video-iframe" src="https://player.vimeo.com/video/{{ block.settings.vimeo_video_id }}?playsinline=0" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen loading="lazy"></iframe>
+                      </div>
+                    </div>
+                {% endif %}
+              {% endfor %}
+
+              {%- if first_3d_model -%}
+                <div class="swiper-slide 3d-image-slide">
+                  <model-viewer class="w-full h-[500px] md:h-[80vw]" alt="Curalin" src="{{ first_3d_model.sources.first.url }}" poster="//curalife.com/cdn/shop/files/curalinsdsdv.png?v=1704651801" shadow-intensity="1" camera-controls camera-orbit="300deg 80deg" auto-rotate></model-viewer>
+                </div>
+              {%- endif -%}
+
+              {% comment %} Render Vaiants on Main Slider {% endcomment %}
+              {% if product.variants.size > 1 %}
+                {% for var in product.variants %}
+                  <div class="swiper-slide variant-image-slide">
+                    {% if var.image %}
+                      <img src="{{ var.image | image_url }}" alt="{{ var.image.alt | escape }}">
+                    {% endif %}
+
+                    {% if isSaveTitle %}
+                      {% assign save_price = var.compare_at_price | minus: var.price %}
+
+                      <div class="save-title"><p>SAVE {{ save_price | money_without_trailing_zeros }}</p></div>
+                    {% endif %}
+
+                    {% if badgeImage %}
+                      <img src="{{ badgeImage | image_url }}" alt="Curalin" class="sale-badge" loading="lazy">
+                    {% endif %}
+                  </div>
+                {% endfor %}
               {% endif %}
-            {% endfor %}
 
-            {%- if first_3d_model -%}
-              <div class="swiper-slide 3d-image-slide">
-                <model-viewer class="w-full h-[500px] md:h-[80vw]" alt="Curalin" src="{{ first_3d_model.sources.first.url }}" poster="//curalife.com/cdn/shop/files/curalinsdsdv.png?v=1704651801" shadow-intensity="1" camera-controls camera-orbit="300deg 80deg" auto-rotate></model-viewer>
-              </div>
-            {%- endif -%}
+              {% if customer.email == 'ana@curalife.com' or customer.email == 'yotam@curalife.com' %}
+                {% for additionalVariant in product.metafields.custom.additional_variants.value %}
+                  <div class="swiper-slide">
+                    <img src="{{ additionalVariant.image | image_url }}" alt="{{ additionalVariant.image.alt | escape }}">
 
-            {% comment %} Render Vaiants on Main Slider {% endcomment %}
-            {% if product.variants.size > 1 %}
-              {% for var in product.variants %}
-                <div class="swiper-slide variant-image-slide">
-                  {% if var.image %}
-                    <img src="{{ var.image | image_url }}" alt="{{ var.image.alt | escape }}">
-                  {% endif %}
+                    {% if isSaveTitle %}
+                      {% assign save_price = additionalVariant.compare_at_price | minus: additionalVariant.price %}
 
-                  {% if isSaveTitle %}
-                    {% assign save_price = var.compare_at_price | minus: var.price %}
+                      <div class="save-title"><p>SAVE {{ save_price | money_without_trailing_zeros }}</p></div>
+                    {% endif %}
 
-                    <div class="save-title"><p>SAVE {{ save_price | money_without_trailing_zeros }}</p></div>
-                  {% endif %}
-
-                  {% if badgeImage %}
-                    <img src="{{ badgeImage | image_url }}" alt="Curalin" class="sale-badge" loading="lazy">
-                  {% endif %}
-                </div>
-              {% endfor %}
-            {% endif %}
-
-            {% if customer.email == 'ana@curalife.com' or customer.email == 'yotam@curalife.com' %}
-              {% for additionalVariant in product.metafields.custom.additional_variants.value %}
-                <div class="swiper-slide">
-                  <img src="{{ additionalVariant.image | image_url }}" alt="{{ additionalVariant.image.alt | escape }}">
-
-                  {% if isSaveTitle %}
-                    {% assign save_price = additionalVariant.compare_at_price | minus: additionalVariant.price %}
-
-                    <div class="save-title"><p>SAVE {{ save_price | money_without_trailing_zeros }}</p></div>
-                  {% endif %}
-
-                  {% if badgeImage %}
-                    <img src="{{ badgeImage | image_url }}" alt="Curalin" class="sale-badge" loading="lazy">
-                  {% endif %}
-                </div>
-              {% endfor %}
+                    {% if badgeImage %}
+                      <img src="{{ badgeImage | image_url }}" alt="Curalin" class="sale-badge" loading="lazy">
+                    {% endif %}
+                  </div>
+                {% endfor %}
+              {% endif %}
             {% endif %}
           </div>
 
@@ -248,11 +251,11 @@
     width: 100%
   }
 
-  #product-thumbnails-{{ section.id }} .product-slider .main-slider .nav {
+  #product-thumbnails-{{ section.id }} .product-slider .main-slider .swiper-nav {
     display: none;
   }
 
-  #product-thumbnails-{{ section.id }} .product-slider .main-slider .nav::after {
+  #product-thumbnails-{{ section.id }} .product-slider .main-slider .swiper-nav::after {
     font-size: 12px;
     color: var(--blue);
     font-weight: bold;
@@ -346,15 +349,15 @@
       padding-bottom: 100%
     }
 
-    #product-thumbnails-{{ section.id }} .product-slider .main-slider .nav {
+    #product-thumbnails-{{ section.id }} .product-slider .main-slider .swiper-nav {
       display: flex;
     }
 
-    #product-thumbnails-{{ section.id }} .product-slider .main-slider .nav.swiper-button-prev {
+    #product-thumbnails-{{ section.id }} .product-slider .main-slider .swiper-nav.swiper-button-prev {
       left: -10px;
     }
 
-    #product-thumbnails-{{ section.id }} .product-slider .main-slider .nav.swiper-button-next {
+    #product-thumbnails-{{ section.id }} .product-slider .main-slider .swiper-nav.swiper-button-next {
       right: -10px;
     }
 
