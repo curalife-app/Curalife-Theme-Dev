@@ -457,7 +457,7 @@
     const productActions = document.getElementById('product-actions');
     const purchaseTypeInputs = productActions.querySelectorAll('input[name="purchase-type"]');
     const submitButton = productActions.querySelector('.submit-button');
-    const loader = submitButton.querySelector('.loader'); // Ensure this element exists in your HTML
+    const loader = submitButton.querySelector('.loader');
     const quantityOptions = productActions.querySelectorAll('.quantity-option input[type="radio"]');
 
     function init() {
@@ -476,27 +476,22 @@
         // Automatically select the "Buy 3" option
         const buyThreeOption = document.querySelector('.one-time-purchase .quantity-option input[value="3"]');
         if (buyThreeOption) {
-            buyThreeOption.checked = true; // This sets the default checked option
-            buyThreeOption.click(); // This triggers any necessary event listeners
-            buyThreeOption.closest('.quantity-option').classList.add('selected'); // Add the 'selected' class to style it as selected
+            buyThreeOption.checked = true;
+            buyThreeOption.click();
+            buyThreeOption.closest('.quantity-option').classList.add('selected');
         }
 
         // Update the submit button text
         updateSubmitButton();
 
-        // Add event listeners for purchase type changes
+        // Add event listeners
         purchaseTypeInputs.forEach(input => input.addEventListener('change', handlePurchaseTypeChange));
-
-        // Add event listeners for quantity option selection
         quantityOptions.forEach(option => option.addEventListener('click', handleQuantitySelection));
-
         submitButton.addEventListener('click', handleSubmit);
     }
 
     function handlePurchaseTypeChange(event) {
         const purchaseType = event.target.value;
-
-        // Toggle visibility of quantity options based on selected purchase type
         updatePurchaseOptions(purchaseType);
 
         // Automatically select the first quantity option of the selected purchase type
@@ -507,7 +502,6 @@
             firstOption.click();
         }
 
-        // Update the submit button text
         updateSubmitButton();
     }
 
@@ -523,12 +517,10 @@
     function handleQuantitySelection(event) {
         const selectedOption = event.target.closest('.quantity-option');
 
-        // Remove the selected class from all quantity options
         quantityOptions.forEach(option => {
             option.closest('.quantity-option').classList.remove('selected');
         });
 
-        // Add the selected class to the clicked option
         selectedOption.classList.add('selected');
     }
 
@@ -548,56 +540,43 @@
         const subscriptionPlanId = isSubscription ? selectedOption.dataset.subscriptionPlanId : null;
 
         toggleButtonLoading(true);
-        isSubscription ? buySubscription(variantId, 1, subscriptionPlanId) : redirectToCheckout(variantId, 1);
+        clearCartAndAddItem(variantId, quantity, subscriptionPlanId);
     }
 
     function toggleButtonLoading(isLoading) {
-        if (loader) { // Check if loader element exists
+        if (loader) {
             loader.style.display = isLoading ? 'block' : 'none';
         }
         const submitButtonText = submitButton.querySelector('.submit-button-text');
-        if (submitButtonText) { // Check if submit button text exists
+        if (submitButtonText) {
             submitButtonText.style.display = isLoading ? 'none' : 'block';
         }
     }
 
-    function redirectToCheckout(variantId, quantity) {
-        const checkoutLink = `https://${location.hostname}/cart/${variantId}:${quantity}`;
-        window.location.href = checkoutLink;
-    }
-
-    function clearCart(callback) {
-        fetch('/cart/clear.js', { method: 'POST' })
-            .then(() => {
-                console.log('Cart cleared');
-                callback();
-            })
-            .catch(() => console.log('Failed to clear cart'));
-    }
-
-    function buySubscription(variantId, qty, sellingPlan) {
-        clearCart(() => {
-            const data = {
+    function clearCartAndAddItem(variantId, quantity, sellingPlan = null) {
+        const data = {
+            items: [{
                 id: variantId,
-                quantity: qty,
+                quantity: quantity,
                 selling_plan: sellingPlan
-            };
+            }]
+        };
 
-            fetch('/cart/add.js', {
+        fetch('/cart/clear.js', { method: 'POST' })
+            .then(() => fetch('/cart/add.js', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)
+            }))
+            .then(response => response.json())
+            .then(() => {
+                console.log('Item added to cart');
+                window.location.href = '/checkout';
             })
-                .then(response => response.json())
-                .then(() => {
-                    console.log('Subscription added to cart');
-                    window.location.href = '/checkout';
-                })
-                .catch(() => {
-                    console.log('Failed to add subscription to cart');
-                    toggleButtonLoading(false);
-                });
-        });
+            .catch((error) => {
+                console.error('Error:', error);
+                toggleButtonLoading(false);
+            });
     }
 
     init();

@@ -27,7 +27,7 @@
       {% endif %}
 
       {% if section.settings.is_slider %}
-        <div class="swiper items !overflow-{{ section.settings.overflow }} z-10 !pb-8" id="items-container-{{ section.id }}" {% if section.settings.animation %}data-aos="{{ section.settings.animation }}"{% endif %}>
+        <div class="swiper items !overflow-{{ section.settings.overflow }} z-10 !pb-12" id="items-container-{{ section.id }}" {% if section.settings.animation %}data-aos="{{ section.settings.animation }}"{% endif %}>
           <div class="swiper-wrapper">
       {% else %}
         <div class="items !overflow-{{ section.settings.overflow }} z-10 py-8 flex flex-wrap {% if section.settings.items_align == 'center' %}items-center{% else %}items-start{% endif %} {% if section.settings.collection_align == 'center' %}m-auto{% endif %} justify-center mbl:justify-between overflow-visible" id="items-container-{{ section.id }}" {% if section.settings.animation %}data-aos="{{ section.settings.animation }}"{% endif %}>
@@ -116,46 +116,117 @@
 
   {% if section.settings.is_slider %}
     <script>
-        var itemsSwiper = new Swiper('#items-container-{{ section.id }}', {
-          spaceBetween: 15,
-          grabCursor: true,
-          slidesPerView: 'auto',
-          autoHeight: {{ section.settings.is_auto_height }},
-          {% if section.settings.is_arrows %}navigation: {
-            nextEl: '#items-container-{{ section.id }} .swiper-button-next',
-            prevEl: '#items-container-{{ section.id }} .swiper-button-prev',
-          },{% endif %}
-          {% if section.settings.is_dots %}pagination: {
-            el: '#items-container-{{ section.id }} .swiper-pagination',
-            clickable: true
-          },{% endif %}
-          {% if section.settings.is_scrollbar %}scrollbar: {
-            el: '#items-container-{{ section.id }} .swiper-scrollbar'
-          },{% endif %}
-          {% if section.settings.is_ticker %}
+      document.addEventListener('DOMContentLoaded', function() {
+        var itemsContainer = document.getElementById('items-container-{{ section.id }}');
+        var isMobile = window.innerWidth <= 768;
+        var arrows = document.querySelectorAll('#section-{{ section.id }} .swiper-button-next, #section-{{ section.id }} .swiper-button-prev');
+
+        {% if section.settings.items_in_row == 'all' %}
+          if (isMobile) {
+            initializeSwiper();
+            showArrows();
+          } else {
+            deactivateSwiper();
+            hideArrows();
+          }
+        {% else %}
+          initializeSwiper();
+          showArrows();
+        {% endif %}
+
+        function initializeSwiper() {
+          itemsContainer.classList.add('swiper');
+          itemsContainer.classList.remove('items', 'flex', 'flex-wrap');
+          var items = itemsContainer.querySelectorAll('.item');
+          items.forEach(function(item) {
+            item.classList.add('swiper-slide');
+          });
+
+          var itemsSwiper = new Swiper('#items-container-{{ section.id }}', {
+            spaceBetween: 15,
+            grabCursor: true,
+            slidesPerView: 'auto',
+            autoHeight: {{ section.settings.is_auto_height }},
+            {% if section.settings.is_arrows %}
+            navigation: {
+              nextEl: '#items-container-{{ section.id }} .swiper-button-next',
+              prevEl: '#items-container-{{ section.id }} .swiper-button-prev',
+            },
+            {% endif %}
+            {% if section.settings.is_dots %}
+            pagination: {
+              el: '#items-container-{{ section.id }} .swiper-pagination',
+              clickable: true
+            },
+            {% endif %}
+            {% if section.settings.is_scrollbar %}
+            scrollbar: {
+              el: '#items-container-{{ section.id }} .swiper-scrollbar'
+            },
+            {% endif %}
+            {% if section.settings.is_ticker %}
             loop: true,
             speed: 1500,
             autoplay: {
               delay: 0,
               disableOnInteraction: false
             },
-          {% elsif section.settings.slider_autoplay_speed > 0 %}
+            {% elsif section.settings.slider_autoplay_speed > 0 %}
             loop: true,
             speed: {{ section.settings.slider_autoplay_speed }},
             autoplay: {
               delay: {{ section.settings.slider_autoplay_speed }},
             },
-          {% endif %}
-          lazy: true,
-          breakpoints: {
-            768: {
-              slidesPerView: {{ section.settings.items_in_row_mobile }}
-            },
-            1200: {
-              slidesPerView: {% if section.settings.items_in_row != 'all' %}{{ section.settings.items_in_row }}{% else %}'auto'{% endif %}
+            {% endif %}
+            lazy: true,
+            breakpoints: {
+              768: {
+                slidesPerView: {{ section.settings.items_in_row_mobile }}
+              },
+              1200: {
+                slidesPerView: {% if section.settings.items_in_row != 'all' %}{{ section.settings.items_in_row }}{% else %}'auto'{% endif %}
+              }
             }
+          });
+        }
+
+        function deactivateSwiper() {
+          itemsContainer.classList.remove('swiper');
+          itemsContainer.classList.add('items', 'flex', 'flex-wrap');
+          var items = itemsContainer.querySelectorAll('.item');
+          items.forEach(function(item) {
+            item.classList.remove('swiper-slide');
+          });
+        }
+
+        function hideArrows() {
+          arrows.forEach(function(arrow) {
+            arrow.style.display = 'none';
+          });
+        }
+
+        function showArrows() {
+          arrows.forEach(function(arrow) {
+            arrow.style.display = '';
+          });
+        }
+
+        window.addEventListener('resize', function() {
+          var newIsMobile = window.innerWidth <= 768;
+          if (isMobile !== newIsMobile) {
+            isMobile = newIsMobile;
+            {% if section.settings.items_in_row == 'all' %}
+              if (isMobile) {
+                initializeSwiper();
+                showArrows();
+              } else {
+                deactivateSwiper();
+                hideArrows();
+              }
+            {% endif %}
           }
         });
+      });
     </script>
   {% endif %}
 
