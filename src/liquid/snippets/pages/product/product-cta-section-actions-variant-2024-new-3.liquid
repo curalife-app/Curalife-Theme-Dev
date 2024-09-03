@@ -1,0 +1,67 @@
+{% assign variant_id = var.metafields.custom.reference_variant_id | default: var.id %}
+{% assign bottle_quantity = var.metafields.my_fields.pack_bottles_quantity %}
+{% assign original_item_cap = var.metafields.custom.original_item.value.compare_at_price | default: var.metafields.custom.original_item.value.price %}
+{% assign original_item_cap_total = original_item_cap | times: bottle_quantity %}
+{% assign original_item_price = var.metafields.custom.original_item.value.price %}
+{% assign item_price = var.price | divided_by: bottle_quantity %}
+{% assign subscription_save_percents = var.metafields.subscription.save_percents %}
+{% assign subscription_item_price_save = original_item_cap | times: subscription_save_percents | divided_by: 100 %}
+{% assign subscription_item_price = original_item_cap | minus: subscription_item_price_save %}
+{% assign subscription_total_price = subscription_item_price | times: bottle_quantity %}
+{% if var.metafields.custom.referenced_variant_product_handle %}
+  {% assign prod = all_products[var.metafields.custom.referenced_variant_product_handle] %}
+  {% assign referenced_variant = prod.variants | where: 'id', variant_id | first %}
+  {% assign selling_plan_id = referenced_variant.metafields.subscription.selling_plan_id | default: variant.metafields.subscription.selling_plan_id %}
+{% elsif var.metafields.subscription.selling_plan_id %}
+  {% assign selling_plan_id = var.metafields.subscription.selling_plan_id %}
+{% elsif var.selling_plan_allocations.size > 0 %}
+  {% for allocation in var.selling_plan_allocations %}
+    {% if allocation.selling_plan.name contains bottle_quantity %}
+      {% assign selling_plan_id = allocation.selling_plan.id %}
+    {% endif %}
+  {% endfor %}
+{% else %}
+  <script>console.log("Didn't find selling plan for the variant")</script>
+{% endif %}
+
+<div class="purchase-option-box flex flex-col items-start overflow-hidden {% if index == 1 %}selected{% endif %}" data-variant="{{ variant_id }}" data-original-variant="{{ var.id }}" data-subscription-selling-plan-id="{{ selling_plan_id }}" data-price="{{ var.price | money_without_currency | replace: ".00", "" }}" data-sku="{{ var.sku }}" data-index="{{ index }}" data-item-price="{{ item_price }}" data-subscription-item-price="{{ subscription_item_price }}" data-original-item-cap="{{ original_item_cap }}" data-dc="{{ var.metafields.custom.discount_code | base64_encode }}" data-buy-once-discount="{{ var.metafields.custom.save_percents }}" data-subscription-discount="{{ var.metafields.subscription.save_percents }}">
+  <div class="top-wrapper flex items-center justify-between w-full gap-4 pb-3">
+    <div class="left-wrapper flex items-center gap-4">
+      <div class="radio-box"><input type="radio"></input><label for="buyonce"></label></div>
+      <div class="titles min-h-[42px] max-w-[220px] flex flex-col justify-center">
+        <div class="option-title content-center font-semibold text-black">{% if var.title == 'Default Title' %}{{ prod.title }}{% else %}{{ var.title }}{% endif %}</div>
+        {% unless request.path contains 'v4' %}
+          {% unless request.path contains 'presell' %}
+            {% if var.metafields.my_fields.subtitle %}<div class="subtitle buy-once text-[14px] content-center hidden">{{ var.metafields.my_fields.subtitle }}</div>{% endif %}
+            {% if var.metafields.subscription.subtitle %}<div class="subtitle subscription text-[14px] content-center">{{ var.metafields.subscription.subtitle }}</div>{% endif %}
+          {% endunless %}
+        {% endunless %}
+      </div>
+    </div>
+
+    <div class="right-wrapper">
+      {% if var.metafields.subscription.save_percents > 0 %}<div class="save-title subscription-content text-white text-center mbl:text-[3vw] mbl:min-w-[18vw] rounded-full p-1 px-2">Save {{ var.metafields.subscription.save_percents }}%</div>{% endif %}
+      {% if var.metafields.custom.save_percents > 0 %}<div class="save-title buy-once-content hidden text-white text-center mbl:text-[3vw] mbl:min-w-[18vw] rounded-full p-1 px-2">Save {{ var.metafields.custom.save_percents }}%</div>{% endif %}
+      {% if var.metafields.custom.info_description %}{% render 'tooltip', SID: SID, linkTitle: '<i class="fa-duotone fa-circle-info text-[--blue] text-[18px]"></i>', title: 'Subscription Terms', description: {{ var.metafields.custom.info_description }}, features: ['Save on every order,Guaranteed delivery,Make changes anytime,VIP support,New subscribers gifs'] %}{% endif %}
+    </div>
+  </div>
+
+  <div class="price-wrapper pb-2">
+    {% if prod.metafields.custom.is_price_per_month and var.price > item_price %}
+      <div class="total-price-wrapper mb-1 text-[16px]">
+        {% assign staticSubscriptionTotalPrice = var.metafields.subscription.price | metafield_text %}
+        {% assign dynamicSubscriptionTotalPrice = subscription_total_price | money %}
+        <span class="total-price subscription-content">Total <span class="floor rounded">{{ staticSubscriptionTotalPrice | default: dynamicSubscriptionTotalPrice }}</span></span>
+        <span class="total-price buy-once-content hidden">Total <span class="floor rounded">{{ var.price | money }}</span></span>
+      </div>
+    {% endif %}
+
+    <div class="calculations flex items-center gap-2 font-bold leading-10">
+      <div class="real-price no-letters text-[40px] subscription-content"><span class="floor rounded">{% if prod.metafields.custom.is_price_per_month %}{{ subscription_item_price | money }}{% else %}{{ subscription_total_price | money }}{% endif %}</span></div>
+      <div class="real-price no-letters text-[40px] buy-once-content hidden"><span class="floor rounded">{% if prod.metafields.custom.is_price_per_month %}{{ item_price | money }}{% else %}{{ var.price | money }}{% endif %}</span></div>
+      <div class="compared-at-price rounded line-through text-[30px] font-normal text-[#baced5]">{% if prod.metafields.custom.is_price_per_month %}{{ original_item_cap | money }}{% else %}{{ original_item_cap_total | money }}{% endif %}</div>
+    </div>
+
+    <div class="per-month font-bold">Per Month</div>
+  </div>
+</div>
