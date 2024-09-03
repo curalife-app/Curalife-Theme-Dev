@@ -22,12 +22,28 @@
         {% if videoEmbed != blank %}
           <iframe class="w-full h-[400px] mbl:h-[100vw]" src="{{ videoEmbed | escape }}" frameborder="0" allow="autoplay; fullscreen" class="fluidvids-item" data-fluidvids="loaded" frameborder="0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen title=""></iframe>
         {% else %}
-          <picture>
-            {% if main_mobile_image %}
-              <source media="(max-width: 768px)" srcset="{{ main_mobile_image | image_url }}" width="{{ main_mobile_image.width }}" height="{{ main_mobile_image.height }}">
-            {% endif %}
-            <img class="{% if is_limit_image_size %}max-h-500px{% endif %} relative z-auto object-contain {% if is_hide_image_on_mobile %}md:hidden{% endif %} {% if is_image_overlap_style %} h-[calc(100%+135px)] object-cover object-left{% endif %}" src="{{ main_image | default: main_mobile_image | image_url }}" alt="{{ main_image.alt }}" width="{{ main_image.width }}" height="{{ main_image.height }}" {% unless is_dont_lazyload %}loading="lazy"{% endunless %} {% if image_animation != 'none'%}data-aos="{{ image_animation }}" data-aos-duration="{{ animation_duration }}"{% endif %}>
-          </picture>
+          {% if is_dont_lazyload == false %}{% assign lazyLoad = true %}{% endif %}
+          {% if customer.email contains 'yotam@curalife.com' %}
+            {% render 'image',
+              image: main_image,
+              mobile_image: main_mobile_image,
+              sizes: '(min-width: 1200px) 1100px, (min-width: 769px) 750px, 100vw',
+              breakpoint: 768,
+              lazy: lazyLoad,
+              preload: false,
+              alt: main_image.alt,
+              class: 'main-image',
+              focal_point: '50-50'
+            %}
+          {% else %}
+            <picture>
+              {% if main_mobile_image %}
+                <source media="(max-width: 768px)" srcset="{{ main_mobile_image | image_url }}" width="{{ main_mobile_image.width }}" height="{{ main_mobile_image.height }}">
+              {% endif %}
+              <img class="{% if is_limit_image_size %}max-h-500px{% endif %} relative z-auto object-contain {% if is_hide_image_on_mobile %}md:hidden{% endif %} {% if is_image_overlap_style %} h-[calc(100%+135px)] object-cover object-left{% endif %}" src="{{ main_image | default: main_mobile_image | image_url }}" alt="{{ main_image.alt }}" width="{{ main_image.width }}" height="{{ main_image.height }}" {% unless is_dont_lazyload %}loading="lazy"{% endunless %} {% if image_animation != 'none'%}data-aos="{{ image_animation }}" data-aos-duration="{{ animation_duration }}"{% endif %}>
+            </picture>
+          {% endif %}
+
         {% endif %}
       </div>
     {% endif %}
@@ -154,6 +170,10 @@
         max-width: none;
         height: auto;
         object-fit: cover;
+      }
+
+      #section-{{ section_id }} .content-wrapper .content {
+        padding: 0 15px;
       }
     }
   {% endif %}
