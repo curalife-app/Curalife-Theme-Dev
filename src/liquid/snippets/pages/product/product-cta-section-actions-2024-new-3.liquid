@@ -9,7 +9,7 @@
     </div>
 
     {% for var in product.variants %}
-      {% render 'product-cta-section-actions-variant-2024-new-3', SID: SID, prod: product, var: var, buyBoxColor: buyBoxColor, index: forloop.index %}
+      {% render 'product-cta-section-actions-variant-2024-new-3', SID: SID, prod: product, var: var, buyBoxColor: buyBoxColor, pricePer: pricePer, index: forloop.index %}
     {% endfor %}
 
     {% comment %} {% if customer.email == 'yotam@curalife.com' and false %}
@@ -53,6 +53,7 @@
   $(document).ready(function() {
     const $productActions = $("#product-actions-{{ SID }}");
     const $purchaseOptionBoxes = $productActions.find('.purchase-option-box');
+    const enableToggleAnimation = {{ isVariantBoxToggle | default: false }};
 
     attachEventHandlers();
     initializePurchaseOptions();
@@ -230,17 +231,21 @@
       }
 
       $('#product-actions-{{ SID }} .purchase-option-box.selected').removeClass('selected').each(function() {
-        $(this).css('max-height', '68px');
-        $(this).find('.toggle-icon').hide();
+        if (enableToggleAnimation) {
+          $(this).css('max-height', '68px');
+          $(this).find('.toggle-icon').hide();
+        }
       });
 
       $('#product-actions-{{ SID }} .submit-selling-plan-id').val(subscriptionPlanID);
       $('#product-actions-{{ SID }} .submit-variant-id').val(variantID);
 
       $(element).addClass('selected');
-      adjustMaxHeight(element);
+      if (enableToggleAnimation) {
+        adjustMaxHeight(element);
+        $(element).find('.toggle-icon').show();
+      }
       $(element).find("input[type='radio']").prop('checked', true);
-      $(element).find('.toggle-icon').show(); // Show the 'v' icon in the expanded box
 
       updateYotpoPointsWidget(element);
 
@@ -504,5 +509,14 @@
         color: var(--primary-color-light);
       }
     }
+  }
+
+  #cta-section-{{ section.id }} .product-actions:not(.with-animation) .purchase-option-box {
+    max-height: none !important;
+    transition: none !important;
+  }
+
+  #cta-section-{{ section.id }} .product-actions:not(.with-animation) .purchase-option-box .toggle-icon {
+    display: none !important;
   }
 </style>
