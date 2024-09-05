@@ -8,6 +8,11 @@
 {% assign subscription_item_price_save = original_item_cap | times: subscription_save_percents | divided_by: 100 %}
 {% assign subscription_item_price = original_item_cap | minus: subscription_item_price_save %}
 {% assign subscription_total_price = subscription_item_price | times: bottle_quantity %}
+
+{% comment %} Calculate savings in money {% endcomment %}
+{% assign subscription_save_money = original_item_cap | minus: subscription_item_price %}
+{% assign buy_once_save_money = original_item_cap | minus: item_price %}
+
 {% if var.metafields.custom.referenced_variant_product_handle %}
   {% assign prod = all_products[var.metafields.custom.referenced_variant_product_handle] %}
   {% assign referenced_variant = prod.variants | where: 'id', variant_id | first %}
@@ -45,15 +50,41 @@
       <div class="radio-box"><input type="radio"></input><label for="buyonce"></label></div>
       <div class="titles max-w-[220px] flex flex-col justify-center">
         <div class="option-title content-center font-semibold text-[16px]">{% if var.title == 'Default Title' %}{{ prod.title }}{% else %}{{ var.title }}{% endif %}</div>
-          {% comment %} {% if var.metafields.my_fields.subtitle %}<div class="subtitle buy-once text-[14px] content-center hidden">{{ var.metafields.my_fields.subtitle }}</div>{% endif %}
-          {% if var.metafields.subscription.subtitle %}<div class="subtitle subscription text-[14px] content-center">{{ var.metafields.subscription.subtitle }}</div>{% endif %} {% endcomment %}
       </div>
     </div>
 
     <div class="right-wrapper flex items-center justify-end gap-4">
       <div class="save-tag">
-        {% if var.metafields.subscription.save_percents > 0 %}<div class="save-title subscription text-center text-[14px] mbl:text-[3vw] mbl:min-w-[18vw] rounded-full p-1 px-2">Save {{ var.metafields.subscription.save_percents }}%</div>{% endif %}
-        {% if var.metafields.custom.save_percents > 0 %}<div class="save-title buy-once hidden text-center text-[14px] mbl:text-[3vw] mbl:min-w-[18vw] rounded-full p-1 px-2">Save {{ var.metafields.custom.save_percents }}%</div>{% endif %}
+        {% if isSaveInMoney or true %}
+          {% if pricePer == 'month' %}
+            {% if subscription_save_money > 0 %}
+              <div class="save-title subscription text-center text-[14px] mbl:text-[3vw] mbl:min-w-[18vw] rounded-full p-1 px-2">
+                Save {{ subscription_save_money | divided_by: 100.0 | round | floor | times: 100 | money_without_trailing_zeros | remove: '.00' }}
+              </div>
+            {% endif %}
+            {% if buy_once_save_money > 0 %}
+              <div class="save-title buy-once hidden text-center text-[14px] mbl:text-[3vw] mbl:min-w-[18vw] rounded-full p-1 px-2">
+                Save {{ buy_once_save_money | divided_by: 100.0 | round | floor | times: 100 | money_without_trailing_zeros | remove: '.00' }}
+              </div>
+            {% endif %}
+          {% elsif pricePer == 'dont_split' %}
+            {% assign total_subscription_save = subscription_save_money | times: bottle_quantity %}
+            {% assign total_buy_once_save = buy_once_save_money | times: bottle_quantity %}
+            {% if total_subscription_save > 0 %}
+              <div class="save-title subscription text-center text-[14px] mbl:text-[3vw] mbl:min-w-[18vw] rounded-full p-1 px-2">
+                Save {{ total_subscription_save | divided_by: 100.0 | round | floor | times: 100 | money_without_trailing_zeros | remove: '.00' }}
+              </div>
+            {% endif %}
+            {% if total_buy_once_save > 0 %}
+              <div class="save-title buy-once hidden text-center text-[14px] mbl:text-[3vw] mbl:min-w-[18vw] rounded-full p-1 px-2">
+                Save {{ total_buy_once_save | divided_by: 100.0 | round | floor | times: 100 | money_without_trailing_zeros | remove: '.00' }}
+              </div>
+            {% endif %}
+          {% endif %}
+        {% else %}
+          {% if var.metafields.subscription.save_percents > 0 %}<div class="save-title subscription text-center text-[14px] mbl:text-[3vw] mbl:min-w-[18vw] rounded-full p-1 px-2">Save {{ var.metafields.subscription.save_percents }}%</div>{% endif %}
+          {% if var.metafields.custom.save_percents > 0 %}<div class="save-title buy-once hidden text-center text-[14px] mbl:text-[3vw] mbl:min-w-[18vw] rounded-full p-1 px-2">Save {{ var.metafields.custom.save_percents }}%</div>{% endif %}
+        {% endif %}
         {% if var.metafields.custom.info_description %}{% render 'tooltip', SID: SID, linkTitle: '<i class="fa-duotone fa-circle-info text-[--blue] text-[18px]"></i>', title: 'Subscription Terms', description: {{ var.metafields.custom.info_description }}, features: ['Save on every order,Guaranteed delivery,Make changes anytime,VIP support,New subscribers gifs'] %}{% endif %}
       </div>
 
@@ -61,9 +92,9 @@
         {% if pricePer == 'month' and false %}
           <div class="total-price-wrapper mb-1 text-[16px]">
             {% assign staticSubscriptionTotalPrice = var.metafields.subscription.price | metafield_text %}
-            {% assign dynamicSubscriptionTotalPrice = subscription_total_price | money %}
+            {% assign dynamicSubscriptionTotalPrice = subscription_total_price | money | replace: '.00', '' %}
             <span class="total-price subscription">Total <span class="floor rounded">{{ staticSubscriptionTotalPrice | default: dynamicSubscriptionTotalPrice }}</span></span>
-            <span class="total-price buy-once hidden">Total <span class="floor rounded">{{ var.price | money }}</span></span>
+            <span class="total-price buy-once hidden">Total <span class="floor rounded">{{ var.price | money | replace: '.00', '' }}</span></span>
           </div>
         {% endif %}
 
@@ -71,26 +102,26 @@
           <div class="real-price no-letters text-[20px] text-[--primary-color] subscription">
             <span class="floor rounded">
               {% if pricePer == 'month' %}
-                {{ subscription_item_price | money }}
+                {{ subscription_item_price | money | replace: '.00', '' }}
               {% else %}
-                {{ subscription_total_price | money }}
+                {{ subscription_total_price | money | replace: '.00', '' }}
               {% endif %}
             </span>
           </div>
           <div class="real-price no-letters text-[20px] text-[--primary-color] buy-once hidden">
             <span class="floor rounded">
               {% if pricePer == 'month' %}
-                {{ item_price | money }}
+                {{ item_price | money | replace: '.00', '' }}
               {% else %}
-                {{ var.price | money }}
+                {{ var.price | money | replace: '.00', '' }}
               {% endif %}
             </span>
           </div>
           <div class="compared-at-price text-[14px] opacity-40 font-normal line-through rounded">
             {% if pricePer == 'month' %}
-              {{ original_item_cap | money }}
+              {{ original_item_cap | money | replace: '.00', '' }}
             {% else %}
-              {{ original_item_cap_total | money }}
+              {{ original_item_cap_total | money | replace: '.00', '' }}
             {% endif %}
           </div>
         </div>
@@ -102,7 +133,7 @@
     </div>
   </div>
 
-  <div class="subscription-terms subscription mt-4">
+  <div class="subscription-terms subscription">
     <div class="subtitle text-[14px]">{{ var.metafields.subscription.subtitle }}</div>
     <div class="terms-title text-[14px] text-[--primary-color]">Free shipping. Cancel anytime.</div>
   </div>
