@@ -277,11 +277,12 @@
         const subscriptionTerms = parentBox.find('.subscription-terms');
 
         if (isSubscriptionSelected) {
-          parentBox.find('.per-month').show();
-          bwpButton.hide();
-          buyOnceContent.hide();
-          subscriptionContent.show();
-          subscriptionTerms.show();
+          parentBox.find('.per-month').fadeIn(150);
+          bwpButton.fadeOut(150);
+          buyOnceContent.fadeOut(150, function() {
+            subscriptionContent.fadeIn(150);
+            subscriptionTerms.fadeIn(150);
+          });
 
           const sellingPlanId = parentBox.data('subscription-selling-plan-id');
           if (sellingPlanId > 0) {
@@ -291,15 +292,16 @@
             parentBox.removeClass('selected');
           }
         } else {
-          parentBox.find('.per-month').hide();
-          bwpButton.show();
+          parentBox.find('.per-month').fadeOut(150);
+          bwpButton.fadeIn(150);
           parentBox.removeAttr('inert');
-          subscriptionContent.hide();
-          buyOnceContent.show();
-          subscriptionTerms.hide();
+          subscriptionContent.fadeOut(150);
+          subscriptionTerms.fadeOut(150, function() {
+            buyOnceContent.fadeIn(150);
+          });
         }
 
-        updatePriceDisplay(parentBox, isSubscriptionSelected);
+        updatePriceDisplay(parentBox, isSubscriptionSelected, true);
 
         if (parentBox.hasClass('selected')) {
           adjustMaxHeight(parentBox, isSubscriptionSelected);
@@ -314,7 +316,7 @@
       }
     }
 
-    function updatePriceDisplay(parentBox, isSubscriptionSelected) {
+    function updatePriceDisplay(parentBox, isSubscriptionSelected, animate = true) {
       const itemPrice = parseInt(parentBox.data('item-price'));
       const subscriptionItemPrice = parseInt(parentBox.data('subscription-item-price'));
       const bottleQuantity = parseInt(parentBox.data('bottle-quantity') || 1);
@@ -328,25 +330,44 @@
       const priceElement = parentBox.find('.real-price' + (isSubscriptionSelected ? '.subscription' : '.buy-once') + ' .floor');
       const totalPriceElement = parentBox.find('.total-price' + (isSubscriptionSelected ? '.subscription' : '.buy-once') + ' .floor');
       const comparedAtPriceElement = parentBox.find('.compared-at-price');
-
-      const displayPrice = pricePer === 'month' ? currentPrice : totalPrice;
-      priceElement.text('$' + formatPrice(displayPrice));
-
-      if (totalPriceElement.length) {
-        totalPriceElement.text('$' + formatPrice(totalPrice));
-      }
-
-      if (originalItemCap > currentPrice) {
-        const comparedAtPrice = pricePer === 'month' ? originalItemCap : (originalItemCap * bottleQuantity);
-        comparedAtPriceElement.text('$' + formatPrice(comparedAtPrice)).show();
-      } else {
-        comparedAtPriceElement.hide();
-      }
-
       const saveTag = parentBox.find('.save-title' + (isSubscriptionSelected ? '.subscription' : '.buy-once'));
-      saveTag.show().siblings('.save-title').hide();
 
-      parentBox.find('.per-month').toggle(pricePer === 'month');
+      const updateContent = () => {
+        const displayPrice = pricePer === 'month' ? currentPrice : totalPrice;
+        priceElement.text('$' + formatPrice(displayPrice));
+
+        if (totalPriceElement.length) {
+          totalPriceElement.text('$' + formatPrice(totalPrice));
+        }
+
+        if (originalItemCap > currentPrice) {
+          const comparedAtPrice = pricePer === 'month' ? originalItemCap : (originalItemCap * bottleQuantity);
+          comparedAtPriceElement.text('$' + formatPrice(comparedAtPrice));
+          comparedAtPriceElement.show();
+        } else {
+          comparedAtPriceElement.hide();
+        }
+
+        saveTag.show().siblings('.save-title').hide();
+        parentBox.find('.per-month').toggle(pricePer === 'month');
+      };
+
+      if (animate) {
+        priceElement.fadeOut(150);
+        totalPriceElement.fadeOut(150);
+        comparedAtPriceElement.fadeOut(150);
+        saveTag.fadeOut(150);
+
+        setTimeout(() => {
+          updateContent();
+          priceElement.fadeIn(150);
+          totalPriceElement.fadeIn(150);
+          comparedAtPriceElement.fadeIn(150);
+          saveTag.fadeIn(150);
+        }, 150);
+      } else {
+        updateContent();
+      }
     }
 
     function formatPrice(cents) {
@@ -390,7 +411,7 @@
       element.addClass('selected');
       element.find("input[type='radio']").prop('checked', true);
 
-      togglePurchaseType(isSubscription);
+      updatePriceDisplay(element, isSubscription, false);
       updateVariantImage(element);
 
       if (enableToggleAnimation && isSubscription) {
