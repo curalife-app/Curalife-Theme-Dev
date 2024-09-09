@@ -273,17 +273,23 @@
     function togglePurchaseType(isSubscriptionSelected) {
       $purchaseOptionBoxes.each(function() {
         const parentBox = $(this);
-        const subscriptionContent = parentBox.find('.subscription');
-        const buyOnceContent = parentBox.find('.buy-once');
+        const subscriptionElements = parentBox.find('.subscription');
+        const buyOnceElements = parentBox.find('.buy-once');
         const bwpButton = $('#product-actions-{{ SID }} .bwp-button');
-        const subscriptionTerms = parentBox.find('.subscription-terms');
+
+        // Store the current height of the box
+        const currentHeight = parentBox.height();
+        parentBox.css('min-height', currentHeight + 'px');
 
         if (isSubscriptionSelected) {
           parentBox.find('.per-month').fadeIn(150);
           bwpButton.fadeOut(150);
-          buyOnceContent.fadeOut(150, function() {
-            subscriptionContent.fadeIn(150);
-            subscriptionTerms.fadeIn(150);
+
+          buyOnceElements.fadeOut(150, function() {
+            subscriptionElements.fadeIn(150, function() {
+              // After fade in, reset the min-height
+              parentBox.css('min-height', '');
+            });
           });
 
           const sellingPlanId = parentBox.data('subscription-selling-plan-id');
@@ -297,9 +303,12 @@
           parentBox.find('.per-month').fadeOut(150);
           bwpButton.fadeIn(150);
           parentBox.removeAttr('inert');
-          subscriptionContent.fadeOut(150);
-          subscriptionTerms.fadeOut(150, function() {
-            buyOnceContent.fadeIn(150);
+
+          subscriptionElements.fadeOut(150, function() {
+            buyOnceElements.fadeIn(150, function() {
+              // After fade in, reset the min-height
+              parentBox.css('min-height', '');
+            });
           });
         }
 
@@ -342,15 +351,17 @@
           totalPriceElement.text('$' + formatPrice(totalPrice));
         }
 
-        if (originalItemCap > currentPrice) {
-          const comparedAtPrice = pricePer === 'month' ? originalItemCap : (originalItemCap * bottleQuantity);
+        const comparedAtPrice = pricePer === 'month' ? originalItemCap : (originalItemCap * bottleQuantity);
+
+        if (comparedAtPrice > currentPrice) {
           comparedAtPriceElement.text('$' + formatPrice(comparedAtPrice));
           comparedAtPriceElement.show();
+          saveTag.show();
         } else {
           comparedAtPriceElement.hide();
+          saveTag.hide();
         }
 
-        saveTag.show().siblings('.save-title').hide();
         parentBox.find('.per-month').toggle(pricePer === 'month');
       };
 
