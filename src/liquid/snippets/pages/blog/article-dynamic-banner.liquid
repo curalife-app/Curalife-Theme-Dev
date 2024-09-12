@@ -8,46 +8,54 @@
 {% assign curalin_tags = "curalin,blood-sugar,glucose-support" | split: "," %}
 {% assign curaslim_tags = "curaslim,nutrition,recipe,food,bread,carbs,dessert,desserts,fasting,fitness,high carb,low carb,moderate card,pasta,recipes,snack,snacking,snacks,sweet,sweet tooth,sweeteners,weight,workout" | split: "," %}
 
-{% assign chosen_banner = CuralinCuraslimBannerURL %}
-{% assign debug_message = "Initial chosen_banner: " | append: chosen_banner %}
+{% assign use_auto_logic = false %}
+{% assign chosen_banner_image_url = CuralinCuraslimBannerURL %}
+{% assign debug_message = "Initial chosen_banner_image_url: " | append: chosen_banner_image_url %}
 
-{% for keyword in curalin_keywords %}
-  {% if article.content contains keyword %}
-    {% assign chosen_banner = CuralinBannerURL %}
-    {% assign debug_message = debug_message | append: ", Curalin keyword matched: " | append: keyword %}
-    {% break %}
-  {% endif %}
-{% endfor %}
-
-{% if chosen_banner == CuralinCuraslimBannerURL %}
-  {% for keyword in curaslim_keywords %}
+{% if use_auto_logic %}
+  {% for keyword in curalin_keywords %}
     {% if article.content contains keyword %}
-      {% assign chosen_banner = CuraslimBannerURL %}
-      {% assign debug_message = debug_message | append: ", Curaslim keyword matched: " | append: keyword %}
+      {% assign chosen_banner_image_url = CuralinBannerURL %}
+      {% assign debug_message = debug_message | append: ", Curalin keyword matched: " | append: keyword %}
       {% break %}
     {% endif %}
   {% endfor %}
+
+  {% if chosen_banner_image_url == CuralinCuraslimBannerURL %}
+    {% for keyword in curaslim_keywords %}
+      {% if article.content contains keyword %}
+        {% assign chosen_banner_image_url = CuraslimBannerURL %}
+        {% assign debug_message = debug_message | append: ", Curaslim keyword matched: " | append: keyword %}
+        {% break %}
+      {% endif %}
+    {% endfor %}
+  {% endif %}
+
+  {% if chosen_banner_image_url == CuralinCuraslimBannerURL %}
+    {% for tag in article.tags %}
+      {% if curalin_tags contains tag %}
+        {% assign chosen_banner_image_url = CuralinBannerURL %}
+        {% assign debug_message = debug_message | append: ", Curalin tag matched: " | append: tag %}
+        {% break %}
+      {% elsif curaslim_tags contains tag %}
+        {% assign chosen_banner_image_url = CuraslimBannerURL %}
+        {% assign debug_message = debug_message | append: ", Curaslim tag matched: " | append: tag %}
+        {% break %}
+      {% endif %}
+    {% endfor %}
+  {% endif %}
+{% else %}
+  {% assign promotedProduct = article.metafields.custom.promoted_product %}
+  <script>console.log("product: {{promotedProduct.title}}")</script>
+  {% assign chosen_banner_image_url = promotedProduct.metafields.custom.promotional_banner %}
+  {% assign chosen_banner_url = promotedProduct.url %}
 {% endif %}
 
-{% if chosen_banner == CuralinCuraslimBannerURL %}
-  {% for tag in article.tags %}
-    {% if curalin_tags contains tag %}
-      {% assign chosen_banner = CuralinBannerURL %}
-      {% assign debug_message = debug_message | append: ", Curalin tag matched: " | append: tag %}
-      {% break %}
-    {% elsif curaslim_tags contains tag %}
-      {% assign chosen_banner = CuraslimBannerURL %}
-      {% assign debug_message = debug_message | append: ", Curaslim tag matched: " | append: tag %}
-      {% break %}
-    {% endif %}
-  {% endfor %}
-{% endif %}
-
-{% assign debug_message = debug_message | append: ", Final chosen_banner: " | append: chosen_banner %}
+{% assign debug_message = debug_message | append: ", Final chosen_banner_image_url: " | append: chosen_banner_image_url %}
 
 <div class="sidebar-banner mb-10">
   {% render 'image',
-    image: chosen_banner,
+    image: chosen_banner_image_url,
     sizes: '(min-width: 1200px) 1100px, (min-width: 769px) 750px, 100vw',
     breakpoint: 768,
     lazy: lazyLoad,
@@ -55,8 +63,6 @@
     alt: 'sidebar banner',
     class: 'main-image'
   %}
-
-  <img class="w-full" src="{{ chosen_banner }}" alt="sidebar banner" loading="lazy">
 </div>
 
 <script>
