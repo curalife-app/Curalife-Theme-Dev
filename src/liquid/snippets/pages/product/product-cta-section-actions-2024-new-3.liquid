@@ -338,6 +338,9 @@
 
       if (state.isSubscriptionSelected) {
         setupSubscriptionButton();
+        toggleSubscriptionBenefits(true);
+      } else {
+        toggleSubscriptionBenefits(false);
       }
     }
 
@@ -395,9 +398,11 @@
           safelyRemoveClass(subscriptionSubmitButton, 'hidden');
           safelyAddClass(buyOnceSubmitButton, 'hidden');
           setupSubscriptionButton();
+          toggleSubscriptionBenefits(true);
         } else {
           safelyAddClass(subscriptionSubmitButton, 'hidden');
           safelyRemoveClass(buyOnceSubmitButton, 'hidden');
+          toggleSubscriptionBenefits(false);
         }
       }
 
@@ -440,6 +445,51 @@
       setTimeout(() => {
         element.style.transition = '';
       }, duration);
+    }
+
+    function toggleSubscriptionBenefits(show) {
+      const benefitsElement = document.querySelector('.subscription-benefits');
+      if (!benefitsElement) return;
+
+      const duration = 300; // Animation duration in milliseconds
+
+      if (show) {
+        benefitsElement.classList.remove('hidden');
+        benefitsElement.style.overflow = 'hidden';
+        benefitsElement.style.maxHeight = '0';
+        benefitsElement.style.opacity = '0';
+        benefitsElement.style.marginTop = '0';
+        benefitsElement.style.transition = `max-height ${duration}ms ease-out, opacity ${duration}ms ease-out, margin-top ${duration}ms ease-out`;
+
+        // Trigger reflow
+        benefitsElement.offsetHeight;
+
+        benefitsElement.style.maxHeight = `${benefitsElement.scrollHeight}px`;
+        benefitsElement.style.opacity = '1';
+        benefitsElement.style.marginTop = '0.5rem';
+
+        setTimeout(() => {
+          benefitsElement.style.overflow = '';
+          benefitsElement.style.maxHeight = '';
+        }, duration);
+      } else {
+        benefitsElement.style.overflow = 'hidden';
+        benefitsElement.style.maxHeight = `${benefitsElement.scrollHeight}px`;
+        benefitsElement.style.transition = `max-height ${duration}ms ease-out, opacity ${duration}ms ease-out, margin-top ${duration}ms ease-out`;
+
+        // Trigger reflow
+        benefitsElement.offsetHeight;
+
+        benefitsElement.style.maxHeight = '0';
+        benefitsElement.style.opacity = '0';
+        benefitsElement.style.marginTop = '0';
+
+        setTimeout(() => {
+          benefitsElement.classList.add('hidden');
+          benefitsElement.style.overflow = '';
+          benefitsElement.style.maxHeight = '';
+        }, duration);
+      }
     }
 
     function toggleElementVisibility(element, show) {
