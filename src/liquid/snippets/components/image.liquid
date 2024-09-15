@@ -9,6 +9,7 @@
   - lazy: Enable lazy loading (optional, default: true)
   - alt: Alt text for the image (required for accessibility)
   - class: Additional CSS classes (optional)
+  - link: URL to wrap the image in a link (optional)
 
   Usage:
   {% render 'shopify-cdn-image',
@@ -18,7 +19,8 @@
     breakpoint: 768,
     lazy: true,
     alt: product.title,
-    class: 'my-custom-class'
+    class: 'my-custom-class',
+    link: product.url
   %}
 {% endcomment %}
 
@@ -28,6 +30,7 @@
   assign lazy_load = lazy | default: true
   assign breakpoint = breakpoint | default: 768
   assign sizes = sizes | default: '(min-width: 1200px) 1100px, (min-width: 769px) 750px, 100vw'
+  assign link_url = link
 
   assign widths = '375,750,1080,1500,2200,3000'
   assign widths_array = widths | split: ','
@@ -45,6 +48,9 @@
   class="responsive-image-wrapper"
   style="{% unless is_png %}background-color: {{ desktop_image.dominant_color | default: '#f0f0f0' }};{% endunless %}"
 >
+  {%- if link_url -%}
+    <a href="{{ link_url | escape }}">
+  {%- endif -%}
   <picture>
     <source
       media="(max-width: {{ breakpoint }}px)"
@@ -85,4 +91,7 @@
       onload="this.classList.add('loaded');"
     >
   </picture>
+  {%- if link_url -%}
+    </a>
+  {%- endif -%}
 </div>
