@@ -21,7 +21,7 @@
   <div>
     <product-form class="product-form" data-hide-errors="false" data-section-id="{{ section.id }}">
       {%- form 'product', product, id: product_form_id, class: 'form', novalidate: 'novalidate', data-type: 'add-to-cart-form' -%}
-        <input class="submit-variant-id" type="hidden" name="id" value="{{ variant | default: product.selected_or_first_available_variant.id }}" disabled class="product-variant-id">
+        <input class="submit-variant-id" type="hidden" name="id" value="{{ variant | default: product.selected_or_first_available_variant.id }}" class="product-variant-id">
         <input class="submit-selling-plan-id" type="hidden" name="selling_plan" value="{{ selling_plan_id }}">
 
         <div class="product-form__buttons main-submit-wrapper flex">
@@ -29,8 +29,8 @@
             <div class="qty flex">
               <input type="text" name="quantity" maxlength="12" value="1" title="" class="input-text" />
               <div class="qty_inc_dec">
-                <i class="increment" onclick="incrementQty()">+</i>
-                <i class="decrement" onclick="decrementQty()">-</i>
+                <i class="increment">+</i>
+                <i class="decrement">-</i>
               </div>
             </div>
           {% endif %}
@@ -71,4 +71,114 @@
 
 {% if customer %}
   {% render 'yotpo-product-points-widget' %}
+{% endif %}
+
+{% if isBuyQuantity %}
+  <style>
+    .qty {
+      float: left;
+      width: 100px;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+    }
+
+    .qty_inc_dec .increment,
+    .qty_inc_dec .decrement {
+      cursor: pointer;
+      font-size: 1.2em;
+      height: 50%;
+      background-color: #fff;
+      border: 1px solid #ccc;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .qty_inc_dec .increment {
+      border-bottom: 0;
+      line-height: 25px;
+    }
+
+    .qty_inc_dec {
+      width: 30px;
+      height: 100%;
+      display: inline-block;
+    }
+
+    .qty input[type=text] {
+      float: left;
+      font-family: "Open Sans", sans-serif;
+      outline: 0;
+      font-size: 1.2em;
+      text-align: center;
+      width: 50px;
+      height: 100%;
+      color: #2a2a2a;
+      line-height: 40px;
+      border: 1px solid #ccc;
+      border-right: 0;
+      border-radius: 10px 0 0 10px;
+    }
+
+    /* Quantity Selector Transition */
+    .qty {
+      transition: width 0.3s ease;
+      width: -webkit-fill-available;
+    }
+
+    .qty_inc_dec {
+      transition: opacity 0.3s ease;
+    }
+  </style>
+
+  <script>
+    function incrementQty() {
+      var quantityInput = document.querySelector('input[name="quantity"]');
+      var value = parseInt(quantityInput.value);
+      var cardQty = document.querySelector(".cart-qty");
+      value = isNaN(value) ? 1 : value;
+      value++;
+      quantityInput.value = value;
+
+      if (cardQty) {
+        cardQty.innerHTML = value;
+        cardQty.classList.add("rotate-x");
+      }
+    }
+
+    function decrementQty() {
+      var quantityInput = document.querySelector('input[name="quantity"]');
+      var value = parseInt(quantityInput.value);
+      var cardQty = document.querySelector(".cart-qty");
+      value = isNaN(value) ? 1 : value;
+      value = value > 1 ? value - 1 : 1;
+      quantityInput.value = value;
+
+      if (cardQty) {
+        cardQty.innerHTML = value;
+        cardQty.classList.add("rotate-x");
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      var incrementButton = document.querySelector('.increment');
+      var decrementButton = document.querySelector('.decrement');
+
+      if (incrementButton) {
+        incrementButton.addEventListener('click', function(event) {
+          event.stopPropagation();
+          incrementQty();
+        });
+      }
+
+      if (decrementButton) {
+        decrementButton.addEventListener('click', function(event) {
+          event.stopPropagation();
+          decrementQty();
+        });
+      }
+    });
+  </script>
 {% endif %}

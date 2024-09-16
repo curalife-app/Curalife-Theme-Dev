@@ -1,4 +1,5 @@
 {% assign blog_categories = "Awareness Dates,CuraFood Recipes,Health Education,Healthy Living" | split: "," %}
+{% assign banner_position = article.metafields.custom.product_banner_position | default: 'Bottom' %}
 
 <article class="article-page py-[50px] md:py-[10vw]">
   <div class="container">
@@ -29,13 +30,75 @@
                 alt: article.title,
                 class: 'main-image object-cover !p-0 h-[400px] md:h-[250px] w-full'
               %}
-
-              {% comment %} <img class="!p-0 h-[400px] md:h-[250px] w-full" id="featured-image" src="{{ article.image | image_url: height: 400 }}" width="702" height="400" alt="{{ article.title }}" height="400"> {% endcomment %}
             </div>
           {% endunless %}
         {% endif %}
 
-        <div class="text text-[20px]">{{ article.content }}</div>
+        {% if banner_position == 'Top' %}
+          {% render 'article-dynamic-banner' %}
+        {% endif %}
+
+        {% if banner_position == 'Middle' %}
+          {% assign paragraphs = article.content | split: '</p>' %}
+          {% assign total_paragraphs = paragraphs | size %}
+          {% assign mid_index = total_paragraphs | divided_by: 2 %}
+
+          <div class="text text-[20px]">
+            {% for paragraph in paragraphs %}
+              {% if forloop.index0 < mid_index %}
+                {{ paragraph }}</p>
+              {% endif %}
+            {% endfor %}
+
+            {% render 'article-dynamic-banner' %}
+
+            {% for paragraph in paragraphs %}
+              {% if forloop.index0 >= mid_index %}
+                {{ paragraph }}</p>
+              {% endif %}
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="text text-[20px]">{{ article.content }}</div>
+        {% endif %}
+
+        {% if banner_position == 'Bottom' %}
+          {% render 'article-dynamic-banner' %}
+        {% endif %}
+
+        {% assign bannerProduct = article.metafields.banner.product %}
+
+        <div class="promotional-banner rounded-xl flex items-center justify-between p-4" style="background-color:{{ article.metafields.banner.background }}">
+          {% render 'image',
+            image: article.metafields.banner.image,
+            sizes: '(min-width: 1200px) 1100px, (min-width: 769px) 750px, 100vw',
+            breakpoint: 768,
+            lazy: true,
+            preload: true,
+            alt: 'sidebar banner',
+            class: 'main-image'
+          %}
+
+          {% if bannerProduct != blank %}
+            <div class="banner-content w-[60%]">
+              <h3 class="banner-title h6" style="color:{{ article.metafields.banner.button_color }}">{{ article.metafields.banner.title }}</h3>
+              <p class="banner-description">{{ article.metafields.banner.description }}</p>
+              <a href="{{ bannerProduct.url }}" class="banner-link"><button style="background-color:{{ article.metafields.banner.button_color }}">Shop {% if bannerProduct != blank %}{{ bannerProduct.title }}{% else %}All Supplements{% endif %}</button></a>
+            </div>
+
+            <style>
+              .promotional-banner {
+                button {
+                  background-color: #3A7684;
+                  color: white;
+                  padding: 0.5rem 1rem;
+                  border-radius: 50px;
+                  font-weight: bold;
+                }
+              }
+            </style>
+          {% endif %}
+        </div>
 
         {% if article.tags contains 'recipe' and article.metafields.recipe.ingredients.value %}
           {% render 'article-recipe-content', calories: article.metafields.recipe.calories, duration: article.metafields.recipe.duration, fat: article.metafields.recipe.fat, carbs: article.metafields.recipe.carbs, protein: article.metafields.recipe.protein, fiber: article.metafields.recipe.fiber, ingredients: article.metafields.recipe.ingredients.value, instructions: article.metafields.recipe.instructions.value %}
@@ -51,8 +114,6 @@
         {% endif %}
       </div>
     </div>
-
-    {% render 'article-dynamic-banner' %}
 
     <div class="tag-section w-[60%] md:w-full md:pt-4 items-center flex justify-center p-4">
       {% for tag in article.tags %}
@@ -146,7 +207,6 @@
 </article>
 
 {% render 'newsletter-form' %}
-
 
 <script>
   $(document).ready(function() {
@@ -246,7 +306,7 @@
   }
 
   .article-wrap .content {
-    max-width: 720px;
+    max-width: 60%;
   }
 
   .article-wrap .content .text h2 {
@@ -255,7 +315,7 @@
     margin-top: 2rem;
   }
 
-  .article-wrap .content img {
+  .article-wrap .content .picture-container img {
     padding: 2rem 0;
   }
 
