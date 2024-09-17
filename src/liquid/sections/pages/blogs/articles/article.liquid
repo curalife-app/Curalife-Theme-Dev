@@ -66,39 +66,71 @@
           {% render 'article-dynamic-banner' %}
         {% endif %}
 
-        {% assign bannerProduct = article.metafields.banner.product %}
+        {% if customer.email contains "@curalife.com" %}
+          {% assign bannerProduct = article.metafields.banner.product.value %}
 
-        <div class="promotional-banner rounded-xl flex items-center justify-between p-4" style="background-color:{{ article.metafields.banner.background }}">
-          {% render 'image',
-            image: article.metafields.banner.image,
-            sizes: '(min-width: 1200px) 1100px, (min-width: 769px) 750px, 100vw',
-            breakpoint: 768,
-            lazy: true,
-            preload: true,
-            alt: 'sidebar banner',
-            class: 'main-image'
-          %}
+          {% if article.metafields.banner.title != blank %}
+            {% assign bannerImage = article.metafields.banner.image | default: bannerProduct.image %}
 
-          {% if bannerProduct != blank %}
-            <div class="banner-content w-[60%]">
-              <h3 class="banner-title h6" style="color:{{ article.metafields.banner.button_color }}">{{ article.metafields.banner.title }}</h3>
-              <p class="banner-description">{{ article.metafields.banner.description }}</p>
-              <a href="{{ bannerProduct.url }}" class="banner-link"><button style="background-color:{{ article.metafields.banner.button_color }}">Shop {% if bannerProduct != blank %}{{ bannerProduct.title }}{% else %}All Supplements{% endif %}</button></a>
-            </div>
+            <div class="promotional-banner rounded-xl mbl:flex-col mbl:p-8 flex items-center justify-between gap-4 p-4" style="background-color:{{ article.metafields.banner.background }}">
+              <h3 class="banner-title h6 mobile text-center" style="color:{{ article.metafields.banner.button_color }}">{{ article.metafields.banner.title }}</h3>
 
-            <style>
-              .promotional-banner {
-                button {
-                  background-color: #3A7684;
-                  color: white;
-                  padding: 0.5rem 1rem;
-                  border-radius: 50px;
-                  font-weight: bold;
+              {% render 'image',
+                image: bannerImage,
+                sizes: '(min-width: 1200px) 1100px, (min-width: 769px) 750px, 100vw',
+                breakpoint: 768,
+                lazy: true,
+                preload: true,
+                alt: 'sidebar banner',
+                class: 'main-image'
+              %}
+
+              <div class="banner-content dsk:w-[70%]">
+                <h3 class="banner-title h6 desktop" style="color:{{ article.metafields.banner.button_color }}">{{ article.metafields.banner.title }}</h3>
+                <div class="banner-description">{{ article.metafields.banner.description }}</div>
+                {% if bannerProduct != blank %}<div class="banner-product-price">Price - {{ bannerProduct.selected_or_first_available_variant.price | money }}</div>{% endif %}
+                <a href="{{ bannerProduct.url | default: '/collections/all' }}" class="banner-link"><button>Shop {% if bannerProduct != blank %}{{ bannerProduct.title }}{% else %}All Supplements{% endif %}</button></a>
+              </div>
+
+              <style>
+                .promotional-banner {
+                  button {
+                    background-color: {{ article.metafields.banner.button_color | default: '#3A7684'}};
+                    color: white;
+                    padding: 0.5rem 2rem;
+                    border-radius: 50px;
+                    font-weight: bold;
+                    margin-top: {% if bannerProduct != blank %}0.5rem{% else %}1.5rem{% endif %};
+                  }
+
+                  .banner-product-price {
+                    color: {{ article.metafields.banner.button_color | default: '#3A7684'}};
+                    margin-top: 1rem;
+                    font-weight: bold;
+                  }
                 }
-              }
-            </style>
+
+                @media screen and (max-width: 768px) {
+                  .promotional-banner {
+                    .banner-title.mobile {
+                      font-size: 7vw;
+                    }
+
+                    .responsive-image-wrapper {
+                      width: 100%;
+
+                      img {
+                        width: 100%;
+                      }
+                    }
+                  }
+                }
+              </style>
+            </div>
           {% endif %}
-        </div>
+
+          {% render 'product-recommendations' %}
+        {% endif %}
 
         {% if article.tags contains 'recipe' and article.metafields.recipe.ingredients.value %}
           {% render 'article-recipe-content', calories: article.metafields.recipe.calories, duration: article.metafields.recipe.duration, fat: article.metafields.recipe.fat, carbs: article.metafields.recipe.carbs, protein: article.metafields.recipe.protein, fiber: article.metafields.recipe.fiber, ingredients: article.metafields.recipe.ingredients.value, instructions: article.metafields.recipe.instructions.value %}
@@ -138,7 +170,7 @@
       {% assign all_the_tags = article.tags | join: ',' %}
       {% assign current = article.id %}
 
-      <div class="related-posts p-4 bg-[--light-blue]">
+      <div class="related-posts px-4 py-8 bg-[--light-blue]">
         <h2 class="h4 text-black">Related Topics</h2>
 
         <div class="posts-list flex flex-col gap-6">
