@@ -1,7 +1,7 @@
 {% assign blog_categories = "Awareness Dates,CuraFood Recipes,Health Education,Healthy Living" | split: "," %}
 {% assign banner_position = article.metafields.custom.product_banner_position | default: 'Bottom' %}
 
-<article class="article-page py-[50px] md:py-[10vw]">
+<article class="article-page py-[50px] md:py-[14vw]">
   <div class="container">
     <div class="article-wrap flex flex-wrap justify-between">
       <div class="article-info flex flex-col justify-center w-full mb-[30px] text-[16px] min-h-[120px]">
@@ -36,25 +36,20 @@
 
         {% if banner_position == 'Top' %}
           {% render 'article-dynamic-banner' %}
+          {% render 'article-banner' %}
         {% endif %}
 
         {% if banner_position == 'Middle' %}
-          {% assign paragraphs = article.content | split: '</p>' %}
-          {% assign total_paragraphs = paragraphs | size %}
-          {% assign mid_index = total_paragraphs | divided_by: 2 %}
+          {% assign content_html = article.content | split: '</p>' %}
+          {% assign total_paragraphs = content_html | size %}
+          {% assign mid_index = total_paragraphs | divided_by: 2 | floor %}
 
           <div class="text text-[20px]">
-            {% for paragraph in paragraphs %}
-              {% if forloop.index0 < mid_index %}
-                {{ paragraph }}</p>
-              {% endif %}
-            {% endfor %}
-
-            {% render 'article-dynamic-banner' %}
-
-            {% for paragraph in paragraphs %}
-              {% if forloop.index0 >= mid_index %}
-                {{ paragraph }}</p>
+            {% for paragraph in content_html %}
+              {{ paragraph }}</p>
+              {% if forloop.index == mid_index %}
+                {% render 'article-dynamic-banner' %}
+                {% render 'article-banner' %}
               {% endif %}
             {% endfor %}
           </div>
@@ -64,77 +59,10 @@
 
         {% if banner_position == 'Bottom' %}
           {% render 'article-dynamic-banner' %}
+          {% render 'article-banner' %}
         {% endif %}
 
-        {% if customer.email contains "@curalife.com" %}
-          {% assign bannerProduct = article.metafields.banner.product.value %}
-
-          {% if article.metafields.banner.title != blank %}
-            {% assign bannerImage = article.metafields.banner.image | default: bannerProduct.image %}
-
-            <div class="promotional-banner rounded-xl mbl:flex-col mbl:p-8 flex items-center justify-between gap-4 p-4" style="background-color:{{ article.metafields.banner.background }}">
-              <h3 class="banner-title h6 mobile text-center" style="color:{{ article.metafields.banner.button_color }}">{{ article.metafields.banner.title }}</h3>
-
-              {% render 'image',
-                image: bannerImage,
-                sizes: '(min-width: 1200px) 1100px, (min-width: 769px) 750px, 100vw',
-                breakpoint: 768,
-                lazy: true,
-                preload: true,
-                alt: 'sidebar banner',
-                class: 'main-image'
-              %}
-
-              <div class="banner-content dsk:w-[70%]">
-                <h3 class="banner-title h6 desktop" style="color:{{ article.metafields.banner.button_color }}">{{ article.metafields.banner.title }}</h3>
-                <div class="banner-description">{{ article.metafields.banner.description }}</div>
-                {% if bannerProduct != blank %}<div class="banner-product-price">Price - {{ bannerProduct.selected_or_first_available_variant.price | money }}</div>{% endif %}
-                <a href="{{ bannerProduct.url | default: '/collections/all' }}" class="banner-link"><button>Shop {% if bannerProduct != blank %}{{ bannerProduct.title }}{% else %}All Supplements{% endif %}</button></a>
-              </div>
-
-              <style>
-                .promotional-banner {
-                  button {
-                    background-color: {{ article.metafields.banner.button_color | default: '#3A7684'}};
-                    color: white;
-                    padding: 0.5rem 2rem;
-                    border-radius: 50px;
-                    font-weight: bold;
-                    margin-top: {% if bannerProduct != blank %}0.5rem{% else %}1.5rem{% endif %};
-                  }
-
-                  .banner-product-price {
-                    color: {{ article.metafields.banner.button_color | default: '#3A7684'}};
-                    margin-top: 1rem;
-                    font-weight: bold;
-                  }
-
-                  .responsive-image-wrapper {
-                      width: 30%;
-
-                      img {
-                        width: 100%;
-                      }
-                    }
-                }
-
-                @media screen and (max-width: 768px) {
-                  .promotional-banner {
-                    .banner-title.mobile {
-                      font-size: 7vw;
-                    }
-
-                    .responsive-image-wrapper {
-                      width: 100%;
-                    }
-                  }
-                }
-              </style>
-            </div>
-          {% endif %}
-
-          {% render 'product-recommendations' %}
-        {% endif %}
+        {% render 'product-recommendations' %}
 
         {% if article.tags contains 'recipe' and article.metafields.recipe.ingredients.value %}
           {% render 'article-recipe-content', calories: article.metafields.recipe.calories, duration: article.metafields.recipe.duration, fat: article.metafields.recipe.fat, carbs: article.metafields.recipe.carbs, protein: article.metafields.recipe.protein, fiber: article.metafields.recipe.fiber, ingredients: article.metafields.recipe.ingredients.value, instructions: article.metafields.recipe.instructions.value %}
@@ -164,7 +92,7 @@
       <div class="social-buttons flex">
         <a href="https://www.facebook.com/sharer/sharer.php?u={{ shop.url }}{{ article.url }}" target="_blank"><i class="fab fa-facebook-f p-4"></i></a>
         <a href="https://twitter.com/share?url={{ shop.url }}{{ article.url }}&text={{ article.title }}" target="_blank"><i class="fab fa-twitter p-4"></i></a>
-        <a href="#" id="copy-link-button"><i class="fas fa-copy p-4"></i></a>
+        <button id="copy-link-button" aria-label="Copy link to clipboard"><i class="fas fa-copy p-4" aria-hidden="true"></i></button>
       </div>
     </div>
 
@@ -189,7 +117,7 @@
                     <div class="article-card flex-nowrap flex gap-3">
                       <div class="picture min-w-[150px] h-[100px] overflow-hidden border-r-2 bg-[--blue]">
                         {% if related_article.image %}
-                          <img src="{{ related_article.image | image_url: height: 100 }}" class="related-image object-cover h-full" width="150" height="100" alt="{{ related_article.title }}" loading="lazy">
+                          <img src="{{ related_article.image | image_url: height: 100 }}" alt="{{ related_article.title }}" class="related-image object-cover h-full" width="150" height="100" loading="lazy">
                         {% else %}
                           <img src="{{ 'logo-new.svg' | asset_url }}" class="invert !object-contain p-12" alt="curalife logo" loading="lazy">
                         {% endif %}
@@ -245,51 +173,37 @@
 {% render 'newsletter-form' %}
 
 <script>
-  $(document).ready(function() {
-    if ($(window).width() > 768) {
-      var initialSidebarTop = $('#stickySidebar').offset().top;
-      var tagsSectionBottom = $('.tag-section').offset().top + $('.tag-section').height();
-      var sidebarHeight = $('#stickySidebar').height();
+  document.addEventListener('DOMContentLoaded', function() {
+    if (window.innerWidth > 768) {
+      var stickySidebar = document.getElementById('stickySidebar');
+      var initialSidebarTop = stickySidebar.offsetTop;
+      var tagsSection = document.querySelector('.tag-section');
+      var tagsSectionBottom = tagsSection.offsetTop + tagsSection.offsetHeight;
+      var sidebarHeight = stickySidebar.offsetHeight;
       var offsetTop = 100;
-      var offsetBottom = 0;
       var translateY = 0;
-      var prevScrollPosition = $(window).scrollTop();
-      var scrollingUp = false;
+      var ticking = false;
 
       function updateSidebar() {
-        var scrollPosition = $(window).scrollTop();
+        var scrollPosition = window.pageYOffset;
+        var maxTranslate = tagsSectionBottom - sidebarHeight - initialSidebarTop;
 
-        // Update offset based on scroll direction
-        if (scrollPosition < prevScrollPosition) {
-          scrollingUp = true;
-          offsetTop = 100;
-        } else if (scrollPosition > prevScrollPosition) {
-          scrollingUp = false;
-          offsetTop = 0;
-        }
-
-        // Calculate the maximum translateY value
-        var maxTranslate = tagsSectionBottom - sidebarHeight - initialSidebarTop - offsetBottom;
-
-        // Calculate the new translateY value
         if (scrollPosition >= initialSidebarTop - offsetTop) {
           translateY = Math.min(scrollPosition - initialSidebarTop + offsetTop, maxTranslate);
         } else {
           translateY = 0;
         }
 
-        // Apply the new translateY value to the sidebar
-        $('#stickySidebar').css('transform', 'translateY(' + translateY + 'px)');
-
-        // Update the previous scroll position for the next iteration
-        prevScrollPosition = scrollPosition;
-
-        // Continue updating
-        requestAnimationFrame(updateSidebar);
+        stickySidebar.style.transform = 'translateY(' + translateY + 'px)';
+        ticking = false;
       }
 
-      // Start the update loop
-      requestAnimationFrame(updateSidebar);
+      window.addEventListener('scroll', function() {
+        if (!ticking) {
+          window.requestAnimationFrame(updateSidebar);
+          ticking = true;
+        }
+      });
     }
   });
 </script>
@@ -304,31 +218,16 @@
   document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('copy-link-button').addEventListener('click', function(e) {
       e.preventDefault();
-      var dummy = document.createElement('input'),
-          text = window.location.href;
-
-      document.body.appendChild(dummy);
-      dummy.value = text;
-      dummy.select();
-      document.execCommand('copy');
-      document.body.removeChild(dummy);
-
-      alert('Link copied to clipboard.');
+      navigator.clipboard.writeText(window.location.href)
+        .then(function() {
+          alert('Link copied to clipboard.');
+        })
+        .catch(function(err) {
+          console.error('Could not copy text: ', err);
+        });
     });
   });
 </script>
-
-<style>
-  .yotam {
-    .faraggi {
-      .is {
-        great {
-          content: "1";
-        }
-      }
-    }
-  }
-</style>
 
 <style>
   .article-wrap h3 {
