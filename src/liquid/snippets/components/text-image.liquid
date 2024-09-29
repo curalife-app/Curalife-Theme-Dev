@@ -7,10 +7,11 @@
   {% endif %}
 {% endif %}
 
+{% assign itemsCounter = 0 %}
 {% for block in section_blocks %}
   {% case block.type %}
     {% when 'item' %}
-      {% assign hasItems = true %}
+      {% assign itemsCounter = itemsCounter | plus: 1 %}
   {% endcase %}
 {% endfor %}
 
@@ -143,8 +144,8 @@
             {% endcase %}
           {% endfor %}
 
-          {% if hasItems %}
-            <a class="collection-link" href="#">View Risk Statistics <i class="fa-sharp fa-regular fa-chevron-down"></i></a>
+          {% if items_hidden_title != blank %}
+            <a class="collection-link" href="#">{{ items_hidden_title }} <i class="fa-sharp fa-regular fa-chevron-down"></i></a>
           {% endif %}
         </div>
       </div>
@@ -152,8 +153,8 @@
 
 
     </div>
-    {% if hasItems %}
-      <div class="container">
+    {% if itemsCounter > 0 %}
+      <div class="collection-container mt-8">
         <div class="swiper items">
           <div class="swiper-wrapper flex-nowrap flex">
             {% for block in section_blocks %}
@@ -181,8 +182,10 @@
             {% endfor %}
           </div>
 
-          <div class="swiper-button-prev"></div>
-          <div class="swiper-button-next"></div>
+          {% if itemsCounter > 3 %}
+            <div class="swiper-button-prev"></div>
+            <div class="swiper-button-next"></div>
+          {% endif %}
         </div>
       </div>
 
@@ -192,19 +195,19 @@
       <script>
         document.addEventListener('DOMContentLoaded', function() {
           var collectionLink = document.querySelector('#section-{{ section_id }} .collection-link');
-          var itemsContainer = document.querySelector('#section-{{ section_id }} .container');
+          var itemsContainer = document.querySelector('#section-{{ section_id }} .collection-container');
+
+          console.log(collectionLink, itemsContainer);
 
           if (collectionLink && itemsContainer) {
             collectionLink.addEventListener('click', function(e) {
               e.preventDefault();
 
               if (itemsContainer.classList.contains('open')) {
-                // Close the accordion
                 itemsContainer.style.maxHeight = null;
                 itemsContainer.classList.remove('open');
                 collectionLink.classList.remove('open');
               } else {
-                // Open the accordion
                 itemsContainer.style.maxHeight = itemsContainer.scrollHeight + 'px';
                 itemsContainer.classList.add('open');
                 collectionLink.classList.add('open');
@@ -212,50 +215,74 @@
             });
           }
 
-          // Initialize Swiper
-          var swiper = new Swiper('#section-{{ section_id }} .swiper.items', {
-            slidesPerView: 3,
-            spaceBetween: 16,
-            loop: true,
-            navigation: {
-              nextEl: '#section-{{ section_id }} .swiper-button-next',
-              prevEl: '#section-{{ section_id }} .swiper-button-prev',
-            },
-          });
+          {% if itemsCounter > 3 %}
+            var swiper = new Swiper('#section-{{ section_id }} .swiper.items', {
+              slidesPerView: 'auto',
+              navigation: {
+                nextEl: '#section-{{ section_id }} .swiper-button-next',
+                prevEl: '#section-{{ section_id }} .swiper-button-prev',
+              },
+              breakpoints: {
+                768: {
+                  slidesPerView: 3,
+                }
+              },
+            });
+          {% endif %}
         });
       </script>
 
       <style>
-        .item {
-          background-color: #EBF1F3;
-          border-radius: 15px;
-          padding: 1rem;
+        .swiper-wrapper {
+          gap: 1rem;
+          justify-content: space-between;
+
+          .item {
+            background-color: #EBF1F3;
+            border-radius: 15px;
+            padding: 1rem;
+            width: calc((100% / 3) - (2 * (1rem / 3))) !important;
+
+            .item-content {
+              text-align: start;
+
+              .img-wrapper {
+                align-items: start;
+              }
+
+              .title-tag {
+                margin: unset;
+              }
+            }
+          }
         }
       </style>
 
-      <style>
-        #section-{{ section_id }} .container {
-          overflow: hidden;
-          max-height: 0;
-          transition: max-height 0.3s ease-out;
-        }
+      {% if items_hidden_title != blank %}
+        <style>
+          #section-{{ section_id }} .collection-container {
+            padding-top: 30px;
+            overflow: hidden;
+            max-height: 0;
+            transition: max-height 0.3s ease-out;
+          }
 
-        #section-{{ section_id }} .container.open {
-          /* Max-height will be set dynamically via JavaScript */
-        }
+          #section-{{ section_id }} .collection-container.open {
+            /* Max-height will be set dynamically via JavaScript */
+          }
 
-        /* Rotate the chevron icon when open */
-        #section-{{ section_id }} .collection-link .fa-chevron-down {
-          transition: transform 0.3s ease;
-        }
+          /* Rotate the chevron icon when open */
+          #section-{{ section_id }} .collection-link .fa-chevron-down {
+            transition: transform 0.3s ease;
+          }
 
-        #section-{{ section_id }} .collection-link.open .fa-chevron-down {
-          transform: rotate(180deg);
-        }
-      </style>
+          #section-{{ section_id }} .collection-link.open .fa-chevron-down {
+            transform: rotate(180deg);
+          }
+        </style>
+      {% endif %}
     {% endif %}
 </div>
-
 
 <style>
   {% if is_image_shadow %}
