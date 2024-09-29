@@ -1,27 +1,35 @@
 {% assign variantsAmount = prod.variants.size %}
 
-<div id="product-actions-{{ SID }}" class="product-actions {% if isVariantBoxToggle %}with-animation{% endif %}">
+<div id="product-actions-{{ SID }}" class="product-actions">
   <div class="purchase-options flex flex-col gap-2">
     <div class="purchase-type flex-nowrap flex w-full gap-2">
-      <button class="subscription selected flex items-center justify-center gap-2" aria-label="Subscribe & Save">
-        <span>
-          Subscribe <div class="desktop">& Save</div>
-        </span>
-      </button>
-      <button class="buy-once z-0" aria-label="Buy Once"><span>Buy Once</span></button>
+      {% if isSubscription %}
+        <button class="subscription selected flex items-center justify-center gap-2" aria-label="Subscribe & Save">
+          <span>
+            Subscribe <div class="desktop">& Save</div>
+          </span>
+        </button>
+        <button class="buy-once z-0" aria-label="Buy Once"><span>Buy Once</span></button>
+      {% else %}
+        <button class="buy-once selected flex items-center justify-center gap-2" aria-label="Buy Once"><span>Buy Once</span></button>
+      {% endif %}
     </div>
 
     {% for var in prod.variants %}
       {% render 'product-cta-section-actions-variant-2024-new-3', SID: SID, prod: prod, var: var, buyBoxColor: buyBoxColor, pricePer: pricePer, saveFormat: saveFormat, index: forloop.index %}
     {% endfor %}
 
-    {% render 'subscription-benefits-popup' %}
+    {% if isSubscription %}
+      {% render 'subscription-benefits-popup' %}
+    {% endif %}
 
     <div class="submit-wrap flex flex-col w-full">
-      <div class="checkout-button subscription">
-        {% render 'buy-buttons', SID: SID, product: prod, variant: '', buttonText: "Subscribe Now", selling_plan_id: selling_plan_id, product_form_id: product_form_id, buyType: 'buy_now', isBuyWithPrime: isBuyWithPrime %}
-      </div>
-      <div class="checkout-button buy-once hidden">
+      {% if isSubscription %}
+        <div class="checkout-button subscription">
+          {% render 'buy-buttons', SID: SID, product: prod, variant: '', buttonText: "Subscribe Now", selling_plan_id: selling_plan_id, product_form_id: product_form_id, buyType: 'buy_now', isBuyWithPrime: isBuyWithPrime %}
+        </div>
+      {% endif %}
+      <div class="checkout-button buy-once {% unless isSubscription %}selected{% endunless %}">
         {% render 'buy-buttons', SID: SID, product: prod, variant: '', selling_plan_id: selling_plan_id, product_form_id: product_form_id, buyType: buyType, isBuyWithPrime: isBuyWithPrime %}
       </div>
     </div>
@@ -266,13 +274,16 @@
     }
     const SID = productActions.id.split('-').pop();
 
+    // Introduce variable for subscription availability
+    const isSubscriptionAvailable = {{ isSubscription | json }};
+
     // Cache frequently used elements
-    const subscriptionButton = productActions.querySelector('.purchase-type .subscription');
+    const subscriptionButton = isSubscriptionAvailable ? productActions.querySelector('.purchase-type .subscription') : null;
     const buyOnceButton = productActions.querySelector('.purchase-type .buy-once');
-    const subscriptionSubmitButton = productActions.querySelector('.checkout-button.subscription');
+    const subscriptionSubmitButton = isSubscriptionAvailable ? productActions.querySelector('.checkout-button.subscription') : null;
     const buyOnceSubmitButton = productActions.querySelector('.checkout-button.buy-once');
     const purchaseOptionBoxes = productActions.querySelectorAll('.purchase-option-box');
-    const benefitsElement = document.querySelector('.subscription-benefits');
+    const benefitsElement = isSubscriptionAvailable ? document.querySelector('.subscription-benefits') : null;
     const submitSellingPlanIdInput = document.querySelector('.submit-selling-plan-id');
     const submitVariantIdInput = document.querySelector('.submit-variant-id');
     const submitButton = subscriptionSubmitButton ? subscriptionSubmitButton.querySelector('button') : null;
@@ -281,7 +292,7 @@
 
     // Initialize state
     const state = {
-      isSubscriptionSelected: true, // assuming subscription is selected by default
+      isSubscriptionSelected: isSubscriptionAvailable ? true : false,
       selectedBox: null,
     };
 
