@@ -1,22 +1,24 @@
 {% assign variantsAmount = prod.variants.size %}
 
-<div id="product-actions-{{ SID }}" class="product-actions">
+<div id="product-actions-{{ SID }}" class="product-actions {% if isVariantBoxToggle %}with-animation{% endif %}">
   <div class="purchase-options flex flex-col gap-2">
-    <div class="purchase-type flex-nowrap flex w-full gap-2">
-      {% if isSubscription %}
+    {% if isSubscription %}
+      <div class="purchase-type flex-nowrap flex w-full gap-2">
         <button class="subscription selected flex items-center justify-center gap-2" aria-label="Subscribe & Save">
           <span>
             Subscribe <div class="desktop">& Save</div>
           </span>
         </button>
         <button class="buy-once z-0" aria-label="Buy Once"><span>Buy Once</span></button>
-      {% else %}
-        <button class="buy-once selected flex items-center justify-center gap-2" aria-label="Buy Once"><span>Buy Once</span></button>
-      {% endif %}
-    </div>
+      </div>
+    {% endif %}
 
     {% for var in prod.variants %}
-      {% render 'product-cta-section-actions-variant-2024-new-3', SID: SID, prod: prod, var: var, buyBoxColor: buyBoxColor, pricePer: pricePer, saveFormat: saveFormat, index: forloop.index %}
+      {% assign variant_selling_plans = var.selling_plan_allocations %}
+      {% assign isSubscriptionVariant = variant_selling_plans.size > 0 %}
+      {% if isSubscription or (not isSubscription and not isSubscriptionVariant) %}
+        {% render 'product-cta-section-actions-variant-2024-new-3', SID: SID, prod: prod, var: var, buyBoxColor: buyBoxColor, pricePer: pricePer, saveFormat: saveFormat, index: forloop.index %}
+      {% endif %}
     {% endfor %}
 
     {% if isSubscription %}
@@ -29,7 +31,7 @@
           {% render 'buy-buttons', SID: SID, product: prod, variant: '', buttonText: "Subscribe Now", selling_plan_id: selling_plan_id, product_form_id: product_form_id, buyType: 'buy_now', isBuyWithPrime: isBuyWithPrime %}
         </div>
       {% endif %}
-      <div class="checkout-button buy-once {% unless isSubscription %}selected{% endunless %}">
+      <div class="checkout-button buy-once {% unless isSubscription %}selected{% endunless %} {% if isSubscription %}hidden{% endif %}">
         {% render 'buy-buttons', SID: SID, product: prod, variant: '', selling_plan_id: selling_plan_id, product_form_id: product_form_id, buyType: buyType, isBuyWithPrime: isBuyWithPrime %}
       </div>
     </div>
@@ -52,6 +54,7 @@
       min-height: 415px;
     }
 
+    {% if isSubscription %}
     .purchase-type {
       button {
         background-color: var(--primary-color);
@@ -76,6 +79,7 @@
         }
       }
     }
+    {% endif %}
 
     .purchase-option-box {
       background: #fff;
@@ -351,10 +355,10 @@
 
     function initializePurchaseOptions() {
       const urlParams = new URLSearchParams(window.location.search);
-      const defaultVariantIndex = parseInt(urlParams.get('default-variant')) || (typeof defaultSelectionIndex !== 'undefined' ? defaultSelectionIndex : 1) - 1;
+      const defaultVariantIndex = parseInt(urlParams.get('default-variant')) || 0;
 
       // Set initial purchase type selection
-      if (subscriptionButton) {
+      if (isSubscriptionAvailable && subscriptionButton) {
         safelyAddClass(subscriptionButton, 'selected');
         state.isSubscriptionSelected = true;
       } else if (buyOnceButton) {
@@ -363,7 +367,21 @@
       }
 
       // Set default selection
-      const defaultBox = purchaseOptionBoxes[defaultVariantIndex] || purchaseOptionBoxes[0];
+      let defaultBox = null;
+      if (isSubscriptionAvailable) {
+        defaultBox = purchaseOptionBoxes[defaultVariantIndex] || purchaseOptionBoxes[0];
+      } else {
+        // Find the first box that is not a subscription variant
+        for (let i = 0; i < purchaseOptionBoxes.length; i++) {
+          const box = purchaseOptionBoxes[i];
+          const isSubscriptionVariant = box.classList.contains('subscription-variant');
+          if (!isSubscriptionVariant) {
+            defaultBox = box;
+            break;
+          }
+        }
+      }
+
       if (defaultBox) {
         safelyAddClass(defaultBox, 'selected');
         const radioInput = defaultBox.querySelector("input[type='radio']");
@@ -391,6 +409,8 @@
     }
 
     function togglePurchaseType(isSubscription) {
+      if (!isSubscriptionAvailable) return; // Prevent toggling if subscription is not available
+
       state.isSubscriptionSelected = isSubscription;
 
       for (let i = 0; i < purchaseOptionBoxes.length; i++) {
@@ -762,23 +782,25 @@
       });
     }
 
-    productActions.addEventListener('click', (event) => {
-      const target = event.target;
-      const purchaseTypeButton = target.closest('.purchase-type button');
-      const purchaseOptionBox = target.closest('.purchase-option-box');
+    if (productActions) {
+      productActions.addEventListener('click', (event) => {
+        const target = event.target;
+        const purchaseTypeButton = target.closest('.purchase-type button');
+        const purchaseOptionBox = target.closest('.purchase-option-box');
 
-      if (purchaseTypeButton) {
-        event.preventDefault();
-        const isSubscription = purchaseTypeButton.classList.contains('subscription');
-        safelyRemoveClass(subscriptionButton, 'selected');
-        safelyRemoveClass(buyOnceButton, 'selected');
-        safelyAddClass(purchaseTypeButton, 'selected');
-        togglePurchaseType(isSubscription);
-      } else if (purchaseOptionBox) {
-        event.preventDefault();
-        togglePurchaseBox(purchaseOptionBox);
-      }
-    });
+        if (purchaseTypeButton && isSubscriptionAvailable) {
+          event.preventDefault();
+          const isSubscription = purchaseTypeButton.classList.contains('subscription');
+          safelyRemoveClass(subscriptionButton, 'selected');
+          safelyRemoveClass(buyOnceButton, 'selected');
+          safelyAddClass(purchaseTypeButton, 'selected');
+          togglePurchaseType(isSubscription);
+        } else if (purchaseOptionBox) {
+          event.preventDefault();
+          togglePurchaseBox(purchaseOptionBox);
+        }
+      });
+    }
 
     // Throttle function for resize event
     function throttle(func, limit) {
@@ -814,4 +836,3 @@
     initializePurchaseOptions();
   });
 </script>
-
