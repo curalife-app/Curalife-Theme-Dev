@@ -2,30 +2,35 @@
 {% assign buyBoxColor = prodReference.metafields.custom.primary_color | default: section.settings.buy_box_color | default: page.metafields.primary_color | default: "var(--primary-color)" %}
 {% if section.settings.anchor_id %}<div id="{{ section.settings.anchor_id }}"></div>{% endif %}
 
-{% render 'product-cta',
-  ctaTemplate: section.settings.cta_template,
-  bgColor: section.settings.bg_color,
-  buyBoxColor: buyBoxColor,
-  ctaColor: "var(--orange)",
-  mainTitle: section.settings.main_title,
-  title: section.settings.variants_title,
-  ctaText: section.settings.cta_text,
-  thumbnailImage: section.settings.thumbnail_image,
-  thumbnailImageMobile: section.settings.thumbnail_image_mobile,
-  pricePer: section.settings.price_per,
-  saveFormat: section.settings.save_format,
-  badgeImage: section.settings.badge_image,
-  ctaTextType: section.settings.price_format,
-  titleTag: section.settings.title_tag,
-  isSubscription: section.settings.is_subscription,
-  isReviews: section.settings.is_reviews,
-  isHideThumbs: section.settings.is_hide_thumbs,
-  isBuyWithPrime: section.settings.is_buy_with_prime,
-  isVariantBoxToggle: section.settings.is_variant_toggle,
-  additionalClasses: section.settings.additional_classes,
-  buyType: section.settings.buy_type,
-  prod: prodReference,
-%}
+
+<div id="cta-section-anchor"></div>
+<section class="cta-section overflow-visible pb-0 {{ section.settings.additional_classes }}" id="cta-section-{{ section.id }}">
+  {% render 'product-cta',
+    ctaTemplate: section.settings.cta_template,
+    bgColor: section.settings.bg_color,
+    buyBoxColor: buyBoxColor,
+    ctaColor: "var(--orange)",
+    mainTitle: section.settings.main_title,
+    title: section.settings.variants_title,
+    ctaText: section.settings.cta_text,
+    thumbnailImage: section.settings.thumbnail_image,
+    thumbnailImageMobile: section.settings.thumbnail_image_mobile,
+    pricePer: section.settings.price_per,
+    saveFormat: section.settings.save_format,
+    badgeImage: section.settings.badge_image,
+    ctaTextType: section.settings.price_format,
+    titleTag: section.settings.title_tag,
+    isSubscription: section.settings.is_subscription,
+    isReviews: section.settings.is_reviews,
+    isHideThumbs: section.settings.is_hide_thumbs,
+    isBuyWithPrime: section.settings.is_buy_with_prime,
+    isVariantBoxToggle: section.settings.is_variant_toggle,
+    buyType: section.settings.buy_type,
+    prod: prodReference,
+  %}
+
+  {% if section.settings.isPopup %}</div>{% endif %}
+</section>
 
 <script>
   window.addEventListener('load', function() {
@@ -75,7 +80,58 @@
       });
     }
   });
+
+  {% if section.settings.isPopup %}
+    document.addEventListener('DOMContentLoaded', function() {
+      const popup = document.getElementById('cta-section');
+      const togglePopup = (show) => popup.style.display = show ? 'flex' : 'none';
+
+      document.querySelectorAll('a[href="#cta-popup"]').forEach(el =>
+        el.addEventListener('click', (e) => {
+          e.preventDefault();
+          togglePopup(true);
+        })
+      );
+
+      popup.querySelector('.close-popup').addEventListener('click', () => togglePopup(false));
+      popup.addEventListener('click', (e) => {
+        if (e.target === popup) togglePopup(false);
+      });
+    });
+  {% endif %}
 </script>
+
+{% if section.settings.isPopup %}
+  <style>
+    .cta-popup {
+      position: fixed;
+      inset: 0;
+      background-color: rgba(0, 0, 0, 0.5);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+    .cta-popup-content {
+      background-color: white;
+      padding: 20px;
+      border-radius: 5px;
+      position: relative;
+      max-width: 90%;
+      max-height: 90%;
+      overflow-y: auto;
+    }
+    .close-popup {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      font-size: 24px;
+      background: none;
+      border: none;
+      cursor: pointer;
+    }
+  </style>
+{% endif %}
 
 {% schema %}
 {
