@@ -4,7 +4,8 @@
 
 {% if buyType == "buy_now" %}
   <div class="submit-wrap flex flex-col w-full">
-    <button class="main-btn p-0 text-black bg-[--orange] min-h-[50px]" id="buy-button">
+    <input class="submit-variant-id" type="hidden" name="id" value="{{ variant | default: product.selected_or_first_available_variant.id }}">
+    <button class="main-btn p-0 text-black bg-[--orange] min-h-[50px]" id="buy-button-{{ SID }}">
       <span class="button-text flex justify-center md:text-[5vw]">{{ buttonText | default: "Shop Now" }}</span>
 
       <div class="loading-overlay__spinner hidden m-auto">
@@ -14,6 +15,80 @@
       </div>
     </button>
   </div>
+
+  <script>
+  document.addEventListener('DOMContentLoaded', function() {
+    var buyButton = document.getElementById('buy-button-{{ SID }}');
+
+    if (buyButton) {
+      console.log('Buy button found, attaching event listener.');
+
+      buyButton.addEventListener('click', function(event) {
+        event.preventDefault();
+        console.log('Buy button clicked.');
+
+        // Button states for loading
+        var submitButton = this;
+        var buttonText = submitButton.querySelector('.button-text');
+        var loadingSpinner = submitButton.querySelector('.loading-overlay__spinner');
+
+        // Display loading spinner
+        if (buttonText && loadingSpinner) {
+          console.log('Showing loading spinner and hiding button text.');
+          buttonText.style.display = 'none';
+          loadingSpinner.classList.remove('hidden');
+        }
+
+        // Get the variant ID from the hidden input
+        var variantIdInput = document.querySelector('.submit-variant-id');
+        if (variantIdInput) {
+          console.log('Variant ID input found.');
+        } else {
+          console.error('Variant ID input not found.');
+        }
+        var variantId = variantIdInput ? variantIdInput.value : '{{ variant | default: product.selected_or_first_available_variant.id }}';
+        console.log('Variant ID:', variantId);
+        var quantity = 1;
+
+        var data = {
+          "id": variantId,
+          "quantity": quantity
+        };
+
+        // Adding product to the cart
+        console.log('Sending request to add product to the cart:', data);
+
+        fetch('/cart/add.js', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(data),
+        })
+        .then(function(response) {
+          console.log('Received response from add to cart:', response);
+          return response.json();
+        })
+        .then(function(data) {
+          console.log('Product successfully added to cart:', data);
+          console.log('Redirecting to checkout.');
+          window.location.href = '/checkout';
+        })
+        .catch(function(error) {
+          console.error('Error adding product to cart:', error);
+          if (buttonText && loadingSpinner) {
+            console.log('An error occurred. Resetting button to normal state.');
+            buttonText.style.display = '';
+            loadingSpinner.classList.add('hidden');
+          }
+        });
+      });
+    } else {
+      console.error('Buy button not found. Cannot attach event listener.');
+    }
+  });
+</script>
+
 {% else %}
   <script src="{{ 'product-info.js' | asset_url }}" defer="defer"></script>
   <script src="{{ 'product-form.js' | asset_url }}" defer="defer"></script>
