@@ -1,4 +1,4 @@
-{% assign section_id = block_index | default: section.id %}
+{% assign section_id = block_index | default: SID | default: section.id %}
 
 {% assign itemsDirection = 'vertical' %}
 {% if image_position == 'right' or image_position == 'left' %}
@@ -26,7 +26,7 @@
 
     {% if image_link != blank %}<a href="{{ image_link }}">{% endif %}
     {% if main_image or main_mobile_image or videoURL != blank %}
-      <div class="image-wrapper z-[1] h-auto md:mb-0 {% if main_mobile_image and main_image == blank %}mobile{% endif %} {% if itemsDirection == 'vertical' %}w-full{% endif %} {% if is_image_bottom %}self-end md:self-auto{% endif %}">
+      <div class="image-wrapper z-[1] h-auto mbl:w-full md:mb-0 {% if main_mobile_image and main_image == blank %}mobile{% endif %} {% if itemsDirection == 'vertical' %}w-full{% endif %} {% if is_image_bottom %}self-end md:self-auto{% endif %}">
         {% if videoURL != blank %}
           {% render 'video', main_image: main_image, main_mobile_image: main_mobile_image, SID: section_id, videoURL: videoURL %}
         {% else %}
@@ -124,8 +124,8 @@
                   button_id: block.id
                 %}
               {% when 'image' %}
-                {% if block.settings.image_link %}<a class="mbl:w-full" href="{{ block.settings.image_link }}">{% endif %}
-                  <picture id="text-{{ section_id }}" class="mbl:w-full {{ block.settings.additional_classes }}">
+                {% if block.settings.image_link %}<a {% if block.settings.is_image_full_width_mobile %}class="mbl:w-full"{% endif %} href="{{ block.settings.image_link }}">{% endif %}
+                  <picture id="text-{{ section_id }}" class="{% if block.settings.is_image_full_width_mobile %}mbl:w-full{% endif %} {{ block.settings.additional_classes }}">
                     {% if block.settings.image_mobile %}
                       <source media="(max-width: 768px)" srcset="{{ block.settings.image_mobile | image_url }}">
                     {% endif %}
@@ -230,7 +230,7 @@
       </script>
 
       <style>
-        .swiper-wrapper {
+        .collection-container .swiper-wrapper {
           gap: 1rem;
           justify-content: space-between;
 
@@ -242,6 +242,7 @@
 
             .item-content {
               text-align: start;
+              align-items: start;
 
               .img-wrapper {
                 align-items: start;
@@ -275,6 +276,15 @@
 
           #section-{{ section_id }} .collection-link.open .fa-chevron-down {
             transform: rotate(180deg);
+          }
+
+          @media screen and (max-width: 768px) {
+            #section-{{ section_id }} .collection-link {
+              margin: auto;
+              display: flex;
+              flex-direction: column;
+              gap: 0.5rem;
+            }
           }
         </style>
       {% endif %}
