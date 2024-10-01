@@ -1,9 +1,8 @@
 {% assign buttonURL = page.metafields.custom.next_page_link | default: section.settings.button_link %}
 
-<section id="button-section-{{ section.id }}" class="button-section {{ section.settings.section_additional_classes }}">
+<!-- Original Button Section (hidden when sticky button is active) -->
+<section id="button-section-{{ section.id }}" class="button-section {{ section.settings.section_additional_classes }} {% if section.settings.is_sticky %}hidden mbl:w-full{% endif %}">
   <div class="container flex justify-center">
-    {% comment %} <a id="button-link" href="{% if page.metafields.custom.next_page_link != blank %}{{ page.metafields.custom.next_page_link }}{% else %}{{ section.settings.button_link }}{% endif %}" {% if section.settings.animation %}data-aos="{{ section.settings.animation }}"{% endif %}><button><span>{{ section.settings.button_text }}</span></button></a> {% endcomment %}
-
     {% render 'button',
       button_text: section.settings.button_text,
       button_url: buttonURL,
@@ -23,6 +22,12 @@
   </div>
 </section>
 
+<!-- Sticky Button -->
+{% if section.settings.is_sticky %}
+  <a id="sticky-bar" href="{{ buttonURL }}">
+    <button class="sticky-button">{{ section.settings.button_text }}</button>
+  </a>
+{% endif %}
 
 {% if section.settings.is_pass_url_parameters %}
   <script>
@@ -34,22 +39,131 @@
   </script>
 {% endif %}
 
+<!-- JavaScript for Sticky Button Behavior -->
+{% if section.settings.is_sticky %}
+  <script>
+    document.addEventListener("DOMContentLoaded", function() {
+      var stickyBar = document.getElementById("sticky-bar");
+      var stickyHideSetting = "{{ section.settings.sticky_hide | default: '' | strip }}";
+      var hideOnElements = stickyHideSetting.split(',').map(function(s) { return s.trim(); }).filter(function(s) { return s !== ''; });
+
+      function checkStickyVisibility() {
+        var shouldHide = false;
+
+        if (hideOnElements.length > 0) {
+          hideOnElements.forEach(function(selector) {
+            if (selector) {
+              var elements = document.querySelectorAll(selector);
+              elements.forEach(function(element) {
+                var rect = element.getBoundingClientRect();
+                if (rect.top < window.innerHeight && rect.bottom > 0) {
+                  shouldHide = true;
+                }
+              });
+            }
+          });
+        }
+
+        if (shouldHide) {
+          stickyBar.classList.remove("visible");
+        } else {
+          stickyBar.classList.add("visible");
+        }
+      }
+
+      window.addEventListener("scroll", checkStickyVisibility);
+      window.addEventListener("resize", checkStickyVisibility);
+      checkStickyVisibility();
+    });
+  </script>
+{% endif %}
+
+<!-- CSS Styles -->
 <style>
+  {% if section.settings.is_sticky %}
+    /* Hide the original button section when sticky button is active */
+    #button-section-{{ section.id }}.hidden {
+      display: none;
+    }
+
+    /* Sticky Button Styles */
+    #sticky-bar {
+      position: fixed;
+      bottom: 4px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100%);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.5s ease, transform 0.5s ease;
+      z-index: 50;
+      width: 94vw;
+      max-width: 500px; /* Adjust as needed */
+      text-align: center;
+
+      @media screen and (max-width: 768px) {
+        bottom: 3vw;
+        left: 3vw;
+      }
+    }
+
+    #sticky-bar.visible {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    #sticky-bar .sticky-button {
+      width: 100%;
+      padding: 1rem;
+      background-color: {{ section.settings.button_bg_color }};
+      color: {{ section.settings.button_title_color }};
+      font-weight: bold;
+      font-size: 1.25rem;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      border-radius: 0.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: none;
+      cursor: pointer;
+    }
+
+    /* Animation */
+    @keyframes popIn {
+      0% {
+        opacity: 0;
+        transform: translateY(100%) scale(0.9);
+      }
+      80% {
+        opacity: 1;
+        transform: translateY(-10%) scale(1.05);
+      }
+      100% {
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    #sticky-bar.visible {
+      animation: popIn 0.5s forwards;
+    }
+  {% endif %}
+
+  /* Existing padding styles */
   {% if section.settings.padding_top != 50 and section.settings.padding_top != blank %}
-    #button-section-{{ section.id }} {
+    #shopify-section-{{ section.id }} {
       padding-top: {{ section.settings.padding_top }}px;
     }
   {% endif %}
 
   {% if section.settings.padding_bottom != 50 and section.settings.padding_top != blank %}
-    #button-section-{{ section.id }} {
+    #shopify-section-{{ section.id }} {
       padding-bottom: {{ section.settings.padding_bottom }}px;
     }
   {% endif %}
 
   {% if section.settings.padding_top_mobile != blank %}
     @media screen and (max-width: 768px) {
-      #button-section-{{ section.id }} {
+      #shopify-section-{{ section.id }} {
         padding-top: {{ section.settings.padding_top_mobile }}vw;
       }
     }
@@ -57,7 +171,7 @@
 
   {% if section.settings.padding_bottom_mobile != blank %}
     @media screen and (max-width: 768px) {
-      #button-section-{{ section.id }} {
+      #shopify-section-{{ section.id }} {
         padding-bottom: {{ section.settings.padding_bottom_mobile }}vw;
       }
     }
@@ -89,7 +203,17 @@
     {
       "type": "checkbox",
       "id": "is_link_to_next_page",
-      "label": "link to next page (metafield)"
+      "label": "Link to Next Page (Metafield)"
+    },
+    {
+      "type": "checkbox",
+      "id": "is_sticky",
+      "label": "Make Button Sticky (Float at Bottom)"
+    },
+    {
+      "type": "text",
+      "id": "sticky_hide",
+      "label": "Hide Button When Scrolled Over Elements (CSS Selectors)"
     },
     {
       "type": "color",

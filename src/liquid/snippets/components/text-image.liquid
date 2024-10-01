@@ -153,8 +153,8 @@
     </div>
 
     {% if itemsCounter > 0 %}
-      <div class="collection-container mt-8 !overflow-y-visible">
-        <div class="swiper items overflow-y-visible">
+      <div class="collection-container mt-8 {% if items_hidden_title == blank %}open{% endif %}">
+        <div class="swiper items overflow-visible">
           <div class="swiper-wrapper flex-nowrap flex">
             {% for block in section_blocks %}
               {% case block.type %}
@@ -181,10 +181,8 @@
             {% endfor %}
           </div>
 
-          {% if itemsCounter > 3 %}
-            <div class="swiper-nav swiper-button-prev"></div>
-            <div class="swiper-nav swiper-button-next"></div>
-          {% endif %}
+          <div class="swiper-nav swiper-button-prev"></div>
+          <div class="swiper-nav swiper-button-next"></div>
         </div>
       </div>
 
@@ -197,19 +195,13 @@
             collectionLink.addEventListener('click', function(e) {
               e.preventDefault();
 
-              if (itemsContainer.classList.contains('open')) {
-                itemsContainer.style.maxHeight = null;
-                itemsContainer.classList.remove('open');
-                collectionLink.classList.remove('open');
-              } else {
-                itemsContainer.style.maxHeight = itemsContainer.scrollHeight + 'px';
-                itemsContainer.classList.add('open');
-                collectionLink.classList.add('open');
-              }
+              itemsContainer.style.maxHeight = itemsContainer.scrollHeight + 'px';
+              itemsContainer.classList.add('open');
+              collectionLink.classList.add('open');
             });
           }
 
-          {% if itemsCounter > 3 %}
+
             var swiper = new Swiper('#section-{{ section_id }} .swiper.items', {
               slidesPerView: 1,
               navigation: {
@@ -222,43 +214,51 @@
                 }
               },
             });
-          {% endif %}
         });
       </script>
 
       <style>
-        .collection-container .swiper-wrapper {
-          justify-content: space-between;
+        #section-{{ section_id }} .collection-container {
+          min-height: 0;
+          transition: min-height 0.3s ease-out;
 
-          @media (width > 768px) {
-            gap: 1rem;
+          @media (width < 768px) {
+            &.open {
+              min-height: 100vw;
+            }
           }
 
-          .item {
-            background-color: #EBF1F3;
-            border-radius: 15px;
-            padding: 1rem;
+          .swiper-wrapper {
+            justify-content: space-between;
 
             @media (width > 768px) {
-              width: calc((100% / 3) - (2 * (1rem / 3))) !important;
+              gap: 1rem;
             }
 
-            .item-content {
-              text-align: start;
-              align-items: start;
+            .item {
+              background-color: #EBF1F3;
+              border-radius: 15px;
+              padding: 1rem;
 
-              .img-wrapper {
-                align-items: start;
+              @media (width > 768px) {
+                width: calc((100% / 3) - (2 * (1rem / 3))) !important;
               }
 
-              .title-tag {
-                margin: unset;
+              .item-content {
+                text-align: start;
+                align-items: start;
+
+                .img-wrapper {
+                  align-items: start;
+                }
+
+                .title-tag {
+                  margin: unset;
+                }
               }
             }
           }
-        }
 
-        @media (width < 768px) {
           .swiper-nav {
             --swiper-navigation-sides-offset: 30%;
             --swiper-navigation-top-offset: 110%;
@@ -269,10 +269,14 @@
       {% if items_hidden_title != blank %}
         <style>
           #section-{{ section_id }} .collection-container {
-            padding-top: 30px;
+            padding-top: 50px;
             overflow: hidden;
             max-height: 0;
             transition: max-height 0.3s ease-out;
+
+            &.open {
+              padding-bottom: 100px;
+            }
           }
 
           #section-{{ section_id }} .collection-link .fa-chevron-down {
@@ -281,6 +285,10 @@
 
           #section-{{ section_id }} .collection-link.open .fa-chevron-down {
             transform: rotate(180deg);
+          }
+
+          #section-{{ section_id }} .collection-link.open {
+            display: none;
           }
 
           @media screen and (max-width: 768px) {
