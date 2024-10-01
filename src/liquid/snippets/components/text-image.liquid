@@ -153,8 +153,8 @@
     </div>
 
     {% if itemsCounter > 0 %}
-      <div class="collection-container mt-8">
-        <div class="swiper items">
+      <div class="collection-container mt-8 !overflow-y-visible">
+        <div class="swiper items overflow-y-visible">
           <div class="swiper-wrapper flex-nowrap flex">
             {% for block in section_blocks %}
               {% case block.type %}
@@ -182,14 +182,11 @@
           </div>
 
           {% if itemsCounter > 3 %}
-            <div class="swiper-button-prev"></div>
-            <div class="swiper-button-next"></div>
+            <div class="swiper-nav swiper-button-prev"></div>
+            <div class="swiper-nav swiper-button-next"></div>
           {% endif %}
         </div>
       </div>
-
-      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css"/>
-      <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
 
       <script>
         document.addEventListener('DOMContentLoaded', function() {
@@ -214,7 +211,7 @@
 
           {% if itemsCounter > 3 %}
             var swiper = new Swiper('#section-{{ section_id }} .swiper.items', {
-              slidesPerView: 'auto',
+              slidesPerView: 1,
               navigation: {
                 nextEl: '#section-{{ section_id }} .swiper-button-next',
                 prevEl: '#section-{{ section_id }} .swiper-button-prev',
@@ -231,14 +228,20 @@
 
       <style>
         .collection-container .swiper-wrapper {
-          gap: 1rem;
           justify-content: space-between;
+
+          @media (width > 768px) {
+            gap: 1rem;
+          }
 
           .item {
             background-color: #EBF1F3;
             border-radius: 15px;
             padding: 1rem;
-            width: calc((100% / 3) - (2 * (1rem / 3))) !important;
+
+            @media (width > 768px) {
+              width: calc((100% / 3) - (2 * (1rem / 3))) !important;
+            }
 
             .item-content {
               text-align: start;
@@ -254,6 +257,13 @@
             }
           }
         }
+
+        @media (width < 768px) {
+          .swiper-nav {
+            --swiper-navigation-sides-offset: 30%;
+            --swiper-navigation-top-offset: 110%;
+          }
+        }
       </style>
 
       {% if items_hidden_title != blank %}
@@ -265,11 +275,6 @@
             transition: max-height 0.3s ease-out;
           }
 
-          #section-{{ section_id }} .collection-container.open {
-            /* Max-height will be set dynamically via JavaScript */
-          }
-
-          /* Rotate the chevron icon when open */
           #section-{{ section_id }} .collection-link .fa-chevron-down {
             transition: transform 0.3s ease;
           }
