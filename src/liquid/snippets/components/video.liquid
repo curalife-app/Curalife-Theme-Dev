@@ -1,5 +1,5 @@
 <div class="video-component">
-  <div class="video-placeholder" data-video-src="{{ videoURL | escape }}">
+  <div class="video-placeholder">
     <picture>
       {% if main_mobile_image %}
         <source media="(max-width: 768px)" srcset="{{ main_mobile_image | image_url }}" width="{{ main_mobile_image.width }}" height="{{ main_mobile_image.height }}">
@@ -18,26 +18,32 @@
       <i class="fa-brands fa-youtube opacity-70 text-[100px] text-white"></i>
     </div>
   </div>
+  <div class="video-iframe" style="display: none;">
+    {% assign videoInputFirstFour = videoInput | slice: 0, 4 %}
+    {% if videoInputFirstFour == 'http' %}
+      <iframe
+        src="{{ videoInput | escape }}"
+        frameborder="0"
+        allow="autoplay; fullscreen; picture-in-picture; clipboard-write"
+        allowfullscreen
+        class="w-full h-auto"
+      ></iframe>
+    {% else %}
+      {{ videoInput | raw }}
+    {% endif %}
+  </div>
 </div>
 
 <script>
   (function() {
     document.addEventListener('DOMContentLoaded', function() {
-      var videoPlaceholders = document.querySelectorAll('.video-placeholder');
-      videoPlaceholders.forEach(function(videoPlaceholder) {
-        videoPlaceholder.addEventListener('click', function(event) {
-          var videoSrc = event.currentTarget.getAttribute('data-video-src');
-          var iframe = document.createElement('iframe');
-          iframe.setAttribute('src', videoSrc);
-          iframe.setAttribute('frameborder', '0');
-          iframe.setAttribute('allow', 'autoplay; fullscreen; picture-in-picture');
-          iframe.setAttribute('allowfullscreen', '');
-          iframe.setAttribute('class', 'w-full h-[400px] mbl:h-[100vw]');
-          iframe.setAttribute('title', '');
-          var parent = event.currentTarget.parentNode;
-          if (parent) {
-            parent.replaceChild(iframe, event.currentTarget);
-          }
+      var videoComponents = document.querySelectorAll('.video-component');
+      videoComponents.forEach(function(videoComponent) {
+        var videoPlaceholder = videoComponent.querySelector('.video-placeholder');
+        var videoIframeContainer = videoComponent.querySelector('.video-iframe');
+        videoPlaceholder.addEventListener('click', function() {
+          videoPlaceholder.style.display = 'none';
+          videoIframeContainer.style.display = 'block';
         });
       });
     });
@@ -61,5 +67,11 @@
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
+  }
+
+  .video-component .video-iframe iframe,
+  .video-component .video-iframe > * {
+    width: 100%;
+    height: auto;
   }
 </style>
