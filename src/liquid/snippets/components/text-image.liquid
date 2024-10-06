@@ -209,37 +209,39 @@
 
     {% if itemsCounter > 0 %}
       <div class="collection-container mt-8 {% if items_hidden_title == blank %}open{% endif %}">
-        <div class="swiper items overflow-visible {{ sliderClass }}">
-          <div class="swiper-wrapper flex-nowrap flex">
-            {% for block in section_blocks %}
-              {% case block.type %}
-              {% when 'item' %}
-                  {% render 'item',
-                    image: block.settings.image,
-                    image_global: block.settings.image_global,
-                    img_mobile: block.settings.image_mobile,
-                    title: block.settings.title,
-                    title_tag: 'p',
-                    description: block.settings.description,
-                    link_title: block.settings.link_title,
-                    link_style: section.settings.link_style,
-                    link_url: block.settings.link_url,
-                    link_url_global: block.settings.link_url_global,
-                    icon: block.settings.icon,
-                    is_image_background: block.settings.is_image_background,
-                    item_layout_mobile: section.settings.item_layout_mobile,
-                    is_slider: true,
-                    index: forloop.index,
-                    section_id: section.id
-                  %}
-              {% endcase %}
-            {% endfor %}
-          </div>
+        <div class="collection-content">
+          <div class="swiper items overflow-visible {{ sliderClass }}">
+            <div class="swiper-wrapper flex-nowrap flex">
+              {% for block in section_blocks %}
+                {% case block.type %}
+                {% when 'item' %}
+                    {% render 'item',
+                      image: block.settings.image,
+                      image_global: block.settings.image_global,
+                      img_mobile: block.settings.image_mobile,
+                      title: block.settings.title,
+                      title_tag: 'p',
+                      description: block.settings.description,
+                      link_title: block.settings.link_title,
+                      link_style: section.settings.link_style,
+                      link_url: block.settings.link_url,
+                      link_url_global: block.settings.link_url_global,
+                      icon: block.settings.icon,
+                      is_image_background: block.settings.is_image_background,
+                      item_layout_mobile: section.settings.item_layout_mobile,
+                      is_slider: true,
+                      index: forloop.index,
+                      section_id: section.id
+                    %}
+                {% endcase %}
+              {% endfor %}
+            </div>
 
-          {% unless items_slider_on == 'none' %}
-            <div class="swiper-nav swiper-button-prev"></div>
-            <div class="swiper-nav swiper-button-next"></div>
-          {% endunless %}
+            {% unless items_slider_on == 'none' %}
+              <div class="swiper-nav swiper-button-prev"></div>
+              <div class="swiper-nav swiper-button-next"></div>
+            {% endunless %}
+          </div>
         </div>
       </div>
 
@@ -247,14 +249,34 @@
         document.addEventListener('DOMContentLoaded', function() {
           var collectionLink = document.querySelector('#section-{{ section_id }} .collection-link');
           var itemsContainer = document.querySelector('#section-{{ section_id }} .collection-container');
+          var contentContainer = document.querySelector('#section-{{ section_id }} .collection-content');
 
-          if (collectionLink && itemsContainer) {
+          if (collectionLink && itemsContainer && contentContainer) {
             collectionLink.addEventListener('click', function(e) {
               e.preventDefault();
 
-              itemsContainer.style.maxHeight = itemsContainer.scrollHeight + 'px';
-              itemsContainer.classList.add('open');
-              collectionLink.classList.add('open');
+              if (itemsContainer.classList.contains('open')) {
+                contentContainer.style.opacity = '0';
+                collectionLink.style.opacity = '1';
+                collectionLink.style.pointerEvents = 'auto';
+                collectionLink.style.maxHeight = collectionLink.scrollHeight + 'px';
+                setTimeout(function() {
+                  itemsContainer.style.height = '0px';
+                  itemsContainer.classList.remove('open');
+                  collectionLink.classList.remove('open');
+                  collectionLink.style.maxHeight = collectionLink.scrollHeight + 'px';
+                }, 300);
+              } else {
+                itemsContainer.style.height = contentContainer.scrollHeight + 'px';
+                itemsContainer.classList.add('open');
+                collectionLink.classList.add('open');
+                collectionLink.style.opacity = '0';
+                collectionLink.style.pointerEvents = 'none';
+                collectionLink.style.maxHeight = '0px';
+                setTimeout(function() {
+                  contentContainer.style.opacity = '1';
+                }, 50);
+              }
             });
           }
 
@@ -308,25 +330,37 @@
 
       <style>
         #section-{{ section_id }} .collection-container {
-          min-height: 0;
-          transition: min-height 0.3s ease-out;
+          height: 0;
+          transition: height 0.3s ease-out;
+          overflow: hidden;
+
+          .collection-content {
+            opacity: 0;
+            transition: opacity 0.3s ease-out;
+          }
+
+          &.open {
+            overflow: visible;
+            height: auto;
+
+            .collection-content {
+              opacity: 1;
+            }
+          }
 
           &:has(.non-swiper-wrapper) {
             &.open {
-                padding-bottom: 0 !important;
-              }
+              padding-bottom: 0 !important;
+            }
           }
 
           &.open {
             padding-bottom: {% if itemsCounter <= 3 %}0{% else %}80px{% endif %};
-            max-height: unset !important;
 
-            @media (width < 768px) {
-              &.open {
-                overflow-y: hidden;
-                padding-bottom: 20vw;
-                scrollbar-width: none !important;
-              }
+            @media (max-width: 768px) {
+              overflow-y: hidden;
+              padding-bottom: 20vw;
+              scrollbar-width: none !important;
             }
           }
 
@@ -377,42 +411,45 @@
             }
           }
         }
-      </style>
 
-      {% if items_hidden_title != blank %}
-        <style>
-          #section-{{ section_id }} .collection-container {
+        {% if items_hidden_title != blank %}
+          #section-{{ section_id }} .collection-link {
+            display: inline-flex;
+            align-items: center;
+            transition: opacity 0.3s ease, transform 0.3s ease, margin 0.3s ease, max-height 0.3s ease;
+            cursor: pointer;
+            margin-bottom: 1rem; /* Adjust as needed */
             overflow: hidden;
-            max-height: 0;
-            transition: max-height 0.3s ease-out;
-
-            &.open {
-              overflow: visible;
-            }
+            max-height: 50px; /* Adjust this value based on your link's height */
           }
 
           #section-{{ section_id }} .collection-link .fa-chevron-down {
             transition: transform 0.3s ease;
+            margin-left: 0.5rem;
+          }
+
+          #section-{{ section_id }} .collection-link.open {
+            opacity: 0;
+            pointer-events: none;
+            transform: translateY(-10px);
+            margin-bottom: 0; /* Remove bottom margin when hidden */
+            max-height: 0;
           }
 
           #section-{{ section_id }} .collection-link.open .fa-chevron-down {
             transform: rotate(180deg);
           }
 
-          #section-{{ section_id }} .collection-link.open {
-            display: none;
-          }
-
           @media screen and (max-width: 768px) {
             #section-{{ section_id }} .collection-link {
               margin: auto;
-              display: flex;
               flex-direction: column;
               gap: 0.5rem;
+              max-height: 70px; /* Adjust this value for mobile */
             }
           }
-        </style>
-      {% endif %}
+        {% endif %}
+      </style>
     {% endif %}
 </div>
 
