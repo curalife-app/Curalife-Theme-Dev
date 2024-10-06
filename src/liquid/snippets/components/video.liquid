@@ -1,43 +1,62 @@
-<div class="video-placeholder" data-video-src="{{ videoURL | escape }}">
-  <picture>
-    {% if main_mobile_image %}
-      <source media="(max-width: 768px)" srcset="{{ main_mobile_image | image_url }}" width="{{ main_mobile_image.width }}" height="{{ main_mobile_image.height }}">
-    {% endif %}
-    <img class=" relative z-auto object-contain cursor-pointer" src="{{ main_image | default: main_mobile_image | image_url }}" alt="{{ main_image.alt }}" width="{{ main_image.width }}" height="{{ main_image.height }}" {% unless is_dont_lazyload %}loading="lazy"{% endunless %} {% if image_animation != 'none'%}data-aos="{{ image_animation }}" data-aos-duration="{{ animation_duration }}"{% endif %}>
-  </picture>
-  <div class="play-button"><i class="fa-brands fa-youtube opacity-50 text-[100px] text-white"></i></div>
+<div class="video-component">
+  <div class="video-placeholder" data-video-src="{{ videoURL | escape }}">
+    <picture>
+      {% if main_mobile_image %}
+        <source media="(max-width: 768px)" srcset="{{ main_mobile_image | image_url }}" width="{{ main_mobile_image.width }}" height="{{ main_mobile_image.height }}">
+      {% endif %}
+      <img
+        class="relative z-auto object-contain cursor-pointer"
+        src="{{ main_image | default: main_mobile_image | image_url }}"
+        alt="{{ main_image.alt }}"
+        width="{{ main_image.width }}"
+        height="{{ main_image.height }}"
+        {% unless is_dont_lazyload %}loading="lazy"{% endunless %}
+        {% if image_animation != 'none'%}data-aos="{{ image_animation }}" data-aos-duration="{{ animation_duration }}"{% endif %}
+      >
+    </picture>
+    <div class="video-component__play-button">
+      <i class="fa-brands fa-youtube opacity-70 text-[100px] text-white"></i>
+    </div>
+  </div>
 </div>
 
 <script>
-  document.addEventListener('DOMContentLoaded', function() {
-    var videoPlaceholder = document.querySelector('#section-{{ SID }} .video-placeholder');
-    if (videoPlaceholder) {
-      videoPlaceholder.addEventListener('click', function() {
-        var videoSrc = this.getAttribute('data-video-src');
-        var iframe = document.createElement('iframe');
-        iframe.setAttribute('src', videoSrc);
-        iframe.setAttribute('frameborder', '0');
-        iframe.setAttribute('allow', 'autoplay; fullscreen; picture-in-picture');
-        iframe.setAttribute('allowfullscreen', '');
-        iframe.setAttribute('class', 'w-full h-[400px] mbl:h-[100vw]');
-        iframe.setAttribute('title', '');
-        this.parentNode.replaceChild(iframe, this);
+  (function() {
+    document.addEventListener('DOMContentLoaded', function() {
+      var videoPlaceholders = document.querySelectorAll('.video-placeholder');
+      videoPlaceholders.forEach(function(videoPlaceholder) {
+        videoPlaceholder.addEventListener('click', function(event) {
+          var videoSrc = event.currentTarget.getAttribute('data-video-src');
+          var iframe = document.createElement('iframe');
+          iframe.setAttribute('src', videoSrc);
+          iframe.setAttribute('frameborder', '0');
+          iframe.setAttribute('allow', 'autoplay; fullscreen; picture-in-picture');
+          iframe.setAttribute('allowfullscreen', '');
+          iframe.setAttribute('class', 'w-full h-[400px] mbl:h-[100vw]');
+          iframe.setAttribute('title', '');
+          var parent = event.currentTarget.parentNode;
+          if (parent) {
+            parent.replaceChild(iframe, event.currentTarget);
+          }
+        });
       });
-    }
-  });
+    });
+  })();
 </script>
 
 <style>
-  #section-{{ SID }} .video-placeholder {
+  .video-component .video-placeholder {
     position: relative;
     cursor: pointer;
   }
-  #section-{{ SID }} .video-placeholder img {
+
+  .video-component .video-placeholder img {
     display: block;
     width: 100%;
     height: auto;
   }
-  #section-{{ SID }} .play-button {
+
+  .video-component__play-button {
     position: absolute;
     top: 50%;
     left: 50%;

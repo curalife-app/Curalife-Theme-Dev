@@ -8,12 +8,16 @@
 {% endif %}
 
 {% assign itemsCounter = 0 %}
+{% assign videoCounter = value %}
 {% for block in section_blocks %}
   {% case block.type %}
     {% when 'item' %}
       {% assign itemsCounter = itemsCounter | plus: 1 %}
+    {% when 'video' %}
+      {% assign videoCounter = videoCounter | plus: 1 %}
   {% endcase %}
 {% endfor %}
+
 
 <div class="text-image-wrapper w-full">
   <div class="container static p-0 h-auto flex md:gap-4 md:items-center gap-x-16 gap-y-4 {% case image_position %}{% when 'right' %}flex-row-reverse{% when 'left' %}flex-row{% when 'bottom' %}flex-col-reverse{% when 'top' %}flex-col{% endcase %} {% unless is_no_wrap %}{% if is_image_middle_mobile or is_reverse_on_mobile %}md:flex-col{% else %}md:flex-col-reverse{% endif %}{% endunless %} {% if is_image_overlap and image_position == 'left' %}justify-end{% else %}justify-between{% endif %} {% if is_remove_container_padding_mobile %}md:p-0{% endif %}">
@@ -27,7 +31,40 @@
     {% if image_link != blank %}<a href="{{ image_link }}">{% endif %}
     {% if main_image or main_mobile_image or videoURL != blank %}
       <div class="image-wrapper z-[1] h-auto mbl:w-full md:mb-0 {% if main_mobile_image and main_image == blank %}mobile{% endif %} {% if itemsDirection == 'vertical' %}w-full{% endif %} {% if is_image_bottom %}self-end md:self-auto{% endif %}">
-        {% if videoURL != blank %}
+        {% if videoCounter > 0 %}
+          <div class="video-carousel swiper">
+            <div class="swiper-wrapper">
+              {% for block in section_blocks %}
+                {% case block.type %}
+                  {% when 'video' %}
+                    <div class="swiper-slide">
+                      {% render 'video', main_image: block.settings.video_thumbnail, main_mobile_image: block.settings.video_thumbnail, SID: section_id, videoURL: block.settings.video_url %}
+                    </div>
+                {% endcase %}
+              {% endfor %}
+            </div>
+
+            <div class="swiper-nav swiper-button-prev"></div>
+            <div class="swiper-nav swiper-button-next"></div>
+            <div class="swiper-pagination"></div>
+          </div>
+
+          <script>
+            document.addEventListener('DOMContentLoaded', function() {
+              var swiper = new Swiper('#section-{{ section_id }} .video-carousel', {
+                slidesPerView: 1,
+                navigation: {
+                  nextEl: '#section-{{ section_id }} .swiper-button-next',
+                  prevEl: '#section-{{ section_id }} .swiper-button-prev',
+                },
+                pagination: {
+                  el: '#section-{{ section_id }} .swiper-pagination',
+                  clickable: true,
+                },
+              });
+            });
+          </script>
+        {% elsif videoURL != blank %}
           {% render 'video', main_image: main_image, main_mobile_image: main_mobile_image, SID: section_id, videoURL: videoURL %}
         {% else %}
           {% if is_dont_lazyload == false %}{% assign lazyLoad = true %}{% endif %}
@@ -224,7 +261,8 @@
 
           @media (width < 768px) {
             &.open {
-              min-height: 100vw;
+              min-height: 110vw;
+              overflow-y: hidden;
             }
           }
 
@@ -269,7 +307,6 @@
       {% if items_hidden_title != blank %}
         <style>
           #section-{{ section_id }} .collection-container {
-            padding-top: 50px;
             overflow: hidden;
             max-height: 0;
             transition: max-height 0.3s ease-out;
