@@ -2,7 +2,7 @@
   Pay with HSA | FSA <a href="#" id="hsa-badge-link-{{ SID }}">Read More</a>
 </div>
 
-<div id="hsa-modal-{{ SID }}" class="modal" aria-labelledby="hsa-modal-title" aria-hidden="true" style="opacity: 0; visibility: hidden;">
+<div id="hsa-modal-{{ SID }}" class="modal" aria-labelledby="hsa-modal-title" aria-hidden="true">
   <div class="modal-backdrop"></div>
 
   <div class="modal-content">
@@ -292,36 +292,57 @@
   const hsaModal = document.getElementById('hsa-modal-{{ SID }}');
 
   const toggleHSAModal = (show) => {
-    hsaModal.classList.toggle('show', show);
-    hsaModal.setAttribute('aria-hidden', !show);
-    document.body.style.overflow = show ? 'hidden' : '';
+    if (!hsaModal) return; // Ensure the modal element exists
 
     if (show) {
+      hsaModal.style.opacity = '1';
+      hsaModal.style.visibility = 'visible';
+      hsaModal.classList.add('show');
+      hsaModal.setAttribute('aria-hidden', 'false');
+      // Prevent scrolling when modal is visible
+      document.body.style.overflow = 'hidden';
+      // Load images with data-src attribute
       const images = hsaModal.querySelectorAll('img[data-src]');
       images.forEach(img => {
         if (!img.getAttribute('src')) {
           img.setAttribute('src', img.getAttribute('data-src'));
         }
       });
+    } else {
+      hsaModal.style.opacity = '0';
+      hsaModal.style.visibility = 'hidden';
+      hsaModal.classList.remove('show');
+      hsaModal.setAttribute('aria-hidden', 'true');
+      // Enable scrolling when modal is hidden
+      document.body.style.overflow = '';
     }
   };
 
   document.getElementById('hsa-badge-link-{{ SID }}').addEventListener('click', (event) => {
     event.preventDefault();
+    console.log("Read more link clicked");
     toggleHSAModal(true);
   });
 
-  hsaModal.querySelector('.close-icon').addEventListener('click', () => toggleHSAModal(false));
-  hsaModal.querySelector('.close-button').addEventListener('click', () => toggleHSAModal(false));
+  hsaModal.querySelector('.close-icon').addEventListener('click', () => {
+    console.log("Close icon clicked");
+    toggleHSAModal(false);
+  });
+  hsaModal.querySelector('.close-button').addEventListener('click', () => {
+    console.log("Close button clicked");
+    toggleHSAModal(false);
+  });
 
   hsaModal.addEventListener('click', (event) => {
     if (event.target === hsaModal || event.target.classList.contains('modal-backdrop')) {
+      console.log("Backdrop clicked");
       toggleHSAModal(false);
     }
   });
 
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && hsaModal.classList.contains('show')) {
+      console.log("Escape key pressed");
       toggleHSAModal(false);
     }
   });
