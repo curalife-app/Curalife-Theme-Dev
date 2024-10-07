@@ -60,7 +60,6 @@
 
             <div class="swiper-nav swiper-button-prev"></div>
             <div class="swiper-nav swiper-button-next"></div>
-            <div class="swiper-pagination"></div>
           </div>
 
           <script>
@@ -330,6 +329,10 @@
     </script>
 
     <style>
+      #section-{{ section_id }} .main-container {
+        overflow: hidden;
+      }
+
       #section-{{ section_id }} .collection-container {
         height: 0;
         transition: height 0.3s ease-out;
@@ -342,21 +345,17 @@
 
         &.open {
           overflow: visible;
-          height: auto;
+          height: auto !important;
 
           .collection-content {
             opacity: 1;
           }
         }
 
-        &:has(.non-swiper-wrapper) {
-          &.open {
+        &.open {
+          &:has(.non-swiper-wrapper) {
             padding-bottom: 0 !important;
           }
-        }
-
-        &.open {
-          padding-bottom: {% if itemsCounter <= 3 %}0{% else %}80px{% endif %};
 
           @media (max-width: 768px) {
             overflow-y: hidden;
@@ -404,12 +403,34 @@
         }
 
         .swiper-nav {
-          --swiper-navigation-sides-offset: 40%;
-          --swiper-navigation-top-offset: 110%;
+          --swiper-navigation-sides-offset: -30px;
 
           @media (width < 768px) {
             --swiper-navigation-sides-offset: 30%;
+            --swiper-navigation-top-offset: 110%
           }
+        }
+      }
+
+      @media (width > 768px) {
+        #section-{{ section_id }}.container-fades .text-image-wrapper:after,
+        #section-{{ section_id }}.container-fades .text-image-wrapper:before {
+          content: " ";
+          width: calc((1200px - {{ max_width }}px) / 2);
+          height: 100%;
+          position: absolute;
+          top: 0;
+          z-index: 10;
+        }
+
+        #section-{{ section_id }}.container-fades .text-image-wrapper:after {
+          background: linear-gradient(270deg, #ffffff 0%, #ffffff 10%, rgba(255, 255, 255, 0) 100%);
+          right: 0;
+        }
+
+        #section-{{ section_id }}.container-fades .text-image-wrapper:before {
+          background: linear-gradient(90deg, #ffffff 0%, #ffffff 10%, rgba(255, 255, 255, 0) 100%);
+          left: 0;
         }
       }
 
@@ -419,9 +440,9 @@
           align-items: center;
           transition: opacity 0.3s ease, transform 0.3s ease, margin 0.3s ease, max-height 0.3s ease;
           cursor: pointer;
-          margin-bottom: 1rem; /* Adjust as needed */
+          margin-bottom: 1rem;
           overflow: hidden;
-          max-height: 50px; /* Adjust this value based on your link's height */
+          max-height: 50px;
         }
 
         #section-{{ section_id }} .collection-link .fa-chevron-down {
@@ -446,7 +467,7 @@
             margin: auto;
             flex-direction: column;
             gap: 0.5rem;
-            max-height: 70px; /* Adjust this value for mobile */
+            max-height: 70px;
           }
         }
       {% endif %}
@@ -455,9 +476,10 @@
 </div>
 
 <style>
-  {% unless section.settings.max_width == 1200 %}
+  {% unless max_width == 1200 %}
     #section-{{ section_id }} .text-image-wrapper {
-      max-width: {{ section.settings.max_width }}px !important;
+      max-width: {{ max_width }}px !important;
+      margin-inline: auto;
     }
   {% endunless %}
 
