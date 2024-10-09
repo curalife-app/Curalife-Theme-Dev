@@ -1,280 +1,296 @@
-{% assign sectionIDParts = section.id | split: '_' %}
-{% assign shortSectionID = sectionIDParts[-1] %}
-{% assign shortSectionIDParts = shortSectionID | split: '-' %}
-{% assign SID = shortSectionIDParts[-1] %}
+{% if section.settings.display_on_pages != blank %}
+  {% assign isDisplayOnThisPage = false %}
+  {% assign displayOnPagesArray = section.settings.display_on_pages | split: ',' %}
+  {% for currentPage in displayOnPagesArray %}
+    {% if currentPage == request.path %}
+      {% assign isDisplayOnThisPage = true %}
+    {% endif %}
+  {% endfor %}
 
-{% assign prodReference = section.settings.product | default: product | default: all_products["curalin-pack"] %}
-{% assign buyBoxColor = prodReference.metafields.custom.primary_color | default: section.settings.buy_box_color | default: page.metafields.primary_color | default: "var(--primary-color)" %}
+  {% unless isDisplayOnThisPage %}
+    {% assign hideSection = true %}
+  {% endunless %}
+{% endif %}
 
-<div id="cta-section-anchor"></div>
-{% if section.settings.anchor_id != blank %}<div id="{{ section.settings.anchor_id }}"></div>{% endif %}
+{% unless hideSection %}
+  {% assign sectionIDParts = section.id | split: '_' %}
+  {% assign shortSectionID = sectionIDParts[-1] %}
+  {% assign shortSectionIDParts = shortSectionID | split: '-' %}
+  {% assign SID = shortSectionIDParts[-1] %}
 
-<section class="cta-section overflow-visible pb-0 {{ section.settings.additional_classes }}{% if section.settings.isPopup %} cta-popup{% endif %}" id="cta-section-{{ section.id }}" aria-hidden="true" {% if section.settings.isPopup %}style="opacity: 0; visibility: hidden; pointer-events: none;"{% endif %}>
-  {% if section.settings.isPopup %}
-    <div class="cta-popup-content" role="dialog" aria-modal="true" aria-labelledby="popup-title">
-      <a class="close-popup top-close" aria-label="Close Popup">&times;</a>
-  {% endif %}
+  {% assign prodReference = section.settings.product | default: product | default: all_products["curalin-pack"] %}
+  {% assign buyBoxColor = prodReference.metafields.custom.primary_color | default: section.settings.buy_box_color | default: page.metafields.primary_color | default: "var(--primary-color)" %}
 
-  {% render 'product-cta',
-    ctaTemplate: section.settings.cta_template,
-    bgColor: section.settings.bg_color,
-    buyBoxColor: buyBoxColor,
-    ctaColor: "var(--orange)",
-    mainTitle: section.settings.main_title,
-    title: section.settings.variants_title,
-    ctaText: section.settings.cta_text,
-    thumbnailImage: section.settings.thumbnail_image,
-    thumbnailImageMobile: section.settings.thumbnail_image_mobile,
-    pricePer: section.settings.price_per,
-    saveFormat: section.settings.save_format,
-    badgeImage: section.settings.badge_image,
-    ctaTextType: section.settings.price_format,
-    titleTag: section.settings.title_tag,
-    isSubscription: section.settings.is_subscription,
-    isReviews: section.settings.is_reviews,
-    isHideThumbs: section.settings.is_hide_thumbs,
-    isHideInfo: section.settings.is_hide_info,
-    isBuyWithPrime: section.settings.is_buy_with_prime,
-    isVariantBoxToggle: section.settings.is_variant_toggle,
-    buyType: section.settings.buy_type,
-    prod: prodReference,
-    SID: SID
-  %}
+  <div id="cta-section-anchor"></div>
+  {% if section.settings.anchor_id != blank %}<div id="{{ section.settings.anchor_id }}"></div>{% endif %}
 
-  {% if section.settings.isPopup %}
-      <a class="close-popup bottom-close" aria-label="Close Popup">Close</a>
-    </div>
-  {% endif %}
-</section>
+  <section class="cta-section overflow-visible pb-0 {{ section.settings.additional_classes }}{% if section.settings.isPopup %} cta-popup{% endif %}" id="cta-section-{{ section.id }}" aria-hidden="true" {% if section.settings.isPopup %}style="opacity: 0; visibility: hidden; pointer-events: none;"{% endif %}>
+    {% if section.settings.isPopup %}
+      <div class="cta-popup-content" role="dialog" aria-modal="true" aria-labelledby="popup-title">
+        <a class="close-popup top-close" aria-label="Close Popup">&times;</a>
+    {% endif %}
 
-<script>
-  window.addEventListener('load', function() {
-    var _learnq = window._learnq || [];
-    var item = {};
-    function addedToCart() {
-      fetch(`${window.location.origin}/cart.js`)
-      .then(res => res.clone().json().then(data => {
-        var cart = {
-          total_price: data.total_price/100,
-          $value: data.total_price/100,
-          total_discount: data.total_discount,
-          original_total_price: data.original_total_price/100,
-          items: data.items
+    {% render 'product-cta',
+      ctaTemplate: section.settings.cta_template,
+      bgColor: section.settings.bg_color,
+      buyBoxColor: buyBoxColor,
+      ctaColor: "var(--orange)",
+      mainTitle: section.settings.main_title,
+      title: section.settings.variants_title,
+      ctaText: section.settings.cta_text,
+      thumbnailImage: section.settings.thumbnail_image,
+      thumbnailImageMobile: section.settings.thumbnail_image_mobile,
+      pricePer: section.settings.price_per,
+      saveFormat: section.settings.save_format,
+      badgeImage: section.settings.badge_image,
+      ctaTextType: section.settings.price_format,
+      titleTag: section.settings.title_tag,
+      isSubscription: section.settings.is_subscription,
+      isReviews: section.settings.is_reviews,
+      isHideThumbs: section.settings.is_hide_thumbs,
+      isHideInfo: section.settings.is_hide_info,
+      isBuyWithPrime: section.settings.is_buy_with_prime,
+      isVariantBoxToggle: section.settings.is_variant_toggle,
+      buyType: section.settings.buy_type,
+      prod: prodReference,
+      SID: SID
+    %}
+
+    {% if section.settings.isPopup %}
+        <a class="close-popup bottom-close" aria-label="Close Popup">Close</a>
+      </div>
+    {% endif %}
+  </section>
+
+  <script>
+    window.addEventListener('load', function() {
+      var _learnq = window._learnq || [];
+      var item = {};
+      function addedToCart() {
+        fetch(`${window.location.origin}/cart.js`)
+        .then(res => res.clone().json().then(data => {
+          var cart = {
+            total_price: data.total_price/100,
+            $value: data.total_price/100,
+            total_discount: data.total_discount,
+            original_total_price: data.original_total_price/100,
+            items: data.items
+          };
+          if (item !== 'undefined') {
+            cart = Object.assign(cart, item);
+          }
+
+          if (klAjax) {
+            _learnq.push(['track', 'Added to Cart', cart]);
+            klAjax = false;
+          }
+        }));
+      };
+
+      (function(ns, fetch) {
+        ns.fetch = function() {
+          const response = fetch.apply(this, arguments);
+          response.then(res => {
+            if (`${window.location.origin}/cart/add.js`.includes(res.url)) {
+              addedToCart();
+            }
+          });
+          return response;
         };
-        if (item !== 'undefined') {
-          cart = Object.assign(cart, item);
-        }
+      }(window, window.fetch));
 
-        if (klAjax) {
-          _learnq.push(['track', 'Added to Cart', cart]);
-          klAjax = false;
-        }
-      }));
-    };
-
-    (function(ns, fetch) {
-      ns.fetch = function() {
-        const response = fetch.apply(this, arguments);
-        response.then(res => {
-          if (`${window.location.origin}/cart/add.js`.includes(res.url)) {
-            addedToCart();
+      var klAjax = true;
+      var atcButtons = document.querySelectorAll("form[action*='/cart/add'] button[type='submit']");
+      for (var i = 0; i < atcButtons.length; i++) {
+        atcButtons[i].addEventListener("click", function() {
+          if (klAjax) {
+            _learnq.push(['track', 'Added to Cart', item]);
+            klAjax = false;
           }
         });
-        return response;
-      };
-    }(window, window.fetch));
+      }
+    });
 
-    var klAjax = true;
-    var atcButtons = document.querySelectorAll("form[action*='/cart/add'] button[type='submit']");
-    for (var i = 0; i < atcButtons.length; i++) {
-      atcButtons[i].addEventListener("click", function() {
-        if (klAjax) {
-          _learnq.push(['track', 'Added to Cart', item]);
-          klAjax = false;
-        }
-      });
-    }
-  });
+    {% if section.settings.isPopup %}
+      document.addEventListener('DOMContentLoaded', function() {
+        const popup = document.getElementById('cta-section-{{ section.id }}');
+        const popupContent = popup.querySelector('.cta-popup-content');
+        const closeButtons = popup.querySelectorAll('.close-popup');
+        const focusableElementsString = 'a[href], area[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), iframe, object, embed, [tabindex="0"], [contenteditable]';
+        let focusableElements = [];
+        let firstFocusableElement = null;
+        let lastFocusableElement = null;
 
-  {% if section.settings.isPopup %}
-    document.addEventListener('DOMContentLoaded', function() {
-      const popup = document.getElementById('cta-section-{{ section.id }}');
-      const popupContent = popup.querySelector('.cta-popup-content');
-      const closeButtons = popup.querySelectorAll('.close-popup');
-      const focusableElementsString = 'a[href], area[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), iframe, object, embed, [tabindex="0"], [contenteditable]';
-      let focusableElements = [];
-      let firstFocusableElement = null;
-      let lastFocusableElement = null;
+        const togglePopup = (show) => {
+          if (show) {
+            popup.setAttribute('aria-hidden', 'false');
+            popup.classList.add('show');
+            // Get all focusable elements inside the popup
+            focusableElements = popupContent.querySelectorAll(focusableElementsString);
+            firstFocusableElement = focusableElements[0];
+            lastFocusableElement = focusableElements[focusableElements.length - 1];
+            // Focus the first element
+            firstFocusableElement.focus();
+            // Add event listener to trap focus
+            document.addEventListener('keydown', trapTabKey);
+            // Add event listener for Escape key
+            document.addEventListener('keydown', handleEscape);
+            // Disable background scrolling
+            document.body.style.overflow = 'hidden';
+          } else {
+            popup.setAttribute('aria-hidden', 'true');
+            popup.classList.remove('show');
+            // Remove event listeners
+            document.removeEventListener('keydown', trapTabKey);
+            document.removeEventListener('keydown', handleEscape);
+            // Re-enable background scrolling
+            document.body.style.overflow = '';
+          }
+        };
 
-      const togglePopup = (show) => {
-        if (show) {
-          popup.setAttribute('aria-hidden', 'false');
-          popup.classList.add('show');
-          // Get all focusable elements inside the popup
-          focusableElements = popupContent.querySelectorAll(focusableElementsString);
-          firstFocusableElement = focusableElements[0];
-          lastFocusableElement = focusableElements[focusableElements.length - 1];
-          // Focus the first element
-          firstFocusableElement.focus();
-          // Add event listener to trap focus
-          document.addEventListener('keydown', trapTabKey);
-          // Add event listener for Escape key
-          document.addEventListener('keydown', handleEscape);
-          // Disable background scrolling
-          document.body.style.overflow = 'hidden';
-        } else {
-          popup.setAttribute('aria-hidden', 'true');
-          popup.classList.remove('show');
-          // Remove event listeners
-          document.removeEventListener('keydown', trapTabKey);
-          document.removeEventListener('keydown', handleEscape);
-          // Re-enable background scrolling
-          document.body.style.overflow = '';
-        }
-      };
-
-      const trapTabKey = (e) => {
-        if (e.keyCode === 9) { // Tab key
-          if (e.shiftKey) { // Shift + Tab
-            if (document.activeElement === firstFocusableElement) {
-              e.preventDefault();
-              lastFocusableElement.focus();
-            }
-          } else { // Tab
-            if (document.activeElement === lastFocusableElement) {
-              e.preventDefault();
-              firstFocusableElement.focus();
+        const trapTabKey = (e) => {
+          if (e.keyCode === 9) { // Tab key
+            if (e.shiftKey) { // Shift + Tab
+              if (document.activeElement === firstFocusableElement) {
+                e.preventDefault();
+                lastFocusableElement.focus();
+              }
+            } else { // Tab
+              if (document.activeElement === lastFocusableElement) {
+                e.preventDefault();
+                firstFocusableElement.focus();
+              }
             }
           }
-        }
-      };
+        };
 
-      const handleEscape = (e) => {
-        if (e.key === 'Escape' || e.keyCode === 27) {
-          togglePopup(false);
-        }
-      };
+        const handleEscape = (e) => {
+          if (e.key === 'Escape' || e.keyCode === 27) {
+            togglePopup(false);
+          }
+        };
 
-      document.querySelectorAll('a[href="#cta-popup"]').forEach(el =>
-        el.addEventListener('click', (e) => {
-          e.preventDefault();
-          togglePopup(true);
-        })
-      );
+        document.querySelectorAll('a[href="#cta-popup"]').forEach(el =>
+          el.addEventListener('click', (e) => {
+            e.preventDefault();
+            togglePopup(true);
+          })
+        );
 
-      closeButtons.forEach(button => {
-        button.addEventListener('click', () => togglePopup(false));
+        closeButtons.forEach(button => {
+          button.addEventListener('click', () => togglePopup(false));
+        });
+
+        popup.addEventListener('click', (e) => {
+          if (e.target === popup) togglePopup(false);
+        });
       });
+    {% endif %}
+  </script>
 
-      popup.addEventListener('click', (e) => {
-        if (e.target === popup) togglePopup(false);
-      });
-    });
-  {% endif %}
-</script>
-
-{% if section.settings.isPopup %}
-  <style>
-    #shopify-section-{{ section.id }} .product-container {
-      padding: 0 !important;
-    }
-
-    #shopify-section-{{ section.id }} .cta-popup {
-      position: fixed;
-      inset: 0;
-      background-color: rgba(0, 0, 0, 0.5);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      z-index: 1000;
-      opacity: 0;
-      visibility: hidden;
-      pointer-events: none;
-      transition: opacity 0.3s ease, visibility 0s linear 0.3s;
-    }
-
-    #shopify-section-{{ section.id }} .cta-popup.show {
-      opacity: 1 !important;
-      visibility: visible !important;
-      pointer-events: auto !important;
-      transition-delay: 0s;
-    }
-
-    #shopify-section-{{ section.id }} .cta-popup-content {
-      background-color: #fff;
-      padding: 30px;
-      border-radius: 8px;
-      position: relative;
-      max-width: 1200px;
-      width: 90%;
-      max-height: 90%;
-      box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-      transform: translateY(-20px);
-      opacity: 0;
-      transition: opacity 0.3s ease, transform 0.3s ease;
-      overflow-y: auto; /* Ensure content is scrollable if it overflows */
-    }
-
-    #shopify-section-{{ section.id }} .cta-popup.show .cta-popup-content {
-      transform: translateY(0);
-      opacity: 1;
-    }
-
-    /* Mobile-specific styles */
-    @media (max-width: 767px) {
-      #shopify-section-{{ section.id }} .cta-popup-content {
-        width: 100%;
-        height: 100%;
-        max-width: none;
-        max-height: none;
-        border-radius: 0;
-        padding: 20px;
-        transform: none;
+  {% if section.settings.isPopup %}
+    <style>
+      #shopify-section-{{ section.id }} .product-container {
+        padding: 0 !important;
       }
-    }
 
-    #shopify-section-{{ section.id }} .close-popup {
-      cursor: pointer;
-      color: #333;
-    }
+      #shopify-section-{{ section.id }} .cta-popup {
+        position: fixed;
+        inset: 0;
+        background-color: rgba(0, 0, 0, 0.5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transition: opacity 0.3s ease, visibility 0s linear 0.3s;
+      }
 
-    #shopify-section-{{ section.id }} .close-popup:hover {
-      color: #000;
-    }
+      #shopify-section-{{ section.id }} .cta-popup.show {
+        opacity: 1 !important;
+        visibility: visible !important;
+        pointer-events: auto !important;
+        transition-delay: 0s;
+      }
 
-    #shopify-section-{{ section.id }} .close-popup:focus {
-      outline: 2px solid #000;
-    }
+      #shopify-section-{{ section.id }} .cta-popup-content {
+        background-color: #fff;
+        padding: 30px;
+        border-radius: 8px;
+        position: relative;
+        max-width: 1200px;
+        width: 90%;
+        max-height: 90%;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        transform: translateY(-20px);
+        opacity: 0;
+        transition: opacity 0.3s ease, transform 0.3s ease;
+        overflow-y: auto; /* Ensure content is scrollable if it overflows */
+      }
 
-    #shopify-section-{{ section.id }} .close-popup.top-close {
-      position: absolute;
-      top: 15px;
-      right: 15px;
-      font-size: 24px;
-      background: none;
-      border: none;
-    }
+      #shopify-section-{{ section.id }} .cta-popup.show .cta-popup-content {
+        transform: translateY(0);
+        opacity: 1;
+      }
 
-    #shopify-section-{{ section.id }} .close-popup.bottom-close {
-      display: block;
-      margin-top: 20px;
-      text-align: center;
-      font-size: 16px;
-      background: none;
-      border: none;
-      text-decoration: underline;
-    }
+      /* Mobile-specific styles */
+      @media (max-width: 767px) {
+        #shopify-section-{{ section.id }} .cta-popup-content {
+          width: 100%;
+          height: 100%;
+          max-width: none;
+          max-height: none;
+          border-radius: 0;
+          padding: 20px;
+          transform: none;
+        }
+      }
 
-    #shopify-section-{{ section.id }} .cta-popup-content::-webkit-scrollbar {
-      width: 6px;
-    }
+      #shopify-section-{{ section.id }} .close-popup {
+        cursor: pointer;
+        color: #333;
+      }
 
-    #shopify-section-{{ section.id }} .cta-popup-content::-webkit-scrollbar-thumb {
-      background-color: rgba(0, 0, 0, 0.2);
-      border-radius: 3px;
-    }
-  </style>
-{% endif %}
+      #shopify-section-{{ section.id }} .close-popup:hover {
+        color: #000;
+      }
+
+      #shopify-section-{{ section.id }} .close-popup:focus {
+        outline: 2px solid #000;
+      }
+
+      #shopify-section-{{ section.id }} .close-popup.top-close {
+        position: absolute;
+        top: 15px;
+        right: 15px;
+        font-size: 24px;
+        background: none;
+        border: none;
+      }
+
+      #shopify-section-{{ section.id }} .close-popup.bottom-close {
+        display: block;
+        margin-top: 20px;
+        text-align: center;
+        font-size: 16px;
+        background: none;
+        border: none;
+        text-decoration: underline;
+      }
+
+      #shopify-section-{{ section.id }} .cta-popup-content::-webkit-scrollbar {
+        width: 6px;
+      }
+
+      #shopify-section-{{ section.id }} .cta-popup-content::-webkit-scrollbar-thumb {
+        background-color: rgba(0, 0, 0, 0.2);
+        border-radius: 3px;
+      }
+    </style>
+  {% endif %}
+{% endunless %}
 
 {% schema %}
 {
@@ -526,6 +542,12 @@
         "type": "text",
         "id": "additional_classes",
         "label": "Additional Classes"
+      },
+      {
+        "type": "text",
+        "id": "display_on_pages",
+        "label": "Display on Pages",
+        "info": "Comma-separated list of page paths to display this section on. Leave blank to display on all pages."
       }
     ],
     "blocks": [
