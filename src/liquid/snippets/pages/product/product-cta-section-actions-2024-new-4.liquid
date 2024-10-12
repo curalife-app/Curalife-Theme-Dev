@@ -15,6 +15,14 @@
       {% render 'product-cta-section-actions-variant-2024-new-4', SID: SID, prod: prod, var: var, buyBoxColor: buyBoxColor, pricePer: pricePer, saveFormat: saveFormat, index: forloop.index %}
     {% endfor %}
 
+    {% for block in section.blocks %}
+      {% if block.type == 'variant_box' %}
+        {% for var in prod.variants %}
+          {% render 'product-cta-section-actions-variant-2024-new-4', SID: SID, prod: prod, var: var, buyBoxColor: buyBoxColor, pricePer: pricePer, saveFormat: saveFormat, index: forloop.index, purchase_type: block.settings.purchase_type %}
+        {% endfor %}
+      {% endif %}
+    {% endfor %}
+
     {% render 'subscription-benefits-popup', SID: SID %}
 
     <div class="submit-wrap flex flex-col w-full">
@@ -385,41 +393,14 @@
 
       for (let i = 0; i < purchaseOptionBoxes.length; i++) {
         const box = purchaseOptionBoxes[i];
+        const boxPurchaseType = box.getAttribute('data-purchase-type');
 
-        // Cache elements
-        const subscriptionElements = box.querySelectorAll('.subscription');
-        const buyOnceElements = box.querySelectorAll('.buy-once');
-        const perMonth = box.querySelector('.per-month');
-        const saveTagSubscription = box.querySelector('.save-title.subscription');
-        const saveTagBuyOnce = box.querySelector('.save-title.buy-once');
-        const subtitleSubscription = box.querySelector('.subtitle.subscription');
-        const subtitleBuyOnce = box.querySelector('.subtitle.buy-once');
-
-        // Update visibility
-        if (isSubscription) {
-          safelySetDisplay(perMonth, 'inline-block');
-          fadeOutThenIn(buyOnceElements, subscriptionElements);
-          safelySetDisplay(saveTagSubscription, 'inline-block');
-          safelySetDisplay(saveTagBuyOnce, 'none');
-          safelySetDisplay(subtitleSubscription, 'inline-block');
-          safelySetDisplay(subtitleBuyOnce, 'none');
-
-          const sellingPlanId = parseInt(box.getAttribute('data-subscription-selling-plan-id'));
-          if (sellingPlanId > 0) {
-            box.removeAttribute('inert');
-          } else {
-            box.setAttribute('inert', '');
-            safelyRemoveClass(box, 'selected');
-          }
+        if (isSubscription && boxPurchaseType === 'subscribe') {
+          box.style.display = '';
+        } else if (!isSubscription && boxPurchaseType === 'buy_once') {
+          box.style.display = '';
         } else {
-          safelySetDisplay(perMonth, 'none');
-          fadeOutThenIn(subscriptionElements, buyOnceElements);
-          safelySetDisplay(saveTagSubscription, 'none');
-          safelySetDisplay(saveTagBuyOnce, 'inline-block');
-          safelySetDisplay(subtitleSubscription, 'none');
-          safelySetDisplay(subtitleBuyOnce, 'inline-block');
-
-          box.removeAttribute('inert');
+          box.style.display = 'none';
         }
 
         updatePriceDisplay(box, isSubscription, true);
@@ -449,7 +430,7 @@
       if (!document.querySelector('.purchase-option-box.selected')) {
         for (let i = 0; i < purchaseOptionBoxes.length; i++) {
           const box = purchaseOptionBoxes[i];
-          if (!box.hasAttribute('inert')) {
+          if (!box.hasAttribute('inert') && box.style.display !== 'none') {
             box.click();
             break;
           }
