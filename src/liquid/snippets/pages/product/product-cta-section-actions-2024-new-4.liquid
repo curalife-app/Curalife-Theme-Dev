@@ -2,37 +2,27 @@
 
 <div id="product-actions-{{ SID }}" class="product-actions {% if isVariantBoxToggle %}with-animation{% endif %}">
   <div class="purchase-options flex flex-col gap-2">
-    <div class="purchase-type flex-nowrap flex w-full gap-2">
-      <button class="subscription selected flex items-center justify-center gap-2" aria-label="Subscribe & Save">
-        <span>
-          Subscribe <div class="desktop">& Save</div>
-        </span>
-      </button>
-      <button class="buy-once z-0" aria-label="Buy Once"><span>Buy Once</span></button>
-    </div>
-
-    {% for var in prod.variants %}
-      {% render 'product-cta-section-actions-variant-2024-new-4', SID: SID, prod: prod, var: var, buyBoxColor: buyBoxColor, pricePer: pricePer, saveFormat: saveFormat, index: forloop.index %}
-    {% endfor %}
-
-    {% for block in section.blocks %}
-      {% if block.type == 'variant_box' %}
-        {% for var in prod.variants %}
-          {% render 'product-cta-section-actions-variant-2024-new-4', SID: SID, prod: prod, var: var, buyBoxColor: buyBoxColor, pricePer: pricePer, saveFormat: saveFormat, index: forloop.index, purchase_type: block.settings.purchase_type %}
-        {% endfor %}
+    <script>console.log("variant box rendering!!!")</script>
+    {% for block in blocks %}
+      <script>console.log("variant block rendering!!!!!!!")</script>
+      {% if block.type == 'variant' %}
+          {% render 'product-cta-section-actions-variant-2024-new-4',
+            SID: SID,
+            prod: block.settings.prod,
+            var: block.settings.variant_id,
+            buyBoxColor: buyBoxColor,
+            pricePer: pricePer,
+            saveFormat: saveFormat,
+            index: forloop.index,
+            purchase_type: block.settings.purchase_type
+          %}
       {% endif %}
     {% endfor %}
 
-    {% render 'subscription-benefits-popup', SID: SID %}
-
     <div class="submit-wrap flex flex-col w-full">
-      <div class="checkout-button subscription">
-        {% assign buttonSIDSubscription = SID | append: '-subscription' %}
-        {% render 'buy-buttons', SID: buttonSIDSubscription, product: prod, variant: '', buttonText: "Subscribe Now", selling_plan_id: selling_plan_id, product_form_id: product_form_id, buyType: 'buy_now', isBuyWithPrime: isBuyWithPrime %}
-      </div>
-      <div class="checkout-button buy-once hidden">
-        {% assign buttonSIDBuyOnce = SID | append: '-buyonce' %}
-        {% render 'buy-buttons', SID: buttonSIDBuyOnce, product: prod, variant: '', selling_plan_id: selling_plan_id, product_form_id: product_form_id, buyType: buyType, isBuyWithPrime: isBuyWithPrime %}
+      <div class="checkout-button">
+        {% assign buttonSID = SID | append: '-checkout' %}
+        {% render 'buy-buttons-new-4', SID: buttonSID, product: prod, variant: '', buttonText: "Add to Cart", selling_plan_id: selling_plan_id, product_form_id: product_form_id, buyType: buyType, isBuyWithPrime: isBuyWithPrime %}
       </div>
     </div>
   </div>
@@ -276,55 +266,24 @@
     const SID = productActions.id.split('-').pop();
 
     // Cache frequently used elements
-    const subscriptionButton = productActions.querySelector('.purchase-type .subscription');
-    const buyOnceButton = productActions.querySelector('.purchase-type .buy-once');
-    const subscriptionSubmitButton = productActions.querySelector('.checkout-button.subscription');
-    const buyOnceSubmitButton = productActions.querySelector('.checkout-button.buy-once');
     const purchaseOptionBoxes = productActions.querySelectorAll('.purchase-option-box');
-    const benefitsElement = document.querySelector('.subscription-benefits');
+    const submitButton = productActions.querySelector('.checkout-button button');
     const submitSellingPlanIdInput = document.querySelector('.submit-selling-plan-id');
     const submitVariantIdInput = document.querySelector('.submit-variant-id');
-    const submitButton = subscriptionSubmitButton ? subscriptionSubmitButton.querySelector('button') : null;
     const enableToggleAnimation = typeof isVariantBoxToggle !== 'undefined' ? isVariantBoxToggle : false;
-    const variantsAmount = purchaseOptionBoxes.length;
 
     // Initialize state
     const state = {
-      isSubscriptionSelected: true, // assuming subscription is selected by default
       selectedBox: null,
     };
-
-    // Set up subscription button event listener
-    let isSubscriptionButtonListenerAttached = false;
-    function setupSubscriptionButton() {
-      if (isSubscriptionButtonListenerAttached) return;
-      if (submitButton) {
-        submitButton.addEventListener('click', handleSubscriptionSubmit);
-        isSubscriptionButtonListenerAttached = true;
-      }
-    }
-
-    function isSubscriptionSelected() {
-      return state.isSubscriptionSelected;
-    }
 
     function getClosedHeight() {
       return window.innerWidth <= 767 ? '16vw' : '72px';
     }
 
-    function formatPrice(cents) {
-      return (cents / 100).toFixed(2);
-    }
-
     function safelySetStyle(element, property, value) {
       if (element && element.style && element.style[property] !== value) {
         element.style[property] = value;
-      }
-    }
-
-    function safelySetDisplay(element, value) {
-      if (element && element.style && element.style.display !== value) {
-        element.style.display = value;
       }
     }
 
@@ -340,246 +299,9 @@
       }
     }
 
-    function toggleElementVisibility(element, show) {
-      if (element) {
-        element.style.display = show ? '' : 'none';
-        element.classList.toggle('hidden', !show);
-      }
-    }
-
-    function initializePurchaseOptions() {
-      const urlParams = new URLSearchParams(window.location.search);
-      const defaultVariantIndex = parseInt(urlParams.get('default-variant')) || (typeof defaultSelectionIndex !== 'undefined' ? defaultSelectionIndex : 1) - 1;
-
-      // Set initial purchase type selection
-      if (subscriptionButton) {
-        safelyAddClass(subscriptionButton, 'selected');
-        state.isSubscriptionSelected = true;
-      } else if (buyOnceButton) {
-        safelyAddClass(buyOnceButton, 'selected');
-        state.isSubscriptionSelected = false;
-      }
-
-      // Set default selection
-      const defaultBox = purchaseOptionBoxes[defaultVariantIndex] || purchaseOptionBoxes[0];
-      if (defaultBox) {
-        safelyAddClass(defaultBox, 'selected');
-        const radioInput = defaultBox.querySelector("input[type='radio']");
-        if (radioInput) {
-          radioInput.checked = true;
-        }
-        state.selectedBox = defaultBox;
-      }
-
-      // Update price display and styles
-      for (let i = 0; i < purchaseOptionBoxes.length; i++) {
-        const box = purchaseOptionBoxes[i];
-        if (box !== defaultBox) {
-          safelySetStyle(box, 'maxHeight', getClosedHeight());
-          updatePriceDisplay(box, state.isSubscriptionSelected, false);
-        }
-      }
-
-      if (state.isSubscriptionSelected) {
-        setupSubscriptionButton();
-        toggleSubscriptionBenefits(true);
-      } else {
-        toggleSubscriptionBenefits(false);
-      }
-    }
-
-    function togglePurchaseType(isSubscription) {
-      state.isSubscriptionSelected = isSubscription;
-
-      for (let i = 0; i < purchaseOptionBoxes.length; i++) {
-        const box = purchaseOptionBoxes[i];
-        const boxPurchaseType = box.getAttribute('data-purchase-type');
-
-        if (isSubscription && boxPurchaseType === 'subscribe') {
-          box.style.display = '';
-        } else if (!isSubscription && boxPurchaseType === 'buy_once') {
-          box.style.display = '';
-        } else {
-          box.style.display = 'none';
-        }
-
-        updatePriceDisplay(box, isSubscription, true);
-
-        if (box.classList.contains('selected')) {
-          adjustMaxHeight(box, isSubscription);
-        } else {
-          safelySetStyle(box, 'maxHeight', getClosedHeight());
-        }
-      }
-
-      // Update submit buttons
-      if (subscriptionSubmitButton && buyOnceSubmitButton) {
-        if (isSubscription) {
-          safelyRemoveClass(subscriptionSubmitButton, 'hidden');
-          safelyAddClass(buyOnceSubmitButton, 'hidden');
-          setupSubscriptionButton();
-          toggleSubscriptionBenefits(true);
-        } else {
-          safelyAddClass(subscriptionSubmitButton, 'hidden');
-          safelyRemoveClass(buyOnceSubmitButton, 'hidden');
-          toggleSubscriptionBenefits(false);
-        }
-      }
-
-      // Select the first non-inert box if no box is selected
-      if (!document.querySelector('.purchase-option-box.selected')) {
-        for (let i = 0; i < purchaseOptionBoxes.length; i++) {
-          const box = purchaseOptionBoxes[i];
-          if (!box.hasAttribute('inert') && box.style.display !== 'none') {
-            box.click();
-            break;
-          }
-        }
-      }
-    }
-
-    function fadeOutThenIn(elementsToHide, elementsToShow, duration = 200) {
-      if (!elementsToHide || !elementsToShow) return;
-      for (let i = 0; i < elementsToHide.length; i++) {
-        fadeOut(elementsToHide[i], duration);
-      }
-      setTimeout(() => {
-        for (let i = 0; i < elementsToShow.length; i++) {
-          fadeIn(elementsToShow[i], 'inline-block', duration);
-        }
-      }, duration);
-    }
-
-    function fadeOut(element, duration = 200) {
-      if (!element || getComputedStyle(element).display === 'none') return;
-      element.style.transition = `opacity ${duration}ms ease-out`;
-      element.style.opacity = '0';
-      setTimeout(() => {
-        element.style.display = 'none';
-        element.style.transition = '';
-      }, duration);
-    }
-
-    function fadeIn(element, display = 'inline-block', duration = 200) {
-      if (!element) return;
-      element.style.opacity = '0';
-      element.style.display = display;
-      element.style.transition = `opacity ${duration}ms ease-in`;
-      element.offsetHeight; // Force reflow
-      element.style.opacity = '1';
-      setTimeout(() => {
-        element.style.transition = '';
-      }, duration);
-    }
-
-    function toggleSubscriptionBenefits(show) {
-      if (!benefitsElement) return;
-      const duration = 300;
-      if (show) {
-        benefitsElement.classList.remove('hidden');
-        benefitsElement.style.cssText = `
-          overflow: hidden;
-          max-height: 0;
-          opacity: 0;
-          margin-top: 0;
-          transition: max-height ${duration}ms ease-out, opacity ${duration}ms ease-out, margin-top ${duration}ms ease-out;
-        `;
-        benefitsElement.offsetHeight; // Force reflow
-        benefitsElement.style.cssText = `
-          overflow: hidden;
-          max-height: ${benefitsElement.scrollHeight}px;
-          opacity: 1;
-          margin-top: 0.5rem;
-          transition: max-height ${duration}ms ease-out, opacity ${duration}ms ease-out, margin-top ${duration}ms ease-out;
-        `;
-        setTimeout(() => {
-          benefitsElement.style.cssText = '';
-        }, duration);
-      } else {
-        benefitsElement.style.cssText = `
-          overflow: hidden;
-          max-height: ${benefitsElement.scrollHeight}px;
-          transition: max-height ${duration}ms ease-out, opacity ${duration}ms ease-out, margin-top ${duration}ms ease-out;
-        `;
-        benefitsElement.offsetHeight; // Force reflow
-        benefitsElement.style.cssText = `
-          overflow: hidden;
-          max-height: 0;
-          opacity: 0;
-          margin-top: 0;
-          transition: max-height ${duration}ms ease-out, opacity ${duration}ms ease-out, margin-top ${duration}ms ease-out;
-        `;
-        setTimeout(() => {
-          benefitsElement.classList.add('hidden');
-          benefitsElement.style.cssText = '';
-        }, duration);
-      }
-    }
-
-    function updatePriceDisplay(box, isSubscriptionSelected, animate = true) {
-      // Read data attributes
-      const itemPrice = parseInt(box.getAttribute('data-item-price')) || 0;
-      const subscriptionItemPrice = parseInt(box.getAttribute('data-subscription-item-price')) || 0;
-      const bottleQuantity = parseInt(box.getAttribute('data-bottle-quantity')) || 1;
-      const originalItemCap = parseInt(box.getAttribute('data-original-item-cap')) || 0;
-      const pricePer = box.getAttribute('data-price-per') || 'total';
-
-      const currentPrice = isSubscriptionSelected ? subscriptionItemPrice : itemPrice;
-      const totalPrice = currentPrice * bottleQuantity;
-
-      // Cache elements
-      const subscriptionPriceElement = box.querySelector('.real-price.subscription');
-      const buyOncePriceElement = box.querySelector('.real-price.buy-once');
-      const totalPriceElement = box.querySelector('.total-price' + (isSubscriptionSelected ? '.subscription' : '.buy-once'));
-      const comparedAtPriceElement = box.querySelector('.compared-at-price');
-      const saveTagElement = box.querySelector('.save-title');
-      const perMonthElement = box.querySelector('.per-month');
-
-      const displayPrice = pricePer === 'month' ? currentPrice : totalPrice;
-      const comparedAtPrice = pricePer === 'month' ? originalItemCap : (originalItemCap * bottleQuantity);
-      const shouldShowComparedPrice = comparedAtPrice > displayPrice;
-
-      function updateContent() {
-        if (subscriptionPriceElement && buyOncePriceElement) {
-          subscriptionPriceElement.textContent = '$' + formatPrice(subscriptionItemPrice * bottleQuantity);
-          buyOncePriceElement.textContent = '$' + formatPrice(itemPrice * bottleQuantity);
-        }
-
-        if (totalPriceElement) {
-          totalPriceElement.textContent = '$' + formatPrice(displayPrice);
-        }
-
-        if (comparedAtPriceElement) {
-          comparedAtPriceElement.textContent = '$' + formatPrice(comparedAtPrice);
-          toggleElementVisibility(comparedAtPriceElement, shouldShowComparedPrice);
-        }
-
-        if (saveTagElement) {
-          const subscriptionSaveTag = saveTagElement.querySelector('.subscription');
-          const buyOnceSaveTag = saveTagElement.querySelector('.buy-once');
-          toggleElementVisibility(subscriptionSaveTag, isSubscriptionSelected && shouldShowComparedPrice);
-          toggleElementVisibility(buyOnceSaveTag, !isSubscriptionSelected && shouldShowComparedPrice);
-        }
-
-        toggleElementVisibility(perMonthElement, pricePer === 'month' && isSubscriptionSelected);
-      }
-
-      if (animate) {
-        const elementsToHide = isSubscriptionSelected ? [buyOncePriceElement, comparedAtPriceElement] : [subscriptionPriceElement, comparedAtPriceElement];
-        const elementsToShow = isSubscriptionSelected ? [subscriptionPriceElement, comparedAtPriceElement] : [buyOncePriceElement, comparedAtPriceElement];
-        fadeOutThenIn(elementsToHide, elementsToShow);
-        if (totalPriceElement) {
-          fadeOutThenIn([totalPriceElement], [totalPriceElement]);
-        }
-        setTimeout(updateContent, 200);
-      } else {
-        updateContent();
-      }
-    }
-
-    function adjustMaxHeight(element, isSubscriptionSelected) {
+    function adjustMaxHeight(element) {
       if (enableToggleAnimation) {
-        const height = isSubscriptionSelected && element.classList.contains('selected') ? element.scrollHeight + 'px' : getClosedHeight();
+        const height = element.classList.contains('selected') ? element.scrollHeight + 'px' : getClosedHeight();
         safelySetStyle(element, 'maxHeight', height);
       } else {
         safelySetStyle(element, 'maxHeight', 'none');
@@ -596,9 +318,9 @@
         safelySetStyle(box, 'maxHeight', getClosedHeight());
       }
 
-      const isSubscription = isSubscriptionSelected();
+      const isSubscription = element.getAttribute('data-purchase-type') === 'subscribe';
       const subscriptionPlanID = isSubscription ? element.getAttribute('data-subscription-selling-plan-id') : '';
-      const variantID = isSubscription ? element.getAttribute('data-original-variant') : element.getAttribute('data-variant');
+      const variantID = element.getAttribute('data-variant');
 
       if (submitSellingPlanIdInput) {
         submitSellingPlanIdInput.value = subscriptionPlanID;
@@ -615,10 +337,9 @@
       }
       state.selectedBox = element;
 
-      updatePriceDisplay(element, isSubscription, false);
       updateVariantImage(element);
 
-      if (enableToggleAnimation && isSubscription) {
+      if (enableToggleAnimation) {
         safelySetStyle(element, 'maxHeight', element.scrollHeight + 'px');
       }
     }
@@ -635,113 +356,20 @@
       window.hasInitialImageUpdateHappened = true;
     }
 
-    function handleSubscriptionSubmit(event) {
-      event.preventDefault();
-      try {
-        const upCart = document.querySelector('#upCart');
-        if (upCart) {
-          upCart.remove();
-        }
-        const selectedBox = state.selectedBox;
-        if (!selectedBox) {
-          console.error('No variant selected');
-          return;
-        }
+    function initializePurchaseOptions() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const defaultVariantIndex = parseInt(urlParams.get('default-variant')) || (typeof defaultSelectionIndex !== 'undefined' ? defaultSelectionIndex : 1) - 1;
 
-        const variantId = selectedBox.getAttribute('data-original-variant');
-        const sellingPlanId = selectedBox.getAttribute('data-subscription-selling-plan-id');
-        const quantity = 1;
-
-        if (!submitButton) {
-          console.error('Submit button not found');
-          return;
-        }
-
-        const buttonText = submitButton.querySelector('.button-text');
-        const loadingSpinner = submitButton.querySelector('.loading-overlay__spinner');
-
-        if (buttonText && loadingSpinner) {
-          buttonText.style.display = 'none';
-          loadingSpinner.classList.remove('hidden');
-        }
-
-        buySubscription(variantId, quantity, sellingPlanId, (success) => {
-          if (!success && buttonText && loadingSpinner) {
-            buttonText.style.display = '';
-            loadingSpinner.classList.add('hidden');
-          }
-        });
-      } catch (error) {
-        console.error('Error in handleSubscriptionSubmit:', error);
+      // Set default selection
+      const defaultBox = purchaseOptionBoxes[defaultVariantIndex] || purchaseOptionBoxes[0];
+      if (defaultBox) {
+        togglePurchaseBox(defaultBox);
       }
     }
 
-    function buySubscription(variant_id, qty, selling_plan, callback) {
-      clearCart(() => {
-        const data = {
-          "id": variant_id,
-          "quantity": qty,
-          "selling_plan": selling_plan
-        };
-        fetch('/cart/add.js', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(data),
-        })
-        .then(response => response.json())
-        .then(data => {
-          console.log('Success:', data);
-          if (typeof callback === 'function') {
-            callback(true);
-          }
-          window.location.href = '/checkout';
-        })
-        .catch((error) => {
-          console.error('Error:', error);
-          if (typeof callback === 'function') {
-            callback(false);
-          }
-        });
-      });
-    }
-
-    function clearCart(callback) {
-      fetch('/cart/clear.js', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      })
-      .then(response => response.json())
-      .then(data => {
-        console.log('Cart cleared successfully', data);
-        if (typeof callback === 'function') {
-          callback();
-        }
-      })
-      .catch((error) => {
-        console.error('Failed to clear cart', error);
-        if (typeof callback === 'function') {
-          callback();
-        }
-      });
-    }
-
     productActions.addEventListener('click', (event) => {
-      const target = event.target;
-      const purchaseTypeButton = target.closest('.purchase-type button');
-      const purchaseOptionBox = target.closest('.purchase-option-box');
-
-      if (purchaseTypeButton) {
-        event.preventDefault();
-        const isSubscription = purchaseTypeButton.classList.contains('subscription');
-        safelyRemoveClass(subscriptionButton, 'selected');
-        safelyRemoveClass(buyOnceButton, 'selected');
-        safelyAddClass(purchaseTypeButton, 'selected');
-        togglePurchaseType(isSubscription);
-      } else if (purchaseOptionBox) {
+      const purchaseOptionBox = event.target.closest('.purchase-option-box');
+      if (purchaseOptionBox) {
         event.preventDefault();
         togglePurchaseBox(purchaseOptionBox);
       }
@@ -781,4 +409,3 @@
     initializePurchaseOptions();
   });
 </script>
-
