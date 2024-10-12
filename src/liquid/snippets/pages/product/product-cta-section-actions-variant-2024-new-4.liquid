@@ -1,0 +1,143 @@
+{% comment %} Variable Assignments {% endcomment %}
+{% assign variant_id = var.metafields.custom.reference_variant_id | default: var.id %}
+{% assign bottle_quantity = var.metafields.my_fields.pack_bottles_quantity %}
+{% assign original_item_cap = var.metafields.custom.original_item.value.compare_at_price | default: var.metafields.custom.original_item.value.price %}
+{% assign original_item_cap_total = original_item_cap | times: bottle_quantity %}
+{% assign original_item_price = var.metafields.custom.original_item.value.price %}
+{% assign item_price = var.price | divided_by: bottle_quantity %}
+{% assign subscription_save_percents = var.metafields.subscription.save_percents %}
+{% assign subscription_item_price_save = original_item_cap | times: subscription_save_percents | divided_by: 100 %}
+{% assign subscription_item_price = original_item_cap | minus: subscription_item_price_save %}
+{% assign subscription_total_price = subscription_item_price | times: bottle_quantity %}
+
+{% comment %} Calculate savings in money {% endcomment %}
+{% assign subscription_save_money = original_item_cap | minus: subscription_item_price %}
+{% assign buy_once_save_money = original_item_cap | minus: item_price %}
+
+{% comment %} Determine Selling Plan ID {% endcomment %}
+{% if var.metafields.custom.referenced_variant_product_handle %}
+  {% assign prod = all_products[var.metafields.custom.referenced_variant_product_handle] %}
+  {% assign referenced_variant = prod.variants | where: 'id', variant_id | first %}
+  {% assign selling_plan_id = referenced_variant.metafields.subscription.selling_plan_id | default: variant.metafields.subscription.selling_plan_id %}
+{% elsif var.metafields.subscription.selling_plan_id %}
+  {% assign selling_plan_id = var.metafields.subscription.selling_plan_id %}
+{% elsif var.selling_plan_allocations.size > 0 %}
+  {% for allocation in var.selling_plan_allocations %}
+    {% if allocation.selling_plan.name contains bottle_quantity %}
+      {% assign selling_plan_id = allocation.selling_plan.id %}
+    {% endif %}
+  {% endfor %}
+{% else %}
+  <script>console.log("Didn't find selling plan for the variant")</script>
+{% endif %}
+
+{% comment %} HTML Structure {% endcomment %}
+<div class="purchase-option-box flex flex-col items-start overflow-hidden {% if index == 1 %}selected{% endif %}"
+  data-variant="{{ variant_id }}"
+  data-original-variant="{{ var.id }}"
+  data-subscription-selling-plan-id="{{ selling_plan_id }}"
+  data-price="{{ var.price | money_without_currency | replace: ".00", "" }}"
+  data-sku="{{ var.sku }}"
+  data-index="{{ index }}"
+  data-item-price="{{ item_price }}"
+  data-subscription-item-price="{{ subscription_item_price }}"
+  data-original-item-cap="{{ original_item_cap }}"
+  data-dc="{{ var.metafields.custom.discount_code | base64_encode }}"
+  data-buy-once-discount="{{ var.metafields.custom.save_percents }}"
+  data-subscription-discount="{{ var.metafields.subscription.save_percents }}"
+  data-price-per="{{ pricePer }}"
+  data-bottle-quantity="{{ bottle_quantity }}"
+>
+  {% comment %} Top Wrapper {% endcomment %}
+  <div class="top-wrapper flex items-start justify-between w-full gap-4">
+    {% comment %} Left Wrapper {% endcomment %}
+    <div class="left-wrapper flex items-center gap-3">
+      <div class="radio-box"><input type="radio"></input><label for="buyonce"></label></div>
+      <div class="titles max-w-[220px] flex flex-col justify-center">
+        <div class="option-title content-center font-semibold text-[16px]">{% if var.title == 'Default Title' %}{{ prod.title }}{% else %}{{ var.title }}{% endif %}</div>
+      </div>
+    </div>
+
+    {% comment %} Right Wrapper {% endcomment %}
+    <div class="right-wrapper flex justify-end gap-4">
+      {% comment %} Save Tag {% endcomment %}
+      <div class="save-tag">
+        {% if isSaveInMoney or true %}
+          {% if pricePer == 'month' %}
+            {% if subscription_save_money > 0 %}
+              <div class="save-title subscription text-center text-[14px] mbl:text-[3vw] mbl:min-w-[18vw] rounded-full p-1 px-2">
+                Save {{ subscription_save_money | divided_by: 100.0 | round | floor | times: 100 | money_without_trailing_zeros | remove: '.00' }}
+              </div>
+            {% endif %}
+            {% if buy_once_save_money > 0 %}
+              <div class="save-title buy-once hidden text-center text-[14px] mbl:text-[3vw] mbl:min-w-[18vw] rounded-full p-1 px-2">
+                Save {{ buy_once_save_money | divided_by: 100.0 | round | floor | times: 100 | money_without_trailing_zeros | remove: '.00' }}
+              </div>
+            {% endif %}
+          {% elsif pricePer == 'dont_split' %}
+            {% assign total_subscription_save = subscription_save_money | times: bottle_quantity %}
+            {% assign total_buy_once_save = buy_once_save_money | times: bottle_quantity %}
+            {% if total_subscription_save > 0 %}
+              <div class="save-title subscription text-center text-[14px] mbl:text-[3vw] mbl:min-w-[18vw] rounded-full p-1 px-2">
+                Save {{ total_subscription_save | divided_by: 100.0 | round | floor | times: 100 | money_without_trailing_zeros | remove: '.00' }}
+              </div>
+            {% endif %}
+            {% if total_buy_once_save > 0 %}
+              <div class="save-title buy-once hidden text-center text-[14px] mbl:text-[3vw] mbl:min-w-[18vw] rounded-full p-1 px-2">
+                Save {{ total_buy_once_save | divided_by: 100.0 | round | floor | times: 100 | money_without_trailing_zeros | remove: '.00' }}
+              </div>
+            {% endif %}
+          {% endif %}
+        {% else %}
+          {% if var.metafields.subscription.save_percents > 0 %}<div class="save-title subscription text-center text-[14px] mbl:text-[3vw] mbl:min-w-[18vw] rounded-full p-1 px-2">Save {{ var.metafields.subscription.save_percents }}%</div>{% endif %}
+          {% if var.metafields.custom.save_percents > 0 %}<div class="save-title buy-once hidden text-center text-[14px] mbl:text-[3vw] mbl:min-w-[18vw] rounded-full p-1 px-2">Save {{ var.metafields.custom.save_percents }}%</div>{% endif %}
+        {% endif %}
+        {% if var.metafields.custom.info_description %}{% render 'tooltip', SID: SID, linkTitle: '<i class="fa-duotone fa-circle-info text-[--blue] text-[18px]"></i>', title: 'Subscription Terms', description: {{ var.metafields.custom.info_description }}, features: ['Save on every order,Guaranteed delivery,Make changes anytime,VIP support,New subscribers gifs'] %}{% endif %}
+      </div>
+
+      {% comment %} Price Wrapper {% endcomment %}
+      <div class="price-wrapper">
+        {% if pricePer == 'month' and false %}
+          <div class="total-price-wrapper mb-1 text-[16px]">
+            {% assign staticSubscriptionTotalPrice = var.metafields.subscription.price | metafield_text %}
+            {% assign dynamicSubscriptionTotalPrice = subscription_total_price | money %}
+            <span class="total-price subscription">Total {{ staticSubscriptionTotalPrice | default: dynamicSubscriptionTotalPrice }}</span>
+            <span class="total-price buy-once hidden">Total {{ var.price | money }}</span>
+          </div>
+        {% endif %}
+
+        <div class="calculations flex flex-col items-end font-bold">
+          <div class="real-price no-letters text-[20px] text-[--primary-color] subscription">
+            {% if pricePer == 'month' %}{{ subscription_item_price | money }}{% else %}{{ subscription_total_price | money }}{% endif %}
+          </div>
+          <div class="real-price no-letters text-[20px] text-[--primary-color] buy-once hidden">
+            {% if pricePer == 'month' %}{{ item_price | money }}{% else %}{{ var.price | money }}{% endif %}
+          </div>
+
+          {% if pricePer == 'month' %}
+            {% if original_item_cap > subscription_item_price or original_item_cap > item_price %}
+              <div class="compared-at-price text-[14px] font-normal line-through">
+                {{ original_item_cap | money }}
+              </div>
+            {% endif %}
+          {% else %}
+            <div class="compared-at-price text-[14px] font-normal line-through">
+              {{ original_item_cap_total | money }}
+            </div>
+          {% endif %}
+        </div>
+
+        {% if pricePer == 'month' %}
+          <div class="per-month font-bold">Per Month</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  {% comment %} Terms {% endcomment %}
+  <div class="terms">
+    <div class="subtitle subscription text-[14px]">{{ var.metafields.subscription.subtitle }}</div>
+    <div class="subtitle buy-once text-[14px] hidden">{{ bottle_quantity }} Bottle{% if bottle_quantity > 1 %}s{% endif %} of 180 capsules</div>
+    <div class="terms-title text-[14px] text-[--primary-color]">Free shipping.<span class="subscription ml-1"> Cancel anytime.</span></div>
+  </div>
+</div>
