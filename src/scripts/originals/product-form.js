@@ -61,28 +61,32 @@ if (!customElements.get('product-form')) {
               soldOutMessage.classList.remove('hidden');
               this.error = true;
               return;
+            } else if (!this.cart) {
+              window.location = window.routes.cart_url;
+              return;
             }
 
-            if (!this.error) {
+            if (!this.error)
               publish(PUB_SUB_EVENTS.cartUpdate, { source: 'product-form', productVariantId: formData.get('id'), cartData: response });
-            }
             this.error = false;
-
-            // Update cart contents without page reload
-            if (this.cart) {
-              this.cart.renderContents(response);
+            const quickAddModal = this.closest('quick-add-modal');
+            if (quickAddModal) {
+              document.body.addEventListener(
+                'modalClosed',
+                () => {
+                  setTimeout(() => {
+                    this.cart.renderContents(response);
+                  });
+                },
+                { once: true }
+              );
+              quickAddModal.hide(true);
             } else {
-              // If there's no cart drawer, you might want to show a notification or update a mini-cart
-              console.log('Product added to cart successfully');
-              // Implement your own cart update logic here if needed
+              this.cart.renderContents(response);
             }
-
-            // Optional: Show a success message
-            this.showSuccessMessage('Product added to cart');
           })
           .catch((e) => {
             console.error(e);
-            this.handleErrorMessage('An error occurred. Please try again.');
           })
           .finally(() => {
             this.submitButton.classList.remove('loading');
@@ -108,21 +112,6 @@ if (!customElements.get('product-form')) {
         if (errorMessage) {
           this.errorMessage.textContent = errorMessage;
         }
-      }
-
-      showSuccessMessage(message) {
-        // Implement this method to show a success message to the user
-        // For example, you could create a new element or use an existing one to display the message
-        const successMessage = document.createElement('div');
-        successMessage.textContent = message;
-        successMessage.style.color = 'green';
-        successMessage.style.marginTop = '10px';
-        this.form.appendChild(successMessage);
-
-        // Remove the success message after a few seconds
-        setTimeout(() => {
-          successMessage.remove();
-        }, 3000);
       }
     }
   );
