@@ -17,7 +17,7 @@
             SID: SID,
             prod: referenced_variant_product,
             var: referenced_variant,
-            buyBoxColor: buyBoxColor,
+            buyBoxColor: block.settings.box_color,
             pricePer: pricePer,
             saveFormat: saveFormat,
             badgeText: block.settings.badge_text,
@@ -52,43 +52,11 @@
     const submitButton = productActions.querySelector('.checkout-button button');
     const submitSellingPlanIdInput = document.querySelector('.submit-selling-plan-id');
     const submitVariantIdInput = document.querySelector('.submit-variant-id');
-    const enableToggleAnimation = typeof isVariantBoxToggle !== 'undefined' ? isVariantBoxToggle : false;
 
     // Initialize state
     const state = {
       selectedBox: null,
     };
-
-    function getClosedHeight() {
-      return window.innerWidth <= 767 ? '16vw' : '72px';
-    }
-
-    function safelySetStyle(element, property, value) {
-      if (element && element.style && element.style[property] !== value) {
-        element.style[property] = value;
-      }
-    }
-
-    function safelyAddClass(element, className) {
-      if (element && !element.classList.contains(className)) {
-        element.classList.add(className);
-      }
-    }
-
-    function safelyRemoveClass(element, className) {
-      if (element && element.classList.contains(className)) {
-        element.classList.remove(className);
-      }
-    }
-
-    function adjustMaxHeight(element) {
-      if (enableToggleAnimation) {
-        const height = element.classList.contains('selected') ? element.scrollHeight + 'px' : getClosedHeight();
-        safelySetStyle(element, 'maxHeight', height);
-      } else {
-        safelySetStyle(element, 'maxHeight', 'none');
-      }
-    }
 
     function togglePurchaseBox(element) {
       if (!element) return;
@@ -96,8 +64,7 @@
 
       for (let i = 0; i < purchaseOptionBoxes.length; i++) {
         const box = purchaseOptionBoxes[i];
-        safelyRemoveClass(box, 'selected');
-        safelySetStyle(box, 'maxHeight', getClosedHeight());
+        box.classList.remove('selected');
       }
 
       const isSubscription = element.getAttribute('data-purchase-type') === 'subscribe';
@@ -112,41 +79,24 @@
         submitVariantIdInput.value = variantID;
       }
 
-      safelyAddClass(element, 'selected');
+      element.classList.add('selected');
       const radioInput = element.querySelector("input[type='radio']");
       if (radioInput) {
         radioInput.checked = true;
       }
       state.selectedBox = element;
 
-      updateVariantImage(element);
-
-      if (enableToggleAnimation) {
-        safelySetStyle(element, 'maxHeight', element.scrollHeight + 'px');
-      }
-
-      // Update submit button text
       if (submitButton) {
         submitButton.textContent = isSubscription ? "Subscribe Now" : "Add to Cart";
       }
-    }
 
-    function updateVariantImage(element) {
-      var SID = '{{ section.id }}'
-      if (typeof variantsAmount === 'undefined' || variantsAmount <= 1 || !window['productSliderAllInOne' + SID]) return;
-
-      const index = parseInt(element.getAttribute('data-index')) || 1;
-      const swiperInstance = window['productSliderAllInOne' + SID];
-      const slideIndex = index;
-
-      swiperInstance.slideTo(slideIndex);
-      window.hasInitialImageUpdateHappened = true;
+      console.log('Selected variant ID:', variantID);
+      console.log('Selected selling plan ID:', subscriptionPlanID);
     }
 
     function initializePurchaseOptions() {
       const defaultVariantIndex = parseInt(productActions.getAttribute('data-default-variant-index')) || 0;
 
-      // Set default selection
       const defaultBox = purchaseOptionBoxes[defaultVariantIndex - 1] || purchaseOptionBoxes[0];
       if (defaultBox) {
         togglePurchaseBox(defaultBox);
@@ -161,51 +111,18 @@
       }
     });
 
-    // Throttle function for resize event
-    function throttle(func, limit) {
-      let lastFunc;
-      let lastRan;
-      return function() {
-        const context = this;
-        const args = arguments;
-        if (!lastRan) {
-          func.apply(context, args);
-          lastRan = Date.now();
-        } else {
-          clearTimeout(lastFunc);
-          lastFunc = setTimeout(function() {
-            if ((Date.now() - lastRan) >= limit) {
-              func.apply(context, args);
-              lastRan = Date.now();
-            }
-          }, limit - (Date.now() - lastRan));
-        }
-      };
-    }
-
-    window.addEventListener('resize', throttle(() => {
-      for (let i = 0; i < purchaseOptionBoxes.length; i++) {
-        const box = purchaseOptionBoxes[i];
-        if (!box.classList.contains('selected')) {
-          safelySetStyle(box, 'maxHeight', getClosedHeight());
-        }
-      }
-    }, 200));
-
     initializePurchaseOptions();
   });
 </script>
 
 <style>
-  :root {
+  #cta-section-{{ section.id }} {
     --primary-color: {{ buyBoxColor }};
     --primary-color-dark: color-mix(in srgb, var(--primary-color), black 20%);
-    --primary-color-light: color-mix(in srgb, var(--primary-color), white 80%);
+    --primary-color-light: color-mix(in srgb, var(--primary-color), white 90%);
     --text-color: #4a5568;
     --border-color: #cbcbcb;
-  }
 
-  #cta-section-{{ section.id }} {
     .product-actions {
       grid-area: 2/2/3/3;
       min-height: 415px;
@@ -253,7 +170,7 @@
 
       &.selected {
         filter: drop-shadow(0px 4px 4px rgba(77, 53, 98, 0.3));
-        background-color: #EBF1F3;
+        background-color: var(--primary-color-light);
         max-height: max-content;
       }
 
@@ -287,7 +204,7 @@
 
       &.selected {
         .radio-box {
-          input[type='radio']:checked + label:after {
+          input[type='radio'] + label:after {
             content: '\2713';
             position: absolute;
             top: -2px;
