@@ -1,18 +1,26 @@
-{% assign variantsAmount = prod.variants.size %}
+{% assign referenced_variant_product = prod %}
 
 <div id="product-actions-{{ SID }}" class="product-actions {% if isVariantBoxToggle %}with-animation{% endif %}">
   <div class="purchase-options flex flex-col gap-2">
-    <script>console.log("variant box rendering!!!")</script>
     {% for block in blocks %}
-      <script>console.log("variant block rendering!!!!!!!")</script>
+      {% assign referenced_variant = blank %}
+      {% assign blockVarID = block.settings.variant_id | plus: 0 %}
+      {% for vari in referenced_variant_product.variants %}
+        {% assign currVarID = vari.id | plus: 0 %}
+        {% if currVarID == blockVarID %}
+          {% assign referenced_variant = vari %}
+        {% endif %}
+      {% endfor %}
+
       {% if block.type == 'variant' %}
           {% render 'product-cta-section-actions-variant-2024-new-4',
             SID: SID,
-            prod: block.settings.prod,
-            var: block.settings.variant_id,
+            prod: referenced_variant_product,
+            var: referenced_variant,
             buyBoxColor: buyBoxColor,
             pricePer: pricePer,
             saveFormat: saveFormat,
+            variantTitle: block.settings.title,
             index: forloop.index,
             purchase_type: block.settings.purchase_type
           %}
@@ -22,7 +30,7 @@
     <div class="submit-wrap flex flex-col w-full">
       <div class="checkout-button">
         {% assign buttonSID = SID | append: '-checkout' %}
-        {% render 'buy-buttons-new-4', SID: buttonSID, product: prod, variant: '', buttonText: "Add to Cart", selling_plan_id: selling_plan_id, product_form_id: product_form_id, buyType: buyType, isBuyWithPrime: isBuyWithPrime %}
+        {% render 'buy-buttons', SID: buttonSID, product: prod, variant: '', buttonText: "Add to Cart", selling_plan_id: selling_plan_id, product_form_id: product_form_id, buyType: buyType, isBuyWithPrime: isBuyWithPrime %}
       </div>
     </div>
   </div>
