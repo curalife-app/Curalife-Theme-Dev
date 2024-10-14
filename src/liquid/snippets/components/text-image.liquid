@@ -193,14 +193,33 @@
                   button_id: block.id
                 %}
               {% when 'image' %}
-                {% if block.settings.image_link %}<a {% if block.settings.is_image_full_width_mobile %}class="mbl:w-full"{% endif %} href="{{ block.settings.image_link }}">{% endif %}
-                  <picture id="text-{{ section_id }}" class="{% if block.settings.is_image_full_width_mobile %}mbl:w-full{% endif %} {{ block.settings.additional_classes }}">
-                    {% if block.settings.image_mobile %}
-                      <source media="(max-width: 768px)" srcset="{{ block.settings.image_mobile | image_url }}">
-                    {% endif %}
-                    <img class="block-image mbl:w-full object-contain" src="{% if block.settings.image %}{{ block.settings.image | image_url }}{% endif %}" alt="{{ block.settings.image.alt }}" {% unless is_dont_lazyload %}loading="lazy"{% endunless %}>
-                  </picture>
-                {% if block.settings.image_link %}</a>{% endif %}
+                {% if shop.name contains 'Global' %}
+                  {% assign blockMainImage = block.settings.image_global | default: block.settings.image %}
+                  {% assign blockMainMobileImage = block.settings.main_mobile_global | default: block.settings.image_mobile %}
+                {% else %}
+                  {% assign blockMainImage = block.settings.image %}
+                  {% assign blockMainMobileImage = block.settings.image_mobile %}
+                {% endif %}
+                {% if false or customer.email contains 'yotam@curalife' %}
+                  {% render 'image',
+                    image: blockMainImage,
+                    mobile_image: blockMainMobileImage,
+                    sizes: '(min-width: 1200px) 1100px, (min-width: 769px) 750px, 100vw',
+                    breakpoint: 768,
+                    lazy: lazyLoad,
+                    preload: false,
+                    alt: blockMainImage.alt
+                  %}
+                {% else %}
+                  {% if block.settings.image_link %}<a {% if block.settings.is_image_full_width_mobile %}class="mbl:w-full"{% endif %} href="{{ block.settings.image_link }}">{% endif %}
+                    <picture id="text-{{ section_id }}" class="{% if block.settings.is_image_full_width_mobile %}mbl:w-full{% endif %} {{ block.settings.additional_classes }}">
+                      {% if block.settings.image_mobile %}
+                        <source media="(max-width: 768px)" srcset="{{ block.settings.image_mobile | image_url }}">
+                      {% endif %}
+                      <img class="block-image mbl:w-full object-contain" src="{% if block.settings.image %}{{ block.settings.image | image_url }}{% endif %}" alt="{{ block.settings.image.alt }}" {% unless is_dont_lazyload %}loading="lazy"{% endunless %}>
+                    </picture>
+                  {% if block.settings.image_link %}</a>{% endif %}
+                {% endif %}
 
                 {% if block.settings.is_image_before_content %}
                   <script>$('#text-{{ section_id }}').prependTo('#shopify-section-{{ section.id }} .description');</script>
