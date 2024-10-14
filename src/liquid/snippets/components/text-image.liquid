@@ -1,8 +1,16 @@
 {% assign section_id = block_index | default: SID | default: section.id %}
 
+{% if shop.name contains 'Global' %}
+  {% assign mainImage = main_image_global | default: main_image %}
+  {% assign mainMobileImage = main_mobile_image_global | default: main_mobile_image %}
+{% else %}
+  {% assign mainImage = main_image %}
+  {% assign mainMobileImage = main_mobile_image %}
+{% endif %}
+
 {% assign itemsDirection = 'vertical' %}
 {% if image_position == 'right' or image_position == 'left' %}
-  {% if main_image or videoURL != blank %}
+  {% if mainImage or videoURL != blank %}
     {% if title != blank or content != blank %}
       {% assign itemsDirection = 'horizontal' %}
     {% endif %}
@@ -44,8 +52,8 @@
     {% endif %}
 
     {% if image_link != blank %}<a href="{{ image_link }}">{% endif %}
-    {% if main_image or main_mobile_image or videoURL != blank %}
-      <div class="image-wrapper z-[1] h-auto w-auto mbl:w-full md:mb-0 {% if main_mobile_image and main_image == blank %}mobile{% endif %} {% if itemsDirection == 'vertical' %}w-full{% endif %} {% if is_image_bottom %}self-end md:self-auto{% endif %}">
+    {% if mainImage or mainMobileImage or videoURL != blank %}
+      <div class="image-wrapper z-[1] h-auto w-auto mbl:w-full md:mb-0 {% if mainMobileImage and mainImage == blank %}mobile{% endif %} {% if itemsDirection == 'vertical' %}w-full{% endif %} {% if is_image_bottom %}self-end md:self-auto{% endif %}">
         {% if videoCounter > 0 %}
           <div class="video-carousel swiper">
             <div class="swiper-wrapper">
@@ -86,26 +94,26 @@
             });
           </script>
         {% elsif videoURL != blank %}
-          {% render 'video', main_image: main_image, main_mobile_image: main_mobile_image, SID: section_id, videoInput: videoURL %}
+          {% render 'video', main_image: mainImage, main_mobile_image: mainMobileImage, SID: section_id, videoInput: videoURL %}
         {% else %}
           {% if is_dont_lazyload == false %}{% assign lazyLoad = true %}{% endif %}
           {% if customer.email contains 'yotam@curalife.com' or true %}
             {% render 'image',
-              image: main_image,
-              mobile_image: main_mobile_image,
+              image: mainImage,
+              mobile_image: mainMobileImage,
               sizes: '(min-width: 1200px) 1100px, (min-width: 769px) 750px, 100vw',
               breakpoint: 768,
               lazy: lazyLoad,
               preload: false,
-              alt: main_image.alt,
+              alt: mainImage.alt,
               class: imageClass
             %}
           {% else %}
             <picture>
-              {% if main_mobile_image %}
-                <source media="(max-width: 768px)" srcset="{{ main_mobile_image | image_url }}" width="{{ main_mobile_image.width }}" height="{{ main_mobile_image.height }}">
+              {% if mainMobileImage %}
+                <source media="(max-width: 768px)" srcset="{{ mainMobileImage | image_url }}" width="{{ mainMobileImage.width }}" height="{{ mainMobileImage.height }}">
               {% endif %}
-              <img class="{% if is_limit_image_size %}max-h-500px{% endif %} relative z-auto object-contain {% if is_hide_image_on_mobile %}md:hidden{% endif %} {% if is_image_overlap_style %} h-[calc(100%+135px)] object-cover object-left{% endif %}" src="{{ main_image | default: main_mobile_image | image_url }}" alt="{{ main_image.alt }}" width="{{ main_image.width }}" height="{{ main_image.height }}" {% unless is_dont_lazyload %}loading="lazy"{% endunless %} {% if image_animation != 'none'%}data-aos="{{ image_animation }}" data-aos-duration="{{ animation_duration }}"{% endif %}>
+              <img class="{% if is_limit_image_size %}max-h-500px{% endif %} relative z-auto object-contain {% if is_hide_image_on_mobile %}md:hidden{% endif %} {% if is_image_overlap_style %} h-[calc(100%+135px)] object-cover object-left{% endif %}" src="{{ mainImage | default: mainMobileImage | image_url }}" alt="{{ mainImage.alt }}" width="{{ mainImage.width }}" height="{{ mainImage.height }}" {% unless is_dont_lazyload %}loading="lazy"{% endunless %} {% if image_animation != 'none'%}data-aos="{{ image_animation }}" data-aos-duration="{{ animation_duration }}"{% endif %}>
             </picture>
           {% endif %}
         {% endif %}
@@ -116,7 +124,7 @@
     {% assign blocks_amount = section_blocks | size %}
     {% if title != blank or content != blank or subtitle != blank or blocks_amount > 0 %}
       <div class="content-wrapper break-word z-[1] flex md:py-0 md:!w-full gap-12 md:gap-4 md:m-auto {% if alignment == 'center' %}justify-center m-auto{% endif %} {% if itemsDirection == 'horizontal' %}w-45%{% else %}w-70%{% endif %}" {% if content_animation != 'none'%}data-aos="{{ content_animation }}" data-aos-duration="{{ animation_duration }}"{% endif %}>
-        <div class="content flex flex-col justify-center gap-4 md:w-full text-{{ alignment }} md:text-{{ mobile_alignment }} items-{{ alignment }} md:items-{{ mobile_alignment }} {% unless main_image %}w-full{% endunless %}">
+        <div class="content flex flex-col justify-center gap-4 md:w-full text-{{ alignment }} md:text-{{ mobile_alignment }} items-{{ alignment }} md:items-{{ mobile_alignment }} {% unless mainImage %}w-full{% endunless %}">
           {% if title != blank or subtitle != blank %}
             <div class="titles">
               {% if title != blank %}
