@@ -1,43 +1,83 @@
 {% assign loadOnPages = "/pages/lp-wl-curaslim-360-price,/pages/reasons-why-curalin-for-blood-sugar-maintenance,/pages/lp-glu-4-reasons-select,/pages/lp-glu-curalin-v4-select,/pages/lp-wl-curaslim-prp-select,/pages/lp-wl-curaslim-360-select,/pages/glucose-support-curalin-pack-v4-new" | split: ',' %}
 {% assign currentPage = request.path %}
 
-{% if loadOnPages contains currentPage or currentPage contains '/products/' or Activate %}
+{% comment %} {% if loadOnPages contains currentPage or currentPage contains '/products/' or Activate or true %}
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css"/>
   <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
-  <script>window.isSwiperLoaded = true;</script>
   <script>console.log("Swiper loaded! (on Liquid)");</script>
-{% endif %}
+{% endif %} {% endcomment %}
 
 <script>
-  window.isSwiperLoading = false;
+  window.isSwiperLoaded = window.isSwiperLoaded || false;
+  window.isSwiperLoading = window.isSwiperLoading || false;
 
   function loadSwiper(initializeCallback) {
-    if (!window.isSwiperLoaded && !window.isSwiperLoading) {
-      window.isSwiperLoading = true;
-
-      const link = document.createElement("link");
-      link.rel = "stylesheet";
-      link.href = "https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css";
-      document.head.appendChild(link);
-
-      const script = document.createElement("script");
-      script.src = "https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js";
-      script.onload = () => {
-        window.isSwiperLoaded = true;
-        window.isSwiperLoading = false;
-        console.log("Swiper loaded! (on JS)");
-
-        if (typeof initializeCallback === "function") {
-          initializeCallback();
-        }
-      };
-      document.body.appendChild(script);
-    } else if (typeof initializeCallback === "function" && window.isSwiperLoaded) {
-      initializeCallback();
+    if (window.isSwiperLoaded) {
+      if (typeof initializeCallback === "function") {
+        initializeCallback();
+      }
+      return;
     }
+
+    if (window.isSwiperLoading) {
+      // Swiper is currently loading; wait until it's loaded
+      var checkSwiperInterval = setInterval(function() {
+        if (window.isSwiperLoaded) {
+          clearInterval(checkSwiperInterval);
+          if (typeof initializeCallback === "function") {
+            initializeCallback();
+          }
+        }
+      }, 50);
+      return;
+    }
+
+    // Start loading Swiper scripts
+    window.isSwiperLoading = true;
+
+    // Load Swiper CSS
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = "https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css";
+    document.head.appendChild(link);
+
+    // Load Swiper JS
+    const script = document.createElement("script");
+    script.src = "https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js";
+    script.onload = () => {
+      window.isSwiperLoaded = true;
+      window.isSwiperLoading = false;
+      console.log("Swiper loaded dynamically");
+      console.log("Swiper object:", Swiper); // Add this line
+      if (typeof initializeCallback === "function") {
+        initializeCallback();
+      }
+    };
+    script.onerror = () => {
+      console.error("Failed to load Swiper");
+      window.isSwiperLoading = false;
+    };
+    document.body.appendChild(script);
   }
 
-  function initializeSwiper(swiperElementSelector, swiperData) {
-    new Swiper(swiperElementSelector, swiperData);
+  // Function to initialize Swiper
+  function initializeSwiper(swiperElementSelector, swiperOptions) {
+    if (typeof Swiper !== 'undefined') {
+      console.log("Initializing Swiper for", swiperElementSelector);
+      console.log("Swiper options:", swiperOptions);
+      const swiperElement = document.querySelector(swiperElementSelector);
+      if (swiperElement) {
+        console.log("Swiper element found:", swiperElement);
+        const swiperInstance = new Swiper(swiperElementSelector, swiperOptions);
+        console.log("Swiper instance created:", swiperInstance);
+        return swiperInstance;
+      } else {
+        console.error("Swiper element not found:", swiperElementSelector);
+        return null;
+      }
+    } else {
+      console.error("Swiper is not loaded yet");
+      return null;
+    }
   }
 </script>
