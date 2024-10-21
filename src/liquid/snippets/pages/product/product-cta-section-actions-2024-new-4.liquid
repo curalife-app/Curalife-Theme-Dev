@@ -31,7 +31,7 @@
     <div class="submit-wrap flex flex-col w-full">
       <div class="checkout-button">
         {% assign buttonSID = SID | append: '-checkout' %}
-        {% render 'buy-buttons', SID: buttonSID, product: prod, variant: '', buttonText: "Add to Cart", selling_plan_id: selling_plan_id, product_form_id: product_form_id, buyType: buyType, isBuyWithPrime: isBuyWithPrime %}
+        {% render 'buy-buttons-new-4', SID: buttonSID, product: prod, variant: '', buttonText: "Add to Cart", selling_plan_id: selling_plan_id, product_form_id: product_form_id, buyType: buyType, isBuyWithPrime: isBuyWithPrime %}
       </div>
     </div>
   </div>
@@ -62,10 +62,7 @@
       if (!element) return;
       if (element.classList.contains('selected')) return;
 
-      for (let i = 0; i < purchaseOptionBoxes.length; i++) {
-        const box = purchaseOptionBoxes[i];
-        box.classList.remove('selected');
-      }
+      purchaseOptionBoxes.forEach(box => box.classList.remove('selected'));
 
       const isSubscription = element.getAttribute('data-purchase-type') === 'subscribe';
       const subscriptionPlanID = isSubscription ? element.getAttribute('data-subscription-selling-plan-id') : '';
@@ -86,19 +83,25 @@
       }
       state.selectedBox = element;
 
-      if (submitButton) {
-        submitButton.textContent = isSubscription ? "Subscribe Now" : "Add to Cart";
-      }
+      updateSubmitButtonText(isSubscription);
 
       console.log('Selected variant ID:', variantID);
       console.log('Selected selling plan ID:', subscriptionPlanID);
     }
 
+    function updateSubmitButtonText(isSubscription) {
+      if (submitButton) {
+        submitButton.textContent = isSubscription ? "Subscribe Now" : "Add to Cart";
+      }
+    }
+
     function initializePurchaseOptions() {
       const defaultVariantIndex = parseInt(productActions.getAttribute('data-default-variant-index')) || 0;
-
       const defaultBox = purchaseOptionBoxes[defaultVariantIndex - 1] || purchaseOptionBoxes[0];
+
       if (defaultBox) {
+        const isSubscription = defaultBox.getAttribute('data-purchase-type') === 'subscribe';
+        updateSubmitButtonText(isSubscription);
         togglePurchaseBox(defaultBox);
       }
     }
@@ -111,6 +114,26 @@
       }
     });
 
+    function validateSubmission() {
+      const selectedBox = document.querySelector('.purchase-option-box.selected');
+      if (selectedBox) {
+        const isSubscription = selectedBox.getAttribute('data-purchase-type') === 'subscribe';
+        const variantId = selectedBox.getAttribute('data-variant');
+        const sellingPlanId = isSubscription ? selectedBox.getAttribute('data-subscription-selling-plan-id') : '';
+
+        submitVariantIdInput.value = variantId;
+        submitSellingPlanIdInput.value = sellingPlanId;
+
+        console.log('Submitting:', isSubscription ? 'Subscription' : 'One-time purchase');
+        console.log('Variant ID:', variantId);
+        console.log('Selling Plan ID:', sellingPlanId);
+      } else {
+        console.error('No option selected');
+        return false;
+      }
+      return true;
+    }
+
     initializePurchaseOptions();
   });
 </script>
@@ -122,6 +145,10 @@
     --primary-color-light: color-mix(in srgb, var(--primary-color), white 90%);
     --text-color: #4a5568;
     --border-color: #cbcbcb;
+
+    .product-container {
+      grid-template-columns: 54% 42% !important;
+    }
 
     .product-actions {
       grid-area: 2/2/3/3;

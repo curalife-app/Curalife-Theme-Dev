@@ -5,6 +5,7 @@
 {% if buyType == "buy_now" %}
   <div class="submit-wrap flex flex-col w-full">
     <input class="submit-variant-id" type="hidden" name="id" value="{{ variant | default: product.selected_or_first_available_variant.id }}">
+    <input class="submit-selling-plan-id" type="hidden" name="selling_plan" value="{{ selling_plan_id }}">
     <button class="main-btn w-full p-0 text-black bg-[--orange] min-h-[50px]" id="buy-button-{{ SID }}">
       <span class="button-text flex justify-center md:text-[5vw]">{{ buttonText | default: "Shop Now" }}</span>
 
@@ -34,21 +35,37 @@
           loadingSpinner.classList.remove('hidden');
         }
 
-        // Get the variant ID from the hidden input
+        // Get the variant ID and selling plan ID from the hidden inputs
         var variantIdInput = document.querySelector('.submit-variant-id');
+        var sellingPlanIdInput = document.querySelector('.submit-selling-plan-id');
+
         if (variantIdInput) {
           console.log('Variant ID input found.');
         } else {
           console.error('Variant ID input not found.');
         }
+
+        if (sellingPlanIdInput) {
+          console.log('Selling Plan ID input found.');
+        } else {
+          console.log('Selling Plan ID input not found. This might be a one-time purchase.');
+        }
+
         var variantId = variantIdInput ? variantIdInput.value : '{{ variant | default: product.selected_or_first_available_variant.id }}';
+        var sellingPlanId = sellingPlanIdInput ? sellingPlanIdInput.value : '';
         console.log('Variant ID:', variantId);
+        console.log('Selling Plan ID:', sellingPlanId);
         var quantity = 1;
 
         var data = {
           "id": variantId,
           "quantity": quantity
         };
+
+        // Add selling plan ID if it exists (for subscription products)
+        if (sellingPlanId) {
+          data["selling_plan"] = sellingPlanId;
+        }
 
         // Adding product to the cart
         console.log('Sending request to add product to the cart:', data);
