@@ -23,7 +23,8 @@
             badgeText: block.settings.badge_text,
             variantTitle: block.settings.title,
             index: forloop.index,
-            purchase_type: block.settings.purchase_type
+            purchase_type: block.settings.purchase_type,
+            buyType: buyType,
           %}
       {% endif %}
     {% endfor %}
@@ -39,39 +40,34 @@
 
 <script>
   document.addEventListener('DOMContentLoaded', () => {
-    // Cache elements
     const productActions = document.getElementById('product-actions-{{ SID }}');
     if (!productActions) {
       console.error('Product actions element not found');
       return;
     }
     const SID = productActions.id.split('-').pop();
-
-    // Cache frequently used elements
     const purchaseOptionBoxes = productActions.querySelectorAll('.purchase-option-box');
     const submitButton = productActions.querySelector('.checkout-button button');
     const submitSellingPlanIdInput = document.querySelector('.submit-selling-plan-id');
     const submitVariantIdInput = document.querySelector('.submit-variant-id');
 
-    // Initialize state
     const state = {
       selectedBox: null,
     };
 
     function togglePurchaseBox(element) {
       if (!element) return;
-      if (element.classList.contains('selected')) return;
 
       purchaseOptionBoxes.forEach(box => box.classList.remove('selected'));
 
       const isSubscription = element.getAttribute('data-purchase-type') === 'subscribe';
       const subscriptionPlanID = isSubscription ? element.getAttribute('data-subscription-selling-plan-id') : '';
       const variantID = element.getAttribute('data-variant');
+      const buyType = element.getAttribute('data-buy-type');
 
       if (submitSellingPlanIdInput) {
         submitSellingPlanIdInput.value = subscriptionPlanID;
       }
-
       if (submitVariantIdInput) {
         submitVariantIdInput.value = variantID;
       }
@@ -83,15 +79,26 @@
       }
       state.selectedBox = element;
 
-      updateSubmitButtonText(isSubscription);
+      updateSubmitButtonText(isSubscription, buyType);
 
-      console.log('Selected variant ID:', variantID);
-      console.log('Selected selling plan ID:', subscriptionPlanID);
+      // Log the current state for debugging
+      console.log('Current selection:', {
+        isSubscription: isSubscription,
+        subscriptionPlanID: subscriptionPlanID,
+        variantID: variantID,
+        buyType: buyType
+      });
     }
 
-    function updateSubmitButtonText(isSubscription) {
+    function updateSubmitButtonText(isSubscription, buyType) {
       if (submitButton) {
-        submitButton.textContent = isSubscription ? "Subscribe Now" : "Add to Cart";
+        if (isSubscription) {
+          submitButton.textContent = "Subscribe Now";
+        } else if (buyType === 'buy_now') {
+          submitButton.textContent = "Buy Now";
+        } else {
+          submitButton.textContent = "Add to Cart";
+        }
       }
     }
 
@@ -100,8 +107,6 @@
       const defaultBox = purchaseOptionBoxes[defaultVariantIndex - 1] || purchaseOptionBoxes[0];
 
       if (defaultBox) {
-        const isSubscription = defaultBox.getAttribute('data-purchase-type') === 'subscribe';
-        updateSubmitButtonText(isSubscription);
         togglePurchaseBox(defaultBox);
       }
     }
@@ -113,26 +118,6 @@
         togglePurchaseBox(purchaseOptionBox);
       }
     });
-
-    function validateSubmission() {
-      const selectedBox = document.querySelector('.purchase-option-box.selected');
-      if (selectedBox) {
-        const isSubscription = selectedBox.getAttribute('data-purchase-type') === 'subscribe';
-        const variantId = selectedBox.getAttribute('data-variant');
-        const sellingPlanId = isSubscription ? selectedBox.getAttribute('data-subscription-selling-plan-id') : '';
-
-        submitVariantIdInput.value = variantId;
-        submitSellingPlanIdInput.value = sellingPlanId;
-
-        console.log('Submitting:', isSubscription ? 'Subscription' : 'One-time purchase');
-        console.log('Variant ID:', variantId);
-        console.log('Selling Plan ID:', sellingPlanId);
-      } else {
-        console.error('No option selected');
-        return false;
-      }
-      return true;
-    }
 
     initializePurchaseOptions();
   });
