@@ -41,10 +41,6 @@
 <script>
   document.addEventListener('DOMContentLoaded', () => {
     const productActions = document.getElementById('product-actions-{{ SID }}');
-    if (!productActions) {
-      console.error('Product actions element not found');
-      return;
-    }
     const SID = productActions.id.split('-').pop();
     const purchaseOptionBoxes = productActions.querySelectorAll('.purchase-option-box');
     const submitButton = productActions.querySelector('.checkout-button button');
@@ -58,7 +54,14 @@
     function togglePurchaseBox(element) {
       if (!element) return;
 
-      purchaseOptionBoxes.forEach(box => box.classList.remove('selected'));
+      // Remove selected class and uncheck radio from all boxes
+      purchaseOptionBoxes.forEach(box => {
+        box.classList.remove('selected');
+        const radio = box.querySelector('input[type="radio"]');
+        if (radio) {
+          radio.checked = false;
+        }
+      });
 
       const isSubscription = element.getAttribute('data-purchase-type') === 'subscribe';
       const subscriptionPlanID = isSubscription ? element.getAttribute('data-subscription-selling-plan-id') : '';
@@ -72,32 +75,26 @@
         submitVariantIdInput.value = variantID;
       }
 
+      // Add selected class and check radio of clicked box
       element.classList.add('selected');
-      const radioInput = element.querySelector("input[type='radio']");
+      const radioInput = element.querySelector('input[type="radio"]');
       if (radioInput) {
         radioInput.checked = true;
       }
+
       state.selectedBox = element;
-
       updateSubmitButtonText(isSubscription, buyType);
-
-      // Log the current state for debugging
-      console.log('Current selection:', {
-        isSubscription: isSubscription,
-        subscriptionPlanID: subscriptionPlanID,
-        variantID: variantID,
-        buyType: buyType
-      });
     }
 
     function updateSubmitButtonText(isSubscription, buyType) {
-      if (submitButton) {
+      const buttonText = submitButton.querySelector('.button-text');
+      if (buttonText) {
         if (isSubscription) {
-          submitButton.textContent = "Subscribe Now";
+          buttonText.textContent = "Subscribe Now";
         } else if (buyType === 'buy_now') {
-          submitButton.textContent = "Buy Now";
+          buttonText.textContent = "Buy Now";
         } else {
-          submitButton.textContent = "Add to Cart";
+          buttonText.textContent = "Add to Cart";
         }
       }
     }
@@ -111,11 +108,33 @@
       }
     }
 
+    // Handle clicks on the purchase option box
     productActions.addEventListener('click', (event) => {
+      // Check if clicked on radio input or its parent
+      const radioInput = event.target.closest('input[type="radio"]');
       const purchaseOptionBox = event.target.closest('.purchase-option-box');
-      if (purchaseOptionBox) {
+
+      if (radioInput) {
+        // If radio input was clicked, find its parent purchase option box
+        const parentBox = radioInput.closest('.purchase-option-box');
+        if (parentBox) {
+          event.preventDefault(); // Prevent default radio behavior
+          togglePurchaseBox(parentBox);
+        }
+      } else if (purchaseOptionBox) {
+        // If purchase option box was clicked
         event.preventDefault();
         togglePurchaseBox(purchaseOptionBox);
+      }
+    });
+
+    // Add change event listener for radio inputs
+    productActions.addEventListener('change', (event) => {
+      if (event.target.type === 'radio') {
+        const parentBox = event.target.closest('.purchase-option-box');
+        if (parentBox) {
+          togglePurchaseBox(parentBox);
+        }
       }
     });
 
@@ -130,6 +149,57 @@
     --primary-color-light: color-mix(in srgb, var(--primary-color), white 90%);
     --text-color: #4a5568;
     --border-color: #cbcbcb;
+
+    .radio-input {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    .radio-input input[type='radio'] {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 1em;
+      height: 1em;
+      background-color: #171717;
+      box-shadow: inset 2px 5px 10px rgb(5, 5, 5);
+      border-radius: 50%;
+      transition: .4s ease-in-out;
+      display: block !important;
+      margin: 0;
+      position: relative;
+      z-index: 1;
+    }
+
+    .radio-input input[type='radio']:hover,
+    .purchase-option-box:hover input[type='radio'] {
+      transform: scale(1.2);
+      cursor: pointer;
+      box-shadow: none;
+    }
+
+    .radio-input .circle {
+      position: absolute;
+      width: 0.6em;
+      height: 0.6em;
+      background-color: var(--orange);
+      scale: 0;
+      border-radius: 50%;
+      transition: .4s ease-in-out;
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    .radio-input input[type='radio']:checked {
+      box-shadow: none;
+      border: 1px solid var(--orange);
+    }
+
+    .radio-input input[type='radio']:checked + .circle {
+      transform: rotate(360deg);
+      scale: 1;
+    }
 
     .product-container {
       grid-template-columns: 54% 42% !important;
@@ -169,7 +239,7 @@
       background: #fff;
       border: 1px solid var(--border-color);
       cursor: pointer;
-      max-height: 72px; /* Start all boxes collapsed */
+      max-height: 72px;
       filter: drop-shadow(0px 4px 4px rgba(47, 47, 47, 0.1));
       transition: max-height 0.5s ease-in-out, filter 0.3s, background-color 0.3s, border-width 0.3s;
       border-radius: 10px;
@@ -196,41 +266,26 @@
         }
       }
 
+      /* Updated radio-box styles */
       .radio-box {
         align-items: center;
         display: flex;
-
-        input[type='radio'] {
-          display: none;
-        }
-
-        label {
-          cursor: pointer;
-          width: 19px;
-          height: 19px;
-          border: 1px solid var(--primary-color);
-          border-radius: 50%;
-          position: relative;
-        }
       }
 
-      &.selected {
-        .radio-box {
-          input[type='radio'] + label:after {
-            content: '\2713';
-            position: absolute;
-            top: -2px;
-            left: -2px;
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background: var(--primary-color);
-            text-align: center;
-            line-height: 22px;
-            color: #fff;
-          }
+      /* Mobile styles */
+      @media (max-width: 767px) {
+        .radio-input input[type='radio'] {
+          width: 1.5em;
+          height: 1.5em;
+        }
+
+        .radio-input .circle {
+          width: 0.5em;
+          height: 0.5em;
+          left: -0.9em;
         }
       }
+    }
 
       .save-title {
         background-color: var(--orange);

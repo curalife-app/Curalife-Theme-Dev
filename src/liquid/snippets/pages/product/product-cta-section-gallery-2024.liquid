@@ -363,53 +363,47 @@
 </style>
 
 <script>
-  document.addEventListener('DOMContentLoaded', function () {
-    loadSwiper();
-
-    var SID = '{{ section.id }}'; // Ensure SID is defined
-
+  document.addEventListener('DOMContentLoaded', function() {
     {% unless isHideThumbs %}
-    // Assign the thumbs Swiper instance to the window object
-    window['productThumbsAllInOne' + SID] = new Swiper('#thumbs-slider-{{ section.id }}', {
-      direction: 'vertical',
-      spaceBetween: 10,
-      watchSlidesVisibility: false,
-      grabCursor: true,
-      slidesPerView: 3,
-      navigation: {
-        nextEl: '#product-thumbs-slider-nav-next-{{ section.id }}',
-        prevEl: '#product-thumbs-slider-nav-prev-{{ section.id }}',
-        disabledClass: 'disabled'
-      }
-    });
-    {% endunless %}
-
-    // Assign the main slider Swiper instance to the window object
-    window['productSliderAllInOne' + SID] = new Swiper('#product-main-slider-sc-{{ section.id }}', {
-      {% unless isHideThumbs %}
-      thumbs: {
-        swiper: window['productThumbsAllInOne' + SID] // Use the global thumbs instance
-      },
-      {% endunless %}
-      slidesPerView: 1,
-      spaceBetween: 15,
-      watchSlidesVisibility: true,
-      grabCursor: false,
-      slideToClickedSlide: true,
-      breakpoints: {
-        0: {
-          allowTouchMove: false,
+      loadSwiper(() => {
+        window.productThumbsSlider{{ SID }} = initializeSwiper('#thumbs-slider-{{ section.id }}', {
+          direction: 'vertical',
+          spaceBetween: 10,
+          watchSlidesVisibility: false,
+          grabCursor: true,
+          slidesPerView: 3,
           navigation: {
-            nextEl: '#product-main-slider-nav-next-{{ section.id }}',
-            prevEl: '#product-main-slider-nav-prev-{{ section.id }}',
+            nextEl: '#product-thumbs-slider-nav-next-{{ section.id }}',
+            prevEl: '#product-thumbs-slider-nav-prev-{{ section.id }}',
             disabledClass: 'disabled'
           }
-        },
-        760: {
-          allowTouchMove: false,
-          navigation: {}
+        });
+      });
+    {% endunless %}
+
+    loadSwiper(() => {
+      window.productSliderAllInOne{{ SID }} = initializeSwiper('#product-main-slider-sc-{{ section.id }}', {
+        {% unless isHideThumbs %}thumbs: {swiper: window.productThumbsSlider{{ SID }}},{% endunless %}
+        slidesPerView: 1,
+        spaceBetween: 15,
+        watchSlidesVisibility: true,
+        grabCursor: false,
+        slideToClickedSlide: true,
+        breakpoints: {
+          0: {
+            allowTouchMove: false,
+            navigation: {
+              nextEl: '#product-main-slider-nav-next-{{ section.id }}',
+              prevEl: '#product-main-slider-nav-prev-{{ section.id }}',
+              disabledClass: 'disabled'
+            }
+          },
+          760: {
+            allowTouchMove: false,
+            navigation: {}
+          }
         }
-      }
+      });
     });
   });
 </script>
