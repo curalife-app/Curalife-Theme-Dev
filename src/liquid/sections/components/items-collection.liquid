@@ -124,30 +124,35 @@
   {% if section.settings.is_slider %}
     <script>
       document.addEventListener('DOMContentLoaded', function() {
-        var itemsContainer = document.getElementById('items-container-{{ section.id }}');
-        var isMobile = window.innerWidth <= 768;
-        var arrows = document.querySelectorAll('#section-{{ section.id }} .swiper-button-next, #section-{{ section.id }} .swiper-button-prev');
+        function getMaxHeightOfElements(selector) {
+          let maxHeight = 0;
+          document.querySelectorAll(selector).forEach(function(element) {
+            element.style.height = '';
+            maxHeight = Math.max(maxHeight, element.offsetHeight);
+          });
+          return maxHeight;
+        }
 
-        {% if section.settings.items_in_row == 'all' %}
-          if (isMobile) {
-            initSwiper();
-            showArrows();
-          } else {
-            deactivateSwiper();
-            hideArrows();
-          }
-        {% else %}
-          initSwiper();
-          showArrows();
-        {% endif %}
+        function setHeightOfElements(selector, height) {
+          document.querySelectorAll(selector).forEach(function(element) {
+            element.style.height = height + 'px';
+          });
+        }
 
-        function initSwiper() {
+        function adjustTitleHeight() {
+          const titleMaxHeight = getMaxHeightOfElements(`#section-{{ section.id }} .title-tag`);
+          setHeightOfElements(`#section-{{ section.id }} .title-tag`, titleMaxHeight);
+        }
+
+        function adjustHeights() {
+          adjustTitleHeight();
+        }
+
+        function initSwiper(itemsContainer) {
           itemsContainer.classList.add('swiper');
           itemsContainer.classList.remove('items', 'flex', 'flex-wrap');
-          var items = itemsContainer.querySelectorAll('.item');
-          items.forEach(function(item) {
-            item.classList.add('swiper-slide');
-          });
+          const items = itemsContainer.querySelectorAll('.item');
+          items.forEach(item => item.classList.add('swiper-slide'));
 
           loadSwiper(() => {
             let swiper = initializeSwiper('#items-container-{{ section.id }}', {
@@ -199,185 +204,155 @@
           });
         }
 
-        function deactivateSwiper() {
+        function deactivateSwiper(itemsContainer) {
           itemsContainer.classList.remove('swiper');
           itemsContainer.classList.add('items', 'flex', 'flex-wrap');
-          var items = itemsContainer.querySelectorAll('.item');
-          items.forEach(function(item) {
-            item.classList.remove('swiper-slide');
-          });
+          const items = itemsContainer.querySelectorAll('.item');
+          items.forEach(item => item.classList.remove('swiper-slide'));
         }
 
-        function hideArrows() {
-          arrows.forEach(function(arrow) {
-            arrow.style.display = 'none';
-          });
+        function hideArrows(arrows) {
+          arrows.forEach(arrow => arrow.style.display = 'none');
         }
 
-        function showArrows() {
-          arrows.forEach(function(arrow) {
-            arrow.style.display = '';
-          });
+        function showArrows(arrows) {
+          arrows.forEach(arrow => arrow.style.display = '');
         }
 
-        window.addEventListener('resize', function() {
-          var newIsMobile = window.innerWidth <= 768;
-          if (isMobile !== newIsMobile) {
-            isMobile = newIsMobile;
-            {% if section.settings.items_in_row == 'all' %}
-              if (isMobile) {
-                initSwiper();
-                showArrows();
-              } else {
-                deactivateSwiper();
-                hideArrows();
-              }
-            {% endif %}
+        const displayOnUrlParameter = '{{ section.settings.display_on_utm_parmeters }}';
+
+        if (displayOnUrlParameter) {
+          const section = document.getElementById('section-{{ section.id }}');
+
+          if (window.location.href.includes(displayOnUrlParameter)) {
+            section.classList.remove('!hidden');
+          } else {
+            document.querySelectorAll('.shopify-section').forEach(shopifySection => {
+              shopifySection.style.marginTop = '0';
+            });
           }
-        });
+        }
+
+        const itemsContainer = document.getElementById('items-container-{{ section.id }}');
+        if (itemsContainer) {
+          let isMobile = window.innerWidth <= 768;
+          const arrows = document.querySelectorAll('#section-{{ section.id }} .swiper-button-next, #section-{{ section.id }} .swiper-button-prev');
+
+          {% if section.settings.items_in_row == 'all' %}
+            if (isMobile) {
+              initSwiper(itemsContainer);
+              showArrows(arrows);
+            } else {
+              deactivateSwiper(itemsContainer);
+              hideArrows(arrows);
+            }
+          {% else %}
+            initSwiper(itemsContainer);
+            showArrows(arrows);
+          {% endif %}
+
+          window.addEventListener('resize', function() {
+            const newIsMobile = window.innerWidth <= 768;
+            if (isMobile !== newIsMobile) {
+              isMobile = newIsMobile;
+              {% if section.settings.items_in_row == 'all' %}
+                if (isMobile) {
+                  initSwiper(itemsContainer);
+                  showArrows(arrows);
+                } else {
+                  deactivateSwiper(itemsContainer);
+                  hideArrows(arrows);
+                }
+              {% endif %}
+            }
+          });
+        }
+
+        window.addEventListener('load', adjustHeights);
+        window.addEventListener('resize', adjustHeights);
       });
     </script>
-  {% endif %}
 
-  {% if section.settings.display_on_utm_parmeters != blank %}
-    <script>
-      $( document ).ready(function() {
-        var displayOnUrlParameter = '{{ section.settings.display_on_utm_parmeters }}';
+    <style>
+      {% if section.settings.is_arrows_bottom %}
+        #section-{{ section.id }} {
+          @media (width > 768px) {
+            --swiper-navigation-sides-offset: 370px;
+            --swiper-navigation-top-offset: 95% !important;
+          }
 
-        if (window.location.href.includes(displayOnUrlParameter)) {
-          $('#section-{{ section.id }}').removeClass('!hidden');
+          @media (width <= 768px) {
+            --swiper-navigation-sides-offset: 0px !important;
+          }
+
+          .swiper {
+            padding-bottom: 80px !important;
+          }
         }
-        else {
-          $('.shopify-section').css('margin-top', '0');
+      {% elsif request.path contains 'lp-wl-curaslim-360' or request.path contains 'curaslim-b2b' %}
+        #section-{{ section.id }} {
+          @media (width > 768px) {
+            --swiper-navigation-top-offset: -50px !important;
+
+            .swiper-button-next {
+              right: 0;
+            }
+
+            .swiper-button-prev {
+              right: 60px;
+              left: unset;
+            }
+          }
+
+          @media (width <= 768px) {
+            --swiper-navigation-top-offset: 95% !important;
+            --swiper-navigation-sides-offset: 0px !important;
+          }
         }
-      });
-    </script>
-  {% endif %}
+      {% endif %}
 
-  <script>
-    function getMaxHeightOfElements(selector) {
-      var maxHeight = 0;
-      document.querySelectorAll(selector).forEach(function(element) {
-        element.style.height = '';
-        maxHeight = Math.max(maxHeight, element.offsetHeight);
-      });
-      return maxHeight;
-    }
-
-    function setHeightOfElements(selector, height) {
-      document.querySelectorAll(selector).forEach(function(element) {
-        element.style.height = height + 'px';
-      });
-    }
-
-    function adjustHeights() {
-    adjustTitleHeight();
-    adjustImageWrapperHeight();
-  }
-
-  window.onload = adjustHeights;
-  window.onresize = adjustHeights;
-
-  function adjustTitleHeight() {
-    var titleMaxHeight = getMaxHeightOfElements('section-{{ section.id }} .title-tag');
-    setHeightOfElements('section-{{ section.id }} .title-tag', titleMaxHeight);
-  }
-
-  function adjustImageWrapperHeight() {
-    var imageMaxHeight = 0;
-    document.querySelectorAll('section-{{ section.id }} .img-wrapper img').forEach(function(img) {
-      var attrHeight = parseInt(img.getAttribute('height'));
-      if (!isNaN(attrHeight)) {
-        imageMaxHeight = Math.max(imageMaxHeight, attrHeight);
-      }
-    });
-
-    if (imageMaxHeight > 0) {
-      setHeightOfElements('section-{{ section.id }} .img-wrapper', imageMaxHeight);
-    }
-  }
-  </script>
-
-<style>
-  {% if section.settings.is_arrows_bottom %}
-    #section-{{ section.id }} {
-      @media (width > 768px) {
-        --swiper-navigation-sides-offset: 370px;
-        --swiper-navigation-top-offset: 95% !important;
+      #section-{{ section.id }} .swiper-slide {
+        opacity: 0;
+        transition: opacity 1s ease;
       }
 
-      @media (width <= 768px) {
-        --swiper-navigation-sides-offset: 0px !important;
-      }
-
-      .swiper {
-        padding-bottom: 80px !important;
-      }
-    }
-  {% elsif request.path contains 'lp-wl-curaslim-360' or request.path contains 'curaslim-b2b' %}
-    #section-{{ section.id }} {
-      @media (width > 768px) {
-        --swiper-navigation-top-offset: -50px !important;
-
-        .swiper-button-next {
-          right: 0;
-        }
-
-        .swiper-button-prev {
-          right: 60px;
-          left: unset;
-        }
-      }
-
-      @media (width <= 768px) {
-        --swiper-navigation-top-offset: 95% !important;
-        --swiper-navigation-sides-offset: 0px !important;
-      }
-    }
-  {% endif %}
-
-  #section-{{ section.id }} .swiper-slide {
-    opacity: 0;
-    transition: opacity 1s ease;
-  }
-
-  #section-{{ section.id }} .swiper-slide-active {
-    opacity: 1;
-  }
-
-  {% if section.settings.items_in_row == 'all' %}
-    {% assign items_in_row = section.blocks.size %}
-  {% else %}
-    {% assign items_in_row = section.settings.items_in_row | minus: 1 %}
-  {% endif %}
-
-  {% for i in (1..items_in_row) %}
-    #section-{{ section.id }} .swiper-slide-active{% for j in (1..i) %} + .swiper-slide{% endfor %} {
-      opacity: 1;
-    }
-  {% endfor %}
-
-  @media (max-width: 768px) {
-    #section-{{ section.id }} .swiper-slide-active {
-      opacity: 1;
-    }
-
-    {% if section.settings.items_in_row_mobile == 'all' %}
-      {% assign items_in_row_mobile = section.blocks.size %}
-    {% else %}
-      {% assign items_in_row_mobile = section.settings.items_in_row_mobile | minus: 1 %}
-    {% endif %}
-
-    {% for i in (1..items_in_row_mobile) %}
-      #section-{{ section.id }} .swiper-slide-active{% for j in (1..i) %} + .swiper-slide{% endfor %} {
+      #section-{{ section.id }} .swiper-slide-active {
         opacity: 1;
       }
-    {% endfor %}
-  }
-</style>
+
+      {% if section.settings.items_in_row == 'all' %}
+        {% assign items_in_row = section.blocks.size %}
+      {% else %}
+        {% assign items_in_row = section.settings.items_in_row | minus: 1 %}
+      {% endif %}
+
+      {% for i in (1..items_in_row) %}
+        #section-{{ section.id }} .swiper-slide-active{% for j in (1..i) %} + .swiper-slide{% endfor %} {
+          opacity: 1;
+        }
+      {% endfor %}
+
+      @media (max-width: 768px) {
+        #section-{{ section.id }} .swiper-slide-active {
+          opacity: 1;
+        }
+
+        {% if section.settings.items_in_row_mobile == 'all' %}
+          {% assign items_in_row_mobile = section.blocks.size %}
+        {% else %}
+          {% assign items_in_row_mobile = section.settings.items_in_row_mobile | minus: 1 %}
+        {% endif %}
+
+        {% for i in (1..items_in_row_mobile) %}
+          #section-{{ section.id }} .swiper-slide-active{% for j in (1..i) %} + .swiper-slide{% endfor %} {
+            opacity: 1;
+          }
+        {% endfor %}
+      }
+    </style>
+  {% endif %}
 
   <style>
-
     {% if section.settings.is_ticker %}
       :root {
         --swiper-transition-timing-function: linear;
@@ -554,8 +529,9 @@
   </style>
 
   {% if section.settings.is_bigger_center_item %}
-  {% assign centerPosition = section.blocks.size | divided_by: 2 | plus: 1 %}
-  {% assign centerElementSelector = "swiper-slide[aria-label='" | append: centerPosition | append: " / " | append: section.blocks.size | append: "']" %}
+    {% assign centerPosition = section.blocks.size | divided_by: 2 | plus: 1 %}
+    {% assign centerElementSelector = "swiper-slide[aria-label='" | append: centerPosition | append: " / " | append: section.blocks.size | append: "']" %}
+
     <style>
       #section-{{ section.id }} swiper-slide img {
         transition: .7s;
