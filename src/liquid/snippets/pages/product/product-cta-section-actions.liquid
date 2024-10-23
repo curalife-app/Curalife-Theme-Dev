@@ -358,126 +358,150 @@
 
 <script>
   document.addEventListener('DOMContentLoaded', function() {
-    document.querySelectorAll('[id^="product-actions-"]').forEach(productActions => {
-      const SID = productActions.id.replace('product-actions-', '');
-      const urlParams = new URLSearchParams(window.location.search);
-      const defaultVariantParam = urlParams.get('default-variant');
-      const defaultVariant = defaultVariantParam ? parseInt(defaultVariantParam) : {{ defaultSelectionIndex }};
-      const variantBoxes = Array.from(productActions.querySelectorAll('.variant-box'));
+    const productActions = document.querySelector(`#cta-section-{{ SID }} .product-actions`);
+    if (!productActions) return;
 
-      if (variantBoxes.length > 0) {
-        let selectedVariantBox;
+    const SID = '{{ SID }}';
+    const urlParams = new URLSearchParams(window.location.search);
+    const defaultVariantParam = urlParams.get('default-variant');
+    const defaultVariant = defaultVariantParam ? parseInt(defaultVariantParam) : {{ defaultSelectionIndex }};
+    const variantBoxes = Array.from(productActions.querySelectorAll('.variant-box'));
 
-        if (defaultVariant && variantBoxes[defaultVariant - 1]) {
-          selectedVariantBox = variantBoxes[defaultVariant - 1];
-        } else {
-          const defaultIndex = typeof defaultSelectionIndex !== 'undefined' ? defaultSelectionIndex - 1 : 0;
-          selectedVariantBox = variantBoxes[defaultIndex] || variantBoxes[0];
-        }
+    if (variantBoxes.length > 0) {
+      let selectedVariantBox;
 
-        if (selectedVariantBox) {
-          const input = selectedVariantBox.querySelector(`input[name="pack${SID}"]`);
-          if (input) {
-            input.checked = true;
-
-            updateCTA(SID);
-            updateSelectedVariantInformation(SID, 'data-save', '.save-badge');
-
-            const isMonthlyPrice = window?.product?.metafields?.custom?.is_price_per_month;
-            if (isMonthlyPrice) {
-              const variantTotalPrice = input.dataset.price;
-              const totalPriceAmount = productActions.querySelector('.total-price .total-price-amount');
-              if (totalPriceAmount) {
-                totalPriceAmount.textContent = variantTotalPrice;
-              }
-            }
-
-            window[`didClickVariant${SID}`] = true;
-          }
-        }
+      if (defaultVariant && variantBoxes[defaultVariant - 1]) {
+        selectedVariantBox = variantBoxes[defaultVariant - 1];
+      } else {
+        const defaultIndex = typeof window.defaultSelectionIndex !== 'undefined' ? window.defaultSelectionIndex - 1 : 0;
+        selectedVariantBox = variantBoxes[defaultIndex] || variantBoxes[0];
       }
 
-      const buyButton = productActions.querySelector('#buy-button');
-      if (buyButton) {
-        buyButton.addEventListener('click', function() {
-          try {
-            const checkedVariantInput = productActions.querySelector(`input[name="pack${SID}"]:checked`);
+      if (selectedVariantBox) {
+        const input = selectedVariantBox.querySelector(`input[name="pack${SID}"]`);
+        if (input) {
+          input.checked = true;
+          updateCTA(productActions, SID);
+          updateSelectedVariantInformation(productActions, SID, 'data-save', '.save-badge');
 
-            let packValue = checkedVariantInput?.value;
-            packValue = checkedVariantInput.getAttribute("data-ref-variant") || packValue;
-            if (!packValue) throw new Error('No pack selected');
-
-            const checkoutLink = checkedVariantInput.getAttribute("data-checkout-link");
-            if (checkoutLink) {
-              window.location.href = checkoutLink;
-              return;
+          const isMonthlyPrice = window?.product?.metafields?.custom?.is_price_per_month;
+          if (isMonthlyPrice) {
+            const variantTotalPrice = input.dataset.price;
+            const totalPriceAmount = productActions.querySelector('.total-price .total-price-amount');
+            if (totalPriceAmount) {
+              totalPriceAmount.textContent = variantTotalPrice;
             }
-
-            const quantityInput = productActions.querySelector('input[name="quantity"]');
-            const quantityValue = (typeof isBuyQuantity !== 'undefined' && isBuyQuantity) ?
-              (quantityInput?.value || 1) : 1;
-            window.location.href = `https://${location.hostname}/cart/${packValue}:${quantityValue}`;
-          } catch (error) {
-            console.error(error);
-            alert("Something went wrong! Please contact our support team.");
           }
+
+          window[`didClickVariant${SID}`] = true;
+        }
+      }
+    }
+
+    // Handle quantity controls
+    const qtyInput = productActions.querySelector('input[name="quantity"]');
+    if (qtyInput) {
+      const incrementBtn = productActions.querySelector('.increment');
+      const decrementBtn = productActions.querySelector('.decrement');
+
+      if (incrementBtn) {
+        incrementBtn.addEventListener('click', () => {
+          let value = parseInt(qtyInput.value) || 1;
+          value++;
+          qtyInput.value = value;
+          updateCartQty(value);
         });
       }
 
-      variantBoxes.forEach(box => {
-        box.addEventListener('click', function() {
-          const input = this.querySelector(`input[name="pack${SID}"]`);
-          if (input) {
-            input.checked = true;
-            updateCTA(SID);
-            updateSelectedVariantInformation(SID, 'data-save', '.save-badge');
+      if (decrementBtn) {
+        decrementBtn.addEventListener('click', () => {
+          let value = parseInt(qtyInput.value) || 1;
+          value = value > 1 ? value - 1 : value;
+          qtyInput.value = value;
+          updateCartQty(value);
+        });
+      }
+    }
 
-            const isMonthlyPrice = window?.product?.metafields?.custom?.is_price_per_month;
-            if (isMonthlyPrice) {
-              const variantTotalPrice = input.dataset.price;
-              const totalPriceAmount = productActions.querySelector('.total-price .total-price-amount');
-              if (totalPriceAmount) {
-                totalPriceAmount.textContent = variantTotalPrice;
-              }
+    // Handle buy button
+    const buyButton = productActions.querySelector('#buy-button');
+    if (buyButton) {
+      buyButton.addEventListener('click', function() {
+        try {
+          const checkedVariantInput = productActions.querySelector(`input[name="pack${SID}"]:checked`);
+          if (!checkedVariantInput) throw new Error('No pack selected');
+
+          let packValue = checkedVariantInput.getAttribute("data-ref-variant") || checkedVariantInput.value;
+
+          const checkoutLink = checkedVariantInput.getAttribute("data-checkout-link");
+          if (checkoutLink) {
+            window.location.href = checkoutLink;
+            return;
+          }
+
+          const quantityInput = productActions.querySelector('input[name="quantity"]');
+          const quantityValue = (typeof window.isBuyQuantity !== 'undefined' && window.isBuyQuantity) ?
+            (quantityInput?.value || 1) : 1;
+          window.location.href = `https://${location.hostname}/cart/${packValue}:${quantityValue}`;
+        } catch (error) {
+          console.error(error);
+          alert("Something went wrong! Please contact our support team.");
+        }
+      });
+    }
+
+    // Handle variant box clicks
+    variantBoxes.forEach(box => {
+      box.addEventListener('click', function() {
+        const input = this.querySelector(`input[name="pack${SID}"]`);
+        if (input) {
+          input.checked = true;
+          updateCTA(productActions, SID);
+          updateSelectedVariantInformation(productActions, SID, 'data-save', '.save-badge');
+
+          const isMonthlyPrice = window?.product?.metafields?.custom?.is_price_per_month;
+          if (isMonthlyPrice) {
+            const variantTotalPrice = input.dataset.price;
+            const totalPriceAmount = productActions.querySelector('.total-price .total-price-amount');
+            if (totalPriceAmount) {
+              totalPriceAmount.textContent = variantTotalPrice;
             }
+          }
 
-            const didClickVariantKey = `didClickVariant${SID}`;
-            if (window[didClickVariantKey]) {
-              const isB2B = window?.customer?.b2b;
-              if (!isB2B) {
-                const product = window.product || {};
-                const variantsAmount = (product?.variants?.length || 0) +
-                  (product?.metafields?.custom?.additional_variants?.value?.length || 0);
+          const didClickVariantKey = `didClickVariant${SID}`;
+          if (window[didClickVariantKey]) {
+            const isB2B = window?.customer?.b2b;
+            if (!isB2B) {
+              const product = window.product || {};
+              const variantsAmount = (product?.variants?.length || 0) +
+                (product?.metafields?.custom?.additional_variants?.value?.length || 0);
 
-                if (variantsAmount > 1 && product?.variants?.[0]?.featured_image?.src) {
-                  const slideIndex = window[`productSliderAllInOne${SID}`]?.slides?.length -
-                    (variantsAmount + 1 - parseInt(input.getAttribute('data-index')));
-                  if (window[`productSliderAllInOne${SID}`]?.slideTo) {
-                    window[`productSliderAllInOne${SID}`].slideTo(slideIndex);
-                  }
+              if (variantsAmount > 1 && product?.variants?.[0]?.featured_image?.src) {
+                const slideIndex = window[`productSliderAllInOne${SID}`]?.slides?.length -
+                  (variantsAmount + 1 - parseInt(input.getAttribute('data-index')));
+                if (window[`productSliderAllInOne${SID}`]?.slideTo) {
+                  window[`productSliderAllInOne${SID}`].slideTo(slideIndex);
                 }
               }
-            } else {
-              window[didClickVariantKey] = true;
             }
+          } else {
+            window[didClickVariantKey] = true;
           }
-        });
+        }
       });
     });
   });
 
-  function triggerClick(element) {
-    if (element) {
-      const event = new Event('click', { bubbles: true });
-      element.dispatchEvent(event);
+  function updateCartQty(value) {
+    const cartQty = document.querySelector(".cart-qty");
+    if (cartQty) {
+      cartQty.innerHTML = value;
+      cartQty.classList.add("rotate-x");
     }
   }
 
-  function updateCTA(SID) {
-    if (typeof ctaTextType === 'undefined') return;
-
-    const productActions = document.querySelector(`#product-actions-${SID}`);
-    if (!productActions) return;
+  function updateCTA(productActions, SID) {
+    if (typeof window.ctaTextType === 'undefined') return;
 
     const checkedInput = productActions.querySelector(`input[name="pack${SID}"]:checked`);
     if (!checkedInput) return;
@@ -488,10 +512,10 @@
     let ctaText = '';
     const currencySymbol = window?.cart?.currency?.symbol || '$';
 
-    if (ctaTextType === 'save') {
+    if (window.ctaTextType === 'save') {
       const discount = checkedInput.getAttribute('data-discount');
       ctaText = discount != '0' ? `You Save ${currencySymbol}${discount}` : '';
-    } else if (ctaTextType === 'total') {
+    } else if (window.ctaTextType === 'total') {
       ctaText = `Total ${currencySymbol}${checkedInput.getAttribute('data-price')}`;
     }
 
@@ -501,10 +525,7 @@
     });
   }
 
-  function updateSelectedVariantInformation(SID, infoAttributeName, targetElementSelector) {
-    const productActions = document.querySelector(`#product-actions-${SID}`);
-    if (!productActions) return;
-
+  function updateSelectedVariantInformation(productActions, SID, infoAttributeName, targetElementSelector) {
     const checkedInput = productActions.querySelector(`input[name="pack${SID}"]:checked`);
     const targetElement = productActions.querySelector(targetElementSelector);
 
@@ -516,30 +537,6 @@
       targetElement.textContent = varIndex > 1 ? `X${varIndex}` : '';
       fadeIn(targetElement);
     });
-  }
-
-  function incrementQty() {
-    const input = document.querySelector('input[name="quantity"]');
-    const cartQty = document.querySelector(".cart-qty");
-    let value = parseInt(input.value) || 1;
-    value++;
-    input.value = value;
-    if (cartQty) {
-      cartQty.innerHTML = value;
-      cartQty.classList.add("rotate-x");
-    }
-  }
-
-  function decrementQty() {
-    const input = document.querySelector('input[name="quantity"]');
-    const cartQty = document.querySelector(".cart-qty");
-    let value = parseInt(input.value) || 1;
-    value = value > 1 ? value - 1 : value;
-    input.value = value;
-    if (cartQty) {
-      cartQty.innerHTML = value;
-      cartQty.classList.add("rotate-x");
-    }
   }
 
   function fadeOut(element, callback) {
