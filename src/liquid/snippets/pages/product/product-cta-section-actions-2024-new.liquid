@@ -52,7 +52,6 @@
     const productActions = document.getElementById(`product-actions-{{ SID }}`);
     const purchaseOptionBoxes = productActions.querySelectorAll('.purchase-option-box');
 
-    // Add transition styles dynamically
     const styleSheet = document.createElement("style");
     styleSheet.textContent = `
       .subscription-content, .buy-once-content {
@@ -75,22 +74,14 @@
         parseInt(urlParams.get('default-variant')) :
         {{ defaultSelectionIndex | default: 1 }};
 
-      // Set initial subscription state
-      const subscriptionButton = productActions.querySelector('.purchase-type .subscription');
-      if (subscriptionButton) {
-        subscriptionButton.click();
-      }
-
-      // Set initial variant
       const initialVariantIndex = defaultVariant ? defaultVariant - 1 : 0;
-      if (purchaseOptionBoxes[initialVariantIndex]) {
-        purchaseOptionBoxes[initialVariantIndex].click();
-      }
 
-      // Set initial price displays
       purchaseOptionBoxes.forEach(box => {
         const subscriptionContent = box.querySelectorAll('.subscription-content');
         const buyOnceContent = box.querySelectorAll('.buy-once-content');
+
+        box.classList.remove('selected');
+        box.style.maxHeight = '68px';
 
         subscriptionContent.forEach(el => {
           el.style.display = 'block';
@@ -101,7 +92,52 @@
           el.style.display = 'none';
           el.style.opacity = '0';
         });
+
+        const radio = box.querySelector("input[type='radio']");
+        if (radio) radio.checked = false;
       });
+
+      const defaultBox = purchaseOptionBoxes[initialVariantIndex];
+      if (defaultBox) {
+        defaultBox.classList.add('selected');
+        adjustMaxHeight(defaultBox);
+
+        const radio = defaultBox.querySelector("input[type='radio']");
+        if (radio) radio.checked = true;
+
+        const submitSellingPlanElement = productActions.querySelector('.submit-selling-plan-id');
+        const submitVariantElement = productActions.querySelector('.submit-variant-id');
+
+        if (submitSellingPlanElement) {
+          submitSellingPlanElement.value = defaultBox.dataset.subscriptionSellingPlanId || '';
+        }
+        if (submitVariantElement) {
+          submitVariantElement.value = defaultBox.dataset.originalVariant || defaultBox.dataset.variant;
+        }
+
+        const toggleIcon = defaultBox.querySelector('.toggle-icon');
+        if (toggleIcon) toggleIcon.style.display = 'block';
+      }
+
+      const subscriptionButton = productActions.querySelector('.purchase-type .subscription');
+      const buyOnceButton = productActions.querySelector('.purchase-type .buy-once');
+
+      if (subscriptionButton && buyOnceButton) {
+        subscriptionButton.classList.add('selected');
+        buyOnceButton.classList.remove('selected');
+      }
+
+      if (defaultBox) {
+        updateYotpoPointsWidget(defaultBox);
+      }
+
+      {% if variantsAmount > 1 %}
+        {% if isSlideOnLoad %}
+          if (defaultBox) {
+            updateVariantImage(defaultBox);
+          }
+        {% endif %}
+      {% endif %}
     }
 
     function setupMutationObserver() {
