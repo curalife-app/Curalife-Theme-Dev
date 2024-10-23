@@ -455,11 +455,12 @@
   </style>
 {% endif %}
 
-  <script>
+<script>
+  (function() {
     tabControl();
 
-    var resizeTimer;
-    $(window).on('resize', function(e) {
+    let resizeTimer;
+    window.addEventListener('resize', function() {
       clearTimeout(resizeTimer);
       resizeTimer = setTimeout(function() {
         tabControl();
@@ -467,30 +468,42 @@
     });
 
     function tabControl() {
-      var tabs = $('.pack-info-section.instance-{{ index }} .tabbed-content').find('.tabs');
-      if(tabs.is(':visible')) {
-        tabs.find('a').on('click', function(event) {
-          event.preventDefault();
-          var target = $(this).attr('href'),
-              tabs = $(this).parents('.tabs'),
-              buttons = tabs.find('a'),
-              item = tabs.parents('.pack-info-section.instance-{{ index }} .tabbed-content').find('.item');
-          buttons.removeClass('active');
-          item.removeClass('active');
-          $(this).addClass('active');
-          $(target).addClass('active');
+      const tabs = document.querySelector(`.pack-info-section.instance-{{ index }} .tabbed-content .tabs`);
+
+      if (tabs && tabs.offsetParent !== null) { // Checks if the element is visible
+        tabs.querySelectorAll('a').forEach(function(button) {
+          button.addEventListener('click', function(event) {
+            event.preventDefault();
+            const target = button.getAttribute('href');
+            const tabsContainer = button.closest('.tabs');
+            const buttons = tabsContainer.querySelectorAll('a');
+            const itemContainer = tabsContainer.closest('.pack-info-section.instance-{{ index }} .tabbed-content').querySelectorAll('.item');
+
+            buttons.forEach(btn => btn.classList.remove('active'));
+            itemContainer.forEach(item => item.classList.remove('active'));
+
+            button.classList.add('active');
+            document.querySelector(target).classList.add('active');
+          });
         });
       } else {
-        $('.item').on('click', function() {
-          var container = $(this).parents('.tabbed-content'),
-              currId = $(this).attr('id'),
-              items = container.find('.item');
-              console.log(items);
-          container.find('.tabs a').removeClass('active');
-          items.removeClass('active');
-          $(this).addClass('active');
-          container.find('.tabs a[href$="#'+ currId +'"]').addClass('active');
+        document.querySelectorAll('.item').forEach(function(item) {
+          item.addEventListener('click', function() {
+            const container = item.closest('.tabbed-content');
+            const currId = item.getAttribute('id');
+            const items = container.querySelectorAll('.item');
+
+            container.querySelectorAll('.tabs a').forEach(btn => btn.classList.remove('active'));
+            items.forEach(it => it.classList.remove('active'));
+
+            item.classList.add('active');
+            const correspondingTab = container.querySelector(`.tabs a[href$="#${currId}"]`);
+            if (correspondingTab) {
+              correspondingTab.classList.add('active');
+            }
+          });
         });
       }
     }
-  </script>
+  })();
+</script>

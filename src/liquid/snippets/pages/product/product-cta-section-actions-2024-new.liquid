@@ -49,7 +49,16 @@
 
 <script>
   document.addEventListener('DOMContentLoaded', function() {
-    const productActions = document.getElementById(`product-actions-{{ SID }}`);
+    const productActions = document.getElementById('product-actions-{{ SID }}');
+    const SID = productActions.id.replace('product-actions-', '');
+    window.SID = SID;
+
+    console.log('Set SID:', window.SID);
+    console.log('Looking for slider:', `productSliderAllInOne${window.SID}`);
+
+    const productSlider = window[`productSliderAllInOne${window.SID}`];
+    console.log('Found slider:', productSlider);
+
     const purchaseOptionBoxes = productActions.querySelectorAll('.purchase-option-box');
 
     const styleSheet = document.createElement("style");
@@ -76,7 +85,13 @@
 
       const initialVariantIndex = defaultVariant ? defaultVariant - 1 : 0;
 
+      // Handle initial inert state for subscription boxes
       purchaseOptionBoxes.forEach(box => {
+        const subscriptionSellingPlanId = box.dataset.subscriptionSellingPlanId;
+        if (!subscriptionSellingPlanId || subscriptionSellingPlanId === '0') {
+          box.setAttribute('inert', '');
+        }
+
         const subscriptionContent = box.querySelectorAll('.subscription-content');
         const buyOnceContent = box.querySelectorAll('.buy-once-content');
 
@@ -97,7 +112,12 @@
         if (radio) radio.checked = false;
       });
 
-      const defaultBox = purchaseOptionBoxes[initialVariantIndex];
+      // Find the first valid box for initial selection
+      let defaultBox = purchaseOptionBoxes[initialVariantIndex];
+      if (defaultBox && defaultBox.hasAttribute('inert')) {
+        defaultBox = Array.from(purchaseOptionBoxes).find(box => !box.hasAttribute('inert'));
+      }
+
       if (defaultBox) {
         defaultBox.classList.add('selected');
         adjustMaxHeight(defaultBox);
@@ -211,7 +231,7 @@
               el.style.opacity = '1';
             });
           });
-        }, 300); // Match this with the CSS transition duration
+        }, 300);
 
         // Handle selling plan ID and inert state
         if (isSubscription) {
@@ -256,13 +276,49 @@
         }
       });
 
-      // Update selected box selling plan
+      // Check if currently selected box becomes inert
       const selectedBox = productActions.querySelector('.purchase-option-box.selected');
-      if (selectedBox) {
-        const submitSellingPlanElement = productActions.querySelector('.submit-selling-plan-id');
-        if (submitSellingPlanElement) {
-          submitSellingPlanElement.value = isSubscription ?
-            selectedBox.dataset.subscriptionSellingPlanId : '';
+      if (selectedBox && selectedBox.hasAttribute('inert')) {
+        // Find the first non-inert box
+        const firstAvailableBox = Array.from(purchaseOptionBoxes).find(box => !box.hasAttribute('inert'));
+        if (firstAvailableBox) {
+          // Deselect current box
+          selectedBox.classList.remove('selected');
+          selectedBox.style.maxHeight = '68px';
+          const selectedToggleIcon = selectedBox.querySelector('.toggle-icon');
+          if (selectedToggleIcon) selectedToggleIcon.style.display = 'none';
+
+          // Select new box
+          firstAvailableBox.classList.add('selected');
+          adjustMaxHeight(firstAvailableBox);
+          const newToggleIcon = firstAvailableBox.querySelector('.toggle-icon');
+          if (newToggleIcon) newToggleIcon.style.display = 'block';
+
+          // Update form values
+          const submitSellingPlanElement = productActions.querySelector('.submit-selling-plan-id');
+          const submitVariantElement = productActions.querySelector('.submit-variant-id');
+
+          if (submitSellingPlanElement) {
+            submitSellingPlanElement.value = isSubscription ?
+              firstAvailableBox.dataset.subscriptionSellingPlanId : '';
+          }
+          if (submitVariantElement) {
+            submitVariantElement.value = isSubscription ?
+              firstAvailableBox.dataset.originalVariant :
+              firstAvailableBox.dataset.variant;
+          }
+
+          // Update radio button
+          const radioInput = firstAvailableBox.querySelector("input[type='radio']");
+          if (radioInput) radioInput.checked = true;
+
+          // Update other UI elements
+          updateYotpoPointsWidget(firstAvailableBox);
+          {% if variantsAmount > 1 %}
+            {% if isSlideOnLoad %}
+              updateVariantImage(firstAvailableBox);
+            {% endif %}
+          {% endif %}
         }
       }
     }
@@ -511,12 +567,123 @@
     }
 
     function updateVariantImage(element) {
-      if (!element.dataset.index) return;
+      if (!element.dataset.index) {
+        console.warn('Element does not have a data-index attribute');
+        return;
+      }
 
-      const slideIndex = window.productSliderAllInOne{{ SID }}.slides.length -
-        ({{ variantsAmount | plus: 1 }} - parseInt(element.dataset.index));
-      window.productSliderAllInOne{{ SID }}.slideTo(slideIndex);
+      const SID = window.SID || '';
+      const sliderId = `productSliderAllInOne${SID}`;
+      const slider = window[sliderId];
+
+      console.log('Current slider:', sliderId, slider);
+      console.log('Element index:', element.dataset.index);
+
+      if (!slider || !slider.slides) {
+        console.warn(`Slider ${sliderId} not found or not properly initialized`);
+        return;
+      }
+
+      try {
+        const variantsAmount = parseInt('{{ variantsAmount }}' || 0);
+        const elementIndex = parseInt(element.dataset.index);
+
+        console.log('Variants amount:', variantsAmount);
+        console.log('Element index:', elementIndex);
+        console.log('Total slides:', slider.slides.length);
+
+        // Calculate slide index - we'll modify this calculation
+        const slideIndex = elementIndex - 1; // Simplified calculation
+
+        console.log('Calculated slide index:', slideIndex);
+
+        if (slideIndex >= 0 && slideIndex < slider.slides.length) {
+          console.log('Sliding to index:', slideIndex);
+          slider.slideTo(slideIndex, 300, true);
+        } else {
+          console.warn(`Invalid slide index calculated: ${slideIndex}`);
+        }
+      } catch (error) {
+        console.error('Error updating variant image:', error);
+        console.error(error.stack);
+      }
     }
+
+    // Modify the initialization to ensure slider is ready
+    function initializeProductSlider() {
+      const SID = window.SID || '';
+      const sliderId = `productSliderAllInOne${SID}`;
+
+      console.log('Initializing slider:', sliderId);
+
+      const checkSlider = setInterval(() => {
+        const slider = window[sliderId];
+        console.log('Checking slider:', slider);
+
+        if (slider && slider.slides) {
+          clearInterval(checkSlider);
+          console.log(`${sliderId} initialized with ${slider.slides.length} slides`);
+
+          // Add event listeners to track slider state
+          slider.on('slideChange', () => {
+            console.log('Slide changed to:', slider.activeIndex);
+          });
+
+          window.hasInitialImageUpdateHappened = false;
+        }
+      }, 100);
+
+      // Clear interval after 5 seconds to prevent infinite checking
+      setTimeout(() => {
+        clearInterval(checkSlider);
+        console.log('Slider initialization timeout');
+      }, 5000);
+    }
+
+    // Modify the initialization to ensure slider is ready
+    function initializeProductSlider() {
+      const SID = window.SID || '';
+      const sliderId = `productSliderAllInOne${SID}`;
+
+      console.log('Initializing slider:', sliderId);
+
+      const checkSlider = setInterval(() => {
+        const slider = window[sliderId];
+        console.log('Checking slider:', slider);
+
+        if (slider && slider.slides) {
+          clearInterval(checkSlider);
+          console.log(`${sliderId} initialized with ${slider.slides.length} slides`);
+
+          // Add event listeners to track slider state
+          slider.on('slideChange', () => {
+            console.log('Slide changed to:', slider.activeIndex);
+          });
+
+          window.hasInitialImageUpdateHappened = false;
+        }
+      }, 100);
+
+      // Clear interval after 5 seconds to prevent infinite checking
+      setTimeout(() => {
+        clearInterval(checkSlider);
+        console.log('Slider initialization timeout');
+      }, 5000);
+    }
+
+    document.addEventListener('DOMContentLoaded', initializeProductSlider);
+    document.addEventListener('DOMContentLoaded', () => {
+      const purchaseOptionBoxes = document.querySelectorAll('.purchase-option-box');
+
+      purchaseOptionBoxes.forEach(box => {
+        box.addEventListener('click', () => {
+          console.log('Variant clicked:', {
+            index: box.dataset.index,
+            variant: box.dataset.variant
+          });
+        });
+      });
+    });
 
     function buyButtonHandler(subscription_selling_plan_id, buttonElement) {
       const selectedBox = productActions.querySelector('.purchase-option-box.selected');
@@ -611,7 +778,7 @@
     --primary-color-light: color-mix(in srgb, var(--primary-color), white 80%);
   }
 
-  #cta-section-{{ section.id }} .purchase-type button {
+  #cta-section-{{ SID }} .purchase-type button {
     background-color: var(--primary-color);
     color: black;
     border-radius: 5px;
@@ -633,11 +800,11 @@
     }
   }
 
-  #cta-section-{{ section.id }} .purchase-option-box .radio-box input[type='radio'] {
+  #cta-section-{{ SID }} .purchase-option-box .radio-box input[type='radio'] {
       display: none;
   }
 
-  #cta-section-{{ section.id }} .purchase-option-box .radio-box label {
+  #cta-section-{{ SID }} .purchase-option-box .radio-box label {
       cursor: pointer;
       width: 19px;
       height: 19px;
@@ -646,7 +813,7 @@
       position: relative;
   }
 
-  #cta-section-{{ section.id }} .purchase-option-box.selected .radio-box input[type='radio']:checked + label:after {
+  #cta-section-{{ SID }} .purchase-option-box.selected .radio-box input[type='radio']:checked + label:after {
       content: '\2713';
       position: absolute;
       top: -2px;
@@ -660,7 +827,7 @@
       color: #fff;
   }
 
-  #cta-section-{{ section.id }} .product-actions {
+  #cta-section-{{ SID }} .product-actions {
     grid-area: 2/2/3/3;
     min-height: 415px;
 
@@ -672,7 +839,7 @@
     }
   }
 
-  #cta-section-{{ section.id }} .purchase-option-box {
+  #cta-section-{{ SID }} .purchase-option-box {
     background: #fff;
     border: 1px solid #cbcbcb;
     cursor: pointer;
