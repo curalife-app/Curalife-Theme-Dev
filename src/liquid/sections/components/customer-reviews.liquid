@@ -73,36 +73,46 @@
 <script>
   class ReviewsApp {
     constructor() {
-    this.reviewTitles = Array.from(document.querySelectorAll('.review-title'));
-    this.reviewQuotes = Array.from(document.querySelectorAll('.quote'));
-    this.currentActiveIndex = 0;
-    loadSwiper(() => {
-      let swiper = initializeSwiper('#customer-reviews-{{ section.id }} .swiper.reviews', {
-        centeredSlides: true,
-        slidesPerView: '1',
-        spaceBetween: 30,
-        autoHeight: true,
-        lazy: true,
-        preloadImages: false
+      this.reviewTitles = Array.from(document.querySelectorAll('.review-title'));
+      this.reviewQuotes = Array.from(document.querySelectorAll('.quote'));
+      this.currentActiveIndex = 0;
+      this.reviewsSwiper = null;
+
+      loadSwiper(() => {
+        this.reviewsSwiper = new Swiper('#customer-reviews-{{ section.id }} .swiper.reviews', {
+          centeredSlides: true,
+          slidesPerView: '1',
+          spaceBetween: 30,
+          autoHeight: true,
+          lazy: true,
+          preloadImages: false
+        });
+
+        // Bind swiper events after initialization
+        this.reviewsSwiper.on('slideChange', () => {
+          const index = this.reviewsSwiper.realIndex;
+          this.updateActiveTitle(index);
+        });
       });
-    });
-  }
+    }
 
-  handleReviewTitleClick(event) {
-    const index = parseInt(event.target.dataset.index, 10);
-    this.slideToReview(index);
-  }
+    handleReviewTitleClick(event) {
+      const index = parseInt(event.target.dataset.index, 10);
+      if (this.reviewsSwiper) {
+        this.slideToReview(index);
+      }
+    }
 
-  bindEvents() {
-    this.reviewTitles.forEach((title, index) => {
-      title.dataset.index = index;
-      title.addEventListener('click', this.handleReviewTitleClick.bind(this));
-    });
-  }
+    bindEvents() {
+      this.reviewTitles.forEach((title, index) => {
+        title.dataset.index = index;
+        title.addEventListener('click', this.handleReviewTitleClick.bind(this));
+      });
+    }
 
     unbindEvents() {
-      this.reviewTitles.forEach((title, index) => {
-        title.removeEventListener('click', () => this.handleReviewTitleClick(index));
+      this.reviewTitles.forEach((title) => {
+        title.removeEventListener('click', this.handleReviewTitleClick.bind(this));
       });
     }
 
@@ -126,11 +136,17 @@
       return span;
     }
 
-    slideToReview(index) {
-      this.reviewsSwiper.slideToLoop(index);
+    updateActiveTitle(index) {
       this.reviewTitles[this.currentActiveIndex].classList.remove('active');
       this.reviewTitles[index].classList.add('active');
       this.currentActiveIndex = index;
+    }
+
+    slideToReview(index) {
+      if (this.reviewsSwiper) {
+        this.reviewsSwiper.slideTo(index);
+        this.updateActiveTitle(index);
+      }
     }
 
     init() {
@@ -142,6 +158,10 @@
 
     destroy() {
       this.unbindEvents();
+      if (this.reviewsSwiper) {
+        this.reviewsSwiper.destroy();
+        this.reviewsSwiper = null;
+      }
     }
   }
 
