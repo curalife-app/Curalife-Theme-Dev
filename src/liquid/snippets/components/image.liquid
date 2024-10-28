@@ -1,154 +1,159 @@
-{% if customer.email contains 'yotam' %}
-  {% comment %}
-  Updated Shopify CDN Responsive Image Component with Optional Retina Support
+{% comment %}
+  Updated Shopify CDN Responsive Image Component
 
   Accepts:
   - image: The main image object (required)
-  - retina_image: The retina version of the image (optional)
   - mobile_image: An optional image object for mobile devices
-  - mobile_retina_image: The retina version of the mobile image (optional)
   - sizes: Custom sizes attribute (optional, default provided)
-  - breakpoint: Custom breakpoint in pixels (optional, default: 768)
+  - mobile_breakpoint: Custom mobile_breakpoint in pixels (optional, default: 768)
   - lazy: Enable lazy loading (optional, default: true)
   - alt: Alt text for the image (required for accessibility)
   - class: Additional CSS classes (optional)
   - link: URL to wrap the image in a link (optional)
+
+  Usage:
+  {% render 'image',
+    image: product.featured_image,
+    mobile_image: product.images[1],
+    sizes: '(min-width: 1200px) 1100px, (min-width: 769px) 750px, 100vw',
+    mobile_breakpoint: 768,
+    lazy: true,
+    alt: product.title,
+    class: 'my-custom-class',
+    link: product.url
+  %}
 {% endcomment %}
 
-{%- liquid
-assign desktop_image = image
-assign retina_image = retina_image
-assign mobile_image = mobile_image | default: image
-assign mobile_retina_image = mobile_retina_image | default: retina_image
-assign lazy_load = lazy | default: true
-assign breakpoint = breakpoint | default: 768
-assign sizes = sizes | default: '(min-width: 1200px) 1100px, (min-width: 769px) 750px, 100vw'
-assign link_url = link
+{% if customer.email contains 'yotam' %}
+  {%- liquid
+  assign desktop_image = image
+  assign mobile_image = mobile_image | default: image
 
-# Define widths for regular displays
-assign base_widths = '375,750,1080,1500,2200'
-assign base_widths_array = base_widths | split: ','
-assign unique_id = 'img-' | append: desktop_image.id | append: '-' | append: mobile_image.id
+  assign full_path = desktop_image.src
+  assign path_parts = full_path | split: '/'
+  assign filename = path_parts | last
+  assign image_name = filename | split: '.' | first
+  assign image_ext = filename | split: '.' | last
+  assign retina_src = image_name | append: '-x2.' | append: image_ext
+  assign retina_check = retina_src | file_url
 
-# Calculate the display dimensions
-assign display_width = desktop_image.width
-assign display_height = desktop_image.height
+  assign retina_image = nil
+  unless retina_check == blank
+    assign retina_image = retina_src
+  endunless
 
-# Generate base URLs
-assign base_url = desktop_image | image_url: width: 1100
-assign mobile_base_url = mobile_image | image_url: width: 750
+  assign mobile_retina_image = nil
+  if mobile_image != desktop_image
+    assign mobile_full_path = mobile_image.src
+    assign mobile_path_parts = mobile_full_path | split: '/'
+    assign mobile_filename = mobile_path_parts | last
+    assign mobile_image_name = mobile_filename | split: '.' | first
+    assign mobile_image_ext = mobile_filename | split: '.' | last
+    assign mobile_retina_src = mobile_image_name | append: '-x2.' | append: mobile_image_ext
+    assign mobile_retina_check = mobile_retina_src | file_url
 
-# Generate retina URLs if retina images are provided
-if retina_image
-  assign desktop_retina_url = retina_image | image_url: width: 2200
-endif
+    unless mobile_retina_check == blank
+      assign mobile_retina_image = mobile_retina_src
+    endunless
+  else
+    assign mobile_retina_image = retina_image
+  endif
 
-if mobile_retina_image
-  assign mobile_retina_url = mobile_retina_image | image_url: width: 1500
-endif
--%}
+  assign lazy_load = lazy | default: true
+  assign mobile_breakpoint = 768
+  assign sizes = '(min-width: 1200px) 1100px, (min-width: 769px) 750px, 100vw'
+  assign link_url = link
 
-<div class="relative overflow-hidden">
-{%- if link_url -%}<a href="{{ link_url | escape }}">{%- endif -%}
-<picture>
-  {%- comment -%} Mobile Source {%- endcomment -%}
-  <source
-    media="(max-width: {{ breakpoint }}px)"
-    srcset="
-      {%- for width in base_widths_array -%}
-        {{ mobile_image | image_url: width: width }} {{ width }}w
-        {%- if mobile_retina_image -%}
-          ,{{ mobile_retina_image | image_url: width: width | times: 2 }} {{ width | times: 2 }}w
-        {%- endif -%}
-        {%- unless forloop.last -%},{%- endunless -%}
-      {%- endfor -%}
-    "
-    sizes="{{ sizes }}"
-  >
+  assign base_widths = '375,750,1080,1500,2200'
+  assign base_widths_array = base_widths | split: ','
+  assign unique_id = 'img-' | append: desktop_image.id | append: '-' | append: mobile_image.id
 
-  {%- comment -%} Desktop Source {%- endcomment -%}
-  <source
-    media="(min-width: {{ breakpoint | plus: 1 }}px)"
-    srcset="
-      {%- for width in base_widths_array -%}
-        {{ desktop_image | image_url: width: width }} {{ width }}w
-        {%- if retina_image -%}
-          ,{{ retina_image | image_url: width: width | times: 2 }} {{ width | times: 2 }}w
-        {%- endif -%}
-        {%- unless forloop.last -%},{%- endunless -%}
-      {%- endfor -%}
-    "
-    sizes="{{ sizes }}"
-  >
+  assign display_width = desktop_image.width
+  assign display_height = desktop_image.height
 
-  <img
-    id="{{ unique_id }}"
-    src="{{ base_url }}"
-    {%- if retina_image -%}
-    srcset="{{ desktop_retina_url }} 2x"
-    {%- endif -%}
-    {% if lazy_load %}loading="lazy"{% endif %}
-    {% if lazy_load %}
-      data-src="{{ base_url }}"
-      data-srcset="
+  assign base_url = desktop_image | image_url: width: 1100
+  assign mobile_base_url = mobile_image | image_url: width: 750
+
+  if retina_image
+    assign desktop_retina_url = retina_image | image_url: width: 2200
+  endif
+
+  if mobile_retina_image
+    assign mobile_retina_url = mobile_retina_image | image_url: width: 1500
+  endif
+  -%}
+
+  {%- if link_url -%}<a href="{{ link_url | escape }}">{%- endif -%}
+  <picture>
+    <source
+      media="(max-width: {{ mobile_breakpoint }}px)"
+      srcset="
         {%- for width in base_widths_array -%}
-          {{ desktop_image | image_url: width: width }} {{ width }}w
-          {%- if retina_image -%}
-            ,{{ retina_image | image_url: width: width | times: 2 }} {{ width | times: 2 }}w
+          {{ mobile_image | image_url: width: width }} {{ width }}w
+          {%- if mobile_retina_image -%}
+            ,{{ mobile_retina_image | file_url }} {{ width | times: 2 }}w
           {%- endif -%}
           {%- unless forloop.last -%},{%- endunless -%}
         {%- endfor -%}
       "
-    {% endif %}
-    alt="{{ alt | escape }}"
-    width="{{ display_width }}"
-    height="{{ display_height }}"
-    class="block h-auto opacity-0 transition-opacity duration-300 ease-in-out {% if class %}{{ class }}{% endif %}"
-    onload="this.classList.add('opacity-100');"
-    data-original-url="{{ base_url }}"
-    {%- if retina_image -%}
-    data-desktop-retina-url="{{ desktop_retina_url }}"
-    {%- endif -%}
-    {%- if mobile_retina_image -%}
-    data-mobile-retina-url="{{ mobile_retina_url }}"
-    {%- endif -%}
-  >
-</picture>
-{%- if link_url -%}</a>{%- endif -%}
-</div>
+      sizes="{{ sizes }}"
+    >
+
+    <source
+      media="(min-width: {{ mobile_breakpoint | plus: 1 }}px)"
+      srcset="
+        {%- for width in base_widths_array -%}
+          {{ desktop_image | image_url: width: width }} {{ width }}w
+          {%- if retina_image -%}
+            ,{{ retina_image | file_url }} {{ width | times: 2 }}w
+          {%- endif -%}
+          {%- unless forloop.last -%},{%- endunless -%}
+        {%- endfor -%}
+      "
+      sizes="{{ sizes }}"
+    >
+
+    <img
+      id="{{ unique_id }}"
+      src="{{ base_url }}"
+      {%- if retina_image -%}
+      srcset="{{ retina_image | file_url }} 2x"
+      {%- endif -%}
+      {% if lazy_load %}loading="lazy"{% endif %}
+      {% if lazy_load %}
+        data-src="{{ base_url }}"
+        data-srcset="
+          {%- for width in base_widths_array -%}
+            {{ desktop_image | image_url: width: width }} {{ width }}w
+            {%- if retina_image -%}
+              ,{{ retina_image | file_url }} {{ width | times: 2 }}w
+            {%- endif -%}
+            {%- unless forloop.last -%},{%- endunless -%}
+          {%- endfor -%}
+        "
+      {% endif %}
+      alt="{{ alt | escape }}"
+      width="{{ display_width }}"
+      height="{{ display_height }}"
+      class="block h-auto opacity-0 transition-opacity duration-300 ease-in-out {% if class %}{{ class }}{% endif %}"
+      onload="this.classList.add('opacity-100');"
+      data-original-url="{{ base_url }}"
+      {%- if retina_image -%}
+      data-desktop-retina-url="{{ desktop_retina_url }}"
+      {%- endif -%}
+      {%- if mobile_retina_image -%}
+      data-mobile-retina-url="{{ mobile_retina_url }}"
+      {%- endif -%}
+    >
+  </picture>
+  {%- if link_url -%}</a>{%- endif -%}
 {% else %}
-  {% comment %}
-    Updated Shopify CDN Responsive Image Component
-
-    Accepts:
-    - image: The main image object (required)
-    - mobile_image: An optional image object for mobile devices
-    - sizes: Custom sizes attribute (optional, default provided)
-    - breakpoint: Custom breakpoint in pixels (optional, default: 768)
-    - lazy: Enable lazy loading (optional, default: true)
-    - alt: Alt text for the image (required for accessibility)
-    - class: Additional CSS classes (optional)
-    - link: URL to wrap the image in a link (optional)
-
-    Usage:
-    {% render 'shopify-cdn-image',
-      image: product.featured_image,
-      mobile_image: product.images[1],
-      sizes: '(min-width: 1200px) 1100px, (min-width: 769px) 750px, 100vw',
-      breakpoint: 768,
-      lazy: true,
-      alt: product.title,
-      class: 'my-custom-class',
-      link: product.url
-    %}
-  {% endcomment %}
-
   {%- liquid
   assign desktop_image = image
   assign mobile_image = mobile_image | default: image
   assign lazy_load = lazy | default: true
-  assign breakpoint = breakpoint | default: 768
-  assign sizes = sizes | default: '(min-width: 1200px) 1100px, (min-width: 769px) 750px, 100vw'
+  assign mobile_breakpoint = mobile_breakpoint | default: 768
+  assign sizes = '(min-width: 1200px) 1100px, (min-width: 769px) 750px, 100vw'
   assign link_url = link
   assign widths = '375,750,1080,1500,2200,3000'
   assign widths_array = widths | split: ','
@@ -175,7 +180,7 @@ endif
   {%- if link_url -%}<a href="{{ link_url | escape }}">{%- endif -%}
   <picture>
     <source
-      media="(max-width: {{ breakpoint }}px)"
+      media="(max-width: {{ mobile_breakpoint }}px)"
       srcset="
         {%- for width in widths_array -%}
           {{ mobile_image | image_url: width: width }} {{ width }}w,
@@ -183,7 +188,7 @@ endif
       "
       sizes="{{ sizes }}">
     <source
-      media="(min-width: {{ breakpoint | plus: 1 }}px)"
+      media="(min-width: {{ mobile_breakpoint | plus: 1 }}px)"
       srcset="
         {%- for width in widths_array -%}
           {{ desktop_image | image_url: width: width }} {{ width }}w,
