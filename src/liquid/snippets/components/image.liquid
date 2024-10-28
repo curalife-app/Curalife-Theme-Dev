@@ -1,34 +1,57 @@
-{% comment %}
-  Updated Shopify CDN Responsive Image Component
+{% if customer.email contains 'yotam' or true %}
+  {% comment %}
+  Enhanced Shopify CDN Responsive Image Component
 
-  Accepts:
-  - image: The main image object (required)
-  - mobile_image: An optional image object for mobile devices
-  - sizes: Custom sizes attribute (optional, default provided)
-  - mobile_breakpoint: Custom mobile_breakpoint in pixels (optional, default: 768)
+  Features:
+  - Optimized performance with WebP & retina support
+  - Better accessibility with loading="eager" for above-the-fold images
+  - Enhanced error handling
+  - Comprehensive retina image detection and serving
+  - Improved responsive breakpoints
+  - Native lazy loading with fallback
+  - Built-in art direction support
+  - Performance optimization with fetchpriority
+
+  Parameters:
+  - image: Primary image object (required)
+  - mobile_image: Mobile-specific image (optional)
+  - sizes: Custom sizes attribute (optional)
+  - mobile_breakpoint: Mobile breakpoint in pixels (optional, default: 768)
   - lazy: Enable lazy loading (optional, default: true)
-  - alt: Alt text for the image (required for accessibility)
+  - priority: Set as priority image (optional, default: false)
+  - alt: Alt text (required)
   - class: Additional CSS classes (optional)
-  - link: URL to wrap the image in a link (optional)
-
-  Usage:
-  {% render 'image',
-    image: product.featured_image,
-    mobile_image: product.images[1],
-    sizes: '(min-width: 1200px) 1100px, (min-width: 769px) 750px, 100vw',
-    mobile_breakpoint: 768,
-    lazy: true,
-    alt: product.title,
-    class: 'my-custom-class',
-    link: product.url
-  %}
+  - link: URL to wrap image in (optional)
 {% endcomment %}
 
-{% if customer.email contains 'yotam' %}
-  {%- liquid
+{%- liquid
+  # Input validation with console warnings
+  if image == blank
+    echo '<script>console.warn("Image Component Error: Image is required");</script>'
+  endif
+
+  if alt == blank
+    echo '<script>console.warn("Image Component Error: Alt text is required for accessibility");</script>'
+  endif
+
+  # Initialize debug session storage if not exists
+  unless settings.disable_retina_debug
+    assign missing_retina_log = 'window.missingRetinaImages = window.missingRetinaImages || [];'
+  endunless
+
+  # Initialize variables with defaults
   assign desktop_image = image
   assign mobile_image = mobile_image | default: image
+  assign lazy_load = lazy | default: true
+  assign is_priority = priority | default: false
+  assign mobile_breakpoint = mobile_breakpoint | default: 768
+  assign sizes = sizes | default: '(min-width: 1200px) 1100px, (min-width: 769px) 750px, 100vw'
+  assign breakpoints = '375,640,768,1080,1200,1920,2560' | split: ','
 
+  # Debug helper for URL checks
+  assign debug_url_log = 'console.log("URL Debug:", JSON.parse(`'
+
+  # Retina image detection for desktop
   assign full_path = desktop_image.src
   assign path_parts = full_path | split: '/'
   assign filename = path_parts | last
@@ -37,12 +60,36 @@
   assign retina_src = image_name | append: '-x2.' | append: image_ext
   assign retina_check = retina_src | file_url
 
+  # Add URL debug info
+  assign debug_url_log = debug_url_log | append: '{"type": "desktop", '
+  assign debug_url_log = debug_url_log | append: '"original_url": "' | append: full_path | append: '", '
+  assign debug_url_log = debug_url_log | append: '"retina_src": "' | append: retina_src | append: '", '
+  assign debug_url_log = debug_url_log | append: '"retina_check": "' | append: retina_check | append: '"}'
+  assign debug_url_log = debug_url_log | append: '`));'
+
   assign retina_image = nil
-  unless retina_check == blank
+  assign debug_data = nil
+
+  # Check for retina image existence
+  unless retina_check == blank or retina_check contains '404' or retina_check contains 'null'
     assign retina_image = retina_src
   endunless
 
+  unless retina_image and settings.disable_retina_debug
+    # Prepare debug data
+    assign debug_data = 'logMissingRetina({'
+    assign debug_data = debug_data | append: '"filename":"' | append: filename | append: '",'
+    assign debug_data = debug_data | append: '"path":"' | append: full_path | append: '",'
+    assign debug_data = debug_data | append: '"expectedRetina":"' | append: retina_src | append: '",'
+    assign debug_data = debug_data | append: '"retinaCheck":"' | append: retina_check | append: '",'
+    assign debug_data = debug_data | append: '"type":"desktop",'
+    assign debug_data = debug_data | append: '});'
+  endunless
+
+  # Retina image detection for mobile
   assign mobile_retina_image = nil
+  assign mobile_debug_data = nil
+
   if mobile_image != desktop_image
     assign mobile_full_path = mobile_image.src
     assign mobile_path_parts = mobile_full_path | split: '/'
@@ -52,27 +99,37 @@
     assign mobile_retina_src = mobile_image_name | append: '-x2.' | append: mobile_image_ext
     assign mobile_retina_check = mobile_retina_src | file_url
 
-    unless mobile_retina_check == blank
+    # Add mobile URL debug info
+    assign debug_url_log = debug_url_log | append: 'console.log("URL Debug:", JSON.parse(`'
+    assign debug_url_log = debug_url_log | append: '{"type": "mobile", '
+    assign debug_url_log = debug_url_log | append: '"original_url": "' | append: mobile_full_path | append: '", '
+    assign debug_url_log = debug_url_log | append: '"retina_src": "' | append: mobile_retina_src | append: '", '
+    assign debug_url_log = debug_url_log | append: '"retina_check": "' | append: mobile_retina_check | append: '"}'
+    assign debug_url_log = debug_url_log | append: '`));'
+
+    unless mobile_retina_check == blank or mobile_retina_check contains '404' or mobile_retina_check contains 'null'
       assign mobile_retina_image = mobile_retina_src
+    endunless
+
+    unless mobile_retina_image and settings.disable_retina_debug
+      # Prepare mobile debug data
+      assign mobile_debug_data = 'logMissingRetina({'
+      assign mobile_debug_data = mobile_debug_data | append: '"filename":"' | append: mobile_filename | append: '",'
+      assign mobile_debug_data = mobile_debug_data | append: '"path":"' | append: mobile_full_path | append: '",'
+      assign mobile_debug_data = mobile_debug_data | append: '"expectedRetina":"' | append: mobile_retina_src | append: '",'
+      assign mobile_debug_data = mobile_debug_data | append: '"retinaCheck":"' | append: mobile_retina_check | append: '",'
+      assign mobile_debug_data = mobile_debug_data | append: '"type":"mobile",'
+      assign mobile_debug_data = mobile_debug_data | append: '});'
     endunless
   else
     assign mobile_retina_image = retina_image
   endif
 
-  assign lazy_load = lazy | default: true
-  assign mobile_breakpoint = 768
-  assign sizes = '(min-width: 1200px) 1100px, (min-width: 769px) 750px, 100vw'
-  assign link_url = link
-
-  assign base_widths = '375,750,1080,1500,2200'
-  assign base_widths_array = base_widths | split: ','
-  assign unique_id = 'img-' | append: desktop_image.id | append: '-' | append: mobile_image.id
-
-  assign display_width = desktop_image.width
-  assign display_height = desktop_image.height
-
-  assign base_url = desktop_image | image_url: width: 1100
-  assign mobile_base_url = mobile_image | image_url: width: 750
+  # Generate unique ID and other variables
+  assign unique_id = 'img-' | append: desktop_image.id | append: '-' | append: mobile_image.id | append: '-' | now | date: '%N'
+  assign base_desktop_url = desktop_image | image_url: width: 1100, format: 'webp'
+  assign base_mobile_url = mobile_image | image_url: width: 750, format: 'webp'
+  assign fallback_url = desktop_image | image_url: width: 1100
 
   if retina_image
     assign desktop_retina_url = retina_image | image_url: width: 2200
@@ -81,72 +138,128 @@
   if mobile_retina_image
     assign mobile_retina_url = mobile_retina_image | image_url: width: 1500
   endif
-  -%}
+-%}
 
-  {%- if link_url -%}<a href="{{ link_url | escape }}">{%- endif -%}
-  <picture>
-    <source
-      media="(max-width: {{ mobile_breakpoint }}px)"
-      srcset="
-        {%- for width in base_widths_array -%}
-          {{ mobile_image | image_url: width: width }} {{ width }}w
-          {%- if mobile_retina_image -%}
-            ,{{ mobile_retina_image | file_url }} {{ width | times: 2 }}w
-          {%- endif -%}
-          {%- unless forloop.last -%},{%- endunless -%}
-        {%- endfor -%}
-      "
-      sizes="{{ sizes }}"
-    >
+{%- # Initialize debug logging -%}
+<script>
+  {{ missing_retina_log }}
+  {{ debug_url_log }}
 
-    <source
-      media="(min-width: {{ mobile_breakpoint | plus: 1 }}px)"
-      srcset="
-        {%- for width in base_widths_array -%}
-          {{ desktop_image | image_url: width: width }} {{ width }}w
-          {%- if retina_image -%}
-            ,{{ retina_image | file_url }} {{ width | times: 2 }}w
-          {%- endif -%}
-          {%- unless forloop.last -%},{%- endunless -%}
-        {%- endfor -%}
-      "
-      sizes="{{ sizes }}"
-    >
+  // Create debug logger if it doesn't exist
+  if (!window.logMissingRetina) {
+    window.logMissingRetina = function(data) {
+      if (!window.missingRetinaImages.some(item => item.filename === data.filename)) {
+        window.missingRetinaImages.push(data);
+        console.warn('Missing retina image:', data);
+      }
+    }
+  }
+</script>
 
-    <img
-      id="{{ unique_id }}"
-      src="{{ base_url }}"
-      {%- if retina_image -%}
+{%- # Output debug scripts if needed -%}
+{%- unless settings.disable_retina_debug -%}
+  {%- if debug_data or mobile_debug_data -%}
+    <script>
+      {%- if debug_data -%}{{ debug_data }}{%- endif -%}
+      {%- if mobile_debug_data -%}{{ mobile_debug_data }}{%- endif -%}
+    </script>
+  {%- endif -%}
+{%- endunless -%}
+
+{%- if link -%}<a href="{{ link | escape }}">{%- endif -%}
+<picture>
+  {%- # WebP format source with retina for mobile -%}
+  <source
+    type="image/webp"
+    media="(max-width: {{ mobile_breakpoint }}px)"
+    srcset="
+      {%- for width in breakpoints -%}
+        {{ mobile_image | image_url: width: width, format: 'webp' }} {{ width }}w
+        {%- if mobile_retina_image contains '/files/' -%}
+          ,{{ mobile_retina_image | file_url }} {{ width | times: 2 }}w
+        {%- endif -%}
+        {%- unless forloop.last -%},{%- endunless -%}
+      {%- endfor -%}
+    "
+    sizes="{{ sizes }}"
+  >
+
+  {%- # WebP format source with retina for desktop -%}
+  <source
+    type="image/webp"
+    media="(min-width: {{ mobile_breakpoint | plus: 1 }}px)"
+    srcset="
+      {%- for width in breakpoints -%}
+        {{ desktop_image | image_url: width: width, format: 'webp' }} {{ width }}w
+        {%- if retina_image contains '/files/' -%}
+          ,{{ retina_image | file_url }} {{ width | times: 2 }}w
+        {%- endif -%}
+        {%- unless forloop.last -%},{%- endunless -%}
+      {%- endfor -%}
+    "
+    sizes="{{ sizes }}"
+  >
+
+  {%- # Fallback sources with retina for mobile -%}
+  <source
+    media="(max-width: {{ mobile_breakpoint }}px)"
+    srcset="
+      {%- for width in breakpoints -%}
+        {{ mobile_image | image_url: width: width }} {{ width }}w
+        {%- if mobile_retina_image contains '/files/' -%}
+          ,{{ mobile_retina_image | file_url }} {{ width | times: 2 }}w
+        {%- endif -%}
+        {%- unless forloop.last -%},{%- endunless -%}
+      {%- endfor -%}
+    "
+    sizes="{{ sizes }}"
+  >
+
+  {%- # Fallback sources with retina for desktop -%}
+  <source
+    media="(min-width: {{ mobile_breakpoint | plus: 1 }}px)"
+    srcset="
+      {%- for width in breakpoints -%}
+        {{ desktop_image | image_url: width: width }} {{ width }}w
+        {%- if retina_image contains '/files/' -%}
+          ,{{ retina_image | file_url }} {{ width | times: 2 }}w
+        {%- endif -%}
+        {%- unless forloop.last -%},{%- endunless -%}
+      {%- endfor -%}
+    "
+    sizes="{{ sizes }}"
+  >
+
+  <img
+    id="{{ unique_id }}"
+    src="{{ fallback_url }}"
+    {%- if retina_image contains '/files/' -%}
       srcset="{{ retina_image | file_url }} 2x"
-      {%- endif -%}
-      {% if lazy_load %}loading="lazy"{% endif %}
-      {% if lazy_load %}
-        data-src="{{ base_url }}"
-        data-srcset="
-          {%- for width in base_widths_array -%}
-            {{ desktop_image | image_url: width: width }} {{ width }}w
-            {%- if retina_image -%}
-              ,{{ retina_image | file_url }} {{ width | times: 2 }}w
-            {%- endif -%}
-            {%- unless forloop.last -%},{%- endunless -%}
-          {%- endfor -%}
-        "
-      {% endif %}
-      alt="{{ alt | escape }}"
-      width="{{ display_width }}"
-      height="{{ display_height }}"
-      class="block h-auto opacity-0 transition-opacity duration-300 ease-in-out {% if class %}{{ class }}{% endif %}"
-      onload="this.classList.add('opacity-100');"
-      data-original-url="{{ base_url }}"
-      {%- if retina_image -%}
+    {%- endif -%}
+    {% if lazy_load and is_priority != true %}
+      loading="lazy"
+      decoding="async"
+    {% else %}
+      loading="eager"
+      decoding="sync"
+      fetchpriority="high"
+    {% endif %}
+    alt="{{ alt | escape }}"
+    width="{{ desktop_image.width }}"
+    height="{{ desktop_image.height }}"
+    class="object-cover opacity-0 transition-opacity duration-300 ease-in-out {% if class %}{{ class }}{% endif %}"
+    onload="this.classList.add('opacity-100');"
+    onerror="this.onerror=null; this.src='{{ fallback_url }}'"
+    data-original-url="{{ fallback_url }}"
+    {%- if retina_image contains '/files/' -%}
       data-desktop-retina-url="{{ desktop_retina_url }}"
-      {%- endif -%}
-      {%- if mobile_retina_image -%}
+    {%- endif -%}
+    {%- if mobile_retina_image contains '/files/' -%}
       data-mobile-retina-url="{{ mobile_retina_url }}"
-      {%- endif -%}
-    >
-  </picture>
-  {%- if link_url -%}</a>{%- endif -%}
+    {%- endif -%}
+  >
+</picture>
+{%- if link -%}</a>{%- endif -%}
 {% else %}
   {%- liquid
   assign desktop_image = image
