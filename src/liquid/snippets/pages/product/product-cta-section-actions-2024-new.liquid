@@ -50,7 +50,7 @@
 <script>
   document.addEventListener('DOMContentLoaded', function() {
     const productActions = document.querySelector('#cta-section-{{ SID }} .product-actions');
-    const SID = productActions.id.replace('product-actions-', '');
+    const SID = '{{ SID }}';
     window.SID = SID;
 
     console.log('Set SID:', window.SID);
@@ -566,9 +566,36 @@
       if (pointsElement) pointsElement.textContent = newPoints;
     }
 
+    // Create a more reliable slider initialization and management system
+    let sliderInitializationAttempts = 0;
+    const MAX_INITIALIZATION_ATTEMPTS = 50;
+    const INITIALIZATION_INTERVAL = 100;
+
+    function initializeProductSlider() {
+      const SID = window.SID || '';
+      const sliderId = `productSliderAllInOne${SID}`;
+
+      return new Promise((resolve, reject) => {
+        const checkSlider = setInterval(() => {
+          const slider = window[sliderId];
+          sliderInitializationAttempts++;
+
+          if (slider && slider.slides && slider.slides.length > 0) {
+            clearInterval(checkSlider);
+
+            resolve(slider);
+          } else if (sliderInitializationAttempts >= MAX_INITIALIZATION_ATTEMPTS) {
+            clearInterval(checkSlider);
+            console.error('Slider initialization timed out after maximum attempts');
+            reject(new Error('Slider initialization timeout'));
+          }
+        }, INITIALIZATION_INTERVAL);
+      });
+    }
+
     function updateVariantImage(element) {
-      if (!element.dataset.index) {
-        console.warn('Element does not have a data-index attribute');
+      if (!element || !element.dataset.index) {
+        console.warn('Invalid element or missing data-index attribute');
         return;
       }
 
@@ -576,113 +603,97 @@
       const sliderId = `productSliderAllInOne${SID}`;
       const slider = window[sliderId];
 
-      console.log('Current slider:', sliderId, slider);
-      console.log('Element index:', element.dataset.index);
+      if (!slider || !slider.slides || !slider.slides.length) {
+        let updateImageData = {
+          element: element,
+          dataIndex: element.dataset.index,
+          sliderId: sliderId,
+          slider: slider
+        });
 
-      if (!slider || !slider.slides) {
-        console.warn(`Slider ${sliderId} not found or not properly initialized`);
+        console.warn('Slider not ready, attempting initialization...', updateImageData);
+
+        initializeProductSlider()
+          .then((initializedSlider) => {
+            performSlideUpdate(initializedSlider, element);
+          })
+          .catch((error) => {
+            console.error('Failed to initialize slider:', error);
+          });
         return;
       }
 
+      performSlideUpdate(slider, element);
+    }
+
+    function performSlideUpdate(slider, element) {
       try {
-        const variantsAmount = parseInt('{{ variantsAmount }}' || 0);
         const elementIndex = parseInt(element.dataset.index);
 
-        console.log('Variants amount:', variantsAmount);
-        console.log('Element index:', elementIndex);
-        console.log('Total slides:', slider.slides.length);
+        console.log('Performing slide update:', {
+          elementIndex: elementIndex,
+          totalSlides: slider.slides.length,
+          currentSlide: slider.activeIndex
+        });
 
-        // Calculate slide index - we'll modify this calculation
-        const slideIndex = elementIndex - 1; // Simplified calculation
+        // Validate slide index
+        if (elementIndex >= 0 && elementIndex < slider.slides.length) {
+          // Only slide if we're not already on that slide
+          if (slider.activeIndex !== elementIndex) {
+            console.log(`Sliding to index: ${elementIndex}`);
 
-        console.log('Calculated slide index:', slideIndex);
-
-        if (slideIndex >= 0 && slideIndex < slider.slides.length) {
-          console.log('Sliding to index:', slideIndex);
-          slider.slideTo(slideIndex, 300, true);
+            // Force a small delay to ensure the slider is ready
+            setTimeout(() => {
+              slider.slideTo(elementIndex, 300, true);
+            }, 50);
+          } else {
+            console.log('Already on correct slide, no update needed');
+          }
         } else {
-          console.warn(`Invalid slide index calculated: ${slideIndex}`);
+          console.warn(`Invalid slide index: ${elementIndex}`);
         }
       } catch (error) {
-        console.error('Error updating variant image:', error);
+        console.error('Error during slide update:', error);
         console.error(error.stack);
       }
     }
 
-    // Modify the initialization to ensure slider is ready
-    function initializeProductSlider() {
-      const SID = window.SID || '';
-      const sliderId = `productSliderAllInOne${SID}`;
-
-      console.log('Initializing slider:', sliderId);
-
-      const checkSlider = setInterval(() => {
-        const slider = window[sliderId];
-        console.log('Checking slider:', slider);
-
-        if (slider && slider.slides) {
-          clearInterval(checkSlider);
-          console.log(`${sliderId} initialized with ${slider.slides.length} slides`);
-
-          // Add event listeners to track slider state
-          slider.on('slideChange', () => {
-            console.log('Slide changed to:', slider.activeIndex);
-          });
-
-          window.hasInitialImageUpdateHappened = false;
-        }
-      }, 100);
-
-      // Clear interval after 5 seconds to prevent infinite checking
-      setTimeout(() => {
-        clearInterval(checkSlider);
-        console.log('Slider initialization timeout');
-      }, 5000);
-    }
-
-    // Modify the initialization to ensure slider is ready
-    function initializeProductSlider() {
-      const SID = window.SID || '';
-      const sliderId = `productSliderAllInOne${SID}`;
-
-      console.log('Initializing slider:', sliderId);
-
-      const checkSlider = setInterval(() => {
-        const slider = window[sliderId];
-        console.log('Checking slider:', slider);
-
-        if (slider && slider.slides) {
-          clearInterval(checkSlider);
-          console.log(`${sliderId} initialized with ${slider.slides.length} slides`);
-
-          // Add event listeners to track slider state
-          slider.on('slideChange', () => {
-            console.log('Slide changed to:', slider.activeIndex);
-          });
-
-          window.hasInitialImageUpdateHappened = false;
-        }
-      }, 100);
-
-      // Clear interval after 5 seconds to prevent infinite checking
-      setTimeout(() => {
-        clearInterval(checkSlider);
-        console.log('Slider initialization timeout');
-      }, 5000);
-    }
-
-    document.addEventListener('DOMContentLoaded', initializeProductSlider);
+    // Update the click handler for purchase option boxes
     document.addEventListener('DOMContentLoaded', () => {
       const purchaseOptionBoxes = document.querySelectorAll('.purchase-option-box');
 
       purchaseOptionBoxes.forEach(box => {
-        box.addEventListener('click', () => {
+        box.addEventListener('click', (event) => {
+          // Prevent multiple rapid clicks
+          if (box.dataset.processing === 'true') {
+            return;
+          }
+
+          box.dataset.processing = 'true';
+
           console.log('Variant clicked:', {
             index: box.dataset.index,
             variant: box.dataset.variant
           });
+
+          // Update variant image with debounce
+          updateVariantImage(box);
+
+          // Reset processing flag after a short delay
+          setTimeout(() => {
+            delete box.dataset.processing;
+          }, 500);
         });
       });
+
+      // Initialize slider on page load
+      initializeProductSlider()
+        .then(() => {
+          console.log('Slider successfully initialized on page load');
+        })
+        .catch((error) => {
+          console.error('Failed to initialize slider on page load:', error);
+        });
     });
 
     function buyButtonHandler(subscription_selling_plan_id, buttonElement) {

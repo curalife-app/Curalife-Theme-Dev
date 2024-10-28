@@ -48,9 +48,6 @@
   assign sizes = sizes | default: '(min-width: 1200px) 1100px, (min-width: 769px) 750px, 100vw'
   assign breakpoints = '375,640,768,1080,1200,1920,2560' | split: ','
 
-  # Debug helper for URL checks
-  assign debug_url_log = 'console.log("URL Debug:", JSON.parse(`'
-
   # Retina image detection for desktop
   assign full_path = desktop_image.src
   assign path_parts = full_path | split: '/'
@@ -59,13 +56,6 @@
   assign image_ext = filename | split: '.' | last
   assign retina_src = image_name | append: '-x2.' | append: image_ext
   assign retina_check = retina_src | file_url
-
-  # Add URL debug info
-  assign debug_url_log = debug_url_log | append: '{"type": "desktop", '
-  assign debug_url_log = debug_url_log | append: '"original_url": "' | append: full_path | append: '", '
-  assign debug_url_log = debug_url_log | append: '"retina_src": "' | append: retina_src | append: '", '
-  assign debug_url_log = debug_url_log | append: '"retina_check": "' | append: retina_check | append: '"}'
-  assign debug_url_log = debug_url_log | append: '`));'
 
   assign retina_image = nil
   assign debug_data = nil
@@ -98,14 +88,6 @@
     assign mobile_image_ext = mobile_filename | split: '.' | last
     assign mobile_retina_src = mobile_image_name | append: '-x2.' | append: mobile_image_ext
     assign mobile_retina_check = mobile_retina_src | file_url
-
-    # Add mobile URL debug info
-    assign debug_url_log = debug_url_log | append: 'console.log("URL Debug:", JSON.parse(`'
-    assign debug_url_log = debug_url_log | append: '{"type": "mobile", '
-    assign debug_url_log = debug_url_log | append: '"original_url": "' | append: mobile_full_path | append: '", '
-    assign debug_url_log = debug_url_log | append: '"retina_src": "' | append: mobile_retina_src | append: '", '
-    assign debug_url_log = debug_url_log | append: '"retina_check": "' | append: mobile_retina_check | append: '"}'
-    assign debug_url_log = debug_url_log | append: '`));'
 
     unless mobile_retina_check == blank or mobile_retina_check contains '404' or mobile_retina_check contains 'null'
       assign mobile_retina_image = mobile_retina_src
@@ -143,7 +125,6 @@
 {%- # Initialize debug logging -%}
 <script>
   {{ missing_retina_log }}
-  {{ debug_url_log }}
 
   // Create debug logger if it doesn't exist
   if (!window.logMissingRetina) {

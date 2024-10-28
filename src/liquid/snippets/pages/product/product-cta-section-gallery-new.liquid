@@ -55,20 +55,20 @@
               <div class="swiper-slide product-image-slide">
                 {% render 'responsive-image', img: thumbnailImage, img_mobile: thumbnailImageMobile, classes: "", is_dont_lazyload: false %}
               </div>
-
-              <style>#product-main-slider-sc-{{ section.id }} .swiper-nav {display: none !important}</style>
             {% else %}
               {% comment %} Render Product Images on Main Slider {% endcomment %}
-              {% for img in product.images %}
-                {% if forloop.index == 1 %}
-                  {% assign currentImg = img %}
-                  {% assign img = thumbnailImage | default: currentImg %}
-                {% endif %}
+              {% if isProductThumbs %}
+                {% for img in product.images %}
+                  {% if forloop.index == 1 %}
+                    {% assign currentImg = img %}
+                    {% assign img = thumbnailImage | default: currentImg %}
+                  {% endif %}
 
-                <div class="swiper-slide product-image-slide">
-                  <img src="{{ img | image_url }}" alt="{{ img.alt | escape }}">
-                </div>
-              {% endfor %}
+                  <div class="swiper-slide product-image-slide">
+                    <img src="{{ img | image_url }}" alt="{{ img.alt | escape }}">
+                  </div>
+                {% endfor %}
+              {% endif %}
 
               {% if badgeImage %}
                 <img src="{{ badgeImage | image_url }}" alt="Curalin" class="sale-badge" loading="lazy">
@@ -146,6 +146,91 @@
   </div>
 </div>
 
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    {% unless isHideThumbs %}
+      loadSwiper(() => {
+        window.productThumbsSlider{{ SID }} = initializeSwiper('#thumbs-slider-{{ section.id }}', {
+          direction: 'vertical',
+          spaceBetween: 10,
+          watchSlidesVisibility: true,
+          grabCursor: true,
+          slideToClickedSlide: true,
+          slidesPerView: 3,
+          watchSlidesProgress: true, // Added to ensure thumb tracking works
+          navigation: {
+            nextEl: '#product-thumbs-slider-nav-next-{{ section.id }}',
+            prevEl: '#product-thumbs-slider-nav-prev-{{ section.id }}',
+            disabledClass: 'disabled'
+          },
+          on: {
+            slideChange: function() {
+              if (window.productSliderAllInOne{{ SID }}) {
+                window.productSliderAllInOne{{ SID }}.slideTo(this.activeIndex);
+              }
+            }
+          }
+        });
+      });
+    {% endunless %}
+
+    loadSwiper(() => {
+      window.productSliderAllInOne{{ SID }} = initializeSwiper('#product-main-slider-sc-{{ section.id }}', {
+        {% unless isHideThumbs %}
+        thumbs: {
+          swiper: window.productThumbsSlider{{ SID }},
+          multipleActiveThumbs: false // Ensures only one thumb is active at a time
+        },
+        {% endunless %}
+        slidesPerView: 1,
+        spaceBetween: 15,
+        watchSlidesVisibility: true,
+        grabCursor: false,
+        slideToClickedSlide: true,
+        breakpoints: {
+          0: {
+            allowTouchMove: false,
+            navigation: {
+              nextEl: '#product-main-slider-nav-next-{{ section.id }}',
+              prevEl: '#product-main-slider-nav-prev-{{ section.id }}',
+              disabledClass: 'disabled'
+            }
+          },
+          760: {
+            allowTouchMove: false,
+            grabCursor: true,
+            navigation: {}
+          }
+        },
+        on: {
+          slideChange: function () {
+            {% unless isHideThumbs %}
+            try {
+              if (!this.thumbs || !this.thumbs.swiper) return;
+
+              const thumbsSwiper = this.thumbs.swiper;
+              if (!thumbsSwiper.slides || thumbsSwiper.slides.length === 0) return;
+
+              const activeIndex = this.activeIndex;
+              const visibleSlidesStart = thumbsSwiper.activeIndex;
+              const visibleSlidesEnd = visibleSlidesStart + thumbsSwiper.params.slidesPerView;
+
+              if (activeIndex + 1 >= visibleSlidesEnd) {
+                thumbsSwiper.slideNext();
+              } else if (activeIndex < visibleSlidesStart) {
+                thumbsSwiper.slidePrev();
+              }
+            } catch (error) {
+              console.warn('Thumb navigation error:', error);
+            }
+            {% endunless %}
+          }
+        }
+      });
+    });
+  });
+</script>
+
 <style>
   {% if first_3d_model %}
     #product-thumbnails-{{ section.id }} .model-icon {
@@ -182,7 +267,7 @@
   {% endif %}
 
   #product-thumbnails-{{ section.id }} .product-slider .thumbs-slider {
-    top: 90px;
+    top: 50px;
   }
 
   #product-thumbnails-{{ section.id }} .thumbs-slider .swiper {
@@ -234,14 +319,8 @@
     grid-area: 1/1/3/2;
   }
 
-  #product-thumbnails-{{ section.id }} .product-slider .main-slider .main-slider-vector-bg {
-    position: absolute;
-    z-index: -1;
-  }
-
-  #product-thumbnails-{{ section.id }} .product-slider .main-slider .swiper-slide .img-wrap {
-    padding: unset;
-    text-align: center
+  #product-thumbnails-{{ section.id }} .product-slider .main-slider .swiper-slide img {
+    border-radius: 10px;
   }
 
   #product-thumbnails-{{ section.id }} .product-slider .main-slider .swiper-slide .product-video iframe {
@@ -377,49 +456,3 @@
     }
   }
 </style>
-
-<script>
-  document.addEventListener('DOMContentLoaded', function() {
-    {% unless isHideThumbs %}
-      loadSwiper(() => {
-        window.productThumbsSlider{{ SID }} = initializeSwiper('#thumbs-slider-{{ section.id }}', {
-          direction: 'vertical',
-          spaceBetween: 10,
-          watchSlidesVisibility: false,
-          grabCursor: true,
-          slidesPerView: 3,
-          navigation: {
-            nextEl: '#product-thumbs-slider-nav-next-{{ section.id }}',
-            prevEl: '#product-thumbs-slider-nav-prev-{{ section.id }}',
-            disabledClass: 'disabled'
-          }
-        });
-      });
-    {% endunless %}
-
-    loadSwiper(() => {
-      window.productSliderAllInOne{{ SID }} = initializeSwiper('#product-main-slider-sc-{{ section.id }}', {
-        {% unless isHideThumbs %}thumbs: {swiper: window.productThumbsSlider{{ SID }}},{% endunless %}
-        slidesPerView: 1,
-        spaceBetween: 15,
-        watchSlidesVisibility: true,
-        grabCursor: false,
-        slideToClickedSlide: true,
-        breakpoints: {
-          0: {
-            allowTouchMove: false,
-            navigation: {
-              nextEl: '#product-main-slider-nav-next-{{ section.id }}',
-              prevEl: '#product-main-slider-nav-prev-{{ section.id }}',
-              disabledClass: 'disabled'
-            }
-          },
-          760: {
-            allowTouchMove: false,
-            navigation: {}
-          }
-        }
-      });
-    });
-  });
-</script>
