@@ -1,85 +1,107 @@
 const mix = require('laravel-mix');
 const tailwindcss = require('tailwindcss');
-const path = require('path');
-const fs = require('fs');
+const async = require('async');
 
-console.log("Starting Laravel Mix configuration...");
+console.log("Starting optimized Laravel Mix configuration...");
 
-const getFiles = (dir) => {
-  return fs.readdirSync(dir).filter(file => fs.statSync(`${dir}/${file}`).isFile());
-};
-
-function copyFiles(source, destination, isFlattened = false) {
-  mix.copy(source, destination, { flatten: isFlattened });
-}
-
+// Define file paths
 const paths = {
   build_folder: 'Curalife-Theme-Build',
-  build_assets_folder: 'Curalife-Theme-Build/assets',
-  build_templates_folder: 'Curalife-Theme-Build/templates',
-  build_layout_folder: 'Curalife-Theme-Build/layout',
-  build_sections_folder: 'Curalife-Theme-Build/sections',
-  build_snippets_folder: 'Curalife-Theme-Build/snippets',
-  build_blocks_folder: 'Curalife-Theme-Build/blocks',
-  css_folder_files: 'src/styles/css/**',
-  font_files: 'src/fonts/**/*.{woff,woff2,eot,ttf,otf}',
-  image_files: 'src/images/**/*.{png,jpg,jpeg,gif,svg}',
-  layout_folder_files: 'src/liquid/layout/**',
-  script_files: 'src/scripts/**/*.js',
-  sections_folder_files: 'src/liquid/sections/**/*.liquid',
-  snippets_folder_files: 'src/liquid/snippets/**/*.liquid',
-  blocks_folder_files: 'src/liquid/blocks/**/*.liquid',
-  tailwindcss_file: 'src/styles/tailwind.css'
+  assets: {
+    fonts: 'src/fonts/**/*.{woff,woff2,eot,ttf,otf}',
+    images: 'src/images/**/*.{png,jpg,jpeg,gif,svg}',
+    css: 'src/styles/css/**',
+    scripts: 'src/scripts/**/*.js',
+    tailwind: 'src/styles/tailwind.css'
+  },
+  liquid: {
+    layout: 'src/liquid/layout/**',
+    sections: 'src/liquid/sections/**/*.liquid',
+    snippets: 'src/liquid/snippets/**/*.liquid',
+    blocks: 'src/liquid/blocks/**/*.liquid'
+  },
+  build: {
+    assets: 'Curalife-Theme-Build/assets',
+    layout: 'Curalife-Theme-Build/layout',
+    sections: 'Curalife-Theme-Build/sections',
+    snippets: 'Curalife-Theme-Build/snippets',
+    blocks: 'Curalife-Theme-Build/blocks'
+  }
 };
 
-console.log("Configuring Webpack...");
+// Logging function to streamline messages
+const log = (message) => console.log(`\x1b[36m${message}\x1b[0m`); // Blue color for logs
 
-mix.webpackConfig({
-  module: {
-    rules: [
-      {
-        test: /\article.liquid$/,
-        use: [
-          {
-            loader: 'liquid-loader',
-          },
-          path.resolve('webpack-loaders/liquid-css-processor-loader.js')
-        ]
+// Parallelized Copy files with error handling
+function copyFiles(files) {
+  async.parallel(
+    files.map(({ src, dest, flatten = false }) => (callback) => {
+      try {
+        mix.copy(src, dest, { flatten });
+        log(`Copied files from ${src} to ${dest}`);
+        callback();  // No error, proceed to next task
+      } catch (error) {
+        console.error(`Error copying files from ${src} to ${dest}:`, error);
+        callback(error);  // Pass the error to async.parallel to handle
       }
-    ]
-  },
-  stats: {
-    all: undefined,
-    warnings: true,
-    errors: true,
-    children: true,
+    }),
+    (err) => {
+      if (err) console.error("Error during parallel file copying:", err);
+      else log("File copying complete.");
+    }
+  );
+}
+
+// Configure Webpack for .liquid files with split chunks
+function configureWebpack() {
+  mix.webpackConfig({
+    stats: { warnings: true, errors: true, children: true },
+    optimization: { splitChunks: { chunks: 'all' } },
+  });
+  log("Webpack configuration complete.");
+}
+
+// Compile Tailwind CSS with PurgeCSS and Minify
+function compileTailwind() {
+  try {
+    mix.postCss(paths.assets.tailwind, paths.build.assets, [
+      tailwindcss('tailwind.config.js')
+    ]).options({ processCssUrls: false }).minify(paths.build.assets + '/tailwind.css');
+    log("Tailwind CSS compiled and minified successfully.");
+  } catch (error) {
+    console.error("Error in Tailwind CSS compilation:", error);
   }
-});
+}
 
-console.log("Webpack loader for .liquid files configured.");
-console.log("Configuring file copying...");
+// Main build function with caching
+function build() {
+  log("Starting optimized build process...");
 
-// Copy all required files to target destination
-copyFiles(paths.script_files, paths.build_assets_folder, false);
-copyFiles(paths.font_files, paths.build_assets_folder, false);
-copyFiles(paths.css_folder_files, paths.build_assets_folder, false);
-copyFiles(paths.image_files, paths.build_assets_folder, true);
+  // Enable cache and versioning
+  if (mix.inProduction()) {
+    mix.version();
+    log("Enabled versioning for cache.");
+  }
 
-// Copy liquid files
-copyFiles(paths.layout_folder_files, paths.build_layout_folder);
-copyFiles(paths.sections_folder_files, paths.build_sections_folder);
-copyFiles(paths.snippets_folder_files, paths.build_snippets_folder);
-copyFiles(paths.blocks_folder_files, paths.build_blocks_folder);
+  // Configure Webpack
+  configureWebpack();
 
-console.log("File copying configured.");
-console.log("Configuring Tailwind CSS compilation...");
+  // Copy assets and liquid files in parallel
+  copyFiles([
+    { src: paths.assets.scripts, dest: paths.build.assets },
+    { src: paths.assets.fonts, dest: paths.build.assets },
+    { src: paths.assets.css, dest: paths.build.assets },
+    { src: paths.assets.images, dest: paths.build.assets, flatten: true },
+    { src: paths.liquid.layout, dest: paths.build.layout },
+    { src: paths.liquid.sections, dest: paths.build.sections },
+    { src: paths.liquid.snippets, dest: paths.build.snippets },
+    { src: paths.liquid.blocks, dest: paths.build.blocks }
+  ]);
 
-// Compile Tailwind CSS using PostCSS
-mix.postCss(paths.tailwindcss_file, paths.build_assets_folder, [
-  tailwindcss('tailwind.config.js'),
-]).options({
-  processCssUrls: false,
-});
+  compileTailwind();
 
-console.log("Tailwind CSS compilation configured.");
-console.log("Laravel Mix configuration complete.");
+  log("Optimized build process complete.");
+}
+
+// Run the build function
+build();
