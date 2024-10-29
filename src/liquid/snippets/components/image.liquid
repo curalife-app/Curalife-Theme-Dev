@@ -117,12 +117,12 @@ This Liquid snippet creates a responsive image component with the following feat
   assign error_log = 'window.imageErrors = window.imageErrors || { missing_alt: [], missing_retina: [], load_errors: []};'
 
   if image == blank
-    assign validation_error = '{ type: "missing_alt", message: "Image is required" }'
+    assign validation_error = '{ type: "Missing Alt Test", message: "Image is required" }'
     assign error_log = error_log | append: 'window.imageErrors.missing_alt.push(' | append: validation_error | append: ');'
   endif
 
   if alt == blank
-    assign validation_error = '{ type: "missing_alt", message: "Image Alt text is required", imageId: "' | append: image.id | append: '", src: "' | append: image.src | append: '" }'
+    assign validation_error = '{ type: "Missing Alt Test", message: "Image Alt text is required", src: "' | append: image.src | append: '" }'
     assign error_log = error_log | append: 'window.imageErrors.missing_alt.push(' | append: validation_error | append: ');'
   endif
 
@@ -134,7 +134,7 @@ This Liquid snippet creates a responsive image component with the following feat
   endunless
 
   unless retina_image and settings.disable_retina_debug
-    assign debug_data = '{ type: "missing_retina", imageId: "' | append: desktop_image.id | append: '", filename: "' | append: filename | append: '", path: "' | append: full_path | append: '", expectedRetina: "' | append: retina_src | append: '", retinaCheck: "' | append: retina_check | append: '", variant: "desktop", timestamp: "' | append: 'now' | date: '%Y-%m-%d %H:%M:%S' | append: '" }'
+    assign debug_data = '{ type: "Missing Retina Image", filename: "' | append: filename | append: '", expectedRetina: "' | append: retina_src | append: '", retinaCheck: "' | append: retina_check | append: '", variant: "desktop", timestamp: "' | append: 'now' | date: '%Y-%m-%d %H:%M:%S' | append: '" }'
     assign error_log = error_log | append: 'window.imageErrors.missing_retina.push(' | append: debug_data | append: ');'
   endunless
 
@@ -155,7 +155,7 @@ This Liquid snippet creates a responsive image component with the following feat
     endunless
 
     unless mobile_retina_image and settings.disable_retina_debug
-      assign mobile_debug_data = '{ type: "missing_retina", imageId: "' | append: mobile_image.id | append: '", filename: "' | append: mobile_filename | append: '", path: "' | append: mobile_full_path | append: '", expectedRetina: "' | append: mobile_retina_src | append: '", retinaCheck: "' | append: mobile_retina_check | append: '", variant: "mobile", timestamp: "' | append: 'now' | date: '%Y-%m-%d %H:%M:%S' | append: '" }'
+      assign mobile_debug_data = '{ type: "Missing Retina Image", filename: "' | append: mobile_filename | append: '", expectedRetina: "' | append: mobile_retina_src | append: '", retinaCheck: "' | append: mobile_retina_check | append: '", variant: "mobile", timestamp: "' | append: 'now' | date: '%Y-%m-%d %H:%M:%S' | append: '" }'
       assign error_log = error_log | append: 'window.imageErrors.missing_retina.push(' | append: mobile_debug_data | append: ');'
     endunless
   else
@@ -229,11 +229,7 @@ This Liquid snippet creates a responsive image component with the following feat
   }
 </script>
 
-{%- if link -%}
-<a href="{{ link }}" class="cursor-pointer">
-{%- endif -%}
-
-<picture class="contents">
+<picture>
   <source
     media="(max-width: {{ mobile_breakpoint }}px)"
     srcset="
@@ -279,8 +275,9 @@ This Liquid snippet creates a responsive image component with the following feat
     alt="{{ alt | escape }}"
     width="{{ desktop_image.width }}"
     height="{{ desktop_image.height }}"
-    class="object-cover opacity-0 m-0 transition-opacity duration-300 ease-in-out {% if class %}{{ class }}{% endif %}"
+    class="object-cover opacity-0 m-0 transition-opacity duration-300 ease-in-out {% if link %}cursor-pointer{% endif %} {% if class %}{{ class }}{% endif %}"
     onload="this.classList.add('opacity-100');"
+    onclick="{% if link %}window.location.href='{{ link }}'{% endif %}"
     onerror="window.logImageError('load_errors', {
       imageId: '{{ desktop_image.id }}',
       elementId: '{{ unique_id }}',
@@ -294,9 +291,8 @@ This Liquid snippet creates a responsive image component with the following feat
     {%- if mobile_retina_image contains '/files/' -%}
       data-mobile-retina-url="{{ mobile_retina_url }}"
     {%- endif -%}
+    {%- if link -%}
+      data-href="{{ link }}"
+    {%- endif -%}
   >
 </picture>
-
-{%- if link -%}
-</a>
-{%- endif -%}
