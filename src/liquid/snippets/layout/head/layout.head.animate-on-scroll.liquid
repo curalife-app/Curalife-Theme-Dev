@@ -2,10 +2,38 @@
 {% assign currentPage = request.path %}
 
 {% if loadOnPages contains currentPage or Activate %}
-  {% if part == 'head' %}
-    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
-    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js" defer></script>
-  {% elsif part == 'footer' %}
-    <script>document.addEventListener('DOMContentLoaded', function() {AOS.init()})</script>
-  {% endif %}
+  <!-- Load AOS CSS -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/aos/2.3.1/aos.css">
+
+  <!-- Deferred AOS loading script -->
+  <script>
+    // Lightweight function to load external resources
+    function loadResource(url, type) {
+      return new Promise((resolve, reject) => {
+        if (type === 'script') {
+          const script = document.createElement('script');
+          script.src = url;
+          script.async = true;
+          script.onload = resolve;
+          script.onerror = reject;
+          document.body.appendChild(script);
+        }
+      });
+    }
+
+    // Load AOS after the page is fully loaded
+    window.addEventListener('load', function() {
+      loadResource('https://cdnjs.cloudflare.com/ajax/libs/aos/2.3.1/aos.js', 'script')
+        .then(() => {
+          AOS.init({
+            startEvent: 'DOMContentLoaded',
+            offset: 120,
+            delay: 100,
+            duration: 400,
+            once: true
+          });
+        })
+        .catch(error => console.warn('AOS loading failed:', error));
+    });
+  </script>
 {% endif %}

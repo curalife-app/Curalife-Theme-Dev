@@ -1,7 +1,7 @@
 <section id="next-section" class="results-widget">
     <div class="mbl:!overflow-visible container">
         <div class="titles-wrapper" data-aos="zoom-in">
-            <img src="//curalife.com/cdn/shop/files/People-icons-1.png" srcset="https://cdn.shopify.com/s/files/1/0452/2459/1511/files/People-icons-1-x2.png 2x" alt="people icons">
+            <img src="//curalife.com/cdn/shop/files/People-icons-1.png" srcset="https://cdn.shopify.com/s/files/1/0452/2459/1511/files/People-icons-1-x2.png 2x" alt="people icons" loading="lazy">
             <h2 class="!text-black">This Is About So Much More Than <br class="desktop"><span>Just Losing Weight.</span></h2>
             <div class="subtitle mb-8">1000 Curaslim customers swear by its results.</div>
         </div>
@@ -21,8 +21,6 @@
         </div>
     </div>
 </section>
-
-{% comment %} <script>document.querySelector('.next-section-fade').appendChild(document.querySelector('#next-section'));</script> {% endcomment %}
 
 <script>
     const tabData = {
@@ -63,6 +61,20 @@
     };
 
     function createUsageSection(period, data) {
+        // Create placeholder div for the image
+        const imagePlaceholder = data.image ? `
+            <div class="image-container">
+                <div class="image-placeholder"></div>
+                <img
+                    class="lazy-image"
+                    data-src="${data.image}"
+                    src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
+                    alt="Result illustration"
+                    loading="lazy"
+                />
+            </div>
+        ` : '';
+
         return `
             <div class="usage-section">
                 <div class="months-usage">
@@ -70,9 +82,29 @@
                     <div>${period === '1' ? 'month usage' : 'months usage'}</div>
                 </div>
                 <div class="description">${data.text}</div>
-                ${data.image ? `<div class="image" style="background-image: url('${data.image}')"></div>` : ''}
+                ${imagePlaceholder}
             </div>
         `;
+    }
+
+    function observeImages() {
+        const imageObserver = new IntersectionObserver((entries, observer) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const img = entry.target;
+                    img.src = img.dataset.src;
+                    img.classList.add('loaded');
+                    observer.unobserve(img);
+                }
+            });
+        }, {
+            rootMargin: '50px 0px',
+            threshold: 0.1
+        });
+
+        document.querySelectorAll('.lazy-image').forEach(img => {
+            imageObserver.observe(img);
+        });
     }
 
     function updateContent(tab) {
@@ -87,6 +119,9 @@
         }
 
         contentDiv.innerHTML = html;
+
+        // Initialize lazy loading for new images
+        observeImages();
 
         // Add visibility class with a slight delay for animation
         setTimeout(() => {
@@ -108,6 +143,7 @@
         });
     });
 
+    // Initialize the first tab
     updateContent('weight-loss');
 </script>
 
@@ -250,6 +286,35 @@
         background-repeat: no-repeat;
         background-position: center;
     }
+
+		.results-widget .image-container {
+    width: 180px;
+    height: 100px;
+    position: relative;
+}
+
+.results-widget .image-placeholder {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.results-widget .lazy-image {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.results-widget .lazy-image.loaded {
+    opacity: 1;
+}
 
     /* Responsive Styles */
     @media screen and (max-width: 768px) {
