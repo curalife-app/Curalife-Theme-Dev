@@ -25,8 +25,6 @@ const paths = {
   font_files: 'src/fonts/**/*.{woff,woff2,eot,ttf,otf}',
   image_files: 'src/images/**/*.{png,jpg,jpeg,gif,svg}',
   layout_folder_files: 'src/liquid/layout/**',
-  // Remove SCSS folder path since we're not using SCSS anymore
-  // scss_folder: 'src/styles/scss/',
   script_files: 'src/scripts/**/*.js',
   sections_folder_files: 'src/liquid/sections/**/*.liquid',
   snippets_folder_files: 'src/liquid/snippets/**/*.liquid',
