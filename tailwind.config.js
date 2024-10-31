@@ -17,10 +17,8 @@ module.exports = {
       md: { max: "768px" },
       lg: { max: "1024px" },
       xl: { max: "1200px" },
-      'sm-mobile': { max: "640px" },
-      'mobile': { max: "768px" },
-      'tablet': { max: "1024px" },
-      'desktop': { max: "1200px" },
+      mbl: { max: "768px" },
+      dsk: { min: "768px"}
     },
     extend: {
       spacing: {
@@ -37,11 +35,11 @@ module.exports = {
         '1/4': '25%',
         '30%': '30%'
       },
-      minHeight: {
-        '350px': '350px',
-        '400px': '400px',
+      minWidth: {
+        '1/2': '50%'
       },
       colors: {
+        blue: '#3A7684',
         darkGrey: '#222222',
         grey: '#838383',
         lightGrey: '#C4C4C4',
@@ -69,12 +67,13 @@ module.exports = {
         peach: '#F59E80',
         lightPeach: '#f6cdbf',
         lighterPeach: '#FFF6F8',
-        lightPink: '#FFF1E8'
+        lightPink: '#FFF1E8',
+        yellow: '#F3AF57'
       }
     },
   },
   variants: {
     textColor: ['odd', 'even']
   },
-  plugins: [],
+  plugins: []
 }

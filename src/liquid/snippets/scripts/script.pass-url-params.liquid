@@ -1,13 +1,51 @@
 <script>
-  let queryString = window.location.search;
-  let currentHostname = window.location.hostname;
+  document.addEventListener('DOMContentLoaded', function() {
+    let urlDontPassParams = ['page', 'category', 'default-variant'];
+    let urlParams = new URLSearchParams(window.location.search);
+    urlDontPassParams.forEach(param => urlParams.delete(param));
 
-  document.querySelectorAll("[href]").forEach(link => {
-      let currentLink = link.getAttribute('href');
+    let queryString = urlParams.toString() ? "?" + urlParams.toString() : "";
+    let currentHostname = window.location.hostname;
 
-      if (currentLink.startsWith("/") || currentLink.startsWith(".") ||
-        (currentLink.startsWith("http") && currentLink.includes(currentHostname))) {
-          link.setAttribute('href', currentLink + queryString);
-      }
+    if (queryString) {
+      document.querySelectorAll("[href]").forEach(link => {
+        let currentLink = link.getAttribute('href');
+
+        if (currentLink.startsWith("/") || currentLink.startsWith(".") ||
+          (currentLink.startsWith("http") && currentLink.includes(currentHostname))) {
+          let url = new URL(currentLink, `http://${currentHostname}`);
+          let linkParams = new URLSearchParams(url.search);
+
+          // Only add parameters from urlParams if they do not already exist in linkParams
+          urlParams.forEach((value, key) => {
+            if (!linkParams.has(key)) {
+              linkParams.set(key, value);
+            }
+          });
+
+          url.search = linkParams.toString();
+
+          if (currentLink.startsWith("http")) {
+            link.setAttribute('href', currentLink + url.search);
+          } else {
+            link.setAttribute('href', url.pathname + url.search);
+          }
+        }
+      });
+
+      let blogLinks = $("header li a span:contains('Blog')").parent();
+      let blogUrl = new URL("https://curalife.com/blogs/blog", `http://${currentHostname}`);
+      let blogParams = new URLSearchParams(blogUrl.search);
+
+      // Only add parameters from urlParams if they do not already exist in blogParams
+      urlParams.forEach((value, key) => {
+        if (!blogParams.has(key)) {
+          blogParams.set(key, value);
+        }
+      });
+
+      blogUrl.search = blogParams.toString();
+      blogLinks.attr("href", blogUrl.pathname + blogUrl.search);
+    }
   });
 </script>

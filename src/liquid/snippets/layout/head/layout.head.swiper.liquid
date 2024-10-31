@@ -1,20 +1,60 @@
-{% assign loadOnPages = "/
-  |/blogs/blog/
-  |/products/curalin-pack
-  |/products/curalin-pack-p
-  |/pages/curalin-advanced-glucose-support
-  |/pages/partnerships
-  |/pages/glucose-support-curalin-pack-v3
-  |/pages/glucose-support-lp01n-v2
-  |/products/curalin-3-pack
-  |/products/curalin-3-pack-p
-  |/products/curalin-6-pack
-  |/products/curalin-6-pack-p
-  |/products/curalin
-  |/products/curalin-p
-  |/products/curaeats" %}
+<script>
+  window.isSwiperLoaded = window.isSwiperLoaded || false;
+  window.isSwiperLoading = window.isSwiperLoading || false;
 
-{% if loadOnPages contains request.path or Activate %}
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@9/swiper-bundle.min.css"/>
-  <script src="https://cdn.jsdelivr.net/npm/swiper@9/swiper-bundle.min.js"></script>
-{% endif %}
+  function loadSwiper(initializeCallback) {
+    if (window.isSwiperLoaded) {
+      if (typeof initializeCallback === "function") {
+        initializeCallback();
+      }
+      return;
+    }
+
+    if (window.isSwiperLoading) {
+      var checkSwiperInterval = setInterval(function() {
+        if (window.isSwiperLoaded) {
+          clearInterval(checkSwiperInterval);
+          if (typeof initializeCallback === "function") {
+            initializeCallback();
+          }
+        }
+      }, 50);
+      return;
+    }
+
+    window.isSwiperLoading = true;
+
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = "https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css";
+    document.head.appendChild(link);
+
+    const script = document.createElement("script");
+    script.src = "https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js";
+    script.onload = () => {
+      window.isSwiperLoaded = true;
+      window.isSwiperLoading = false;
+      if (typeof initializeCallback === "function") {
+        initializeCallback();
+      }
+    };
+    script.onerror = () => {
+      window.isSwiperLoading = false;
+    };
+    document.body.appendChild(script);
+  }
+
+  function initializeSwiper(swiperElementSelector, swiperOptions) {
+    if (typeof Swiper !== 'undefined') {
+      const swiperElement = document.querySelector(swiperElementSelector);
+      if (swiperElement) {
+        const swiperInstance = new Swiper(swiperElementSelector, swiperOptions);
+        return swiperInstance;
+      } else {
+        return null;
+      }
+    } else {
+      return null;
+    }
+  }
+</script>

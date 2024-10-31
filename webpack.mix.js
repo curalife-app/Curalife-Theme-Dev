@@ -1,54 +1,107 @@
 const mix = require('laravel-mix');
 const tailwindcss = require('tailwindcss');
-const fs = require('fs');
+const async = require('async');
 
-const getFiles = (dir) => {
-  return fs.readdirSync(dir).filter(file => fs.statSync(`${dir}/${file}`).isFile());
-};
+console.log("Starting optimized Laravel Mix configuration...");
 
+// Define file paths
 const paths = {
   build_folder: 'Curalife-Theme-Build',
-  build_assets_folder: 'Curalife-Theme-Build/assets',
-  build_templates_folder: 'Curalife-Theme-Build/templates',
-  build_layout_folder: 'Curalife-Theme-Build/layout',
-  build_sections_folder: 'Curalife-Theme-Build/sections',
-  build_snippets_folder: 'Curalife-Theme-Build/snippets',
-  css_folder_files: 'src/styles/css/**',
-  font_files: 'src/fonts/**/*.{woff,woff2,eot,ttf,otf}',
-  image_files: 'src/images/**/*.{png,jpg,jpeg,gif,svg}',
-  layout_folder_files: 'src/liquid/layout/**',
-  scss_folder: 'src/styles/scss/',
-  script_files: 'src/scripts/**/*.js',
-  sections_folder_files: 'src/liquid/sections/**/*.liquid',
-  snippets_folder_files: 'src/liquid/snippets/**/*.liquid',
-  tailwindcss_file: 'src/styles/tailwind.scss'
+  assets: {
+    fonts: 'src/fonts/**/*.{woff,woff2,eot,ttf,otf}',
+    images: 'src/images/**/*.{png,jpg,jpeg,gif,svg}',
+    css: 'src/styles/css/**',
+    scripts: 'src/scripts/**/*.js',
+    tailwind: 'src/styles/tailwind.css'
+  },
+  liquid: {
+    layout: 'src/liquid/layout/**',
+    sections: 'src/liquid/sections/**/*.liquid',
+    snippets: 'src/liquid/snippets/**/*.liquid',
+    blocks: 'src/liquid/blocks/**/*.liquid'
+  },
+  build: {
+    assets: 'Curalife-Theme-Build/assets',
+    layout: 'Curalife-Theme-Build/layout',
+    sections: 'Curalife-Theme-Build/sections',
+    snippets: 'Curalife-Theme-Build/snippets',
+    blocks: 'Curalife-Theme-Build/blocks'
+  }
+};
+
+// Logging function to streamline messages
+const log = (message) => console.log(`\x1b[36m${message}\x1b[0m`); // Blue color for logs
+
+// Parallelized Copy files with error handling
+function copyFiles(files) {
+  async.parallel(
+    files.map(({ src, dest, flatten = false }) => (callback) => {
+      try {
+        mix.copy(src, dest, { flatten });
+        log(`Copied files from ${src} to ${dest}`);
+        callback();  // No error, proceed to next task
+      } catch (error) {
+        console.error(`Error copying files from ${src} to ${dest}:`, error);
+        callback(error);  // Pass the error to async.parallel to handle
+      }
+    }),
+    (err) => {
+      if (err) console.error("Error during parallel file copying:", err);
+      else log("File copying complete.");
+    }
+  );
 }
 
-// Copy all required files to target destination
-mix.copy(paths.script_files, paths.build_assets_folder)
-mix.copy(paths.font_files, paths.build_assets_folder);
-mix.copy(paths.css_folder_files, paths.build_assets_folder);
-mix.copy(paths.image_files, paths.build_assets_folder, { flatten: true });
-mix.copy(paths.layout_folder_files, paths.build_layout_folder);
-mix.copy(paths.sections_folder_files, paths.build_sections_folder);
-mix.copy(paths.snippets_folder_files, paths.build_snippets_folder);
+// Configure Webpack for .liquid files with split chunks
+function configureWebpack() {
+  mix.webpackConfig({
+    stats: { warnings: true, errors: true, children: true },
+    optimization: { splitChunks: { chunks: 'all' } },
+  });
+  log("Webpack configuration complete.");
+}
 
-// Compile all SCSS source files using TailwindCSS
-mix.sass(paths.tailwindcss_file, paths.build_assets_folder)
-   .options({
-    processCssUrls: false,
-    postCss: [ tailwindcss('tailwind.config.js') ],
-   });
+// Compile Tailwind CSS with PurgeCSS and Minify
+function compileTailwind() {
+  try {
+    mix.postCss(paths.assets.tailwind, paths.build.assets, [
+      tailwindcss('tailwind.config.js')
+    ]).options({ processCssUrls: false }).minify(paths.build.assets + '/tailwind.css');
+    log("Tailwind CSS compiled and minified successfully.");
+  } catch (error) {
+    console.error("Error in Tailwind CSS compilation:", error);
+  }
+}
 
-// Compile each individual SCSS into CSS
-getFiles(paths.scss_folder).forEach(filename =>
-  mix.sass(`${paths.scss_folder}${filename}`, paths.build_assets_folder));
+// Main build function with caching
+function build() {
+  log("Starting optimized build process...");
 
-  // mix.browserSync({
-  //     proxy: 'http://localhost:3000',
-  //     files: [
-  //         // The path(s) to your templates or Liquid files that will trigger a rebuild when changed
-  //       paths.sections_folder_files,
-  //       paths.snippets_folder_files
-  //     ]
-  // });
+  // Enable cache and versioning
+  if (mix.inProduction()) {
+    mix.version();
+    log("Enabled versioning for cache.");
+  }
+
+  // Configure Webpack
+  configureWebpack();
+
+  // Copy assets and liquid files in parallel
+  copyFiles([
+    { src: paths.assets.scripts, dest: paths.build.assets },
+    { src: paths.assets.fonts, dest: paths.build.assets },
+    { src: paths.assets.css, dest: paths.build.assets },
+    { src: paths.assets.images, dest: paths.build.assets, flatten: true },
+    { src: paths.liquid.layout, dest: paths.build.layout },
+    { src: paths.liquid.sections, dest: paths.build.sections },
+    { src: paths.liquid.snippets, dest: paths.build.snippets },
+    { src: paths.liquid.blocks, dest: paths.build.blocks }
+  ]);
+
+  compileTailwind();
+
+  log("Optimized build process complete.");
+}
+
+// Run the build function
+build();

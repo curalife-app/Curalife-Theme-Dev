@@ -1,49 +1,32 @@
 {% if productType == "variant" %}
-  {% assign original_item_cap = prod.metafields.custom.original_item.value.compare_at_price %}
-  {% assign quantity = prod.metafields.my_fields.pack_bottles_quantity %}
-{% else %}
-  {% assign original_item_cap = prod.metafields.my_fields.original_item.value.compare_at_price %}
+  {% assign original_item = prod.metafields.custom.original_item.value | default: prod.selected_or_first_available_variant %}
+  {% assign quantity = prod.metafields.my_fields.pack_bottles_quantity | default: 1 %}
+  {% assign original_item_cap = original_item.compare_at_price %}
+  {% assign subscription_price = prod.metafields.subscription.price %}
+{% elsif prod.metafields.custom.original_item_variant.value %}
+  {% assign original_item_cap = prod.metafields.custom.original_item_variant.value.compare_at_price %}
   {% assign quantity = prod.metafields.my_fields.pack_items_quantity %}
+{% else %}
+  {% assign original_item_cap = prod.compare_at_price %}
+  {% assign quantity = prod.metafields.my_fields.pack_items_quantity | default: 1 %}
 {% endif %}
 
-{% assign quantity_by_cents = quantity | times: 100 %}
-{% assign item_price = prod.price | times: 100.0 | divided_by: quantity_by_cents %}
-<div class="price">
-  <p>
-    {% if prod.compare_at_price > prod.price %}<strike class="no-letters rounded">{{ original_item_cap | money_with_currency | replace: ".00", "" | replace: "GBP", "" | replace: "AUD", "" | replace: "CAD", "" }}</strike>{% endif %}
-    <span class="new-price rounded">{{ item_price | money | replace: ".00", "" | replace: "GBP", "" }}</span>
-    {% if quantity > 1 %}<span class="per-bottle"> PER<br>BOTTLE</span>{% endif %}
-  </p>
+{% if prod.price > 0 %}
+  {% assign item_price = prod.price | divided_by: quantity %}
+{% else %}
+  {% assign item_price = prod.metafields.custom.original_item_variant.value.price | divided_by: quantity %}
+{% endif %}
+
+<div class="price-wrapper">
+  {% if prod.compare_at_price > prod.price %}<strike class="no-letters text-gray-400 text-[0.8em] mbl:block">{{ original_item_cap | money_with_currency | replace: "GBP", "" | replace: "AUD", "" | replace: "CAD", "" }}</strike>{% endif %}
+  <span class="new-price font-bold">{% if isSubscription %}{{ subscription_price.value | divided_by: quantity | money_with_currency }}{% else %}{% if item_price == 0 %}<span class="text-[--bronze] font-normal">Order Free</span>{% else %}{{ item_price | money | replace: "GBP", "" }}{% endif %}{% endif %}</span>
+  {% if quantity > 1 %}<span class="per-bottle font-bold"> Per Bottle</span>{% endif %}
+  {% if isSubscription %}<div class="subtitle text-[--bronze]">Subscription Price!</div>{% endif %}
+
+  {% comment %} {% if prod.title contains "Pack" or prod.title contains "Months Supply" %}
+    <div class="total-prices text-[12px] mb-1">
+      TOTAL: <strike class="striked text-gray-400">{{ original_item_cap | times: quantity | money_with_currency | replace: "GBP", "" | replace: "AUD", "" | replace: "CAD", "" }}</strike>
+      <span class="real font-bold">{{ prod.price | money_with_currency | replace: "GBP", "" }}</span>
+    </div>
+  {% endif %} {% endcomment %}
 </div>
-
-{% if isLastRender %}
-  <style>
-    .price {
-      padding-bottom: unset !important;
-    }
-
-    .price strike {
-      color: var(--dark-grey);
-      font-size: 14px;
-    }
-
-    .price p {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 5px;
-      margin-bottom: 3px;
-      line-height: 1;
-    }
-
-    .price .new-price {
-      font-size: 24px;
-      font-weight: bold;
-    }
-
-    .price .per-bottle {
-      font-size: 10px;
-      text-align: start;
-    }
-  </style>
-{% endif %}

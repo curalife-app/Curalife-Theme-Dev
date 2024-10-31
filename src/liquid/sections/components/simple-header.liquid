@@ -1,0 +1,198 @@
+<header class="simple-header">
+  <div class="main-container container">
+    <div class="header-content flex items-center justify-between p-4">
+      <!-- Logo -->
+      <div class="header__logo">
+        <img class="max-h-[50px]" src="{{ section.settings.logo_img | image_url }}" alt="{{ shop.name }}">
+      </div>
+
+      <!-- Mobile Menu Icon -->
+      <div class="menu-toggle">
+        <i class="fa-light fa-bars" onclick="toggleMenu()"></i>
+        <i class="fa-light fa-times" onclick="toggleMenu(true)"></i>
+      </div>
+
+      <!-- Navigation Links -->
+      <div class="header-links flex items-center gap-8">
+
+        {% for block in section.blocks %}
+          <a {% if block.settings.is_button_style %}class="link-button"{% endif %} href="{% if shop.name == 'CuraLife Global' %}{{ block.settings.link_url_global }}{% else %}{{ block.settings.link_url }}{% endif %}" {% if block.settings.link_new_tab %}target="_blank"{% endif %}>
+            {{ block.settings.link_title }}
+          </a>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</header>
+
+<script>
+  function toggleMenu(forceClose = false) {
+    const header = document.querySelector('.simple-header');
+    const isMenuVisible = header.classList.contains('mobile-visible');
+
+    if (forceClose || isMenuVisible) {
+      header.classList.remove('mobile-visible');
+    } else {
+      header.classList.add('mobile-visible');
+    }
+
+    // Attach event listener only if the menu is opened
+    if (!isMenuVisible) {
+      header.addEventListener('click', (event) => {
+        if (event.target.tagName === 'A') {
+          toggleMenu(true);
+        }
+      });
+    }
+  }
+
+  // This part may not be needed if we are using event delegation in the toggleMenu function
+  document.querySelectorAll('.header-links a').forEach(link => {
+    link.addEventListener('click', () => toggleMenu(true));
+  });
+</script>
+
+<style>
+  /* General Header Styles */
+  header.simple-header {
+    background-color: {{ section.settings.bg_color }};
+    color: {{ section.settings.text_color }};
+  }
+
+  header.simple-header .header-links a.link-button {
+    background-color: var(--orange);
+    color: black;
+    border-radius: 30px;
+    padding: 0.5rem 1rem;
+  }
+
+  /* Menu Toggle Icon Styles */
+  header .menu-toggle .fa-bars,
+  header .menu-toggle .fa-times {
+    display: none; /* Hidden by default */
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    font-size: 1.5rem;
+    color: white;
+    cursor: pointer;
+    z-index: 9999;
+  }
+
+  /* Responsive Styles for Mobile */
+  @media (max-width: 768px) {
+    header .header__logo img {
+      max-height: 40px; /* Smaller logo for mobile */
+    }
+
+    header .header-links {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      background-color: {{ section.settings.bg_color }};
+      z-index: 1000;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      height: 100vh;
+      max-height: 0; /* Initially, menu is hidden */
+      transition: max-height 0.5s ease-in-out; /* Slide-down animation */
+    }
+
+    header.simple-header.mobile-visible .header-links {
+      display: flex;
+      max-height: 100vh; /* Adjust this value based on your needs */
+    }
+
+    header .header-links a {
+      font-size: 1.5rem;
+      padding: 1rem;
+    }
+
+    /* Toggle icons display */
+    header .menu-toggle .fa-bars {
+      display: block;
+    }
+
+    header.simple-header.mobile-visible .menu-toggle .fa-bars {
+      display: none;
+    }
+
+    header.simple-header.mobile-visible .menu-toggle .fa-times {
+      display: block;
+    }
+
+    header .menu-icon,
+    header .header__logo {
+      display: block;
+    }
+
+    header .hidden {
+      display: none;
+    }
+  }
+</style>
+
+{% schema %}
+{
+  "name": "Simple Header",
+  "settings": [
+    {
+      "type": "color",
+      "id": "bg_color",
+      "label": "Background Color"
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "Text Color"
+    },
+    {
+      "type": "image_picker",
+      "id": "logo_img",
+      "label": "Logo Image"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "link",
+      "name": "Link",
+      "settings": [
+        {
+          "type": "text",
+          "id": "link_title",
+          "label": "Link Title"
+        },
+        {
+          "type": "url",
+          "id": "link_url",
+          "label": "Link URL"
+        },
+        {
+          "type": "url",
+          "id": "link_url_global",
+          "label": "Link URL on Global"
+        },
+        {
+          "type": "checkbox",
+          "id": "is_button_style",
+          "label": "Button Style"
+        },
+        {
+          "type": "checkbox",
+          "id": "link_new_tab",
+          "label": "Open in new tab"
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Simple Header",
+      "category": "Header"
+    }
+  ]
+}
+{% endschema %}

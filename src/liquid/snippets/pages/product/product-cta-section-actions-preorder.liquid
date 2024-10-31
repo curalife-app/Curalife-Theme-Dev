@@ -1,0 +1,292 @@
+{% comment %} Short Section ID for JS Variables {% endcomment %}
+{% assign sectionIDParts = section_id | split: '-' %}
+{% assign shortSectionID = sectionIDParts[-1] %}
+
+<div id="product-actions-{{ section_id }}" class="product-actions">
+  {% comment %} <div class="notice-box mb-2 bg-[--beige] rounded-sm px-4 py-2 font-bold text-[--bronze]">Launch Exclusive: Use code SLIM10 for 10% off. 1000 units only!</div> {% endcomment %}
+  <div class="variant-box border-2 border-[--dark-blue] rounded-lg p-4">
+    <div class="product-information flex flex-col gap-4">
+      Dive into easy, delicious recipes designed for weight loss and maintaining healthy glucose levels. Our expertly crafted cookbook makes healthy eating both simple and delightful. We promise flavor and wellness in every bite.
+    </div>
+
+    <div class="price-wrapper">
+      <div class="calculations flex items-center justify-center gap-2 font-bold leading-10">
+        <div class="real-price no-letters text-[40px] buy-once">{{ product.price | money }}</div>
+        <div class="compared-at-price rounded line-through text-[30px] font-normal text-[#baced5]">{{ product.compare_at_price | money }}</div>
+      </div>
+    </div>
+
+    {% comment %} <div class="shipping-notice text-center text-[14px] text-[--blue] mt-4 mb-2">Will be shipped on April</div> {% endcomment %}
+
+    <div class="submit-wrap flex flex-col justify-center w-full">
+      <button class="main-btn bg-[--blue] m-auto w-full font-bold hover:bg-[--dark-blue] min-h-[50px]" id="buy-button">
+        <div class="button-text flex justify-center md:text-[5vw]">Pre-Order Now</div>
+
+        <div class="loader" style="display: none;">
+          <div class="lds-ellipsis"><div></div><div></div><div></div><div></div></div>
+        </div>
+      </button>
+    </div>
+
+    {% comment %} <div class="stock-urgency mt-2 text-center">
+      <div class="bg-gray-300 h-[10px] rounded-full w-[90%] m-auto">
+        <div class="bg-[--bronze] h-full rounded-full w-[87%]"></div>
+      </div>
+      <div class="stock-urgency__title text-[14px] font-bold mt-2 text-[--bronze]">Only 43 bottles left for pre-order!</div>
+    </div> {% endcomment %}
+  </div>
+</div>
+
+<script>
+  $(document).ready(function() {
+    const productActions = $("#product-actions-{{ section_id }}");
+    const purchaseOptionBoxes = productActions.find('.purchase-option-box');
+
+    attachEventHandlers();
+
+    function attachEventHandlers() {
+      productActions.on('click', '.main-btn', event => handleMainButtonClick(event, $(event.currentTarget)));
+    }
+
+    function handleMainButtonClick(event, button) {
+      event.stopPropagation();
+      const parentBox = button.closest('.purchase-option-box');
+      buyButtonHandler({{ product.first_available_variant.id }}, parentBox.data('subscription-selling-plan-id'), button);
+    }
+
+    function adjustMaxHeight(element) {
+      var openHeight = $(element).get(0).scrollHeight;
+      $(element).css('max-height', openHeight + 'px');
+    }
+
+    function buyButtonHandler(variant_id, subscription_selling_plan_id, buttonElement) {
+      toggleButtonLoading(buttonElement, true);
+      redirectToCheckout(variant_id);
+    }
+
+    function redirectToCheckout(variant_id) {
+      let checkoutLink = "https://" + location.hostname + "/cart/" + variant_id + ":1";
+      checkoutLink += "?discount=" + "{{ product.variants.first.metafields.custom.discount_code }}";
+      window.location.href = checkoutLink;
+    }
+
+    function toggleButtonLoading(buttonElement, isLoading) {
+      let loader = $(buttonElement).closest('.purchase-option-box').find('.loader');
+      let buttonText = $(buttonElement).find('.button-text');
+
+      if (loader.length === 0) {
+          console.error("Loader element not found");
+          return;
+      }
+
+      if (isLoading) {
+          loader.show();
+          buttonText.hide();
+      } else {
+          loader.hide();
+          buttonText.show();
+      }
+    }
+
+    function clearCart(callback) {
+      jQuery.ajax({
+        type: 'POST',
+        url: '/cart/clear.js',
+        success: function() {
+          console.log('Cart cleared');
+          callback();
+        },
+        error: function() {
+          console.log('Failed to clear cart');
+        }
+      });
+    }
+
+    function buySubscription(variant_id, qty, selling_plan) {
+      clearCart(function() {
+        data = {
+          "id": variant_id,
+          "quantity": qty,
+          "selling_plan": selling_plan
+        }
+
+        jQuery.ajax({
+          type: 'POST',
+          url: '/cart/add.js',
+          data: data,
+          dataType: 'json',
+          success: function() {
+            console.log('success');
+            window.location.href = '/checkout';
+          },
+          error: function() {
+            console.log('Failed to add item to cart');
+          }
+        });
+      });
+    }
+  });
+</script>
+
+<style>
+  :root {
+    --swiper-navigation-sides-offset-mobile: 5vw;
+  }
+
+  .cta-section-{{ section_id }} .product-actions {
+    grid-area: 2/2/3/3;
+    max-width: 410px;
+    min-height: 415px;
+  }
+
+  .cta-section-{{ section_id }} .purchase-option-box {
+    background: #fff;
+    border: 1px solid #cbcbcb;
+    cursor: pointer;
+    max-height: 54px;
+    filter: drop-shadow(0px 4px 4px rgba(47, 47, 47, 0.1));
+    transition: max-height 0.5s ease-in-out;
+    border-radius: 10px;
+    border-color: var(--blue);
+    overflow: hidden;
+  }
+
+  .cta-section-{{ section_id }} .purchase-option-box.selected {
+    border-width: 3px;
+    max-height: max-content;
+  }
+
+  .cta-section-{{ section_id }} .purchase-option-box:hover,
+  .cta-section-{{ section_id }} .purchase-option-box.selected {
+    filter: drop-shadow(0px 4px 4px rgba(47, 47, 47, 0.3));
+  }
+
+  .cta-section-{{ section_id }} .purchase-option-box:hover>.radio-box input[type=radio]:after {
+    background-color: #a9a9a9;
+  }
+
+  .cta-section-{{ section_id }} .purchase-option-box .radio-box {
+    align-items: center;
+    display: flex;
+  }
+
+  .cta-section-{{ section_id }} .purchase-option-box .option-info {
+    padding: 10px 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.25rem;
+  }
+
+  .cta-section-{{ section_id }} .purchase-option-box .option-info .option-title span {
+    background: var(--blue);
+    color: white;
+    border-radius: 10px;
+    padding: 0 8px;
+    font-size: 15px;
+    margin-left: 5px;
+    font-weight: normal;
+    line-height: 1.2;
+  }
+
+  .cta-section-{{ section_id }} .purchase-option-box .option-info .option-infos p {
+    font-weight: 200;
+    display: inline-block;
+    margin: 0;
+    font-size: 14px;
+  }
+
+  @media screen and (max-width: 1270px) {
+    .cta-section-{{ section_id }} .purchase-option-box {
+      width: 100%
+    }
+
+    .cta-section-{{ section_id }} .purchase-option-box .option-info {
+      padding: 10px 0;
+      width: 95%;
+    }
+  }
+
+  @media screen and (max-width: 768px) {
+    .cta-section-{{ section_id }} .purchase-option-box {
+      font-size: 4vw;
+      padding-top: 1.5vw;
+    }
+
+    .cta-section-{{ section_id }} .purchase-option-box .option-info .option-title {
+      font-size: 4vw;
+    }
+
+    .cta-section-{{ section_id }} .purchase-option-box .option-info .option-infos p {
+      font-size: 3vw;
+    }
+
+    .cta-section-{{ section_id }} .purchase-option-box .radio-box {
+      padding: 3vw 0;
+    }
+
+    .cta-section-{{ section_id }} .product-actions {
+      grid-area: unset;
+      grid-row: 3;
+      max-width: unset;
+      min-height: unset;
+    }
+  }
+</style>
+
+<style>
+  .cta-section-{{ section_id }} .lds-ellipsis {
+    display: inline-block;
+    position: relative;
+    width: 80px;
+    top:-10px;
+  }
+  .cta-section-{{ section_id }} .lds-ellipsis div {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #fff;
+    animation-timing-function: cubic-bezier(0, 1, 1, 0);
+  }
+  .cta-section-{{ section_id }} .lds-ellipsis div:nth-child(1) {
+    left: 8px;
+    animation: lds-ellipsis1 0.6s infinite;
+  }
+  .cta-section-{{ section_id }} .lds-ellipsis div:nth-child(2) {
+    left: 8px;
+    animation: lds-ellipsis2 0.6s infinite;
+  }
+  .cta-section-{{ section_id }} .lds-ellipsis div:nth-child(3) {
+    left: 32px;
+    animation: lds-ellipsis2 0.6s infinite;
+  }
+  .cta-section-{{ section_id }} .lds-ellipsis div:nth-child(4) {
+    left: 56px;
+    animation: lds-ellipsis3 0.6s infinite;
+  }
+  @keyframes lds-ellipsis1 {
+    0% {
+      transform: scale(0);
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+  @keyframes lds-ellipsis3 {
+    0% {
+      transform: scale(1);
+    }
+    100% {
+      transform: scale(0);
+    }
+  }
+  @keyframes lds-ellipsis2 {
+    0% {
+      transform: translate(0, 0);
+    }
+    100% {
+      transform: translate(24px, 0);
+    }
+  }
+</style>

@@ -1,0 +1,37 @@
+{% if lazy_load %}
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const lazyImageObserver = new IntersectionObserver((entries, observer) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            const lazyImage = entry.target;
+            lazyImage.src = lazyImage.dataset.src;
+            lazyImage.srcset = lazyImage.dataset.srcset;
+            lazyImage.classList.add('loaded');
+            observer.unobserve(lazyImage);
+          }
+        });
+      }, {
+        rootMargin: '0px 0px 300px 0px'
+      });
+
+      document.querySelectorAll('img[data-src]').forEach(lazyImage => {
+        lazyImageObserver.observe(lazyImage);
+      });
+    });
+  </script>
+{% endif %}
+
+<style>
+  .responsive-image-wrapper {
+    overflow: hidden;
+    position: relative;
+  }
+  .responsive-image {
+    opacity: 0;
+    transition: opacity 0.3s ease-in-out;
+  }
+  .responsive-image.loaded {
+    opacity: 1;
+  }
+</style>

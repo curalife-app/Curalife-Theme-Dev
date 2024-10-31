@@ -1,27 +1,42 @@
-{%- style -%}
-  .section-{{ section.id }}-padding {
-    padding-top: calc({{ section.settings.padding_top }}px * 0.75);
-    padding-bottom: calc({{ section.settings.padding_bottom }}px  * 0.75);
-  }
+{% if section.settings.run_on_pages != blank %}
+  {% assign isDisplayOnThisPage = false %}
+  {% assign displayOnPagesArray = section.settings.run_on_pages | split: ',' %}
+  {% for currentPage in displayOnPagesArray %}
+    {% if currentPage == request.path %}
+      {% assign isDisplayOnThisPage = true %}
+    {% endif %}
+  {% endfor %}
 
-  @media screen and (min-width: 750px) {
-    .section-{{ section.id }}-padding {
-      padding-top: {{ section.settings.padding_top }}px;
-      padding-bottom: {{ section.settings.padding_bottom }}px;
-    }
-  }
-{%- endstyle -%}
-<div class="color-{{ section.settings.color_scheme }} gradient">
-  <div class="section-{{ section.id }}-padding">
+  {% unless isDisplayOnThisPage %}
+    {% assign hideSection = true %}
+  {% endunless %}
+{% endif %}
+
+{% unless hideSection %}
+  <div class="code-wrapper {{ additional_classes }}">
     {{ section.settings.custom_liquid }}
   </div>
-</div>
+
+  <style>
+    {% if section.settings.padding_top != blank and section.settings.padding_top != 50 %}
+      #shopify-section-{{ section.id }} {
+        padding-top: {{ section.settings.padding_top }}px;
+      }
+    {% endif %}
+
+    {% if section.settings.padding_bottom != blank and section.settings.padding_bottom != 50 %}
+      #shopify-section-{{ section.id }} {
+        padding-bottom: {{ section.settings.padding_bottom }}px;
+      }
+    {% endif %}
+  </style>
+{% endunless %}
 
 {% schema %}
 {
   "name": "t:sections.custom-liquid.name",
   "tag": "section",
-  "class": "section",
+  "class": "section no-padding",
   "settings": [
     {
       "type": "liquid",
@@ -58,6 +73,17 @@
       "label": "t:sections.all.colors.label"
     },
     {
+      "type": "text",
+      "id": "additional_classes",
+      "label": "Additional Classes"
+    },
+    {
+      "type": "text",
+      "id": "run_on_pages",
+      "label": "Run Only On Pages",
+      "info": "Enter a comma separated list of page paths to display this section only on those pages. Leave blank to display on all pages."
+    },
+    {
       "type": "header",
       "content": "t:sections.all.padding.section_padding_heading"
     },
@@ -69,7 +95,7 @@
       "step": 4,
       "unit": "px",
       "label": "t:sections.all.padding.padding_top",
-      "default": 40
+      "default": 0
     },
     {
       "type": "range",
@@ -79,7 +105,7 @@
       "step": 4,
       "unit": "px",
       "label": "t:sections.all.padding.padding_bottom",
-      "default": 52
+      "default": 0
     }
   ],
   "presets": [

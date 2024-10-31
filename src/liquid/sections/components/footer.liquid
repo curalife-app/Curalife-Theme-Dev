@@ -3,15 +3,22 @@
     <div class="container">
       <div class="info-wrap">
         <div class="main-side footer-column">
-          <a href="/"><img class="logo" src="{{ section.settings.logo_img.src | image_url }}" alt="curalife logo" loading="lazy"></a>
-        </div>
+          <a href="/"><img class="logo invert" src="{{ 'logo-new.svg' | asset_url }}" alt="curalife logo" width="134" height="32" loading="lazy"></a>
+          <div class="social-links flex gap-4 text-[24px] mt-4">
+            {% for block in section.blocks %}
+              {% if block.type == 'social' %}
+                <a href="{{ block.settings.social_link }}" target="_blank"><i class="{{ block.settings.social_icon_class }}"></i></a>
+              {% endif %}
+            {% endfor %}
+          </div>
+      </div>
 
         <div class="right-column footer-column">
           <div class="menu-list">
             {% for block in section.blocks %}
               {% if block.type == 'menu' %}
                 <div class="menu-wrapper">
-                  <h6>{{ block.settings.menu_title }}</h6>
+                  <div class="h6">{{ block.settings.menu_title }}</div>
                   {% assign footer_linklist = block.settings.footer_linklist %}
                   {% if linklists[footer_linklist].links.size > 0 %}
                     <ul>
@@ -27,23 +34,9 @@
         </div>
       </div>
 
-      <div class="disclaimer-and-other">
-        <div class="thirst">
-          <div class="menu-wrapper">
-            <h6>{{ section.settings.bottom_menu_title }}</h6>
-
-            {% if section.settings.bottom_linklist.links.size > 0 %}
-              <ul>
-                {% for link in section.settings.bottom_linklist.links %}
-                  <li><a href="{{ link.url }}" target="_blank">{{ link.title }}</a></li>
-                {% endfor %}
-              </ul>
-            {% endif %}
-          </div>
-        </div>
-
+      {% comment %} <div class="disclaimer-and-other">
         <div class="social-bar">
-          <h6>FOLLOW US ON</h6>
+          <div class="h6">FOLLOW US ON</div>
           <ul>
             {% for block in section.blocks %}
               {% if block.type == 'social' %}
@@ -53,8 +46,8 @@
           </ul>
         </div>
 
-        <div class="support-contacts">
-          <h6>24/7 CUSTOMER SUPPORT</h6>
+        <div class="support-contacts min-w-[25%]">
+          <div class="h6">CUSTOMER SUPPORT</div>
             <ul>
               {% for block in section.blocks %}
                 {% if block.type == 'contact' %}
@@ -72,9 +65,9 @@
               {% endfor %}
           </ul>
         </div>
-      </div>
+      </div> {% endcomment %}
 
-      <div class="pre-bottom-text">*Curalin, CuraLife products, and statements on this website and other CuraLife assets have not been evaluated by the Food and Drug Administration, and are not intended to diagnose, treat, cure, or prevent any disease. Results will vary from one person to another and there is no guarantee of specific results. We recommend consulting your doctor or your primary healthcare provider before using our products, especially when if you’re taking any medications.</div>
+      <div class="pre-bottom-text">{{ section.settings.disclaimer }}</div>
     </div>
   </div>
 
@@ -101,9 +94,18 @@
   </div>
 </footer>
 
+<script>
+  Array.from(document.getElementsByClassName("show-phone-btn")).forEach(function(e) {
+    e.addEventListener('click', (event) => {
+      event.target.style.display = 'none';
+      event.target.nextElementSibling.style.display = 'block';
+    })
+  })
+</script>
+
 <style>
   footer {
-    background: {{ section.settings.bg_color }};
+    background: var(--primary);
     color: {{ section.settings.text_color }};
   }
 
@@ -138,16 +140,15 @@
   }
 
   footer .show-phone-btn {
-    background: #E8E8B0;
-    border-radius: 10px;
+    background: {{ section.settings.titles_color }};
+    border-radius: 15px;
     cursor: pointer;
-    color: var(--green);
-    padding: 3px 25px;
-    font-family: 'PP Radio Grotesk';
-    font-weight: 700;
-    font-size: 16px;
-    line-height: 24px;
-    color: #404733;
+    color: black;
+    padding: 0 25px;
+    font-size: 14px;
+    line-height: 27px;
+    min-width: 10rem;
+    text-align: center;
   }
 
   footer .show-phone-content {
@@ -155,11 +156,11 @@
   }
 
   footer .right-column {
-    min-width: 70%;
+    min-width: 80%;
   }
 
   footer .footer-column {
-    padding-bottom: 30px;
+    padding-top: 20px;
   }
 
   .main-side .menu-list ul {
@@ -175,15 +176,16 @@
     gap: 20px;
   }
 
-  footer h6 {
+  footer .h6 {
     text-transform: uppercase;
-    color: #E8E8B0;
-    margin-bottom: 20px;
+    color: {{ section.settings.titles_color }};
+    font-weight: bold;
   }
 
   .right-column .menu-list .menu-wrapper {
     display: flex;
     flex-direction: column;
+    gap: 10px;
   }
 
   .right-column .menu-list {
@@ -191,11 +193,11 @@
   }
 
   .right-column .menu-list ul {
-    font-family: 'PP Radio Grotesk';
     font-weight: lighter;
     display: flex;
     flex-direction: column;
     gap: 15px;
+    font-size: 16px;
   }
 
   footer .support-contacts ul li {
@@ -213,16 +215,11 @@
     justify-content: space-between;
   }
 
-  .thirst {
-    display: flex;
-    flex-direction: column;
-  }
-
   .disclaimer-and-other a {
     font-family: 'PP Radio Grotesk';
     font-weight: lighter;
     text-decoration-line: underline;
-    color: #E8E8B0;
+    color: {{ section.settings.titles_color }};
   }
 
   .social-bar ul {
@@ -312,10 +309,6 @@
       font-size: 2vw;
     }
 
-    .thirst {
-      padding-bottom: 30px;
-    }
-
     .rights-reserved {
       font-size: 2vw;
       margin-left: 2vw;
@@ -323,28 +316,20 @@
   }
 </style>
 
-<script>
-  Array.from(document.getElementsByClassName("show-phone-btn")).forEach(function(e) {
-    e.addEventListener('click', (event) => {
-      event.target.style.display = 'none';
-      event.target.nextElementSibling.style.display = 'block';
-    })
-  })
-</script>
-
 {% schema %}
 {
   "name": "Footer",
   "class": "footer_section",
-  "enabled_on": {
-    "groups": ["footer"]
-  },
   "settings": [
     {
       "type": "color",
       "id": "bg_color",
-      "label": "Background Color",
-      "default": "#000000"
+      "label": "Background Color"
+    },
+    {
+      "type": "color",
+      "id": "titles_color",
+      "label": "Titles Color"
     },
     {
       "type": "color",
@@ -370,6 +355,11 @@
       "type": "link_list",
       "id": "bottom_linklist",
       "label": "Bottom Menu"
+    },
+    {
+      "type": "richtext",
+      "id": "disclaimer",
+      "label": "Disclaimer"
     }
   ],
   "blocks": [
@@ -436,6 +426,11 @@
           "label": "Select Payment Image"
         }
       ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Footer"
     }
   ]
 }

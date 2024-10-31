@@ -1,34 +1,28 @@
-
 <section class="survey">
   <div class="survey-bg">
     <div class="container">
-      <div class="data-wrap">
-        <div class="sub-title">
-          <h3><b>{{ section.settings.title_1 }}</b> {{ section.settings.title_2 }}</h3>
-        </div>
+      <header class="survey-header">
+        <h2>{{ section.settings.title_1 }} {{ section.settings.title_2 }}</h2>
+      </header>
 
-        <div class="success-list">
-          <ul>
-           {% for block in section.blocks %}
-            <li>
-              <div class="percentage">
-                <p><span data-count="{{ block.settings.data_count_text }}">0</span>%</p>
-              </div>
-              <div class="title">
-                <h4>{{ block.settings.people_text }}</h4>
-              </div>
-              <div class="line">
-                <span></span>
-              </div>
-            </li>
-           {% endfor %}
-          </ul>
-        </div>
-      </div>
+      <article class="success-list">
+         {% for block in section.blocks %}
+          <div class="survey-item">
+            <div class="percentage">
+              <p><span data-count="{{ block.settings.data_count_text }}">0</span>%</p>
+            </div>
+            <div class="title">
+              <h4>{{ block.settings.people_text }}</h4>
+            </div>
+            <div class="line">
+              <span></span>
+            </div>
+          </div>
+         {% endfor %}
+      </article>
     </div>
   </div>
 </section>
-
 
 <style>
   .survey .data-wrap {
@@ -51,18 +45,22 @@
     margin: 0 auto
   }
 
-  .survey .success-list ul li {
+  .survey .success-list .survey-item {
     padding-left: 10.25rem;
     margin-bottom: 3.375rem;
     position: relative;
     z-index: 1
   }
 
-  .survey .success-list ul li:last-child {
+  .survey .success-list .survey-item::before {
+    content: '';
+  }
+
+  .survey .success-list .survey-item:last-child {
     margin-bottom: 0
   }
 
-  .survey .success-list ul li .percentage {
+  .survey .success-list .survey-item .percentage {
     display: flex;
     align-items: center;
     position: absolute;
@@ -72,7 +70,7 @@
     overflow: hidden
   }
 
-  .survey .success-list ul li .percentage p {
+  .survey .success-list .survey-item .percentage p {
     margin: 0;
     font-weight: 500;
     font-size: 2.8125rem;
@@ -81,11 +79,11 @@
     color: #222
   }
 
-  .survey .success-list ul li .title {
+  .survey .success-list .survey-item .title {
     padding-bottom: .25rem
   }
 
-  .survey .success-list ul li .title h4 {
+  .survey .success-list .survey-item .title h4 {
     margin: 0;
     font-weight: 500;
     font-size: 1.5rem;
@@ -93,13 +91,13 @@
     color: #222
   }
 
-  .survey .success-list ul li .line {
+  .survey .success-list .survey-item .line {
     height: 1.4375rem;
     position: relative;
     overflow: hidden
   }
 
-  .survey .success-list ul li .line span {
+  .survey .success-list .survey-item .line span {
     display: block;
     position: absolute;
     top: 0;
@@ -117,7 +115,7 @@
     }
 
 
-    .survey .success-list ul li .percentage p {
+    .survey .success-list .survey-item .percentage p {
       font-size: 2rem
     }
 
@@ -125,11 +123,11 @@
       padding-bottom: 1.875rem
     }
 
-    .survey .success-list ul li .title h4 {
+    .survey .success-list .survey-item .title h4 {
       font-size: 1.1875rem
     }
 
-    .survey .success-list ul li {
+    .survey .success-list .survey-item {
       padding-left: 7.5rem;
       margin-bottom: .9375rem
     }
@@ -154,16 +152,16 @@
       margin-top: .6875rem;
     }
 
-    .survey .success-list ul li .percentage p {
+    .survey .success-list .survey-item .percentage p {
       font-size: 1.25rem
     }
 
-    .survey .success-list ul li .percentage {
+    .survey .success-list .survey-item .percentage {
       position: static;
       min-width: 4.375rem
     }
 
-    .survey .success-list ul li {
+    .survey .success-list .survey-item {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
@@ -171,16 +169,16 @@
       margin-bottom: 2.4375rem
     }
 
-    .survey .success-list ul li .title {
+    .survey .success-list .survey-item .title {
       padding-bottom: 0
     }
 
-    .survey .success-list ul li .title h4 {
+    .survey .success-list .survey-item .title h4 {
       font-size: .875rem;
       font-weight: 400
     }
 
-    .survey .success-list ul li .line {
+    .survey .success-list .survey-item .line {
       width: 100%;
       height: 1rem;
       margin-top: .375rem
@@ -201,33 +199,57 @@
 </style>
 
 <script>
-const counters = document.querySelectorAll('.survey .success-list ul li .percentage p span');
-const countingSpeed = 6000;
-let animateCounters = true;
+document.addEventListener('DOMContentLoaded', () => {
+  const counters = document.querySelectorAll('.percentage span[data-count]');
+  let animateCounters = true;
 
-window.addEventListener('scroll', (e) => {
-  let last_known_scroll_position = window.scrollY;
-   if (counters && animateCounters && window.innerHeight > document.querySelector('.survey .data-wrap').getBoundingClientRect().top && window.innerHeight < document.querySelector('.survey .data-wrap').getBoundingClientRect().top + document.querySelector('.survey .line').getBoundingClientRect().top) {
-    animateCounters = false;
-    counters.forEach(counter => {
-      const animate = () => {
-        const value = parseFloat(+counter.getAttribute('data-count'));
-        const dataLine = counter.closest('li').querySelector('.line span');
-        const data = +counter.innerText;
+  const animate = (counter) => {
+    const value = parseFloat(counter.getAttribute('data-count'));
+    const dataLine = counter.closest('.survey-item').querySelector('.line span');
+    let data = +counter.innerText;
 
-        const time = value / countingSpeed;
-        if (data < value) {
-          counter.innerText = Math.ceil(data + time);
-          dataLine.style.width = Math.ceil(data + time) + '%';
-          setTimeout(animate, 0.1);
-        } else {
-          counter.innerText = value;
-          dataLine.style.width = value + '%';
+    const time = value / 6000;
+    if (data < value) {
+      counter.innerText = Math.ceil(data + time);
+      dataLine.style.width = counter.innerText + '%';
+      setTimeout(() => animate(counter), 1);
+    } else {
+      counter.innerText = value;
+      dataLine.style.width = value + '%';
+    }
+  };
+
+  const onScroll = () => {
+    if (animateCounters) {
+      counters.forEach(counter => {
+        const dataWrapTop = document.querySelector('.survey .container').getBoundingClientRect().top;
+        const windowHeight = window.innerHeight;
+        if (windowHeight > dataWrapTop) {
+          animateCounters = false;
+          animate(counter);
         }
-      }
-      animate();
-    });
-  }
+      });
+    }
+  };
+
+  // Debounce function to optimize performance
+  const debounce = function (func, wait = 20, immediate = true) {
+    let timeout;
+    return function() {
+      const context = this;
+      const args = arguments;
+      const later = function() {
+        timeout = null;
+        if (!immediate) func.apply(context, args);
+      };
+      const callNow = immediate && !timeout;
+      clearTimeout(timeout);
+      timeout = setTimeout(later, wait);
+      if (callNow) func.apply(context, args);
+    };
+  };
+
+  window.addEventListener('scroll', debounce(onScroll));
 });
 </script>
 

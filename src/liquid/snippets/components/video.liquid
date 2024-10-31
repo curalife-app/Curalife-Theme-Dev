@@ -1,0 +1,91 @@
+<div class="video-component">
+  {% if main_image %}
+    <div class="video-placeholder">
+      <picture>
+        {% if main_mobile_image %}
+          <source media="(max-width: 768px)" srcset="{{ main_mobile_image | image_url }}" width="{{ main_mobile_image.width }}" height="{{ main_mobile_image.height }}">
+        {% endif %}
+        <img
+          class="relative z-auto object-contain cursor-pointer"
+          src="{{ main_image | default: main_mobile_image | image_url }}"
+          alt="{{ main_image.alt }}"
+          width="{{ main_image.width }}"
+          height="{{ main_image.height }}"
+          {% unless is_dont_lazyload %}loading="lazy"{% endunless %}
+          {% if image_animation != 'none'%}data-aos="{{ image_animation }}" data-aos-duration="{{ animation_duration }}"{% endif %}
+        >
+      </picture>
+      <div class="video-component__play-button">
+        <i class="fa-brands fa-youtube opacity-70 text-[100px] text-white"></i>
+      </div>
+    </div>
+  {% endif %}
+
+  <div class="video-iframe" {% if main_image %}style="display: none;"{% endif %}>
+    {% assign videoInputFirstFour = videoInput | slice: 0, 4 %}
+    {% if videoInputFirstFour == 'http' %}
+      {% assign autoplayParam = 'autoplay=1' %}
+      {% if videoInput contains '?' %}
+        {% assign videoSrc = videoInput | append: '&' | append: autoplayParam %}
+      {% else %}
+        {% assign videoSrc = videoInput | append: '?' | append: autoplayParam %}
+      {% endif %}
+      <iframe
+        src="{{ videoSrc | escape }}"
+        frameborder="0"
+        allow="autoplay; fullscreen; picture-in-picture; clipboard-write"
+        allowfullscreen
+        class="w-full h-auto"></iframe>
+    {% else %}
+      {% assign autoplayEmbed = videoInput | replace: 'autoplay=0', 'autoplay=1' | replace: 'autoplay=1', 'autoplay=1' %}
+      {{ autoplayEmbed | raw }}
+    {% endif %}
+  </div>
+</div>
+
+<script>
+  (function() {
+    document.addEventListener('DOMContentLoaded', function() {
+      var videoComponents = document.querySelectorAll('.video-component');
+      videoComponents.forEach(function(videoComponent) {
+        var videoPlaceholder = videoComponent.querySelector('.video-placeholder');
+        var videoIframeContainer = videoComponent.querySelector('.video-iframe');
+
+        if (videoPlaceholder && videoIframeContainer) { // Ensure both elements exist
+          videoPlaceholder.addEventListener('click', function() {
+            videoPlaceholder.style.display = 'none';
+            videoIframeContainer.style.display = 'block';
+          });
+        }
+      });
+    });
+  })();
+</script>
+
+<style>
+  .video-component .video-placeholder {
+    position: relative;
+    cursor: pointer;
+  }
+
+  .video-component .video-placeholder img {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  .video-component__play-button {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
+
+  .video-component .video-iframe iframe,
+  .video-component .video-iframe > * {
+    width: 100% !important;
+    aspect-ratio: 1 / 1;
+    height: auto;
+    padding: 0 !important;
+  }
+</style>

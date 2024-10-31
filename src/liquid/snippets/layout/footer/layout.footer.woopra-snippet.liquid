@@ -9,7 +9,7 @@
     click_tracking: true
   });
 
-  {%- if customer -%}
+  {% if customer %}
     woopra.identify({
       id: {{ customer.id | json }},
       name: {{ customer.name | json }},
@@ -17,9 +17,9 @@
       order_count: {{ customer.orders_count | json }},
       total_spent: {{ customer.total_spent | json }},
     });
-  {%- endif -%}
+  {% endif %}
 
-    woopra.track();
+    // woopra.track();
 
     document.addEventListener('submit', function(e) {
       const form = e.target;
@@ -31,16 +31,6 @@
         if (fieldEl.type === 'password') {
           delete data[key];
         }
-      }
-
-      // Contact form
-      if (form.id === 'contact-us-form') {
-        woopra.identify({
-          name: data['name'],
-          email: data['email'],
-          phone: data['phone']
-        });
-        woopra.track('submit contact form', data, { queue: true });
       }
 
       if (form.className.indexOf('yotpo-referral-widget-form') !== -1) {
@@ -58,38 +48,3 @@
     });
   </script>
 <!-- End of Woopra Code -->
-
-<!-- Track Optimize Tests on Woopra -->
-<script>
-  function runAfterCookieExists(cookie_regx,callback){
-      var checker = window.setInterval(function() {
-      if (document.cookie.match(cookie_regx)) {
-          clearInterval(checker);
-          callback();
-      }}, 200);
-  }
-
-  function trackOptimizeExperiments() {
-    var cookie_regx = '(^|;)\\s*' + '_gaexp' + '\\s*=\\s*([^;]+)';
-
-    runAfterCookieExists(cookie_regx, function() {
-      var experiments = document.cookie.match(cookie_regx).pop().replace('GAX1.2.','').split('!');
-
-      for (var i = 0; i < experiments.length; i++) {
-        var experiment = experiments[i].split('.');
-        var fieldName = "optimize_exp_" + experiment[0];
-        var varID = experiment[2];
-        var trackObj = new Object();
-        trackObj[fieldName] = varID;
-
-        woopra.identify(trackObj).push();
-        console.log("Google Optimize Experiment Logged To Woopra!")
-        console.log(trackObj);
-      }
-    })
-  }
-
-  $( document ).ready(function() {
-    trackOptimizeExperiments();
-  });
-</script>

@@ -24,26 +24,22 @@
     </div>
 
     <div class="product-image-wrapper">
-      {% if index %}
-        <p class="number">{{ index }}</p>
-      {% endif %}
+      {% if index %}<p class="number">{{ index }}</p>{% endif %}
 
       <img class="product-image" src="{{ product.metafields.custom.bottle_image | img_url: 'original' }}" alt="{{ product.title }}" loading="lazy">
     </div>
 
     <div class="tabbed-content tabs-side">
       <nav class="tabs">
-        <ul>
-          <li><a href="#highlights-{{ index }}" class="active">Product Highlights <i>></i></a></li>
-          <li><a href="#instructions-{{ index }}">Usage Instructions <i>></i></a></li>
-          {% if product.metafields.custom.ingredients.value %}
-            <li><a href="#ingredients-{{ index }}">Ingredients <i>></i></a></li>
-          {% endif %}
-          <li><a href="#facts-{{ index }}">Supplement Facts <i>></i></a></li>
-          {% if product.metafields.custom.reviews.value %}
-            <li><a href="#reviews-{{ index }}">Reviews <i>></i></a></li>
-          {% endif %}
-        </ul>
+        <div class="tab"><a href="#highlights-{{ index }}" class="active">Product Highlights <i>></i></a></div>
+        <div class="tab"><a href="#instructions-{{ index }}">Usage Instructions <i>></i></a></div>
+        {% if product.metafields.custom.ingredients.value %}
+          <div class="tab"><a href="#ingredients-{{ index }}">Ingredients <i>></i></a></div>
+        {% endif %}
+        <div class="tab"><a href="#facts-{{ index }}">Supplement Facts <i>></i></a></div>
+        {% if product.metafields.custom.reviews.value %}
+          <div class="tab"><a href="#reviews-{{ index }}">Reviews <i>></i></a></div>
+        {% endif %}
       </nav>
 
       <div class="content">
@@ -62,19 +58,17 @@
           <div class="instructions item-content">
             {% for step in product.metafields.custom.instructions.value %}
               <div class="step">
-                <h3>{{ step.title }}</h3>
-
                 <div class="capsules">
                   {% for item in (1..step.capsules) %}
                     {% if product.tags contains "gummies" %}
-                      <img class="gummies" src="{{ "icon-gummy.png" | asset_url }}" width="20" height="31" alt="Capsule Pill" loading="lazy">
+                      <img class="gummies m-0" src="{{ "icon-gummy.png" | asset_url }}" width="20" height="31" alt="Capsule Pill" loading="lazy">
                     {% else %}
-                      <img class="caps" src="{{ "icon-capsule.png" | asset_url }}" width="20" height="31" alt="Capsule Pill" loading="lazy" style="min-width: 35px">
+                      <img class="caps m-0" src="{{ "icon-capsule.png" | asset_url }}" width="20" height="31" alt="Capsule Pill" loading="lazy" style="min-width: 35px">
                     {% endif %}
                   {% endfor %}
                 </div>
-                <p>{{ step.subtitle }} <br> {{ step.text }} <br> {{ step.text_2 }}</p>
 
+                <div>{{ step.subtitle }}</div>
               </div>
             {% endfor %}
           </div>
@@ -171,14 +165,13 @@
       margin: unset;
     }
 
-    .pack-info-section.pack-info-section:nth-of-type(even) .product-image-wrapper .number {
+    .pack-info-section:nth-of-type(even) .product-image-wrapper .number {
       color: {{ number_color }};
     }
 
     .pack-info-section .product-image-wrapper .product-image {
       position: relative;
-      right: -10px;
-      max-height: 450px;
+      max-height: 400px;
       margin: 0;
     }
 
@@ -211,9 +204,8 @@
 
     .pack-info-section .instructions .step {
       display: flex;
-      flex-wrap: wrap;
-      gap: 30px;
-      align-items: center;
+      flex-direction: column;
+      gap: 10px;
     }
 
     .pack-info-section .instructions .step p {
@@ -227,7 +219,7 @@
     }
 
     .pack-info-section .instructions .step .capsules {
-      min-width: 80px;
+      display: flex;
     }
 
     .pack-info-section .instructions .step p {
@@ -269,38 +261,43 @@
       height: 300px;
     }
 
-    .pack-info-section .tabs ul li {
+    .pack-info-section .tabs .tab {
       text-align: center;
       height: 70px;
       border-bottom: 1px solid;
+      padding-left: unset;
     }
 
-    .pack-info-section .tabs ul li:first-child {
+    .pack-info-section .tabs .tab::before {
+      content: "";
+    }
+
+    .pack-info-section .tabs .tab:first-child {
       border-top: 1px solid;
     }
 
-    .pack-info-section .tabs ul li a {
+    .pack-info-section .tabs .tab a {
       height: 100%;
       align-items: center;
       display: flex;
       justify-content: center;
     }
 
-    .pack-info-section .tabs ul li a i {
+    .pack-info-section .tabs .tab a i {
       position: relative;
       transition: all 0.5s ease-in-out;
       font-style: normal;
       left: 20px;
     }
 
-    .pack-info-section .tabs ul li a:hover,
-    .pack-info-section .tabs ul li a.active {
+    .pack-info-section .tabs .tab a:hover,
+    .pack-info-section .tabs .tab a.active {
       color: var(--brown);
       font-weight: bold;
     }
 
-    .pack-info-section:nth-of-type(even) .tabs ul li a:hover,
-    .pack-info-section:nth-of-type(even) .tabs ul li a.active {
+    .pack-info-section:nth-of-type(even) .tabs .tab a:hover,
+    .pack-info-section:nth-of-type(even) .tabs .tab a.active {
       color: {{ link_color }};
     }
 
@@ -423,9 +420,8 @@
         margin-top: 10vw;
       }
 
-      .pack-info-section .product-image-wrapper .product-image {
-        right: unset;
-        text-align: center;
+      .pack-info-section:nth-of-type(odd) .product-image-wrapper img {
+        right: -25vw;
       }
 
       .pack-info-section .product-image-wrapper .number {
@@ -459,11 +455,12 @@
   </style>
 {% endif %}
 
-  <script>
+<script>
+  (function() {
     tabControl();
 
-    var resizeTimer;
-    $(window).on('resize', function(e) {
+    let resizeTimer;
+    window.addEventListener('resize', function() {
       clearTimeout(resizeTimer);
       resizeTimer = setTimeout(function() {
         tabControl();
@@ -471,30 +468,42 @@
     });
 
     function tabControl() {
-      var tabs = $('.pack-info-section.instance-{{ index }} .tabbed-content').find('.tabs');
-      if(tabs.is(':visible')) {
-        tabs.find('a').on('click', function(event) {
-          event.preventDefault();
-          var target = $(this).attr('href'),
-              tabs = $(this).parents('.tabs'),
-              buttons = tabs.find('a'),
-              item = tabs.parents('.pack-info-section.instance-{{ index }} .tabbed-content').find('.item');
-          buttons.removeClass('active');
-          item.removeClass('active');
-          $(this).addClass('active');
-          $(target).addClass('active');
+      const tabs = document.querySelector(`.pack-info-section.instance-{{ index }} .tabbed-content .tabs`);
+
+      if (tabs && tabs.offsetParent !== null) { // Checks if the element is visible
+        tabs.querySelectorAll('a').forEach(function(button) {
+          button.addEventListener('click', function(event) {
+            event.preventDefault();
+            const target = button.getAttribute('href');
+            const tabsContainer = button.closest('.tabs');
+            const buttons = tabsContainer.querySelectorAll('a');
+            const itemContainer = tabsContainer.closest('.pack-info-section.instance-{{ index }} .tabbed-content').querySelectorAll('.item');
+
+            buttons.forEach(btn => btn.classList.remove('active'));
+            itemContainer.forEach(item => item.classList.remove('active'));
+
+            button.classList.add('active');
+            document.querySelector(target).classList.add('active');
+          });
         });
       } else {
-        $('.item').on('click', function() {
-          var container = $(this).parents('.tabbed-content'),
-              currId = $(this).attr('id'),
-              items = container.find('.item');
-              console.log(items);
-          container.find('.tabs a').removeClass('active');
-          items.removeClass('active');
-          $(this).addClass('active');
-          container.find('.tabs a[href$="#'+ currId +'"]').addClass('active');
+        document.querySelectorAll('.item').forEach(function(item) {
+          item.addEventListener('click', function() {
+            const container = item.closest('.tabbed-content');
+            const currId = item.getAttribute('id');
+            const items = container.querySelectorAll('.item');
+
+            container.querySelectorAll('.tabs a').forEach(btn => btn.classList.remove('active'));
+            items.forEach(it => it.classList.remove('active'));
+
+            item.classList.add('active');
+            const correspondingTab = container.querySelector(`.tabs a[href$="#${currId}"]`);
+            if (correspondingTab) {
+              correspondingTab.classList.add('active');
+            }
+          });
         });
       }
     }
-  </script>
+  })();
+</script>

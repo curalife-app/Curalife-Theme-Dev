@@ -1,0 +1,102 @@
+<div class="blog-cat">
+  <ul class="advanced-filters">
+    <li class="button advanced-filter"><a href=""> All</a></li>
+    {% for tag in blog.all_tags %}
+      {% if current_tags contains tag %}
+        <li class="advanced-filter active-filter" style="float:left; list-style:none; margin:15px;" data-group="{{ cat_item }}" data-handle="/tagged/{{ tag | handle }}">{{ tag | remove_first: cat_item | remove_first: '_' | link_to_remove_tag: tag }}</li>
+      {% else %}
+        <li class="advanced-filter" style="float:left; list-style:none; margin:15px; " data-group="{{ blog.handle }}" data-handle="/tagged/{{ tag }}"> {{ tag | link_to_tag: tag }} </li>
+      {% endif %}
+    {% endfor %}
+  </ul>
+</div>
+
+{% paginate blog.articles by 5 %}
+
+<div class="page-container blog-right" itemscope itemtype="http://schema.org/Article">
+  <header class="visually-hidden">
+    {% if current_tags %}
+      <h1>{{ blog.title | link_to: blog.url }} &mdash; {{ current_tags.first }}</h1>
+    {% else %}
+      <h1>{{ blog.title }}</h1>
+    {% endif %}
+  </header>
+
+  {% for article in blog.articles %}
+  <div class="grid__item medium-up--one-half">
+    <h2><a href="{{ article.url }}">{{ article.title }}</a></h2>
+
+    <div class="rte rte--indented-images">
+      {% if article.image %}
+        <p>
+          <a href="{{ article.url }}">
+            {{ article | img_url: 'master' | img_tag: article.title }}
+          </a>
+        </p>
+      {% endif %}
+
+      {% if article.excerpt.size > 0 %}
+        {{ article.excerpt }}
+      {% else %}
+        <p>{{ article.content | truncatewords: 100 }}</p>
+      {% endif %}
+    </div>
+
+    <p class="action-link">
+      <a href="{{ article.url }}">{{ 'blogs.article.read_more' | t }} <span class="icon icon-arrow-right action-link__icon" aria-hidden="true"></span></a>
+    </p>
+
+    {% unless forloop.last %}
+      <hr class="hr--clear">
+    {% endunless %}
+  </div>
+  {% endfor %}
+
+  {% if paginate.pages > 1 %}
+    <hr class="hr--clear">
+
+    {% include 'pagination' %}
+  {% endif %}
+</div>
+
+{% endpaginate %}
+
+<script>
+  $(function() {
+  let activeType = $('.advanced-filter[data-group="news"]').data('handle');
+
+  $(document).on('click', '.advanced-filter, .button', function(e) {
+    e.preventDefault();
+    const el = $(this);
+    activeType = el.data('handle') || '';
+    filter_data();
+  });
+
+  function filter_data() {
+    const base_url = `${window.location.origin}/blogs/{{ blog.handle }}`;
+    const slug = activeType ? activeType : '';
+    const get_url = `${base_url}${slug}`;
+
+    $('.blog-right').html('<div class="_jsLoaderDiv"><img class="_jsLoader" src="https://cdn.shopify.com/s/files/1/2358/5863/t/5/assets/loading.gif"></div>');
+
+    $.get(get_url, function(data) {
+      const $content = $(data).find('.main-content').html();
+      $('.main-content').html($content);
+      history.pushState('', '', get_url);
+    });
+  }
+});
+</script>
+
+{% schema %}
+  {
+    "name": "Blog Filtered",
+    "settings": [],
+    "presets": [
+      {
+        "name": "Blog Filtered",
+        "category": "Blog"
+      }
+    ]
+  }
+{% endschema %}

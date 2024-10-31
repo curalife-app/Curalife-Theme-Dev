@@ -1,0 +1,67 @@
+<style>
+  #cookies-banner {
+    display: none;
+    justify-content: center;
+    align-items: center;
+    padding: 1em;
+    position: fixed;
+    bottom: 0px;
+    width: 100%;
+    background: #fff;
+    border-top: 1px solid #dcdcdc;
+  }
+</style>
+<div id="cookies-banner">
+  <i class="fa-thin fa-cookie-bite"></i>
+  <span>This website uses cookies to ensure you get the best experience on our website.</span>
+  <button style="margin-left: 1em;" onclick="handleDecline()">Decline</button>
+  <button style="margin-left: 1em;" onclick="handleAccept()">Accept</button>
+</div>
+<script>
+  function getBannerEl() {
+    return document.getElementById('cookies-banner');
+  }
+
+  function hideBanner(res) {
+    getBannerEl().style.display = 'none';
+  }
+
+  function showBanner() {
+   getBannerEl().style.display = 'block';
+  }
+
+  function handleAccept(e) {
+    window.Shopify.customerPrivacy.setTrackingConsent(true, hideBanner);
+
+    document.addEventListener('trackingConsentAccepted',function() {
+      console.log('trackingConsentAccepted event fired');
+    });
+  }
+
+  function handleDecline() {
+    window.Shopify.customerPrivacy.setTrackingConsent(false,hideBanner);
+  }
+
+  function initCookieBanner() {
+    const userCanBeTracked = window.Shopify.customerPrivacy.userCanBeTracked();
+    const userTrackingConsent = window.Shopify.customerPrivacy.getTrackingConsent();
+
+    if(!userCanBeTracked && userTrackingConsent === 'no_interaction') {
+      showBanner();
+    }
+  }
+
+  window.Shopify.loadFeatures([
+    {
+      name: 'consent-tracking-api',
+      version: '0.1',
+    }
+  ],
+  function(error) {
+    if (error) {
+      throw error;
+    }
+
+    initCookieBanner();
+  });
+</script>

@@ -1,0 +1,71 @@
+{% assign CuralinBannerURL = 'https://cdn.shopify.com/s/files/1/0452/2459/1511/files/article-banner-curalin.png?v=1719329896' %}
+{% assign CuraslimBannerURL = 'https://cdn.shopify.com/s/files/1/0452/2459/1511/files/article-banner-curaslim.png?v=1719329896' %}
+{% assign CuralinCuraslimBannerURL = 'https://cdn.shopify.com/s/files/1/0452/2459/1511/files/article-banner-curalin-curalim.png?v=1719329896' %}
+
+{% assign curalin_keywords = "Curalin,Glucose Support,Diabetes,Blood Sugar,Metabolic Health,Insulin Sensitivity,Healthy Diet,Wellness,Supplements,Holistic Health,Natural Remedies,Herbal Supplements,Type 2 Diabetes,Nutritional Support,Health Maintenance,Wellbeing,Healthy Lifestyle,Diabetic Support,Insulin Resistance,Healthy Living,Natural Health,Diabetes Support,Glucose Metabolism,Endocrine Health,Blood Glucose,Pancreatic Health,Diabetic Care,Low Glycemic Diet,Diabetic Nutrition,Glucose Regulation,Herbal Medicine,Health Optimization,Insulin Management,Endocrine Support,Diabetic Wellness,Metabolic Support,Glucose Homeostasis,Plant-Based Supplements,Sugar Management,Holistic Wellness,Herbal Health" | split: "," %}
+{% assign curaslim_keywords = "Curaslim,Weight Loss,Appetite Control,Carb Blocker,Metabolism Boost,Fat Burner,Dietary Supplement,Calorie Burning,Body Fat Reduction,Slimming,Healthy Weight,Weight Management,Natural Weight Loss,Herbal Weight Loss,Satiety Support,Carb Inhibitor,Fat Metabolism,Weight Control,Diet Support,Herbal Slimming,Appetite Suppressant,Thermogenic Support,Calorie Control,Weight Reduction,Lean Body Support,Natural Appetite Suppressant,Herbal Appetite Control,Weight Wellness,Healthy Dieting,Herbal Diet Aid,Weight Balance,Fat Control" | split: "," %}
+
+{% assign curalin_tags = "curalin,blood-sugar,glucose-support" | split: "," %}
+{% assign curaslim_tags = "curaslim,nutrition,recipe,food,bread,carbs,dessert,desserts,fasting,fitness,high carb,low carb,moderate card,pasta,recipes,snack,snacking,snacks,sweet,sweet tooth,sweeteners,weight,workout" | split: "," %}
+
+{% assign use_auto_logic = false %}
+{% assign chosen_banner_image_url = CuralinCuraslimBannerURL %}
+{% assign debug_message = "Initial chosen_banner_image_url: " | append: chosen_banner_image_url %}
+
+{% if use_auto_logic %}
+  {% for keyword in curalin_keywords %}
+    {% if article.content contains keyword %}
+      {% assign chosen_banner_image_url = CuralinBannerURL %}
+      {% assign debug_message = debug_message | append: ", Curalin keyword matched: " | append: keyword %}
+      {% break %}
+    {% endif %}
+  {% endfor %}
+
+  {% if chosen_banner_image_url == CuralinCuraslimBannerURL %}
+    {% for keyword in curaslim_keywords %}
+      {% if article.content contains keyword %}
+        {% assign chosen_banner_image_url = CuraslimBannerURL %}
+        {% assign debug_message = debug_message | append: ", Curaslim keyword matched: " | append: keyword %}
+        {% break %}
+      {% endif %}
+    {% endfor %}
+  {% endif %}
+
+  {% if chosen_banner_image_url == CuralinCuraslimBannerURL %}
+    {% for tag in article.tags %}
+      {% if curalin_tags contains tag %}
+        {% assign chosen_banner_image_url = CuralinBannerURL %}
+        {% assign debug_message = debug_message | append: ", Curalin tag matched: " | append: tag %}
+        {% break %}
+      {% elsif curaslim_tags contains tag %}
+        {% assign chosen_banner_image_url = CuraslimBannerURL %}
+        {% assign debug_message = debug_message | append: ", Curaslim tag matched: " | append: tag %}
+        {% break %}
+      {% endif %}
+    {% endfor %}
+  {% endif %}
+{% else %}
+  {% assign promotedProduct = article.metafields.custom.promoted_product.value %}
+  {% assign chosen_banner_image_url = promotedProduct.metafields.custom.promotional_banner %}
+  {% assign chosen_banner_image_mobile_url = promotedProduct.metafields.custom.promotional_banner_mobile %}
+{% endif %}
+
+{% assign debug_message = debug_message | append: ", Final chosen_banner_image_url: " | append: chosen_banner_image_url %}
+
+<div class="sidebar-banner mb-10">
+  {% render 'image',
+    image: chosen_banner_image_url,
+    mobile_image: {{ chosen_banner_image_mobile_url |  default: chosen_banner_image_url }},
+    sizes: '(min-width: 1200px) 1100px, (min-width: 769px) 750px, 100vw',
+    breakpoint: 768,
+    lazy: lazyLoad,
+    preload: false,
+    alt: 'sidebar banner',
+    class: 'main-image',
+    link: promotedProduct.url
+  %}
+</div>
+
+<script>
+  console.log("{{ debug_message }}");
+</script>

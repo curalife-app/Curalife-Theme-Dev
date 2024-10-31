@@ -1,0 +1,197 @@
+<section class="hero-banner p-0">
+  <h1 class="hidden">Curalife - Clean, natural, effective products you can trust</h1>
+
+  <div class="slides-container">
+    {% for block in section.blocks %}
+      <div class="slide" id="slide-{{ block.id }}" style="background-color: {{ block.settings.slide_bg_color }};">
+        <div class="mbl:flex-col-reverse mbl:p-0 container flex items-center">
+          <div class="slide-content text-start mbl:text-center max-w-[35%] mbl:max-w-full mbl:px-4">
+            <h2 style="color: {{ block.settings.slide_title_color }}">{{ block.settings.title }}</h2>
+            <p class="text-[22px] mbl:text-[5vw]" style="color: {{ block.settings.slide_subtitle_color }}">{{ block.settings.subtitle }}</p>
+
+            {% if block.settings.slide_button_title and block.settings.slide_button_link %}
+              <a href="{{ block.settings.slide_button_link }}" {% if block.settings.slide_is_button_link_new_window %}target="_blank"{% endif %}>
+                <button style="color: {{ block.settings.button_text_color }}">{{ block.settings.slide_button_title }}</button>
+              </a>
+            {% endif %}
+
+            <div class="statement text-white text-[12px] mt-8 mbl:mt-4 opacity-30">Statements made on this website have not been evaluated by the U.S. Food and Drug Administration. These products are not intended to diagnose, treat, cure, or prevent any disease. Information provided by this website or this company is not a substitute for individual medical advice.</div>
+          </div>
+
+          {% if block.settings.image %}
+            {% render 'responsive-image', img: block.settings.image, img_mobile: block.settings.image_mobile, classes: "mbl:w-full", is_dont_lazyload: true %}
+          {% endif %}
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+</section>
+
+<style>
+  .hero-banner {
+    position: relative;
+    height: 490px;
+    overflow: hidden;
+  }
+
+  .hero-banner .slides-container {
+    width: 100%;
+    height: 100%;
+    position: relative;
+  }
+
+  .hero-banner .slide {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-size: cover;
+    background-position: center;
+    opacity: 0;
+    transition: opacity 1s ease-in-out;
+  }
+
+  .hero-banner a button {
+    background-color: white;
+    color: var(--blue);
+    font-weight: bold;
+  }
+
+  /* First slide visible by default */
+  .hero-banner .slide:first-child {
+    opacity: 1;
+  }
+
+  .hero-banner .slide img {
+    min-width: 130%;
+  }
+
+  .hero-banner h2 strong {
+    color: var(--orange);
+  }
+
+  @media (max-width: 767px) {
+    .hero-banner {
+      min-height: calc(100vh - 56px);
+    }
+
+    .hero-banner .slide img {
+      min-width: 100%;
+    }
+  }
+</style>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  const slides = document.querySelectorAll(".hero-banner .slide");
+  const slidesContainer = document.querySelector(".hero-banner");
+  let maxHeight = 0;
+
+  function adjustHeightForMobile() {
+    if (window.innerWidth <= 767) {
+      maxHeight = 0;
+
+      slides.forEach(slide => {
+        const slideHeight = slide.offsetHeight;
+        if (slideHeight > maxHeight) {
+          maxHeight = slideHeight;
+        }
+      });
+
+      slidesContainer.style.height = `${maxHeight}px`;
+    } else {
+      slidesContainer.style.height = '490px'; // Example default height, adjust as needed
+    }
+  }
+
+  adjustHeightForMobile();
+  window.addEventListener('resize', adjustHeightForMobile);
+
+  let currentSlide = 0;
+  function changeSlide() {
+    slides[currentSlide].style.opacity = 0;
+    currentSlide = (currentSlide + 1) % slides.length;
+    slides[currentSlide].style.opacity = 1;
+  }
+
+  setInterval(changeSlide, 5000);
+});
+</script>
+
+{% schema %}
+{
+  "name": "Dynamic Hero Slider",
+  "settings": [],
+  "blocks": [
+    {
+      "type": "slide",
+      "name": "Slide",
+      "settings": [
+        {
+          "type": "color",
+          "id": "slide_bg_color",
+          "label": "Slide Background Color"
+        },
+        {
+          "type": "color",
+          "id": "slide_title_color",
+          "label": "Slide Title Color"
+        },
+        {
+          "type": "color",
+          "id": "slide_subtitle_color",
+          "label": "Slide Subtitle Color"
+        },
+        {
+          "type": "color",
+          "id": "button_text_color",
+          "label": "Button Text Color"
+        },
+        {
+          "type": "image_picker",
+          "id": "image",
+          "label": "Slide Image"
+        },
+        {
+          "type": "image_picker",
+          "id": "image_mobile",
+          "label": "Slide Image for Mobile"
+        },
+        {
+          "type": "text",
+          "id": "title",
+          "label": "Main Title"
+        },
+        {
+          "type": "text",
+          "id": "subtitle",
+          "label": "Subtitle"
+        },
+        {
+          "type": "text",
+          "id": "slide_button_title",
+          "label": "Slide Button Title"
+        },
+        {
+          "type": "url",
+          "id": "slide_button_link",
+          "label": "Slide Button Link"
+        },
+        {
+          "type": "checkbox",
+          "id": "slide_is_button_link_new_window",
+          "label": "Open Slide Button Link in New Window",
+          "default": false
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Default Hero Slider",
+      "category": "Hero"
+    }
+  ]
+}
+{% endschema %}

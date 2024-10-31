@@ -1,9 +1,85 @@
-<section class="button-section button-section-{{ section.id }}">
-  <div class="container">
-    <a href="{{ section.settings.button_link }}"><button>{{ section.settings.button_text }}</button></a>
-  </div>
-</section>
+{% assign buttonURL = page.metafields.custom.next_page_link | default: section.settings.button_link %}
 
+<!-- Sticky Button -->
+{% if section.settings.is_sticky %}
+  <a id="sticky-bar" href="{{ buttonURL }}">
+    <button class="sticky-button" name="{{ section.settings.button_element_name }}">{{ section.settings.button_text }}</button>
+  </a>
+{% else %}
+  <section id="button-section-{{ section.id }}" class="button-section {{ section.settings.section_additional_classes }} {% if section.settings.is_sticky %}hidden mbl:w-full{% endif %}">
+    <div class="container flex justify-center">
+      {% render 'button',
+        button_text: section.settings.button_text,
+        button_url: buttonURL,
+        button_url_global: buttonURL,
+        button_icon: "",
+        button_style: "",
+        button_text_color: section.settings.button_title_color,
+        button_bg_color: section.settings.button_bg_color,
+        button_is_new_tab: section.settings.button_is_new_tab,
+        button_is_link_to_top: false,
+        button_is_chatbot: false,
+        button_is_prerender_link: false,
+        button_under_title: section.settings.button_under_title,
+        button_under_title_color: section.settings.button_under_title_color,
+        button_under_title_classes: section.settings.button_under_title_classes,
+        button_element_name: section.settings.button_element_name,
+        button_id: section.id
+      %}
+    </div>
+  </section>
+{% endif %}
+
+{% if section.settings.is_pass_url_parameters %}
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      var baseLink = document.getElementById('button-link').href;
+      var params = new URLSearchParams(window.location.search);
+      document.getElementById('button-link').href = baseLink + '?' + params.toString();
+    });
+  </script>
+{% endif %}
+
+<!-- JavaScript for Sticky Button Behavior -->
+{% if section.settings.is_sticky %}
+  <script>
+    document.addEventListener("DOMContentLoaded", function() {
+      var stickyBar = document.getElementById("sticky-bar");
+      var stickyHideSetting = "{{ section.settings.sticky_hide | default: '' | strip }}";
+      var hideOnElements = stickyHideSetting.split(',').map(function(s) { return s.trim(); }).filter(function(s) { return s !== ''; });
+
+      function checkStickyVisibility() {
+        var shouldHide = false;
+
+        if (hideOnElements.length > 0) {
+          hideOnElements.forEach(function(selector) {
+            if (selector) {
+              var elements = document.querySelectorAll(selector);
+              elements.forEach(function(element) {
+                var rect = element.getBoundingClientRect();
+                if (rect.top < window.innerHeight && rect.bottom > 0) {
+                  shouldHide = true;
+                }
+              });
+            }
+          });
+        }
+
+        if (shouldHide) {
+          stickyBar.classList.remove("visible");
+        } else {
+          stickyBar.classList.add("visible");
+        }
+      }
+
+      window.addEventListener("scroll", checkStickyVisibility);
+      window.addEventListener("resize", checkStickyVisibility);
+      checkStickyVisibility();
+    });
+  </script>
+{% endif %}
+
+<!-- CSS Styles -->
 <style>
   .button-section-{{ section.id }} {
     background: {{ section.settings.bg_color }};
@@ -39,7 +115,110 @@
       min-width: 300px;
       font-size: 25px;
     }
-  }
+
+    /* Sticky Button Styles */
+    #sticky-bar {
+      position: fixed;
+      bottom: 10px;
+      left: 10px;
+      transform: translateX(-50%) translateY(100%);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.5s ease-in-out, transform 0.5s ease-in-out;
+      z-index: 50;
+      width: 94vw;
+      max-width: 300px; /* Adjust as needed */
+      text-align: center;
+
+      @media screen and (max-width: 768px) {
+        bottom: 3vw;
+        left: 3vw;
+        max-width: unset;
+
+        &::after {
+          content: " ";
+          width: 100vw;
+          height: 25vw;
+          display: inline-block;
+          background: linear-gradient(0deg, rgb(255 255 255) 40%, rgb(255 255 255 / 0%) 90%);
+          position: absolute;
+          left: -3vw;
+          bottom: -6vw;
+          z-index: -1;
+        }
+      }
+    }
+
+    #sticky-bar.visible {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    #sticky-bar .sticky-button {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      background-color: {{ section.settings.button_bg_color }};
+      color: {{ section.settings.button_title_color }};
+      font-weight: bold;
+      font-size: 1.5rem;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+      border-radius: 0.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: none;
+      cursor: pointer;
+    }
+
+    /* Animation */
+    @keyframes popIn {
+      0% {
+        opacity: 0;
+        transform: translateY(100%) scale(0.9);
+      }
+      80% {
+        opacity: 1;
+        transform: translateY(-10%) scale(1.05);
+      }
+      100% {
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    #sticky-bar.visible {
+      animation: popIn 0.5s both;
+    }
+  {% endif %}
+
+  /* Existing padding styles */
+  {% if section.settings.padding_top != 50 and section.settings.padding_top != blank %}
+    #button-section-{{ section.id }} {
+      padding-top: {{ section.settings.padding_top }}px;
+    }
+  {% endif %}
+
+  {% if section.settings.padding_bottom != 50 and section.settings.padding_top != blank %}
+    #button-section-{{ section.id }} {
+      padding-bottom: {{ section.settings.padding_bottom }}px;
+    }
+  {% endif %}
+
+  {% if section.settings.padding_top_mobile != blank %}
+    @media screen and (max-width: 768px) {
+      #button-section-{{ section.id }} {
+        padding-top: {{ section.settings.padding_top_mobile }}vw;
+      }
+    }
+  {% endif %}
+
+  {% if section.settings.padding_bottom_mobile != blank %}
+    @media screen and (max-width: 768px) {
+      #button-section-{{ section.id }} {
+        padding-bottom: {{ section.settings.padding_bottom_mobile }}vw;
+      }
+    }
+  {% endif %}
 </style>
 
 {% schema %}
@@ -55,9 +234,29 @@
       "label": "Button Text"
     },
     {
-      "type": "text",
+      "type": "url",
       "id": "button_link",
       "label": "Button Link"
+    },
+    {
+      "type": "checkbox",
+      "id": "is_pass_url_parameters",
+      "label": "Pass URL Parameters"
+    },
+    {
+      "type": "checkbox",
+      "id": "is_link_to_next_page",
+      "label": "Link to Next Page (Metafield)"
+    },
+    {
+      "type": "checkbox",
+      "id": "is_sticky",
+      "label": "Make Button Sticky (Float at Bottom)"
+    },
+    {
+      "type": "text",
+      "id": "sticky_hide",
+      "label": "Hide Button When Scrolled Over Elements (CSS Selectors)"
     },
     {
       "type": "color",
@@ -85,6 +284,69 @@
       "label": "Button Hover Title Color"
     },
     {
+      "type": "header",
+      "content": "Under Title Settings"
+    },
+    {
+      "type": "text",
+      "id": "button_under_title",
+      "label": "Under Title"
+    },
+    {
+      "type": "color",
+      "id": "button_under_title_color",
+      "label": "Under Title Color"
+    },
+    {
+      "type": "text",
+      "id": "button_under_title_classes",
+      "label": "Under Title Additional Classes"
+    },
+    {
+      "type": "header",
+      "content": "Padding"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Padding Top (px unit)",
+      "min": 0,
+      "max": 200,
+      "step": 10,
+      "unit": "px",
+      "default": 50
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Padding Bottom (px unit)",
+      "min": 0,
+      "max": 200,
+      "step": 10,
+      "unit": "px",
+      "default": 50
+    },
+    {
+      "type": "range",
+      "id": "padding_top_mobile",
+      "label": "Padding Top on Mobile (vw unit)",
+      "min": 0,
+      "max": 30,
+      "step": 1,
+      "unit": "vw",
+      "default": 10
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom_mobile",
+      "label": "Padding Bottom on Mobile (vw unit)",
+      "min": 0,
+      "max": 30,
+      "step": 1,
+      "unit": "vw",
+      "default": 10
+    },
+    {
       "type": "checkbox",
       "id": "remove_padding_top",
       "label": "Remove Top Padding"
@@ -93,6 +355,136 @@
       "type": "checkbox",
       "id": "remove_padding_bottom",
       "label": "Remove Bottom Padding"
+    },
+    {
+      "type": "text",
+      "id": "section_additional_classes",
+      "label": "Additional Classes"
+    },
+    {
+      "type": "text",
+      "id": "button_element_name",
+      "label": "Element Name (for tracking)"
+    },
+    {
+      "type": "select",
+      "id": "animation",
+      "label": "Animation",
+      "options": [
+        {
+          "value": "none",
+          "label": "None"
+        },
+        {
+          "value": "fade-zoom-in",
+          "label": "Fade"
+        },
+        {
+          "value": "fade-up",
+          "label": "Fade Up"
+        },
+        {
+          "value": "fade-down",
+          "label": "Fade Down"
+        },
+        {
+          "value": "fade-left",
+          "label": "Fade Left"
+        },
+        {
+          "value": "fade-right",
+          "label": "Fade Right"
+        },
+        {
+          "value": "fade-up-right",
+          "label": "Fade Up Right"
+        },
+        {
+          "value": "fade-up-left",
+          "label": "Fade Up Left"
+        },
+        {
+          "value": "fade-down-right",
+          "label": "Fade Down Right"
+        },
+        {
+          "value": "fade-down-left",
+          "label": "Fade Down Left"
+        },
+        {
+          "value": "flip-up",
+          "label": "Flip Up"
+        },
+        {
+          "value": "flip-down",
+          "label": "Flip Down"
+        },
+        {
+          "value": "flip-left",
+          "label": "Flip Left"
+        },
+        {
+          "value": "flip-right",
+          "label": "Flip Right"
+        },
+        {
+          "value": "slide-up",
+          "label": "Slide Up"
+        },
+        {
+          "value": "slide-down",
+          "label": "Slide Down"
+        },
+        {
+          "value": "slide-left",
+          "label": "Slide Left"
+        },
+        {
+          "value": "slide-right",
+          "label": "Slide Right"
+        },
+        {
+          "value": "zoom-in",
+          "label": "Zoom In"
+        },
+        {
+          "value": "zoom-in-up",
+          "label": "Zoom In Up"
+        },
+        {
+          "value": "zoom-in-down",
+          "label": "Zoom In Down"
+        },
+        {
+          "value": "zoom-in-left",
+          "label": "Zoom In Left"
+        },
+        {
+          "value": "zoom-in-right",
+          "label": "Zoom In Right"
+        },
+        {
+          "value": "zoom-out",
+          "label": "Zoom Out"
+        },
+        {
+          "value": "zoom-out-up",
+          "label": "Zoom Out Up"
+        },
+        {
+          "value": "zoom-out-down",
+          "label": "Zoom Out Down"
+        },
+        {
+          "value": "zoom-out-left",
+          "label": "Zoom Out Left"
+        },
+        {
+          "value": "zoom-out-right",
+          "label": "Zoom Out Right"
+        }
+      ],
+      "default": "none"
     }
   ],
   "presets": [

@@ -1,0 +1,69 @@
+{% assign related_count = 0 %}
+{% assign all_articles = blog.articles %}
+{% assign all_the_tags = article.tags | join: ',' %}
+{% assign current = article.id %}
+
+<div class="related-posts px-4 py-8 bg-[--light-blue]">
+  <h2 class="h4 text-black">Related Topics</h2>
+
+  <div class="posts-list flex flex-col gap-6">
+    {% for related_article in all_articles %}
+      {% if related_count >= 4 %}
+        {% break %}
+      {% endif %}
+      {% unless related_article.id == current %}
+        {% for tag in related_article.tags %}
+          {% if all_the_tags contains tag %}
+            <a href="{{ related_article.url }}">
+              <div class="article-card flex-nowrap flex gap-3">
+                <div class="picture min-w-[150px] h-[100px] overflow-hidden border-r-2 bg-[--blue]">
+                  {% if related_article.image %}
+                    <img src="{{ related_article.image | image_url: height: 100 }}" alt="{{ related_article.title }}" class="related-image object-cover h-full" width="150" height="100" loading="lazy">
+                  {% else %}
+                    <img src="{{ 'logo-new.svg' | asset_url }}" class="invert !object-contain p-12" alt="curalife logo" loading="lazy">
+                  {% endif %}
+                </div>
+
+                <div class="info flex flex-col gap-1">
+                  <h3 class="text-[20px] m-0 line-clamp-3 text-black">{{ related_article.title }}</h3>
+                  <div class="date text-[14px]">{{ related_article.published_at | date: '%B %d, %Y' }}</div>
+                </div>
+              </div>
+            </a>
+            {% assign related_count = related_count | plus: 1 %}
+            {% break %}
+          {% endif %}
+        {% endfor %}
+      {% endunless %}
+    {% endfor %}
+
+    {% if related_count == 0 %}
+      {% assign already_picked = "" %}
+      {% for i in (1..5) %}
+        {% assign random_seed = i | times: 17 | plus: now | modulo: 99999 %}
+        {% assign random_index = random_seed | modulo: all_articles.size %}
+        {% assign random_article = all_articles[random_index] %}
+        {% unless already_picked contains random_article.id or random_article.id == current %}
+          <!-- Existing random article code goes here -->
+          <a href="{{ random_article.url }}">
+            <div class="article-card flex-nowrap flex gap-3">
+              <div class="picture min-w-[150px] h-[100px] flex overflow-hidden border-r-2 bg-[--blue]">
+                {% if random_article.image %}
+                  <img src="{{ random_article.image | image_url: height: 100 }}" class="object-cover h-full" width="150" height="100" alt="{{ random_article.title }} article thumbnail" loading="lazy">
+                {% else %}
+                  <img src="{{ 'logo-new.svg' | asset_url }}" class="invert !object-contain p-4" alt="curalife logo" loading="lazy">
+                {% endif %}
+              </div>
+
+              <div class="info flex flex-col gap-1">
+                <h3 class="text-[20px] m-0 line-clamp-3">{{ random_article.title }}</h3>
+                <div class="date text-[14px]">{{ random_article.published_at | date: '%B %d, %Y' }}</div>
+              </div>
+            </div>
+          </a>
+          {% assign already_picked = already_picked | append: "," | append: random_article.id %}
+        {% endunless %}
+      {% endfor %}
+    {% endif %}
+  </div>
+</div>

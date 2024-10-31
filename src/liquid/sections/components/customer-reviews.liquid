@@ -1,25 +1,31 @@
-<div class="container mb-16">
-  <swiper-container class="reviews flex" centered-slides="true" auto-height="true" space-between="30" slides-per-view="auto" navigation="true" pagination="true" pagination-clickable="true" lazy="true">
-    {% for block in section.blocks %}
-      <swiper-slide class="review-wrapper">
-        <div class="review h-[350px] md:h-fit md:flex-col md:p-4 md:shadow-xl flex justify-start gap-8 p-8 bg-white shadow-2xl">
-          <img class="md:object-cover md:object-top md:w-full max-h-[280px]" src="{{ block.settings.customer_image | image_url }}" alt="" loading="lazy">
-          <div class="content text-start mt-8 md:mt-0">
-            <h3 class="name">{{ block.settings.name }}</h3>
-            <div class="rating text-lightGreen mb-5"><i class="fa-sharp fa-solid fa-star"></i><i class="fa-sharp fa-solid fa-star"></i><i class="fa-sharp fa-solid fa-star"></i><i class="fa-sharp fa-solid fa-star"></i><i class="fa-sharp fa-solid fa-star"></i></div>
-            <p class="quote">{{ block.settings.quote }}</p>
-            <p class="additional-text bottom-7 md:text-sm md:relative md:bottom-0 absolute">{{ block.settings.additional_text }}</p>
+<section id="customer-reviews-{{ section.id }}" class="customer-reviews md:pt-0 relative">
+  <div class="container flex md:flex-col gap-y-[10px]">
+    <div class="review-titles-wrapper md:w-full w-1/2">
+      <div class="review-titles w-[90%] md:w-full">
+        {% for block in section.blocks %}
+          <div class="review-title text-[23px] transition-all duration-300 py-4 cursor-pointer {% if forloop.first %}active{% endif %} {% unless forloop.last %}border-b border-black{% endunless %}"><i class="fa-duotone fa-circle-chevron-right"></i> "{{ block.settings.title }}"</div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="swiper reviews md:w-full w-1/2">
+      <div class="swiper-wrapper pb-8">
+        {% for block in section.blocks %}
+          <div class="swiper-slide review-wrapper">
+            <div class="review border border-black h-[350px] md:h-fit md:flex-row-reverse md:p-4 md:shadow-xl flex justify-start gap-8 p-8 bg-white shadow-lg">
+              <img class="m-0 max-h-[280px] xl:max-h-[17vw] md:!max-h-fit md:w-1/4 md:absolute" src="{{ block.settings.customer_image | image_url }}" alt="" loading="lazy">
+              <div class="content text-start md:text-[4vw]">
+                <div class="name mb-2 font-thin">{{ block.settings.name }}</div>
+                <div class="rating text-[#FFB22D] mb-4 md:mb-16 md:text-[3vw]"><i class="fa-sharp fa-solid fa-star"></i><i class="fa-sharp fa-solid fa-star"></i><i class="fa-sharp fa-solid fa-star"></i><i class="fa-sharp fa-solid fa-star"></i><i class="fa-sharp fa-solid fa-star"></i></div>
+                <div class="quote">{{ block.settings.quote }}</div>
+              </div>
+            </div>
           </div>
-        </div>
-      </swiper-slide>
-    {% endfor %}
-  </swiper-container>
-</div>
-
-{% comment %} <div class="edge-gradient right desktop"></div>
-<div class="edge-gradient left desktop"></div> {% endcomment %}
-
-<script src="https://cdn.jsdelivr.net/npm/swiper@9/swiper-element-bundle.min.js"></script>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</section>
 
 <style>
   :root {
@@ -28,45 +34,154 @@
     --swiper-navigation-size: 18px;
   }
 
-  .customer-reviews {
+  #customer-reviews-{{ section.id }} {
     background-color: {{ section.settings.bg_color }};
   }
 
-  .customer-reviews .edge-gradient {
-    height: 100%;
-    position: absolute;
-    top: 0;
-    width: 450px;
-    max-width: 10vw;
-    z-index: 10;
+  #customer-reviews-{{ section.id }} .review-titles-wrapper .review-title.active {
+    color: var(--blue);
+    font-size: 25px;
   }
 
-  .customer-reviews .edge-gradient.left {
-    background: linear-gradient(270deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.80015756302521) 60%, rgba(255,255,255,1) 90%, rgba(255,255,255,1) 100%);
-    left: 0;
+  #customer-reviews-{{ section.id }} .highlight {
+    color: var(--blue);
+    font-weight: bold;
   }
 
-  .customer-reviews .edge-gradient.right {
-    background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.80015756302521) 60%, rgba(255,255,255,1) 90%, rgba(255,255,255,1) 100%);
-    right: 0;
+  @media screen and (max-width: 1200px) {
+    #customer-reviews-{{ section.id }} .review-titles-wrapper .review-title,
+    #customer-reviews-{{ section.id }} .review-titles-wrapper .review-title:before {
+      padding-left: 3vw;
+      text-indent: -3vw;
+    }
   }
 
-  .customer-reviews .reviews {
-    overflow: visible;
-  }
+  @media screen and (max-width: 768px) {
+    #customer-reviews-{{ section.id }} .review-titles-wrapper .review-title,
+    #customer-reviews-{{ section.id }} .review-titles-wrapper .review-title:before {
+      font-size: 4.4vw;
+      padding-left: 8vw;
+      text-indent: -14vw;
+    }
 
-  .customer-reviews .review {
-    cursor: grab;
-    max-width: 80%;
-    margin: auto;
+    #customer-reviews-{{ section.id }} .review-titles-wrapper .review-title.active {
+      font-size: unset;
+    }
   }
 </style>
+
+<script>
+  class ReviewsApp {
+    constructor() {
+      this.reviewTitles = Array.from(document.querySelectorAll('.review-title'));
+      this.reviewQuotes = Array.from(document.querySelectorAll('.quote'));
+      this.currentActiveIndex = 0;
+      this.reviewsSwiper = null;
+
+      loadSwiper(() => {
+        this.reviewsSwiper = new Swiper('#customer-reviews-{{ section.id }} .swiper.reviews', {
+          centeredSlides: true,
+          slidesPerView: '1',
+          spaceBetween: 30,
+          autoHeight: true,
+          lazy: true,
+          preloadImages: false
+        });
+
+        // Bind swiper events after initialization
+        this.reviewsSwiper.on('slideChange', () => {
+          const index = this.reviewsSwiper.realIndex;
+          this.updateActiveTitle(index);
+        });
+      });
+    }
+
+    handleReviewTitleClick(event) {
+      const index = parseInt(event.target.dataset.index, 10);
+      if (this.reviewsSwiper) {
+        this.slideToReview(index);
+      }
+    }
+
+    bindEvents() {
+      this.reviewTitles.forEach((title, index) => {
+        title.dataset.index = index;
+        title.addEventListener('click', this.handleReviewTitleClick.bind(this));
+      });
+    }
+
+    unbindEvents() {
+      this.reviewTitles.forEach((title) => {
+        title.removeEventListener('click', this.handleReviewTitleClick.bind(this));
+      });
+    }
+
+    highlightQuoteText(title, quote) {
+      const titleText = title.innerText.replace(/["]+/g, '');
+      const quoteText = quote.textContent;
+
+      if (quoteText.includes(titleText)) {
+        const index = quoteText.indexOf(titleText);
+        const highlightedText = this.createHighlightedText(titleText);
+
+        quote.textContent = quoteText.substring(0, index);
+        quote.append(...[highlightedText, document.createTextNode(quoteText.substring(index + titleText.length))]);
+      }
+    }
+
+    createHighlightedText(text) {
+      const span = document.createElement('span');
+      span.classList.add('highlight');
+      span.textContent = text;
+      return span;
+    }
+
+    updateActiveTitle(index) {
+      this.reviewTitles[this.currentActiveIndex].classList.remove('active');
+      this.reviewTitles[index].classList.add('active');
+      this.currentActiveIndex = index;
+    }
+
+    slideToReview(index) {
+      if (this.reviewsSwiper) {
+        this.reviewsSwiper.slideTo(index);
+        this.updateActiveTitle(index);
+      }
+    }
+
+    init() {
+      this.bindEvents();
+      setTimeout(() => {
+        this.reviewTitles.forEach((title, index) => this.highlightQuoteText(title, this.reviewQuotes[index]));
+      }, 500);
+    }
+
+    destroy() {
+      this.unbindEvents();
+      if (this.reviewsSwiper) {
+        this.reviewsSwiper.destroy();
+        this.reviewsSwiper = null;
+      }
+    }
+  }
+
+  let reviewsApp;
+
+  document.addEventListener('DOMContentLoaded', () => {
+    reviewsApp = new ReviewsApp();
+    reviewsApp.init();
+  });
+
+  window.addEventListener('beforeunload', () => {
+    if (reviewsApp) {
+      reviewsApp.destroy();
+    }
+  });
+</script>
 
 {% schema %}
 {
   "name": "Customer Reviews",
-  "tag": "section",
-  "class": "customer-reviews relative",
   "disabled_on": {
     "groups": ["header", "footer"]
   },
@@ -99,8 +214,8 @@
         },
         {
           "type": "text",
-          "id": "additional_text",
-          "label": "Additional Text"
+          "id": "title",
+          "label": "Short Title"
         }
       ]
     }

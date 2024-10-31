@@ -1,0 +1,360 @@
+<section id="next-section" class="results-widget">
+    <div class="mbl:!overflow-visible container">
+        <div class="titles-wrapper" data-aos="zoom-in">
+            <img src="//curalife.com/cdn/shop/files/People-icons-1.png" srcset="https://cdn.shopify.com/s/files/1/0452/2459/1511/files/People-icons-1-x2.png 2x" alt="people icons" loading="lazy">
+            <h2 class="!text-black">This Is About So Much More Than <br class="desktop"><span>Just Losing Weight.</span></h2>
+            <div class="subtitle mb-8">1000 Curaslim customers swear by its results.</div>
+        </div>
+
+        <div class="tabs-container" data-aos="fade-up">
+            <div class="tabs">
+                <div class="tab active" data-tab="weight-loss" name="track:Curaslim Results - Weight Loss Tab">Weight Loss</div>
+                <div class="tab" data-tab="hunger-reduction" name="track:Curaslim Results - Hunger Reduction Tab">Hunger Reduction</div>
+                <div class="tab" data-tab="energy-levels" name="track:Curaslim Results - Energy Levels Tab">Energy Levels</div>
+                <div class="tab" data-tab="appetite-control" name="track:Curaslim Results - Appetite Control Tab">Appetite Control</div>
+                <div class="tab" data-tab="fullness" name="track:Curaslim Results - Fullness Tab">Fullness</div>
+            </div>
+        </div>
+
+        <div id="content" class="content" data-aos="fade-up">
+            <!-- Content will be dynamically inserted here -->
+        </div>
+    </div>
+</section>
+
+<script>
+    const tabData = {
+        'weight-loss': {
+            '3': {
+                text: 'Approximately 93% of participants reported losing more than 7.5% of body weight in 3 months.',
+                image: 'https://cdn.shopify.com/s/files/1/0452/2459/1511/files/weight_loss.png?v=1726659062'
+            },
+            '6': {
+                text: 'Approximately 92% of participants using Curaslim for 6 months reported losing more than 11.7% of body weight.',
+                image: 'https://cdn.shopify.com/s/files/1/0452/2459/1511/files/phone.png'
+            }
+        },
+        'hunger-reduction': {
+            '3': {
+                text: 'Nearly all users (97%) noticed a substantial reduction in hunger, making it easier to manage cravings and stick to a healthy eating plan.',
+                image: 'https://cdn.shopify.com/s/files/1/0452/2459/1511/files/woman.png'
+            }
+        },
+        'energy-levels': {
+            '6': {
+                text: 'Users felt more energized, with 94% reporting a noticeable boost in their energy levels after 6 months, helping them stay active and motivated',
+                image: 'https://cdn.shopify.com/s/files/1/0452/2459/1511/files/weights.png'
+            }
+        },
+        'appetite-control': {
+            '1': {
+                text: 'With 91% finding it highly effective to control appetite, Curaslim helps you control your meals, reducing the tendency to overeat.',
+                image: 'https://cdn.shopify.com/s/files/1/0452/2459/1511/files/apple.png'
+            }
+        },
+        'fullness': {
+            '1': {
+                text: '90% of surveyed clients reported an increased feeling of fullness, which supports portion control and prevents snacking.',
+                image: 'https://cdn.shopify.com/s/files/1/0452/2459/1511/files/curaslim-bottle-results.png'
+            }
+        }
+    };
+
+    function createUsageSection(period, data) {
+        // Create placeholder div for the image
+        const imagePlaceholder = data.image ? `
+            <div class="image-container">
+                <div class="image-placeholder"></div>
+                <img
+                    class="lazy-image"
+                    data-src="${data.image}"
+                    src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
+                    alt="Result illustration"
+                    loading="lazy"
+                />
+            </div>
+        ` : '';
+
+        return `
+            <div class="usage-section">
+                <div class="months-usage">
+                    <div class="usage">${period}</div>
+                    <div>${period === '1' ? 'month usage' : 'months usage'}</div>
+                </div>
+                <div class="description">${data.text}</div>
+                ${imagePlaceholder}
+            </div>
+        `;
+    }
+
+    function observeImages() {
+        const imageObserver = new IntersectionObserver((entries, observer) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const img = entry.target;
+                    img.src = img.dataset.src;
+                    img.classList.add('loaded');
+                    observer.unobserve(img);
+                }
+            });
+        }, {
+            rootMargin: '50px 0px',
+            threshold: 0.1
+        });
+
+        document.querySelectorAll('.lazy-image').forEach(img => {
+            imageObserver.observe(img);
+        });
+    }
+
+    function updateContent(tab) {
+        const contentDiv = document.getElementById('content');
+        contentDiv.innerHTML = ''; // Clear existing content
+
+        const tabContent = tabData[tab];
+        let html = '';
+
+        for (const [period, data] of Object.entries(tabContent)) {
+            html += createUsageSection(period, data);
+        }
+
+        contentDiv.innerHTML = html;
+
+        // Initialize lazy loading for new images
+        observeImages();
+
+        // Add visibility class with a slight delay for animation
+        setTimeout(() => {
+            document.querySelectorAll('.usage-section').forEach((section, index) => {
+                setTimeout(() => {
+                    section.classList.add('visible');
+                }, index * 200);
+            });
+        }, 100);
+    }
+
+    document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            if (!tab.classList.contains('active')) {
+                document.querySelector('.tab.active').classList.remove('active');
+                tab.classList.add('active');
+                updateContent(tab.dataset.tab);
+            }
+        });
+    });
+
+    // Initialize the first tab
+    updateContent('weight-loss');
+</script>
+
+<style>
+    .results-widget {
+        text-align: center;
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+
+    .results-widget h2 {
+        margin-bottom: 1rem;
+    }
+
+    .results-widget h2 span {
+        color: #4a90e2;
+    }
+
+    .results-widget p {
+        margin-bottom: 2rem;
+    }
+
+    .results-widget .tabs-container {
+        overflow-x: auto;
+        scrollbar-width: none;
+        -webkit-overflow-scrolling: touch;
+        width: 100%;
+    }
+
+    .results-widget .tabs-container::-webkit-scrollbar {
+        display: none;
+    }
+
+    .results-widget .tabs {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 40px;
+        margin-inline: auto;
+        width: max-content;
+
+        @media screen and (max-width: 768px) {
+            margin-bottom: 2vw;
+        }
+    }
+
+    .results-widget .tabs::-webkit-scrollbar {
+        display: none;
+    }
+
+    .results-widget .tab {
+        padding: 0.7rem 1rem;
+        cursor: pointer;
+        background: #EDEDED;
+        border: 1px solid #EDEDED;
+        border-radius: 100px;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        white-space: nowrap;
+    }
+
+    .results-widget .tab:hover {
+        background: #d1d1d1;
+    }
+
+    .results-widget .tab.active {
+        background-color: var(--black);
+        color: white;
+    }
+
+    .results-widget .content {
+        display: flex;
+        min-height: 352px;
+        justify-content: center;
+        flex-direction: column;
+        background-color: #F8FCFF;
+        max-width: 1000px;
+        margin: auto;
+        border: 20px solid #EDEDED;
+        padding: 2rem;
+        border-radius: 35px; /* Increased from 15px to account for the border */
+        gap: 3rem;
+        position: relative; /* Added */
+        overflow: hidden; /* Added */
+    }
+
+    /* Add this new rule after the .content rule */
+    .results-widget .content::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #F8FCFF;
+        border-radius: 15px; /* This creates the inner rounded corners */
+        z-index: -1;
+    }
+
+    .results-widget .usage-section {
+        display: flex;
+        align-items: center;
+        justify-content: space-evenly;
+        gap: 2rem;
+        opacity: 0;
+        transform: translateY(20px);
+        transition: opacity 0.5s ease, transform 0.5s ease;
+    }
+
+    .results-widget .usage-section.visible {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    .results-widget .months-usage {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.5rem;
+        min-width: 100px;
+    }
+
+    .results-widget .usage {
+        font-size: 2.5rem;
+        font-weight: bold;
+    }
+
+    .results-widget .description {
+        flex: 1;
+        padding-left: 1.5rem;
+        border-left: 2px solid #EDEDED;
+        text-align: start;
+        font-size: 1.1rem;
+        max-width: 400px;
+    }
+
+    .results-widget .image {
+        width: 180px;
+        height: 100px;
+        background-size: contain;
+        background-repeat: no-repeat;
+        background-position: center;
+    }
+
+		.results-widget .image-container {
+    width: 180px;
+    height: 100px;
+    position: relative;
+}
+
+.results-widget .image-placeholder {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.results-widget .lazy-image {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.results-widget .lazy-image.loaded {
+    opacity: 1;
+}
+
+    /* Responsive Styles */
+    @media screen and (max-width: 768px) {
+        .results-widget .tabs {
+            justify-content: flex-start;
+            padding-bottom: 1rem;
+        }
+
+        .results-widget .content {
+            padding: 1rem;
+        }
+
+        .results-widget .usage-section {
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .results-widget .description {
+            padding-left: 0;
+            border-left: none;
+            text-align: center;
+        }
+
+        .results-widget .months-usage {
+            min-width: auto;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid grey;
+        }
+    }
+</style>
+
+{% schema %}
+  {
+    "name": "Results Widget",
+    "settings": [],
+    "presets": [
+      {
+        "category": "Page",
+        "name": "Results Widget"
+      }
+    ]
+  }
+{% endschema %}

@@ -1,13 +1,46 @@
-{% assign data = section.settings.faq_data | split: "|" %}
 
-{% render 'product-faq-section',
-  bgColor: section.settings.bg_color
-  title: section.settings.title,
-  main_image: section.settings.main_image,
-  is_ingredients_feature: section.settings.is_ingredients_feature,
-  is_allow_one_open: section.settings.is_allow_one_open,
-  faqItems: data
-%}
+{% if product.metafields.custom.faq.value %}
+  {% assign faq_data = product.metafields.custom.faq.value %}
+  {% assign data_type = "json" %}
+{% elsif section.settings.product_faq != blank %}
+  {% assign productFAQ = section.settings.product_faq %}
+  {% assign faq_data = productFAQ.metafields.custom.faq.value %}
+  {% assign data_type = "json" %}
+{% else %}
+  {% assign faq_data = section.settings.faq_data | split: "|" %}
+  {% assign data_type = "string" %}
+{% endif %}
+
+<section id="faq-section-{{ section.id }}" class="faq-section">
+  <div class="container">
+    <div class="top-wrapper flex justify-between">
+      <h2>{{ section.settings.title }}</h2>
+
+      {% if section.settings.main_image %}<img src="{{ section.settings.main_image.src | image_url }}" class="object-contain m-0" alt="FAQ"/>{% endif %}
+    </div>
+
+    {% if faq_data.size > 0 %}
+      {% render 'product-faq-section',
+        titles_color: section.settings.titles_color,
+        closed_bg_color: section.settings.closed_bg_color,
+        opened_bg_color: section.settings.opened_bg_color,
+        seperator_color: section.settings.seperator_color,
+        is_allow_one_open: section.settings.is_allow_one_open,
+        data_type: data_type,
+        faqItems: faq_data,
+        section_id: section.id
+      %}
+    {% endif %}
+  </div>
+</section>
+
+{% if section.settings.bg_color %}
+  <style>
+    #faq-section-{{ section.id }} {
+      background-color: {{ section.settings.bg_color }};
+    }
+  </style>
+{% endif %}
 
 {% schema %}
 {
@@ -25,9 +58,34 @@
         "label": "Background Color"
       },
       {
+        "type": "color",
+        "id": "closed_bg_color",
+        "label": "Closed Background Color"
+      },
+      {
+        "type": "color",
+        "id": "opened_bg_color",
+        "label": "Open Background Color"
+      },
+      {
+        "type": "color",
+        "id": "titles_color",
+        "label": "Titles Color"
+      },
+      {
+        "type": "color",
+        "id": "seperator_color",
+        "label": "Seperator Color"
+      },
+      {
         "type": "text",
         "id": "title",
         "label": "Title"
+      },
+      {
+        "type": "product",
+        "id": "product_faq",
+        "label": "Product FAQ"
       },
       {
         "type": "richtext",
@@ -38,11 +96,6 @@
         "type": "image_picker",
         "id": "main_image",
         "label": "Image"
-      },
-      {
-        "type": "checkbox",
-        "id": "is_ingredients_feature",
-        "label": "Enable Ingredients Feature"
       },
       {
         "type": "checkbox",

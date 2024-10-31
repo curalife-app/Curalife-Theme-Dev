@@ -1,0 +1,193 @@
+{% assign tabs_amount = section.blocks.size %}
+
+<section id="tab-box-{{ section.id }}" class="tabs-box-section text-center b2b-hidden">
+  <div class="titles-wrapper mb-4">
+    <h2 class="m-2">Let us help you reach your health Goals!</h2>
+    <div class="subtitle desktop">Transforming Challenges into Triumphs: Your Wellness, Our Science-Driven Mission</div>
+  </div>
+
+  <div class="container pt-4">
+    <div class="tabbed-content tabs-side">
+      <nav class="tabs min-w-[300px] xl:min-w-fit">
+        {% for tab_block in section.blocks %}
+          <div class="tab xl:min-w-[20vw]"><a href="#item-{{ forloop.index }}" {% if forloop.first %}class="active"{% endif %}>{{ tab_block.settings.tab_name }}</a></div>
+        {% endfor %}
+      </nav>
+
+      <div class="content">
+        {% for tab_block in section.blocks %}
+          <div id="item-{{ forloop.index }}" class="item {% if forloop.first %}active always-active{% endif %}" data-title="{{ tab_block.settings.tab_name }}">
+            <div class="item-content flex items-center">
+              <p class="mobile-title mobile h6 font-bold text-[--blue] text-center mt-[30px] mb-0">How we help</p>
+              {% render 'responsive-image', img: tab_block.settings.tab_image, img_mobile: tab_block.settings.tab_image_mobile, classes: "min-w-1/2 max-w-1/2 mbl:max-w-full mbl:w-[90%] mbl:mt-[5vw]" %}
+
+              <div class="content mbl:p-4 p-8">
+                <p class="desktop-title h6 desktop font-bold text-[--blue]">How we help</p>
+                <p class="mbl:text-[4.5vw]">{{ tab_block.settings.tab_description }}</p>
+                {% if tab_block.settings.tab_link != blank %}<a href="{{ tab_block.settings.tab_link }}" class="text-[--blue] underline">Learn More</a>{% endif %}
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .tabs-box-section .tabbed-content {
+    display: flex;
+    overflow: hidden;
+  }
+
+  .tabs-box-section .tabbed-content .tabs {
+    box-shadow: 0 25px 54px -35px rgb(0 0 0 / .25);
+    background: white;
+    z-index: 20;
+    margin-bottom: unset;
+  }
+
+  .tabs-box-section .tabs .tab {
+    height: calc(400px / {% if tabs_amount > 0 %}{{ tabs_amount }}{% else %}5{% endif %});
+    background: var(--light-blue);
+    border-radius: 10px;
+    margin: 0px 10px 10px 0px;
+    width: -webkit-fill-available;
+  }
+
+  .tabs-box-section .tabs .tab a {
+    height: 100%;
+    align-items: center;
+    display: flex;
+    padding: 2rem;
+    transition: all 0.2s;
+    border-radius: 10px;
+    font-size: 24px;
+  }
+
+  .tabs-box-section .tabs .tab a:hover,
+  .tabs-box-section .tabs .tab a.active {
+    color: white;
+    background: var(--blue);
+  }
+
+  .tabs-box-section .item {
+    position: relative;
+    z-index: 10px;
+  }
+
+  .tabs-box-section .item.active .item-content {
+    background-color: var(--light-blue);
+    transition: opacity 0.8s ease-in-out;
+  }
+
+  .tabs-box-section .tabbed-content .item .item-content {
+    opacity: 0;
+    visibility: hidden;
+    height: 0;
+  }
+
+  .tabs-box-section .tabbed-content .item.active .item-content {
+    opacity: 1;
+    visibility: visible;
+    height: 440px;
+    text-align: start;
+    border-radius: 10px;
+  }
+
+  @media all and (max-width: 768px) {
+    .tabs-box-section .tabbed-content .item.active .item-content {
+      flex-direction: column;
+      height: auto;
+    }
+
+    .tabs-box-section .tabbed-content .tabs .tab a {
+      min-width: unset;
+      width: 25vw;
+      font-size: 4vw;
+      text-align: start;
+      padding: 0.5rem;
+    }
+
+    .tabs-box-section .tabs .tab a.active {
+      font-weight: bold;
+    }
+  }
+</style>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const tabBox = document.querySelector('#tab-box-{{ section.id }}');
+    if (!tabBox) return;
+
+    tabBox.addEventListener('click', function(event) {
+      let target = event.target;
+
+      if (target.tagName !== 'A' || !target.closest('.tab')) return;
+
+      event.preventDefault(); // Prevent default only for tab control clicks
+
+      const href = target.getAttribute('href');
+
+      if (!href.startsWith('#')) return;
+
+      const targetItem = document.querySelector(href);
+      if (!targetItem) return;
+
+      const tabs = tabBox.querySelectorAll('.tabs a');
+      const items = tabBox.querySelectorAll('.item');
+
+      tabs.forEach(tab => tab.classList.remove('active'));
+      items.forEach(item => item.classList.remove('active'));
+
+      target.classList.add('active');
+      targetItem.classList.add('active');
+    });
+  });
+</script>
+
+{% schema %}
+  {
+    "name": "Tabs Box",
+    "class": "tabs-box-section",
+    "settings": [],
+    "blocks": [
+      {
+        "name": "Tab",
+        "type": "tab",
+        "settings": [
+          {
+            "type": "text",
+            "id": "tab_name",
+            "label": "Tab Name"
+          },
+          {
+            "type": "image_picker",
+            "id": "tab_image",
+            "label": "Tab Image"
+          },
+          {
+            "type": "image_picker",
+            "id": "tab_image_mobile",
+            "label": "Tab Image - Mobile"
+          },
+          {
+            "type": "text",
+            "id": "tab_description",
+            "label": "Tab Description"
+          },
+          {
+            "type": "url",
+            "id": "tab_link",
+            "label": "Tab Link URL"
+          }
+        ]
+      }
+    ],
+    "presets": [
+      {
+        "name": "Tabs Box"
+      }
+    ]
+  }
+{% endschema %}

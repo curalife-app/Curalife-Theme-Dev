@@ -1,0 +1,402 @@
+{% assign referenced_variant_product = prod %}
+
+<div class="product-actions {% if isVariantBoxToggle %}with-animation{% endif %}" data-default-variant-index="{{ defaultSelectionIndex }}">
+  <div class="purchase-options flex flex-col gap-2">
+    {% for block in blocks %}
+      {% assign referenced_variant = blank %}
+      {% assign blockVarID = block.settings.variant_id | plus: 0 %}
+      {% for vari in referenced_variant_product.variants %}
+        {% assign currVarID = vari.id | plus: 0 %}
+        {% if currVarID == blockVarID %}
+          {% assign referenced_variant = vari %}
+        {% endif %}
+      {% endfor %}
+
+      {% if block.type == 'variant' %}
+          {% render 'product-cta-section-actions-variant-2024-new-4',
+            SID: SID,
+            prod: referenced_variant_product,
+            var: referenced_variant,
+            buyBoxColor: block.settings.box_color,
+            pricePer: pricePer,
+            saveFormat: saveFormat,
+            badgeText: block.settings.badge_text,
+            variantTitle: block.settings.title,
+            index: forloop.index,
+            purchase_type: block.settings.purchase_type,
+            buyType: buyType,
+          %}
+      {% endif %}
+    {% endfor %}
+
+    <div class="submit-wrap flex flex-col w-full">
+      <div class="checkout-button">
+        {% assign buttonSID = SID | append: '-checkout' %}
+        {% render 'buy-buttons-new-4', SID: buttonSID, product: prod, variant: '', buttonText: "Add to Cart", selling_plan_id: selling_plan_id, product_form_id: product_form_id, buyType: buyType, isBuyWithPrime: isBuyWithPrime %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const productActions = document.querySelector('#cta-section-{{ SID }} .product-actions');
+    const SID = productActions.id.split('-').pop();
+    const purchaseOptionBoxes = productActions.querySelectorAll('.purchase-option-box');
+    const submitButton = productActions.querySelector('.checkout-button button');
+    const submitSellingPlanIdInput = document.querySelector('.submit-selling-plan-id');
+    const submitVariantIdInput = document.querySelector('.submit-variant-id');
+
+    const state = {
+      selectedBox: null,
+    };
+
+    function togglePurchaseBox(element) {
+      if (!element) return;
+
+      // Remove selected class and uncheck radio from all boxes
+      purchaseOptionBoxes.forEach(box => {
+        box.classList.remove('selected');
+        const radio = box.querySelector('input[type="radio"]');
+        if (radio) {
+          radio.checked = false;
+        }
+      });
+
+      const isSubscription = element.getAttribute('data-purchase-type') === 'subscribe';
+      const subscriptionPlanID = isSubscription ? element.getAttribute('data-subscription-selling-plan-id') : '';
+      const variantID = element.getAttribute('data-variant');
+      const buyType = element.getAttribute('data-buy-type');
+
+      if (submitSellingPlanIdInput) {
+        submitSellingPlanIdInput.value = subscriptionPlanID;
+      }
+      if (submitVariantIdInput) {
+        submitVariantIdInput.value = variantID;
+      }
+
+      // Add selected class and check radio of clicked box
+      element.classList.add('selected');
+      const radioInput = element.querySelector('input[type="radio"]');
+      if (radioInput) {
+        radioInput.checked = true;
+      }
+
+      state.selectedBox = element;
+      updateSubmitButtonText(isSubscription, buyType);
+    }
+
+    function updateSubmitButtonText(isSubscription, buyType) {
+      const buttonText = submitButton.querySelector('.button-text');
+      if (buttonText) {
+        if (isSubscription) {
+          buttonText.textContent = "Subscribe Now";
+        } else if (buyType === 'buy_now') {
+          buttonText.textContent = "Buy Now";
+        } else {
+          buttonText.textContent = "Add to Cart";
+        }
+      }
+    }
+
+    function initializePurchaseOptions() {
+      const defaultVariantIndex = parseInt(productActions.getAttribute('data-default-variant-index')) || 0;
+      const defaultBox = purchaseOptionBoxes[defaultVariantIndex - 1] || purchaseOptionBoxes[0];
+
+      if (defaultBox) {
+        togglePurchaseBox(defaultBox);
+      }
+    }
+
+    // Handle clicks on the purchase option box
+    productActions.addEventListener('click', (event) => {
+      // Check if clicked on radio input or its parent
+      const radioInput = event.target.closest('input[type="radio"]');
+      const purchaseOptionBox = event.target.closest('.purchase-option-box');
+
+      if (radioInput) {
+        // If radio input was clicked, find its parent purchase option box
+        const parentBox = radioInput.closest('.purchase-option-box');
+        if (parentBox) {
+          event.preventDefault(); // Prevent default radio behavior
+          togglePurchaseBox(parentBox);
+        }
+      } else if (purchaseOptionBox) {
+        // If purchase option box was clicked
+        event.preventDefault();
+        togglePurchaseBox(purchaseOptionBox);
+      }
+    });
+
+    // Add change event listener for radio inputs
+    productActions.addEventListener('change', (event) => {
+      if (event.target.type === 'radio') {
+        const parentBox = event.target.closest('.purchase-option-box');
+        if (parentBox) {
+          togglePurchaseBox(parentBox);
+        }
+      }
+    });
+
+    initializePurchaseOptions();
+  });
+</script>
+
+<style>
+  /* Product Actions Styles */
+  #cta-section-{{ SID }} {
+    --primary-color: {{ buyBoxColor }};
+    --primary-color-dark: color-mix(in srgb, var(--primary-color), black 20%);
+    --primary-color-light: color-mix(in srgb, var(--primary-color), white 90%);
+    --text-color: #4a5568;
+    --border-color: #cbcbcb;
+    --radio-size: 1em;
+    --radio-size-mobile: 1.5em;
+    --transition-speed: 0.4s;
+
+    /* Grid Layout */
+    .product-container {
+      grid-template-columns: 54% 42% !important;
+    }
+
+    .product-actions {
+      grid-area: 2/2/3/3;
+      min-height: 415px;
+
+      &:not(.with-animation) .purchase-option-box {
+        max-height: none !important;
+        transition: none !important;
+      }
+    }
+
+    /* Radio Input Component */
+    .radio-input {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+
+      input[type='radio'] {
+        appearance: none;
+        -webkit-appearance: none;
+        width: var(--radio-size);
+        height: var(--radio-size);
+        background-color: #636363;
+        box-shadow: inset 2px 5px 10px rgb(5, 5, 5);
+        border-radius: 50%;
+        transition: transform var(--transition-speed) ease-in-out;
+        display: block !important;
+        margin: 0;
+        position: relative;
+        z-index: 1;
+
+        &:hover,
+        .purchase-option-box:hover & {
+          transform: scale(1.2);
+          cursor: pointer;
+        }
+
+        &:checked {
+          border: 1px solid var(--orange);
+
+          & + .circle {
+            transform: rotate(360deg);
+            scale: 1;
+          }
+        }
+      }
+
+      .circle {
+        position: absolute;
+        width: calc(var(--radio-size) * 0.6);
+        height: calc(var(--radio-size) * 0.6);
+        background-color: var(--orange);
+        scale: 0;
+        border-radius: 50%;
+        transition: all var(--transition-speed) ease-in-out;
+        pointer-events: none;
+        z-index: 2;
+      }
+    }
+
+    /* Purchase Type Buttons */
+    .purchase-type {
+      button {
+        background-color: var(--primary-color);
+        color: black;
+        border-radius: 5px;
+        font-size: 16px;
+        min-width: 49%;
+        padding: 0.65rem;
+        transition: background-color 0.3s, color 0.3s;
+        font-weight: 600;
+
+        &.selected {
+          color: white !important;
+        }
+
+        &:not(.selected) {
+          background: var(--primary-color-light);
+          border: 1px solid var(--primary-color);
+
+          .subscription-details {
+            color: var(--primary-color-dark);
+          }
+        }
+      }
+    }
+
+    /* Purchase Option Box */
+    .purchase-option-box {
+      --box-padding: 1rem;
+      --box-max-height: 72px;
+
+      background: #fff;
+      border: 1px solid var(--border-color);
+      cursor: pointer;
+      max-height: var(--box-max-height);
+      filter: drop-shadow(0px 4px 4px rgba(47, 47, 47, 0.1));
+      transition: max-height 0.5s ease-in-out, filter 0.3s, background-color 0.3s, border-width 0.3s;
+      border-radius: 10px;
+      border-color: var(--primary-color);
+      padding: var(--box-padding);
+
+      &:hover {
+        filter: drop-shadow(0px 4px 4px rgba(77, 53, 98, 0.3));
+      }
+
+      &.selected {
+        filter: drop-shadow(0px 4px 4px rgba(77, 53, 98, 0.3));
+        background-color: var(--primary-color-light);
+        max-height: max-content;
+      }
+
+      &[inert] {
+        max-height: var(--box-max-height) !important;
+        background: #ededed;
+        opacity: 0.6;
+
+        .option-title {
+          color: grey;
+        }
+      }
+
+      .radio-box {
+        align-items: center;
+        display: flex;
+      }
+
+      /* Price and Terms Styling */
+      .save-title {
+        background-color: var(--orange);
+        font-weight: bold;
+      }
+
+      .terms {
+        margin-left: 32px;
+      }
+
+      .price-wrapper {
+        min-width: 5rem;
+
+        .total-price {
+          color: {{ buyBoxColor | default: 'var(--primary-color-dark)' }};
+        }
+      }
+    }
+
+    /* Responsive Styles */
+    @media (max-width: 1269px) {
+      .purchase-option-box {
+        width: 100%;
+      }
+    }
+
+    @media (max-width: 767px) {
+      .product-actions {
+        grid-area: unset;
+        grid-row: 3;
+        max-width: unset;
+        min-height: unset;
+      }
+
+      .purchase-option-box {
+        font-size: 4vw;
+        padding: 3vw;
+        max-height: 16vw;
+
+        &.selected {
+          max-height: none;
+        }
+
+        .top-wrapper {
+          min-height: 9vw;
+        }
+
+        .left-wrapper {
+          gap: 2vw;
+        }
+
+        .option-title {
+          font-size: 3.9vw;
+        }
+
+        .price-wrapper {
+          min-width: 17.7vw;
+
+          .real-price {
+            font-size: 4.5vw;
+          }
+        }
+
+        .terms {
+          margin-left: 5vw;
+
+          .subtitle,
+          .terms-title {
+            font-size: 3.5vw;
+          }
+        }
+
+        .radio-box {
+          label {
+            width: 3vw;
+            height: 3vw;
+
+            &:after {
+              font-size: 2vw;
+              width: 3vw !important;
+              height: 3vw !important;
+              top: -0.25vw !important;
+              left: -0.25vw !important;
+              display: flex;
+              justify-content: center;
+              align-items: center;
+            }
+          }
+        }
+
+        &.selected {
+          max-height: max-content;
+        }
+
+        &[inert] {
+          max-height: 16vw !important;
+        }
+      }
+
+      .radio-input {
+        input[type='radio'] {
+          width: 1.5em;
+          height: 1.5em;
+        }
+
+        .circle {
+          width: 0.5em;
+          height: 0.5em;
+          left: -0.9em;
+        }
+      }
+    }
+  }
+</style>

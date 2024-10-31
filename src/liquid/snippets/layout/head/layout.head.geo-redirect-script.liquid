@@ -1,6 +1,6 @@
 {% capture CFH %}{{ content_for_header }}{% endcapture %}{{CFH}}
 
-  {% assign bypassUsers = 'yotam@curalife.com|yotamon@gmail.com|svetlana@curalife.com|ana@curalife.com' %}
+  {% assign bypassUsers = 'yotam@curalife.com|yotamon@gmail.com' %}
 
 {% if CFH contains 'adminBarInjector' %}
   {% assign admin = true %}
@@ -19,76 +19,213 @@
   <script>console.log("Redirect Cause User Is Employee")</script>
 {% endif %}
 
-{%- comment -%} Temp: remove redirect for curaeats product page {%- endcomment -%}
-{% if request.path contains 'products/curaeats' %}
-  {% assign admin = true %}
-  <script>console.log("Redirect Disabled For CuraEats")</script>
-{% endif %}
-
-{%- comment -%} Temp: remove redirect for blog pages {%- endcomment -%}
-{% if request.path contains '/blogs/blog' %}
+{% assign isBlog = false %}
+{% if request.path contains '/blogs/' %}
   {% assign isBlog = true %}
   <script>console.log("Redirect Disabled For Blog")</script>
+{% endif %}
+
+{% assign isCuralinSubPage = false %}
+{% if request.path contains '/products/curalin-pack-sub' %}
+  {% assign isCuralinSubPage = true %}
+  {% assign redirectGlobalToPath = 'products/curalin' %}
+  <script>console.log("Redirect Adjusted for Curalin Subscription Page")</script>
+{% endif %}
+
+{% if request.path contains '/pages/curalin-clinically-tested-blood-sugar-support' or request.path contains '/pages/thank-you-aff' or request.path contains '/pages/lp-wl-curaslim-360' %}
+  {% assign admin = true %}
+  <script>console.log("Redirect Disabled For Affiliate Page")</script>
+{% endif %}
+
+{% if customer.b2b? %}
+  {% assign admin = true %}
+  <script>console.log("Redirect Disabled For Wholesale Customer")</script>
 {% endif %}
 
 
 {% unless admin %}
   <script>
-    function redirectTo(url, slug) {
-      if (slug) {
-        window.location.hostname = url;
+    (function checkBodyAndInitialize() {
+      if (document.body) {
+        initRedirectionScript();
       } else {
-        window.location.href = url;
+        setTimeout(checkBodyAndInitialize, 10); // Check again after 10 milliseconds
+      }
+    })();
+
+    function initRedirectionScript() {
+      function createRedirectOverlay() {
+        // Create the overlay div
+        var overlay = document.createElement('div');
+        overlay.id = 'redirect-overlay';
+        overlay.style.position = 'fixed';
+        overlay.style.top = '0';
+        overlay.style.left = '0';
+        overlay.style.width = '100%';
+        overlay.style.height = '100%';
+        overlay.style.background = 'rgba(255, 255, 255, 0.8)';
+        overlay.style.zIndex = '10000';
+        overlay.style.display = 'flex';
+        overlay.style.justifyContent = 'center';
+        overlay.style.alignItems = 'center';
+        overlay.style.textAlign = 'center';
+
+        // Create the message div
+        var message = document.createElement('div');
+        message.className = 'redirect-message';
+        message.style.color = '#325f69';
+        message.style.fontSize = '1.5em';
+        message.style.marginBottom = '20px';
+        message.style.fontWeight = 'bold';
+        message.style.boxShadow = '0px 16px 29px 0px rgba(0,0,0,0.28)';
+        message.style.padding = '2rem';
+        message.style.borderRadius = '15px';
+        message.style.display = 'flex';
+        message.style.flexDirection = 'column';
+        message.style.alignItems = 'center';
+        message.style.gap = '2rem';
+        message.style.background = '#fff';
+        message.innerText = 'Directing you to the right store...';
+
+        // Create the loader div
+        var loader = document.createElement('div');
+        loader.className = 'loader';
+        loader.style.border = '5px solid #f3f3f3';
+        loader.style.borderTop = '5px solid #FFB22D';
+        loader.style.borderRadius = '50%';
+        loader.style.width = '60px';
+        loader.style.height = '60px';
+        loader.style.animation = 'spin 2s linear infinite';
+
+        message.appendChild(loader);
+        overlay.appendChild(message);
+        document.body.appendChild(overlay);
+      }
+
+      function redirectTo(url, keepPath) {
+        console.log("Redirecting to URL:", url, " | Keep Path:", keepPath);
+        let redirectUrl = url;
+
+        if (keepPath) {
+          const path = window.location.pathname;
+          const queryString = window.location.search;
+          redirectUrl += path + queryString;
+        }
+
+        // Create and display the overlay
+        createRedirectOverlay();
+
+        // Wait for 3 seconds before redirecting
+        setTimeout(function() {
+          window.location.href = redirectUrl;
+        }, 3000);
+      }
+
+      function detectRobot(userAgent) {
+        const combinedRobotRegex = /bot|spider|crawl|APIs-Google|AdsBot|Googlebot|mediapartners|Google Favicon|FeedFetcher|Google-Read-Aloud|DuplexWeb-Google|googleweblight|bing|yandex|baidu|duckduck|yahoo|ecosia|ia_archiver|facebook|instagram|pinterest|reddit|slack|twitter|whatsapp|youtube|semrush/;
+
+        return combinedRobotRegex.test(userAgent);
+      }
+
+      function setCookie(name, value, hours) {
+        const date = new Date();
+        date.setTime(date.getTime() + (hours*60*60*1000));
+        const expires = "; expires=" + date.toUTCString();
+        document.cookie = name + "=" + (value || "")  + expires + "; path=/";
+      }
+
+      function getCookie(name) {
+        const nameEQ = name + "=";
+        const ca = document.cookie.split(';');
+        for(let i=0;i < ca.length;i++) {
+          let c = ca[i];
+          while (c.charAt(0)==' ') c = c.substring(1,c.length);
+          if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length,c.length);
+        }
+        return null;
+      }
+
+      function getCountryFromService() {
+        console.log("Fetching country from service");
+        return fetch('https://geo.curalife.com/')
+          .then(response => response.json())
+          .then(data => {
+            // Store the country in a cookie that expires in 12 hours
+            setCookie('country', data.country, 12);
+            return data.country;
+          })
+          .catch(error => {
+            console.error('Error fetching country data:', error);
+            return null;
+          });
+      }
+
+      function handleRedirectionForCountry(country) {
+        console.log("Handling redirection for country:", country);
+        const host = location.hostname === 'global.curalife.com' ? 'Global' : 'USA';
+        const countriesUs = ['US', 'PR', 'CA', 'AU', 'BR'];
+        const countryUrls = {
+          'LT': 'https://curalife.lv',
+          'LV': 'https://curalife.lv',
+          'NL': 'https://curalife.nl',
+          'HU': 'https://curalife.hu',
+          'SG': 'https://curalife.sg',
+          'MY': 'https://curalife.sg',
+          'KW': 'https://trycuralife.com'
+        };
+
+        if (countryUrls[country]) {
+          redirectTo(countryUrls[country], false);
+        } else if (host === 'USA' && !countriesUs.includes(country) && !{{ isBlog }}) {
+          if ({{ isCuralinSubPage }}) {
+            redirectTo('https://global.curalife.com/{{ redirectGlobalToPath }}', false);
+          } else {
+            redirectTo('https://global.curalife.com', true);
+          }
+        } else if (host === 'Global' && countriesUs.includes(country) && !{{ isBlog }}) {
+          redirectTo('https://curalife.com', true);
+        }
+      }
+
+      function getQueryParam(param) {
+        const urlParams = new URLSearchParams(window.location.search);
+        return urlParams.get(param);
+      }
+
+      function handleGeoParameter() {
+        const geoParam = getQueryParam('geo');
+        if (geoParam) {
+          setCookie('country', geoParam.toUpperCase(), 12); // Set the 'country' cookie for 12 hours
+        }
+      }
+
+      const userAgent = navigator.userAgent;
+      const isRobot = detectRobot(userAgent);
+
+      handleGeoParameter();
+
+      if (!isRobot) {
+        const cachedCountry = getCookie('country');
+        if (cachedCountry) {
+          handleRedirectionForCountry(cachedCountry);
+        } else {
+          getCountryFromService().then(country => {
+            if (country) {
+              handleRedirectionForCountry(country);
+            }
+          });
+        }
       }
     }
 
-    function detectRobot(userAgent) {
-      const robotRegexes = [
-        /bot/, /spider/, /crawl/,
-        /APIs-Google/, /AdsBot/, /Googlebot/,
-        /mediapartners/, /Google Favicon/,
-        /FeedFetcher/, /Google-Read-Aloud/,
-        /DuplexWeb-Google/, /googleweblight/,
-        /bing/, /yandex/, /baidu/, /duckduck/, /yahoo/,
-        /ecosia/, /ia_archiver/,
-        /facebook/, /instagram/, /pinterest/, /reddit/,
-        /slack/, /twitter/, /whatsapp/, /youtube/,
-        /semrush/,
-      ];
-
-      return robotRegexes.some(regex => regex.test(userAgent));
-    }
-
-    const userAgent = navigator.userAgent;
-    const isRobot = detectRobot(userAgent);
-
-    if (!isRobot) {
-      console.log('REDIRECTING...');
-      fetch('https://geo.curalife.com/')
-        .then(response => response.json())
-        .then(data => {
-          console.log(data);
-          const country = data.country;
-          const host = location.hostname === 'global.curalife.com' ? 'Global' : 'USA';
-          const countriesUs = ['US', 'PR', 'CA', 'AU'];
-
-          sessionStorage.setItem('country', country);
-
-          if (['LT', 'LV'].includes(country)) {
-            redirectTo('https://curalife.lv', false);
-          } else if (country === 'AT') {
-            redirectTo('https://curalife.at', false);
-          } else if (country === 'KW') {
-            redirectTo('https://trycuralife.com', false);
-          } else if (host === 'USA' && !countriesUs.includes(country)) {
-            {% unless isBlog %}
-              redirectTo('global.curalife.com', true);
-            {% endunless %}
-          } else if (host === 'Global' {% unless isBlog %}&& countriesUs.includes(country){% endunless %}) {
-            redirectTo('curalife.com', true);
-          }
-        });
-    }
-
+    // Add keyframes for the spinner animation
+    var style = document.createElement('style');
+    style.innerHTML = `
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+    `;
+    document.head.appendChild(style);
   </script>
 {% endunless %}

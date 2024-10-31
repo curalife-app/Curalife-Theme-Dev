@@ -1,0 +1,176 @@
+<div id="countdown-{{ section_id }}" class="countdown">
+  <ul>
+    {% if isShowDays %}
+      <li><span id="days-{{ section_id }}"></span>Days</li>
+    {% endif %}
+    <li><span id="hours-{{ section_id }}"></span>Hours</li>
+    <li><span id="minutes-{{ section_id }}"></span>Minutes</li>
+    <li><span id="seconds-{{ section_id }}"></span>Seconds</li>
+  </ul>
+</div>
+
+<style>
+  @font-face {
+    font-family: 'Digital-7';
+    src: url({{ 'digital-7.ttf' | asset_url }}) format('truetype');
+  }
+
+  .countdown {
+    background-color: {{ bgColor }};
+    margin: auto;
+    max-width: fit-content;
+    max-height: 6rem;
+    margin-bottom: 0;
+  }
+
+  .countdown ul {
+    margin-bottom: unset;
+  }
+
+  .countdown li {
+    display: inline-block;
+    font-size: 12px;
+    list-style-type: none;
+    text-transform: uppercase;
+    min-width: 70px;
+    text-align: center;
+    padding: unset;
+    margin-bottom: unset;
+  }
+
+  .countdown li span {
+    display: block;
+    font-size: 40px;
+    font-weight: 400;
+    font-family: 'Digital-7', sans-serif;
+  }
+
+  .countdown li:before {
+    content: unset !important;
+  }
+
+  .countdown li:not(:last-child):before {
+    content: ":";
+    color: black;
+    display: block;
+    font-size: 25px;
+    position: relative;
+    top: 40px;
+    left: 40px;
+  }
+
+  @media screen and (max-width: 760px) {
+      .countdown li {
+        min-width: 20vw;
+        font-size: 3vw;
+      }
+
+      .countdown li span {
+        position: relative;
+        font-size: 15vw;
+      }
+
+      .countdown li:not(:last-child):before {
+        left: 14vw;
+      }
+  }
+</style>
+
+<script>
+    // Define pad function globally if it is used in both blocks
+    Number.prototype.pad = function() {
+        return this < 10 ? '0' + this : this;
+    };
+
+    {% if urgencyMinutes > 0 %}
+        (function() {
+            const second = 1000,
+                  minute = second * 60,
+                  hour = minute * 60,
+                  day = hour * 24,
+                  duration = {{ urgencyMinutes }} * minute;
+
+            function getCookie(name) {
+                let dc = document.cookie;
+                let prefix = name + "=";
+                let begin = dc.indexOf("; " + prefix);
+                if (begin === -1) {
+                    begin = dc.indexOf(prefix);
+                    if (begin !== 0) return null;
+                } else {
+                    begin += 2;
+                }
+                let end = document.cookie.indexOf(";", begin);
+                if (end === -1) {
+                    end = dc.length;
+                }
+                return decodeURI(dc.substring(begin + prefix.length, end));
+            }
+
+            function setCookie(name, value, seconds) {
+                let expires = "";
+                if (seconds) {
+                    let date = new Date();
+                    date.setTime(date.getTime() + seconds * 1000);
+                    expires = "; expires=" + date.toUTCString();
+                }
+                document.cookie = name + "=" + (value || "") + expires + "; path=/";
+            }
+
+            let countDown;
+            let existingTime = getCookie('countdownEndTime');
+            if (!existingTime) {
+                countDown = new Date().getTime() + duration;
+                setCookie('countdownEndTime', countDown, duration / 1000);
+            } else {
+                countDown = parseInt(existingTime, 10);
+            }
+
+            let x = setInterval(function() {
+                var now = new Date().getTime();
+                var distance = countDown - now;
+
+                {% if isShowDays %}
+                document.getElementById("days-{{ section_id }}").innerText = Math.floor(distance / day).pad(),
+                {% endif %}
+                document.getElementById("hours-{{ section_id }}").innerText = Math.floor((distance % day) / hour).pad(),
+                document.getElementById("minutes-{{ section_id }}").innerText = Math.floor((distance % hour) / minute).pad(),
+                document.getElementById("seconds-{{ section_id }}").innerText = Math.floor((distance % minute) / second).pad();
+
+                if (distance < 0) {
+                    clearInterval(x);
+                    setCookie('countdownEndTime', null, -1); // Delete the cookie
+                    countDown = new Date().getTime() + duration;
+                    setCookie('countdownEndTime', countDown, duration / 1000);
+                }
+            }, 1000);
+        })();
+    {% else %}
+        (function() {
+            const second = 1000,
+                  minute = second * 60,
+                  hour = minute * 60,
+                  day = hour * 24;
+            let birthday = "{{ month }} {{ day }}, {{ year }} {{ hour }}:{{ minute }}:00";
+            let countDown = new Date(birthday).getTime();
+
+            let x = setInterval(function() {
+                var now = new Date().getTime();
+                var distance = countDown - now;
+
+                {% if isShowDays %}
+                document.getElementById("days-{{ section_id }}").innerText = Math.floor(distance / day).pad(),
+                {% endif %}
+                document.getElementById("hours-{{ section_id }}").innerText = Math.floor((distance % day) / hour).pad(),
+                document.getElementById("minutes-{{ section_id }}").innerText = Math.floor((distance % hour) / minute).pad(),
+                document.getElementById("seconds-{{ section_id }}").innerText = Math.floor((distance % minute) / second).pad();
+
+                if (distance < 0) {
+                    clearInterval(x);
+                    document.getElementById("section-{{ section_id }}").parentElement.remove();
+                    document.querySelector('.shopify-section').firstChild.style.marginTop = '0';
+                }
+            }, 1000)
+        })();
+    {% endif %}
+</script>
