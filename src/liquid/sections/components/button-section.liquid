@@ -81,41 +81,115 @@
 
 <!-- CSS Styles -->
 <style>
-  .button-section-{{ section.id }} {
-    background: {{ section.settings.bg_color }};
-    {% if section.settings.remove_padding_top %}padding-top: 0;{% endif %}
-    {% if section.settings.remove_padding_bottom %}padding-bottom: 0;{% endif %}
-  }
-
-  .button-section .container {
-    display: flex;
-    justify-content: center;
-  }
-
-  .button-section-{{ section.id }} button {
-    border: none;
-    background: {{ section.settings.button_bg_color }};
-    border-radius: 0;
-    color: {{ section.settings.button_title_color }};
-    font-weight: 700;
-    font-size: 33px;
-    box-shadow: 8.26531px 8.26531px 8.26531px rgba(0, 0, 0, 0.2);
-    transition: all var(--transition);
-    border-radius: 17px;
-    min-width: 500px;
-  }
-
-  .button-section-{{ section.id }} button:hover {
-    {% if section.settings.button_bg_hover != blank %}background: {{ section.settings.button_bg_hover }};{% endif %}
-    {% if section.settings.button_title_color_hover != blank %}color: {{ section.settings.button_title_color_hover }};{% endif %}
-  }
-
-  @media screen and ( max-width: 768px) {
-    .button-section button {
-      min-width: 300px;
-      font-size: 25px;
+  {% if section.settings.is_sticky %}
+    /* Hide the original button section when sticky button is active */
+    #button-section-{{ section.id }}.hidden {
+      display: none;
     }
-  }
+
+    /* Sticky Button Styles */
+    #sticky-bar {
+      position: fixed;
+      bottom: 10px;
+      left: 10px;
+      transform: translateX(-50%) translateY(100%);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.5s ease-in-out, transform 0.5s ease-in-out;
+      z-index: 50;
+      width: 94vw;
+      max-width: 300px; /* Adjust as needed */
+      text-align: center;
+
+      @media screen and (max-width: 768px) {
+        bottom: 3vw;
+        left: 3vw;
+        max-width: unset;
+
+        &::after {
+          content: " ";
+          width: 100vw;
+          height: 25vw;
+          display: inline-block;
+          background: linear-gradient(0deg, rgb(255 255 255) 40%, rgb(255 255 255 / 0%) 90%);
+          position: absolute;
+          left: -3vw;
+          bottom: -6vw;
+          z-index: -1;
+        }
+      }
+    }
+
+    #sticky-bar.visible {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    #sticky-bar .sticky-button {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      background-color: {{ section.settings.button_bg_color }};
+      color: {{ section.settings.button_title_color }};
+      font-weight: bold;
+      font-size: 1.5rem;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+      border-radius: 0.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: none;
+      cursor: pointer;
+    }
+
+    /* Animation */
+    @keyframes popIn {
+      0% {
+        opacity: 0;
+        transform: translateY(100%) scale(0.9);
+      }
+      80% {
+        opacity: 1;
+        transform: translateY(-10%) scale(1.05);
+      }
+      100% {
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    #sticky-bar.visible {
+      animation: popIn 0.5s both;
+    }
+  {% endif %}
+
+  /* Existing padding styles */
+  {% if section.settings.padding_top != 50 and section.settings.padding_top != blank %}
+    #button-section-{{ section.id }} {
+      padding-top: {{ section.settings.padding_top }}px;
+    }
+  {% endif %}
+
+  {% if section.settings.padding_bottom != 50 and section.settings.padding_top != blank %}
+    #button-section-{{ section.id }} {
+      padding-bottom: {{ section.settings.padding_bottom }}px;
+    }
+  {% endif %}
+
+  {% if section.settings.padding_top_mobile != blank %}
+    @media screen and (max-width: 768px) {
+      #button-section-{{ section.id }} {
+        padding-top: {{ section.settings.padding_top_mobile }}vw;
+      }
+    }
+  {% endif %}
+
+  {% if section.settings.padding_bottom_mobile != blank %}
+    @media screen and (max-width: 768px) {
+      #button-section-{{ section.id }} {
+        padding-bottom: {{ section.settings.padding_bottom_mobile }}vw;
+      }
+    }
+  {% endif %}
 </style>
 
 {% schema %}
