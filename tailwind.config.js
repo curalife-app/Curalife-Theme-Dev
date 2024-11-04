@@ -39,6 +39,7 @@ module.exports = {
         '1/2': '50%'
       },
       colors: {
+        primary: 'var(--primary)',
         blue: '#3A7684',
         darkGrey: '#222222',
         grey: '#838383',

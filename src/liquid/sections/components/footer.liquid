@@ -1,280 +1,135 @@
-{% unless section.settings.hide_on_affiliate_pages and request.path contains '-aff' %}
-  <footer>
-    <div class="top-info">
-      <div class="container">
-        <div class="info-wrap">
-          <div class="main-side footer-column">
-            <a href="/"><img class="logo invert" src="{{ 'logo-new.svg' | asset_url }}" alt="curalife logo" width="134" height="32" loading="lazy"></a>
-            <div class="social-links flex gap-4 text-[24px] mt-4">
-              {% for block in section.blocks %}
-                {% if block.type == 'social' %}
-                  <a href="{{ block.settings.social_link }}" target="_blank"><i class="{{ block.settings.social_icon_class }}"></i></a>
-                {% endif %}
-              {% endfor %}
-            </div>
-        </div>
+{%- # Proper way to handle conditions in Liquid assignments -%}
+{%- assign current_year = 'now' | date: '%Y' -%}
+{%- assign shop_name = shop.name -%}
 
-          <div class="right-column footer-column">
-            <div class="menu-list">
-              {% for block in section.blocks %}
-                {% if block.type == 'menu' %}
-                  <div class="menu-wrapper">
-                    <div class="h6">{{ block.settings.menu_title }}</div>
-                    {% assign footer_linklist = block.settings.footer_linklist %}
-                    {% if linklists[footer_linklist].links.size > 0 %}
-                      <div class="menu">
-                        {% for link in linklists[footer_linklist].links %}
-                          <div class="item"><a href="{{ link.url }}"{% if link.url contains 'professionals' or link.url contains 'retail' %} rel="nofollow"{% endif %}>{{ link.title }}</a></div>
-                        {% endfor %}
-                      </div>
-                    {% endif %}
-                  </div>
-                {% endif %}
-              {% endfor %}
-            </div>
+{%- # Process blocks for performance -%}
+{%- assign menu_blocks = section.blocks | where: 'type', 'menu' -%}
+{%- assign social_blocks = section.blocks | where: 'type', 'social' -%}
+{%- assign payment_blocks = section.blocks | where: 'type', 'payment' -%}
+
+{%- # Check conditions -%}
+{%- if section.settings.hide_on_affiliate_pages and request.path contains '-aff' -%}
+  {%- assign show_footer = false -%}
+{%- else -%}
+  {%- assign show_footer = true -%}
+{%- endif -%}
+
+{%- if show_footer -%}
+  <footer
+    class="bg-primary text-white print:hidden"
+    style="--footer-titles-color: {{ section.settings.titles_color }};">
+    <div class="container mx-auto px-4">
+      {%- # Top Section -%}
+      <div class="py-8">
+        <div class="flex flex-col md:flex-row justify-between gap-8 md:gap-16">
+          {%- # Brand & Social Column -%}
+          <div class="md:w-auto">
+            <a href="/" class="block">
+              <img
+                class="logo invert max-w-[150px]"
+                src="{{ 'logo-new.svg' | asset_url }}"
+                alt="{{ shop_name }} logo"
+                width="134"
+                height="32"
+                loading="lazy"
+                decoding="async">
+            </a>
+
+            {%- # Social Links Section -%}
+            {%- if social_blocks.size > 0 -%}
+              <div class="social-links flex gap-4 text-2xl mt-4">
+                {%- for block in social_blocks -%}
+                  {%- if block.settings.social_link != blank -%}
+                    {%- assign social_name = block.settings.social_icon_class | split: '-' | last | capitalize -%}
+                    <a
+                      href="{{ block.settings.social_link | escape }}"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="hover:opacity-80 transition-opacity focus:outline-none focus:ring-2 focus:ring-white/20 rounded-full p-1"
+                      aria-label="Visit {{ shop_name }} on {{ social_name }}"
+                      {{ block.shopify_attributes }}>
+                      <i class="{{ block.settings.social_icon_class }} text-white"></i>
+                    </a>
+                  {%- endif -%}
+                {%- endfor -%}
+              </div>
+            {%- endif -%}
           </div>
+
+          {%- # Menu Columns -%}
+          {%- if menu_blocks.size > 0 -%}
+            <div class="w-full md:w-4/5">
+              <div class="grid grid-cols-1 md:grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-5">
+                {%- for block in menu_blocks -%}
+                  {%- assign footer_linklist = block.settings.footer_linklist -%}
+                  {%- assign links = linklists[footer_linklist].links -%}
+                  {%- if links.size > 0 -%}
+                    <div class="flex flex-col gap-2.5" {{ block.shopify_attributes }}>
+                      {%- if block.settings.menu_title != blank -%}
+                        <h2 class="text-[--footer-titles-color] uppercase font-bold text-sm">
+                          {{- block.settings.menu_title -}}
+                        </h2>
+                      {%- endif -%}
+                      <nav
+                        class="flex flex-col gap-4"
+                        aria-label="{{ block.settings.menu_title | default: 'Footer menu' | escape }}">
+                        {%- for link in links -%}
+                          <a
+                            href="{{ link.url | escape }}"
+                            class="font-light text-base hover:opacity-80 transition-opacity focus:outline-none focus:text-white/80"
+                            {%- if link.url contains 'professionals' or link.url contains 'retail' -%}
+                              rel="nofollow"
+                            {%- endif -%}>
+                            {{- link.title -}}
+                          </a>
+                        {%- endfor -%}
+                      </nav>
+                    </div>
+                  {%- endif -%}
+                {%- endfor -%}
+              </div>
+            </div>
+          {%- endif -%}
         </div>
 
-        <div class="pre-bottom-text">{{ section.settings.disclaimer }}</div>
+        {%- # Disclaimer Section -%}
+        {%- if section.settings.disclaimer != blank -%}
+          <div class="mt-8 text-xs text-white/70 max-w-3xl">
+            {{- section.settings.disclaimer -}}
+          </div>
+        {%- endif -%}
       </div>
-    </div>
 
-    <div class="bottom-info">
-      <div class="container">
-        <div class="info-wrap">
-          <div class="text"><p class="copy-write">&copy; {{ 'now' | date: '%Y' }} {{ shop.name }}</p> </div>
+      {%- # Footer Bottom -%}
+      <div class="py-2.5 border-t border-white/40">
+        <div class="flex flex-col md:flex-row items-center justify-between gap-4 text-xs">
+          <p class="order-2 md:order-1">&copy; {{ current_year }} {{ shop_name | escape }}</p>
 
-          <div class="payment-methods">
-            <div class="payments">
-              {% for block in section.blocks %}
-                {% if block.type == 'payment' %}
-                  {% if block.settings.payment_img != blank %}
-                    <div class="payment"><span><img src="{{ block.settings.payment_img | img_url: '' }}" width="51px" height="32px" alt=""></span></div>
-                  {% endif %}
-                {% endif %}
-              {% endfor %}
+          {%- # Payment Methods -%}
+          {%- if payment_blocks.size > 0 -%}
+            <div class="flex flex-wrap justify-center gap-5 order-1 md:order-2">
+              {%- for block in payment_blocks -%}
+                {%- if block.settings.payment_img != blank -%}
+                  <div {{ block.shopify_attributes }}>
+                    {%- render 'image-element',
+                      image: block.settings.payment_img,
+                      alt: 'Payment method',
+                      width: 51,
+                      height: 32,
+                      class: 'payment-icon'
+                    -%}
+                  </div>
+                {%- endif -%}
+              {%- endfor -%}
             </div>
-          </div>
+          {%- endif -%}
 
-          <p class="rights-reserved">All Rights Reserved</p>
+          <p class="order-3">All Rights Reserved</p>
         </div>
       </div>
     </div>
   </footer>
-{% endunless %}
-
-<style>
-  footer {
-    background: var(--primary);
-    color: {{ section.settings.text_color }};
-  }
-
-  footer .logo {
-    max-width: 150px;
-    margin: unset;
-  }
-
-  footer .top-info .info-wrap {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    padding: 2rem 0;
-  }
-
-  footer .disclaimer {
-    font-size: 0.7em;
-  }
-
-  footer .bottom-info .info-wrap .text p {
-    color: white !important;
-  }
-
-  footer .payment-methods ul:nth-child(2) {
-    display: none;
-  }
-
-  footer .support-contacts ul {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-
-  footer .show-phone-btn {
-    background: {{ section.settings.titles_color }};
-    border-radius: 15px;
-    cursor: pointer;
-    color: black;
-    padding: 0 25px;
-    font-size: 14px;
-    line-height: 27px;
-    min-width: 10rem;
-    text-align: center;
-  }
-
-  footer .show-phone-content {
-    display: none;
-  }
-
-  footer .right-column {
-    min-width: 80%;
-  }
-
-  footer .footer-column {
-    padding-top: 20px;
-  }
-
-  .main-side .menu-list ul {
-    display: flex;
-    flex-direction: column;
-    flex-wrap: wrap;
-  }
-
-  .right-column .menu-list {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    gap: 20px;
-  }
-
-  footer .h6 {
-    text-transform: uppercase;
-    color: {{ section.settings.titles_color }};
-    font-weight: bold;
-  }
-
-  .right-column .menu-list .menu-wrapper {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-
-  .right-column .menu-list {
-    padding-top: 0.7em;
-  }
-
-  .right-column .menu-list ul {
-    font-weight: lighter;
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-    font-size: 16px;
-  }
-
-  footer .support-contacts ul li {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    line-height: 1;
-    gap: 10px;
-    min-height: 30px;
-  }
-
-  .disclaimer-and-other {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-  }
-
-  .disclaimer-and-other a {
-    font-family: 'PP Radio Grotesk';
-    font-weight: lighter;
-    text-decoration-line: underline;
-    color: {{ section.settings.titles_color }};
-  }
-
-  .social-bar ul {
-    display: flex;
-    gap: 20px;
-  }
-
-  footer .social-bar ul li {
-    width: 50%;
-    padding: 10px 0;
-  }
-
-  footer .social-bar ul li a {
-    color: inherit;
-    transition: opacity var(--transition);
-    font-size: 28px;
-  }
-
-  footer .bottom-info {
-    padding: 10px 0;
-    border-top: 1px solid rgba(239,239,239,.37);
-  }
-
-  footer .bottom-info .info-wrap {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    font-size: 10px;
-  }
-
-  .pre-bottom-text {
-    margin-top: 1.2em;
-    margin-bottom: 1.5em;
-    font-size: 10px;
-    color: rgba(255, 255, 255, 0.7);
-  }
-
-  .payment-methods ul {
-    display: flex;
-    gap: 20px;
-  }
-
-  @media screen and (max-width: 768px) {
-    footer .footer-columns {
-      font-size: 20px;
-    }
-
-    footer .top-info .info-wrap {
-      padding-bottom: unset;
-      display: unset;
-    }
-
-    .main-side .menu-list ul {
-      flex-wrap: nowrap;
-      max-height: unset;
-    }
-
-    .right-column .menu-list ul {
-      margin-bottom: 20px;
-    }
-
-    .right-column .menu-list {
-      flex-direction: column;
-      gap: 5vw;
-    }
-
-    .disclaimer-and-other {
-      flex-direction: column;
-      padding-bottom: 10px;
-    }
-
-    .social-bar ul {
-      gap: 2vw;
-    }
-
-    .pre-bottom-text {
-      font-weight: 400;
-      font-size: 3vw;
-      line-height: 1.8em;
-    }
-
-    .payment-methods ul {
-      gap: 2vw;
-    }
-
-    .copy-write {
-      font-size: 2vw;
-    }
-
-    .rights-reserved {
-      font-size: 2vw;
-      margin-left: 2vw;
-    }
-  }
-</style>
+{%- endif -%}
 
 {% schema %}
 {
@@ -282,120 +137,109 @@
   "class": "footer_section",
   "settings": [
     {
-      "type": "color",
-      "id": "bg_color",
-      "label": "Background Color"
+      "type": "header",
+      "content": "Colors"
     },
     {
       "type": "color",
       "id": "titles_color",
-      "label": "Titles Color"
+      "label": "Heading Color",
+      "default": "#ffffff"
     },
     {
-      "type": "color",
-      "id": "text_color",
-      "label": "Text Color",
-      "default": "#ffffff"
+      "type": "header",
+      "content": "Content"
     },
     {
       "type": "image_picker",
       "id": "logo_img",
-      "label": "Logo image"
-    },
-    {
-      "type": "header",
-      "content": "Bottom Menu"
-    },
-    {
-      "type": "text",
-      "id": "bottom_menu_title",
-      "label": "Bottom Menu Title"
-    },
-    {
-      "type": "link_list",
-      "id": "bottom_linklist",
-      "label": "Bottom Menu"
+      "label": "Logo",
+      "info": "134x32px recommended"
     },
     {
       "type": "richtext",
       "id": "disclaimer",
-      "label": "Disclaimer"
+      "label": "Disclaimer text",
+      "info": "Optional footer disclaimer"
+    },
+    {
+      "type": "header",
+      "content": "Settings"
     },
     {
       "type": "checkbox",
       "id": "hide_on_affiliate_pages",
-      "label": "Hide on affiliate pages"
+      "label": "Hide on affiliate pages",
+      "default": false,
+      "info": "When enabled, footer will be hidden on affiliate pages"
     }
   ],
   "blocks": [
     {
       "type": "menu",
-      "name": "Menu",
+      "name": "Menu Column",
+      "limit": 4,
       "settings": [
         {
           "type": "text",
           "id": "menu_title",
-          "label": "Heading"
+          "label": "Heading",
+          "info": "Leave empty to hide heading"
         },
         {
           "type": "link_list",
           "id": "footer_linklist",
-          "label": "Menu"
+          "label": "Menu links"
         }
       ]
     },
     {
-      "type": "contact",
-      "name": "Contact Numbers",
-        "settings": [
-          {
-            "type": "image_picker",
-            "id": "flag_img",
-            "label": "Country Flag Image"
-          },
-          {
-            "type": "text",
-            "id": "phone_title",
-            "label": "Title"
-          },
-          {
-            "type": "text",
-            "id": "phone_number",
-            "label": "Phone Number"
-          }
-        ]
-      },
-      {
-        "type": "social",
-        "name": "Social Media",
-        "settings": [
-          {
-            "type": "text",
-            "id": "social_icon_class",
-            "label": "Social Icon Class"
-          },
-          {
-            "id": "social_link",
-            "type": "url",
-            "label": "Social Icon Link"
-          }
-        ]
-      },
-      {
+      "type": "social",
+      "name": "Social Link",
+      "limit": 6,
+      "settings": [
+        {
+          "type": "text",
+          "id": "social_icon_class",
+          "label": "Icon class",
+          "info": "Font Awesome class (e.g., fab fa-facebook)",
+          "placeholder": "fab fa-facebook"
+        },
+        {
+          "id": "social_link",
+          "type": "url",
+          "label": "Profile URL"
+        }
+      ]
+    },
+    {
       "type": "payment",
-      "name": "Payment Images",
+      "name": "Payment Method",
+      "limit": 8,
       "settings": [
         {
           "type": "image_picker",
           "id": "payment_img",
-          "label": "Select Payment Image"
+          "label": "Icon",
+          "info": "51x32px recommended"
         }
       ]
     }
   ],
   "presets": [
     {
-      "name": "Footer"
+      "name": "Footer",
+      "blocks": [
+        {
+          "type": "menu"
+        },
+        {
+          "type": "social"
+        },
+        {
+          "type": "payment"
+        }
+      ]
     }
   ]
 }
