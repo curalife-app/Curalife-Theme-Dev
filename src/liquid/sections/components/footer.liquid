@@ -1,11 +1,9 @@
-{%- # Proper way to handle conditions in Liquid assignments -%}
 {%- assign current_year = 'now' | date: '%Y' -%}
 {%- assign shop_name = shop.name -%}
 
 {%- # Process blocks for performance -%}
 {%- assign menu_blocks = section.blocks | where: 'type', 'menu' -%}
 {%- assign social_blocks = section.blocks | where: 'type', 'social' -%}
-{%- assign payment_blocks = section.blocks | where: 'type', 'payment' -%}
 
 {%- # Check conditions -%}
 {%- if section.settings.hide_on_affiliate_pages and request.path contains '-aff' -%}
@@ -20,11 +18,12 @@
     style="--footer-titles-color: {{ section.settings.titles_color }};">
     <div class="container mx-auto px-4">
       {%- # Top Section -%}
-      <div class="py-8">
-        <div class="flex flex-col md:flex-row justify-between gap-8 md:gap-16">
+      <div class="pt-12 pb-4">
+        <div class="flex md:flex-row items-start justify-between gap-8">
           {%- # Brand & Social Column -%}
-          <div class="md:w-auto">
+          <div class="shrink-0 md:w-auto">
             <a href="/" class="block">
+              {%- # Use native lazy loading and exact dimensions -%}
               <img
                 class="logo invert max-w-[150px]"
                 src="{{ 'logo-new.svg' | asset_url }}"
@@ -58,13 +57,13 @@
 
           {%- # Menu Columns -%}
           {%- if menu_blocks.size > 0 -%}
-            <div class="w-full md:w-4/5">
-              <div class="grid grid-cols-1 md:grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-5">
+            <div class="grow">
+              <div class="flex md:flex-col md:justify-end gap-8 md:gap-16">
                 {%- for block in menu_blocks -%}
                   {%- assign footer_linklist = block.settings.footer_linklist -%}
                   {%- assign links = linklists[footer_linklist].links -%}
                   {%- if links.size > 0 -%}
-                    <div class="flex flex-col gap-2.5" {{ block.shopify_attributes }}>
+                    <div class="flex flex-col gap-2.5 min-w-[150px]" {{ block.shopify_attributes }}>
                       {%- if block.settings.menu_title != blank -%}
                         <h2 class="text-[--footer-titles-color] uppercase font-bold text-sm">
                           {{- block.settings.menu_title -}}
@@ -76,10 +75,7 @@
                         {%- for link in links -%}
                           <a
                             href="{{ link.url | escape }}"
-                            class="font-light text-base hover:opacity-80 transition-opacity focus:outline-none focus:text-white/80"
-                            {%- if link.url contains 'professionals' or link.url contains 'retail' -%}
-                              rel="nofollow"
-                            {%- endif -%}>
+                            class="font-light text-[16px] hover:opacity-80 transition-opacity focus:outline-none focus:text-white/80 whitespace-nowrap">
                             {{- link.title -}}
                           </a>
                         {%- endfor -%}
@@ -94,7 +90,7 @@
 
         {%- # Disclaimer Section -%}
         {%- if section.settings.disclaimer != blank -%}
-          <div class="mt-8 text-xs text-white/70 max-w-3xl">
+          <div class="mt-8 text-xs text-white/70">
             {{- section.settings.disclaimer -}}
           </div>
         {%- endif -%}
@@ -102,28 +98,8 @@
 
       {%- # Footer Bottom -%}
       <div class="py-2.5 border-t border-white/40">
-        <div class="flex flex-col md:flex-row items-center justify-between gap-4 text-xs">
+        <div class="flex items-center justify-between gap-4 text-xs">
           <p class="order-2 md:order-1">&copy; {{ current_year }} {{ shop_name | escape }}</p>
-
-          {%- # Payment Methods -%}
-          {%- if payment_blocks.size > 0 -%}
-            <div class="flex flex-wrap justify-center gap-5 order-1 md:order-2">
-              {%- for block in payment_blocks -%}
-                {%- if block.settings.payment_img != blank -%}
-                  <div {{ block.shopify_attributes }}>
-                    {%- render 'image-element',
-                      image: block.settings.payment_img,
-                      alt: 'Payment method',
-                      width: 51,
-                      height: 32,
-                      class: 'payment-icon'
-                    -%}
-                  </div>
-                {%- endif -%}
-              {%- endfor -%}
-            </div>
-          {%- endif -%}
-
           <p class="order-3">All Rights Reserved</p>
         </div>
       </div>
@@ -211,19 +187,6 @@
           "label": "Profile URL"
         }
       ]
-    },
-    {
-      "type": "payment",
-      "name": "Payment Method",
-      "limit": 8,
-      "settings": [
-        {
-          "type": "image_picker",
-          "id": "payment_img",
-          "label": "Icon",
-          "info": "51x32px recommended"
-        }
-      ]
     }
   ],
   "presets": [
@@ -235,9 +198,6 @@
         },
         {
           "type": "social"
-        },
-        {
-          "type": "payment"
         }
       ]
     }
