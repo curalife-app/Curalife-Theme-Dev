@@ -94,7 +94,7 @@ This Liquid snippet creates a responsive image component with the following feat
 
   # Check for global variant if enabled and store is global
   if load_global and is_global_store
-    assign global_src = image_name | append: '-glb.' | append: image_ext
+    assign global_src = image_name | append: '-global.' | append: image_ext
     assign global_check = global_src | file_url
 
     unless global_check == blank or global_check contains '404' or global_check contains 'null'
@@ -102,9 +102,18 @@ This Liquid snippet creates a responsive image component with the following feat
       assign global_variant_url = global_check
       # Store the original desktop image URL for potential fallback
       assign original_desktop_url = desktop_image.src
-      # Update the image name for subsequent checks (retina, mobile) to use the global version
+      # Keep original name for other variants
       assign base_image_name = image_name
-      assign image_name = image_name | append: '-glb'
+      # Update the image name for subsequent checks to use the global version
+      assign image_name = image_name | append: '-global'
+
+      # Check for global retina variant
+      assign global_retina_src = image_name | append: '-x2.' | append: image_ext
+      assign global_retina_check = global_retina_src | file_url
+      unless global_retina_check == blank or global_retina_check contains '404' or global_retina_check contains 'null'
+        assign has_global_retina = true
+        assign global_retina_url = global_retina_check
+      endunless
     else
       assign has_global_variant = false
       assign base_image_name = image_name
@@ -113,36 +122,65 @@ This Liquid snippet creates a responsive image component with the following feat
     assign base_image_name = image_name
   endif
 
+  # Check for retina variant of the base image
+  assign retina_src = base_image_name | append: '-x2.' | append: image_ext
+  assign retina_check = retina_src | file_url
+
+  unless retina_check == blank or retina_check contains '404' or retina_check contains 'null'
+    assign retina_image = retina_src
+  endunless
+
   # Check for mobile variant if enabled and not explicitly provided
   if load_mobile and mobile_image == blank
     # Check for mobile variant of global image if global variant exists
     if has_global_variant
-      assign mobile_src = base_image_name | append: '-glb-mbl.' | append: image_ext
+      assign mobile_src = base_image_name | append: '-global-mbl.' | append: image_ext
       assign mobile_check = mobile_src | file_url
 
       unless mobile_check == blank or mobile_check contains '404' or mobile_check contains 'null'
         assign has_mobile_variant = true
         assign mobile_variant_url = mobile_check
+
+        # Check for retina variant of the global mobile image
+        assign mobile_retina_src = base_image_name | append: '-global-mbl-x2.' | append: image_ext
+        assign mobile_retina_check = mobile_retina_src | file_url
+        unless mobile_retina_check == blank or mobile_retina_check contains '404' or mobile_retina_check contains 'null'
+          assign mobile_retina_image = mobile_retina_src
+        endunless
       else
-        # Fallback to regular mobile variant if global-mobile doesn't exist
+        # Fallback to regular mobile variant
         assign mobile_src = base_image_name | append: '-mbl.' | append: image_ext
         assign mobile_check = mobile_src | file_url
 
         unless mobile_check == blank or mobile_check contains '404' or mobile_check contains 'null'
           assign has_mobile_variant = true
           assign mobile_variant_url = mobile_check
+
+          # Check for retina variant of the regular mobile image
+          assign mobile_retina_src = base_image_name | append: '-mbl-x2.' | append: image_ext
+          assign mobile_retina_check = mobile_retina_src | file_url
+          unless mobile_retina_check == blank or mobile_retina_check contains '404' or mobile_retina_check contains 'null'
+            assign mobile_retina_image = mobile_retina_src
+          endunless
         else
           assign has_mobile_variant = false
         endunless
       endunless
     else
-      # No global variant, just check for regular mobile variant
+      # No global variant, check regular mobile variant
       assign mobile_src = base_image_name | append: '-mbl.' | append: image_ext
       assign mobile_check = mobile_src | file_url
 
       unless mobile_check == blank or mobile_check contains '404' or mobile_check contains 'null'
         assign has_mobile_variant = true
         assign mobile_variant_url = mobile_check
+
+        # Check for retina variant of the mobile image
+        assign mobile_retina_src = base_image_name | append: '-mbl-x2.' | append: image_ext
+        assign mobile_retina_check = mobile_retina_src | file_url
+        unless mobile_retina_check == blank or mobile_retina_check contains '404' or mobile_retina_check contains 'null'
+          assign mobile_retina_image = mobile_retina_src
+        endunless
       else
         assign has_mobile_variant = false
       endunless
@@ -288,20 +326,14 @@ This Liquid snippet creates a responsive image component with the following feat
     srcset="
       {%- if has_mobile_variant -%}
         {{ mobile_variant_url }} 1x
-        {%- if mobile_retina_image contains '/files/' -%}
-          ,{{ mobile_retina_image | file_url }} 2x
-        {%- endif -%}
+        {%- if mobile_retina_image -%},{{ mobile_retina_image | file_url }} 2x{%- endif -%}
       {%- elsif has_global_variant -%}
         {{ global_variant_url }} 1x
-        {%- if retina_image contains '/files/' -%}
-          ,{{ retina_image | file_url }} 2x
-        {%- endif -%}
+        {%- if has_global_retina -%},{{ global_retina_url }} 2x{%- endif -%}
       {%- else -%}
         {%- for width in breakpoints -%}
           {{ mobile_image | image_url: width: width }} {{ width }}w
-          {%- if mobile_retina_image contains '/files/' -%}
-            ,{{ mobile_retina_image | file_url }} {{ width | times: 2 }}w
-          {%- endif -%}
+          {%- if mobile_retina_image -%},{{ mobile_retina_image | file_url }} {{ width | times: 2 }}w{%- endif -%}
           {%- unless forloop.last -%},{%- endunless -%}
         {%- endfor -%}
       {%- endif -%}
@@ -314,15 +346,11 @@ This Liquid snippet creates a responsive image component with the following feat
     srcset="
       {%- if has_global_variant -%}
         {{ global_variant_url }} 1x
-        {%- if retina_image contains '/files/' -%}
-          ,{{ retina_image | file_url }} 2x
-        {%- endif -%}
+        {%- if has_global_retina -%},{{ global_retina_url }} 2x{%- endif -%}
       {%- else -%}
         {%- for width in breakpoints -%}
           {{ desktop_image | image_url: width: width }} {{ width }}w
-          {%- if retina_image contains '/files/' -%}
-            ,{{ retina_image | file_url }} {{ width | times: 2 }}w
-          {%- endif -%}
+          {%- if retina_image -%},{{ retina_image | file_url }} {{ width | times: 2 }}w{%- endif -%}
           {%- unless forloop.last -%},{%- endunless -%}
         {%- endfor -%}
       {%- endif -%}
@@ -333,7 +361,9 @@ This Liquid snippet creates a responsive image component with the following feat
   <img
     id="{{ unique_id }}"
     src="{% if has_global_variant %}{{ global_variant_url }}{% else %}{{ fallback_url }}{% endif %}"
-    {%- if retina_image contains '/files/' -%}
+    {%- if has_global_variant and has_global_retina -%}
+      srcset="{{ global_retina_url }} 2x"
+    {%- elsif retina_image -%}
       srcset="{{ retina_image | file_url }} 2x"
     {%- endif -%}
     {% if lazy_load and is_priority != true %}
@@ -357,11 +387,13 @@ This Liquid snippet creates a responsive image component with the following feat
       originalSrc: this.src
     }); this.onerror=null; this.src='{{ fallback_url }}'"
     data-original-url="{{ fallback_url }}"
-    {%- if retina_image contains '/files/' -%}
-      data-desktop-retina-url="{{ desktop_retina_url }}"
+    {%- if has_global_variant and has_global_retina -%}
+      data-desktop-retina-url="{{ global_retina_url }}"
+    {%- elsif retina_image -%}
+      data-desktop-retina-url="{{ retina_image | file_url }}"
     {%- endif -%}
-    {%- if mobile_retina_image contains '/files/' -%}
-      data-mobile-retina-url="{{ mobile_retina_url }}"
+    {%- if mobile_retina_image -%}
+      data-mobile-retina-url="{{ mobile_retina_image | file_url }}"
     {%- endif -%}
     {%- if link -%}
       data-href="{{ link }}"
