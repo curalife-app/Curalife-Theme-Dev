@@ -66,7 +66,7 @@ This Liquid snippet creates a responsive image component with the following feat
 {%- endcomment -%}
 
 {%- liquid
-  # Initialize variables with defaults
+	# Initialize variables with defaults
   assign desktop_image = image
   assign mobile_image = mobile_image
   assign lazy_load = lazy | default: true
@@ -94,36 +94,59 @@ This Liquid snippet creates a responsive image component with the following feat
 
   # Check for global variant if enabled and store is global
   if load_global and is_global_store
-    assign global_src = image_name | append: '-global.' | append: image_ext
+    assign global_src = image_name | append: '-glb.' | append: image_ext
     assign global_check = global_src | file_url
 
     unless global_check == blank or global_check contains '404' or global_check contains 'null'
       assign has_global_variant = true
       assign global_variant_url = global_check
+      # Store the original desktop image URL for potential fallback
+      assign original_desktop_url = desktop_image.src
       # Update the image name for subsequent checks (retina, mobile) to use the global version
-      assign image_name = image_name | append: '-global'
+      assign base_image_name = image_name
+      assign image_name = image_name | append: '-glb'
     else
       assign has_global_variant = false
+      assign base_image_name = image_name
     endunless
+  else
+    assign base_image_name = image_name
   endif
-
-  # Check for retina variant
-  assign retina_src = image_name | append: '-x2.' | append: image_ext
-  assign retina_check = retina_src | file_url
 
   # Check for mobile variant if enabled and not explicitly provided
   if load_mobile and mobile_image == blank
-    assign mobile_src = image_name | append: '-mbl.' | append: image_ext
-    assign mobile_check = mobile_src | file_url
+    # Check for mobile variant of global image if global variant exists
+    if has_global_variant
+      assign mobile_src = base_image_name | append: '-glb-mbl.' | append: image_ext
+      assign mobile_check = mobile_src | file_url
 
-    unless mobile_check == blank or mobile_check contains '404' or mobile_check contains 'null'
-      # Since we found a mobile variant, we'll still use the desktop image object
-      # but track that we have a mobile URL to use
-      assign has_mobile_variant = true
-      assign mobile_variant_url = mobile_check
+      unless mobile_check == blank or mobile_check contains '404' or mobile_check contains 'null'
+        assign has_mobile_variant = true
+        assign mobile_variant_url = mobile_check
+      else
+        # Fallback to regular mobile variant if global-mobile doesn't exist
+        assign mobile_src = base_image_name | append: '-mbl.' | append: image_ext
+        assign mobile_check = mobile_src | file_url
+
+        unless mobile_check == blank or mobile_check contains '404' or mobile_check contains 'null'
+          assign has_mobile_variant = true
+          assign mobile_variant_url = mobile_check
+        else
+          assign has_mobile_variant = false
+        endunless
+      endunless
     else
-      assign has_mobile_variant = false
-    endunless
+      # No global variant, just check for regular mobile variant
+      assign mobile_src = base_image_name | append: '-mbl.' | append: image_ext
+      assign mobile_check = mobile_src | file_url
+
+      unless mobile_check == blank or mobile_check contains '404' or mobile_check contains 'null'
+        assign has_mobile_variant = true
+        assign mobile_variant_url = mobile_check
+      else
+        assign has_mobile_variant = false
+      endunless
+    endif
   endif
 
   # Set mobile image to either the provided mobile image or desktop image
@@ -268,6 +291,11 @@ This Liquid snippet creates a responsive image component with the following feat
         {%- if mobile_retina_image contains '/files/' -%}
           ,{{ mobile_retina_image | file_url }} 2x
         {%- endif -%}
+      {%- elsif has_global_variant -%}
+        {{ global_variant_url }} 1x
+        {%- if retina_image contains '/files/' -%}
+          ,{{ retina_image | file_url }} 2x
+        {%- endif -%}
       {%- else -%}
         {%- for width in breakpoints -%}
           {{ mobile_image | image_url: width: width }} {{ width }}w
@@ -284,13 +312,20 @@ This Liquid snippet creates a responsive image component with the following feat
   <source
     media="(min-width: {{ mobile_breakpoint | plus: 1 }}px)"
     srcset="
-      {%- for width in breakpoints -%}
-        {{ desktop_image | image_url: width: width }} {{ width }}w
+      {%- if has_global_variant -%}
+        {{ global_variant_url }} 1x
         {%- if retina_image contains '/files/' -%}
-          ,{{ retina_image | file_url }} {{ width | times: 2 }}w
+          ,{{ retina_image | file_url }} 2x
         {%- endif -%}
-        {%- unless forloop.last -%},{%- endunless -%}
-      {%- endfor -%}
+      {%- else -%}
+        {%- for width in breakpoints -%}
+          {{ desktop_image | image_url: width: width }} {{ width }}w
+          {%- if retina_image contains '/files/' -%}
+            ,{{ retina_image | file_url }} {{ width | times: 2 }}w
+          {%- endif -%}
+          {%- unless forloop.last -%},{%- endunless -%}
+        {%- endfor -%}
+      {%- endif -%}
     "
     sizes="{{ sizes }}"
   >
