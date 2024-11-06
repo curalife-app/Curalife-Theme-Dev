@@ -4,7 +4,6 @@
 This Liquid snippet creates a responsive image component with the following features:
 - Responsive images with desktop/mobile variants
 - Optional automatic mobile image detection
-- Retina image support
 - Lazy loading with priority options
 - Error logging and fallback handling
 - WebP format support
@@ -13,227 +12,119 @@ This Liquid snippet creates a responsive image component with the following feat
 {%- endcomment -%}
 
 {%- liquid
-  #######################################
-  # Initialize variables with defaults
-  #######################################
-  assign desktop_image = image
-  assign mobile_image = mobile_image
-  assign lazy_load = lazy | default: true
-  assign is_priority = priority | default: false
-  assign load_mobile = load_mobile | default: false
-  assign load_global = load_global | default: false
-  assign alt = alt | default: image.alt
-  assign mobile_breakpoint = mobile_breakpoint | default: 768
-  assign sizes = sizes | default: '(min-width: 1200px) 1200px, (min-width: 768px) 768px, 100vw'
-  assign breakpoints = '375,640,768,1080,1200,1920,2560' | split: ','
+#######################################
+# Initialize variables with defaults
+#######################################
+assign desktop_image = image
+assign mobile_image_provided = mobile_image
+assign lazy_load = lazy | default: true
+assign is_priority = priority | default: false
+assign load_mobile = load_mobile | default: false
+assign load_global = load_global | default: false
+assign alt = alt | default: image.alt
+assign mobile_breakpoint = mobile_breakpoint | default: 768
+assign sizes = sizes | default: '(min-width: 1200px) 1200px, (min-width: 768px) 768px, 100vw'
+assign breakpoints = '375,640,768,1080,1200,1920,2560' | split: ','
 
-  #######################################
-  # Check if store is global
-  #######################################
-  assign shop_name = shop.name | downcase
-  assign is_global_store = false
-  if shop_name contains 'global'
-    assign is_global_store = true
+#######################################
+# Check if store is global
+#######################################
+if shop.name contains 'Global'
+	assign is_global_store = true
+endif
+
+#######################################
+# Process desktop image path
+#######################################
+assign full_path = desktop_image.src
+assign path_parts = full_path | split: '/'
+assign filename = path_parts | last
+assign image_name = filename | split: '.' | first
+assign image_ext = filename | split: '.' | last
+assign base_image_name = image_name
+
+#######################################
+# Process desktop image path
+#######################################
+assign full_path = desktop_image.src
+assign path_parts = full_path | split: '/'
+assign filename = path_parts | last
+assign image_name = filename | split: '.' | first
+assign image_ext = filename | split: '.' | last
+assign base_image_name = image_name
+
+#######################################
+# Construct Global Variant URL if Enabled
+#######################################
+assign has_global_variant = false
+
+if load_global and is_global_store
+  assign image_name = image_name | append: '-global'
+  assign has_global_variant = true
+endif
+
+assign base_url = full_path | remove: filename
+
+# Reconstruct the desktop variant URL
+assign desktop_variant_url = base_url | append: image_name | append: '.' | append: image_ext | img_url: '1100x'
+
+#######################################
+# Handle Mobile Variant
+#######################################
+assign has_mobile_variant = false
+if mobile_image_provided != blank
+  assign has_mobile_variant = true
+  assign mobile_variant_url = mobile_image_provided.src
+elsif load_mobile
+  assign mobile_variant_filename = image_name | append: '-mbl.' | append: image_ext
+  assign mobile_variant_full_filename = 'files/' | append: mobile_variant_filename
+  assign mobile_variant_url = mobile_variant_full_filename | file_url
+  if mobile_variant_url contains '?v='
+    assign has_mobile_variant = true
+  else
+    assign mobile_variant_url = ''
   endif
+endif
 
-  #######################################
-  # Process desktop image path
-  #######################################
-  assign full_path = desktop_image.src
-  assign path_parts = full_path | split: '/'
-  assign filename = path_parts | last
-  assign image_name = filename | split: '.' | first
-  assign image_ext = filename | split: '.' | last
-  assign base_image_name = image_name
+#######################################
+# Validation checks and error logging
+#######################################
+assign error_log = 'window.imageErrors = window.imageErrors || { missing_alt: [], missing_image: [], load_errors: []};'
+if image == blank
+  assign validation_error = '{ type: "Missing Image", message: "Image is required" }'
+  assign error_log = error_log | append: 'window.imageErrors.missing_image.push(' | append: validation_error | append: ');'
+endif
+if alt == blank
+  assign validation_error = '{ type: "Missing Alt", message: "Image Alt text is required", src: "' | append: image.src | append: '" }'
+  assign error_log = error_log | append: 'window.imageErrors.missing_alt.push(' | append: validation_error | append: ');'
+endif
 
-  #######################################
-  # Check for global variant if enabled
-  #######################################
-  assign has_global_variant = false
-  if load_global and is_global_store
-    assign global_src = image_name | append: '-global.' | append: image_ext
-    assign global_check = global_src | file_url
-
-    unless global_check == blank or global_check contains '404' or global_check contains 'null'
-      assign has_global_variant = true
-      assign global_variant_url = global_check
-      assign original_desktop_url = desktop_image.src
-      assign image_name = image_name | append: '-global'
-
-      # Check for global retina variant
-      assign global_retina_src = image_name | append: '-x2.' | append: image_ext
-      assign global_retina_check = global_retina_src | file_url
-      unless global_retina_check == blank or global_retina_check contains '404' or global_retina_check contains 'null'
-        assign has_global_retina = true
-        assign global_retina_url = global_retina_check
-      endunless
-    endunless
-  endif
-
-  #######################################
-  # Check for retina variant of base image
-  #######################################
-  assign retina_src = base_image_name | append: '-x2.' | append: image_ext
-  assign retina_check = retina_src | file_url
-  if retina_check contains '/files/'
-    assign retina_image = retina_src
-  endif
-
-  #######################################
-  # Initialize mobile variant flags
-  #######################################
-  assign has_mobile_variant = false
-  assign has_mobile_retina = false
-  assign mobile_variant_url = nil
-  assign mobile_retina_url = nil
-  assign mobile_retina_check = nil
-
-  #######################################
-  # Check for mobile variant if enabled
-  #######################################
-  if load_mobile and mobile_image == blank
-    if has_global_variant
-      assign mobile_src = base_image_name | append: '-global-mbl.' | append: image_ext
-      assign mobile_check = mobile_src | file_url
-
-      unless mobile_check == blank or mobile_check contains '404' or mobile_check contains 'null'
-        assign has_mobile_variant = true
-        assign mobile_variant_url = mobile_check
-
-        # Check for mobile retina variant
-        assign mobile_retina_src = base_image_name | append: '-global-mbl-x2.' | append: image_ext
-        assign mobile_retina_check = mobile_retina_src | file_url
-        unless mobile_retina_check == blank or mobile_retina_check contains '404' or mobile_retina_check contains 'null'
-          assign has_mobile_retina = true
-          assign mobile_retina_url = mobile_retina_check
-        endunless
-      else
-        # Fallback to regular mobile variant
-        assign mobile_src = base_image_name | append: '-mbl.' | append: image_ext
-        assign mobile_check = mobile_src | file_url
-
-        unless mobile_check == blank or mobile_check contains '404' or mobile_check contains 'null'
-          assign has_mobile_variant = true
-          assign mobile_variant_url = mobile_check
-
-          # Check for mobile retina variant
-          assign mobile_retina_src = base_image_name | append: '-mbl-x2.' | append: image_ext
-          assign mobile_retina_check = mobile_retina_src | file_url
-          unless mobile_retina_check == blank or mobile_retina_check contains '404' or mobile_retina_check contains 'null'
-            assign has_mobile_retina = true
-            assign mobile_retina_url = mobile_retina_check
-          endunless
-        endunless
-      endunless
-    else
-      # No global variant, check regular mobile variant
-      assign mobile_src = base_image_name | append: '-mbl.' | append: image_ext
-      assign mobile_check = mobile_src | file_url
-
-      unless mobile_check == blank or mobile_check contains '404' or mobile_check contains 'null'
-        assign has_mobile_variant = true
-        assign mobile_variant_url = mobile_check
-
-        # Check for mobile retina variant
-        assign mobile_retina_src = base_image_name | append: '-mbl-x2.' | append: image_ext
-        assign mobile_retina_check = mobile_retina_src | file_url
-        unless mobile_retina_check == blank or mobile_retina_check contains '404' or mobile_retina_check contains 'null'
-          assign has_mobile_retina = true
-          assign mobile_retina_url = mobile_retina_check
-        endunless
-      endunless
-    endif
-  endif
-
-  #######################################
-  # Set mobile image or default to desktop
-  #######################################
-  assign mobile_image = mobile_image | default: desktop_image
-
-  #######################################
-  # Initialize error log
-  #######################################
-  assign error_log = 'window.imageErrors = window.imageErrors || { missing_alt: [], missing_retina: [], missing_mobile: [], missing_global: [], load_errors: []};'
-
-  #######################################
-  # Validation checks
-  #######################################
-  if image == blank
-    assign validation_error = '{ type: "Missing Alt Test", message: "Image is required" }'
-    assign error_log = error_log | append: 'window.imageErrors.missing_alt.push(' | append: validation_error | append: ');'
-  endif
-
-  if alt == blank
-    assign validation_error = '{ type: "Missing Alt Test", message: "Image Alt text is required", src: "' | append: image.src | append: '" }'
-    assign error_log = error_log | append: 'window.imageErrors.missing_alt.push(' | append: validation_error | append: ');'
-  endif
-
-  #######################################
-  # Process retina images
-  #######################################
-  assign debug_data = nil
-  unless retina_image
-    assign debug_data = '{ type: "Missing Retina Image", filename: "' | append: filename | append: '", expectedRetina: "' | append: retina_src | append: '", retinaCheck: "' | append: retina_check | append: '", variant: "desktop", timestamp: "' | append: 'now' | date: '%Y-%m-%d %H:%M:%S' | append: '" }'
-    assign error_log = error_log | append: 'window.imageErrors.missing_retina.push(' | append: debug_data | append: ');'
-  endunless
-
-  #######################################
-  # Generate unique IDs and URLs
-  #######################################
-  assign unique_id = 'img-' | append: desktop_image.id | append: '-' | append: mobile_image.id | append: '-' | now | date: '%N'
-  assign fallback_url = desktop_image | image_url: width: 1100
-
-  if retina_image
-    assign desktop_retina_url = retina_image | image_url: width: 2200
-  endif
-
-  if has_mobile_variant
-    assign base_mobile_url = mobile_image | image_url: width: 750, format: 'webp'
-    if has_mobile_retina and mobile_retina_url != blank
-      assign mobile_retina_url = mobile_retina_url | image_url: width: 1500
-    endif
-  endif
+#######################################
+# Generate unique IDs and URLs
+#######################################
+assign unique_id = 'img-' | append: desktop_image.id | append: '-' | append: now | date: '%N'
+assign fallback_url = desktop_image | image_url: width: 1100
 -%}
 
+<!-- Image Component -->
 <picture>
   {% if has_mobile_variant %}
     <source
       media="(max-width: {{ mobile_breakpoint }}px)"
-      srcset="
-        {%- capture mobile_srcset -%}
-          {{ mobile_variant_url }}
-          {%- if has_mobile_retina and mobile_retina_check contains 'http' and mobile_retina_check != blank and mobile_retina_check contains '//curalife.com/cdn/shop/files/' and mobile_retina_url != blank -%}
-            1x, {{ mobile_retina_url }} 2x
-          {%- endif -%}
-        {%- endcapture -%}{{ mobile_srcset | strip }}"
+      srcset="{{ mobile_variant_url }}"
       sizes="{{ sizes }}"
     >
   {% endif %}
 
   <source
     media="(min-width: {{ mobile_breakpoint | plus: 1 }}px)"
-    {% if has_global_variant %}
-      {% if has_global_retina and global_retina_check contains 'http' and global_retina_check != blank and global_retina_check contains '//curalife.com/cdn/shop/files/' %}
-        srcset="{{ global_variant_url }} 1x, {{ global_retina_url }} 2x"
-      {% else %}
-        srcset="{{ global_variant_url }}"
-      {% endif %}
-    {% else %}
-      {% if retina_image %}
-        srcset="{{ desktop_image | image_url: width: 1200 }} 1x, {{ retina_check }} 2x"
-      {% else %}
-        srcset="{{ desktop_image | image_url: width: 1200 }}"
-      {% endif %}
-    {% endif %}
+    srcset="{{ desktop_variant_url }}"
     sizes="{{ sizes }}"
   >
 
   <img
     id="{{ unique_id }}"
-    src="{% if has_global_variant %}{{ global_variant_url }}{% else %}{{ fallback_url }}{% endif %}"
-    {% if has_global_variant and has_global_retina and global_retina_check contains 'http' and global_retina_check != blank and global_retina_check contains '//curalife.com/cdn/shop/files/' %}
-      srcset="{{ global_retina_url }} 2x"
-    {% endif %}
+    src="{{ desktop_variant_url }}"
     {% if lazy_load and is_priority != true %}
       loading="lazy"
       decoding="async"
@@ -255,26 +146,73 @@ This Liquid snippet creates a responsive image component with the following feat
       originalSrc: this.src
     }); this.onerror=null; this.src='{{ fallback_url }}'"
     data-original-url="{{ fallback_url }}"
-    {%- if has_global_variant and has_global_retina and global_retina_check contains '//curalife.com/cdn/shop/files/' -%}
-      data-desktop-retina-url="{{ global_retina_url }}"
-    {%- elsif retina_check and retina_check contains 'http' and retina_check != blank and retina_check contains '//curalife.com/cdn/shop/files/' -%}
-      data-desktop-retina-url="{{ retina_check }}"
-    {%- endif -%}
-    {%- if has_mobile_variant and has_mobile_retina and mobile_variant_url != blank and mobile_retina_url != blank and mobile_retina_check contains '//curalife.com/cdn/shop/files/' -%}
-      data-mobile-retina-url="{{ mobile_retina_url }}"
-    {%- endif -%}
     {%- if link -%}
       data-href="{{ link }}"
     {%- endif -%}
   >
 </picture>
 
+<!-- Consolidated Debug Logs Script -->
 <script>
+  window.imageErrors = window.imageErrors || { missing_alt: [], missing_image: [], load_errors: [] };
   {{ error_log }}
+
+  window.imageDebugData = window.imageDebugData || [];
+  window.imageDebugData.push({
+    unique_id: {{ unique_id | json }},
+    image_name: {{ image_name | json }},
+    desktop_variant_url: {{ desktop_variant_url | json }},
+    has_mobile_variant: {{ has_mobile_variant | json }},
+    mobile_variant_url: {{ mobile_variant_url | json }},
+    fallback_url: {{ fallback_url | json }},
+    has_global_variant: {{ has_global_variant | json }},
+    is_global_store: {{ is_global_store | json }},
+    shop_name: {{ shop.name | json }},
+    desktop_image: {
+      id: {{ desktop_image.id | json }},
+      src: {{ desktop_image.src | json }},
+      width: {{ desktop_image.width | json }},
+      height: {{ desktop_image.height | json }},
+      alt: {{ desktop_image.alt | json }}
+    },
+    mobile_image_provided: {
+      id: {{ mobile_image_provided.id | json }},
+      src: {{ mobile_image_provided.src | json }},
+      width: {{ mobile_image_provided.width | json }},
+      height: {{ mobile_image_provided.height | json }},
+      alt: {{ mobile_image_provided.alt | json }}
+    },
+    lazy_load: {{ lazy_load | json }},
+    is_priority: {{ is_priority | json }},
+    load_mobile: {{ load_mobile | json }},
+    load_global: {{ load_global | json }},
+    alt: {{ alt | json }},
+    mobile_breakpoint: {{ mobile_breakpoint | json }},
+    sizes: {{ sizes | json }},
+    breakpoints: {{ breakpoints | json }}
+  });
+
+  if (!window.debouncedDisplayImageDebugLogs) {
+    window.debouncedDisplayImageDebugLogs = (function() {
+      let timeoutId = null;
+      return function() {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+        timeoutId = setTimeout(function() {
+          console.group('Consolidated Image Debug Logs');
+          window.imageDebugData.forEach(function(debugData) {
+            console.log('Image Debug Data:', debugData);
+          });
+          console.groupEnd();
+        }, 1000);
+      };
+    })();
+  }
+  window.debouncedDisplayImageDebugLogs();
 
   if (!window.logImageError) {
     window.hasDisplayedImageErrors = false;
-
     window.debouncedDisplayErrors = (function() {
       let timeoutId = null;
       return function() {
@@ -285,13 +223,11 @@ This Liquid snippet creates a responsive image component with the following feat
           if (!window.hasDisplayedImageErrors) {
             const errors = window.imageErrors;
             const hasErrors = Object.values(errors).some(arr => arr.length > 0);
-
             if (hasErrors) {
               console.warn('🚨 Image Component Errors Summary:', {
                 totalErrors: Object.values(errors).reduce((sum, arr) => sum + arr.length, 0),
-                Errors: errors
+                errors: errors
               });
-
               window.hasDisplayedImageErrors = true;
             }
           }
@@ -304,14 +240,13 @@ This Liquid snippet creates a responsive image component with the following feat
       if (!window.imageErrors[type]) {
         window.imageErrors[type] = [];
       }
-
       data.timestamp = new Date().toISOString();
       const existingError = window.imageErrors[type].find(
         error => error.imageId === data.imageId && error.type === data.type
       );
-
       if (!existingError) {
         window.imageErrors[type].push(data);
+        console.error('Image Error:', type, data);
         window.debouncedDisplayErrors();
       }
     };
