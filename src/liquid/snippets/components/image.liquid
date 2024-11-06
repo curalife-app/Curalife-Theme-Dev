@@ -38,7 +38,8 @@ endif
 #######################################
 assign full_path = desktop_image.src
 assign path_parts = full_path | split: '/'
-assign filename = path_parts | last
+assign filename_with_url_params = path_parts | last
+assign filename = filename_with_url_params | split: '?' | first
 assign image_name = filename | split: '.' | first
 assign image_ext = filename | split: '.' | last
 assign base_image_name = image_name
@@ -49,11 +50,17 @@ assign base_image_name = image_name
 assign has_global_variant = false
 
 if load_global and is_global_store
-  assign image_name = image_name | append: '-global'
+  assign filename = image_name | append: '-glb' | append: '.' | append: image_ext
   assign has_global_variant = true
 endif
 
+if desktop_image.src != blank or desktop_image.src contains 'files/'
+echo '<script>console.info("Image URL does not contain query params, using default URL:", "' | append: desktop_image.src | append: '")</script>'
 assign desktop_variant_url = filename | file_url
+else
+echo '<script>console.warn("Image URL contains query params, consider removing them for better caching performance:", "' | append: desktop_image.src | append: '")</script>'
+assign desktop_variant_url = desktop_image | image_url
+endif
 
 #######################################
 # Handle Mobile Variant
@@ -104,7 +111,7 @@ assign fallback_url = desktop_image | image_url: width: 1100
 
   <source
     media="(min-width: {{ mobile_breakpoint | plus: 1 }}px)"
-    srcset="{{ fallback_url }}"
+    srcset="{{ desktop_variant_url }}"
     sizes="{{ sizes }}"
   >
 
@@ -125,16 +132,7 @@ assign fallback_url = desktop_image | image_url: width: 1100
     class="object-cover opacity-0 m-0 transition-opacity duration-300 ease-in-out {% if link %}cursor-pointer{% endif %} {% if class %}{{ class }}{% endif %}"
     onload="this.classList.add('opacity-100');"
     onclick="{% if link %}window.location.href='{{ link }}'{% endif %}"
-    onerror="window.logImageError('load_errors', {
-      imageId: '{{ desktop_image.id }}',
-      elementId: '{{ unique_id }}',
-      fallbackUrl: '{{ fallback_url }}',
-      originalSrc: this.src
-    }); this.onerror=null; this.src='{{ fallback_url }}'"
     data-original-url="{{ fallback_url }}"
-    {%- if link -%}
-      data-href="{{ link }}"
-    {%- endif -%}
   >
 </picture>
 
@@ -145,9 +143,13 @@ assign fallback_url = desktop_image | image_url: width: 1100
 
   window.imageDebugData = window.imageDebugData || [];
   window.imageDebugData.push({
+		image_src: {{ image.src | json }},
     unique_id: {{ unique_id | json }},
+		full_path: {{ full_path | json }},
+		path_parts: {{ path_parts | json }},
 		file_name: {{ filename | json }},
     image_name: {{ image_name | json }},
+		desktop_image_src: {{ desktop_image.src | json }},
     desktop_variant_url: {{ desktop_variant_url | json }},
     has_mobile_variant: {{ has_mobile_variant | json }},
     mobile_variant_url: {{ mobile_variant_url | json }},
