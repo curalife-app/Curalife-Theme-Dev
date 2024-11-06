@@ -44,16 +44,6 @@ assign image_ext = filename | split: '.' | last
 assign base_image_name = image_name
 
 #######################################
-# Process desktop image path
-#######################################
-assign full_path = desktop_image.src
-assign path_parts = full_path | split: '/'
-assign filename = path_parts | last
-assign image_name = filename | split: '.' | first
-assign image_ext = filename | split: '.' | last
-assign base_image_name = image_name
-
-#######################################
 # Construct Global Variant URL if Enabled
 #######################################
 assign has_global_variant = false
@@ -63,10 +53,7 @@ if load_global and is_global_store
   assign has_global_variant = true
 endif
 
-assign base_url = full_path | remove: filename
-
-# Reconstruct the desktop variant URL
-assign desktop_variant_url = base_url | append: image_name | append: '.' | append: image_ext | img_url: '1100x'
+assign desktop_variant_url = filename | file_url
 
 #######################################
 # Handle Mobile Variant
@@ -74,11 +61,10 @@ assign desktop_variant_url = base_url | append: image_name | append: '.' | appen
 assign has_mobile_variant = false
 if mobile_image_provided != blank
   assign has_mobile_variant = true
-  assign mobile_variant_url = mobile_image_provided.src
+  assign mobile_variant_url = mobile_image_provided | image_url
 elsif load_mobile
   assign mobile_variant_filename = image_name | append: '-mbl.' | append: image_ext
-  assign mobile_variant_full_filename = 'files/' | append: mobile_variant_filename
-  assign mobile_variant_url = mobile_variant_full_filename | file_url
+  assign mobile_variant_url = mobile_variant_filename | file_url
   if mobile_variant_url contains '?v='
     assign has_mobile_variant = true
   else
@@ -118,7 +104,7 @@ assign fallback_url = desktop_image | image_url: width: 1100
 
   <source
     media="(min-width: {{ mobile_breakpoint | plus: 1 }}px)"
-    srcset="{{ desktop_variant_url }}"
+    srcset="{{ fallback_url }}"
     sizes="{{ sizes }}"
   >
 
@@ -160,6 +146,7 @@ assign fallback_url = desktop_image | image_url: width: 1100
   window.imageDebugData = window.imageDebugData || [];
   window.imageDebugData.push({
     unique_id: {{ unique_id | json }},
+		file_name: {{ filename | json }},
     image_name: {{ image_name | json }},
     desktop_variant_url: {{ desktop_variant_url | json }},
     has_mobile_variant: {{ has_mobile_variant | json }},
@@ -169,17 +156,11 @@ assign fallback_url = desktop_image | image_url: width: 1100
     is_global_store: {{ is_global_store | json }},
     shop_name: {{ shop.name | json }},
     desktop_image: {
-      id: {{ desktop_image.id | json }},
       src: {{ desktop_image.src | json }},
-      width: {{ desktop_image.width | json }},
-      height: {{ desktop_image.height | json }},
       alt: {{ desktop_image.alt | json }}
     },
     mobile_image_provided: {
-      id: {{ mobile_image_provided.id | json }},
       src: {{ mobile_image_provided.src | json }},
-      width: {{ mobile_image_provided.width | json }},
-      height: {{ mobile_image_provided.height | json }},
       alt: {{ mobile_image_provided.alt | json }}
     },
     lazy_load: {{ lazy_load | json }},

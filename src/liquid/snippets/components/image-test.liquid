@@ -47,12 +47,13 @@ assign base_image_name = image_name
 # Construct Global Variant URL if Enabled
 #######################################
 assign has_global_variant = false
+
 if load_global and is_global_store
   assign image_name = image_name | append: '-global'
   assign has_global_variant = true
 endif
-assign desktop_variant_filename = image_name | append: '.' | append: image_ext
-assign desktop_variant_url = desktop_variant_filename | file_url
+
+assign desktop_variant_url = filename | file_url
 
 #######################################
 # Handle Mobile Variant
@@ -60,11 +61,10 @@ assign desktop_variant_url = desktop_variant_filename | file_url
 assign has_mobile_variant = false
 if mobile_image_provided != blank
   assign has_mobile_variant = true
-  assign mobile_variant_url = mobile_image_provided.src
+  assign mobile_variant_url = mobile_image_provided | image_url
 elsif load_mobile
   assign mobile_variant_filename = image_name | append: '-mbl.' | append: image_ext
-  assign mobile_variant_full_filename = 'files/' | append: mobile_variant_filename
-  assign mobile_variant_url = mobile_variant_full_filename | file_url
+  assign mobile_variant_url = mobile_variant_filename | file_url
   if mobile_variant_url contains '?v='
     assign has_mobile_variant = true
   else
@@ -104,7 +104,7 @@ assign fallback_url = desktop_image | image_url: width: 1100
 
   <source
     media="(min-width: {{ mobile_breakpoint | plus: 1 }}px)"
-    srcset="{{ desktop_variant_url }}"
+    srcset="{{ fallback_url }}"
     sizes="{{ sizes }}"
   >
 
@@ -146,6 +146,7 @@ assign fallback_url = desktop_image | image_url: width: 1100
   window.imageDebugData = window.imageDebugData || [];
   window.imageDebugData.push({
     unique_id: {{ unique_id | json }},
+    file_name: {{ filename | json }},
     image_name: {{ image_name | json }},
     desktop_variant_url: {{ desktop_variant_url | json }},
     has_mobile_variant: {{ has_mobile_variant | json }},
@@ -157,15 +158,10 @@ assign fallback_url = desktop_image | image_url: width: 1100
     desktop_image: {
       id: {{ desktop_image.id | json }},
       src: {{ desktop_image.src | json }},
-      width: {{ desktop_image.width | json }},
-      height: {{ desktop_image.height | json }},
       alt: {{ desktop_image.alt | json }}
     },
     mobile_image_provided: {
-      id: {{ mobile_image_provided.id | json }},
       src: {{ mobile_image_provided.src | json }},
-      width: {{ mobile_image_provided.width | json }},
-      height: {{ mobile_image_provided.height | json }},
       alt: {{ mobile_image_provided.alt | json }}
     },
     lazy_load: {{ lazy_load | json }},
@@ -210,10 +206,16 @@ assign fallback_url = desktop_image | image_url: width: 1100
             const errors = window.imageErrors;
             const hasErrors = Object.values(errors).some(arr => arr.length > 0);
             if (hasErrors) {
-              console.warn('🚨 Image Component Errors Summary:', {
-                totalErrors: Object.values(errors).reduce((sum, arr) => sum + arr.length, 0),
-                errors: errors
+              console.group('🚨 Image Component Errors Summary with Debug Data');
+              Object.keys(errors).forEach(errorType => {
+                errors[errorType].forEach(errorData => {
+                  console.error('Error Type:', errorType, {
+                    errorData: errorData,
+                    debugData: errorData.debugData
+                  });
+                });
               });
+              console.groupEnd();
               window.hasDisplayedImageErrors = true;
             }
           }
@@ -227,12 +229,26 @@ assign fallback_url = desktop_image | image_url: width: 1100
         window.imageErrors[type] = [];
       }
       data.timestamp = new Date().toISOString();
+
+      // Find the associated image debug data
+      const debugData = window.imageDebugData.find(
+        debug => debug.unique_id === data.elementId || (debug.desktop_image && debug.desktop_image.id === data.imageId)
+      );
+
       const existingError = window.imageErrors[type].find(
         error => error.imageId === data.imageId && error.type === data.type
       );
       if (!existingError) {
+        // Add the debugData to data
+        data.debugData = debugData;
+
         window.imageErrors[type].push(data);
-        console.error('Image Error:', type, data);
+
+        console.error('🚨 Image Error with Debug Data:', {
+          errorType: type,
+          errorData: data,
+          debugData: debugData
+        });
         window.debouncedDisplayErrors();
       }
     };
