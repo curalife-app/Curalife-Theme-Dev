@@ -2,7 +2,7 @@
 # Responsive Image Component Documentation
 
 This Liquid snippet creates a responsive image component with the following features:
-- Responsive images with desktop/mobile variants
+- Responsive images with desktop/mobile variants (can be bypassed with force_original)
 - Optional automatic mobile image detection
 - Lazy loading with priority options
 - Error logging and fallback handling
@@ -21,61 +21,75 @@ assign lazy_load = lazy | default: true
 assign is_priority = priority | default: false
 assign load_mobile = load_mobile | default: false
 assign load_global = load_global | default: false
+assign force_original = force_original | default: false
 assign alt = alt | default: image.alt
 assign mobile_breakpoint = mobile_breakpoint | default: 768
 assign sizes = sizes | default: '(min-width: 1200px) 1200px, (min-width: 768px) 768px, 100vw'
 assign breakpoints = '375,640,768,1080,1200,1920,2560' | split: ','
 
 #######################################
-# Check if store is global
+# Process image source
 #######################################
-if shop.name contains 'Global'
-	assign is_global_store = true
-endif
-
-#######################################
-# Process desktop image path
-#######################################
-assign full_path = desktop_image.src
-assign path_parts = full_path | split: '/'
-assign filename_with_url_params = path_parts | last
-assign filename = filename_with_url_params | split: '?' | first
-assign image_name = filename | split: '.' | first
-assign image_ext = filename | split: '.' | last
-assign base_image_name = image_name
-
-#######################################
-# Construct Global Variant URL if Enabled
-#######################################
-assign has_global_variant = false
-
-if load_global and is_global_store
-  assign filename = image_name | append: '-glb' | append: '.' | append: image_ext
-  assign has_global_variant = true
-endif
-
-if desktop_image.src != blank or desktop_image.src contains 'files/'
-echo '<script>console.info("Image URL does not contain query params, using default URL:", "' | append: desktop_image.src | append: '")</script>'
-assign desktop_variant_url = filename | file_url
+if force_original
+  # Use the original image source directly when force_original is true
+  assign desktop_variant_url = desktop_image | image_url
+  assign has_mobile_variant = false
+  assign has_global_variant = false
+  assign is_global_store = false
 else
-echo '<script>console.warn("Image URL contains query params, consider removing them for better caching performance:", "' | append: desktop_image.src | append: '")</script>'
-assign desktop_variant_url = desktop_image | image_url
-endif
+  #######################################
+  # Check if store is global
+  #######################################
+  if shop.name contains 'Global'
+    assign is_global_store = true
+  endif
 
-#######################################
-# Handle Mobile Variant
-#######################################
-assign has_mobile_variant = false
-if mobile_image_provided != blank
-  assign has_mobile_variant = true
-  assign mobile_variant_url = mobile_image_provided | image_url
-elsif load_mobile
-  assign mobile_variant_filename = image_name | append: '-mbl.' | append: image_ext
-  assign mobile_variant_url = mobile_variant_filename | file_url
-  if mobile_variant_url contains '?v='
-    assign has_mobile_variant = true
+  #######################################
+  # Process desktop image path
+  #######################################
+  assign full_path = desktop_image.src
+  assign path_parts = full_path | split: '/'
+  assign filename_with_url_params = path_parts | last
+  assign filename = filename_with_url_params | split: '?' | first
+  assign image_name = filename | split: '.' | first
+  assign image_ext = filename | split: '.' | last
+  assign base_image_name = image_name
+
+  #######################################
+  # Construct Global Variant URL if Enabled
+  #######################################
+  assign has_global_variant = false
+
+  if load_global and is_global_store
+    assign filename = image_name | append: '-glb' | append: '.' | append: image_ext
+    assign has_global_variant = true
+  endif
+
+  if desktop_image.src contains 'files/'
+    assign provided_images_in_files = true
+  endif
+
+  if desktop_image.src != blank and provided_images_in_files == false
+    assign desktop_variant_url = desktop_image | image_url | split: '?' | first
   else
-    assign mobile_variant_url = ''
+    assign desktop_variant_url = filename | file_url
+  endif
+
+  #######################################
+  # Handle Mobile Variant
+  #######################################
+  assign has_mobile_variant = false
+  if mobile_image_provided != blank
+    assign has_mobile_variant = true
+    assign mobile_variant_url = mobile_image_provided | image_url
+  elsif load_mobile
+    assign mobile_variant_filename = image_name | append: '-mbl.' | append: image_ext
+    assign mobile_variant_url = mobile_variant_filename | file_url
+    if mobile_variant_url contains '?v='
+      assign has_mobile_variant = true
+    else
+      assign mobile_variant_url = ''
+    endif
   endif
 endif
 
@@ -143,13 +157,8 @@ assign fallback_url = desktop_image | image_url: width: 1100
 
   window.imageDebugData = window.imageDebugData || [];
   window.imageDebugData.push({
-		image_src: {{ image.src | json }},
+    image_src: {{ image.src | json }},
     unique_id: {{ unique_id | json }},
-		full_path: {{ full_path | json }},
-		path_parts: {{ path_parts | json }},
-		file_name: {{ filename | json }},
-    image_name: {{ image_name | json }},
-		desktop_image_src: {{ desktop_image.src | json }},
     desktop_variant_url: {{ desktop_variant_url | json }},
     has_mobile_variant: {{ has_mobile_variant | json }},
     mobile_variant_url: {{ mobile_variant_url | json }},
@@ -157,6 +166,7 @@ assign fallback_url = desktop_image | image_url: width: 1100
     has_global_variant: {{ has_global_variant | json }},
     is_global_store: {{ is_global_store | json }},
     shop_name: {{ shop.name | json }},
+    force_original: {{ force_original | json }},
     desktop_image: {
       src: {{ desktop_image.src | json }},
       alt: {{ desktop_image.alt | json }}
@@ -171,8 +181,7 @@ assign fallback_url = desktop_image | image_url: width: 1100
     load_global: {{ load_global | json }},
     alt: {{ alt | json }},
     mobile_breakpoint: {{ mobile_breakpoint | json }},
-    sizes: {{ sizes | json }},
-    breakpoints: {{ breakpoints | json }}
+    sizes: {{ sizes | json }}
   });
 
   if (!window.debouncedDisplayImageDebugLogs) {
