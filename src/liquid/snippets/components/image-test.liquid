@@ -4,8 +4,9 @@
 This Liquid snippet creates a responsive image component with the following features:
 - Responsive images with desktop/mobile variants (can be bypassed with force_original)
 - Optional automatic mobile image detection
+- Retina display support (2x resolution images)
 - Lazy loading with priority options
-- Error logging and fallback handling
+- Conditional error logging and fallback handling
 - WebP format support
 - Configurable breakpoints and sizes
 - Link wrapper functionality
@@ -21,16 +22,17 @@ assign lazy_load = lazy | default: true
 assign is_priority = priority | default: false
 assign load_mobile = load_mobile | default: false
 assign force_original = force_original | default: false
+assign is_retina = is_retina | default: false
 assign alt = alt | default: image.alt
 assign mobile_breakpoint = mobile_breakpoint | default: 768
 assign sizes = sizes | default: '(min-width: 1200px) 1200px, (min-width: 768px) 768px, 100vw'
 assign breakpoints = '375,640,768,1080,1200,1920,2560' | split: ','
+assign is_log = is_log | default: false
 
 #######################################
 # Process image source
 #######################################
 if force_original
-  # Use the original image source directly when force_original is true
   assign desktop_variant_url = desktop_image | image_url
   assign has_mobile_variant = false
 else
@@ -59,17 +61,45 @@ else
   endif
 
   #######################################
+  # Handle Retina Images
+  #######################################
+  if is_retina
+    assign original_width = desktop_image.width
+    assign regular_width = original_width | divided_by: 2
+    assign desktop_1x_url = desktop_image | image_url: width: regular_width
+    assign desktop_2x_url = desktop_variant_url
+  else
+    assign desktop_1x_url = desktop_variant_url
+    assign desktop_2x_url = desktop_variant_url
+  endif
+
+  #######################################
   # Handle Mobile Variant
   #######################################
   assign has_mobile_variant = false
   if mobile_image_provided != blank
     assign has_mobile_variant = true
-    assign mobile_variant_url = mobile_image_provided | image_url
+    if is_retina
+      assign mobile_original_width = mobile_image_provided.width
+      assign mobile_regular_width = mobile_original_width | divided_by: 2
+      assign mobile_1x_url = mobile_image_provided | image_url: width: mobile_regular_width
+      assign mobile_2x_url = mobile_image_provided | image_url
+    else
+      assign mobile_1x_url = mobile_image_provided | image_url
+      assign mobile_2x_url = mobile_image_provided | image_url
+    endif
   elsif load_mobile
     assign mobile_variant_filename = image_name | append: '-mbl.' | append: image_ext
     assign mobile_variant_url = mobile_variant_filename | file_url
     if mobile_variant_url contains '?v='
       assign has_mobile_variant = true
+      if is_retina
+        assign mobile_1x_url = mobile_variant_url | image_url: width: mobile_regular_width
+        assign mobile_2x_url = mobile_variant_url
+      else
+        assign mobile_1x_url = mobile_variant_url
+        assign mobile_2x_url = mobile_variant_url
+      endif
     else
       assign mobile_variant_url = ''
     endif
@@ -79,14 +109,27 @@ endif
 #######################################
 # Validation checks and error logging
 #######################################
-assign error_log = 'window.imageErrors = window.imageErrors || { missing_alt: [], missing_image: [], load_errors: []};'
-if image == blank
-  assign validation_error = '{ type: "Missing Image", message: "Image is required" }'
-  assign error_log = error_log | append: 'window.imageErrors.missing_image.push(' | append: validation_error | append: ');'
+if is_log
+  assign error_log = 'window.imageErrors = window.imageErrors || { missing_alt: [], missing_image: [], load_errors: []};'
+  if image == blank
+    assign validation_error = '{ type: "Missing Image", message: "Image is required" }'
+    assign error_log = error_log | append: 'window.imageErrors.missing_image.push(' | append: validation_error | append: ');'
+  endif
+  if alt == blank
+    assign validation_error = '{ type: "Missing Alt", message: "Image Alt text is required", src: "' | append: image.src | append: '" }'
+    assign error_log = error_log | append: 'window.imageErrors.missing_alt.push(' | append: validation_error | append: ');'
+  endif
 endif
-if alt == blank
-  assign validation_error = '{ type: "Missing Alt", message: "Image Alt text is required", src: "' | append: image.src | append: '" }'
-  assign error_log = error_log | append: 'window.imageErrors.missing_alt.push(' | append: validation_error | append: ');'
+
+#######################################
+# Calculate display dimensions
+#######################################
+if is_retina
+  assign display_width = desktop_image.width | divided_by: 2
+  assign display_height = desktop_image.height | divided_by: 2
+else
+  assign display_width = desktop_image.width
+  assign display_height = desktop_image.height
 endif
 
 #######################################
@@ -101,20 +144,20 @@ assign fallback_url = desktop_image | image_url: width: 1100
   {% if has_mobile_variant %}
     <source
       media="(max-width: {{ mobile_breakpoint }}px)"
-      srcset="{{ mobile_variant_url }}"
+      srcset="{{ mobile_1x_url }} 1x, {{ mobile_2x_url }} 2x"
       sizes="{{ sizes }}"
     >
   {% endif %}
 
   <source
     media="(min-width: {{ mobile_breakpoint | plus: 1 }}px)"
-    srcset="{{ desktop_variant_url }}"
+    srcset="{{ desktop_1x_url }} 1x, {{ desktop_2x_url }} 2x"
     sizes="{{ sizes }}"
   >
 
   <img
     id="{{ unique_id }}"
-    src="{{ desktop_variant_url }}"
+    src="{{ desktop_1x_url }}"
     {% if lazy_load and is_priority != true %}
       loading="lazy"
       decoding="async"
@@ -124,15 +167,17 @@ assign fallback_url = desktop_image | image_url: width: 1100
       fetchpriority="high"
     {% endif %}
     alt="{{ alt | escape }}"
-    width="{{ desktop_image.width }}"
-    height="{{ desktop_image.height }}"
+    width="{{ display_width }}"
+    height="{{ display_height }}"
     class="object-cover opacity-0 m-0 transition-opacity duration-300 ease-in-out {% if link %}cursor-pointer{% endif %} {% if class %}{{ class }}{% endif %}"
     onload="this.classList.add('opacity-100');"
     onclick="{% if link %}window.location.href='{{ link }}'{% endif %}"
     data-original-url="{{ fallback_url }}"
+    {% if is_retina %}data-is-retina="true"{% endif %}
   >
 </picture>
 
+{% if is_log %}
 <!-- Consolidated Debug Logs Script -->
 <script>
   window.imageErrors = window.imageErrors || { missing_alt: [], missing_image: [], load_errors: [] };
@@ -148,9 +193,11 @@ assign fallback_url = desktop_image | image_url: width: 1100
     fallback_url: {{ fallback_url | json }},
     shop_name: {{ shop.name | json }},
     force_original: {{ force_original | json }},
+    is_retina: {{ is_retina | json }},
     desktop_image: {
       src: {{ desktop_image.src | json }},
-      alt: {{ desktop_image.alt | json }}
+      alt: {{ desktop_image.alt | json }},
+      width: {{ desktop_image.width | json }}
     },
     mobile_image_provided: {
       src: {{ mobile_image_provided.src | json }},
@@ -228,3 +275,4 @@ assign fallback_url = desktop_image | image_url: width: 1100
     window.debouncedDisplayErrors();
   }
 </script>
+{% endif %}
