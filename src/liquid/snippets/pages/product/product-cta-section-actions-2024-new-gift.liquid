@@ -12,6 +12,69 @@
       {% render 'product-cta-section-actions-variant-2024-new', SID: SID, prod: product, var: var, buyBoxColor: buyBoxColor, index: forloop.index %}
     {% endfor %}
 
+		<!-- Add the new gift selector here, before submit-wrap -->
+		<div class="gift-selector-wrap">
+			<div class="gift-selector-title mb-4 text-lg font-medium">
+				Get your free gift:
+			</div>
+			<div class="gift-options grid grid-cols-2 gap-4">
+				{% for block in blocks %}
+					{% case block.type %}
+            {% when 'gift' %}
+							{% assign giftProd = block.settings.gift_product %}
+							{% assign giftVariant = giftProd.selected_or_first_available_variant %}
+							<div class="gift-option p-4 border rounded-lg cursor-pointer" data-gift-id="curalin">
+								<div class="flex items-center gap-3">
+									<div class="radio-indicator flex items-center justify-center w-6 h-6 border-2 rounded-full">
+										<div class="check-mark hidden w-4 h-4 bg-[var(--primary-color)] rounded-full"></div>
+									</div>
+									<div class="gift-content flex flex-col flex-1">
+										<img src="{{ giftProd.featured_image | image_url }}" alt="{{ giftProd.title }}" class="object-contain w-24 h-24 mb-2">
+										<div class="gift-name font-medium">{{ giftProd.title }}</div>
+										<div class="gift-price flex items-center gap-2">
+											<span class="original-price text-gray-400 line-through">{{ giftVariant.price | money_with_currency }}</span>
+											<span class="sale-price font-bold">{{ giftVariant.compare_at_price | money_with_currency }}</span>
+										</div>
+									</div>
+								</div>
+							</div>
+					{% endcase %}
+				{% endfor %}
+
+				{% comment %} <div class="gift-option p-4 border rounded-lg cursor-pointer" data-gift-id="curalin">
+					<div class="flex items-center gap-3">
+						<div class="radio-indicator flex items-center justify-center w-6 h-6 border-2 rounded-full">
+							<div class="check-mark hidden w-4 h-4 bg-[var(--primary-color)] rounded-full"></div>
+						</div>
+						<div class="gift-content flex flex-col flex-1">
+							<img src="{{ 'curalin.png' | asset_url }}" alt="Curalin" class="object-contain w-24 h-24 mb-2">
+							<div class="gift-name font-medium">Curalin</div>
+							<div class="gift-price flex items-center gap-2">
+								<span class="original-price text-gray-400 line-through">${{ 53.90 }}</span>
+								<span class="sale-price font-bold">$0.00</span>
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<div class="gift-option p-4 border rounded-lg cursor-pointer" data-gift-id="curaslim">
+					<div class="flex items-center gap-3">
+						<div class="radio-indicator flex items-center justify-center w-6 h-6 border-2 rounded-full">
+							<div class="check-mark hidden w-4 h-4 bg-[var(--primary-color)] rounded-full"></div>
+						</div>
+						<div class="gift-content flex flex-col flex-1">
+							<img src="{{ 'curaslim.png' | asset_url }}" alt="Curaslim" class="object-contain w-24 h-24 mb-2">
+							<div class="gift-name font-medium">Curaslim</div>
+							<div class="gift-price flex items-center gap-2">
+								<span class="original-price text-gray-400 line-through">${{ 51.90 }}</span>
+								<span class="sale-price font-bold">$0.00</span>
+							</div>
+						</div>
+					</div>
+				</div> {% endcomment %}
+			</div>
+		</div>
+
     <div class="submit-wrap flex flex-col w-full">
       <div class="checkout-button">{% render 'buy-buttons', product: product, variant: '', selling_plan_id: selling_plan_id , product_form_id: product_form_id, buyType: buyType, isBuyWithPrime: isBuyWithPrime %}</div>
     </div>
@@ -672,24 +735,23 @@
     });
 
     function buyButtonHandler(subscription_selling_plan_id, buttonElement) {
-      const selectedBox = productActions.querySelector('.purchase-option-box.selected');
-      if (!selectedBox) return;
+			const selectedBox = productActions.querySelector('.purchase-option-box.selected');
+			const selectedGiftElement = productActions.querySelector('.gift-option.selected');
+			if (!selectedBox || !selectedGiftElement) return;
 
-      toggleButtonLoading(buttonElement, true);
+			const giftId = selectedGiftElement.dataset.giftId;
+			toggleButtonLoading(buttonElement, true);
 
-      if (isSubscriptionSelected()) {
-        const variant_id = selectedBox.dataset.originalVariant;
-        buySubscription(variant_id, 1, subscription_selling_plan_id);
-      } else {
-        const variant_id = selectedBox.dataset.variant;
-        const purchaseOptionBox = buttonElement.closest('.purchase-option-box');
-        const dc = purchaseOptionBox ? purchaseOptionBox.dataset.dc : null;
-        const giftElement = buttonElement.parentElement.nextElementSibling;
-        const giftProductID = giftElement ? giftElement.dataset.bundleProductId : null;
-
-        redirectToCheckout(variant_id, dc);
-      }
-    }
+			if (isSubscriptionSelected()) {
+				const variant_id = selectedBox.dataset.originalVariant;
+				buySubscription(variant_id, 1, subscription_selling_plan_id, giftId);
+			} else {
+				const variant_id = selectedBox.dataset.variant;
+				const purchaseOptionBox = buttonElement.closest('.purchase-option-box');
+				const dc = purchaseOptionBox ? purchaseOptionBox.dataset.dc : null;
+				redirectToCheckout(variant_id, dc, giftId);
+			}
+		}
 
     function redirectToCheckout(variant_id, dc) {
       let checkoutLink = `https://${location.hostname}/cart/${variant_id}:1`;
@@ -727,35 +789,123 @@
       }
     }
 
-    async function buySubscription(variant_id, qty, selling_plan) {
-      const cartCleared = await clearCart();
-      if (!cartCleared) return;
+    // Modify your existing cart functions to handle the gift
+		async function buySubscription(variant_id, qty, selling_plan, giftId) {
+			const cartCleared = await clearCart();
+			if (!cartCleared) return;
 
-      const data = {
-        "id": variant_id,
-        "quantity": qty,
-        "selling_plan": selling_plan
-      };
+			// Add main product
+			const mainProduct = {
+				"id": variant_id,
+				"quantity": qty,
+				"selling_plan": selling_plan
+			};
 
-      try {
-        const response = await fetch('/cart/add.js', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(data)
-        });
+			// Add gift product
+			const giftProduct = {
+				"id": giftId,
+				"quantity": 1
+			};
 
-        if (!response.ok) throw new Error('Failed to add item to cart');
+			try {
+				// Add main product to cart
+				await fetch('/cart/add.js', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(mainProduct)
+				});
 
-        console.log('success');
-        window.location.href = '/checkout';
-      } catch (error) {
-        console.log('Failed to add item to cart:', error);
-      }
-    }
+				// Add gift to cart
+				await fetch('/cart/add.js', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(giftProduct)
+				});
+
+				window.location.href = '/checkout';
+			} catch (error) {
+				console.log('Failed to add items to cart:', error);
+			}
+		}
   });
 </script>
+
+<script>
+	// Add this to your existing DOMContentLoaded event listener
+const giftOptions = productActions.querySelectorAll('.gift-option');
+let selectedGift = 'curalin'; // Default selected gift
+
+giftOptions.forEach(option => {
+  option.addEventListener('click', () => {
+    // Remove selected state from all options
+    giftOptions.forEach(opt => {
+      opt.classList.remove('selected');
+      opt.querySelector('.check-mark').classList.add('hidden');
+      opt.style.borderColor = '#e5e7eb'; // Reset border color
+    });
+
+    // Add selected state to clicked option
+    option.classList.add('selected');
+    option.querySelector('.check-mark').classList.remove('hidden');
+    option.style.borderColor = 'var(--primary-color)';
+
+    selectedGift = option.dataset.giftId;
+
+    // Update hidden input for the gift selection
+    const giftInput = document.querySelector('input[name="gift_selection"]');
+    if (giftInput) {
+      giftInput.value = selectedGift;
+    }
+  });
+});
+
+// Mark the default selected gift
+const defaultGift = document.querySelector(`.gift-option[data-gift-id="${selectedGift}"]`);
+if (defaultGift) {
+  defaultGift.click();
+}
+</script>
+
+<style>
+	.gift-selector-wrap {
+  margin: 1rem 0;
+}
+
+.gift-option {
+  transition: all 0.3s ease;
+  border: 2px solid #e5e7eb;
+}
+
+.gift-option:hover:not(.selected) {
+  border-color: var(--primary-color-light);
+}
+
+.gift-option.selected {
+  border-color: var(--primary-color);
+  background-color: rgba(var(--primary-color-rgb), 0.05);
+}
+
+.radio-indicator {
+  border-color: var(--primary-color);
+  transition: all 0.2s ease;
+}
+
+.check-mark {
+  transition: all 0.2s ease;
+}
+
+.gift-price {
+  font-size: 0.875rem;
+}
+
+.original-price {
+  color: var(--primary-color-light);
+}
+
+.sale-price {
+  color: var(--primary-color-dark);
+}
+</style>
 
 <style>
   :root {
