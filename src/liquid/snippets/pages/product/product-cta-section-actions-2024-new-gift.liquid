@@ -12,76 +12,413 @@
       {% render 'product-cta-section-actions-variant-2024-new', SID: SID, prod: product, var: var, buyBoxColor: buyBoxColor, index: forloop.index %}
     {% endfor %}
 
-		<!-- Add the new gift selector here, before submit-wrap -->
 		<div class="gift-selector-wrap">
-			<div class="gift-selector-title mb-4 text-lg font-medium">
-				Get your free gift:
-			</div>
-			<div class="gift-options grid grid-cols-2 gap-4">
+			<div class="gift-selector-title mb-2">Choose your free gift:</div>
+			<div class="gift-options flex-nowrap flex justify-start gap-4">
 				{% for block in blocks %}
 					{% case block.type %}
-            {% when 'gift' %}
+						{% when 'gift' %}
 							{% assign giftProd = block.settings.gift_product %}
 							{% assign giftVariant = giftProd.selected_or_first_available_variant %}
-							<div class="gift-option p-4 border rounded-lg cursor-pointer" data-gift-id="curalin">
-								<div class="flex items-center gap-3">
-									<div class="radio-indicator flex items-center justify-center w-6 h-6 border-2 rounded-full">
-										<div class="check-mark hidden w-4 h-4 bg-[var(--primary-color)] rounded-full"></div>
+							{% if block.settings.variant_id != blank %}
+								{% for var in giftProd.variants %}
+									{% if var.id == block.settings.variant_id %}
+										{% assign giftVariant = var %}
+									{% endif %}
+								{% endfor %}
+							{% endif %}
+							<div class="gift-option-container flex flex-col items-center">
+								<!-- Border container for image and radio only -->
+								<div class="gift-option-border relative w-full p-2 mb-3 border rounded-lg cursor-pointer" data-gift-id="{{ giftVariant.id }}">
+									<div class="radio-indicator top-2 right-2 absolute flex items-center justify-center w-6 h-6 rounded-full">
+										<div class="check-mark hidden w-4 h-4 font-bold text-white rounded-full">✓</div>
 									</div>
-									<div class="gift-content flex flex-col flex-1">
-										<img src="{{ giftProd.featured_image | image_url }}" alt="{{ giftProd.title }}" class="object-contain w-24 h-24 mb-2">
-										<div class="gift-name font-medium">{{ giftProd.title }}</div>
-										<div class="gift-price flex items-center gap-2">
+									<div class="gift-image-container flex justify-center">
+										<img
+											src="{{ giftProd.featured_image | image_url }}"
+											alt="{{ giftProd.title }}"
+											class="object-contain w-24 h-24"
+										>
+									</div>
+								</div>
+								<!-- Text content outside the border -->
+								<div class="gift-content text-center">
+									<div class="gift-name mb-1 font-medium">{{ giftProd.title }}</div>
+									<div class="gift-price flex items-center justify-center gap-2">
+										{% if giftVariant.compare_at_price > giftVariant.price %}
 											<span class="original-price text-gray-400 line-through">{{ giftVariant.price | money_with_currency }}</span>
-											<span class="sale-price font-bold">{{ giftVariant.compare_at_price | money_with_currency }}</span>
-										</div>
+										{% endif %}
+										<span class="sale-price font-bold">{{ giftVariant.compare_at_price | money_with_currency }}</span>
 									</div>
 								</div>
 							</div>
 					{% endcase %}
 				{% endfor %}
-
-				{% comment %} <div class="gift-option p-4 border rounded-lg cursor-pointer" data-gift-id="curalin">
-					<div class="flex items-center gap-3">
-						<div class="radio-indicator flex items-center justify-center w-6 h-6 border-2 rounded-full">
-							<div class="check-mark hidden w-4 h-4 bg-[var(--primary-color)] rounded-full"></div>
-						</div>
-						<div class="gift-content flex flex-col flex-1">
-							<img src="{{ 'curalin.png' | asset_url }}" alt="Curalin" class="object-contain w-24 h-24 mb-2">
-							<div class="gift-name font-medium">Curalin</div>
-							<div class="gift-price flex items-center gap-2">
-								<span class="original-price text-gray-400 line-through">${{ 53.90 }}</span>
-								<span class="sale-price font-bold">$0.00</span>
-							</div>
-						</div>
-					</div>
-				</div>
-
-				<div class="gift-option p-4 border rounded-lg cursor-pointer" data-gift-id="curaslim">
-					<div class="flex items-center gap-3">
-						<div class="radio-indicator flex items-center justify-center w-6 h-6 border-2 rounded-full">
-							<div class="check-mark hidden w-4 h-4 bg-[var(--primary-color)] rounded-full"></div>
-						</div>
-						<div class="gift-content flex flex-col flex-1">
-							<img src="{{ 'curaslim.png' | asset_url }}" alt="Curaslim" class="object-contain w-24 h-24 mb-2">
-							<div class="gift-name font-medium">Curaslim</div>
-							<div class="gift-price flex items-center gap-2">
-								<span class="original-price text-gray-400 line-through">${{ 51.90 }}</span>
-								<span class="sale-price font-bold">$0.00</span>
-							</div>
-						</div>
-					</div>
-				</div> {% endcomment %}
 			</div>
 		</div>
 
     <div class="submit-wrap flex flex-col w-full">
-      <div class="checkout-button">{% render 'buy-buttons', product: product, variant: '', selling_plan_id: selling_plan_id , product_form_id: product_form_id, buyType: buyType, isBuyWithPrime: isBuyWithPrime %}</div>
+      <div class="checkout-button">
+				{% if shop.name == 'CuraLife Global' %}
+					{% assign isGlobal = true %}
+				{% endif %}
+
+				{% if buyType == "buy_now" %}
+					<div class="submit-wrap flex flex-col w-full">
+						<input class="submit-variant-id" type="hidden" name="id" value="{{ variant | default: product.selected_or_first_available_variant.id }}">
+						<button class="main-btn w-full p-0 text-black bg-[--orange] min-h-[50px]" id="buy-button-{{ SID }}">
+							<span class="button-text flex justify-center md:text-[5vw]">{{ buttonText | default: "Shop Now" }}</span>
+
+							<div class="loading-overlay__spinner hidden m-auto">
+								<svg aria-hidden="true" focusable="false" class="spinner" viewBox="0 0 66 66" xmlns="http://www.w3.org/2000/svg">
+									<circle class="path" fill="none" stroke-width="6" cx="33" cy="33" r="30"></circle>
+								</svg>
+							</div>
+						</button>
+					</div>
+
+					<script>
+					document.addEventListener('DOMContentLoaded', function() {
+						var buyButton = document.getElementById('buy-button-{{ SID }}');
+
+						if (buyButton) {
+							buyButton.addEventListener('click', function(event) {
+								// Button states for loading
+								var submitButton = this;
+								var buttonText = submitButton.querySelector('.button-text');
+								var loadingSpinner = submitButton.querySelector('.loading-overlay__spinner');
+
+								// Display loading spinner
+								if (buttonText && loadingSpinner) {
+									buttonText.style.display = 'none';
+									loadingSpinner.classList.remove('hidden');
+								}
+
+								// Get the variant ID and selling plan ID from the hidden inputs
+								var variantIdInput = document.querySelector('.submit-variant-id');
+								var sellingPlanIdInput = document.querySelector('.submit-selling-plan-id');
+
+								if (variantIdInput) {
+									console.log('Variant ID input found.');
+								} else {
+									console.error('Variant ID input not found.');
+								}
+
+								var variantId = variantIdInput ? variantIdInput.value : '{{ variant | default: product.selected_or_first_available_variant.id }}';
+								var sellingPlanId = sellingPlanIdInput ? sellingPlanIdInput.value : '';
+								console.log('Variant ID:', variantId);
+								console.log('Selling Plan ID:', sellingPlanId);
+
+								var quantity = 1;
+
+								var data = {
+									"id": variantId,
+									"quantity": quantity
+								};
+
+								if (sellingPlanId) {
+									data["selling_plan"] = sellingPlanId;
+								}
+
+								// Adding product to the cart
+								console.log('Sending request to add product to the cart:', data);
+
+								fetch('/cart/add.js', {
+									method: 'POST',
+									headers: {
+										'Content-Type': 'application/json',
+									},
+									body: JSON.stringify(data),
+								})
+								.then(function(response) {
+									console.log('Received response from add to cart:', response);
+									return response.json();
+								})
+								.then(function(data) {
+									console.log('Product successfully added to cart:', data);
+									console.log('Redirecting to checkout.');
+									window.location.href = '/checkout';
+								})
+								.catch(function(error) {
+									console.error('Error adding product to cart:', error);
+									if (buttonText && loadingSpinner) {
+										console.log('An error occurred. Resetting button to normal state.');
+										buttonText.style.display = '';
+										loadingSpinner.classList.add('hidden');
+									}
+								});
+							});
+						} else {
+							console.error('Buy button not found. Cannot attach event listener.');
+						}
+					});
+				</script>
+
+				{% else %}
+					{% comment %} <script src="{{ 'product-info.js' | asset_url }}" defer="defer"></script> {% endcomment %}
+					{% comment %} <script src="{{ 'product-form.js' | asset_url }}" defer="defer"></script> {% endcomment %}
+
+					<div>
+						<product-form id="product-form-{{ SID }}" class="product-form" data-hide-errors="false" data-section-id="{{ section.id }}">
+							{%- form 'product', product, id: 'product-form-{{ SID }}', class: 'form', novalidate: 'novalidate', data-type: 'add-to-cart-form' -%}
+								<input class="submit-variant-id" type="hidden" name="id" value="{{ variant | default: product.selected_or_first_available_variant.id }}" class="product-variant-id">
+								<input class="submit-selling-plan-id" type="hidden" name="selling_plan" value="{{ selling_plan_id }}">
+
+								<div class="product-form__buttons main-submit-wrapper flex">
+									{% if isBuyQuantity %}
+										<div class="qty flex">
+											<input type="text" name="quantity" maxlength="12" value="1" title="" class="input-text" />
+											<div class="qty_inc_dec">
+												<i class="increment">+</i>
+												<i class="decrement">-</i>
+											</div>
+										</div>
+									{% endif %}
+
+									<button id="ProductSubmitButton-{{SID}}" data-variant-id="{{ variant | default: product.selected_or_first_available_variant.id }}" type="submit" name="add" class="text-black product-form__submit button--full-width justify-center button--primary text-[20px] p-0 min-h-[50px] items-center bg-[--orange]">
+										<span class="submit-title">Add To Cart</span>
+										<div class="loading-overlay__spinner hidden">
+											<svg aria-hidden="true" focusable="false" class="spinner" viewBox="0 0 66 66" xmlns="http://www.w3.org/2000/svg">
+												<circle class="path !stroke-white" fill="none" stroke-width="6" cx="33" cy="33" r="30"></circle>
+											</svg>
+										</div>
+									</button>
+								</div>
+							{%- endform -%}
+
+							<div class="product-form__error-message-wrapper p-2 mt-1 text-center rounded-sm bg-[--light-red]" role="alert" hidden>
+								<div class="error-wrapper flex items-center justify-center">
+									<svg aria-hidden="true" focusable="false" class="icon icon-error h-[20px] mr-1" viewBox="0 0 13 13">
+										<circle cx="6.5" cy="6.50049" r="5.5" stroke="white" stroke-width="2"/>
+										<circle cx="6.5" cy="6.5" r="5.5" fill="#EB001B" stroke="#EB001B" stroke-width="0.7"/>
+										<path d="M5.87413 3.52832L5.97439 7.57216H7.02713L7.12739 3.52832H5.87413ZM6.50076 9.66091C6.88091 9.66091 7.18169 9.37267 7.18169 9.00504C7.18169 8.63742 6.88091 8.34917 6.50076 8.34917C6.12061 8.34917 5.81982 8.63742 5.81982 9.00504C5.81982 9.37267 6.12061 9.66091 6.50076 9.66091Z" fill="white"/>
+										<path d="M5.87413 3.17832H5.51535L5.52424 3.537L5.6245 7.58083L5.63296 7.92216H5.97439H7.02713H7.36856L7.37702 7.58083L7.47728 3.537L7.48617 3.17832H7.12739H5.87413ZM6.50076 10.0109C7.06121 10.0109 7.5317 9.57872 7.5317 9.00504C7.5317 8.43137 7.06121 7.99918 6.50076 7.99918C5.94031 7.99918 5.46982 8.43137 5.46982 9.00504C5.46982 9.57872 5.94031 10.0109 6.50076 10.0109Z" fill="white" stroke="#EB001B" stroke-width="0.7">
+									</svg>
+									<span class="product-form__error-message text-[12px]"></span>
+								</div>
+
+								<div class="notice">Please <a class="underline" href="https://help{% if isGlobal %}-global{% endif %}.curalife.com/">Contact Us</a>, we'd love to help!</div>
+							</div>
+						</product-form>
+
+						<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('product-form-{{ SID }}');
+    const submitButton = document.getElementById('ProductSubmitButton-{{SID}}');
+
+    form.addEventListener('submit', async function(event) {
+        event.preventDefault(); // Prevent the default form submission
+
+        // Display the loading spinner
+        toggleButtonLoading(submitButton, true);
+
+        // Get selected variant and selling plan IDs
+        const variantIdInput = form.querySelector('.submit-variant-id');
+        const sellingPlanIdInput = form.querySelector('.submit-selling-plan-id');
+        const variantId = variantIdInput ? variantIdInput.value : '{{ variant | default: product.selected_or_first_available_variant.id }}';
+        const sellingPlanId = sellingPlanIdInput ? sellingPlanIdInput.value : '';
+
+        // Get selected gift ID
+        const selectedGiftContainer = document.querySelector('.gift-option-container.selected');
+        const giftOptionBorder = selectedGiftContainer ? selectedGiftContainer.querySelector('.gift-option-border') : null;
+        const giftId = giftOptionBorder ? giftOptionBorder.dataset.giftId : null;
+
+        if (!giftId) {
+            console.error('Gift ID not found.');
+            toggleButtonLoading(submitButton, false);
+            return;
+        }
+
+        // Prepare items to add to cart
+        const items = [
+            {
+                "id": variantId,
+                "quantity": 1
+            },
+            {
+                "id": giftId,
+                "quantity": 1
+            }
+        ];
+
+        // Include selling plan if it's a subscription
+        if (sellingPlanId) {
+            items[0].selling_plan = sellingPlanId;
+        }
+
+        try {
+            // Add both items to the cart
+            await fetch('/cart/add.js', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ items: items })
+            });
+
+            // Items added to cart successfully, reset button state
+    				toggleButtonLoading(submitButton, false);
+        } catch (error) {
+            console.error('Failed to add items to cart:', error);
+            toggleButtonLoading(submitButton, false);
+        }
+    });
+
+    function toggleButtonLoading(buttonElement, isLoading) {
+        const loader = buttonElement.querySelector('.loading-overlay__spinner');
+        const buttonText = buttonElement.querySelector('.submit-title');
+
+        if (!loader) {
+            console.error("Loader element not found");
+            return;
+        }
+
+        loader.style.display = isLoading ? 'block' : 'none';
+        buttonText.style.display = isLoading ? 'none' : 'block';
+    }
+
+    async function clearCart() {
+        try {
+            const response = await fetch('/cart/clear.js', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            if (!response.ok) throw new Error('Failed to clear cart');
+            console.log('Cart cleared');
+            return true;
+        } catch (error) {
+            console.log('Failed to clear cart:', error);
+            return false;
+        }
+    }
+});
+</script>
+					</div>
+				{% endif %}
+
+				{% if isBuyWithPrime and isGlobal != true and customer.b2b? == false %}
+					<div class="bwp-button">
+						{% render 'buy-with-prime-button' %}
+					</div>
+				{% endif %}
+
+				{% if customer %}
+					{% render 'yotpo-product-points-widget' %}
+				{% endif %}
+
+				{% if isBuyQuantity %}
+					<style>
+						.qty {
+							float: left;
+							width: 100px;
+							-webkit-user-select: none;
+							-moz-user-select: none;
+							-ms-user-select: none;
+							user-select: none;
+						}
+
+						.qty_inc_dec .increment,
+						.qty_inc_dec .decrement {
+							cursor: pointer;
+							font-size: 1.2em;
+							height: 50%;
+							background-color: #fff;
+							border: 1px solid #ccc;
+							display: flex;
+							justify-content: center;
+							align-items: center;
+						}
+
+						.qty_inc_dec .increment {
+							border-bottom: 0;
+							line-height: 25px;
+						}
+
+						.qty_inc_dec {
+							width: 30px;
+							height: 100%;
+							display: inline-block;
+						}
+
+						.qty input[type=text] {
+							float: left;
+							font-family: "Open Sans", sans-serif;
+							outline: 0;
+							font-size: 1.2em;
+							text-align: center;
+							width: 50px;
+							height: 100%;
+							color: #2a2a2a;
+							line-height: 40px;
+							border: 1px solid #ccc;
+							border-right: 0;
+							border-radius: 10px 0 0 10px;
+						}
+
+						/* Quantity Selector Transition */
+						.qty {
+							transition: width 0.3s ease;
+							width: -webkit-fill-available;
+						}
+
+						.qty_inc_dec {
+							transition: opacity 0.3s ease;
+						}
+					</style>
+
+					<script>
+						function incrementQty() {
+							var quantityInput = document.querySelector('input[name="quantity"]');
+							var value = parseInt(quantityInput.value);
+							var cardQty = document.querySelector(".cart-qty");
+							value = isNaN(value) ? 1 : value;
+							value++;
+							quantityInput.value = value;
+
+							if (cardQty) {
+								cardQty.innerHTML = value;
+								cardQty.classList.add("rotate-x");
+							}
+						}
+
+						function decrementQty() {
+							var quantityInput = document.querySelector('input[name="quantity"]');
+							var value = parseInt(quantityInput.value);
+							var cardQty = document.querySelector(".cart-qty");
+							value = isNaN(value) ? 1 : value;
+							value = value > 1 ? value - 1 : 1;
+							quantityInput.value = value;
+
+							if (cardQty) {
+								cardQty.innerHTML = value;
+								cardQty.classList.add("rotate-x");
+							}
+						}
+
+						document.addEventListener('DOMContentLoaded', function() {
+							var incrementButton = document.querySelector('.increment');
+							var decrementButton = document.querySelector('.decrement');
+
+							if (incrementButton) {
+								incrementButton.addEventListener('click', function(event) {
+									event.stopPropagation();
+									incrementQty();
+								});
+							}
+
+							if (decrementButton) {
+								decrementButton.addEventListener('click', function(event) {
+									event.stopPropagation();
+									decrementQty();
+								});
+							}
+						});
+					</script>
+				{% endif %}
+			</div>
     </div>
   </div>
 </div>
-
-<script>console.log("-new buybox!")</script>
 
 <script>
   document.addEventListener('DOMContentLoaded', function() {
@@ -107,6 +444,40 @@
 
     initializePurchaseOptions();
     setupMutationObserver();
+
+		// Gift selection logic
+const giftOptionContainers = document.querySelectorAll('.gift-option-container');
+
+giftOptionContainers.forEach(container => {
+    container.addEventListener('click', function(event) {
+        // Remove 'selected' class from all gift options
+        giftOptionContainers.forEach(gift => gift.classList.remove('selected'));
+
+        // Add 'selected' class to the clicked gift
+        container.classList.add('selected');
+
+        // Update radio indicator
+        updateRadioIndicator(container);
+    });
+});
+
+function updateRadioIndicator(selectedContainer) {
+    giftOptionContainers.forEach(container => {
+        const checkMark = container.querySelector('.check-mark');
+        if (container === selectedContainer) {
+            checkMark.classList.remove('hidden');
+        } else {
+            checkMark.classList.add('hidden');
+        }
+    });
+}
+
+// Initialize the first gift as selected by default
+if (giftOptionContainers.length > 0) {
+    const firstGift = giftOptionContainers[0];
+    firstGift.classList.add('selected');
+    updateRadioIndicator(firstGift);
+}
 
     function isSubscriptionSelected() {
       const selectedButton = productActions.querySelector('.purchase-type button.selected');
@@ -559,52 +930,104 @@
     }
 
     function togglePurchaseBox(element) {
-      if (element.classList.contains('selected')) return;
+  if (element.classList.contains('selected')) return;
 
-      // Update previous selected box
-      const previousSelected = productActions.querySelector('.purchase-option-box.selected');
-      if (previousSelected) {
-        previousSelected.classList.remove('selected');
-        previousSelected.style.maxHeight = '68px';
-        const toggleIcon = previousSelected.querySelector('.toggle-icon');
-        if (toggleIcon) toggleIcon.style.display = 'none';
+  // Update previous selected box
+  const previousSelected = productActions.querySelector('.purchase-option-box.selected');
+  if (previousSelected) {
+    previousSelected.classList.remove('selected');
+    previousSelected.style.maxHeight = '68px';
+    const toggleIcon = previousSelected.querySelector('.toggle-icon');
+    if (toggleIcon) toggleIcon.style.display = 'none';
+  }
+
+  // Update new selected box
+  element.classList.add('selected');
+  element.style.maxHeight = `${element.scrollHeight}px`;
+
+  const toggleIcon = element.querySelector('.toggle-icon');
+  if (toggleIcon) toggleIcon.style.display = 'block';
+
+  // Update form values based on subscription state
+  const isSubscription = isSubscriptionSelected();
+
+  // Get the appropriate selling plan ID and variant ID
+  const sellingPlanId = isSubscription ? element.dataset.subscriptionSellingPlanId : '';
+  const variantId = isSubscription ? element.dataset.originalVariant : element.dataset.variant;
+
+  // Find and update the form elements
+  const submitSellingPlanElement = productActions.querySelector('.submit-selling-plan-id');
+  const submitVariantElement = productActions.querySelector('.submit-variant-id');
+
+  // Update selling plan ID
+  if (submitSellingPlanElement) {
+    console.log('Updating selling plan ID to:', sellingPlanId); // Debug log
+    submitSellingPlanElement.value = sellingPlanId;
+  } else {
+    console.warn('submit-selling-plan-id element not found');
+  }
+
+  // Update variant ID
+  if (submitVariantElement) {
+    console.log('Updating variant ID to:', variantId); // Debug log
+    submitVariantElement.value = variantId;
+  } else {
+    console.warn('submit-variant-id element not found');
+  }
+
+  // Update radio button
+  const radioInput = element.querySelector("input[type='radio']");
+  if (radioInput) radioInput.checked = true;
+
+  // Update other UI elements
+  updateYotpoPointsWidget(element);
+
+  {% if variantsAmount > 1 %}
+    {% if isSlideOnLoad %}
+      updateVariantImage(element);
+    {% else %}
+      if (window.hasInitialImageUpdateHappened) {
+        updateVariantImage(element);
       }
+      window.hasInitialImageUpdateHappened = true;
+    {% endif %}
+  {% endif %}
+}
 
-      // Update new selected box
-      element.classList.add('selected');
-      element.style.maxHeight = `${element.scrollHeight}px`;
+// Add this helper function to verify form values
+function verifyFormValues() {
+  const selectedBox = productActions.querySelector('.purchase-option-box.selected');
+  const submitSellingPlanElement = productActions.querySelector('.submit-selling-plan-id');
+  const submitVariantElement = productActions.querySelector('.submit-variant-id');
 
-      const toggleIcon = element.querySelector('.toggle-icon');
-      if (toggleIcon) toggleIcon.style.display = 'block';
+  if (selectedBox && submitSellingPlanElement && submitVariantElement) {
+    const isSubscription = isSubscriptionSelected();
+    const expectedSellingPlanId = isSubscription ? selectedBox.dataset.subscriptionSellingPlanId : '';
+    const expectedVariantId = isSubscription ? selectedBox.dataset.originalVariant : selectedBox.dataset.variant;
 
-      // Update form values
-      const isSubscription = isSubscriptionSelected();
-      const subscriptionPlanID = isSubscription ? element.dataset.subscriptionSellingPlanId : '';
-      const variantID = isSubscription ? element.dataset.originalVariant : element.dataset.variant;
+    console.log('Form values verification:', {
+      actualSellingPlanId: submitSellingPlanElement.value,
+      expectedSellingPlanId: expectedSellingPlanId,
+      actualVariantId: submitVariantElement.value,
+      expectedVariantId: expectedVariantId,
+      isSubscription: isSubscription
+    });
+  }
+}
 
-      const submitSellingPlanElement = productActions.querySelector('.submit-selling-plan-id');
-      const submitVariantElement = productActions.querySelector('.submit-variant-id');
+const purchaseTypeButtons = productActions.querySelectorAll('.purchase-type button');
+purchaseTypeButtons.forEach(button => {
+  button.addEventListener('click', () => {
+    setTimeout(verifyFormValues, 500); // Verify after subscription toggle animation
+  });
+});
 
-      if (submitSellingPlanElement) submitSellingPlanElement.value = subscriptionPlanID;
-      if (submitVariantElement) submitVariantElement.value = variantID;
-
-      // Update radio button
-      const radioInput = element.querySelector("input[type='radio']");
-      if (radioInput) radioInput.checked = true;
-
-      updateYotpoPointsWidget(element);
-
-      {% if variantsAmount > 1 %}
-        {% if isSlideOnLoad %}
-          updateVariantImage(element);
-        {% else %}
-          if (window.hasInitialImageUpdateHappened) {
-            updateVariantImage(element);
-          }
-          window.hasInitialImageUpdateHappened = true;
-        {% endif %}
-      {% endif %}
-    }
+// Use the existing 'purchaseOptionBoxes' variable without redeclaring
+purchaseOptionBoxes.forEach(box => {
+  box.addEventListener('click', () => {
+    setTimeout(verifyFormValues, 500); // Verify after box selection
+  });
+});
 
     function updateYotpoPointsWidget(parentBox) {
       const price = isSubscriptionSelected()
@@ -735,29 +1158,41 @@
     });
 
     function buyButtonHandler(subscription_selling_plan_id, buttonElement) {
-			const selectedBox = productActions.querySelector('.purchase-option-box.selected');
-			const selectedGiftElement = productActions.querySelector('.gift-option.selected');
-			if (!selectedBox || !selectedGiftElement) return;
-
-			const giftId = selectedGiftElement.dataset.giftId;
-			toggleButtonLoading(buttonElement, true);
-
-			if (isSubscriptionSelected()) {
-				const variant_id = selectedBox.dataset.originalVariant;
-				buySubscription(variant_id, 1, subscription_selling_plan_id, giftId);
-			} else {
-				const variant_id = selectedBox.dataset.variant;
-				const purchaseOptionBox = buttonElement.closest('.purchase-option-box');
-				const dc = purchaseOptionBox ? purchaseOptionBox.dataset.dc : null;
-				redirectToCheckout(variant_id, dc, giftId);
-			}
-		}
-
-    function redirectToCheckout(variant_id, dc) {
-      let checkoutLink = `https://${location.hostname}/cart/${variant_id}:1`;
-      if (dc) checkoutLink += "?discount=" + atob(dc);
-      window.location.href = checkoutLink;
+    const selectedBox = productActions.querySelector('.purchase-option-box.selected');
+    const selectedGiftContainer = productActions.querySelector('.gift-option-container.selected');
+    if (!selectedBox || !selectedGiftContainer) {
+        console.error('Please select both a product and a gift.');
+        return;
     }
+
+    const giftOptionBorder = selectedGiftContainer.querySelector('.gift-option-border');
+    const giftId = giftOptionBorder ? giftOptionBorder.dataset.giftId : null;
+    if (!giftId) {
+        console.error('Gift ID not found.');
+        return;
+    }
+
+    toggleButtonLoading(buttonElement, true);
+
+    if (isSubscriptionSelected()) {
+        const variant_id = selectedBox.dataset.originalVariant;
+        buySubscription(variant_id, 1, subscription_selling_plan_id, giftId);
+    } else {
+        const variant_id = selectedBox.dataset.variant;
+        const purchaseOptionBox = buttonElement.closest('.purchase-option-box');
+        const dc = purchaseOptionBox ? purchaseOptionBox.dataset.dc : null;
+        redirectToCheckout(variant_id, dc, giftId);
+    }
+}
+
+function redirectToCheckout(variant_id, dc, giftId) {
+    let checkoutLink = `https://${location.hostname}/cart/${variant_id}:1`;
+    if (giftId) {
+        checkoutLink += `,${giftId}:1`;
+    }
+    if (dc) checkoutLink += "?discount=" + atob(dc);
+    window.location.href = checkoutLink;
+}
 
     function toggleButtonLoading(buttonElement, isLoading) {
       const loader = buttonElement.querySelector('.loading-overlay__spinner');
@@ -794,76 +1229,32 @@
 			const cartCleared = await clearCart();
 			if (!cartCleared) return;
 
-			// Add main product
-			const mainProduct = {
-				"id": variant_id,
-				"quantity": qty,
-				"selling_plan": selling_plan
-			};
-
-			// Add gift product
-			const giftProduct = {
-				"id": giftId,
-				"quantity": 1
-			};
+			const items = [
+					{
+							"id": variant_id,
+							"quantity": qty,
+							"selling_plan": selling_plan
+					},
+					{
+							"id": giftId,
+							"quantity": 1
+					}
+			];
 
 			try {
-				// Add main product to cart
-				await fetch('/cart/add.js', {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify(mainProduct)
-				});
+					// Add both items to the cart in a single request
+					await fetch('/cart/add.js', {
+							method: 'POST',
+							headers: { 'Content-Type': 'application/json' },
+							body: JSON.stringify({ items: items })
+					});
 
-				// Add gift to cart
-				await fetch('/cart/add.js', {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify(giftProduct)
-				});
-
-				window.location.href = '/checkout';
+					window.location.href = '/checkout';
 			} catch (error) {
-				console.log('Failed to add items to cart:', error);
+					console.log('Failed to add items to cart:', error);
 			}
-		}
+	}
   });
-</script>
-
-<script>
-	// Add this to your existing DOMContentLoaded event listener
-const giftOptions = productActions.querySelectorAll('.gift-option');
-let selectedGift = 'curalin'; // Default selected gift
-
-giftOptions.forEach(option => {
-  option.addEventListener('click', () => {
-    // Remove selected state from all options
-    giftOptions.forEach(opt => {
-      opt.classList.remove('selected');
-      opt.querySelector('.check-mark').classList.add('hidden');
-      opt.style.borderColor = '#e5e7eb'; // Reset border color
-    });
-
-    // Add selected state to clicked option
-    option.classList.add('selected');
-    option.querySelector('.check-mark').classList.remove('hidden');
-    option.style.borderColor = 'var(--primary-color)';
-
-    selectedGift = option.dataset.giftId;
-
-    // Update hidden input for the gift selection
-    const giftInput = document.querySelector('input[name="gift_selection"]');
-    if (giftInput) {
-      giftInput.value = selectedGift;
-    }
-  });
-});
-
-// Mark the default selected gift
-const defaultGift = document.querySelector(`.gift-option[data-gift-id="${selectedGift}"]`);
-if (defaultGift) {
-  defaultGift.click();
-}
 </script>
 
 <style>
@@ -871,27 +1262,41 @@ if (defaultGift) {
   margin: 1rem 0;
 }
 
-.gift-option {
+.gift-option-border {
   transition: all 0.3s ease;
   border: 2px solid #e5e7eb;
+  background: #fff;
+  width: 120px;
+	height: 120px;
 }
 
-.gift-option:hover:not(.selected) {
+.gift-option-border:hover {
   border-color: var(--primary-color-light);
 }
 
-.gift-option.selected {
-  border-color: var(--primary-color);
-  background-color: rgba(var(--primary-color-rgb), 0.05);
-}
-
-.radio-indicator {
-  border-color: var(--primary-color);
-  transition: all 0.2s ease;
+.gift-option-container.selected .gift-option-border {
+    border-color: var(--primary-color);
+    background-color: rgba(var(--primary-color-rgb), 0.05);
 }
 
 .check-mark {
+    transition: all 0.2s ease;
+}
+
+.check-mark.hidden {
+    display: none;
+}
+
+.radio-indicator {
   transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+}
+
+.gift-option-container.selected .radio-indicator {
+	background-color: var(--primary-color);
 }
 
 .gift-price {
