@@ -78,79 +78,122 @@
 					</div>
 
 					<script>
+					// Find the form submit handler and modify it to include better error handling
 					document.addEventListener('DOMContentLoaded', function() {
-						var buyButton = document.getElementById('buy-button-{{ SID }}');
+							const form = document.getElementById('product-form-{{ SID }}');
+							const submitButton = document.getElementById('ProductSubmitButton-{{SID}}');
+							const errorMessageWrapper = document.querySelector('.product-form__error-message-wrapper');
+							const errorMessage = document.querySelector('.product-form__error-message');
 
-						if (buyButton) {
-							buyButton.addEventListener('click', function(event) {
-								// Button states for loading
-								var submitButton = this;
-								var buttonText = submitButton.querySelector('.button-text');
-								var loadingSpinner = submitButton.querySelector('.loading-overlay__spinner');
+							form.addEventListener('submit', async function(event) {
+									event.preventDefault();
 
-								// Display loading spinner
-								if (buttonText && loadingSpinner) {
-									buttonText.style.display = 'none';
-									loadingSpinner.classList.remove('hidden');
-								}
+									// Display the loading spinner
+									toggleButtonLoading(submitButton, true);
 
-								// Get the variant ID and selling plan ID from the hidden inputs
-								var variantIdInput = document.querySelector('.submit-variant-id');
-								var sellingPlanIdInput = document.querySelector('.submit-selling-plan-id');
+									// Get selected variant and selling plan IDs
+									const variantIdInput = form.querySelector('.submit-variant-id');
+									const sellingPlanIdInput = form.querySelector('.submit-selling-plan-id');
+									const variantId = variantIdInput ? variantIdInput.value : null;
+									const sellingPlanId = sellingPlanIdInput ? sellingPlanIdInput.value : '';
 
-								if (variantIdInput) {
-									console.log('Variant ID input found.');
-								} else {
-									console.error('Variant ID input not found.');
-								}
+									// Get selected gift ID
+									const selectedGiftContainer = document.querySelector('.gift-option-container.selected');
+									const giftOptionBorder = selectedGiftContainer ? selectedGiftContainer.querySelector('.gift-option-border') : null;
+									const giftId = giftOptionBorder ? giftOptionBorder.dataset.giftId : null;
 
-								var variantId = variantIdInput ? variantIdInput.value : '{{ variant | default: product.selected_or_first_available_variant.id }}';
-								var sellingPlanId = sellingPlanIdInput ? sellingPlanIdInput.value : '';
-								console.log('Variant ID:', variantId);
-								console.log('Selling Plan ID:', sellingPlanId);
-
-								var quantity = 1;
-
-								var data = {
-									"id": variantId,
-									"quantity": quantity
-								};
-
-								if (sellingPlanId) {
-									data["selling_plan"] = sellingPlanId;
-								}
-
-								// Adding product to the cart
-								console.log('Sending request to add product to the cart:', data);
-
-								fetch('/cart/add.js', {
-									method: 'POST',
-									headers: {
-										'Content-Type': 'application/json',
-									},
-									body: JSON.stringify(data),
-								})
-								.then(function(response) {
-									console.log('Received response from add to cart:', response);
-									return response.json();
-								})
-								.then(function(data) {
-									console.log('Product successfully added to cart:', data);
-									console.log('Redirecting to checkout.');
-									window.location.href = '/checkout';
-								})
-								.catch(function(error) {
-									console.error('Error adding product to cart:', error);
-									if (buttonText && loadingSpinner) {
-										console.log('An error occurred. Resetting button to normal state.');
-										buttonText.style.display = '';
-										loadingSpinner.classList.add('hidden');
+									// Validate required data
+									if (!variantId || !giftId) {
+											showError('Missing required product or gift selection');
+											toggleButtonLoading(submitButton, false);
+											return;
 									}
-								});
+
+									// Log the data being sent
+									console.log('Sending cart data:', {
+											variantId,
+											sellingPlanId,
+											giftId
+									});
+
+									// Prepare items to add to cart
+									const items = [
+											{
+													"id": variantId,
+													"quantity": 1
+											},
+											{
+													"id": giftId,
+													"quantity": 1
+											}
+									];
+
+									// Include selling plan if it's a subscription
+									if (sellingPlanId) {
+											items[0].selling_plan = sellingPlanId;
+									}
+
+									try {
+											const response = await fetch('/cart/add.js', {
+													method: 'POST',
+													headers: { 'Content-Type': 'application/json' },
+													body: JSON.stringify({ items: items })
+											});
+
+											const responseData = await response.json();
+
+											if (!response.ok) {
+													// Log detailed error information
+													console.error('Cart error details:', {
+															status: response.status,
+															statusText: response.statusText,
+															response: responseData
+													});
+
+													// Show error message to user
+													showError(responseData.description || 'Failed to add items to cart');
+													toggleButtonLoading(submitButton, false);
+													return;
+											}
+
+											// Success! Reset button state
+											toggleButtonLoading(submitButton, false);
+											hideError();
+
+											// Log success data
+											console.log('Successfully added to cart:', responseData);
+
+									} catch (error) {
+											console.error('Cart error:', error);
+											showError('An error occurred while adding items to cart');
+											toggleButtonLoading(submitButton, false);
+									}
 							});
-						} else {
-							console.error('Buy button not found. Cannot attach event listener.');
-						}
+
+							function showError(message) {
+									if (errorMessageWrapper && errorMessage) {
+											errorMessage.textContent = message;
+											errorMessageWrapper.hidden = false;
+									} else {
+											console.error('Error:', message);
+									}
+							}
+
+							function hideError() {
+									if (errorMessageWrapper) {
+											errorMessageWrapper.hidden = true;
+									}
+							}
+
+							function toggleButtonLoading(buttonElement, isLoading) {
+									const loader = buttonElement.querySelector('.loading-overlay__spinner');
+									const buttonText = buttonElement.querySelector('.submit-title');
+
+									if (loader && buttonText) {
+											loader.style.display = isLoading ? 'block' : 'none';
+											buttonText.style.display = isLoading ? 'none' : 'block';
+									}
+							}
 					});
 				</script>
 
@@ -1281,6 +1324,8 @@ function redirectToCheckout(variant_id, dc, giftId) {
 
 .check-mark {
     transition: all 0.2s ease;
+		margin-top: -4px;
+  	margin-left: 3px;
 }
 
 .check-mark.hidden {
