@@ -36,6 +36,9 @@
         {% assign buttonSID = SID | append: '-checkout' %}
         {% render 'buy-buttons-new-4', SID: buttonSID, product: prod, variant: '', buttonText: "Add to Cart", selling_plan_id: selling_plan_id, product_form_id: product_form_id, buyType: buyType, isBuyWithPrime: isBuyWithPrime %}
       </div>
+			<div class="one-time-purchase-link mt-3 text-center">
+        <div class="one-time-add-to-cart hover:text-gray-800 text-sm text-gray-600 underline">Buy Once for $59.90</div>
+      </div>
     </div>
   </div>
 </div>
@@ -52,6 +55,11 @@
     const state = {
       selectedBox: null,
     };
+
+		const ctaText = productActions.querySelector('.cta-text');
+		if (ctaText & window.innerWidth < 768) {
+			productActions.insertAdjacentElement('beforebegin', ctaText);
+		}
 
     function togglePurchaseBox(element) {
       if (!element) return;
@@ -140,6 +148,59 @@
       }
     });
 
+    // Handle one-time purchase button click
+    const oneTimePurchaseButton = productActions.querySelector('.one-time-add-to-cart');
+    if (oneTimePurchaseButton) {
+      oneTimePurchaseButton.addEventListener('click', async (event) => {
+        event.preventDefault();
+
+        // Disable button during request
+        oneTimePurchaseButton.disabled = true;
+        const originalText = oneTimePurchaseButton.textContent;
+        oneTimePurchaseButton.textContent = 'Adding...';
+
+        try {
+          const response = await fetch('/cart/add.js', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              items: [{
+                id: 42865141121175,
+                quantity: 1
+              }]
+            })
+          });
+
+          if (!response.ok) {
+            throw new Error('Network response was not ok');
+          }
+
+          // Optional: Update cart count or show mini cart
+          // You might want to trigger your store's cart update function here
+          if (typeof window.updateCart === 'function') {
+            window.updateCart();
+          }
+
+          // Show success state briefly
+          oneTimePurchaseButton.textContent = 'Added!';
+          setTimeout(() => {
+            oneTimePurchaseButton.textContent = originalText;
+            oneTimePurchaseButton.disabled = false;
+          }, 2000);
+
+        } catch (error) {
+          console.error('Error:', error);
+          oneTimePurchaseButton.textContent = 'Something went wrong! Please contact us.';
+          setTimeout(() => {
+            oneTimePurchaseButton.textContent = originalText;
+            oneTimePurchaseButton.disabled = false;
+          }, 2000);
+        }
+      });
+    }
+
     initializePurchaseOptions();
   });
 </script>
@@ -153,7 +214,7 @@
     --text-color: #4a5568;
     --border-color: #cbcbcb;
     --radio-size: 1em;
-    --radio-size-mobile: 1.5em;
+    --radio-size-mobile: 1em;
     --transition-speed: 0.4s;
 
     /* Grid Layout */
@@ -169,6 +230,11 @@
         max-height: none !important;
         transition: none !important;
       }
+    }
+
+    /* One Time Purchase Link */
+    .one-time-purchase-link a {
+      transition: color 0.3s ease;
     }
 
     /* Radio Input Component */
@@ -327,6 +393,14 @@
         padding: 3vw;
         max-height: 16vw;
 
+				&::before {
+					font-size: 4vw;
+					width: 30vw;
+					height: 5vw;
+					top: -5vw;
+					border-radius: 2vw 2vw 0 0;
+				}
+
         &.selected {
           max-height: none;
         }
@@ -389,15 +463,18 @@
 
       .radio-input {
         input[type='radio'] {
-          width: 1.5em;
-          height: 1.5em;
+          width: 4vw;
+          height: 4vw;
         }
 
         .circle {
           width: 0.5em;
           height: 0.5em;
-          left: -0.9em;
         }
+      }
+
+      .one-time-purchase-link {
+        font-size: 3.5vw;
       }
     }
   }
