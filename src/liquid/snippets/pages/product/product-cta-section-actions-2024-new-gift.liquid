@@ -78,6 +78,7 @@
 					</div>
 
 					<script>
+
 					// Find the form submit handler and modify it to include better error handling
 					document.addEventListener('DOMContentLoaded', function() {
 							const form = document.getElementById('product-form-{{ SID }}');
@@ -86,114 +87,156 @@
 							const errorMessage = document.querySelector('.product-form__error-message');
 
 							form.addEventListener('submit', async function(event) {
-									event.preventDefault();
+								event.preventDefault();
 
-									// Display the loading spinner
-									toggleButtonLoading(submitButton, true);
+								// Display the loading spinner
+								toggleButtonLoading(submitButton, true);
 
-									// Get selected variant and selling plan IDs
-									const variantIdInput = form.querySelector('.submit-variant-id');
-									const sellingPlanIdInput = form.querySelector('.submit-selling-plan-id');
-									const variantId = variantIdInput ? variantIdInput.value : null;
-									const sellingPlanId = sellingPlanIdInput ? sellingPlanIdInput.value : '';
+								try {
+										// Get form data and log it
+										const variantIdInput = form.querySelector('.submit-variant-id');
+										const sellingPlanIdInput = form.querySelector('.submit-selling-plan-id');
+										const selectedGiftContainer = document.querySelector('.gift-option-container.selected');
+										const giftOptionBorder = selectedGiftContainer ? selectedGiftContainer.querySelector('.gift-option-border') : null;
 
-									// Get selected gift ID
-									const selectedGiftContainer = document.querySelector('.gift-option-container.selected');
-									const giftOptionBorder = selectedGiftContainer ? selectedGiftContainer.querySelector('.gift-option-border') : null;
-									const giftId = giftOptionBorder ? giftOptionBorder.dataset.giftId : null;
+										// Log all the data we're working with
+										console.log('Form Data:', {
+												variantIdInput: variantIdInput ? variantIdInput.value : 'not found',
+												sellingPlanIdInput: sellingPlanIdInput ? sellingPlanIdInput.value : 'not found',
+												selectedGiftContainer: selectedGiftContainer ? 'found' : 'not found',
+												giftOptionBorder: giftOptionBorder ? 'found' : 'not found',
+												giftId: giftOptionBorder ? giftOptionBorder.dataset.giftId : 'not found'
+										});
 
-									// Validate required data
-									if (!variantId || !giftId) {
-											showError('Missing required product or gift selection');
-											toggleButtonLoading(submitButton, false);
-											return;
-									}
+										const variantId = variantIdInput ? variantIdInput.value : null;
+										const sellingPlanId = sellingPlanIdInput ? sellingPlanIdInput.value : '';
+										const giftId = giftOptionBorder ? giftOptionBorder.dataset.giftId : null;
 
-									// Log the data being sent
-									console.log('Sending cart data:', {
-											variantId,
-											sellingPlanId,
-											giftId
-									});
+										// Validate required data
+										if (!variantId || !giftId) {
+												const errorMessage = `Missing required data: ${!variantId ? 'variant ID' : ''} ${!giftId ? 'gift ID' : ''}`;
+												console.error(errorMessage);
+												showError(errorMessage);
+												toggleButtonLoading(submitButton, false);
+												return;
+										}
 
-									// Prepare items to add to cart
-									const items = [
-											{
-													"id": variantId,
-													"quantity": 1
-											},
-											{
-													"id": giftId,
-													"quantity": 1
-											}
-									];
+										// Prepare items array
+										const items = [
+												{
+														id: variantId,
+														quantity: 1
+												},
+												{
+														id: giftId,
+														quantity: 1
+												}
+										];
 
-									// Include selling plan if it's a subscription
-									if (sellingPlanId) {
-											items[0].selling_plan = sellingPlanId;
-									}
+										// Add selling plan if present
+										if (sellingPlanId) {
+												items[0].selling_plan = sellingPlanId;
+										}
 
-									try {
-											const response = await fetch('/cart/add.js', {
-													method: 'POST',
-													headers: { 'Content-Type': 'application/json' },
-													body: JSON.stringify({ items: items })
-											});
+										// Log the final payload
+										console.log('Sending to cart:', {
+												url: '/cart/add.js',
+												method: 'POST',
+												body: { items }
+										});
 
-											const responseData = await response.json();
+										// Make the request
+										const response = await fetch('/cart/add.js', {
+												method: 'POST',
+												headers: {
+														'Content-Type': 'application/json',
+														'Accept': 'application/json'
+												},
+												body: JSON.stringify({ items })
+										});
 
-											if (!response.ok) {
-													// Log detailed error information
-													console.error('Cart error details:', {
-															status: response.status,
-															statusText: response.statusText,
-															response: responseData
-													});
+										// Get the response as text first
+										const responseText = await response.text();
+										console.log('Raw response:', responseText);
 
-													// Show error message to user
-													showError(responseData.description || 'Failed to add items to cart');
-													toggleButtonLoading(submitButton, false);
-													return;
-											}
+										// Try to parse as JSON
+										let responseData;
+										try {
+												responseData = JSON.parse(responseText);
+										} catch (e) {
+												console.log('Failed to parse response as JSON:', e);
+										}
 
-											// Success! Reset button state
-											toggleButtonLoading(submitButton, false);
-											hideError();
+										// Log full response details
+										console.log('Response details:', {
+												status: response.status,
+												statusText: response.statusText,
+												headers: Object.fromEntries(response.headers.entries()),
+												data: responseData
+										});
 
-											// Log success data
-											console.log('Successfully added to cart:', responseData);
+										if (!response.ok) {
+												const errorMessage = responseData?.description ||
+																					responseData?.message ||
+																					`Error ${response.status}: ${response.statusText}`;
+												showError(errorMessage);
+												console.error('Cart error:', {
+														status: response.status,
+														statusText: response.statusText,
+														data: responseData
+												});
+										} else {
+												console.log('Successfully added to cart:', responseData);
+												hideError();
+												window.location.href = '/checkout';
+										}
+								} catch (error) {
+										console.error('Caught error:', error);
+										showError(error.message || 'An unexpected error occurred');
+								} finally {
+										toggleButtonLoading(submitButton, false);
+								}
+						});
 
-									} catch (error) {
-											console.error('Cart error:', error);
-											showError('An error occurred while adding items to cart');
-											toggleButtonLoading(submitButton, false);
-									}
-							});
+						function showError(message) {
+								const errorMessageWrapper = document.querySelector('.product-form__error-message-wrapper');
+								const errorMessage = document.querySelector('.product-form__error-message');
 
-							function showError(message) {
-									if (errorMessageWrapper && errorMessage) {
-											errorMessage.textContent = message;
-											errorMessageWrapper.hidden = false;
-									} else {
-											console.error('Error:', message);
-									}
-							}
+								console.error('Error:', message);
 
-							function hideError() {
-									if (errorMessageWrapper) {
-											errorMessageWrapper.hidden = true;
-									}
-							}
+								if (errorMessageWrapper && errorMessage) {
+										errorMessage.textContent = message;
+										errorMessageWrapper.hidden = false;
+								}
+						}
 
-							function toggleButtonLoading(buttonElement, isLoading) {
-									const loader = buttonElement.querySelector('.loading-overlay__spinner');
-									const buttonText = buttonElement.querySelector('.submit-title');
+						function hideError() {
+								const errorMessageWrapper = document.querySelector('.product-form__error-message-wrapper');
+								if (errorMessageWrapper) {
+										errorMessageWrapper.hidden = true;
+								}
+						}
 
-									if (loader && buttonText) {
-											loader.style.display = isLoading ? 'block' : 'none';
-											buttonText.style.display = isLoading ? 'none' : 'block';
-									}
-							}
+						function toggleButtonLoading(buttonElement, isLoading) {
+								if (!buttonElement) {
+										console.warn('Button element not found');
+										return;
+								}
+
+								const loader = buttonElement.querySelector('.loading-overlay__spinner');
+								const buttonText = buttonElement.querySelector('.button-text, .submit-title');
+
+								if (!loader || !buttonText) {
+										console.warn('Button elements not found:', {
+												loader: loader ? 'found' : 'not found',
+												buttonText: buttonText ? 'found' : 'not found'
+										});
+										return;
+								}
+
+								loader.style.display = isLoading ? 'block' : 'none';
+								buttonText.style.display = isLoading ? 'none' : 'block';
+						}
 					});
 				</script>
 
