@@ -20,6 +20,10 @@
 						{% when 'gift' %}
 							{% assign giftProd = block.settings.gift_product %}
 							{% assign giftVariant = giftProd.selected_or_first_available_variant %}
+							{% assign giftProdSubscription = block.settings.gift_product_subscription %}
+							{% assign giftVariantSubscription = giftProdSubscription.selected_or_first_available_variant %}
+							{% assign giftThumb = block.settings.gift_thumbnail | default: giftProdSubscription.featured_image | default: giftProd.featured_image %}
+
 							{% if block.settings.variant_id != blank %}
 								{% for var in giftProd.variants %}
 									{% if var.id == block.settings.variant_id %}
@@ -27,15 +31,23 @@
 									{% endif %}
 								{% endfor %}
 							{% endif %}
+
+							{% if giftProdSubscription != blank %}
+								{% for varSub in giftProdSubscription.variants %}
+									{% if varSub.id == block.settings.variant_id_subscription %}
+										{% assign giftVariantSubscription = varSub %}
+									{% endif %}
+								{% endfor %}
+							{% endif %}
 							<div class="gift-option-container flex flex-col items-center">
 								<!-- Border container for image and radio only -->
-								<div class="gift-option-border relative w-full p-2 mb-3 border rounded-lg cursor-pointer" data-gift-id="{{ giftVariant.id }}">
+								<div class="gift-option-border relative w-full p-2 mb-3 border rounded-lg cursor-pointer" data-gift-id="{{ giftVariant.id }}" data-gift-id-subscription="{{ giftVariantSubscription.id }}">
 									<div class="radio-indicator top-2 right-2 absolute flex items-center justify-center w-6 h-6 rounded-full">
 										<div class="check-mark hidden w-4 h-4 font-bold text-white rounded-full">✓</div>
 									</div>
 									<div class="gift-image-container flex justify-center">
 										<img
-											src="{{ giftProd.featured_image | image_url }}"
+											src="{{ giftThumb | image_url }}"
 											alt="{{ giftProd.title }}"
 											class="object-contain w-24 h-24"
 										>
@@ -45,10 +57,8 @@
 								<div class="gift-content text-center">
 									<div class="gift-name mb-1 font-medium">{{ giftProd.title }}</div>
 									<div class="gift-price flex items-center justify-center gap-2">
-										{% if giftVariant.compare_at_price > giftVariant.price %}
-											<span class="original-price text-gray-400 line-through">{{ giftVariant.price | money_with_currency }}</span>
-										{% endif %}
-										<span class="sale-price font-bold">{{ giftVariant.compare_at_price | money_with_currency }}</span>
+										<span class="original-price text-gray-500 line-through">{{ giftVariantSubscription.compare_at_price | money_with_currency }}</span>
+										<span class="sale-price font-bold">FREE</span>
 									</div>
 								</div>
 							</div>
@@ -219,18 +229,26 @@ document.addEventListener('DOMContentLoaded', function() {
         const selectedGiftContainer = document.querySelector('.gift-option-container.selected');
         const giftOptionBorder = selectedGiftContainer ? selectedGiftContainer.querySelector('.gift-option-border') : null;
 
+        // Determine if this is a subscription purchase
+        const isSubscription = !!sellingPlanIdInput?.value;
+
+        // Get the appropriate gift ID based on purchase type
+        const giftId = giftOptionBorder ? (isSubscription ? giftOptionBorder.dataset.giftIdSubscription : giftOptionBorder.dataset.giftId) : null;
+
         // Log all the data we're working with
         console.log('Form Data:', {
             variantIdInput: variantIdInput ? variantIdInput.value : 'not found',
             sellingPlanIdInput: sellingPlanIdInput ? sellingPlanIdInput.value : 'not found',
             selectedGiftContainer: selectedGiftContainer ? 'found' : 'not found',
             giftOptionBorder: giftOptionBorder ? 'found' : 'not found',
-            giftId: giftOptionBorder ? giftOptionBorder.dataset.giftId : 'not found'
+            isSubscription: isSubscription,
+            giftId: giftId,
+            regularGiftId: giftOptionBorder?.dataset.giftId,
+            subscriptionGiftId: giftOptionBorder?.dataset.giftIdSubscription
         });
 
         const variantId = variantIdInput ? variantIdInput.value : null;
         const sellingPlanId = sellingPlanIdInput ? sellingPlanIdInput.value : '';
-        const giftId = giftOptionBorder ? giftOptionBorder.dataset.giftId : null;
 
         // Validate required data
         if (!variantId || !giftId) {
@@ -274,10 +292,6 @@ document.addEventListener('DOMContentLoaded', function() {
             },
             body: JSON.stringify({ items })
         });
-
-        // Get the response as text first
-        const responseText = await response.text();
-        console.log('Raw response:', responseText);
 
         // Try to parse as JSON
         let responseData;
@@ -1223,32 +1237,41 @@ purchaseOptionBoxes.forEach(box => {
     });
 
     function buyButtonHandler(subscription_selling_plan_id, buttonElement) {
-    const selectedBox = productActions.querySelector('.purchase-option-box.selected');
-    const selectedGiftContainer = productActions.querySelector('.gift-option-container.selected');
-    if (!selectedBox || !selectedGiftContainer) {
-        console.error('Please select both a product and a gift.');
-        return;
-    }
+				const selectedBox = productActions.querySelector('.purchase-option-box.selected');
+				const selectedGiftContainer = productActions.querySelector('.gift-option-container.selected');
+				if (!selectedBox || !selectedGiftContainer) {
+						console.error('Please select both a product and a gift.');
+						return;
+				}
 
-    const giftOptionBorder = selectedGiftContainer.querySelector('.gift-option-border');
-    const giftId = giftOptionBorder ? giftOptionBorder.dataset.giftId : null;
-    if (!giftId) {
-        console.error('Gift ID not found.');
-        return;
-    }
+				const giftOptionBorder = selectedGiftContainer.querySelector('.gift-option-border');
+				const isSubscription = isSubscriptionSelected();
+				const giftId = giftOptionBorder ? (isSubscription ? giftOptionBorder.dataset.giftIdSubscription : giftOptionBorder.dataset.giftId) : null;
 
-    toggleButtonLoading(buttonElement, true);
+				if (!giftId) {
+						console.error('Gift ID not found.');
+						return;
+				}
 
-    if (isSubscriptionSelected()) {
-        const variant_id = selectedBox.dataset.originalVariant;
-        buySubscription(variant_id, 1, subscription_selling_plan_id, giftId);
-    } else {
-        const variant_id = selectedBox.dataset.variant;
-        const purchaseOptionBox = buttonElement.closest('.purchase-option-box');
-        const dc = purchaseOptionBox ? purchaseOptionBox.dataset.dc : null;
-        redirectToCheckout(variant_id, dc, giftId);
-    }
-}
+				console.log('Selected gift details:', {
+						isSubscription: isSubscription,
+						regularGiftId: giftOptionBorder?.dataset.giftId,
+						subscriptionGiftId: giftOptionBorder?.dataset.giftIdSubscription,
+						selectedGiftId: giftId
+				});
+
+				toggleButtonLoading(buttonElement, true);
+
+				if (isSubscriptionSelected()) {
+						const variant_id = selectedBox.dataset.originalVariant;
+						buySubscription(variant_id, 1, subscription_selling_plan_id, giftId);
+				} else {
+						const variant_id = selectedBox.dataset.variant;
+						const purchaseOptionBox = buttonElement.closest('.purchase-option-box');
+						const dc = purchaseOptionBox ? purchaseOptionBox.dataset.dc : null;
+						redirectToCheckout(variant_id, dc, giftId);
+				}
+		}
 
 function redirectToCheckout(variant_id, dc, giftId) {
     let checkoutLink = `https://${location.hostname}/cart/${variant_id}:1`;
@@ -1336,7 +1359,7 @@ function redirectToCheckout(variant_id, dc, giftId) {
 }
 
 .gift-option-border:hover {
-  border-color: var(--primary-color-light);
+  border-color: var(--primary-color-lighter);
 }
 
 .gift-option-container.selected .gift-option-border {
@@ -1366,14 +1389,6 @@ function redirectToCheckout(variant_id, dc, giftId) {
 	background-color: var(--primary-color);
 }
 
-.gift-price {
-  font-size: 0.875rem;
-}
-
-.original-price {
-  color: var(--primary-color-light);
-}
-
 .sale-price {
   color: var(--primary-color-dark);
 }
@@ -1383,7 +1398,8 @@ function redirectToCheckout(variant_id, dc, giftId) {
   :root {
     --primary-color: {{ buyBoxColor }};
     --primary-color-dark: color-mix(in srgb, var(--primary-color), black 20%);
-    --primary-color-light: color-mix(in srgb, var(--primary-color), white 80%);
+		--primary-color-light: color-mix(in srgb, var(--primary-color), white 60%);
+    --primary-color-lighter: color-mix(in srgb, var(--primary-color), white 80%);
   }
 
   #cta-section-{{ SID }} .purchase-type button {
@@ -1399,7 +1415,7 @@ function redirectToCheckout(variant_id, dc, giftId) {
     }
 
     &:not(.selected) {
-      background: var(--primary-color-light);
+      background: var(--primary-color-lighter);
       border: 1px solid var(--primary-color);
 
       .subscription-details {
