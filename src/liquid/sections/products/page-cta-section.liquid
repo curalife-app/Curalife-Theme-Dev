@@ -12,25 +12,29 @@
   {% endunless %}
 {% endif %}
 
+{% if section.settings.display_on_url_param %}
+  {% assign hideSection = false %}
+{% endif %}
+
 {% unless hideSection %}
   {% assign sectionIDParts = section.id | split: '_' %}
   {% assign shortSectionID = sectionIDParts[-1] %}
   {% assign shortSectionIDParts = shortSectionID | split: '-' %}
   {% assign SID = shortSectionIDParts[-1] %}
 
-  {% assign buyBoxColor = prodReference.metafields.custom.primary_color | default: section.settings.buy_box_color | default: page.metafields.primary_color | default: "var(--primary-color)" %}
+  {% if shop.name contains 'Global' and section.settings.product_global %}
+    {% assign prodReference = section.settings.product_global | default: section.settings.product | default: product %}
+  {% else %}
+    {% assign prodReference = section.settings.product | default: product | default: all_products["curalin-pack"] %}
+  {% endif %}
 
-	{% if shop.name contains 'Global' and section.settings.product_global %}
-		{% assign prodReference = section.settings.product_global | default: section.settings.product | default: product %}
-	{% else %}
-		{% assign prodReference = section.settings.product | default: product | default: all_products["curalin-pack"] %}
-	{% endif %}
+  {% assign buyBoxColor = prodReference.metafields.custom.primary_color | default: section.settings.buy_box_color | default: page.metafields.primary_color | default: "var(--primary-color)" %}
 
   <div id="cta-section-anchor"></div>
   {% if section.settings.anchor_id != blank %}<div id="{{ section.settings.anchor_id }}"></div>{% endif %}
 
-	<section id="cta-section-{{ SID }}" class="cta-section overflow-visible pb-0 {{ section.settings.additional_classes }}{% if section.settings.isPopup %} cta-popup{% endif %}" {% if section.settings.isPopup %}aria-hidden="true"{% endif %} {% if section.settings.isPopup %}style="opacity: 0; visibility: hidden; pointer-events: none;"{% endif %}>
-    {% if section.settings.isPopup %}
+  <section id="cta-section-{{ SID }}" class="cta-section overflow-visible pb-0 {{ section.settings.additional_classes }}{% if section.settings.is_popup %} cta-popup{% endif %}" {% if section.settings.is_popup %}aria-hidden="true"{% endif %} {% if section.settings.is_popup %}style="opacity: 0; visibility: hidden; pointer-events: none;"{% endif %}>
+    {% if section.settings.is_popup %}
       <div class="cta-popup-content" role="dialog" aria-modal="true" aria-labelledby="popup-title">
         <a class="close-popup top-close" aria-label="Close Popup">&times;</a>
     {% endif %}
@@ -41,7 +45,7 @@
       buyBoxColor: buyBoxColor,
       ctaColor: "var(--orange)",
       mainTitle: section.settings.main_title,
-			subtitle: section.settings.subtitle,
+      subtitle: section.settings.subtitle,
       title: section.settings.variants_title,
       ctaText: section.settings.cta_text,
       thumbnailImage: section.settings.thumbnail_image,
@@ -58,18 +62,34 @@
       isHideInfo: section.settings.is_hide_info,
       isBuyWithPrime: section.settings.is_buy_with_prime,
       isVariantBoxToggle: section.settings.is_variant_toggle,
-			isOneTimePurchaseLink: section.settings.is_one_time_purchase_link,
+      isOneTimePurchaseLink: section.settings.is_one_time_purchase_link,
       buyType: section.settings.buy_type,
       prod: prodReference,
       blocks: section.blocks,
       SID: SID
     %}
 
-    {% if section.settings.isPopup %}
+    {% if section.settings.is_popup %}
         <a class="close-popup bottom-close" aria-label="Close Popup" name="close-cta-modal">Close</a>
       </div>
     {% endif %}
   </section>
+
+  <!-- JavaScript to handle URL parameter and hide the section -->
+	<script>
+		(() => {
+			const section = document.getElementById('cta-section-{{ SID }}');
+			if (!section) return;
+
+			const params = new URLSearchParams(window.location.search);
+			const ctaParam = params.get('cta') === 'true';
+
+			if (({{ section.settings.display_on_url_param | json }} && !ctaParam) ||
+					({{ section.settings.hide_on_url_param | json }} && ctaParam)) {
+				section.remove();
+			}
+		})();
+	</script>
 
   <script>
     window.addEventListener('load', function() {
@@ -120,7 +140,7 @@
       }
     });
 
-    {% if section.settings.isPopup %}
+    {% if section.settings.is_popup %}
       document.addEventListener('DOMContentLoaded', function() {
         const popup = document.getElementById('cta-section-{{ SID }}');
         const popupContent = popup.querySelector('.cta-popup-content');
@@ -190,7 +210,7 @@
     {% endif %}
   </script>
 
-  {% if section.settings.isPopup %}
+  {% if section.settings.is_popup %}
     <style>
       #shopify-section-{{ section.id }} .product-container {
         padding: 0 !important;
@@ -545,9 +565,8 @@
       },
       {
         "type": "checkbox",
-        "id": "isPopup",
-        "label": "Display as Popup",
-        "default": false
+        "id": "is_popup",
+        "label": "Display as Popup"
       },
 			{
 				"type": "checkbox",
@@ -569,6 +588,16 @@
         "id": "display_on_pages",
         "label": "Display on Pages",
         "info": "Comma-separated list of page paths to display this section on. Leave blank to display on all pages."
+      },
+			{
+        "type": "checkbox",
+        "id": "display_on_url_param",
+        "label": "Display Only on cta=true URL Param"
+      },
+			{
+        "type": "checkbox",
+        "id": "hide_on_url_param",
+        "label": "Hide on cta=true URL Param"
       },
 			{
         "type": "product",
