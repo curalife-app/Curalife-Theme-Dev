@@ -52,6 +52,17 @@
 
               <tbody>
                 {%- for item in cart.items -%}
+									{% assign is_subscription = false %}
+                  {% assign is_gift = false %}
+
+                  {% if item.selling_plan_allocation != null %}
+                    {% assign is_subscription = true %}
+                  {% endif %}
+
+                  {% if item.product.tags contains "bfcm-gift" %}
+                    {% assign is_gift = true %}
+                  {% endif %}
+
                   <tr class="cart-item" id="CartItem-{{ item.index | plus: 1 }}">
                     <td class="cart-item__media">
                       {% if item.image %}
@@ -160,41 +171,60 @@
                         <label class="visually-hidden" for="Quantity-{{ item.index | plus: 1 }}">
                           {{ 'products.product.quantity.label' | t }}
                         </label>
-                        <quantity-input class="quantity cart-quantity">
-                          <button class="quantity__button no-js-hidden" name="minus" type="button">
-                            <span class="visually-hidden">
-                              {{- 'products.product.quantity.decrease' | t: product: item.product.title | escape -}}
-                            </span>
-                            {% render 'icon-minus' %}
-                          </button>
-                          <input
-                            class="quantity__input"
-                            data-quantity-variant-id="{{ item.variant.id }}"
-                            type="number"
-                            name="updates[]"
-                            value="{{ item.quantity }}"
-                            {% # theme-check-disable %}
-                            data-cart-quantity="{{ cart | item_count_for_variant: item.variant.id }}"
-                            min="{{ item.variant.quantity_rule.min }}"
-                            {% if item.variant.quantity_rule.max != null %}
-                              max="{{ item.variant.quantity_rule.max }}"
-                            {% endif %}
-                            step="{{ item.variant.quantity_rule.increment }}"
-                            {% # theme-check-enable %}
-                            aria-label="{{ 'products.product.quantity.input_label' | t: product: item.product.title | escape }}"
-                            id="Quantity-{{ item.index | plus: 1 }}"
-                            data-index="{{ item.index | plus: 1 }}"
-                          >
-                          <button class="quantity__button no-js-hidden" name="plus" type="button">
-                            <span class="visually-hidden">
-                              {{- 'products.product.quantity.increase' | t: product: item.product.title | escape -}}
-                            </span>
-                            {% render 'icon-plus' %}
-                          </button>
-                        </quantity-input>
+
+                        {% if is_subscription or is_gift %}
+                          <div class="quantity cart-quantity">
+                            <input
+                              class="quantity__input"
+                              type="number"
+                              name="updates[]"
+                              value="{{ item.quantity }}"
+                              readonly
+                              disabled
+                              id="Quantity-{{ item.index | plus: 1 }}"
+                              data-index="{{ item.index | plus: 1 }}"
+                            >
+                          </div>
+                        {% else %}
+                          <quantity-input class="quantity cart-quantity">
+                            <button class="quantity__button no-js-hidden" name="minus" type="button">
+                              <span class="visually-hidden">
+                                {{- 'products.product.quantity.decrease' | t: product: item.product.title | escape -}}
+                              </span>
+                              {% render 'icon-minus' %}
+                            </button>
+
+                            <input
+                              class="quantity__input"
+                              data-quantity-variant-id="{{ item.variant.id }}"
+                              type="number"
+                              name="updates[]"
+                              value="{{ item.quantity }}"
+                              {% # theme-check-disable %}
+                              data-cart-quantity="{{ cart | item_count_for_variant: item.variant.id }}"
+                              min="{{ item.variant.quantity_rule.min }}"
+                              {% if item.variant.quantity_rule.max != null %}
+                                max="{{ item.variant.quantity_rule.max }}"
+                              {% endif %}
+                              step="{{ item.variant.quantity_rule.increment }}"
+                              {% # theme-check-enable %}
+                              aria-label="{{ 'products.product.quantity.input_label' | t: product: item.product.title | escape }}"
+                              id="Quantity-{{ item.index | plus: 1 }}"
+                              data-index="{{ item.index | plus: 1 }}"
+                            >
+                            <button class="quantity__button no-js-hidden" name="plus" type="button">
+                              <span class="visually-hidden">
+                                {{- 'products.product.quantity.increase' | t: product: item.product.title | escape -}}
+                              </span>
+                              {% render 'icon-plus' %}
+                            </button>
+                          </quantity-input>
+                        {% endif %}
 
                         <cart-remove-button id="Remove-{{ item.index | plus: 1 }}" data-index="{{ item.index | plus: 1 }}">
-                          <a href="{{ item.url_to_remove }}" class="m-2" aria-label="{{ 'sections.cart.remove_title' | t: title: item.title }}">{% render 'icon-remove' %}</a>
+                          <a href="{{ item.url_to_remove }}" class="m-2" aria-label="{{ 'sections.cart.remove_title' | t: title: item.title }}">
+                            {% render 'icon-remove' %}
+                          </a>
                         </cart-remove-button>
                       </div>
                       <div class="cart-item__error" id="Line-item-error-{{ item.index | plus: 1 }}" role="alert">
