@@ -4,6 +4,7 @@
   - product_handles: Array of product handles to display
   Optional parameters:
   - is_variant_split: If true, renders separate cards for each variant
+  - is_slider_on_mobile: If true, enables Swiper on mobile devices
 {% endcomment %}
 
 {% if collection_handle %}
@@ -21,14 +22,12 @@
   {% assign products = currentCollection.products %}
   {% assign use_collection = true %}
   {% assign additional_variants = currentCollection.metafields.custom.additional_variants.value %}
-  <script>console.log("Collection products count: {{ products.size }}")</script>
 {% elsif product_handles %}
   <script>console.log("Using product handles mode")</script>
   {% assign handles_array = product_handles %}
   {% assign use_collection = false %}
   {% assign collection_total_items_amount = handles_array.size %}
   {% assign additional_variants = blank %}
-  <script>console.log("Total handles: {{ handles_array.size }}")</script>
 {% endif %}
 
 {% if customer.b2b? or true %}
@@ -38,9 +37,10 @@
   {% endif %}
 {% endif %}
 
+
 <div id="{{ collection_handle | default: 'custom' }}-collection-section"
-     class="collection-section xl:w-full {% if collection_total_items_amount < 3 and template.name == 'list-collections' %}w-[48%]{% else %}w-full{% endif %}"
-     data-product-collections="{{ collection_handle | default: 'custom' }}" >
+    class="collection-section xl:w-full {% if collection_total_items_amount < 3 and template.name == 'list-collections' %}w-[48%]{% else %}w-full{% endif %}"
+    data-product-collections="{{ collection_handle | default: 'custom' }}" >
 
   {% unless isNoTitle %}
     <div class="title-wrapper border-b-[1px] border-black">
@@ -52,106 +52,187 @@
     <p class="description {% if is_align_center or isCentered %}text-center m-auto{% endif %}">{{ section_description }}</p>
   {% endif %}
 
-  <div class="product-grid flex flex-wrap gap-4 justify-start {% if isHiddenCollections %}hidden{% endif %}">
-    {% if banner_image and template.name != 'collection'%}
-      <div class="image-wrapper">
-        {% render 'image',
-          image: banner_image,
-          mobile_image: banner_image_mobile,
-          preload: true,
-          link: banner_link,
-          alt: banner_image.alt,
-          class: block.settings.additional_classes
-        %}
-      </div>
+  <div class="product-grid {% if is_slider_on_mobile %}mobile-slider{% endif %}">
+    {% if is_slider_on_mobile %}
+      <div class="swiper-container">
+        <div class="swiper-wrapper flex flex-wrap gap-4 justify-start {% if isHiddenCollections %}hidden{% endif %}">
+    {% else %}
+      <div class="flex flex-wrap gap-4 justify-start {% if isHiddenCollections %}hidden{% endif %}">
     {% endif %}
 
-    {% if use_collection %}
-      {% for product in products %}
-        <script>console.log("Processing collection product: {{ product.title }}")</script>
-        {% if is_variant_split and product.variants.size > 0 %}
-          <script>console.log("Splitting variants for product: {{ product.title }}")</script>
-          {% for variant in product.variants %}
-            <script>console.log("Rendering variant: {{ variant.title }} ({{ variant.id }})")</script>
-            {% render 'variant-card',
-              variant: variant,
-              product: product,
-              productCollections: product_collections,
-              isNoPrices: isNoPrices,
-              isAddToCart: isAddToCart,
-              isAddToCartQuantity: isAddToCartQuantity
-            %}
-          {% endfor %}
-        {% else %}
-          <script>console.log("Rendering product card: {{ product.title }}")</script>
-          {% render 'product-card',
-            product: product,
-            isNoPrices: isNoPrices,
-            isAddToCart: isAddToCart,
-            isAddToCartQuantity: isAddToCartQuantity
+      {% if banner_image and template.name != 'collection'%}
+        <div class="image-wrapper {% if is_slider_on_mobile %}swiper-slide{% endif %}">
+          {% render 'image',
+            image: banner_image,
+            mobile_image: banner_image_mobile,
+            preload: true,
+            link: banner_link,
+            alt: banner_image.alt,
+            class: block.settings.additional_classes
           %}
-        {% endif %}
-      {% endfor %}
-    {% else %}
-      {% for handle in handles_array %}
-        <script>console.log("Processing handle: {{ handle }}")</script>
-        {% assign product = all_products[handle] %}
-        {% if product != blank %}
-          <script>console.log("Found product: {{ product.title }} with {{ product.variants.size }} variants")</script>
+        </div>
+      {% endif %}
+
+      {% if use_collection %}
+        {% for product in products %}
           {% if is_variant_split and product.variants.size > 0 %}
-            <script>console.log("Splitting variants for product: {{ product.title }}")</script>
             {% for variant in product.variants %}
-              <script>console.log("Rendering variant: {{ variant.title }} ({{ variant.id }})")</script>
-              {% render 'variant-card',
-                variant: variant,
+              <div class="{% if is_slider_on_mobile %}swiper-slide{% endif %}">
+                {% render 'variant-card',
+                  variant: variant,
+                  product: product,
+                  productCollections: product_collections,
+                  isNoPrices: isNoPrices,
+                  isAddToCart: isAddToCart,
+                  isAddToCartQuantity: isAddToCartQuantity
+                %}
+              </div>
+            {% endfor %}
+          {% else %}
+            <div class="{% if is_slider_on_mobile %}swiper-slide{% endif %}">
+              {% render 'product-card',
                 product: product,
-                productCollections: product_collections,
                 isNoPrices: isNoPrices,
                 isAddToCart: isAddToCart,
                 isAddToCartQuantity: isAddToCartQuantity
               %}
-            {% endfor %}
-          {% else %}
-            <script>console.log("Rendering product card: {{ product.title }}")</script>
-            {% render 'product-card',
-              product: product,
-              isNoPrices: isNoPrices,
-              isAddToCart: isAddToCart,
-              isAddToCartQuantity: isAddToCartQuantity
-            %}
+            </div>
           {% endif %}
-        {% else %}
-          <script>console.log("No product found for handle: {{ handle }}")</script>
-        {% endif %}
-      {% endfor %}
-    {% endif %}
+        {% endfor %}
+      {% else %}
+        {% for handle in handles_array %}
+          {% assign product = all_products[handle] %}
+          {% if product != blank %}
+            {% if is_variant_split and product.variants.size > 0 %}
+              {% for variant in product.variants %}
+                <div class="{% if is_slider_on_mobile %}swiper-slide{% endif %}">
+                  {% render 'variant-card',
+                    variant: variant,
+                    product: product,
+                    productCollections: product_collections,
+                    variantIndex: forloop.index,
+                    isNoPrices: isNoPrices,
+                    isAddToCart: isAddToCart,
+                    isAddToCartQuantity: isAddToCartQuantity
+                  %}
+                </div>
+              {% endfor %}
+            {% else %}
+              <div class="{% if is_slider_on_mobile %}swiper-slide{% endif %}">
+                {% render 'product-card',
+                  product: product,
+                  isNoPrices: isNoPrices,
+                  isAddToCart: isAddToCart,
+                  isAddToCartQuantity: isAddToCartQuantity
+                %}
+              </div>
+            {% endif %}
+          {% endif %}
+        {% endfor %}
+      {% endif %}
 
-    {% if additional_variants %}
-      <script>console.log("Processing additional variants")</script>
-      {% for additionalVar in additional_variants %}
-        {% if additionalVar.product.variants.size == 1 %}
-          <script>console.log("Rendering single variant product: {{ additionalVar.product.title }}")</script>
-          {% render 'product-card',
-            product: additionalVar.product,
-            isNoPrices: isNoPrices,
-            isAddToCart: isAddToCart,
-            isAddToCartQuantity: isAddToCartQuantity
-          %}
-        {% else %}
-          <script>console.log("Rendering variant card: {{ additionalVar.title }}")</script>
-          {% render 'variant-card',
-            variant: additionalVar,
-            product: additionalVar.product,
-            productCollections: product_collections,
-            isNoPrices: isNoPrices,
-            isAddToCart: isAddToCart,
-            isAddToCartQuantity: isAddToCartQuantity
-          %}
-        {% endif %}
-      {% endfor %}
+      {% if additional_variants %}
+        {% for additionalVar in additional_variants %}
+          <div class="{% if is_slider_on_mobile %}swiper-slide{% endif %}">
+            {% if additionalVar.product.variants.size == 1 %}
+              {% render 'product-card',
+                product: additionalVar.product,
+                isNoPrices: isNoPrices,
+                isAddToCart: isAddToCart,
+                isAddToCartQuantity: isAddToCartQuantity
+              %}
+            {% else %}
+              {% render 'variant-card',
+                variant: additionalVar,
+                product: additionalVar.product,
+                variantIndex: additionalVar.index,
+                isNoPrices: isNoPrices,
+                isAddToCart: isAddToCart,
+                isAddToCartQuantity: isAddToCartQuantity
+              %}
+            {% endif %}
+          </div>
+        {% endfor %}
+      {% endif %}
+
+    {% if is_slider_on_mobile %}
+        </div>
+        <div class="swiper-button-next"></div>
+        <div class="swiper-button-prev"></div>
+      </div>
+    {% else %}
+      </div>
     {% endif %}
   </div>
 </div>
+
+{% if is_slider_on_mobile %}
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      loadSwiper(() => {
+        const mediaQuery = window.matchMedia('(max-width: 767px)');
+        let swiper = null;
+
+        function initializeSlider() {
+          if (mediaQuery.matches) {
+            if (!swiper) {
+              swiper = initializeSwiper('#{{ collection_handle | default: "custom" }}-collection-section .swiper-container', {
+                slidesPerView: 1,
+                spaceBetween: 10,
+                grabCursor: true,
+                navigation: {
+                  nextEl: '#{{ collection_handle | default: "custom" }}-collection-section .swiper-button-next',
+                  prevEl: '#{{ collection_handle | default: "custom" }}-collection-section .swiper-button-prev',
+                },
+                breakpoints: {
+                  768: {
+                    slidesPerView: 3,
+                  }
+                },
+              });
+            }
+          } else if (swiper) {
+            swiper.destroy();
+            swiper = null;
+          }
+        }
+
+        // Initialize on load
+        initializeSlider();
+
+        // Listen for window resize
+        mediaQuery.addListener(initializeSlider);
+      });
+    });
+  </script>
+
+  <style>
+    @media (min-width: 768px) {
+      .mobile-slider .swiper-button-next,
+      .mobile-slider .swiper-button-prev {
+        display: none;
+      }
+    }
+
+    @media (max-width: 767px) {
+      .mobile-slider .swiper-wrapper {
+        flex-wrap: nowrap;
+      }
+
+			.swiper-wrapper {
+				gap: unset !important;
+
+				.product-card {
+					width: 100% !important;
+
+					img {
+						height: 70vw !important;
+					}
+				}
+			}
+    }
+  </style>
+{% endif %}
 
 {% if is_align_center %}
   <style>
