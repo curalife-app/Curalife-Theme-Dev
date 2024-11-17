@@ -1,7 +1,40 @@
-{% assign currentCollection = collections[collection_handle] %}
-{% assign collection_additional_variant_amount = currentCollection.metafields.custom.additional_variants.value.count %}
-{% assign collection_products_amount = currentCollection.products.size %}
-{% assign collection_total_items_amount = collection_additional_variant_amount | plus: collection_products_amount %}
+{% comment %}
+  This section can be used with either:
+  - collection_handle: Handle of the collection to display
+  - product_handles: Array of product handles to display
+  Optional parameters:
+  - is_variant_split: If true, renders separate cards for each variant
+{% endcomment %}
+
+{% if collection_handle %}
+  {% assign currentCollection = collections[collection_handle] %}
+  {% assign collection_additional_variant_amount = currentCollection.metafields.custom.additional_variants.value.count %}
+  {% assign collection_products_amount = currentCollection.products.size %}
+  {% assign collection_total_items_amount = collection_additional_variant_amount | plus: collection_products_amount %}
+  {% assign section_title = currentCollection.metafields.custom.alternative_title | default: currentCollection.title %}
+  {% assign section_description = currentCollection.description %}
+  {% assign banner_image = currentCollection.metafields.custom.collection_banner_img %}
+  {% assign banner_image_mobile = currentCollection.metafields.custom.collection_banner_img_mobile %}
+  {% assign banner_link = currentCollection.metafields.custom.collection_banner_lnk %}
+  {% assign is_align_center = currentCollection.metafields.custom.is_align_center %}
+  {% assign products = currentCollection.products %}
+  {% assign additional_variants = currentCollection.metafields.custom.additional_variants.value %}
+{% elsif product_handles %}
+  {% assign products = "" %}
+  {% for handle in product_handles %}
+    {% assign product = all_products[handle] %}
+
+    {% if product %}
+      {% if products == "" %}
+        {% assign products = product %}
+      {% else %}
+				{% assign products = products | concat: product %}
+      {% endif %}
+    {% endif %}
+  {% endfor %}
+  {% assign collection_total_items_amount = products.size %}
+  {% assign additional_variants = blank %}
+{% endif %}
 
 {% if customer.b2b? or true %}
   {% assign isAddToCart = true %}
@@ -11,48 +44,75 @@
   {% endif %}
 {% endif %}
 
-<div id="{{ collection_handle }}-collection-section" class="collection-section xl:w-full {% if collection_total_items_amount < 3 and template.name == 'list-collections' %}w-[48%]{% else %}w-full{% endif %}" data-product-collections="{{ collection_handle }}" >
+<div id="{{ collection_handle | default: 'custom' }}-collection-section" class="collection-section xl:w-full {% if collection_total_items_amount < 3 and template.name == 'list-collections' %}w-[48%]{% else %}w-full{% endif %}" data-product-collections="{{ collection_handle | default: 'custom' }}" >
   {% unless isNoTitle %}
     <div class="title-wrapper border-b-[1px] border-black">
-      <h2 class="relative mb-0 text-[40px] font-thin top-1 w-fit bg-white pr-3">{{ currentCollection.metafields.custom.alternative_title | default: currentCollection.title }}</h2>
+      <h2 class="relative mb-0 text-[40px] font-thin top-1 w-fit bg-white pr-3">{{ section_title }}</h2>
     </div>
   {% endunless %}
 
-  {% if isDescription %}
-    <p class="description {% if currentCollection.metafields.custom.is_align_center or isCentered %}text-center m-auto{% endif %}">{{ currentCollection.description }}</p>
+  {% if isDescription and section_description != blank %}
+    <p class="description {% if is_align_center or isCentered %}text-center m-auto{% endif %}">{{ section_description }}</p>
   {% endif %}
 
   <div class="product-grid flex flex-wrap gap-4 justify-start {% if isHiddenCollections %}hidden{% endif %}">
-    {% if currentCollection.metafields.custom.collection_banner_img and template.name != 'collection'%}
-      <div class="image-wrapper {% if collection_handle == 'glucose-support' %}max-w-1/4 md:max-w-1/2{% else %}max-w-[49%]{% endif %}">
-        {% if currentCollection.metafields.custom.collection_banner_lnk %}
-          <a class="product-link" href="{{ currentCollection.metafields.custom.collection_banner_lnk }}">
-            {% render 'responsive-image', img: currentCollection.metafields.custom.collection_banner_img, img_mobile: currentCollection.metafields.custom.collection_banner_img_mobile, classes: "m-0 h-full md:h-[82vw] md:w-[44vw] block max-h-[420px] object-cover" %}
-          </a>
-        {% else %}
-          {% render 'responsive-image', img: currentCollection.metafields.custom.collection_banner_img, img_mobile: currentCollection.metafields.custom.collection_banner_img_mobile, classes: "m-0 h-full md:h-[82vw] md:w-[44vw] block max-h-[420px] object-cover" %}
-        {% endif %}
+    {% if banner_image and template.name != 'collection'%}
+      <div class="image-wrapper">
+				{% render 'image',
+					image: banner_image,
+					mobile_image: banner_image_mobile,
+					preload: true,
+					link: banner_link,
+					alt: banner_image.alt,
+					class: block.settings.additional_classes
+				%}
       </div>
     {% endif %}
 
-    {% for product in currentCollection.products %}
-      {% render 'product-card', product: product, isNoPrices: isNoPrices, isAddToCart: isAddToCart, isAddToCartQuantity: isAddToCartQuantity %}
-    {% endfor %}
-
-    {% for additionalVar in currentCollection.metafields.custom.additional_variants.value %}
-      {% for vari in additionalVar.product.variants %}
-        {% if vari.id == additionalVar.id %}
-          {% assign variantIndex = forloop.index %}
-          {% break %}
-        {% endif %}
-      {% endfor %}
-
-      {% if additionalVar.product.variants.size == 1 %}
-        {% render 'product-card', product: additionalVar.product, isNoPrices: isNoPrices, isAddToCart: isAddToCart, isAddToCartQuantity: isAddToCartQuantity %}
+    {% for product in products %}
+			<script>console.log("found product " + "{{ product.title }}")</script>
+      {% if is_variant_split %}
+        {% for variant in product.variants %}
+          {% render 'variant-card',
+            variant: variant,
+            product: product,
+            productCollections: product_collections,
+            isNoPrices: isNoPrices,
+            isAddToCart: isAddToCart,
+            isAddToCartQuantity: isAddToCartQuantity
+          %}
+        {% endfor %}
       {% else %}
-        {% render 'variant-card', variant: additionalVar, variantIndex: variantIndex, productCollections: product_collections, isNoPrices: isNoPrices, isAddToCart: isAddToCart, isAddToCartQuantity: isAddToCartQuantity %}
+        {% render 'product-card',
+          product: product,
+          isNoPrices: isNoPrices,
+          isAddToCart: isAddToCart,
+          isAddToCartQuantity: isAddToCartQuantity
+        %}
       {% endif %}
     {% endfor %}
+
+    {% if additional_variants %}
+      {% for additionalVar in additional_variants %}
+        {% if additionalVar.product.variants.size == 1 %}
+          {% render 'product-card',
+            product: additionalVar.product,
+            isNoPrices: isNoPrices,
+            isAddToCart: isAddToCart,
+            isAddToCartQuantity: isAddToCartQuantity
+          %}
+        {% else %}
+          {% render 'variant-card',
+            variant: additionalVar,
+            product: additionalVar.product,
+            productCollections: product_collections,
+            isNoPrices: isNoPrices,
+            isAddToCart: isAddToCart,
+            isAddToCartQuantity: isAddToCartQuantity
+          %}
+        {% endif %}
+      {% endfor %}
+    {% endif %}
   </div>
 </div>
 
@@ -269,13 +329,13 @@
   </script>
 {% endif %}
 
-{% if currentCollection.metafields.custom.is_align_center %}
+{% if is_align_center %}
   <style>
-    #{{ collection_handle }}-collection-section {
+    #{{ collection_handle | default: 'custom' }}-collection-section {
       text-align: center;
     }
 
-    #{{ collection_handle }}-collection-section .description {
+    #{{ collection_handle | default: 'custom' }}-collection-section .description {
       margin: 30px auto;
     }
   </style>
