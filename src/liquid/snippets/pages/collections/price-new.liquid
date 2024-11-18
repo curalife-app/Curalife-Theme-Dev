@@ -2,7 +2,10 @@
   {% assign original_item = prod.metafields.custom.original_item.value | default: prod.selected_or_first_available_variant %}
   {% assign quantity = prod.metafields.my_fields.pack_bottles_quantity | default: 1 %}
   {% assign original_item_cap = original_item.compare_at_price %}
-  {% assign subscription_price = prod.metafields.subscription.price %}
+  {% assign subscription_price = prod.metafields.subscription.price.value %}
+	{% if subscription_price > 0 %}
+		{% assign subscription_item_price = subscription_price | divided_by: quantity %}
+	{% endif %}
 {% elsif prod.metafields.custom.original_item_variant.value %}
   {% assign original_item_cap = prod.metafields.custom.original_item_variant.value.compare_at_price %}
   {% assign quantity = prod.metafields.my_fields.pack_items_quantity %}
@@ -42,11 +45,12 @@
 
 <div class="price-wrapper min-h-12">
 	{% if bestPrice %}
-		<div class="best-item-price font-bold">From {{ bestPrice | divided_by: lastVariantQuantity | money }}</div>
+		<span class="best-item-price font-bold">From {{ bestPrice | divided_by: lastVariantQuantity | money }}</span>
+		{% if prod.compare_at_price > prod.price %}<strike class="no-letters text-gray-400 text-[0.8em]">{{ prod.compare_at_price | money }}</strike>{% endif %}
 	{% else %}
 		<div class="prices flex items-center justify-center gap-1">
 			{% if prod.compare_at_price > prod.price %}<strike class="no-letters text-gray-400 text-[0.8em] mbl:block">{{ prod.compare_at_price | money }}</strike>{% endif %}
-			<span class="total-price font-bold">{{ prod.price | money }}</span>
+			<span class="total-price font-bold">{{ subscription_price | default: prod.price | money }}</span>
 			{% if request.path contains 'collections/black-friday' %}<span class="save-price px-2 py-1 text-[14px] font-bold rounded-full" style="background:#EACB86">Save {{ original_item_cap | minus: item_price | times: quantity | money | replace: ".00", "" }}</span>{% endif %}
 		</div>
 
@@ -54,21 +58,18 @@
 			<span class="per-bottle block text-[14px] mt-1"></span>
 				<span class="new-price">
 					{% if isSubscription %}
-						{{ subscription_price.value | divided_by: quantity | money }}
+						{{ subscription_item_price | money }}
 					{% else %}
 						{% if item_price == 0 %}
-								<span class="text-[--bronze] font-normal">Order Free</span>
+							<span class="text-[--bronze] font-normal">Order Free</span>
 						{% else %}
-								{{ item_price | money }}
+							{{ item_price | money }}
 						{% endif %}
 					{% endif %}
 				</span>
-				Per Bottle
-			</span>
-		{% endif %}
 
-		{% if isSubscription %}
-			<div class="subtitle text-[--bronze]">Subscription Price!</div>
+				Per {% if prod.tags contains 'bundle' or prod.product.tags contains 'bundle' %}Bundle{% else %}Bottle{% endif %}
+			</span>
 		{% endif %}
 	{% endif %}
 </div>
