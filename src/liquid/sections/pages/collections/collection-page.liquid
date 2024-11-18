@@ -24,13 +24,11 @@
     <div class="mbl:flex-col container flex gap-4">
       {% unless customer.b2b? %}
         <div class="collections-menu side-menu desktop">
-					{% if customer.email contains '@curalife' %}
-						<div class="menu-item !bg-black">
-							<a href="/collections/black-friday">
-								<img class="top-1 relative" src="{{ 'bfcm-menu-title.svg' | file_url }}" alt="Black Friday Banner">
-							</a>
-						</div>
-					{% endif %}
+					<div class="menu-item !bg-black">
+						<a href="/collections/black-friday">
+							<img class="top-1 relative" src="{{ 'bfcm-menu-title.svg' | file_url }}" alt="Black Friday Banner">
+						</a>
+					</div>
 
           {% for link in linklists.collections-menu.links %}
             <div class="menu-item {% if link.active %}active{% endif %}"><a href="{{ link.url }}">{{ link.title }}</a></div>
@@ -70,18 +68,121 @@
 					</div>
 
 					<div class="collection flex flex-col gap-4 mb-12">
-						<img class="mobile" src="{{ 'bfcm-banner-2-mbl.png' | file_url }}" alt="Black Friday Banner">
-						<img class="desktop" src="{{ 'bfcm-banner-2.png' | file_url }}" alt="Black Friday Banner">
+						{% assign fileName = "bfcm-banner-2" %}
+						{% assign fileExtension = ".png" %}
+						{% assign imgURL = fileName | append: fileExtension %}
+						{% assign imgURLMobile = fileName | append: "-mbl" | append: fileExtension %}
+						{% assign imgURLGlobal = fileName | append: "-glb" | append: fileExtension %}
+						{% assign imgURLGlobalMobile = fileName |  append: "-glb-mbl" | append: fileExtension %}
+
+						{% if shop.name contains 'Global' %}
+							<img class="mobile" src="{{ imgURLGlobalMobile | file_url }}" alt="Black Friday Banner">
+							<img class="desktop" src="{{ imgURLGlobal | file_url }}" alt="Black Friday Banner">
+						{% else %}
+							<img class="mobile" src="{{ imgURLMobile | file_url }}" alt="Black Friday Banner">
+							<img class="desktop" src="{{ imgURL | file_url }}" alt="Black Friday Banner">
+						{% endif %}
+
 						{% assign wlCollection = 'curaslim-black-friday' | split: ',' %}
-						{% render 'collection', product_handles: wlCollection, is_variant_split: true, isNoTitle: true, is_slider_on_mobile: true %}
+						{% render 'collection', product_handles: wlCollection, is_variant_split: true, isNoTitle: true, is_slider_on_mobile: true, collection_index: 'first' %}
 					</div>
 
 					{% assign imgURL = 'bfcm-banner-3.png' | file_url %}
 					<div class="collection flex flex-col gap-4">
-						<img class="mobile" src="{{ 'bfcm-banner-3-mbl.png' | file_url }}" alt="Black Friday Banner">
-						<img class="desktop" src="{{ 'bfcm-banner-3.png' | file_url }}" alt="Black Friday Banner">
-						{% assign bfcmCollection = 'black-friday' | split: ',' %}
-						{% render 'collection', product_handles: bfcmCollection, is_variant_split: true, isNoTitle: true, is_slider_on_mobile: true %}
+						{% assign fileName = "bfcm-banner-3" %}
+						{% assign fileExtension = ".png" %}
+						{% assign imgURL = fileName | append: fileExtension %}
+						{% assign imgURLMobile = fileName | append: "-mbl" | append: fileExtension %}
+						{% assign imgURLGlobal = fileName | append: "-glb" | append: fileExtension %}
+						{% assign imgURLGlobalMobile = fileName |  append: "-glb-mbl" | append: fileExtension %}
+
+						{% if shop.name contains 'Global' %}
+							<img class="mobile" src="{{ imgURLGlobalMobile | file_url }}" alt="Black Friday Banner">
+							<img class="desktop" src="{{ imgURLGlobal | file_url }}" alt="Black Friday Banner">
+
+							{% assign bfcmCollection = 'curalin-curaslim-black-friday' | split: ',' %}
+							{% render 'collection', product_handles: bfcmCollection, is_variant_split: true, isNoTitle: true, is_slider_on_mobile: true, collection_index: 'second' %}
+						{% else %}
+							<img class="mobile" src="{{ imgURLMobile | file_url }}" alt="Black Friday Banner">
+							<img class="desktop" src="{{ imgURL | file_url }}" alt="Black Friday Banner">
+
+							<div class="product-grid mobile-slider">
+								<div class="swiper">
+									<div class="swiper-wrapper flex flex-wrap justify-between gap-4">
+										{% assign bundleProduct = all_products['curalin-curaslim-black-friday'] %}
+										{% assign vari = bundleProduct.variants.first %}
+
+										<div class="swiper-slide">
+											{% render 'variant-card',
+												variant: vari,
+												product: bundleProduct,
+												subtitle: "+ Restful Sleep for FREE",
+												thumbnail_image: "https://cdn.shopify.com/s/files/1/0452/2459/1511/files/duo_sleep.png",
+												variantIndex: 1
+											%}
+										</div>
+
+										<div class="swiper-slide">
+											{% render 'variant-card',
+												variant: vari,
+												product: bundleProduct,
+												subtitle: "+ Joint Care for FREE",
+												thumbnail_image: "https://cdn.shopify.com/s/files/1/0452/2459/1511/files/duo_joint.png",
+												variantIndex: 2
+											%}
+										</div>
+
+										<div class="swiper-slide">
+											{% render 'variant-card',
+												variant: vari,
+												product: bundleProduct,
+												subtitle: "+ Magnesium for FREE",
+												thumbnail_image: "https://cdn.shopify.com/s/files/1/0452/2459/1511/files/duo_magnesium.png?v=1731946873",
+												variantIndex: 3
+											%}
+										</div>
+									</div>
+									<div class="swiper-button-next"></div>
+									<div class="swiper-button-prev"></div>
+								</div>
+							</div>
+
+							<script>
+								document.addEventListener('DOMContentLoaded', function() {
+									loadSwiper(() => {
+										const mediaQuery = window.matchMedia('(max-width: 767px)');
+										let swiper = null;
+
+										function initializeSlider() {
+											if (mediaQuery.matches) {
+												if (!swiper) {
+													swiper = initializeSwiper('.mobile-slider .swiper', {
+														slidesPerView: 1,
+														spaceBetween: 10,
+														grabCursor: true,
+														navigation: {
+															nextEl: '.mobile-slider .swiper-button-next',
+															prevEl: '.mobile-slider .swiper-button-prev',
+														},
+														breakpoints: {
+															768: {
+																slidesPerView: 3,
+															}
+														},
+													});
+												}
+											} else if (swiper) {
+												swiper.destroy();
+												swiper = null;
+											}
+										}
+
+										initializeSlider();
+										mediaQuery.addListener(initializeSlider);
+									});
+								});
+							</script>
+						{% endif %}
 					</div>
 				</div>
 			{% else %}
@@ -92,7 +193,6 @@
     </div>
   </section>
 </div>
-
 
 <script>
   document.getElementById("mobile-dropdown").addEventListener('change', event => {
