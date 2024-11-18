@@ -1,6 +1,9 @@
-{% assign variantsAmount = product.variants.size %}
+{% assign isGlobal = false %}
+{% if shop.name contains 'Global' %}
+  {% assign isGlobal = true %}
+{% endif %}
 
-<script>console.log("Buy Type: {{ buyType }}")</script>
+{% assign variantsAmount = product.variants.size %}
 
 <div class="product-actions">
   <div class="purchase-options md:p-2 flex flex-col gap-2">
@@ -31,36 +34,54 @@
               {% assign giftVariantSubscription = giftProdSubscription.selected_or_first_available_variant %}
               {% assign giftThumb = block.settings.gift_thumbnail | default: giftProdSubscription.featured_image | default: giftProd.featured_image %}
 
-							<script>console.log("giftVariant: ", {{ giftVariant | json }});</script>
-							<script>console.log("giftVariantSubscription: ", {{ giftVariantSubscription | json }});</script>
-							<script>console.log("giftProd: ", {{ giftProd | json }});</script>
-							<script>console.log("giftProdSubscription: ", {{ giftProdSubscription | json }});</script>
-							<script>console.log("giftThumb: ", {{ giftThumb | json }});</script>
+              <div class="gift-selector-wrap">
+								<div class="gift-selector-title mb-2">Choose your free gift:</div>
+								<div class="gift-options flex-nowrap flex justify-start gap-4">
+									{% for block in blocks %}
+										{% case block.type %}
+											{% when 'gift' %}
+												{% assign show_gift = false %}
+												{% if block.settings.show_on == 'both' %}
+													{% assign show_gift = true %}
+												{% elsif block.settings.show_on == 'global' and isGlobal %}
+													{% assign show_gift = true %}
+												{% elsif block.settings.show_on == 'us' and isGlobal == false %}
+													{% assign show_gift = true %}
+												{% endif %}
 
+												{% if show_gift %}
+													{% assign giftProd = block.settings.gift_product %}
+													{% assign giftVariant = giftProd.selected_or_first_available_variant %}
+													{% assign giftProdSubscription = block.settings.gift_product_subscription %}
+													{% assign giftVariantSubscription = giftProdSubscription.selected_or_first_available_variant %}
+													{% assign giftThumb = block.settings.gift_thumbnail | default: giftProdSubscription.featured_image | default: giftProd.featured_image %}
 
-              <div class="gift-option-container flex flex-col items-center">
-                <!-- Border container for image and radio only -->
-                <div class="gift-option-border relative w-full p-2 mb-3 border rounded-lg cursor-pointer" data-gift-id="{{ giftVariant.id }}" data-gift-id-subscription="{{ giftVariantSubscription.id }}">
-                  <div class="radio-indicator top-2 right-2 absolute flex items-center justify-center w-6 h-6 rounded-full">
-                    <div class="check-mark hidden w-4 h-4 font-bold text-white rounded-full">✓</div>
-                  </div>
-                  <div class="gift-image-container flex justify-center">
-                    <img
-                      src="{{ giftThumb | image_url }}"
-                      alt="{{ giftProd.title }}"
-                      class="object-contain w-24 h-24"
-                    >
-                  </div>
-                </div>
-                <!-- Text content outside the border -->
-                <div class="gift-content text-center">
-                  <div class="gift-name mb-1 font-medium">{{ giftProd.title }}</div>
-                  <div class="gift-price flex items-center justify-center gap-2">
-                    <span class="original-price text-gray-500 line-through">{{ giftVariantSubscription.compare_at_price | money_with_currency }}</span>
-                    <span class="sale-price font-bold">FREE</span>
-                  </div>
-                </div>
-              </div>
+													<div class="gift-option-container flex flex-col items-center">
+														<div class="gift-option-border relative w-full p-2 mb-3 border rounded-lg cursor-pointer" data-gift-id="{{ giftVariant.id }}" data-gift-id-subscription="{{ giftVariantSubscription.id }}">
+															<div class="radio-indicator top-2 right-2 absolute flex items-center justify-center w-6 h-6 rounded-full">
+																<div class="check-mark hidden w-4 h-4 font-bold text-white rounded-full">✓</div>
+															</div>
+															<div class="gift-image-container flex justify-center">
+																<img
+																	src="{{ giftThumb | image_url }}"
+																	alt="{{ giftProd.title }}"
+																	class="object-contain w-24 h-24"
+																>
+															</div>
+														</div>
+														<div class="gift-content text-center">
+															<div class="gift-name mb-1 font-medium">{{ giftProd.title }}</div>
+															<div class="gift-price flex items-center justify-center gap-2">
+																<span class="original-price text-gray-500 line-through">{{ giftVariantSubscription.compare_at_price | money_with_currency }}</span>
+																<span class="sale-price font-bold">FREE</span>
+															</div>
+														</div>
+													</div>
+												{% endif %}
+										{% endcase %}
+									{% endfor %}
+								</div>
+							</div>
           {% endcase %}
         {% endfor %}
       </div>
