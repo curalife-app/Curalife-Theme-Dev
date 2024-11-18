@@ -562,10 +562,10 @@
         {% if isSlideOnLoad %}
           updateVariantImage(element);
         {% else %}
-          if (window.hasInitialImageUpdateHappened) {
+          // if (window.hasInitialImageUpdateHappened) {
             updateVariantImage(element);
-          }
-          window.hasInitialImageUpdateHappened = true;
+          // }
+          // window.hasInitialImageUpdateHappened = true;
         {% endif %}
       {% endif %}
     }
@@ -615,54 +615,59 @@
 
         const SID = window.SID || '';
         const sliderId = `productSliderAllInOne${SID}`;
-        const slider = window[sliderId];
-
-        if (!slider || !slider.slides || !slider.slides.length) {
-            let updateImageData = {
-                element: element,
-                dataIndex: element.dataset.index,
-                sliderId: sliderId,
-                slider: slider
-            };
-
-            console.warn('Slider not ready, attempting initialization...', updateImageData);
-
-            initializeProductSlider()
-                .then((initializedSlider) => {
-                    performSlideUpdate(initializedSlider, element);
-                })
-                .catch((error) => {
-                    console.error('Failed to initialize slider:', error);
-                });
-            return;
-        }
-
-        performSlideUpdate(slider, element);
-    }
-
-    function performSlideUpdate(slider, element) {
-      try {
+        let slider = window[sliderId];
         const elementIndex = parseInt(element.dataset.index);
 
-        console.log('Performing slide update:', {
-          elementIndex: elementIndex,
-          totalSlides: slider.slides.length,
-          currentSlide: slider.activeIndex
-        });
+        if (!slider || !slider.slides || !slider.slides.length) {
+            return new Promise((resolve) => {
+                const checkSlider = setInterval(() => {
+                    slider = window[sliderId];
+                    if (slider && slider.slides && slider.slides.length > 0) {
+                        clearInterval(checkSlider);
+                        performSlideUpdate(slider, elementIndex);
+                        resolve();
+                    }
+                }, 100);
 
-        if (elementIndex >= 0 && elementIndex < slider.slides.length) {
-          if (slider.activeIndex !== elementIndex) {
-            setTimeout(() => {
-              slider.slideTo(elementIndex, 300, true);
-            }, 50);
-          }
-        } else {
-          console.warn(`Invalid slide index: ${elementIndex}`);
+                // Clear interval after 5 seconds to prevent infinite checking
+                setTimeout(() => {
+                    clearInterval(checkSlider);
+                    console.warn('Slider initialization timed out');
+                    resolve();
+                }, 5000);
+            });
         }
-      } catch (error) {
-        console.error('Error during slide update:', error);
-        console.error(error.stack);
-      }
+
+        performSlideUpdate(slider, elementIndex);
+    }
+
+    function performSlideUpdate(slider, elementIndex) {
+        try {
+            if (!slider || typeof elementIndex !== 'number') {
+                console.warn('Invalid slider or element index');
+                return;
+            }
+
+            // Ensure the slider is ready and has the correct number of slides
+            if (elementIndex >= 0 && elementIndex < slider.slides.length) {
+                // Force slider update and wait for it to be ready
+                slider.update();
+
+                // Use requestAnimationFrame to ensure DOM is ready
+                requestAnimationFrame(() => {
+                    slider.slideTo(elementIndex, 300);
+
+                    // Update slider again after transition
+                    setTimeout(() => {
+                        slider.update();
+                    }, 350);
+                });
+            } else {
+                console.warn(`Invalid slide index: ${elementIndex}. Total slides: ${slider.slides.length}`);
+            }
+        } catch (error) {
+            console.error('Error during slide update:', error);
+        }
     }
 
     document.addEventListener('DOMContentLoaded', () => {

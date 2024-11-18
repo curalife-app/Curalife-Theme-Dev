@@ -1,10 +1,14 @@
 {% if variant.title contains '1 Month Supply' %}
   {% assign variantTitle = "Curalin" %}
-{% elsif variant.title contains '3 Months Supply' %}
+{% elsif variant.title contains '2 Month Supply' %}
+	{% assign variantTitle = "Curalin 2 Pack" %}
+{% elsif variant.title contains '3 Month Supply' %}
   {% assign variantTitle = "Curalin 3 Pack" %}
-{% elsif variant.title contains '6 Months Supply' %}
+{% elsif variant.title contains '6 Month Supply' %}
   {% assign variantTitle = "Curalin 6 Pack" %}
 {% endif %}
+
+{% assign actualTitle = variantTitle | default: variant.metafields.custom.alternative_title | default: variant.title %}
 
 {% if variant.metafields.subscription.price and request.path contains '/collections/subscribe-save' %}
   {% assign isSubscription = true %}
@@ -12,13 +16,19 @@
 
 {% assign quantity = variant.metafields.my_fields.pack_items_quantity %}
 {% assign quantity_by_cents = quantity | times: 100 %}
-{% assign item_price = variant.price | times: 100.0 | divided_by: quantity_by_cents %}
+{% assign item_price = variant.price | times: 100 | divided_by: quantity_by_cents %}
 
 {% assign original_item_cap_total = original_item_cap | times: quantity %}
 {% assign original_item_cap = variant.metafields.my_fields.original_item.value.compare_at_price %}
-{% assign save_price = original_item_cap | minus: item_price | times: quantity | money_with_currency | replace: ".00", "" | replace: "GBP", "" | replace: "AUD", "" | replace: "CAD", "" %}
+{% assign save_price = original_item_cap | minus: item_price | times: quantity | money_with_currency | replace: ".00", "" %}
 
-{% assign variantURL = variant.product.url | append: '?default-variant=' | append: variantIndex %}
+{% if product.url contains '-black-friday' %}
+	{% assign variantURL = variant.product.url | split: '-black-friday' | first %}
+{% else %}
+	{% assign variantURL = variant.product.url %}
+{% endif %}
+
+{% assign variantURL = variantURL | append: '?default-variant=' | append: variantIndex %}
 
 <div id="variant-{{ variant.id }}" class="product-card" data-product-collections="{{ productCollections }}">
   <a class="product-link" href="{{ variantURL }}"><img class="product-image" src="{{ variant.image.src | image_url }}" width="512" height="475" alt="{{ variant.image.alt }}" loading="lazy"></a>
@@ -26,7 +36,7 @@
   <div class="info h-max text-center">
     <div class="main">
       <div class="product-titles min-h-[35px] mb-2">
-        <a class="product-link" href="{{ variantURL }}"><h3 class="text-[22px] text-[--primary] m-0">{{ variantTitle | default: variant.metafields.custom.alternative_title | default: variant.title }}</h3></a>
+        <a class="product-link" href="{{ variantURL }}"><h3 class="text-[22px] text-[--primary] m-0">{{ actualTitle }}</h3></a>
       </div>
 
       {% unless isNoPrices %}
