@@ -201,7 +201,8 @@
     const validationResults = {
       isValid: true,
       errors: [],
-      cartUpdates: [] // New array to track needed cart updates
+      validItems: [], // Array to store items that passed validation
+      cartUpdates: [] // For quantity adjustments
     };
 
     // Helper function to fetch variant data
@@ -247,7 +248,6 @@
     for (const [index, item] of currentFreeItems.entries()) {
       if (item.quantity > 1) {
         try {
-          // Update the quantity to 1
           await updateCartItemQuantity(index + 1, 1);
           validationResults.errors.push({
             code: 'FREE_ITEM_QUANTITY_ADJUSTED',
@@ -260,90 +260,86 @@
       }
     }
 
-    // For each new item, check if it would exceed free item limits
+    // Create a map of current subscription products
+    const currentSubscriptionMap = new Map();
+    for (const item of currentCart.items.filter(item => item.selling_plan_allocation)) {
+      try {
+        const variantData = await getVariantData(item.variant_id);
+        currentSubscriptionMap.set(variantData.url, {
+          variantId: item.variant_id,
+          productTitle: item.product_title
+        });
+      } catch (error) {
+        console.warn(`Error processing cart item: ${error}`);
+      }
+    }
+
+    // Validate each new item individually
     for (const newItem of newItems) {
       try {
         const variantData = await getVariantData(newItem.id);
+        let isValid = true;
+        let itemMessage = '';
 
-        // Check if this is a free item (either by price or title)
+        // Check if this is a free item
         const isNewItemFree = variantData.price === 0 ||
                              variantData.title.toLowerCase().includes('free');
 
         if (isNewItemFree) {
           if (currentFreeItems.length > 0) {
-            validationResults.isValid = false;
-            validationResults.errors.push({
-              code: 'FREE_ITEM_LIMIT',
-              message: 'You can only have one free gift item in your cart.',
-              type: 'error'
-            });
-            return validationResults;
+            isValid = false;
+            itemMessage = `Free item "${variantData.title}" cannot be added as you already have a free gift in your cart.`;
           } else if (newItem.quantity > 1) {
-            // Adjust the quantity of the new free item to 1
             newItem.quantity = 1;
             validationResults.errors.push({
               code: 'FREE_ITEM_QUANTITY_ADJUSTED',
-              message: 'Free gift quantity has been adjusted to 1.',
+              message: `Free gift "${variantData.title}" quantity has been adjusted to 1.`,
               type: 'warning'
             });
           }
         }
+
+        // Check for subscription duplicates
+        if (newItem.selling_plan && currentSubscriptionMap.has(variantData.url)) {
+          isValid = false;
+          itemMessage = `Subscription for "${variantData.title}" cannot be added as you already have this subscription in your cart.`;
+        }
+
+        if (isValid) {
+          validationResults.validItems.push(newItem);
+        } else {
+          validationResults.errors.push({
+            code: 'ITEM_VALIDATION_FAILED',
+            message: itemMessage,
+            type: 'warning'
+          });
+        }
+
       } catch (error) {
-        console.warn(`Error checking free item: ${error}`);
-        continue;
+        console.warn(`Error validating item: ${error}`);
+        validationResults.errors.push({
+          code: 'ITEM_VALIDATION_ERROR',
+          message: `Unable to validate item. Please try again.`,
+          type: 'warning'
+        });
       }
     }
 
-    // Rule 2: Check for duplicate subscription items
-    const currentSubscriptionItems = currentCart.items.filter(item =>
-      item.selling_plan_allocation
-    );
-    const newSubscriptionItems = newItems.filter(item => item.selling_plan);
+    // Set overall validation status
+    validationResults.isValid = validationResults.validItems.length > 0;
 
-    if (newSubscriptionItems.length > 0 && currentSubscriptionItems.length > 0) {
-      // Create a map of current subscription products
-      const currentSubscriptionMap = new Map();
-
-      // Process current cart subscription items
-      for (const item of currentSubscriptionItems) {
-        try {
-          const variantData = await getVariantData(item.variant_id);
-          currentSubscriptionMap.set(variantData.url, {
-            variantId: item.variant_id,
-            productTitle: item.product_title
-          });
-        } catch (error) {
-          console.warn(`Error processing cart item: ${error}`);
-          continue;
-        }
-      }
-
-      // Check new subscription items against current ones
-      for (const newItem of newSubscriptionItems) {
-        try {
-          const variantData = await getVariantData(newItem.id);
-
-          if (currentSubscriptionMap.has(variantData.url)) {
-            const existingItem = currentSubscriptionMap.get(variantData.url);
-            validationResults.isValid = false;
-            validationResults.errors.push({
-              code: 'DUPLICATE_SUBSCRIPTION',
-              message: `You already have a subscription for ${existingItem.productTitle} in your cart. Please review your cart before adding another subscription.`,
-              type: 'error'
-            });
-            break;
-          }
-        } catch (error) {
-          console.error(`Error validating subscription item: ${error}`);
-          validationResults.isValid = false;
-          validationResults.errors.push({
-            code: 'VALIDATION_ERROR',
-            message: 'Unable to validate subscription items. Please try again.',
-            type: 'error'
-          });
-          break;
-        }
-      }
+    if (validationResults.validItems.length === 0) {
+      validationResults.errors.push({
+        code: 'NO_VALID_ITEMS',
+        message: 'None of the selected items could be added to cart.',
+        type: 'error'
+      });
+    } else if (validationResults.validItems.length < newItems.length) {
+      validationResults.errors.push({
+        code: 'PARTIAL_SUCCESS',
+        message: 'Some items were added to cart. Others were skipped due to cart restrictions.',
+        type: 'warning'
+      });
     }
 
     return validationResults;
@@ -356,10 +352,92 @@
         code: 'VALIDATION_ERROR',
         message: 'An error occurred while validating your cart. Please try again.',
         type: 'error'
-      }]
+      }],
+      validItems: []
     };
   }
 }
+
+// Example of updated submit button handler:
+submitButton.addEventListener('click', async function(event) {
+  event.preventDefault();
+
+  const selectedBox = productActions.querySelector('.purchase-option-box.selected');
+  const selectedGiftContainer = document.querySelector('.gift-option-container.selected');
+  const giftOptionBorder = selectedGiftContainer?.querySelector('.gift-option-border');
+
+  const isSubscription = selectedBox?.getAttribute('data-purchase-type') === 'subscribe';
+  const giftId = giftOptionBorder ? (isSubscription ? giftOptionBorder.dataset.giftIdSubscription : giftOptionBorder.dataset.giftId) : null;
+
+  if (!selectedBox || !giftId) {
+    console.error('Missing required selection');
+    return;
+  }
+
+  const items = [
+    {
+      id: submitVariantIdInput.value,
+      quantity: 1,
+      selling_plan: submitSellingPlanIdInput.value || undefined
+    },
+    {
+      id: giftId,
+      quantity: 1
+    }
+  ];
+
+  try {
+    // Validate cart before proceeding
+    const validationResults = await validateCartItems(items);
+
+    // Show all validation messages
+    validationResults.errors.forEach(error => {
+      showNotification(error.message, error.type);
+    });
+
+    // If we have valid items, proceed with adding them
+    if (validationResults.validItems.length > 0) {
+      {% if buyType == "buy_now" %}
+        const cartDrawer = document.getElementById('upCart');
+        if (cartDrawer) {
+          cartDrawer.remove();
+        }
+
+        await fetch('/cart/clear.js', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          }
+        });
+      {% endif %}
+
+      const response = await fetch('/cart/add.js', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({ items: validationResults.validItems })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to add items to cart');
+      }
+
+      // Show success notification
+      showNotification('Items successfully added to cart', 'success');
+
+      {% if buyType == "buy_now" %}
+        window.location.href = '/checkout';
+      {% endif %}
+    }
+
+  } catch (error) {
+    console.error('Error:', error);
+    showNotification('An error occurred while adding items to cart. Please try again.');
+  }
+});
 
 function showNotification(message, type = 'error') {
 	// Create notification element
