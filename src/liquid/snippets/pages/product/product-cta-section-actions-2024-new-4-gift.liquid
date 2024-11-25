@@ -149,60 +149,56 @@
 
 		async function validateCartItem(item, currentCart) {
   try {
-    // Get variant data
-    const variantResponse = await fetch(`/variants/${item.id}.js`);
-    if (!variantResponse.ok) {
-      throw new Error(`Could not fetch variant data for ${item.id}`);
+    console.log('Validating item:', item);
+    console.log('Current cart state during validation:', currentCart);
+
+    const productId = parseInt(item.product_id);
+    if (!productId) {
+      throw new Error(`Product ID is missing for variant ${item.id}`);
     }
-    const variantData = await variantResponse.json();
 
-    // Check if this is a free item
-    const isItemFree = variantData.price === 0 ||
-                      variantData.title.toLowerCase().includes('free');
+    // Get all gift option elements to check if this is a gift variant
+    const giftOptions = document.querySelectorAll('.gift-option-border');
+    const isItemFree = Array.from(giftOptions).some(giftOption => {
+      const giftId = isSubscriptionSelected()
+        ? giftOption.dataset.giftIdSubscription
+        : giftOption.dataset.giftId;
+      return giftId === item.id.toString();
+    });
 
-    // Check free item limit
+    console.log('Is item free?', isItemFree, 'Item ID:', item.id);
+
     if (isItemFree) {
-      const currentFreeItems = currentCart.items.filter(cartItem =>
-        cartItem.price === 0 || cartItem.title.toLowerCase().includes('free')
-      );
+      const currentFreeItems = currentCart.items.filter(cartItem => {
+        // Check if the cart item's variant ID matches any gift variant IDs
+        return Array.from(giftOptions).some(giftOption => {
+          const giftId = isSubscriptionSelected()
+            ? giftOption.dataset.giftIdSubscription
+            : giftOption.dataset.giftId;
+          return cartItem.variant_id.toString() === giftId;
+        });
+      });
 
-      if (currentFreeItems.length > 0) {
+      console.log('Current free items in cart:', currentFreeItems);
+
+      const bfcmDealCount = await countUniqueProductsWithTag(currentCart);
+      console.log('Current free items count:', currentFreeItems.length);
+      console.log('BFCM deal count:', bfcmDealCount);
+
+      if (currentFreeItems.length >= bfcmDealCount) {
+        console.log('Free item limit exceeded');
         return {
           isValid: false,
           error: {
             code: 'FREE_ITEM_LIMIT',
-            message: 'You can only have one free gift item in your cart.',
+            message: `You can have up to ${bfcmDealCount} free gift${bfcmDealCount !== 1 ? 's' : ''} (one for each BFCM deal in your cart).`,
             type: 'error'
           }
         };
       }
     }
 
-    // Check subscription items - we'll mark them for replacement instead of blocking
-    if (item.selling_plan) {
-      const currentSubscriptionItems = currentCart.items.filter(cartItem =>
-        cartItem.selling_plan_allocation
-      );
-
-      for (const subItem of currentSubscriptionItems) {
-        const subItemVariant = await fetch(`/variants/${subItem.variant_id}.js`)
-          .then(res => res.json());
-
-        if (subItemVariant.url === variantData.url) {
-          return {
-            isValid: true,
-            variantData,
-            requiresReplacement: true,
-            itemToReplace: subItem
-          };
-        }
-      }
-    }
-
-    return {
-      isValid: true,
-      variantData
-    };
+    return { isValid: true };
   } catch (error) {
     console.error('Validation error:', error);
     return {
@@ -216,62 +212,59 @@
   }
 }
 
+async function countUniqueProductsWithTag(cart) {
+  try {
+    // Use the product title to check for 'Black Friday Week'
+    const uniqueProducts = cart.items.reduce((acc, item) => {
+      if (acc[item.product_id]) {
+        return acc;
+      }
+
+      const hasBlackFridayWeek = item.title && item.title.includes('Black Friday Week');
+      console.log('Checking item:', item.title, 'Has BF Week:', hasBlackFridayWeek);
+
+      acc[item.product_id] = hasBlackFridayWeek;
+      return acc;
+    }, {});
+
+    const blackFridayWeekCount = Object.values(uniqueProducts).filter(Boolean).length;
+    console.log('Unique products:', uniqueProducts);
+    console.log('Black Friday Week Count:', blackFridayWeekCount);
+
+    // Always allow at least one free gift
+    return Math.max(blackFridayWeekCount, 1);
+  } catch (error) {
+    console.error('Error counting Black Friday Week products:', error);
+    return 1; // Default to 1 if there's an error
+  }
+}
+
 async function addValidItemsToCart(items) {
   try {
-    // Get current cart
+    // Always fetch the latest cart data
     const cartResponse = await fetch('/cart.js');
     if (!cartResponse.ok) {
-      throw new Error('Failed to fetch cart');
+      throw new Error('Failed to fetch current cart');
     }
-    const currentCart = await cartResponse.json();
+    let currentCart = await cartResponse.json();
+    console.log('Current cart state:', currentCart);
 
-    // Validate each item individually
+    // First, validate all items
     const validationResults = await Promise.all(
       items.map(item => validateCartItem(item, currentCart))
     );
 
-    // Separate valid and invalid items
+    console.log('Validation results:', validationResults);
+
+    // Get valid and invalid items
     const validItems = items.filter((_, index) => validationResults[index].isValid);
     const invalidItems = items.filter((_, index) => !validationResults[index].isValid);
 
-    // Handle items that need subscription replacement
-    const itemsRequiringReplacement = validationResults.filter(result => result.requiresReplacement);
-
-    // If we have items that need replacement, handle them first
-    if (itemsRequiringReplacement.length > 0) {
-      try {
-        for (const validation of itemsRequiringReplacement) {
-          // Remove the existing subscription item
-          await fetch('/cart/change.js', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json'
-            },
-            body: JSON.stringify({
-              id: validation.itemToReplace.key,
-              quantity: 0
-            })
-          });
-        }
-        showNotification('Updating your subscription...', 'info');
-      } catch (error) {
-        console.error('Error updating subscription:', error);
-        showNotification('Failed to update subscription. Please try again.', 'error');
-        return {
-          success: false,
-          addedItems: [],
-          failedItems: items
-        };
-      }
-    }
-
     // Show notifications for invalid items
     invalidItems.forEach((_, index) => {
-      const invalidIndex = validationResults.findIndex((result, i) => !result.isValid && items[i] === invalidItems[index]);
-      if (invalidIndex !== -1) {
-        const error = validationResults[invalidIndex].error;
-        showNotification(error.message, error.type);
+      const result = validationResults[findFailedValidationIndex(validationResults, index)];
+      if (result?.error) {
+        showNotification(result.error.message, result.error.type);
       }
     });
 
@@ -281,7 +274,6 @@ async function addValidItemsToCart(items) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json'
         },
         body: JSON.stringify({ items: validItems })
       });
@@ -290,13 +282,11 @@ async function addValidItemsToCart(items) {
         throw new Error('Failed to add items to cart');
       }
 
-      // Show appropriate success notification
-      if (itemsRequiringReplacement.length > 0) {
-        showNotification('Subscription updated successfully', 'success');
-      } else if (validItems.length === items.length) {
-        showNotification('All items successfully added to cart', 'success');
+      // If some items were invalid but others succeeded
+      if (invalidItems.length > 0) {
+        showNotification('Some items were added to cart, but free gift limit was exceeded', 'info');
       } else {
-        showNotification(`${validItems.length} out of ${items.length} items added to cart`, 'success');
+        showNotification('Items added to cart successfully', 'success');
       }
 
       return {
@@ -306,13 +296,18 @@ async function addValidItemsToCart(items) {
       };
     }
 
+    // If no valid items
     return {
       success: false,
       addedItems: [],
-      failedItems: invalidItems
+      failedItems: invalidItems,
+      error: {
+        message: 'No items could be added to cart',
+        type: 'error'
+      }
     };
   } catch (error) {
-    console.error('Error:', error);
+    console.error('Error adding items to cart:', error);
     showNotification('An error occurred while adding items to cart. Please try again.');
     return {
       success: false,
@@ -322,42 +317,63 @@ async function addValidItemsToCart(items) {
   }
 }
 
-		function showNotification(message, type = 'error') {
-			// Create notification element
-			const notification = document.createElement('div');
-			notification.className = `cart-notification ${type} fixed bottom-4 left-1/2 transform -translate-x-1/2 p-4 rounded-lg shadow-lg max-w-md z-50 transition-opacity duration-300 z-[2147483640]`;
+// Helper function to find the corresponding failed validation result
+function findFailedValidationIndex(validationResults, invalidItemIndex) {
+  let failedCount = 0;
+  for (let i = 0; i < validationResults.length; i++) {
+    if (!validationResults[i].isValid) {
+      if (failedCount === invalidItemIndex) {
+        return i;
+      }
+      failedCount++;
+    }
+  }
+  return -1;
+}
 
-			// Style based on type
-			if (type === 'error') {
-				notification.classList.add('bg-red-100', 'border', 'border-red-400', 'text-red-700');
-			} else if (type === 'success') {
-				notification.classList.add('bg-green-100', 'border', 'border-green-400', 'text-green-700');
-			}
+function isSubscriptionSelected() {
+  const productActions = document.querySelector('.product-actions');
+  const selectedBox = productActions?.querySelector('.purchase-option-box.selected');
+  return selectedBox?.getAttribute('data-purchase-type') === 'subscribe';
+}
 
-			// Add content
-			notification.innerHTML = `
-				<div class="flex items-center">
-					<div class="mr-3">
-						${type === 'error' ? '⚠️' : '✅'}
-					</div>
-					<div class="text-sm font-medium">
-						${message}
-					</div>
-					<button class="hover:text-gray-500 ml-auto text-gray-400" onclick="this.parentElement.parentElement.remove()">
-						✕
-					</button>
-				</div>
-			`;
+function showNotification(message, type = 'error') {
+  const notification = document.createElement('div');
+  notification.className = `cart-notification ${type} fixed bottom-4 left-1/2 transform -translate-x-1/2 p-4 rounded-lg shadow-lg max-w-md z-50 transition-opacity duration-300 z-[2147483640]`;
 
-			// Add to document
-			document.body.appendChild(notification);
+  // Style based on type
+  if (type === 'error') {
+    notification.classList.add('bg-red-100', 'border', 'border-red-400', 'text-red-700');
+  } else if (type === 'success') {
+    notification.classList.add('bg-green-100', 'border', 'border-green-400', 'text-green-700');
+  } else if (type === 'info') {
+    notification.classList.add('bg-blue-100', 'border', 'border-blue-400', 'text-blue-700');
+  }
 
-			// Remove after 5 seconds
-			setTimeout(() => {
-				notification.classList.add('opacity-0');
-				setTimeout(() => notification.remove(), 300);
-			}, 5000);
-		}
+  // Add content
+  notification.innerHTML = `
+    <div class="flex items-center">
+      <div class="mr-3">
+        ${type === 'error' ? '⚠️' : type === 'success' ? '✅' : 'ℹ️'}
+      </div>
+      <div class="text-sm font-medium">
+        ${message}
+      </div>
+      <button class="hover:text-gray-500 ml-auto text-gray-400" onclick="this.parentElement.parentElement.remove()">
+        ✕
+      </button>
+    </div>
+  `;
+
+  // Add to document
+  document.body.appendChild(notification);
+
+  // Remove after 5 seconds
+  setTimeout(() => {
+    notification.classList.add('opacity-0');
+    setTimeout(() => notification.remove(), 300);
+  }, 5000);
+}
 
 		function togglePurchaseBox(element) {
 			if (!element) return;
