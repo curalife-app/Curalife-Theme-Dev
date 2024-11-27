@@ -1009,46 +1009,70 @@ async function countUniqueProductsWithTag(cart) {
       buttonText.style.display = isLoading ? 'none' : 'block';
     }
 
-    // Function to update the variant image
     function updateVariantImage(element) {
-      if (!element || !element.dataset.index) {
-        return;
-      }
+				if (!element || !element.dataset.variant) {
+						console.warn('Invalid element or missing data-variant attribute');
+						return;
+				}
 
-      const SID = window.SID || '';
-      const sliderId = `productSliderAllInOne${SID}`;
-      const slider = window[sliderId];
+				const SID = window.SID || '';
+				const sliderId = `productSliderAllInOne${SID}`;
+				let slider = window[sliderId];
+				const targetVariantId = element.dataset.variant;
 
-      if (!slider || !slider.slides || !slider.slides.length) {
-        initializeProductSlider()
-          .then((initializedSlider) => {
-            performSlideUpdate(initializedSlider, element);
-          })
-          .catch((error) => {
-            console.error('Failed to initialize slider:', error);
-          });
-        return;
-      }
+				console.log("Updating variant image for variant ID:", targetVariantId);
 
-      performSlideUpdate(slider, element);
-    }
+				if (!slider || !slider.slides || !slider.slides.length) {
+						return new Promise((resolve) => {
+								const checkSlider = setInterval(() => {
+										slider = window[sliderId];
+										if (slider && slider.slides && slider.slides.length > 0) {
+												clearInterval(checkSlider);
+												performSlideUpdate(slider, targetVariantId);
+												resolve();
+										}
+								}, 100);
 
-    function performSlideUpdate(slider, element) {
-      try {
-        const elementIndex = parseInt(element.dataset.index);
+								setTimeout(() => {
+										clearInterval(checkSlider);
+										console.warn('Slider initialization timed out');
+										resolve();
+								}, 5000);
+						});
+				}
 
-        if (elementIndex >= 0 && elementIndex < slider.slides.length) {
-          if (slider.activeIndex !== elementIndex) {
-            setTimeout(() => {
-              slider.slideTo(elementIndex, 300, true);
-            }, 50);
-          }
-        }
-      } catch (error) {
-        console.error('Error during slide update:', error);
-        console.error(error.stack);
-      }
-    }
+				performSlideUpdate(slider, targetVariantId);
+		}
+
+		function performSlideUpdate(slider, targetVariantId) {
+				try {
+						if (!slider || !targetVariantId) {
+								console.warn('Invalid slider or variant ID');
+								return;
+						}
+
+						// Find the slide with matching variant ID
+						const slideIndex = Array.from(slider.slides).findIndex(slide =>
+								slide.getAttribute('data-variant-id') === targetVariantId
+						);
+
+						if (slideIndex !== -1) {
+								slider.update();
+
+								requestAnimationFrame(() => {
+										slider.slideTo(slideIndex, 300);
+
+										setTimeout(() => {
+												slider.update();
+										}, 350);
+								});
+						} else {
+								console.warn(`No slide found with variant ID: ${targetVariantId}`);
+						}
+				} catch (error) {
+						console.error('Error during slide update:', error);
+				}
+		}
   });
 </script>
 

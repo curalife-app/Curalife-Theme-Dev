@@ -125,11 +125,12 @@
 <script>
   document.addEventListener('DOMContentLoaded', () => {
 		const productActions = document.querySelector('#cta-section-{{ SID }} .product-actions');
-		const SID = productActions.id.split('-').pop();
 		const purchaseOptionBoxes = productActions.querySelectorAll('.purchase-option-box');
 		const submitButton = productActions.querySelector('.checkout-button button');
 		const submitSellingPlanIdInput = document.querySelector('.submit-selling-plan-id');
 		const submitVariantIdInput = document.querySelector('.submit-variant-id');
+		const SID = '{{ SID }}';
+    window.SID = SID;
 
 		// Gift selection logic
 		const giftOptionContainers = document.querySelectorAll('.gift-option-container');
@@ -173,186 +174,186 @@
 		}
 
 		async function addValidItemsToCart(items) {
-  try {
-    const cartResponse = await fetch('/cart.js');
-    if (!cartResponse.ok) throw new Error('Failed to fetch current cart');
-    let currentCart = await cartResponse.json();
-    let itemsToAdd = [...items];
+			try {
+				const cartResponse = await fetch('/cart.js');
+				if (!cartResponse.ok) throw new Error('Failed to fetch current cart');
+				let currentCart = await cartResponse.json();
+				let itemsToAdd = [...items];
 
-    // Handle subscription replacement
-    const subscriptionItem = items.find(item => item.selling_plan);
-    if (subscriptionItem) {
-      const selectedBox = document.querySelector('.purchase-option-box.selected');
-      const productId = selectedBox.getAttribute('data-product');
+				// Handle subscription replacement
+				const subscriptionItem = items.find(item => item.selling_plan);
+				if (subscriptionItem) {
+					const selectedBox = document.querySelector('.purchase-option-box.selected');
+					const productId = selectedBox.getAttribute('data-product');
 
-      if (productId) {
-        const existingSubscription = currentCart.items.find(cartItem => {
-          const isSameProduct = cartItem.product_id === parseInt(productId);
-          const isSubscription = Boolean(cartItem.selling_plan_allocation);
-          return isSameProduct && isSubscription;
-        });
+					if (productId) {
+						const existingSubscription = currentCart.items.find(cartItem => {
+							const isSameProduct = cartItem.product_id === parseInt(productId);
+							const isSubscription = Boolean(cartItem.selling_plan_allocation);
+							return isSameProduct && isSubscription;
+						});
 
-        if (existingSubscription) {
-          const updates = { [existingSubscription.key]: 0 };
-          await fetch('/cart/update.js', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ updates })
-          });
-          currentCart = await (await fetch('/cart.js')).json();
-        }
-      }
-    }
+						if (existingSubscription) {
+							const updates = { [existingSubscription.key]: 0 };
+							await fetch('/cart/update.js', {
+								method: 'POST',
+								headers: { 'Content-Type': 'application/json' },
+								body: JSON.stringify({ updates })
+							});
+							currentCart = await (await fetch('/cart.js')).json();
+						}
+					}
+				}
 
-    // Check free gift limits
-    const giftItem = items.find(item => {
-      const giftOptions = document.querySelectorAll('.gift-option-border');
-      return Array.from(giftOptions).some(giftOption => {
-        const giftId = subscriptionItem
-          ? giftOption.dataset.giftIdSubscription
-          : giftOption.dataset.giftId;
-        return item.id.toString() === giftId;
-      });
-    });
+				// Check free gift limits
+				const giftItem = items.find(item => {
+					const giftOptions = document.querySelectorAll('.gift-option-border');
+					return Array.from(giftOptions).some(giftOption => {
+						const giftId = subscriptionItem
+							? giftOption.dataset.giftIdSubscription
+							: giftOption.dataset.giftId;
+						return item.id.toString() === giftId;
+					});
+				});
 
-    if (giftItem) {
-      const giftOptions = document.querySelectorAll('.gift-option-border');
-      const currentFreeItems = currentCart.items.filter(cartItem =>
-        Array.from(giftOptions).some(giftOption => {
-          const giftId = cartItem.selling_plan_allocation
-            ? giftOption.dataset.giftIdSubscription
-            : giftOption.dataset.giftId;
-          return cartItem.variant_id.toString() === giftId;
-        })
-      );
+				if (giftItem) {
+					const giftOptions = document.querySelectorAll('.gift-option-border');
+					const currentFreeItems = currentCart.items.filter(cartItem =>
+						Array.from(giftOptions).some(giftOption => {
+							const giftId = cartItem.selling_plan_allocation
+								? giftOption.dataset.giftIdSubscription
+								: giftOption.dataset.giftId;
+							return cartItem.variant_id.toString() === giftId;
+						})
+					);
 
-      const bfcmDealCount = await countUniqueProductsWithTag(currentCart);
+					const bfcmDealCount = await countUniqueProductsWithTag(currentCart);
 
-      if (currentFreeItems.length >= bfcmDealCount) {
-        itemsToAdd = items.filter(item => item !== giftItem);
-        showNotification(`You can have up to ${bfcmDealCount} free gift${bfcmDealCount !== 1 ? 's' : ''} (one for each BFCM deal in your cart).`, 'error');
-      }
-    }
+					if (currentFreeItems.length >= bfcmDealCount) {
+						itemsToAdd = items.filter(item => item !== giftItem);
+						showNotification(`You can have up to ${bfcmDealCount} free gift${bfcmDealCount !== 1 ? 's' : ''} (one for each BFCM deal in your cart).`, 'error');
+					}
+				}
 
-    if (itemsToAdd.length === 0) {
-      return { success: false, addedItems: [], failedItems: items };
-    }
+				if (itemsToAdd.length === 0) {
+					return { success: false, addedItems: [], failedItems: items };
+				}
 
-    const response = await fetch('/cart/add.js', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ items: itemsToAdd })
-    });
+				const response = await fetch('/cart/add.js', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ items: itemsToAdd })
+				});
 
-    if (!response.ok) throw new Error('Failed to add items to cart');
+				if (!response.ok) throw new Error('Failed to add items to cart');
 
-    const addResult = await response.json();
-    console.log('Add items response:', addResult);
+				const addResult = await response.json();
+				console.log('Add items response:', addResult);
 
-    if (subscriptionItem && itemsToAdd.includes(subscriptionItem)) {
-      showNotification('Subscription has been updated in your cart', 'success');
-    } else {
-      showNotification('Items added to cart successfully', 'success');
-    }
+				if (subscriptionItem && itemsToAdd.includes(subscriptionItem)) {
+					showNotification('Subscription has been updated in your cart', 'success');
+				} else {
+					showNotification('Items added to cart successfully', 'success');
+				}
 
-    return {
-      success: true,
-      addedItems: itemsToAdd,
-      failedItems: items.filter(item => !itemsToAdd.includes(item))
-    };
+				return {
+					success: true,
+					addedItems: itemsToAdd,
+					failedItems: items.filter(item => !itemsToAdd.includes(item))
+				};
 
-  } catch (error) {
-    console.error('Error in addValidItemsToCart:', error);
-    showNotification('An error occurred while adding items to cart. Please try again.');
-    return { success: false, addedItems: [], failedItems: items };
-  }
-}
+			} catch (error) {
+				console.error('Error in addValidItemsToCart:', error);
+				showNotification('An error occurred while adding items to cart. Please try again.');
+				return { success: false, addedItems: [], failedItems: items };
+			}
+		}
 
-async function countUniqueProductsWithTag(cart) {
-  try {
-    // Use the product title to check for 'Black Friday Week'
-    const uniqueProducts = cart.items.reduce((acc, item) => {
-      if (acc[item.product_id]) {
-        return acc;
-      }
+		async function countUniqueProductsWithTag(cart) {
+			try {
+				// Use the product title to check for 'Black Friday Week'
+				const uniqueProducts = cart.items.reduce((acc, item) => {
+					if (acc[item.product_id]) {
+						return acc;
+					}
 
-      const hasBlackFridayWeek = item.title && item.title.includes('Black Friday Week');
-      console.log('Checking item:', item.title, 'Has BF Week:', hasBlackFridayWeek);
+					const hasBlackFridayWeek = item.title && item.title.includes('Black Friday Week');
+					console.log('Checking item:', item.title, 'Has BF Week:', hasBlackFridayWeek);
 
-      acc[item.product_id] = hasBlackFridayWeek;
-      return acc;
-    }, {});
+					acc[item.product_id] = hasBlackFridayWeek;
+					return acc;
+				}, {});
 
-    const blackFridayWeekCount = Object.values(uniqueProducts).filter(Boolean).length;
-    console.log('Unique products:', uniqueProducts);
-    console.log('Black Friday Week Count:', blackFridayWeekCount);
+				const blackFridayWeekCount = Object.values(uniqueProducts).filter(Boolean).length;
+				console.log('Unique products:', uniqueProducts);
+				console.log('Black Friday Week Count:', blackFridayWeekCount);
 
-    // Always allow at least one free gift
-    return Math.max(blackFridayWeekCount, 1);
-  } catch (error) {
-    console.error('Error counting Black Friday Week products:', error);
-    return 1; // Default to 1 if there's an error
-  }
-}
+				// Always allow at least one free gift
+				return Math.max(blackFridayWeekCount, 1);
+			} catch (error) {
+				console.error('Error counting Black Friday Week products:', error);
+				return 1; // Default to 1 if there's an error
+			}
+		}
 
-// Helper function to find the corresponding failed validation result
-function findFailedValidationIndex(validationResults, invalidItemIndex) {
-  let failedCount = 0;
-  for (let i = 0; i < validationResults.length; i++) {
-    if (!validationResults[i].isValid) {
-      if (failedCount === invalidItemIndex) {
-        return i;
-      }
-      failedCount++;
-    }
-  }
-  return -1;
-}
+		// Helper function to find the corresponding failed validation result
+		function findFailedValidationIndex(validationResults, invalidItemIndex) {
+			let failedCount = 0;
+			for (let i = 0; i < validationResults.length; i++) {
+				if (!validationResults[i].isValid) {
+					if (failedCount === invalidItemIndex) {
+						return i;
+					}
+					failedCount++;
+				}
+			}
+			return -1;
+		}
 
-function isSubscriptionSelected() {
-  const productActions = document.querySelector('.product-actions');
-  const selectedBox = productActions?.querySelector('.purchase-option-box.selected');
-  return selectedBox?.getAttribute('data-purchase-type') === 'subscribe';
-}
+		function isSubscriptionSelected() {
+			const productActions = document.querySelector('.product-actions');
+			const selectedBox = productActions?.querySelector('.purchase-option-box.selected');
+			return selectedBox?.getAttribute('data-purchase-type') === 'subscribe';
+		}
 
-function showNotification(message, type = 'error') {
-	if (!{{ isCartNotifications }}) return;
-  const notification = document.createElement('div');
-  notification.className = `cart-notification ${type} fixed bottom-4 left-1/2 transform -translate-x-1/2 p-4 rounded-lg shadow-lg max-w-md z-50 transition-opacity duration-300 z-[2147483640]`;
+		function showNotification(message, type = 'error') {
+			if (!{{ isCartNotifications }}) return;
+			const notification = document.createElement('div');
+			notification.className = `cart-notification ${type} fixed bottom-4 left-1/2 transform -translate-x-1/2 p-4 rounded-lg shadow-lg max-w-md z-50 transition-opacity duration-300 z-[2147483640]`;
 
-  // Style based on type
-  if (type === 'error') {
-    notification.classList.add('bg-red-100', 'border', 'border-red-400', 'text-red-700');
-  } else if (type === 'success') {
-    notification.classList.add('bg-green-100', 'border', 'border-green-400', 'text-green-700');
-  } else if (type === 'info') {
-    notification.classList.add('bg-blue-100', 'border', 'border-blue-400', 'text-blue-700');
-  }
+			// Style based on type
+			if (type === 'error') {
+				notification.classList.add('bg-red-100', 'border', 'border-red-400', 'text-red-700');
+			} else if (type === 'success') {
+				notification.classList.add('bg-green-100', 'border', 'border-green-400', 'text-green-700');
+			} else if (type === 'info') {
+				notification.classList.add('bg-blue-100', 'border', 'border-blue-400', 'text-blue-700');
+			}
 
-  // Add content
-  notification.innerHTML = `
-    <div class="flex items-center">
-      <div class="mr-3">
-        ${type === 'error' ? '⚠️' : type === 'success' ? '✅' : 'ℹ️'}
-      </div>
-      <div class="text-sm font-medium">
-        ${message}
-      </div>
-      <button class="hover:text-gray-500 ml-auto text-gray-400" onclick="this.parentElement.parentElement.remove()">
-        ✕
-      </button>
-    </div>
-  `;
+			// Add content
+			notification.innerHTML = `
+				<div class="flex items-center">
+					<div class="mr-3">
+						${type === 'error' ? '⚠️' : type === 'success' ? '✅' : 'ℹ️'}
+					</div>
+					<div class="text-sm font-medium">
+						${message}
+					</div>
+					<button class="hover:text-gray-500 ml-auto text-gray-400" onclick="this.parentElement.parentElement.remove()">
+						✕
+					</button>
+				</div>
+			`;
 
-  // Add to document
-  document.body.appendChild(notification);
+			// Add to document
+			document.body.appendChild(notification);
 
-  // Remove after 5 seconds
-  setTimeout(() => {
-    notification.classList.add('opacity-0');
-    setTimeout(() => notification.remove(), 300);
-  }, 5000);
-}
+			// Remove after 5 seconds
+			setTimeout(() => {
+				notification.classList.add('opacity-0');
+				setTimeout(() => notification.remove(), 300);
+			}, 5000);
+		}
 
 		function togglePurchaseBox(element) {
 			if (!element) return;
@@ -384,6 +385,13 @@ function showNotification(message, type = 'error') {
 			}
 
 			state.selectedBox = element;
+
+			{% if product.variants.size > 1 %}
+				if (window.hasInitialImageUpdateHappened) {
+					updateVariantImage(element);
+				}
+				window.hasInitialImageUpdateHappened = true;
+      {% endif %}
 		}
 
 		function initializePurchaseOptions() {
@@ -572,50 +580,71 @@ submitButton.addEventListener('click', async function(event) {
 			});
 		}
 
-    // Function to update the variant image
     function updateVariantImage(element) {
-      if (!element || !element.dataset.index) {
-        return;
-      }
+				if (!element || !element.dataset.variant) {
+						console.warn('Invalid element or missing data-variant attribute');
+						return;
+				}
 
-      const SID = window.SID || '';
-      const sliderId = `productSliderAllInOne${SID}`;
-      const slider = window[sliderId];
+				const SID = window.SID || '';
+				const sliderId = `productSliderAllInOne${SID}`;
+				let slider = window[sliderId];
+				const targetVariantId = element.dataset.variant;
 
-      if (!slider || !slider.slides || !slider.slides.length) {
-        if (typeof window.initializeProductSlider === 'function') {
-          window.initializeProductSlider()
-            .then((initializedSlider) => {
-              performSlideUpdate(initializedSlider, element);
-            })
-            .catch((error) => {
-              console.error('Failed to initialize slider:', error);
-            });
-        } else {
-          console.warn('Product slider initialization function not found');
-        }
-        return;
-      }
+				console.log("sliderId:", sliderId);
+				console.log("Updating variant image for variant ID:", targetVariantId);
 
-      performSlideUpdate(slider, element);
-    }
+				if (!slider || !slider.slides || !slider.slides.length) {
+						return new Promise((resolve) => {
+								const checkSlider = setInterval(() => {
+										slider = window[sliderId];
+										if (slider && slider.slides && slider.slides.length > 0) {
+												clearInterval(checkSlider);
+												performSlideUpdate(slider, targetVariantId);
+												resolve();
+										}
+								}, 100);
 
-    function performSlideUpdate(slider, element) {
-      try {
-        const elementIndex = parseInt(element.dataset.index);
+								setTimeout(() => {
+										clearInterval(checkSlider);
+										console.warn('Slider initialization timed out');
+										resolve();
+								}, 5000);
+						});
+				}
 
-        if (elementIndex >= 0 && elementIndex < slider.slides.length) {
-          if (slider.activeIndex !== elementIndex) {
-            setTimeout(() => {
-              slider.slideTo(elementIndex, 300, true);
-            }, 50);
-          }
-        }
-      } catch (error) {
-        console.error('Error during slide update:', error);
-        console.error(error.stack);
-      }
-    }
+				performSlideUpdate(slider, targetVariantId);
+		}
+
+		function performSlideUpdate(slider, targetVariantId) {
+				try {
+						if (!slider || !targetVariantId) {
+								console.warn('Invalid slider or variant ID');
+								return;
+						}
+
+						// Find the slide with matching variant ID
+						const slideIndex = Array.from(slider.slides).findIndex(slide =>
+								slide.getAttribute('data-variant-id') === targetVariantId
+						);
+
+						if (slideIndex !== -1) {
+								slider.update();
+
+								requestAnimationFrame(() => {
+										slider.slideTo(slideIndex, 300);
+
+										setTimeout(() => {
+												slider.update();
+										}, 350);
+								});
+						} else {
+								console.warn(`No slide found with variant ID: ${targetVariantId}`);
+						}
+				} catch (error) {
+						console.error('Error during slide update:', error);
+				}
+		}
 
 		initializePurchaseOptions();
 	});
