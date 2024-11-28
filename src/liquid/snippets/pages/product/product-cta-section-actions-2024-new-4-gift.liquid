@@ -129,11 +129,14 @@
 		const submitButton = productActions.querySelector('.checkout-button button');
 		const submitSellingPlanIdInput = document.querySelector('.submit-selling-plan-id');
 		const submitVariantIdInput = document.querySelector('.submit-variant-id');
+		const giftOptionContainers = document.querySelectorAll('.gift-option-container');
 		const SID = '{{ SID }}';
     window.SID = SID;
+		const buyType = '{{ buyType }}';
 
-		// Gift selection logic
-		const giftOptionContainers = document.querySelectorAll('.gift-option-container');
+		const submitButtons = productActions.querySelectorAll('.checkout-button button');
+		console.log('Number of submit buttons:', submitButtons.length);
+		console.log('buyType:', buyType);
 
 		giftOptionContainers.forEach(container => {
 			container.addEventListener('click', function(event) {
@@ -386,12 +389,12 @@
 
 			state.selectedBox = element;
 
-			{% if product.variants.size > 1 %}
-				if (window.hasInitialImageUpdateHappened) {
-					updateVariantImage(element);
-				}
+			if (window.hasInitialImageUpdateHappened) {
+				updateVariantImage(element);
+			}
+			else {
 				window.hasInitialImageUpdateHappened = true;
-      {% endif %}
+			}
 		}
 
 		function initializePurchaseOptions() {
@@ -430,77 +433,91 @@
 			}
 		});
 
-		// Submit button handler
-submitButton.addEventListener('click', async function(event) {
-  event.preventDefault();
+		submitButton.addEventListener('click', async function(event) {
+			console.log('Submit button clicked');
+			event.preventDefault();
+			submitButton.disabled = true;
 
-  const selectedBox = productActions.querySelector('.purchase-option-box.selected');
-  const selectedGiftContainer = document.querySelector('.gift-option-container.selected');
-  const giftOptionBorder = selectedGiftContainer?.querySelector('.gift-option-border');
+			const selectedBox = productActions.querySelector('.purchase-option-box.selected');
+			const selectedGiftContainer = document.querySelector('.gift-option-container.selected');
+			const giftOptionBorder = selectedGiftContainer?.querySelector('.gift-option-border');
 
-  const isSubscription = selectedBox?.getAttribute('data-purchase-type') === 'subscribe';
-  const variantId = submitVariantIdInput.value;
-  const giftId = giftOptionBorder ? (isSubscription ? giftOptionBorder.dataset.giftIdSubscription : giftOptionBorder.dataset.giftId) : null;
+			const isSubscription = selectedBox?.getAttribute('data-purchase-type') === 'subscribe';
+			const variantId = submitVariantIdInput.value;
+			const giftId = giftOptionBorder
+				? isSubscription
+					? giftOptionBorder.dataset.giftIdSubscription
+					: giftOptionBorder.dataset.giftId
+				: null;
 
-  // Get product IDs from the original variant
-  const originalVariant = selectedBox?.getAttribute('data-original-variant');
+			if (!selectedBox || !giftId || !variantId) {
+				console.error('Missing required selection');
+				return;
+			}
 
-  console.log('Debug info:', {
-    selectedBox,
-    variantId,
-    giftId,
-    originalVariant,
-    isSubscription,
-    sellingPlan: submitSellingPlanIdInput?.value
-  });
+			const items = [
+				{
+					id: variantId,
+					quantity: 1,
+					selling_plan: submitSellingPlanIdInput?.value || undefined
+				},
+				{
+					id: giftId,
+					quantity: 1
+				}
+			];
 
-  if (!selectedBox || !giftId || !variantId) {
-    console.error('Missing required selection');
-    return;
-  }
+			try {
+				if (buyType === 'buy_now') {
+					// Clear the cart
+					console.log('Clearing cart...');
+					const clearResponse = await fetch('/cart/clear.js', { method: 'POST' });
+					const clearResponseData = await clearResponse.json();
+					console.log('clearResponseData:', clearResponseData);
 
-  const items = [
-    {
-      id: variantId,
-      quantity: 1,
-      selling_plan: submitSellingPlanIdInput?.value || undefined
-    },
-    {
-      id: giftId,
-      quantity: 1
-    }
-  ];
+					if (!clearResponse.ok) throw new Error('Failed to clear cart');
 
-  console.log('Submitting items:', items);
+					// Wait until the cart is actually empty
+					let cartIsEmpty = false;
+					for (let i = 0; i < 10; i++) { // Try up to 10 times
+						const cartResponse = await fetch('/cart.js');
+						if (!cartResponse.ok) throw new Error('Failed to fetch cart');
 
-  try {
-    {% if buyType == "buy_now" %}
-      const cartDrawer = document.getElementById('upCart');
-      if (cartDrawer) {
-        cartDrawer.remove();
-      }
+						const cartData = await cartResponse.json();
+						console.log('Cart data:', cartData);
 
-      await fetch('/cart/clear.js', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        }
-      });
-    {% endif %}
+						if (cartData.item_count === 0) {
+							cartIsEmpty = true;
+							break;
+						}
+						// Wait for 500 milliseconds before checking again
+						await new Promise(resolve => setTimeout(resolve, 500));
+					}
 
-    const result = await addValidItemsToCart(items);
-    console.log('Add to cart result:', result);
+					if (!cartIsEmpty) {
+						throw new Error('Cart is not empty after clearing');
+					}
 
-    {% if buyType == "buy_now" and result.success %}
-      window.location.href = '/checkout';
-    {% endif %}
+					// Add items directly to the cart
+					const addResponse = await fetch('/cart/add.js', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ items })
+					});
+					if (!addResponse.ok) throw new Error('Failed to add items to cart');
 
-  } catch (error) {
-    console.error('Error:', error);
-    showNotification('An error occurred while adding items to cart. Please try again.');
-  }
-});
+					// Redirect to checkout
+					window.location.href = '/checkout';
+				} else {
+					// Use addValidItemsToCart function for "add to cart" scenario
+					const result = await addValidItemsToCart(items);
+					console.log('Add to cart result:', result);
+				}
+			} catch (error) {
+				console.error('Error:', error);
+				showNotification('An error occurred while adding items to cart. Please try again.');
+			}
+		});
 
 		// One-time purchase button handler
 		const oneTimePurchaseButton = productActions.querySelector('.one-time-add-to-cart');
@@ -513,17 +530,6 @@ submitButton.addEventListener('click', async function(event) {
 				oneTimePurchaseButton.textContent = 'Adding...';
 
 				try {
-					{% if buyType == "buy_now" %}
-						// Clear cart first for buy now
-						await fetch('/cart/clear.js', {
-							method: 'POST',
-							headers: {
-								'Content-Type': 'application/json',
-								'Accept': 'application/json'
-							}
-						});
-					{% endif %}
-
 					const selectedGiftContainer = document.querySelector('.gift-option-container.selected');
 					const giftOptionBorder = selectedGiftContainer?.querySelector('.gift-option-border');
 					const giftId = giftOptionBorder?.dataset.giftId;
@@ -532,32 +538,74 @@ submitButton.addEventListener('click', async function(event) {
 						throw new Error('Please select a gift');
 					}
 
-					const response = await fetch('/cart/add.js', {
-						method: 'POST',
-						headers: {
-							'Content-Type': 'application/json',
-						},
-						body: JSON.stringify({
-							items: [
-								{
-									id: 42865141121175,
-									quantity: 1
-								},
-								{
-									id: parseInt(giftId),
-									quantity: 1
-								}
-							]
-						})
-					});
-
-					if (!response.ok) {
-						throw new Error('Network response was not ok');
-					}
-
 					{% if buyType == "buy_now" %}
+						// Clear the cart
+						const clearResponse = await fetch('/cart/clear.js', { method: 'POST' });
+						if (!clearResponse.ok) throw new Error('Failed to clear cart');
+
+						// Wait until the cart is actually empty
+						let cartIsEmpty = false;
+						for (let i = 0; i < 5; i++) { // Try up to 5 times
+							const cartResponse = await fetch('/cart.js');
+							if (!cartResponse.ok) throw new Error('Failed to fetch cart');
+
+							const cartData = await cartResponse.json();
+							if (cartData.item_count === 0) {
+								cartIsEmpty = true;
+								break;
+							}
+							// Wait for 200 milliseconds before checking again
+							await new Promise(resolve => setTimeout(resolve, 200));
+						}
+
+						if (!cartIsEmpty) {
+							throw new Error('Cart is not empty after clearing');
+						}
+
+						// Add items directly to the cart
+						const response = await fetch('/cart/add.js', {
+							method: 'POST',
+							headers: { 'Content-Type': 'application/json' },
+							body: JSON.stringify({
+								items: [
+									{
+										id: 42865141121175, // Replace with the actual variant ID for one-time purchase
+										quantity: 1
+									},
+									{
+										id: parseInt(giftId),
+										quantity: 1
+									}
+								]
+							})
+						});
+
+						if (!response.ok) throw new Error('Failed to add items to cart');
+
+						// Redirect to checkout
 						window.location.href = '/checkout';
 					{% else %}
+						// Existing logic for adding to cart
+						const response = await fetch('/cart/add.js', {
+							method: 'POST',
+							headers: { 'Content-Type': 'application/json' },
+							body: JSON.stringify({
+								items: [
+									{
+										id: 42865141121175, // Replace with the actual variant ID for one-time purchase
+										quantity: 1
+									},
+									{
+										id: parseInt(giftId),
+										quantity: 1
+									}
+								]
+							})
+						});
+
+						if (!response.ok) throw new Error('Failed to add items to cart');
+
+						// Update the cart UI if necessary
 						if (typeof window.updateCart === 'function') {
 							window.updateCart();
 						}
@@ -568,7 +616,6 @@ submitButton.addEventListener('click', async function(event) {
 							oneTimePurchaseButton.disabled = false;
 						}, 2000);
 					{% endif %}
-
 				} catch (error) {
 					console.error('Error:', error);
 					oneTimePurchaseButton.textContent = 'Something went wrong! Please contact us.';
