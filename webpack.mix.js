@@ -1,33 +1,35 @@
 const mix = require('laravel-mix');
-const tailwindcss = require('@tailwindcss/postcss7-compat');
-const autoprefixer = require('autoprefixer');
+const tailwindcss = require('@tailwindcss/postcss');
 const async = require('async');
 
 console.log("Starting optimized Laravel Mix configuration...");
 
+// Set the public path to your build directory
+mix.setPublicPath('Curalife-Theme-Build');
+
 // Define file paths
 const paths = {
-	build_folder: 'Curalife-Theme-Build',
-	assets: {
-		fonts: 'src/fonts/**/*.{woff,woff2,eot,ttf,otf}',
-		images: 'src/images/**/*.{png,jpg,jpeg,gif,svg}',
-		css: 'src/styles/css/**',
-		scripts: 'src/scripts/**/*.js',
-		tailwind: 'src/styles/tailwind.css'
-	},
-	liquid: {
-		layout: 'src/liquid/layout/**',
-		sections: 'src/liquid/sections/**/*.liquid',
-		snippets: 'src/liquid/snippets/**/*.liquid',
-		blocks: 'src/liquid/blocks/**/*.liquid'
-	},
-	build: {
-		assets: 'Curalife-Theme-Build/assets',
-		layout: 'Curalife-Theme-Build/layout',
-		sections: 'Curalife-Theme-Build/sections',
-		snippets: 'Curalife-Theme-Build/snippets',
-		blocks: 'Curalife-Theme-Build/blocks'
-	}
+		build_folder: 'Curalife-Theme-Build',
+		assets: {
+				fonts: 'src/fonts/**/*.{woff,woff2,eot,ttf,otf}',
+				images: 'src/images/**/*.{png,jpg,jpeg,gif,svg}',
+				css: 'src/styles/css/**',
+				scripts: 'src/scripts/**/*.js',
+				tailwind: 'src/styles/tailwind.css'
+		},
+		liquid: {
+				layout: 'src/liquid/layout/**',
+				sections: 'src/liquid/sections/**/*.liquid',
+				snippets: 'src/liquid/snippets/**/*.liquid',
+				blocks: 'src/liquid/blocks/**/*.liquid'
+		},
+		build: {
+				assets: 'Curalife-Theme-Build/assets',
+				layout: 'Curalife-Theme-Build/layout',
+				sections: 'Curalife-Theme-Build/sections',
+				snippets: 'Curalife-Theme-Build/snippets',
+				blocks: 'Curalife-Theme-Build/blocks'
+		}
 };
 
 // Logging function to streamline messages
@@ -35,22 +37,17 @@ const log = (message) => console.log(`\x1b[36m${message}\x1b[0m`); // Blue color
 
 // Parallelized Copy files with error handling
 function copyFiles(files) {
-	async.parallel(
-		files.map(({ src, dest, flatten = false }) => (callback) => {
-			try {
-				mix.copy(src, dest, { flatten });
-				log(`Copied files from ${src} to ${dest}`);
-				callback();  // No error, proceed to next task
-			} catch (error) {
-				console.error(`Error copying files from ${src} to ${dest}:`, error);
-				callback(error);  // Pass the error to async.parallel to handle
-			}
-		}),
-		(err) => {
-			if (err) console.error("Error during parallel file copying:", err);
-			else log("File copying complete.");
-		}
-	);
+	// Copy assets and liquid files
+	mix.copy(paths.assets.scripts, paths.build.assets)
+		 .copy(paths.assets.fonts, paths.build.assets)
+		 .copy(paths.assets.css, paths.build.assets)
+		 .copy(paths.assets.images, paths.build.assets)
+		 .copy(paths.liquid.layout, paths.build.layout)
+		 .copy(paths.liquid.sections, paths.build.sections)
+		 .copy(paths.liquid.snippets, paths.build.snippets)
+		 .copy(paths.liquid.blocks, paths.build.blocks);
+
+	log("File copying complete.");
 }
 
 // Configure Webpack for .liquid files with split chunks
@@ -65,13 +62,8 @@ function configureWebpack() {
 // Compile Tailwind CSS with PostCSS and Minify
 function compileTailwind() {
 	try {
-		mix.postCss(paths.assets.tailwind, paths.build.assets, [
-			tailwindcss(),
-			autoprefixer()
-		])
-		.options({
-			processCssUrls: false
-		});
+		mix.postCss(paths.assets.tailwind, paths.build.assets, [tailwindcss()])
+		.options({processCssUrls: true});
 
 		if (mix.inProduction()) {
 			log("Purging unused CSS classes...");
