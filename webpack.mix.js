@@ -1,6 +1,5 @@
 const mix = require('laravel-mix');
 const tailwindcss = require('@tailwindcss/postcss');
-const async = require('async');
 
 console.log("Starting optimized Laravel Mix configuration...");
 
@@ -90,14 +89,14 @@ function build() {
 
 	// Copy assets and liquid files in parallel
 	copyFiles([
-		{ src: paths.assets.scripts, dest: paths.build.assets },
-		{ src: paths.assets.fonts, dest: paths.build.assets },
-		{ src: paths.assets.css, dest: paths.build.assets },
+		{ src: paths.assets.scripts, dest: paths.build.assets, flatten: true },
+		{ src: paths.assets.fonts, dest: paths.build.assets, flatten: true },
+		{ src: paths.assets.css, dest: paths.build.assets, flatten: true },
 		{ src: paths.assets.images, dest: paths.build.assets, flatten: true },
-		{ src: paths.liquid.layout, dest: paths.build.layout },
-		{ src: paths.liquid.sections, dest: paths.build.sections },
-		{ src: paths.liquid.snippets, dest: paths.build.snippets },
-		{ src: paths.liquid.blocks, dest: paths.build.blocks }
+		{ src: paths.liquid.layout, dest: paths.build.layout, flatten: true },
+		{ src: paths.liquid.sections, dest: paths.build.sections, flatten: true },
+		{ src: paths.liquid.snippets, dest: paths.build.snippets, flatten: true },
+		{ src: paths.liquid.blocks, dest: paths.build.blocks, flatten: true }
 	]);
 
 	compileTailwind();

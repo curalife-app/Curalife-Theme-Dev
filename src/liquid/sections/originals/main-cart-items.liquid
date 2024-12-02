@@ -2,81 +2,83 @@
 {% assign totalSavings = 0 %}
 
 <script>
-  const variantCompareAtPrices = {
-    {% for item in cart.items %}
-      "{{ item.variant.id }}": {{ item.variant.compare_at_price | default: item.price }}{% unless forloop.last %},{% endunless %}
-    {% endfor %}
-  };
-  console.log('variantCompareAtPrices:', variantCompareAtPrices);
+	const variantCompareAtPrices = {
+	  {% for item in cart.items %}
+	    "{{ item.variant.id }}": {{ item.variant.compare_at_price | default: item.price }}{% unless forloop.last %},{% endunless %}
+	  {% endfor %}
+	};
+	console.log('variantCompareAtPrices:', variantCompareAtPrices);
 </script>
 
-<div class="cart">
-  <div class="loading-spinner" id="loadingSpinner" style="display: none;">
-    <div class="spinner"></div>
-  </div>
+<div class='cart'>
+	<div class='loading-spinner' id='loadingSpinner' style='display: none;'>
+		<div class='spinner'></div>
+	</div>
 
-  <div class="cart-header">
-    <h1>Shopping Cart</h1>
-    <a href="{{ routes.all_products_collection_url }}" class="continue-shopping">Continue Shopping</a>
-  </div>
+	<div class='cart-header'>
+		<h1>Shopping Cart</h1>
+		<a href='{{ routes.all_products_collection_url }}' class='continue-shopping'>Continue Shopping</a>
+	</div>
 
-  {% if cart == empty %}
-    <div class="cart-empty">
-      <h2>Your cart is empty</h2>
-      <a href="{{ routes.all_products_collection_url }}" class="checkout-button">Start Shopping</a>
-    </div>
-  {% else %}
-    <div class="cart-content">
-      <div class="cart-items">
-        {% for item in cart.items %}
-          <div class="cart-item" id="CartItem-{{ item.key }}">
-            <img src="{{ item.image | img_url: 'medium' }}" alt="{{ item.title }}" class="item-image">
+	{% if cart == empty %}
+		<div class='cart-empty'>
+			<h2>Your cart is empty</h2>
+			<a href='{{ routes.all_products_collection_url }}' class='checkout-button'>Start Shopping</a>
+		</div>
+	{% else %}
+		<div class='cart-content'>
+			<div class='cart-items'>
+				{% for item in cart.items %}
+					<div class='cart-item' id='CartItem-{{ item.key }}'>
+						<img src='{{ item.image | img_url: 'medium' }}' alt='{{ item.title }}' class='item-image'>
 
-            <div class="item-details">
-							<a href="{{ item.url }}">
+						<div class='item-details'>
+							<a href='{{ item.url }}'>
 								<h3>{{ item.product.title }}</h3>
 							</a>
-              {% if item.options_with_values.size > 0 %}
-                <div class="item-options">
-                  {% for option in item.options_with_values %}
-                    {{ option.name }}: {{ option.value }}{% unless forloop.last %}, {% endunless %}
-                  {% endfor %}
-                </div>
-              {% endif %}
-              {% if item.selling_plan_allocation %}
-                <div class="selling-plan-name">
-                  {{ item.selling_plan_allocation.selling_plan.name }}
-                </div>
-              {% endif %}
+							{% if item.options_with_values.size > 0 %}
+								<div class='item-options'>
+									{% for option in item.options_with_values %}
+										{{ option.name }}: {{ option.value -}}
+										{%- unless forloop.last %}, {% endunless %}
+									{% endfor %}
+								</div>
+							{% endif %}
+							{% if item.selling_plan_allocation %}
+								<div class='selling-plan-name'>
+									{{ item.selling_plan_allocation.selling_plan.name }}
+								</div>
+							{% endif %}
 
 							{% if item.title contains 'Free' %}
 								{% assign isFreeItem = true %}
 							{% endif %}
 
 							<!-- Quantity Selector: Only show if no selling plan and title doesn't contain 'Free' -->
-              {% if item.selling_plan_allocation == nil and isFreeItem != true %}
-                <div class="quantity-input quantity-selector">
-                  <button type="button" class="quantity-btn" data-action="decrease-quantity">−</button>
-                  <input type="number"
-                    name="updates[]"
-                    value="{{ item.quantity }}"
-                    min="0"
-                    aria-label="Quantity for {{ item.title | escape }}"
-                    data-item-key="{{ item.key }}">
-                  <button type="button" class="quantity-btn" data-action="increase-quantity">+</button>
-                </div>
-              {% endif %}
+							{% if item.selling_plan_allocation == null and isFreeItem != true %}
+								<div class='quantity-input quantity-selector'>
+									<button type='button' class='quantity-btn' data-action='decrease-quantity'>−</button>
+									<input
+										type='number'
+										name='updates[]'
+										value='{{ item.quantity }}'
+										min='0'
+										aria-label='Quantity for {{ item.title | escape }}'
+										data-item-key='{{ item.key }}'>
+									<button type='button' class='quantity-btn' data-action='increase-quantity'>+</button>
+								</div>
+							{% endif %}
 
-              <a href="/cart/change?line={{ forloop.index }}&quantity=0" class="remove-item" data-item-key="{{ item.key }}">
-							<svg xmlns="http://www.w3.org/2000/svg" width="15px" height="15px" viewBox="0 0 24 24" fill="black">
-							<path d="M1.5 3.75C1.08579 3.75 0.75 4.08579 0.75 4.5C0.75 4.91421 1.08579 5.25 1.5 5.25V3.75ZM22.5 5.25C22.9142 5.25 23.25 4.91421 23.25 4.5C23.25 4.08579 22.9142 3.75 22.5 3.75V5.25ZM1.5 5.25H22.5V3.75H1.5V5.25Z" fill="#71717A"/>
-							<path d="M9.75 1.5V0.75V1.5ZM8.25 3H7.5H8.25ZM7.5 4.5C7.5 4.91421 7.83579 5.25 8.25 5.25C8.66421 5.25 9 4.91421 9 4.5H7.5ZM15 4.5C15 4.91421 15.3358 5.25 15.75 5.25C16.1642 5.25 16.5 4.91421 16.5 4.5H15ZM15.75 3H16.5H15.75ZM14.25 0.75H9.75V2.25H14.25V0.75ZM9.75 0.75C9.15326 0.75 8.58097 0.987053 8.15901 1.40901L9.21967 2.46967C9.36032 2.32902 9.55109 2.25 9.75 2.25V0.75ZM8.15901 1.40901C7.73705 1.83097 7.5 2.40326 7.5 3H9C9 2.80109 9.07902 2.61032 9.21967 2.46967L8.15901 1.40901ZM7.5 3V4.5H9V3H7.5ZM16.5 4.5V3H15V4.5H16.5ZM16.5 3C16.5 2.40326 16.2629 1.83097 15.841 1.40901L14.7803 2.46967C14.921 2.61032 15 2.80109 15 3H16.5ZM15.841 1.40901C15.419 0.987053 14.8467 0.75 14.25 0.75V2.25C14.4489 2.25 14.6397 2.32902 14.7803 2.46967L15.841 1.40901Z" fill="#71717A"/>
-							<path d="M9 17.25C9 17.6642 9.33579 18 9.75 18C10.1642 18 10.5 17.6642 10.5 17.25H9ZM10.5 9.75C10.5 9.33579 10.1642 9 9.75 9C9.33579 9 9 9.33579 9 9.75H10.5ZM10.5 17.25V9.75H9V17.25H10.5Z" fill="#71717A"/>
-							<path d="M13.5 17.25C13.5 17.6642 13.8358 18 14.25 18C14.6642 18 15 17.6642 15 17.25H13.5ZM15 9.75C15 9.33579 14.6642 9 14.25 9C13.8358 9 13.5 9.33579 13.5 9.75H15ZM15 17.25V9.75H13.5V17.25H15Z" fill="#71717A"/>
-							<path d="M18.865 21.124L18.1176 21.0617L18.1176 21.062L18.865 21.124ZM17.37 22.5L17.3701 21.75H17.37V22.5ZM6.631 22.5V21.75H6.63093L6.631 22.5ZM5.136 21.124L5.88343 21.062L5.88341 21.0617L5.136 21.124ZM4.49741 4.43769C4.46299 4.0249 4.10047 3.71818 3.68769 3.75259C3.2749 3.78701 2.96818 4.14953 3.00259 4.56231L4.49741 4.43769ZM20.9974 4.56227C21.0318 4.14949 20.7251 3.78698 20.3123 3.75259C19.8995 3.7182 19.537 4.02495 19.5026 4.43773L20.9974 4.56227ZM18.1176 21.062C18.102 21.2495 18.0165 21.4244 17.878 21.5518L18.8939 22.6555C19.3093 22.2732 19.5658 21.7486 19.6124 21.186L18.1176 21.062ZM17.878 21.5518C17.7396 21.6793 17.5583 21.75 17.3701 21.75L17.3699 23.25C17.9345 23.25 18.4785 23.0379 18.8939 22.6555L17.878 21.5518ZM17.37 21.75H6.631V23.25H17.37V21.75ZM6.63093 21.75C6.44274 21.75 6.26142 21.6793 6.12295 21.5518L5.10713 22.6555C5.52253 23.0379 6.06649 23.25 6.63107 23.25L6.63093 21.75ZM6.12295 21.5518C5.98449 21.4244 5.89899 21.2495 5.88343 21.062L4.38857 21.186C4.43524 21.7486 4.69172 22.2732 5.10713 22.6555L6.12295 21.5518ZM5.88341 21.0617L4.49741 4.43769L3.00259 4.56231L4.38859 21.1863L5.88341 21.0617ZM19.5026 4.43773L18.1176 21.0617L19.6124 21.1863L20.9974 4.56227L19.5026 4.43773Z" fill="#71717A"/>
-							</svg>
+							<a href='/cart/change?line={{ forloop.index }}&quantity=0' class='remove-item' data-item-key='{{ item.key }}'>
+								<svg xmlns='http://www.w3.org/2000/svg' width='15px' height='15px' viewBox='0 0 24 24' fill='black'>
+									<path d="M1.5 3.75C1.08579 3.75 0.75 4.08579 0.75 4.5C0.75 4.91421 1.08579 5.25 1.5 5.25V3.75ZM22.5 5.25C22.9142 5.25 23.25 4.91421 23.25 4.5C23.25 4.08579 22.9142 3.75 22.5 3.75V5.25ZM1.5 5.25H22.5V3.75H1.5V5.25Z" fill="#71717A"/>
+									<path d="M9.75 1.5V0.75V1.5ZM8.25 3H7.5H8.25ZM7.5 4.5C7.5 4.91421 7.83579 5.25 8.25 5.25C8.66421 5.25 9 4.91421 9 4.5H7.5ZM15 4.5C15 4.91421 15.3358 5.25 15.75 5.25C16.1642 5.25 16.5 4.91421 16.5 4.5H15ZM15.75 3H16.5H15.75ZM14.25 0.75H9.75V2.25H14.25V0.75ZM9.75 0.75C9.15326 0.75 8.58097 0.987053 8.15901 1.40901L9.21967 2.46967C9.36032 2.32902 9.55109 2.25 9.75 2.25V0.75ZM8.15901 1.40901C7.73705 1.83097 7.5 2.40326 7.5 3H9C9 2.80109 9.07902 2.61032 9.21967 2.46967L8.15901 1.40901ZM7.5 3V4.5H9V3H7.5ZM16.5 4.5V3H15V4.5H16.5ZM16.5 3C16.5 2.40326 16.2629 1.83097 15.841 1.40901L14.7803 2.46967C14.921 2.61032 15 2.80109 15 3H16.5ZM15.841 1.40901C15.419 0.987053 14.8467 0.75 14.25 0.75V2.25C14.4489 2.25 14.6397 2.32902 14.7803 2.46967L15.841 1.40901Z" fill="#71717A"/>
+									<path d="M9 17.25C9 17.6642 9.33579 18 9.75 18C10.1642 18 10.5 17.6642 10.5 17.25H9ZM10.5 9.75C10.5 9.33579 10.1642 9 9.75 9C9.33579 9 9 9.33579 9 9.75H10.5ZM10.5 17.25V9.75H9V17.25H10.5Z" fill="#71717A"/>
+									<path d="M13.5 17.25C13.5 17.6642 13.8358 18 14.25 18C14.6642 18 15 17.6642 15 17.25H13.5ZM15 9.75C15 9.33579 14.6642 9 14.25 9C13.8358 9 13.5 9.33579 13.5 9.75H15ZM15 17.25V9.75H13.5V17.25H15Z" fill="#71717A"/>
+									<path d="M18.865 21.124L18.1176 21.0617L18.1176 21.062L18.865 21.124ZM17.37 22.5L17.3701 21.75H17.37V22.5ZM6.631 22.5V21.75H6.63093L6.631 22.5ZM5.136 21.124L5.88343 21.062L5.88341 21.0617L5.136 21.124ZM4.49741 4.43769C4.46299 4.0249 4.10047 3.71818 3.68769 3.75259C3.2749 3.78701 2.96818 4.14953 3.00259 4.56231L4.49741 4.43769ZM20.9974 4.56227C21.0318 4.14949 20.7251 3.78698 20.3123 3.75259C19.8995 3.7182 19.537 4.02495 19.5026 4.43773L20.9974 4.56227ZM18.1176 21.062C18.102 21.2495 18.0165 21.4244 17.878 21.5518L18.8939 22.6555C19.3093 22.2732 19.5658 21.7486 19.6124 21.186L18.1176 21.062ZM17.878 21.5518C17.7396 21.6793 17.5583 21.75 17.3701 21.75L17.3699 23.25C17.9345 23.25 18.4785 23.0379 18.8939 22.6555L17.878 21.5518ZM17.37 21.75H6.631V23.25H17.37V21.75ZM6.63093 21.75C6.44274 21.75 6.26142 21.6793 6.12295 21.5518L5.10713 22.6555C5.52253 23.0379 6.06649 23.25 6.63107 23.25L6.63093 21.75ZM6.12295 21.5518C5.98449 21.4244 5.89899 21.2495 5.88343 21.062L4.38857 21.186C4.43524 21.7486 4.69172 22.2732 5.10713 22.6555L6.12295 21.5518ZM5.88341 21.0617L4.49741 4.43769L3.00259 4.56231L4.38859 21.1863L5.88341 21.0617ZM19.5026 4.43773L18.1176 21.0617L19.6124 21.1863L20.9974 4.56227L19.5026 4.43773Z" fill="#71717A"/>
+								</svg>
 							</a>
-            </div>
+						</div>
 
 						{% assign lineItemCAP = item.variant.compare_at_price | times: item.quantity %}
 						{% assign lineItemPrice = item.price | times: item.quantity %}
@@ -85,675 +87,676 @@
 						{% if item.variant.compare_at_price and item.variant.compare_at_price > item.price %}
 							{% assign totalSavings = totalSavings | plus: lineItemSaving %}
 						{% endif %}
-            <div class="item-price text-[--primary]"
-								data-line-cap="{{ lineItemCAP }}"
-								data-variant-cap="{{ item.variant.compare_at_price }}"
-								data-unit-price="{{ item.price }}">
+						<div
+							class='item-price text-[var(--color-primary)]'
+							data-line-cap='{{ lineItemCAP }}'
+							data-variant-cap='{{ item.variant.compare_at_price }}'
+							data-unit-price='{{ item.price }}'>
 							{{ lineItemPrice | money }}
 
 							{% if item.variant.compare_at_price and item.variant.compare_at_price > item.price %}
-								<div class="compare-at-price">{{ lineItemCAP | money }}</div>
+								<div class='compare-at-price'>{{ lineItemCAP | money }}</div>
 							{% endif %}
 						</div>
-          </div>
-        {% endfor %}
-      </div>
+					</div>
+				{% endfor %}
+			</div>
 
-      <div class="cart-summary">
-        <div class="summary-row">
-          <span>Subtotal</span>
-          <span data-cart-subtotal>{{ totalOriginalPrice | plus: totalSavings | money }}</span>
-        </div>
+			<div class='cart-summary'>
+				<div class='summary-row'>
+					<span>Subtotal</span>
+					<span data-cart-subtotal>{{ totalOriginalPrice | plus: totalSavings | money }}</span>
+				</div>
 
-        {% if totalSavings > 0 %}
-					<div class="summary-row" data-discount-row>
+				{% if totalSavings > 0 %}
+					<div class='summary-row' data-discount-row>
 						<span>Discounts</span>
 						<span data-discount-amount>-{{ totalSavings | money }}</span>
 					</div>
 				{% endif %}
 
 				{% for block in section.blocks %}
-          {%- case block.type -%}
-            {%- when '@app' -%}
-              {% render block %}
+					{%- case block.type -%}
+						{%- when '@app' -%}
+							{% render block %}
 					{% endcase %}
 				{% endfor %}
 
-        <div class="summary-row summary-total">
-          <span>Total</span>
-          <span data-cart-total>{{ cart.total_price | money }}</span>
-        </div>
+				<div class='summary-row summary-total'>
+					<span>Total</span>
+					<span data-cart-total>{{ cart.total_price | money }}</span>
+				</div>
 
-        <a href="/checkout" class="checkout-button">Proceed to Checkout</a>
-				<div class="cart__dynamic-checkout-buttons additional-checkout-buttons">
+				<a href='/checkout' class='checkout-button'>Proceed to Checkout</a>
+				<div class='cart__dynamic-checkout-buttons additional-checkout-buttons'>
 					{{ content_for_additional_checkout_buttons }}
 				</div>
-				<p class="text-[12px] text-center">Taxes and shipping calculated at checkout</p>
-      </div>
-    </div>
-  {% endif %}
+				<p class='text-[12px] text-center'>Taxes and shipping calculated at checkout</p>
+			</div>
+		</div>
+	{% endif %}
 </div>
 
 <script>
-function formatMoney(cents) {
-	// Ensure cents is an integer
-	cents = parseInt(cents, 10);
-	if (isNaN(cents)) {
-		cents = 0;
-	}
-
-  function formatWithDelimiters(number, precision) {
-    if (isNaN(number) || number === null) {
-      return '0';
-    }
-
-    // Use comma as thousands separator and dot as decimal separator
-    number = (number / Math.pow(10, precision)).toFixed(precision);
-    var parts = number.split('.');
-    var dollarsAmount = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-    var centsAmount = parts[1] ? '.' + parts[1] : '';
-
-    return dollarsAmount + centsAmount;
-  }
-
-	// Always format with comma separator
-	var value = formatWithDelimiters(cents, 2);
-	return '{{ cart.currency.symbol }}' + value;
-}
-
-function updateQuantity(button, change) {
-  const input = button.parentNode.querySelector('input');
-  const itemKey = input.getAttribute('data-item-key');
-  const currentValue = parseInt(input.value);
-  const newValue = currentValue + change;
-
-  if (newValue >= 0) {
-    const cartItemElement = button.closest('.cart-item');
-    const priceContainer = cartItemElement.querySelector('.item-price');
-    showItemLoadingSpinner(priceContainer);
-    showSummaryLoadingSpinners();
-
-    fetch('/cart/change.js', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
-      body: JSON.stringify({
-        id: itemKey,
-        quantity: newValue,
-      }),
-    })
-      .then(response => response.json())
-      .then(cart => {
-        if (newValue === 0) {
-          if (cartItemElement) {
-            cartItemElement.remove();
-          }
-        } else {
-          input.value = newValue;
-          const cartItem = cart.items.find(item => item.key === itemKey);
-          if (cartItem) {
-            updateItemPrice(priceContainer, cartItem);
-          }
-        }
-        updateCartTotals(cart);
-
-        if (cart.item_count === 0) {
-          showEmptyCartMessage();
-        }
-      })
-      .catch(error => {
-        console.error('Error:', error);
-      })
-      .finally(() => {
-        hideItemLoadingSpinner(priceContainer);
-        hideSummaryLoadingSpinners();
-      });
-  }
-}
-
-function updateCartTotals(cart) {
-  console.log('updateCartTotals called with cart:', cart);
-  console.log('variantCompareAtPrices:', variantCompareAtPrices);
-
-  let totalOriginalPrice = 0;
-  let totalSavings = 0;
-
-  cart.items.forEach(item => {
-    console.log('Processing item:', item);
-    try {
-      const variantId = item.variant_id.toString();
-      const variantCap = parseInt(variantCompareAtPrices[variantId], 10) || item.price;
-      const originalUnitPrice = variantCap;
-      const originalLinePrice = originalUnitPrice * item.quantity;
-      const finalLinePrice = item.final_line_price;
-
-      totalOriginalPrice += originalLinePrice;
-
-      if (originalLinePrice > finalLinePrice) {
-        totalSavings += originalLinePrice - finalLinePrice;
-      }
-    } catch (error) {
-      console.error('Error processing cart item:', error);
-    }
-  });
-
-  // Update subtotal
-  const cartSubtotal = document.querySelector('[data-cart-subtotal]');
-  if (cartSubtotal) {
-    cartSubtotal.textContent = formatMoney(totalOriginalPrice);
-  }
-
-  // Update discount row
-  const discountRow = document.querySelector('.summary-row[data-discount-row]');
-  if (discountRow) {
-    if (totalSavings > 0) {
-      const discountAmount = discountRow.querySelector('span:last-child');
-      if (discountAmount) {
-        discountAmount.textContent = '-' + formatMoney(totalSavings);
-      }
-      discountRow.style.display = 'flex';
-    } else {
-      discountRow.style.display = 'none';
-    }
-  }
-
-  // Update final total
-  const cartTotal = document.querySelector('[data-cart-total]');
-  if (cartTotal) {
-    cartTotal.textContent = formatMoney(cart.total_price);
-  }
-
-  // Update item count
-  const cartItemCount = document.querySelector('[data-cart-item-count]');
-  if (cartItemCount) {
-    cartItemCount.textContent = cart.item_count;
-  }
-}
-
-function updateItemPrice(priceContainer, cartItem) {
-  if (!priceContainer || !cartItem) return;
-
-  const variantId = cartItem.variant_id.toString();
-  const variantCap = parseInt(variantCompareAtPrices[variantId], 10) || cartItem.price;
-  const originalUnitPrice = variantCap;
-  const originalLinePrice = originalUnitPrice * cartItem.quantity;
-  const finalLinePrice = cartItem.final_line_price;
-
-  let priceHtml = formatMoney(finalLinePrice);
-
-  // Check if there is a discount on the item
-  if (originalUnitPrice > cartItem.price) {
-    priceHtml += `<div class="compare-at-price">${formatMoney(originalLinePrice)}</div>`;
-  }
-
-  // Update the content
-  priceContainer.innerHTML = priceHtml;
-}
-
-function removeItemFromCart(itemKey, link) {
-  const cartItemElement = link.closest('.cart-item');
-  const priceContainer = cartItemElement.querySelector('.item-price');
-  showItemLoadingSpinner(priceContainer);
-  showSummaryLoadingSpinners();
-
-  fetch('/cart/change.js', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    },
-    body: JSON.stringify({
-      id: itemKey,
-      quantity: 0,
-    }),
-  })
-    .then(response => response.json())
-    .then(cart => {
-      if (cartItemElement) {
-        cartItemElement.remove();
-      }
-      updateCartTotals(cart);
-
-      if (cart.item_count === 0) {
-        showEmptyCartMessage();
-      }
-    })
-    .catch(error => {
-      console.error('Error:', error);
-    })
-    .finally(() => {
-      hideItemLoadingSpinner(priceContainer);
-      hideSummaryLoadingSpinners();
-    });
-}
-
-function showEmptyCartMessage() {
-  const cartContent = document.querySelector('.cart-content');
-  const cartEmptyMessage = document.querySelector('.cart-empty');
-  if (cartContent && cartEmptyMessage) {
-    cartContent.style.display = 'none';
-    cartEmptyMessage.style.display = 'block';
-  }
-}
-
-function showItemLoadingSpinner(container) {
-	const spinner = document.createElement('div');
-	spinner.className = 'item-spinner';
-	spinner.innerHTML = '<div class="spinner"></div>';
-	container.innerHTML = '';
-	container.appendChild(spinner);
-}
-
-function hideItemLoadingSpinner(container) {
-	if (container.querySelector('.item-spinner')) {
-		container.innerHTML = ''; // Clear spinner first
-	}
-}
-
-function showSummaryLoadingSpinners() {
-	const summaryPriceElements = document.querySelectorAll('[data-cart-subtotal], [data-cart-total], [data-discount-amount]');
-	summaryPriceElements.forEach(element => {
-		element.innerHTML = '<div class="spinner summary-spinner"></div>';
-	});
-}
-
-function hideSummaryLoadingSpinners() {
-	const summaryPriceElements = document.querySelectorAll('[data-cart-subtotal], [data-cart-total], [data-discount-amount]');
-	summaryPriceElements.forEach(element => {
-		if (element.querySelector('.spinner')) {
-			element.innerHTML = '';
+	function formatMoney(cents) {
+		// Ensure cents is an integer
+		cents = parseInt(cents, 10);
+		if (isNaN(cents)) {
+			cents = 0;
 		}
+
+		function formatWithDelimiters(number, precision) {
+			if (isNaN(number) || number === null) {
+				return '0';
+			}
+
+			// Use comma as thousands separator and dot as decimal separator
+			number = (number / Math.pow(10, precision)).toFixed(precision);
+			var parts = number.split('.');
+			var dollarsAmount = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+			var centsAmount = parts[1] ? '.' + parts[1] : '';
+
+			return dollarsAmount + centsAmount;
+		}
+
+		// Always format with comma separator
+		var value = formatWithDelimiters(cents, 2);
+		return '{{ cart.currency.symbol }}' + value;
+	}
+
+	function updateQuantity(button, change) {
+		const input = button.parentNode.querySelector('input');
+		const itemKey = input.getAttribute('data-item-key');
+		const currentValue = parseInt(input.value);
+		const newValue = currentValue + change;
+
+		if (newValue >= 0) {
+			const cartItemElement = button.closest('.cart-item');
+			const priceContainer = cartItemElement.querySelector('.item-price');
+			showItemLoadingSpinner(priceContainer);
+			showSummaryLoadingSpinners();
+
+			fetch('/cart/change.js', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					Accept: 'application/json'
+				},
+				body: JSON.stringify({
+					id: itemKey,
+					quantity: newValue
+				})
+			})
+				.then(response => response.json())
+				.then(cart => {
+					if (newValue === 0) {
+						if (cartItemElement) {
+							cartItemElement.remove();
+						}
+					} else {
+						input.value = newValue;
+						const cartItem = cart.items.find(item => item.key === itemKey);
+						if (cartItem) {
+							updateItemPrice(priceContainer, cartItem);
+						}
+					}
+					updateCartTotals(cart);
+
+					if (cart.item_count === 0) {
+						showEmptyCartMessage();
+					}
+				})
+				.catch(error => {
+					console.error('Error:', error);
+				})
+				.finally(() => {
+					hideItemLoadingSpinner(priceContainer);
+					hideSummaryLoadingSpinners();
+				});
+		}
+	}
+
+	function updateCartTotals(cart) {
+		console.log('updateCartTotals called with cart:', cart);
+		console.log('variantCompareAtPrices:', variantCompareAtPrices);
+
+		let totalOriginalPrice = 0;
+		let totalSavings = 0;
+
+		cart.items.forEach(item => {
+			console.log('Processing item:', item);
+			try {
+				const variantId = item.variant_id.toString();
+				const variantCap = parseInt(variantCompareAtPrices[variantId], 10) || item.price;
+				const originalUnitPrice = variantCap;
+				const originalLinePrice = originalUnitPrice * item.quantity;
+				const finalLinePrice = item.final_line_price;
+
+				totalOriginalPrice += originalLinePrice;
+
+				if (originalLinePrice > finalLinePrice) {
+					totalSavings += originalLinePrice - finalLinePrice;
+				}
+			} catch (error) {
+				console.error('Error processing cart item:', error);
+			}
+		});
+
+		// Update subtotal
+		const cartSubtotal = document.querySelector('[data-cart-subtotal]');
+		if (cartSubtotal) {
+			cartSubtotal.textContent = formatMoney(totalOriginalPrice);
+		}
+
+		// Update discount row
+		const discountRow = document.querySelector('.summary-row[data-discount-row]');
+		if (discountRow) {
+			if (totalSavings > 0) {
+				const discountAmount = discountRow.querySelector('span:last-child');
+				if (discountAmount) {
+					discountAmount.textContent = '-' + formatMoney(totalSavings);
+				}
+				discountRow.style.display = 'flex';
+			} else {
+				discountRow.style.display = 'none';
+			}
+		}
+
+		// Update final total
+		const cartTotal = document.querySelector('[data-cart-total]');
+		if (cartTotal) {
+			cartTotal.textContent = formatMoney(cart.total_price);
+		}
+
+		// Update item count
+		const cartItemCount = document.querySelector('[data-cart-item-count]');
+		if (cartItemCount) {
+			cartItemCount.textContent = cart.item_count;
+		}
+	}
+
+	function updateItemPrice(priceContainer, cartItem) {
+		if (!priceContainer || !cartItem) return;
+
+		const variantId = cartItem.variant_id.toString();
+		const variantCap = parseInt(variantCompareAtPrices[variantId], 10) || cartItem.price;
+		const originalUnitPrice = variantCap;
+		const originalLinePrice = originalUnitPrice * cartItem.quantity;
+		const finalLinePrice = cartItem.final_line_price;
+
+		let priceHtml = formatMoney(finalLinePrice);
+
+		// Check if there is a discount on the item
+		if (originalUnitPrice > cartItem.price) {
+			priceHtml += `<div class="compare-at-price">${formatMoney(originalLinePrice)}</div>`;
+		}
+
+		// Update the content
+		priceContainer.innerHTML = priceHtml;
+	}
+
+	function removeItemFromCart(itemKey, link) {
+		const cartItemElement = link.closest('.cart-item');
+		const priceContainer = cartItemElement.querySelector('.item-price');
+		showItemLoadingSpinner(priceContainer);
+		showSummaryLoadingSpinners();
+
+		fetch('/cart/change.js', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+				Accept: 'application/json'
+			},
+			body: JSON.stringify({
+				id: itemKey,
+				quantity: 0
+			})
+		})
+			.then(response => response.json())
+			.then(cart => {
+				if (cartItemElement) {
+					cartItemElement.remove();
+				}
+				updateCartTotals(cart);
+
+				if (cart.item_count === 0) {
+					showEmptyCartMessage();
+				}
+			})
+			.catch(error => {
+				console.error('Error:', error);
+			})
+			.finally(() => {
+				hideItemLoadingSpinner(priceContainer);
+				hideSummaryLoadingSpinners();
+			});
+	}
+
+	function showEmptyCartMessage() {
+		const cartContent = document.querySelector('.cart-content');
+		const cartEmptyMessage = document.querySelector('.cart-empty');
+		if (cartContent && cartEmptyMessage) {
+			cartContent.style.display = 'none';
+			cartEmptyMessage.style.display = 'block';
+		}
+	}
+
+	function showItemLoadingSpinner(container) {
+		const spinner = document.createElement('div');
+		spinner.className = 'item-spinner';
+		spinner.innerHTML = '<div class="spinner"></div>';
+		container.innerHTML = '';
+		container.appendChild(spinner);
+	}
+
+	function hideItemLoadingSpinner(container) {
+		if (container.querySelector('.item-spinner')) {
+			container.innerHTML = ''; // Clear spinner first
+		}
+	}
+
+	function showSummaryLoadingSpinners() {
+		const summaryPriceElements = document.querySelectorAll('[data-cart-subtotal], [data-cart-total], [data-discount-amount]');
+		summaryPriceElements.forEach(element => {
+			element.innerHTML = '<div class="spinner summary-spinner"></div>';
+		});
+	}
+
+	function hideSummaryLoadingSpinners() {
+		const summaryPriceElements = document.querySelectorAll('[data-cart-subtotal], [data-cart-total], [data-discount-amount]');
+		summaryPriceElements.forEach(element => {
+			if (element.querySelector('.spinner')) {
+				element.innerHTML = '';
+			}
+		});
+	}
+
+	document.addEventListener('DOMContentLoaded', function () {
+		document.querySelectorAll('.quantity-btn').forEach(function (button) {
+			button.addEventListener('click', function () {
+				const action = button.getAttribute('data-action');
+				const change = action === 'increase-quantity' ? 1 : -1;
+				updateQuantity(button, change);
+			});
+		});
+
+		document.querySelectorAll('.remove-item').forEach(function (link) {
+			link.addEventListener('click', function (event) {
+				event.preventDefault();
+				const itemKey = link.getAttribute('data-item-key');
+				removeItemFromCart(itemKey, link);
+			});
+		});
 	});
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-  document.querySelectorAll('.quantity-btn').forEach(function(button) {
-    button.addEventListener('click', function() {
-      const action = button.getAttribute('data-action');
-      const change = action === 'increase-quantity' ? 1 : -1;
-      updateQuantity(button, change);
-    });
-  });
-
-  document.querySelectorAll('.remove-item').forEach(function(link) {
-    link.addEventListener('click', function(event) {
-      event.preventDefault();
-      const itemKey = link.getAttribute('data-item-key');
-      removeItemFromCart(itemKey, link);
-    });
-  });
-});
 </script>
 
 <style>
 	:root {
-  --color-primary: var(--curalin);
-  --color-primary-dark: var(--curalin-dark);
-  --color-text-main: #202124;
-  --color-text-secondary: #5f6368;
-  --color-border: #dadce0;
-  --color-white: #ffffff;
-  --color-danger: var(--bronze);
-  --color-shadow: rgba(0, 0, 0, 0.1);
-  --font-family: var(--sub-font);
-}
+		--color-primary: var(--curalin);
+		--color-primary-dark: var(--curalin-dark);
+		--color-text-main: #202124;
+		--color-text-secondary: #5f6368;
+		--color-border: #dadce0;
+		--color-white: #ffffff;
+		--color-danger: var(--bronze);
+		--color-shadow: rgba(0, 0, 0, 0.1);
+		--font-family: var(--sub-font);
+	}
 
-.quantity-input input:focus {
-  outline: none;
-}
+	.quantity-input input:focus {
+		outline: none;
+	}
 
-.quantity-input input[type="number"] {
-  -moz-appearance: textfield; /* Firefox */
-}
+	.quantity-input input[type='number'] {
+		-moz-appearance: textfield; /* Firefox */
+	}
 
-.quantity-input input[type="number"]::-webkit-outer-spin-button,
-.quantity-input input[type="number"]::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
+	.quantity-input input[type='number']::-webkit-outer-spin-button,
+	.quantity-input input[type='number']::-webkit-inner-spin-button {
+		-webkit-appearance: none;
+		margin: 0;
+	}
 
-.cart {
-  max-width: 1200px;
-  margin: 2rem auto;
-  padding: 0 50px;
-}
+	.cart {
+		max-width: 1200px;
+		margin: 2rem auto;
+		padding: 0 50px;
+	}
 
-.cart-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 2rem;
-}
+	.cart-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		margin-bottom: 2rem;
+	}
 
-.cart-header h1 {
-  font-size: 2rem;
-  font-weight: 700;
-}
+	.cart-header h1 {
+		font-size: 2rem;
+		font-weight: 700;
+	}
 
-.continue-shopping {
-  color: var(--color-primary);
-  text-decoration: none;
-  font-weight: 500;
-}
+	.continue-shopping {
+		color: var(--color-primary);
+		text-decoration: none;
+		font-weight: 500;
+	}
 
-.continue-shopping:hover {
-  text-decoration: underline;
-}
+	.continue-shopping:hover {
+		text-decoration: underline;
+	}
 
-.cart-content {
-  display: grid;
-  grid-template-columns: 1fr 350px;
-  gap: 2rem;
-}
+	.cart-content {
+		display: grid;
+		grid-template-columns: 1fr 350px;
+		gap: 2rem;
+	}
 
-.cart-items {
-  background: var(--color-white);
-  border-radius: 0.5rem;
-  box-shadow: 0 2px 4px var(--color-shadow);
-  padding: 1rem;
-}
+	.cart-items {
+		background: var(--color-white);
+		border-radius: 0.5rem;
+		box-shadow: 0 2px 4px var(--color-shadow);
+		padding: 1rem;
+	}
 
-.cart-item {
-  display: flex;
-  padding: 1rem 0;
-  border-bottom: 1px solid var(--color-border);
-}
+	.cart-item {
+		display: flex;
+		padding: 1rem 0;
+		border-bottom: 1px solid var(--color-border);
+	}
 
-.cart-item:last-child {
-  border-bottom: none;
-}
+	.cart-item:last-child {
+		border-bottom: none;
+	}
 
-.item-image {
-  width: 120px;
-  height: 120px;
-  border-radius: 0.5rem;
-  object-fit: cover;
-  margin-right: 1.5rem;
-}
+	.item-image {
+		width: 120px;
+		height: 120px;
+		border-radius: 0.5rem;
+		object-fit: cover;
+		margin-right: 1.5rem;
+	}
 
-.item-details {
-  flex: 1;
-}
+	.item-details {
+		flex: 1;
+	}
 
-.item-details h3 {
-  font-size: 1.25rem;
-  font-weight: 600;
-  margin-bottom: 0.25rem;
-}
+	.item-details h3 {
+		font-size: 1.25rem;
+		font-weight: 600;
+		margin-bottom: 0.25rem;
+	}
 
-.compare-at-price {
-  color: var(--primary);
-  opacity: 0.5;
-  font-size: 16px;
-  font-weight: 100;
-  text-align: end;
-  text-decoration: line-through;
-}
+	.compare-at-price {
+		color: var(--primary);
+		opacity: 0.5;
+		font-size: 16px;
+		font-weight: 100;
+		text-align: end;
+		text-decoration: line-through;
+	}
 
-.item-options,
-.selling-plan-name {
-  font-size: 1rem;
-  color: var(--color-text-secondary);
-}
+	.item-options,
+	.selling-plan-name {
+		font-size: 1rem;
+		color: var(--color-text-secondary);
+	}
 
-.quantity-input {
-  display: inline-flex;
-  align-items: center;
-  margin-top: 0.5rem;
-}
+	.quantity-input {
+		display: inline-flex;
+		align-items: center;
+		margin-top: 0.5rem;
+	}
 
-.quantity-input {
-  border: 1px solid var(--color-border);
-  border-radius: 0.5rem;
-  overflow: hidden;
-}
+	.quantity-input {
+		border: 1px solid var(--color-border);
+		border-radius: 0.5rem;
+		overflow: hidden;
+	}
 
-.quantity-input input {
-  width: 3rem;
-  text-align: center;
-  border: none;
-  padding: 0.5rem 0;
-  font-size: 1rem;
-}
+	.quantity-input input {
+		width: 3rem;
+		text-align: center;
+		border: none;
+		padding: 0.5rem 0;
+		font-size: 1rem;
+	}
 
-.quantity-input input:focus {
-  outline: none;
-}
+	.quantity-input input:focus {
+		outline: none;
+	}
 
-.quantity-btn {
-  width: 2.5rem;
-  height: 2.5rem;
-  line-height: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: none;
-  border: none;
-  font-size: 1.25rem;
-  color: var(--color-primary);
-  cursor: pointer;
-  transition: color 0.3s;
-}
+	.quantity-btn {
+		width: 2.5rem;
+		height: 2.5rem;
+		line-height: 1;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background: none;
+		border: none;
+		font-size: 1.25rem;
+		color: var(--color-primary);
+		cursor: pointer;
+		transition: color 0.3s;
+	}
 
-.quantity-btn:hover {
-  color: var(--color-primary-dark);
-}
+	.quantity-btn:hover {
+		color: var(--color-primary-dark);
+	}
 
-.remove-item {
-  color: var(--color-danger);
-  text-decoration: none;
-  font-size: 0.875rem;
-  margin-top: 0.5rem;
-  display: inline-block;
-}
+	.remove-item {
+		color: var(--color-danger);
+		text-decoration: none;
+		font-size: 0.875rem;
+		margin-top: 0.5rem;
+		display: inline-block;
+	}
 
-.remove-item:hover {
-  text-decoration: underline;
-}
+	.remove-item:hover {
+		text-decoration: underline;
+	}
 
-.item-price {
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: var(--color-text-main);
-}
+	.item-price {
+		font-size: 1.125rem;
+		font-weight: 600;
+		color: var(--color-text-main);
+	}
 
-.cart-summary {
-  background: var(--color-white);
-  border-radius: 0.5rem;
-  padding: 1.5rem;
-  box-shadow: 0 2px 4px var(--color-shadow);
-  position: sticky;
-  top: 2rem;
-}
+	.cart-summary {
+		background: var(--color-white);
+		border-radius: 0.5rem;
+		padding: 1.5rem;
+		box-shadow: 0 2px 4px var(--color-shadow);
+		position: sticky;
+		top: 2rem;
+	}
 
-.summary-row {
-  display: flex;
-  justify-content: space-between;
-  padding: 0.75rem 0;
-}
+	.summary-row {
+		display: flex;
+		justify-content: space-between;
+		padding: 0.75rem 0;
+	}
 
-.summary-total {
-  font-size: 1.25rem;
-  font-weight: 700;
-  border-top: 1px solid var(--color-border);
-  margin-top: 1rem;
-  padding-top: 1rem;
-}
+	.summary-total {
+		font-size: 1.25rem;
+		font-weight: 700;
+		border-top: 1px solid var(--color-border);
+		margin-top: 1rem;
+		padding-top: 1rem;
+	}
 
-.checkout-button {
-  width: 100%;
-  padding: 1rem;
-  background-color: var(--color-primary);
-  color: var(--color-white);
-  border: none;
-  border-radius: 0.5rem;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  text-align: center;
-  text-decoration: none;
-  display: inline-block;
-  margin-top: 1.5rem;
-  transition: background-color 0.3s;
-}
+	.checkout-button {
+		width: 100%;
+		padding: 1rem;
+		background-color: var(--color-primary);
+		color: var(--color-white);
+		border: none;
+		border-radius: 0.5rem;
+		font-size: 1rem;
+		font-weight: 600;
+		cursor: pointer;
+		text-align: center;
+		text-decoration: none;
+		display: inline-block;
+		margin-top: 1.5rem;
+		transition: background-color 0.3s;
+	}
 
-.checkout-button:hover {
-  background-color: var(--color-primary-dark);
-}
+	.checkout-button:hover {
+		background-color: var(--color-primary-dark);
+	}
 
-.checkout-button:focus {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
-}
+	.checkout-button:focus {
+		outline: 2px solid var(--color-primary);
+		outline-offset: 2px;
+	}
 
-.cart-empty {
-  text-align: center;
-  padding: 4rem 2rem;
-  background: var(--color-white);
-  border-radius: 0.5rem;
-  box-shadow: 0 2px 4px var(--color-shadow);
-}
+	.cart-empty {
+		text-align: center;
+		padding: 4rem 2rem;
+		background: var(--color-white);
+		border-radius: 0.5rem;
+		box-shadow: 0 2px 4px var(--color-shadow);
+	}
 
-.loading-spinner {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(255, 255, 255, 0.8);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 9999;
-}
+	.loading-spinner {
+		position: fixed;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
+		background-color: rgba(255, 255, 255, 0.8);
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		z-index: 9999;
+	}
 
-.spinner {
-  width: 24px;
-  height: 24px;
-  border: 3px solid var(--color-border);
-  border-top-color: var(--color-primary);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-  margin: 0 auto;
-}
+	.spinner {
+		width: 24px;
+		height: 24px;
+		border: 3px solid var(--color-border);
+		border-top-color: var(--color-primary);
+		border-radius: 50%;
+		animation: spin 0.8s linear infinite;
+		margin: 0 auto;
+	}
 
-/* Remove the full-page loading spinner styles since we're not using it anymore */
-.loading-spinner {
-  display: none !important;
-}
+	/* Remove the full-page loading spinner styles since we're not using it anymore */
+	.loading-spinner {
+		display: none !important;
+	}
 
-.summary-spinner {
-  display: inline-block;
-  vertical-align: middle;
-  width: 16px;
-  height: 16px;
-  border-width: 2px;
-}
+	.summary-spinner {
+		display: inline-block;
+		vertical-align: middle;
+		width: 16px;
+		height: 16px;
+		border-width: 2px;
+	}
 
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
+	@keyframes spin {
+		to {
+			transform: rotate(360deg);
+		}
+	}
 
-@media (max-width: 768px) {
-  .cart-content {
-    grid-template-columns: 1fr;
-  }
+	@media (max-width: 768px) {
+		.cart-content {
+			grid-template-columns: 1fr;
+		}
 
-  .cart-summary {
-    position: static;
-    margin-top: 2rem;
-  }
+		.cart-summary {
+			position: static;
+			margin-top: 2rem;
+		}
 
-  .cart-item {
-    flex-direction: column;
-    align-items: center;
-  }
+		.cart-item {
+			flex-direction: column;
+			align-items: center;
+		}
 
-  .item-image {
-    margin-right: 0;
-    margin-bottom: 1rem;
-  }
+		.item-image {
+			margin-right: 0;
+			margin-bottom: 1rem;
+		}
 
-  .item-price {
-    margin-top: 1rem;
-  }
-}
-@media (max-width: 768px) {
-  .cart-content {
-    grid-template-columns: 1fr;
-  }
+		.item-price {
+			margin-top: 1rem;
+		}
+	}
+	@media (max-width: 768px) {
+		.cart-content {
+			grid-template-columns: 1fr;
+		}
 
-  .cart-summary {
-    position: static;
-    margin-top: 2rem;
-  }
+		.cart-summary {
+			position: static;
+			margin-top: 2rem;
+		}
 
-  .cart-item {
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-    padding: 1rem 0;
-  }
+		.cart-item {
+			flex-direction: column;
+			align-items: center;
+			text-align: center;
+			padding: 1rem 0;
+		}
 
-  .item-image {
-    margin: 0 auto 1rem;
-    display: block;
-    width: 200px;
-    height: 200px;
-  }
+		.item-image {
+			margin: 0 auto 1rem;
+			display: block;
+			width: 200px;
+			height: 200px;
+		}
 
-  .item-details {
-    text-align: center;
-  }
+		.item-details {
+			text-align: center;
+		}
 
-  .item-price {
-    margin-top: 1rem;
-  }
-}
+		.item-price {
+			margin-top: 1rem;
+		}
+	}
 
-@media (max-width: 480px) {
-  .cart {
-    padding: 0 0.5rem;
-  }
+	@media (max-width: 480px) {
+		.cart {
+			padding: 0 0.5rem;
+		}
 
-  .cart-header h1 {
-    font-size: 1.5rem;
-  }
+		.cart-header h1 {
+			font-size: 1.5rem;
+		}
 
-  .item-image {
-    width: 200px;
-    height: 200px;
-  }
+		.item-image {
+			width: 200px;
+			height: 200px;
+		}
 
-  .item-details h3 {
-    font-size: 1.125rem;
-  }
+		.item-details h3 {
+			font-size: 1.125rem;
+		}
 
-  .quantity-btn {
-    width: 2.5rem;
-    height: 2.5rem;
-    font-size: 1.25rem;
-  }
+		.quantity-btn {
+			width: 2.5rem;
+			height: 2.5rem;
+			font-size: 1.25rem;
+		}
 
-  .quantity-input input {
-    width: 3rem;
-    font-size: 0.9rem;
-  }
-}
+		.quantity-input input {
+			width: 3rem;
+			font-size: 0.9rem;
+		}
+	}
 </style>
 
 {% schema %}
-{
-  "name": "Cart",
-  "settings": [],
-	"blocks": [
-		{
-      "type": "@app"
-    }
-	]
-}
+	{
+		"name": "Cart",
+		"settings": [],
+		"blocks": [
+			{
+				"type": "@app"
+			}
+		]
+	}
 {% endschema %}
