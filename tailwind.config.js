@@ -39,7 +39,7 @@ module.exports = {
         '1/2': '50%'
       },
       colors: {
-        primary: 'var(--primary)'
+        primary: 'var(--color-primary)'
       }
     },
   },
