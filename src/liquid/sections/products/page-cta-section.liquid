@@ -1,101 +1,109 @@
 {% if section.settings.display_on_pages != blank %}
-  {% assign isDisplayOnThisPage = false %}
-  {% assign displayOnPagesArray = section.settings.display_on_pages | split: ',' %}
-  {% for currentPage in displayOnPagesArray %}
-    {% if currentPage == request.path %}
-      {% assign isDisplayOnThisPage = true %}
-    {% endif %}
-  {% endfor %}
+	{% assign isDisplayOnThisPage = false %}
+	{% assign displayOnPagesArray = section.settings.display_on_pages | split: ',' %}
+	{% for currentPage in displayOnPagesArray %}
+		{% if currentPage == request.path %}
+			{% assign isDisplayOnThisPage = true %}
+		{% endif %}
+	{% endfor %}
 
-  {% unless isDisplayOnThisPage %}
-    {% assign hideSection = true %}
-  {% endunless %}
+	{% unless isDisplayOnThisPage %}
+		{% assign hideSection = true %}
+	{% endunless %}
 {% endif %}
 
 {% if section.settings.display_on_url_param %}
-  {% assign hideSection = false %}
+	{% assign hideSection = false %}
 {% endif %}
 
 {% unless hideSection %}
-  {% assign sectionIDParts = section.id | split: '_' %}
-  {% assign shortSectionID = sectionIDParts[-1] %}
-  {% assign shortSectionIDParts = shortSectionID | split: '-' %}
-  {% assign SID = shortSectionIDParts[-1] %}
+	{% assign sectionIDParts = section.id | split: '_' %}
+	{% assign shortSectionID = sectionIDParts[-1] %}
+	{% assign shortSectionIDParts = shortSectionID | split: '-' %}
+	{% assign SID = shortSectionIDParts[-1] %}
 
-  {% if shop.name contains 'Global' and section.settings.product_global %}
-    {% assign prodReference = section.settings.product_global | default: section.settings.product | default: product %}
-  {% else %}
-    {% assign prodReference = section.settings.product | default: product | default: all_products["curalin-pack"] %}
-  {% endif %}
+	{% if shop.name contains 'Global' and section.settings.product_global %}
+		{% assign prodReference = section.settings.product_global | default: section.settings.product | default: product %}
+	{% else %}
+		{% assign prodReference = section.settings.product | default: product | default: all_products['curalin-pack'] %}
+	{% endif %}
 
-  {% assign buyBoxColor = prodReference.metafields.custom.primary_color | default: section.settings.buy_box_color | default: page.metafields.primary_color | default: "var(--primary-color)" %}
+	{% assign buyBoxColor = prodReference.metafields.custom.primary_color | default: section.settings.buy_box_color | default: page.metafields.primary_color | default: 'var(--primary-color)' %}
 
-  <div id="cta-section-anchor"></div>
-  {% if section.settings.anchor_id != blank %}<div id="{{ section.settings.anchor_id }}"></div>{% endif %}
+	<div id='cta-section-anchor'></div>
+	{% if section.settings.anchor_id != blank %}<div id='{{ section.settings.anchor_id }}'></div>{% endif %}
 
-  <section id="cta-section-{{ SID }}" class="cta-section overflow-visible pb-0 {{ section.settings.additional_classes }}{% if section.settings.is_popup %} cta-popup{% endif %}" {% if section.settings.is_popup %}aria-hidden="true"{% endif %} {% if section.settings.is_popup %}style="opacity: 0; visibility: hidden; pointer-events: none;"{% endif %}>
-    {% if section.settings.is_popup %}
-      <div class="cta-popup-content" role="dialog" aria-modal="true" aria-labelledby="popup-title">
-        <a class="close-popup top-close" aria-label="Close Popup">&times;</a>
-    {% endif %}
+	<section
+		id='cta-section-{{ SID }}'
+		class='cta-section overflow-visible pb-0 {{ section.settings.additional_classes }}{% if section.settings.is_popup %} cta-popup{% endif %}'
+		{% if section.settings.is_popup %}
+			aria-hidden='true'
+		{% endif %}
+		{% if section.settings.is_popup %}
+			style='opacity: 0; visibility: hidden; pointer-events: none;'
+		{% endif %}>
+		{% if section.settings.is_popup %}
+			<div class='cta-popup-content' role='dialog' aria-modal='true' aria-labelledby='popup-title'>
+				<a class='close-popup top-close' aria-label='Close Popup'>&times;</a>
+		{% endif %}
 
-    {% render 'product-cta',
-      ctaTemplate: section.settings.cta_template,
-      bgColor: section.settings.bg_color,
-      buyBoxColor: buyBoxColor,
-      ctaColor: "var(--orange)",
-      mainTitle: section.settings.main_title,
-      subtitle: section.settings.subtitle,
-      title: section.settings.variants_title,
-      ctaText: section.settings.cta_text,
-      thumbnailImage: section.settings.thumbnail_image,
-      thumbnailImageMobile: section.settings.thumbnail_image_mobile,
-      defaultSelectionIndex: section.settings.default_selection_index,
-      pricePer: section.settings.price_per,
-      saveFormat: section.settings.save_format,
-      badgeImage: section.settings.badge_image,
-      ctaTextType: section.settings.price_format,
-      titleTag: section.settings.title_tag,
-      isSubscription: section.settings.is_subscription,
-      isProductThumbs: section.settings.is_product_thumbs,
-      isHideThumbs: section.settings.is_hide_thumbs,
-      isHideInfo: section.settings.is_hide_info,
-      isBuyWithPrime: section.settings.is_buy_with_prime,
-      isVariantBoxToggle: section.settings.is_variant_toggle,
-      isOneTimePurchaseLink: section.settings.is_one_time_purchase_link,
-      buyType: section.settings.buy_type,
-      prod: prodReference,
-      blocks: section.blocks,
-      SID: SID
-    %}
+		{% render 'product-cta',
+			ctaTemplate: section.settings.cta_template,
+			bgColor: section.settings.bg_color,
+			buyBoxColor: buyBoxColor,
+			ctaColor: 'var(--orange)',
+			mainTitle: section.settings.main_title,
+			subtitle: section.settings.subtitle,
+			title: section.settings.variants_title,
+			ctaText: section.settings.cta_text,
+			thumbnailImage: section.settings.thumbnail_image,
+			thumbnailImageMobile: section.settings.thumbnail_image_mobile,
+			defaultSelectionIndex: section.settings.default_selection_index,
+			pricePer: section.settings.price_per,
+			saveFormat: section.settings.save_format,
+			badgeImage: section.settings.badge_image,
+			ctaTextType: section.settings.price_format,
+			titleTag: section.settings.title_tag,
+			isSubscription: section.settings.is_subscription,
+			isProductThumbs: section.settings.is_product_thumbs,
+			isHideThumbs: section.settings.is_hide_thumbs,
+			isHideInfo: section.settings.is_hide_info,
+			isBuyWithPrime: section.settings.is_buy_with_prime,
+			isVariantBoxToggle: section.settings.is_variant_toggle,
+			isOneTimePurchaseLink: section.settings.is_one_time_purchase_link,
+			buyType: section.settings.buy_type,
+			prod: prodReference,
+			blocks: section.blocks,
+			SID: SID
+		%}
 
-    {% if section.settings.is_popup %}
-        <a class="close-popup bottom-close" aria-label="Close Popup" name="close-cta-modal">Close</a>
-      </div>
-    {% endif %}
-  </section>
+		{% if section.settings.is_popup %}
+			<a class='close-popup bottom-close' aria-label='Close Popup' name='close-cta-modal'>Close</a>
+			</div>
+		{% endif %}
+	</section>
 
-  <!-- JavaScript to handle URL parameter and hide the section -->
+	<!-- JavaScript to handle URL parameter and hide the section -->
 	<script>
 		(() => {
-			const section = document.getElementById('cta-section-{{ SID }}');
-			if (!section) return;
+		  const section = document.getElementById('cta-section-{{ SID | escape }}');
+		  if (!section) return;
 
-			const params = new URLSearchParams(window.location.search);
-			const ctaParam = params.get('cta') === 'true';
+		  const params = new URLSearchParams(window.location.search);
+		  const ctaParam = params.get('cta') === 'true';
 
-			if (ctaParam) {
-				document.querySelectorAll('.hide-on-cta').forEach(el => el.remove());
-			}
+		  if (ctaParam) {
+		    document.querySelectorAll('.hide-on-cta').forEach(el => el.remove());
+		  }
 
-			if (({{ section.settings.display_on_url_param | json }} && !ctaParam) ||
-					({{ section.settings.hide_on_url_param | json }} && ctaParam)) {
-				section.remove();
-			}
+		  if (({{ section.settings.display_on_url_param | json | escape }} && !ctaParam) ||
+		      ({{ section.settings.hide_on_url_param | json | escape }} && ctaParam)) {
+		    section.remove();
+		  }
 		})();
 	</script>
 
-  <script>
+	<script>
     window.addEventListener('load', function() {
       var _learnq = window._learnq || [];
       var item = {};
@@ -212,143 +220,140 @@
         });
       });
     {% endif %}
-  </script>
+	</script>
 
-  {% if section.settings.is_popup %}
-    <style>
-      #shopify-section-{{ section.id }} .product-container {
-        padding: 0 !important;
-      }
+	{% if section.settings.is_popup %}
+		<style>
+			#shopify-section-{{ section.id }} .product-container {
+			  padding: 0 !important;
+			}
 
-      #shopify-section-{{ section.id }} .cta-popup {
-        position: fixed;
-        inset: 0;
-        background-color: rgba(0, 0, 0, 0.5);
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        z-index: 1000;
-        opacity: 0;
-        visibility: hidden;
-        pointer-events: none;
-        transition: opacity 0.3s ease, visibility 0s linear 0.3s;
-      }
+			#shopify-section-{{ section.id }} .cta-popup {
+			  position: fixed;
+			  inset: 0;
+			  background-color: rgba(0, 0, 0, 0.5);
+			  display: flex;
+			  justify-content: center;
+			  align-items: center;
+			  z-index: 1000;
+			  opacity: 0;
+			  visibility: hidden;
+			  pointer-events: none;
+			  transition: opacity 0.3s ease, visibility 0s linear 0.3s;
+			}
 
-      #shopify-section-{{ section.id }} .cta-popup.show {
-        opacity: 1 !important;
-        visibility: visible !important;
-        pointer-events: auto !important;
-        transition-delay: 0s;
-      }
+			#shopify-section-{{ section.id }} .cta-popup.show {
+			  opacity: 1 !important;
+			  visibility: visible !important;
+			  pointer-events: auto !important;
+			  transition-delay: 0s;
+			}
 
-      #shopify-section-{{ section.id }} .cta-popup-content {
-        background-color: #fff;
-        padding: 30px;
-        border-radius: 8px;
-        position: relative;
-        max-width: 1200px;
-        width: 90%;
-        max-height: 90%;
-        box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-        transform: translateY(-20px);
-        opacity: 0;
-        transition: opacity 0.3s ease, transform 0.3s ease;
-        overflow-y: auto;
-      }
+			#shopify-section-{{ section.id }} .cta-popup-content {
+			  background-color: #fff;
+			  padding: 30px;
+			  border-radius: 8px;
+			  position: relative;
+			  max-width: 1200px;
+			  width: 90%;
+			  max-height: 90%;
+			  box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+			  transform: translateY(-20px);
+			  opacity: 0;
+			  transition: opacity 0.3s ease, transform 0.3s ease;
+			  overflow-y: auto;
+			}
 
-      #shopify-section-{{ section.id }} .cta-popup.show .cta-popup-content {
-        transform: translateY(0);
-        opacity: 1;
-      }
+			#shopify-section-{{ section.id }} .cta-popup.show .cta-popup-content {
+			  transform: translateY(0);
+			  opacity: 1;
+			}
 
-      @media (max-width: 767px) {
-        #shopify-section-{{ section.id }} .cta-popup-content {
-          width: 100%;
-          height: 100%;
-          max-width: none;
-          max-height: none;
-          border-radius: 0;
-          padding: 20px;
-          transform: none;
-        }
-      }
+			@media (max-width: 767px) {
+			  #shopify-section-{{ section.id }} .cta-popup-content {
+			    width: 100%;
+			    height: 100%;
+			    max-width: none;
+			    max-height: none;
+			    border-radius: 0;
+			    padding: 20px;
+			    transform: none;
+			  }
+			}
 
-      #shopify-section-{{ section.id }} .close-popup {
-        cursor: pointer;
-        color: #333;
-      }
+			#shopify-section-{{ section.id }} .close-popup {
+			  cursor: pointer;
+			  color: #333;
+			}
 
-      #shopify-section-{{ section.id }} .close-popup:hover {
-        color: #000;
-      }
+			#shopify-section-{{ section.id }} .close-popup:hover {
+			  color: #000;
+			}
 
-      #shopify-section-{{ section.id }} .close-popup:focus {
-        outline: 2px solid #000;
-      }
+			#shopify-section-{{ section.id }} .close-popup:focus {
+			  outline: 2px solid #000;
+			}
 
-      #shopify-section-{{ section.id }} .close-popup.top-close {
-        position: absolute;
-        top: 15px;
-        right: 15px;
-        font-size: 24px;
-        background: none;
-        border: none;
-      }
+			#shopify-section-{{ section.id }} .close-popup.top-close {
+			  position: absolute;
+			  top: 15px;
+			  right: 15px;
+			  font-size: 24px;
+			  background: none;
+			  border: none;
+			}
 
-      #shopify-section-{{ section.id }} .close-popup.bottom-close {
-        display: block;
-        margin-top: 20px;
-        text-align: center;
-        font-size: 16px;
-        background: none;
-        border: none;
-        text-decoration: underline;
-      }
+			#shopify-section-{{ section.id }} .close-popup.bottom-close {
+			  display: block;
+			  margin-top: 20px;
+			  text-align: center;
+			  font-size: 16px;
+			  background: none;
+			  border: none;
+			  text-decoration: underline;
+			}
 
-      #shopify-section-{{ section.id }} .cta-popup-content::-webkit-scrollbar {
-        width: 6px;
-      }
+			#shopify-section-{{ section.id }} .cta-popup-content::-webkit-scrollbar {
+			  width: 6px;
+			}
 
-      #shopify-section-{{ section.id }} .cta-popup-content::-webkit-scrollbar-thumb {
-        background-color: rgba(0, 0, 0, 0.2);
-        border-radius: 3px;
-      }
-    </style>
-  {% endif %}
+			#shopify-section-{{ section.id }} .cta-popup-content::-webkit-scrollbar-thumb {
+			  background-color: rgba(0, 0, 0, 0.2);
+			  border-radius: 3px;
+			}
+		</style>
+	{% endif %}
 {% endunless %}
 
 {% schema %}
-{
-    "name": "CTA Section",
-    "disabled_on": {
-      "groups": [
-        "header",
-        "footer"
-      ]
-    },
-    "settings": [
-      {
-        "type": "product",
-        "id": "product",
-        "label": "Product"
-      },
-      {
-        "type": "select",
-        "id": "cta_template",
-        "label": "CTA Template",
-        "options": [
-          {
-            "value": "basic",
-            "label": "Basic"
-          },
-          {
-            "value": "2024",
-            "label": "Subscription"
-          },
-          {
-            "value": "2024-new",
-            "label": "Subscription New"
-          },
+	{
+		"name": "CTA Section",
+		"disabled_on": {
+			"groups": ["header", "footer"]
+		},
+		"settings": [
+			{
+				"type": "product",
+				"id": "product",
+				"label": "Product"
+			},
+			{
+				"type": "select",
+				"id": "cta_template",
+				"label": "CTA Template",
+				"options": [
+					{
+						"value": "basic",
+						"label": "Basic"
+					},
+					{
+						"value": "2024",
+						"label": "Subscription"
+					},
+					{
+						"value": "2024-new",
+						"label": "Subscription New"
+					},
 					{
 						"value": "2024-new-gift",
 						"label": "Subscription New With Gift"
@@ -357,380 +362,380 @@
 						"value": "2024-new-gift-two",
 						"label": "Subscription New With Two Gifts"
 					},
-          {
-            "value": "2024-new-2",
-            "label": "Subscription New 2"
-          },
-          {
-            "value": "2024-new-3",
-            "label": "Subscription New 3"
-          },
-          {
-            "value": "2024-new-4",
-            "label": "Subscription New 4"
-          },
 					{
-            "value": "2024-new-4-gift",
-            "label": "Subscription New 4 With Gift"
-          }
-        ],
-        "default": "2024"
-      },
-      {
-        "type": "color",
-        "id": "bg_color",
-        "label": "Background Color"
-      },
-      {
-        "type": "color",
-        "id": "buy_box_color",
-        "label": "Buy Box Main Color",
-        "default": "#3A7684"
-      },
-      {
-        "type": "color",
-        "id": "cta_color",
-        "label": "CTA Color"
-      },
-      {
-        "type": "text",
-        "id": "main_title",
-        "label": "Main Title"
-      },
+						"value": "2024-new-2",
+						"label": "Subscription New 2"
+					},
+					{
+						"value": "2024-new-3",
+						"label": "Subscription New 3"
+					},
+					{
+						"value": "2024-new-4",
+						"label": "Subscription New 4"
+					},
+					{
+						"value": "2024-new-4-gift",
+						"label": "Subscription New 4 With Gift"
+					}
+				],
+				"default": "2024"
+			},
+			{
+				"type": "color",
+				"id": "bg_color",
+				"label": "Background Color"
+			},
+			{
+				"type": "color",
+				"id": "buy_box_color",
+				"label": "Buy Box Main Color",
+				"default": "#3A7684"
+			},
+			{
+				"type": "color",
+				"id": "cta_color",
+				"label": "CTA Color"
+			},
+			{
+				"type": "text",
+				"id": "main_title",
+				"label": "Main Title"
+			},
 			{
 				"type": "text",
 				"id": "subtitle",
 				"label": "Subtitle"
 			},
-      {
-        "type": "text",
-        "id": "variants_title",
-        "label": "Variants Title"
-      },
-      {
-        "type": "richtext",
-        "id": "cta_text",
-        "label": "CTA Text"
-      },
-      {
-        "type": "image_picker",
-        "id": "thumbnail_image",
-        "label": "Main Thumbnail Image"
-      },
-      {
-        "type": "image_picker",
-        "id": "thumbnail_image_mobile",
-        "label": "Main Thumbnail Image on Mobile"
-      },
-      {
-        "type": "image_picker",
-        "id": "badge_image",
-        "label": "Badge Image"
-      },
-      {
-        "type": "select",
-        "id": "buy_type",
-        "label": "Buy Type",
-        "options": [
-          {
-            "value": "add_to_cart",
-            "label": "Add to Cart"
-          },
-          {
-            "value": "buy_now",
-            "label": "Buy Now"
-          }
-        ],
-        "default": "add_to_cart"
-      },
-      {
-        "type": "select",
-        "id": "price_per",
-        "label": "Price Per",
-        "options": [
-          {
-            "value": "dont_split",
-            "label": "Do not Split"
-          },
-          {
-            "value": "month",
-            "label": "Month"
-          },
-          {
-            "value": "bottle",
-            "label": "Bottle"
-          }
-        ],
-        "default": "dont_split"
-      },
-      {
-        "type": "select",
-        "id": "save_format",
-        "label": "Save Format",
-        "options": [
-          {
-            "value": "percentage",
-            "label": "Percentage"
-          },
-          {
-            "value": "money",
-            "label": "Money"
-          }
-        ],
-        "default": "percentage"
-      },
-      {
-        "type": "select",
-        "id": "price_format",
-        "label": "Price Format",
-        "options": [
-          {
-            "value": "total",
-            "label": "Total"
-          },
-          {
-            "value": "save",
-            "label": "Save"
-          }
-        ],
-        "default": "total"
-      },
-      {
-        "type": "select",
-        "id": "title_tag",
-        "label": "Title Tag",
-        "options": [
-          {
-            "value": "h1",
-            "label": "H1"
-          },
-          {
-            "value": "h2",
-            "label": "H2"
-          }
-        ],
-        "default": "h1"
-      },
-      {
-        "type": "number",
-        "id": "default_selection_index",
-        "label": "Default Selection Index",
-        "default": 1
-      },
-      {
-        "type": "checkbox",
-        "id": "is_subscription",
-        "label": "Is Subscription",
-        "default": true
-      },
-      {
-        "type": "checkbox",
-        "id": "is_highlight_subtitle",
-        "label": "Is Highlight Subtitle"
-      },
-      {
-        "type": "checkbox",
-        "id": "is_reverse",
-        "label": "Reverse Variants"
-      },
-      {
-        "type": "checkbox",
-        "id": "is_reviews",
-        "label": "Show Reviews"
-      },
-      {
-        "type": "checkbox",
-        "id": "is_save_title",
-        "label": "Show Save Title"
-      },
-      {
-        "type": "checkbox",
-        "id": "is_product_thumbs",
-        "label": "Show Product Images on Thumbs",
-        "default": true
-      },
-      {
-        "type": "checkbox",
-        "id": "is_hide_thumbs",
-        "label": "Is Hide Thumbs"
-      },
-      {
-        "type": "checkbox",
-        "id": "is_hide_info",
-        "label": "Is Hide Product Info"
-      },
-      {
-        "type": "checkbox",
-        "id": "is_buy_quantity",
-        "label": "Quantity Selector"
-      },
-      {
-        "type": "checkbox",
-        "id": "is_variant_toggle",
-        "label": "Variant Box Toggle"
-      },
-      {
-        "type": "checkbox",
-        "id": "is_buy_with_prime",
-        "label": "Show Buy with Prime"
-      },
-      {
-        "type": "checkbox",
-        "id": "is_popup",
-        "label": "Display as Popup"
-      },
+			{
+				"type": "text",
+				"id": "variants_title",
+				"label": "Variants Title"
+			},
+			{
+				"type": "richtext",
+				"id": "cta_text",
+				"label": "CTA Text"
+			},
+			{
+				"type": "image_picker",
+				"id": "thumbnail_image",
+				"label": "Main Thumbnail Image"
+			},
+			{
+				"type": "image_picker",
+				"id": "thumbnail_image_mobile",
+				"label": "Main Thumbnail Image on Mobile"
+			},
+			{
+				"type": "image_picker",
+				"id": "badge_image",
+				"label": "Badge Image"
+			},
+			{
+				"type": "select",
+				"id": "buy_type",
+				"label": "Buy Type",
+				"options": [
+					{
+						"value": "add_to_cart",
+						"label": "Add to Cart"
+					},
+					{
+						"value": "buy_now",
+						"label": "Buy Now"
+					}
+				],
+				"default": "add_to_cart"
+			},
+			{
+				"type": "select",
+				"id": "price_per",
+				"label": "Price Per",
+				"options": [
+					{
+						"value": "dont_split",
+						"label": "Do not Split"
+					},
+					{
+						"value": "month",
+						"label": "Month"
+					},
+					{
+						"value": "bottle",
+						"label": "Bottle"
+					}
+				],
+				"default": "dont_split"
+			},
+			{
+				"type": "select",
+				"id": "save_format",
+				"label": "Save Format",
+				"options": [
+					{
+						"value": "percentage",
+						"label": "Percentage"
+					},
+					{
+						"value": "money",
+						"label": "Money"
+					}
+				],
+				"default": "percentage"
+			},
+			{
+				"type": "select",
+				"id": "price_format",
+				"label": "Price Format",
+				"options": [
+					{
+						"value": "total",
+						"label": "Total"
+					},
+					{
+						"value": "save",
+						"label": "Save"
+					}
+				],
+				"default": "total"
+			},
+			{
+				"type": "select",
+				"id": "title_tag",
+				"label": "Title Tag",
+				"options": [
+					{
+						"value": "h1",
+						"label": "H1"
+					},
+					{
+						"value": "h2",
+						"label": "H2"
+					}
+				],
+				"default": "h1"
+			},
+			{
+				"type": "number",
+				"id": "default_selection_index",
+				"label": "Default Selection Index",
+				"default": 1
+			},
+			{
+				"type": "checkbox",
+				"id": "is_subscription",
+				"label": "Is Subscription",
+				"default": true
+			},
+			{
+				"type": "checkbox",
+				"id": "is_highlight_subtitle",
+				"label": "Is Highlight Subtitle"
+			},
+			{
+				"type": "checkbox",
+				"id": "is_reverse",
+				"label": "Reverse Variants"
+			},
+			{
+				"type": "checkbox",
+				"id": "is_reviews",
+				"label": "Show Reviews"
+			},
+			{
+				"type": "checkbox",
+				"id": "is_save_title",
+				"label": "Show Save Title"
+			},
+			{
+				"type": "checkbox",
+				"id": "is_product_thumbs",
+				"label": "Show Product Images on Thumbs",
+				"default": true
+			},
+			{
+				"type": "checkbox",
+				"id": "is_hide_thumbs",
+				"label": "Is Hide Thumbs"
+			},
+			{
+				"type": "checkbox",
+				"id": "is_hide_info",
+				"label": "Is Hide Product Info"
+			},
+			{
+				"type": "checkbox",
+				"id": "is_buy_quantity",
+				"label": "Quantity Selector"
+			},
+			{
+				"type": "checkbox",
+				"id": "is_variant_toggle",
+				"label": "Variant Box Toggle"
+			},
+			{
+				"type": "checkbox",
+				"id": "is_buy_with_prime",
+				"label": "Show Buy with Prime"
+			},
+			{
+				"type": "checkbox",
+				"id": "is_popup",
+				"label": "Display as Popup"
+			},
 			{
 				"type": "checkbox",
 				"id": "is_one_time_purchase_link",
 				"label": "Show One Time Purchase Link"
 			},
-      {
-        "type": "text",
-        "id": "anchor_id",
-        "label": "Anchor ID"
-      },
-      {
-        "type": "text",
-        "id": "additional_classes",
-        "label": "Additional Classes"
-      },
-      {
-        "type": "text",
-        "id": "display_on_pages",
-        "label": "Display on Pages",
-        "info": "Comma-separated list of page paths to display this section on. Leave blank to display on all pages."
-      },
 			{
-        "type": "checkbox",
-        "id": "display_on_url_param",
-        "label": "Display Only on cta=true URL Param"
-      },
+				"type": "text",
+				"id": "anchor_id",
+				"label": "Anchor ID"
+			},
 			{
-        "type": "checkbox",
-        "id": "hide_on_url_param",
-        "label": "Hide on cta=true URL Param"
-      },
+				"type": "text",
+				"id": "additional_classes",
+				"label": "Additional Classes"
+			},
 			{
-        "type": "product",
-        "id": "product_global",
-        "label": "Product on Global (if handle is different)"
-      }
-    ],
-    "blocks": [
-      {
-        "type": "variant",
-        "name": "Variant",
-        "settings": [
-          {
-            "type": "text",
-            "id": "variant_id",
-            "label": "Variant ID"
-          },
-          {
-            "type": "select",
-            "id": "purchase_type",
-            "label": "Purchase Type",
-            "options": [
-              {
-                "value": "subscribe",
-                "label": "Subscribe"
-              },
-              {
-                "value": "buyonce",
-                "label": "Buy Once"
-              }
-            ],
-            "default": "buyonce"
-          },
-          {
-            "type": "text",
-            "id": "title",
-            "label": "Variant Title"
-          },
+				"type": "text",
+				"id": "display_on_pages",
+				"label": "Display on Pages",
+				"info": "Comma-separated list of page paths to display this section on. Leave blank to display on all pages."
+			},
+			{
+				"type": "checkbox",
+				"id": "display_on_url_param",
+				"label": "Display Only on cta=true URL Param"
+			},
+			{
+				"type": "checkbox",
+				"id": "hide_on_url_param",
+				"label": "Hide on cta=true URL Param"
+			},
+			{
+				"type": "product",
+				"id": "product_global",
+				"label": "Product on Global (if handle is different)"
+			}
+		],
+		"blocks": [
+			{
+				"type": "variant",
+				"name": "Variant",
+				"settings": [
 					{
 						"type": "text",
-            "id": "variant_description",
-            "label": "Variant Description"
+						"id": "variant_id",
+						"label": "Variant ID"
+					},
+					{
+						"type": "select",
+						"id": "purchase_type",
+						"label": "Purchase Type",
+						"options": [
+							{
+								"value": "subscribe",
+								"label": "Subscribe"
+							},
+							{
+								"value": "buyonce",
+								"label": "Buy Once"
+							}
+						],
+						"default": "buyonce"
 					},
 					{
 						"type": "text",
-            "id": "variant_second_description",
-            "label": "Variant Second Description"
+						"id": "title",
+						"label": "Variant Title"
+					},
+					{
+						"type": "text",
+						"id": "variant_description",
+						"label": "Variant Description"
+					},
+					{
+						"type": "text",
+						"id": "variant_second_description",
+						"label": "Variant Second Description"
 					},
 					{
 						"type": "text",
 						"id": "save_text",
 						"label": "Save Text"
 					},
-          {
-            "type": "text",
-            "id": "badge_text",
-            "label": "Badge Text"
-          },
-          {
-            "type": "text",
-            "id": "reveal_on_paths",
-            "label": "Paths to Reveal",
-            "info": "Comma separated list of paths to reveal this variant on. If empty, variant will be shown on all pages. Example: /products/product-handle"
-          },
-          {
-            "type": "color",
-            "id": "box_color",
-            "label": "Variant Box Color"
-          }
-        ]
-      },
-      {
-        "type": "image",
-        "name": "Image",
-        "settings": [
-          {
-            "type": "image_picker",
-            "id": "product_img",
-            "label": "Product Image"
-          }
-        ]
-      },
-      {
-        "type": "video",
-        "name": "Video",
-        "settings": [
-          {
-            "type": "text",
-            "id": "vimeo_video_id",
-            "label": "Vimeo Video ID"
-          },
-          {
-            "type": "image_picker",
-            "id": "video_thumbnail",
-            "label": "Video Thumbnail"
-          }
-        ]
-      },
+					{
+						"type": "text",
+						"id": "badge_text",
+						"label": "Badge Text"
+					},
+					{
+						"type": "text",
+						"id": "reveal_on_paths",
+						"label": "Paths to Reveal",
+						"info": "Comma separated list of paths to reveal this variant on. If empty, variant will be shown on all pages. Example: /products/product-handle"
+					},
+					{
+						"type": "color",
+						"id": "box_color",
+						"label": "Variant Box Color"
+					}
+				]
+			},
+			{
+				"type": "image",
+				"name": "Image",
+				"settings": [
+					{
+						"type": "image_picker",
+						"id": "product_img",
+						"label": "Product Image"
+					}
+				]
+			},
+			{
+				"type": "video",
+				"name": "Video",
+				"settings": [
+					{
+						"type": "text",
+						"id": "vimeo_video_id",
+						"label": "Vimeo Video ID"
+					},
+					{
+						"type": "image_picker",
+						"id": "video_thumbnail",
+						"label": "Video Thumbnail"
+					}
+				]
+			},
 			{
 				"type": "gift",
-        "name": "Gift",
-        "settings": [
+				"name": "Gift",
+				"settings": [
 					{
 						"type": "image_picker",
 						"id": "gift_thumbnail",
 						"label": "Gift Thumbnail"
 					},
-          {
-            "type": "product",
-            "id": "gift_product",
-            "label": "Gift Product"
-          },
+					{
+						"type": "product",
+						"id": "gift_product",
+						"label": "Gift Product"
+					},
 					{
 						"type": "text",
 						"id": "variant_id",
 						"label": "Variant ID (if not set, will use the first variant)"
 					},
 					{
-            "type": "product",
-            "id": "gift_product_subscription",
-            "label": "Gift Product on Subscription (optional)"
-          },
+						"type": "product",
+						"id": "gift_product_subscription",
+						"label": "Gift Product on Subscription (optional)"
+					},
 					{
 						"type": "text",
 						"id": "variant_id_subscription",
@@ -756,13 +761,13 @@
 						],
 						"default": "both"
 					}
-        ]
+				]
 			}
-    ],
-    "presets": [
-      {
-        "name": "CTA Section"
-      }
-    ]
-}
+		],
+		"presets": [
+			{
+				"name": "CTA Section"
+			}
+		]
+	}
 {% endschema %}
