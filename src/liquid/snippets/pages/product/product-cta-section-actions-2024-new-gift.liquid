@@ -143,7 +143,7 @@
   </div>
 </div>
 
-{% if customer.email contains 'yotam' %}
+{% if customer.email contains 'yotam' and false %}
 	<script>// Cart Gift Handler Module
 		const CartGiftHandler = {
   giftProductMapping: {
@@ -216,22 +216,33 @@ CartGiftHandler.init();
 
 <script>
   document.addEventListener('DOMContentLoaded', function() {
-    const productActions = document.querySelector('#cta-section-{{ SID }} .product-actions');
-    const SID = '{{ SID }}';
-    window.SID = SID;
+		const productActions = document.querySelector('#cta-section-{{ SID }} .product-actions');
+		if (!productActions) {
+			console.error('Product actions container not found');
+			return;
+		}
 
-    const purchaseOptionBoxes = productActions.querySelectorAll('.purchase-option-box');
+		const purchaseOptionBoxes = productActions.querySelectorAll('.purchase-option-box');
+		if (!purchaseOptionBoxes || purchaseOptionBoxes.length === 0) {
+			console.error('No purchase option boxes found');
+			return;
+		}
 
-    const styleSheet = document.createElement("style");
-    styleSheet.textContent = `
-      .subscription-content, .buy-once-content {
-        transition: opacity 0.3s ease-in-out;
-      }
-    `;
-    document.head.appendChild(styleSheet);
+		const SID = '{{ SID }}';
+		window.SID = SID;
 
-    initializePurchaseOptions();
-    setupMutationObserver();
+		const styleSheet = document.createElement("style");
+		styleSheet.textContent = `
+			.subscription-content, .buy-once-content {
+				transition: opacity 0.3s ease-in-out;
+			}
+		`;
+		document.head.appendChild(styleSheet);
+
+		if (purchaseOptionBoxes.length > 0) {
+			initializePurchaseOptions();
+			setupMutationObserver();
+		}
 
     // Gift selection logic
     const giftOptionContainers = document.querySelectorAll('.gift-option-container');

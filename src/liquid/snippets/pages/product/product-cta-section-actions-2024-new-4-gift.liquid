@@ -19,9 +19,7 @@
 	{% endcase %}
 {% endfor %}
 
-<div
-	class='product-actions {% if isVariantBoxToggle %}with-animation{% endif %}'
-	data-default-variant-index='{{ defaultSelectionIndex }}'>
+<div class='product-actions {% if isVariantBoxToggle %}with-animation{% endif %}' data-default-variant-index='{{ defaultSelectionIndex }}'>
 	<div class='purchase-options flex flex-col gap-2'>
 		{% for block in blocks %}
 			{% if block.type == 'variant' %}
@@ -54,9 +52,9 @@
 		{% endfor %}
 
 		<div class='gift-selector-wrap'>
-			{% if giftsAmount > 0 %}
+			{% if giftsAmount > 0 -%}
 				<div class='gift-selector-title mb-2'>Your free gift:</div>
-			{% endif %}
+			{%- endif %}
 
 			<div class='gift-options flex-nowrap flex justify-start gap-4'>
 				{% for block in blocks %}
@@ -76,10 +74,7 @@
 								{% assign giftVariant = giftProd.selected_or_first_available_variant %}
 								{% assign giftProdSubscription = block.settings.gift_product_subscription %}
 								{% assign giftVariantSubscription = giftProdSubscription.selected_or_first_available_variant %}
-								{% assign giftThumb = block.settings.gift_thumbnail
-									| default: giftProdSubscription.featured_image
-									| default: giftProd.featured_image
-								%}
+								{% assign giftThumb = block.settings.gift_thumbnail | default: giftProdSubscription.featured_image | default: giftProd.featured_image %}
 
 								<div class='gift-option-container flex flex-col items-center'>
 									<div
@@ -100,9 +95,7 @@
 									<div class='gift-content text-center'>
 										<div class='gift-name mb-1 font-medium'>{{ giftProd.title | replace: 'Free ', '' }}</div>
 										<div class='gift-price flex items-center justify-center gap-2'>
-											<span class='original-price text-gray-500 line-through'>
-												{{- giftVariantSubscription.compare_at_price | money_with_currency -}}
-											</span>
+											<span class='original-price text-gray-500 line-through'>{{ giftVariantSubscription.compare_at_price | money_with_currency }}</span>
 											<span class='sale-price font-bold'>FREE</span>
 										</div>
 									</div>
@@ -135,13 +128,9 @@
 			</div>
 			<div class='one-time-purchase-link mt-3 text-center'>
 				{% if isOneTimePurchaseLink %}
-					<div class='one-time-add-to-cart hover:text-gray-800 mb-2 text-sm font-bold text-gray-600 underline cursor-pointer'>
-						Buy Once for $59.90
-					</div>
+					<div class='one-time-add-to-cart hover:text-gray-800 mb-2 text-sm font-bold text-gray-600 underline cursor-pointer'>Buy Once for $59.90</div>
 				{% endif %}
-				<p class='text-[14px] italic max-w-[80%] m-auto'>
-					For best results, use daily for 3-6 months. Clinical study shows up to 30% reduction in HbA1c.*
-				</p>
+				<p class='text-[14px] italic max-w-[80%] m-auto'>For best results, use daily for 3-6 months. Clinical study shows up to 30% reduction in HbA1c.*</p>
 			</div>
 		</div>
 	</div>
@@ -299,13 +288,13 @@
 
 		async function countUniqueProductsWithTag(cart) {
 			try {
-				// Use the product title to check for 'Cyber Monday Week'
+				// Use the product title to check for 'Black Friday Week'
 				const uniqueProducts = cart.items.reduce((acc, item) => {
 					if (acc[item.product_id]) {
 						return acc;
 					}
 
-					const hasBlackFridayWeek = item.title && item.title.includes('Cyber Monday Week');
+					const hasBlackFridayWeek = item.title && item.title.includes('Black Friday Week');
 					console.log('Checking item:', item.title, 'Has BF Week:', hasBlackFridayWeek);
 
 					acc[item.product_id] = hasBlackFridayWeek;
@@ -313,11 +302,13 @@
 				}, {});
 
 				const blackFridayWeekCount = Object.values(uniqueProducts).filter(Boolean).length;
+				console.log('Unique products:', uniqueProducts);
+				console.log('Black Friday Week Count:', blackFridayWeekCount);
 
 				// Always allow at least one free gift
 				return Math.max(blackFridayWeekCount, 1);
 			} catch (error) {
-				console.error('Error counting Cyber Monday Week products:', error);
+				console.error('Error counting Black Friday Week products:', error);
 				return 1; // Default to 1 if there's an error
 			}
 		}
