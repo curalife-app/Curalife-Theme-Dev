@@ -1,282 +1,280 @@
 {%- comment -%}
-# Responsive Image Component Documentation
+	# Responsive Image Component Documentation
 
-This Liquid snippet creates a responsive image component with the following features:
-- Responsive images with desktop/mobile variants (can be bypassed with force_original)
-- Optional automatic mobile image detection
-- Retina display support (2x resolution images)
-- Lazy loading with priority options
-- Conditional error logging and fallback handling
-- WebP format support
-- Configurable breakpoints and sizes
-- Link wrapper functionality
+	This Liquid snippet creates a responsive image component with the following features:
+	- Responsive images with desktop/mobile variants (can be bypassed with force_original)
+	- Optional automatic mobile image detection
+	- Retina display support (2x resolution images)
+	- Lazy loading with priority options
+	- Conditional error logging and fallback handling
+	- WebP format support
+	- Configurable breakpoints and sizes
+	- Link wrapper functionality
 {%- endcomment -%}
 
 {%- liquid
-#######################################
-# Initialize variables with defaults
-#######################################
-assign desktop_image = image
-assign mobile_image_provided = mobile_image
-assign lazy_load = lazy | default: true
-assign is_priority = priority | default: false
-assign load_mobile = load_mobile | default: false
-assign force_original = force_original | default: false
-assign is_retina = is_retina | default: false
-assign alt = alt | default: image.alt
-assign mobile_breakpoint = mobile_breakpoint | default: 768
-assign sizes = sizes | default: '(min-width: 1200px) 1200px, (min-width: 768px) 768px, 100vw'
-assign breakpoints = '375,640,768,1080,1200,1920,2560' | split: ','
-assign is_log = is_log | default: false
+	#######################################
+	# Initialize variables with defaults
+	#######################################
+	assign desktop_image = image
+	assign mobile_image_provided = mobile_image
+	assign is_priority = priority | default: false
+	assign load_mobile = load_mobile | default: false
+	assign force_original = force_original | default: false
+	assign is_retina = is_retina | default: false
+	assign alt = alt | default: image.alt
+	assign mobile_breakpoint = mobile_breakpoint | default: 768
+	assign sizes = sizes | default: '(min-width: 1200px) 1200px, (min-width: 768px) 768px, 100vw'
+	assign breakpoints = '375,640,768,1080,1200,1920,2560' | split: ','
+	assign is_log = is_log | default: false
 
-#######################################
-# Process image source
-#######################################
-if force_original
-  assign desktop_variant_url = desktop_image | image_url
-  assign has_mobile_variant = false
-else
-  #######################################
-  # Process desktop image path
-  #######################################
-  assign full_path = desktop_image.src
-  assign path_parts = full_path | split: '/'
-  assign filename_with_url_params = path_parts | last
-  assign filename = filename_with_url_params | split: '?' | first
-  assign image_name = filename | split: '.' | first
-  assign image_ext = filename | split: '.' | last
-  assign base_image_name = image_name
+	#######################################
+	# Process image source
+	#######################################
+	if force_original
+		assign desktop_variant_url = desktop_image | image_url
+		assign has_mobile_variant = false
+	else
+		#######################################
+		# Process desktop image path
+		#######################################
+		assign full_path = desktop_image.src
+		assign path_parts = full_path | split: '/'
+		assign filename_with_url_params = path_parts | last
+		assign filename = filename_with_url_params | split: '?' | first
+		assign image_name = filename | split: '.' | first
+		assign image_ext = filename | split: '.' | last
+		assign base_image_name = image_name
 
-	if base_image_name contains '-x2'
-		assign is_retina = true
+		if base_image_name contains '-x2'
+			assign is_retina = true
+		endif
+
+		#######################################
+		# Construct Desktop Variant URL
+		#######################################
+		if desktop_image.src contains 'files/'
+			assign provided_images_in_files = true
+		endif
+
+		if desktop_image.src != blank and provided_images_in_files == false
+			assign desktop_variant_url = desktop_image | image_url | split: '?' | first
+		else
+			assign desktop_variant_url = filename | file_url
+		endif
+
+		#######################################
+		# Handle Retina Images
+		#######################################
+		if is_retina
+			assign original_width = desktop_image.width
+			assign regular_width = original_width | divided_by: 2
+			assign desktop_1x_url = desktop_image | image_url: width: regular_width
+			assign desktop_2x_url = desktop_variant_url
+		else
+			assign desktop_1x_url = desktop_variant_url
+			assign desktop_2x_url = desktop_variant_url
+		endif
+
+		#######################################
+		# Handle Mobile Variant
+		#######################################
+		assign has_mobile_variant = false
+		if mobile_image_provided != blank
+			assign has_mobile_variant = true
+			if is_retina
+				assign mobile_original_width = mobile_image_provided.width
+				assign mobile_regular_width = mobile_original_width | divided_by: 2
+				assign mobile_1x_url = mobile_image_provided | image_url: width: mobile_regular_width
+				assign mobile_2x_url = mobile_image_provided | image_url
+			else
+				assign mobile_1x_url = mobile_image_provided | image_url
+				assign mobile_2x_url = mobile_image_provided | image_url
+			endif
+		elsif load_mobile
+			assign mobile_variant_filename = image_name | append: '-mbl.' | append: image_ext
+			assign mobile_variant_url = mobile_variant_filename | file_url
+			if mobile_variant_url contains '?v='
+				assign has_mobile_variant = true
+				if is_retina
+					assign mobile_1x_url = mobile_variant_url | image_url: width: mobile_regular_width
+					assign mobile_2x_url = mobile_variant_url
+				else
+					assign mobile_1x_url = mobile_variant_url
+					assign mobile_2x_url = mobile_variant_url
+				endif
+			else
+				assign mobile_variant_url = ''
+			endif
+		endif
 	endif
 
-  #######################################
-  # Construct Desktop Variant URL
-  #######################################
-  if desktop_image.src contains 'files/'
-    assign provided_images_in_files = true
-  endif
+	#######################################
+	# Validation checks and error logging
+	#######################################
+	if is_log
+		assign error_log = 'window.imageErrors = window.imageErrors || { missing_alt: [], missing_image: [], load_errors: []};'
+		if image == blank
+			assign validation_error = '{ type: "Missing Image", message: "Image is required" }'
+			assign error_log = error_log | append: 'window.imageErrors.missing_image.push(' | append: validation_error | append: ');'
+		endif
+		if alt == blank
+			assign validation_error = '{ type: "Missing Alt", message: "Image Alt text is required", src: "' | append: image.src | append: '" }'
+			assign error_log = error_log | append: 'window.imageErrors.missing_alt.push(' | append: validation_error | append: ');'
+		endif
+	endif
 
-  if desktop_image.src != blank and provided_images_in_files == false
-    assign desktop_variant_url = desktop_image | image_url | split: '?' | first
-  else
-    assign desktop_variant_url = filename | file_url
-  endif
+	#######################################
+	# Calculate display dimensions
+	#######################################
+	if is_retina
+		assign display_width = desktop_image.width | divided_by: 2
+		assign display_height = desktop_image.height | divided_by: 2
+	else
+		assign display_width = desktop_image.width
+		assign display_height = desktop_image.height
+	endif
 
-  #######################################
-  # Handle Retina Images
-  #######################################
-  if is_retina
-    assign original_width = desktop_image.width
-    assign regular_width = original_width | divided_by: 2
-    assign desktop_1x_url = desktop_image | image_url: width: regular_width
-    assign desktop_2x_url = desktop_variant_url
-  else
-    assign desktop_1x_url = desktop_variant_url
-    assign desktop_2x_url = desktop_variant_url
-  endif
-
-  #######################################
-  # Handle Mobile Variant
-  #######################################
-  assign has_mobile_variant = false
-  if mobile_image_provided != blank
-    assign has_mobile_variant = true
-    if is_retina
-      assign mobile_original_width = mobile_image_provided.width
-      assign mobile_regular_width = mobile_original_width | divided_by: 2
-      assign mobile_1x_url = mobile_image_provided | image_url: width: mobile_regular_width
-      assign mobile_2x_url = mobile_image_provided | image_url
-    else
-      assign mobile_1x_url = mobile_image_provided | image_url
-      assign mobile_2x_url = mobile_image_provided | image_url
-    endif
-  elsif load_mobile
-    assign mobile_variant_filename = image_name | append: '-mbl.' | append: image_ext
-    assign mobile_variant_url = mobile_variant_filename | file_url
-    if mobile_variant_url contains '?v='
-      assign has_mobile_variant = true
-      if is_retina
-        assign mobile_1x_url = mobile_variant_url | image_url: width: mobile_regular_width
-        assign mobile_2x_url = mobile_variant_url
-      else
-        assign mobile_1x_url = mobile_variant_url
-        assign mobile_2x_url = mobile_variant_url
-      endif
-    else
-      assign mobile_variant_url = ''
-    endif
-  endif
-endif
-
-#######################################
-# Validation checks and error logging
-#######################################
-if is_log
-  assign error_log = 'window.imageErrors = window.imageErrors || { missing_alt: [], missing_image: [], load_errors: []};'
-  if image == blank
-    assign validation_error = '{ type: "Missing Image", message: "Image is required" }'
-    assign error_log = error_log | append: 'window.imageErrors.missing_image.push(' | append: validation_error | append: ');'
-  endif
-  if alt == blank
-    assign validation_error = '{ type: "Missing Alt", message: "Image Alt text is required", src: "' | append: image.src | append: '" }'
-    assign error_log = error_log | append: 'window.imageErrors.missing_alt.push(' | append: validation_error | append: ');'
-  endif
-endif
-
-#######################################
-# Calculate display dimensions
-#######################################
-if is_retina
-  assign display_width = desktop_image.width | divided_by: 2
-  assign display_height = desktop_image.height | divided_by: 2
-else
-  assign display_width = desktop_image.width
-  assign display_height = desktop_image.height
-endif
-
-#######################################
-# Generate unique IDs and URLs
-#######################################
-assign unique_id = 'img-' | append: desktop_image.id | append: '-' | append: now | date: '%N'
-assign fallback_url = desktop_image | image_url: width: 1100
+	#######################################
+	# Generate unique IDs and URLs
+	#######################################
+	assign unique_id = 'img-' | append: desktop_image.id | append: '-' | append: now | date: '%N'
+	assign fallback_url = desktop_image | image_url: width: 1100
 -%}
 
 <!-- Image Component -->
 <picture>
-  {% if has_mobile_variant %}
-    <source
-      media="(max-width: {{ mobile_breakpoint }}px)"
-      srcset="{{ mobile_1x_url }} 1x, {{ mobile_2x_url }} 2x"
-      sizes="{{ sizes }}"
-    >
-  {% endif %}
+	{% if has_mobile_variant %}
+		<source
+			media='(max-width: {{ mobile_breakpoint }}px)'
+			srcset='{{ mobile_1x_url }} 1x, {{ mobile_2x_url }} 2x'
+			sizes='{{ sizes }}'>
+	{% endif %}
 
-  <source
-    media="(min-width: {{ mobile_breakpoint | plus: 1 }}px)"
-    srcset="{{ desktop_1x_url }} 1x, {{ desktop_2x_url }} 2x"
-    sizes="{{ sizes }}"
-  >
+	<source
+		media='(min-width: {{ mobile_breakpoint | plus: 1 }}px)'
+		srcset='{{ desktop_1x_url }} 1x, {{ desktop_2x_url }} 2x'
+		sizes='{{ sizes }}'>
 
-  <img
-    id="{{ unique_id }}"
-    src="{{ desktop_1x_url }}"
-    {% if lazy_load and is_priority != true %}
-      loading="lazy"
-      decoding="async"
-    {% else %}
-      loading="eager"
-      decoding="sync"
-      fetchpriority="high"
-    {% endif %}
-    alt="{{ alt | escape }}"
-    width="{{ display_width }}"
-    height="{{ display_height }}"
-    class="object-cover opacity-0 m-0 transition-opacity duration-300 ease-in-out {% if link %}cursor-pointer{% endif %} {% if class %}{{ class }}{% endif %}"
-    onload="this.classList.add('opacity-100');"
-    onclick="{% if link %}window.location.href='{{ link }}'{% endif %}"
-    data-original-url="{{ fallback_url }}"
-    {% if is_retina %}data-is-retina="true"{% endif %}
-  >
+	<img
+		id='{{ unique_id }}'
+		src='{{ desktop_1x_url }}'
+		{% if lazy and is_priority != true %}
+			loading='lazy'
+			decoding='async'
+		{% else %}
+			loading='eager'
+			decoding='sync'
+			fetchpriority='high'
+		{% endif %}
+		alt='{{ alt | escape }}'
+		width='{{ display_width }}'
+		height='{{ display_height }}'
+		class='object-cover opacity-0 m-0 transition-opacity duration-300 ease-in-out {% if link %}cursor-pointer{% endif %} {% if class %}{{ class }}{% endif %}'
+		onload="this.classList.add('opacity-100');"
+		onclick='{% if link %}window.location.href='{{ link }}'{% endif %}'
+		data-original-url='{{ fallback_url }}'
+		{% if is_retina %}
+			data-is-retina='true'
+		{% endif %}>
 </picture>
 
 {% if is_log %}
-<!-- Consolidated Debug Logs Script -->
-<script>
-  window.imageErrors = window.imageErrors || { missing_alt: [], missing_image: [], load_errors: [] };
-  {{ error_log }}
+	<!-- Consolidated Debug Logs Script -->
+	<script>
+		window.imageErrors = window.imageErrors || { missing_alt: [], missing_image: [], load_errors: [] };
+		{{ error_log }}
 
-  window.imageDebugData = window.imageDebugData || [];
-  window.imageDebugData.push({
-    image_src: {{ image.src | json }},
-    unique_id: {{ unique_id | json }},
-    desktop_variant_url: {{ desktop_variant_url | json }},
-    has_mobile_variant: {{ has_mobile_variant | json }},
-    mobile_variant_url: {{ mobile_variant_url | json }},
-    fallback_url: {{ fallback_url | json }},
-    shop_name: {{ shop.name | json }},
-    force_original: {{ force_original | json }},
-    is_retina: {{ is_retina | json }},
-    desktop_image: {
-      src: {{ desktop_image.src | json }},
-      alt: {{ desktop_image.alt | json }},
-      width: {{ desktop_image.width | json }}
-    },
-    mobile_image_provided: {
-      src: {{ mobile_image_provided.src | json }},
-      alt: {{ mobile_image_provided.alt | json }}
-    },
-    lazy_load: {{ lazy_load | json }},
-    is_priority: {{ is_priority | json }},
-    load_mobile: {{ load_mobile | json }},
-    alt: {{ alt | json }},
-    mobile_breakpoint: {{ mobile_breakpoint | json }},
-    sizes: {{ sizes | json }}
-  });
+		window.imageDebugData = window.imageDebugData || [];
+		window.imageDebugData.push({
+		  image_src: {{ image.src | json }},
+		  unique_id: {{ unique_id | json }},
+		  desktop_variant_url: {{ desktop_variant_url | json }},
+		  has_mobile_variant: {{ has_mobile_variant | json }},
+		  mobile_variant_url: {{ mobile_variant_url | json }},
+		  fallback_url: {{ fallback_url | json }},
+		  shop_name: {{ shop.name | json }},
+		  force_original: {{ force_original | json }},
+		  is_retina: {{ is_retina | json }},
+		  desktop_image: {
+		    src: {{ desktop_image.src | json }},
+		    alt: {{ desktop_image.alt | json }},
+		    width: {{ desktop_image.width | json }}
+		  },
+		  mobile_image_provided: {
+		    src: {{ mobile_image_provided.src | json }},
+		    alt: {{ mobile_image_provided.alt | json }}
+		  },
+		  lazy_load: {{ lazy | json }},
+		  is_priority: {{ is_priority | json }},
+		  load_mobile: {{ load_mobile | json }},
+		  alt: {{ alt | json }},
+		  mobile_breakpoint: {{ mobile_breakpoint | json }},
+		  sizes: {{ sizes | json }}
+		});
 
-  if (!window.debouncedDisplayImageDebugLogs) {
-    window.debouncedDisplayImageDebugLogs = (function() {
-      let timeoutId = null;
-      return function() {
-        if (timeoutId) {
-          clearTimeout(timeoutId);
-        }
-        timeoutId = setTimeout(function() {
-          console.group('Consolidated Image Debug Logs');
-          window.imageDebugData.forEach(function(debugData) {
-            console.log('Image Debug Data:', debugData);
-          });
-          console.groupEnd();
-        }, 1000);
-      };
-    })();
-  }
-  window.debouncedDisplayImageDebugLogs();
+		if (!window.debouncedDisplayImageDebugLogs) {
+		  window.debouncedDisplayImageDebugLogs = (function() {
+		    let timeoutId = null;
+		    return function() {
+		      if (timeoutId) {
+		        clearTimeout(timeoutId);
+		      }
+		      timeoutId = setTimeout(function() {
+		        console.group('Consolidated Image Debug Logs');
+		        window.imageDebugData.forEach(function(debugData) {
+		          console.log('Image Debug Data:', debugData);
+		        });
+		        console.groupEnd();
+		      }, 1000);
+		    };
+		  })();
+		}
+		window.debouncedDisplayImageDebugLogs();
 
-  if (!window.logImageError) {
-    window.hasDisplayedImageErrors = false;
-    window.debouncedDisplayErrors = (function() {
-      let timeoutId = null;
-      return function() {
-        if (timeoutId) {
-          clearTimeout(timeoutId);
-        }
-        timeoutId = setTimeout(() => {
-          if (!window.hasDisplayedImageErrors) {
-            const errors = window.imageErrors;
-            const hasErrors = Object.values(errors).some(arr => arr.length > 0);
-            if (hasErrors) {
-              console.warn('🚨 Image Component Errors Summary:', {
-                totalErrors: Object.values(errors).reduce((sum, arr) => sum + arr.length, 0),
-                errors: errors
-              });
-              window.hasDisplayedImageErrors = true;
-            }
-          }
-          timeoutId = null;
-        }, 1000);
-      };
-    })();
+		if (!window.logImageError) {
+		  window.hasDisplayedImageErrors = false;
+		  window.debouncedDisplayErrors = (function() {
+		    let timeoutId = null;
+		    return function() {
+		      if (timeoutId) {
+		        clearTimeout(timeoutId);
+		      }
+		      timeoutId = setTimeout(() => {
+		        if (!window.hasDisplayedImageErrors) {
+		          const errors = window.imageErrors;
+		          const hasErrors = Object.values(errors).some(arr => arr.length > 0);
+		          if (hasErrors) {
+		            console.warn('🚨 Image Component Errors Summary:', {
+		              totalErrors: Object.values(errors).reduce((sum, arr) => sum + arr.length, 0),
+		              errors: errors
+		            });
+		            window.hasDisplayedImageErrors = true;
+		          }
+		        }
+		        timeoutId = null;
+		      }, 1000);
+		    };
+		  })();
 
-    window.logImageError = function(type, data) {
-      if (!window.imageErrors[type]) {
-        window.imageErrors[type] = [];
-      }
-      data.timestamp = new Date().toISOString();
-      const existingError = window.imageErrors[type].find(
-        error => error.imageId === data.imageId && error.type === data.type
-      );
-      if (!existingError) {
-        window.imageErrors[type].push(data);
-        console.error('Image Error:', type, data);
-        window.debouncedDisplayErrors();
-      }
-    };
-  }
+		  window.logImageError = function(type, data) {
+		    if (!window.imageErrors[type]) {
+		      window.imageErrors[type] = [];
+		    }
+		    data.timestamp = new Date().toISOString();
+		    const existingError = window.imageErrors[type].find(
+		      error => error.imageId === data.imageId && error.type === data.type
+		    );
+		    if (!existingError) {
+		      window.imageErrors[type].push(data);
+		      console.error('Image Error:', type, data);
+		      window.debouncedDisplayErrors();
+		    }
+		  };
+		}
 
-  if (window.imageErrors && !window.hasDisplayedImageErrors) {
-    window.debouncedDisplayErrors();
-  }
-</script>
+		if (window.imageErrors && !window.hasDisplayedImageErrors) {
+		  window.debouncedDisplayErrors();
+		}
+	</script>
 {% endif %}

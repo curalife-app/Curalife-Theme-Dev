@@ -97,7 +97,7 @@
 	{% assign buySubscriptionThreeMonthsDiscountPercentage = 30 %}
 {% endif %}
 
-<div id='product-actions' class='product-actions'>
+<div id='product-actions-{{ SID }}' class='product-actions'>
 	<div class='buying-options'>
 		<p class='text-[14px] font-bold'>Buying Options:</p>
 		<div class='purchase-type mt-2'>
@@ -299,17 +299,19 @@
 			</div>
 		</div>
 
-		<button type='submit' class='submit-button' id='submit-button'>
-			<span class='submit-button-text'><strong>Buy Now</strong> <span class='total-price'></span></span>
-			<div class='loader' style='display: none;'>
-				<div class='lds-ellipsis'>
-					<div></div>
-					<div></div>
-					<div></div>
-					<div></div>
+		<form onsubmit='return false;'>
+			<button type='submit' class='submit-button' id='submit-button'>
+				<span class='submit-button-text'><strong>Buy Now</strong> <span class='total-price'></span></span>
+				<div class='loader' style='display: none;'>
+					<div class='lds-ellipsis'>
+						<div></div>
+						<div></div>
+						<div></div>
+						<div></div>
+					</div>
 				</div>
-			</div>
-		</button>
+			</button>
+		</form>
 	</div>
 
 	<div class='guarantee-wrapper flex flex-col gap-2 p-4'>
@@ -717,7 +719,7 @@
 
 <script>
 	document.addEventListener('DOMContentLoaded', () => {
-		const productActions = document.getElementById('product-actions');
+		const productActions = document.getElementById('product-actions-{{ SID }}');
 		const purchaseTypeInputs = productActions.querySelectorAll('input[name="purchase-type"]');
 		const submitButton = productActions.querySelector('.submit-button');
 		const loader = submitButton.querySelector('.loader');
@@ -769,7 +771,7 @@
 			// Add event listeners
 			purchaseTypeInputs.forEach(input => input.addEventListener('change', handlePurchaseTypeChange));
 			quantityOptions.forEach(option => option.addEventListener('click', handleQuantitySelection));
-			submitButton.addEventListener('click', handleSubmit);
+			productActions.addEventListener('submit', handleSubmit);
 		}
 
 		function handlePurchaseTypeChange(event) {
@@ -823,6 +825,8 @@
 
 		function handleSubmit(event) {
 			event.preventDefault();
+			event.stopPropagation();
+
 			const checkedInput = productActions.querySelector('input[name="purchase-type"]:checked');
 			const isSubscription = checkedInput ? checkedInput.value === 'subscription' : false;
 			const selector = isSubscription ? 'input[name="subscription-quantity"]:checked' : 'input[name="quantity"]:checked';
@@ -839,7 +843,11 @@
 			const subscriptionPlanId = isSubscription ? optionContainer.dataset.subscriptionPlanId : null;
 
 			toggleButtonLoading(true);
-			clearCartAndAddItem(variantId, quantity, subscriptionPlanId);
+
+			console.log('variantId:', variantId);
+			console.log('quantity:', quantity);
+			console.log('subscriptionPlanId:', subscriptionPlanId);
+			// clearCartAndAddItem(variantId, quantity, subscriptionPlanId);
 		}
 
 		function toggleButtonLoading(isLoading) {

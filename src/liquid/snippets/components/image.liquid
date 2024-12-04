@@ -11,17 +11,12 @@
 	- Link wrapper functionality
 {%- endcomment -%}
 
-<script>
-	console.log('lazy: {{ lazy }}');
-</script>
-
 {%- liquid
 	#######################################
 	# Initialize variables with defaults
 	#######################################
 	assign desktop_image = image
 	assign mobile_image_provided = mobile_image
-	assign lazy_load = lazy | default: true
 	assign is_priority = priority | default: false
 	assign load_mobile = load_mobile | default: false
 	assign load_global = load_global | default: false
@@ -35,7 +30,6 @@
 	# Process image source
 	#######################################
 	if force_original
-		# Use the original image source directly when force_original is true
 		assign desktop_variant_url = desktop_image | image_url
 		assign has_mobile_variant = false
 		assign has_global_variant = false
@@ -134,7 +128,7 @@
 	<img
 		id='{{ unique_id }}'
 		src='{{ desktop_variant_url }}'
-		{% if lazy_load and is_priority != true %}
+		{% if lazy and is_priority != true %}
 			loading='lazy'
 			decoding='async'
 		{% else %}
@@ -147,7 +141,7 @@
 		height='{{ desktop_image.height }}'
 		class='object-cover opacity-0 m-0 transition-opacity duration-300 ease-in-out {% if link %}cursor-pointer{% endif %} {% if class %}{{ class }}{% endif %}'
 		onload="this.classList.add('opacity-100');"
-		onclick='{% if link %}window.location.href='{{ link }}'{% endif %}'
+		onclick='{% if link %}window.location.href="{{ link }}"{% endif %}'
 		data-original-url='{{ fallback_url }}'>
 </picture>
 
@@ -176,7 +170,7 @@
 	    src: {{ mobile_image_provided.src | json }},
 	    alt: {{ mobile_image_provided.alt | json }}
 	  },
-	  lazy_load: {{ lazy_load | json }},
+	  lazy_load: {{ lazy | json }},
 	  is_priority: {{ is_priority | json }},
 	  load_mobile: {{ load_mobile | json }},
 	  load_global: {{ load_global | json }},
@@ -248,8 +242,4 @@
 	if (window.imageErrors && !window.hasDisplayedImageErrors) {
 	  window.debouncedDisplayErrors();
 	}
-</script>
-
-<script>
-	console.log('lazy_load: {{ lazy_load }}');
 </script>

@@ -320,17 +320,27 @@ CartGiftHandler.init();
       });
 
       // Find the first valid box for initial selection
-      let defaultBox = purchaseOptionBoxes[initialVariantIndex];
-      if (defaultBox && defaultBox.hasAttribute('inert')) {
-        defaultBox = Array.from(purchaseOptionBoxes).find(box => !box.hasAttribute('inert'));
-      }
+			let defaultBox = purchaseOptionBoxes[initialVariantIndex];
+				if (defaultBox && defaultBox.hasAttribute('inert')) {
+					defaultBox = Array.from(purchaseOptionBoxes).find(box => !box.hasAttribute('inert'));
+				}
 
-      if (defaultBox) {
-        defaultBox.classList.add('selected');
-        adjustMaxHeight(defaultBox);
+				if (defaultBox) {
+					defaultBox.classList.add('selected');
+					// Set initial height without animation
+					defaultBox.style.transition = 'none';
+					defaultBox.style.maxHeight = `${defaultBox.scrollHeight}px`;
 
-        const radio = defaultBox.querySelector("input[type='radio']");
-        if (radio) radio.checked = true;
+					// Force reflow
+					defaultBox.offsetHeight;
+
+					// Re-enable transitions
+					requestAnimationFrame(() => {
+						defaultBox.style.transition = '';
+					});
+
+					const radio = defaultBox.querySelector("input[type='radio']");
+					if (radio) radio.checked = true;
 
         const submitSellingPlanElement = productActions.querySelector('.submit-selling-plan-id');
         const submitVariantElement = productActions.querySelector('.submit-variant-id');
@@ -1200,13 +1210,15 @@ async function countUniqueProductsWithTag(cart) {
     background: #fff;
     border: 1px solid #cbcbcb;
     cursor: pointer;
-    max-height: 68px;
     filter: drop-shadow(0px 4px 4px rgba(47, 47, 47, 0.1));
     transition: max-height 0.5s ease-in-out;
     border-radius: 10px;
     border-color: var(--primary-color);
     overflow: hidden;
     padding: 0.75rem 1rem;
+		max-height: 68px;
+		will-change: max-height;
+		contain: layout;
 
     &:hover {
       filter: drop-shadow(0px 4px 4px rgba(77, 53, 98, 0.3));
@@ -1216,6 +1228,7 @@ async function countUniqueProductsWithTag(cart) {
       filter: drop-shadow(0px 4px 4px rgba(77, 53, 98, 0.3));
       border-width: 3px;
       max-height: max-content;
+			max-height: 200px;
     }
 
     &[inert] {
