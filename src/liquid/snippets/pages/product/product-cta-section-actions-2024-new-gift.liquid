@@ -146,71 +146,71 @@
 {% if customer.email contains 'yotam' and false %}
 	<script>// Cart Gift Handler Module
 		const CartGiftHandler = {
-  giftProductMapping: {
-    "curalin-black-friday-week": "free-curaslim",
-    "curaslim-black-friday-week": "free-curalin",
-    "curaslin-curaslim-black-friday-week": {"free-magnesium", "free-restful-sleep", "free-joint-care"}
-  },
+			giftProductMapping: {
+				"curalin-black-friday-week": "free-curaslim",
+				"curaslim-black-friday-week": "free-curalin",
+				"curaslin-curaslim-black-friday-week": {"free-magnesium", "free-restful-sleep", "free-joint-care"}
+			},
 
-  init() {
-    document.addEventListener('click', e => {
-      const clickPath = e.composedPath();
-      const deleteButton = clickPath.find(el =>
-        el.classList && el.classList.contains('styles_TrashButton__deleteButton__8uIHq')
-      );
+			init() {
+				document.addEventListener('click', e => {
+					const clickPath = e.composedPath();
+					const deleteButton = clickPath.find(el =>
+						el.classList && el.classList.contains('styles_TrashButton__deleteButton__8uIHq')
+					);
 
-      if (!deleteButton) return;
-      console.log('Delete button found:', deleteButton);
+					if (!deleteButton) return;
+					console.log('Delete button found:', deleteButton);
 
-      const productRow = clickPath.find(el =>
-        el.classList && el.classList.contains('styles_ProductRow__product__AokJ5')
-      );
+					const productRow = clickPath.find(el =>
+						el.classList && el.classList.contains('styles_ProductRow__product__AokJ5')
+					);
 
-      if (!productRow) return;
-      console.log('Product row found:', productRow);
+					if (!productRow) return;
+					console.log('Product row found:', productRow);
 
-      this.handleDeleteButtonClick(deleteButton, productRow).catch(console.error);
-    });
-  },
+					this.handleDeleteButtonClick(deleteButton, productRow).catch(console.error);
+				});
+			},
 
-  async handleDeleteButtonClick(deleteButton, productRow) {
-    try {
-      const titleLink = productRow.querySelector('.upcart-product-title-link');
-      if (!titleLink) return;
+			async handleDeleteButtonClick(deleteButton, productRow) {
+				try {
+					const titleLink = productRow.querySelector('.upcart-product-title-link');
+					if (!titleLink) return;
 
-      const handle = titleLink.href.split('/products/')[1].split('?')[0];
-      console.log('Deleting product:', handle);
+					const handle = titleLink.href.split('/products/')[1].split('?')[0];
+					console.log('Deleting product:', handle);
 
-      const cart = await (await fetch('/cart.js')).json();
-      console.log('Current cart:', cart.items);
+					const cart = await (await fetch('/cart.js')).json();
+					console.log('Current cart:', cart.items);
 
-      const itemsToRemove = cart.items.filter(item => {
-        const itemHandle = item.url.split('/products/')[1].split('?')[0];
-        return itemHandle === handle || itemHandle === this.giftProductMapping[handle];
-      });
+					const itemsToRemove = cart.items.filter(item => {
+						const itemHandle = item.url.split('/products/')[1].split('?')[0];
+						return itemHandle === handle || itemHandle === this.giftProductMapping[handle];
+					});
 
-      console.log('Removing items:', itemsToRemove);
+					console.log('Removing items:', itemsToRemove);
 
-      if (itemsToRemove.length === 0) return;
+					if (itemsToRemove.length === 0) return;
 
-      const updates = {};
-      itemsToRemove.forEach(item => updates[item.key] = 0);
+					const updates = {};
+					itemsToRemove.forEach(item => updates[item.key] = 0);
 
-      const response = await fetch('/cart/update.js', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ updates })
-      });
+					const response = await fetch('/cart/update.js', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ updates })
+					});
 
-      console.log('Update response:', await response.json());
-      location.reload();
-    } catch (error) {
-      console.error('Error:', error);
-    }
-  }
-};
+					console.log('Update response:', await response.json());
+					location.reload();
+				} catch (error) {
+					console.error('Error:', error);
+				}
+			}
+		};
 
-CartGiftHandler.init();
+		CartGiftHandler.init();
 	</script>
 {% endif %}
 
@@ -1089,9 +1089,11 @@ async function countUniqueProductsWithTag(cart) {
 </script>
 
 <style>
-	.gift-selector-wrap {
-    margin: 1rem 0;
-  }
+	{% if giftsAmount > 0 %}
+		.gift-selector-wrap {
+			margin: 1rem 0;
+		}
+	{% endif %}
 
   .gift-option-border {
     transition: all 0.3s ease;
@@ -1141,7 +1143,7 @@ async function countUniqueProductsWithTag(cart) {
   :root {
     --primary-color: {{ buyBoxColor }};
     --primary-color-dark: color-mix(in srgb, var(--primary-color), black 20%);
-	  --primary-color-light: color-mix(in srgb, var(--primary-color), white 60%);
+		--primary-color-light: color-mix(in srgb, var(--primary-color), white 60%);
     --primary-color-lighter: color-mix(in srgb, var(--primary-color), white 80%);
   }
 
