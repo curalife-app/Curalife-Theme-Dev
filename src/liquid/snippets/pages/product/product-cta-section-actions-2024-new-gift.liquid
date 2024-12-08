@@ -41,53 +41,57 @@
       {% render 'product-cta-section-actions-variant-2024-new', SID: SID, prod: product, var: var, buyBoxColor: buyBoxColor, index: forloop.index %}
     {% endfor %}
 
-    <div class="gift-selector-wrap">
-			{% if giftsAmount > 0 %}<div class="gift-selector-title mb-2">Your free gift:</div>{% endif %}
+		{% if giftsAmount > 0 %}
+			<div class="gift-selector-wrap">
+				<div class="gift-selector-title mb-2">Your free gift:</div>
 
-			<div class="gift-options flex-nowrap flex justify-start gap-4">
-				{% for block in blocks %}
-					{% case block.type %}
-						{% when 'gift' %}
-							{% assign show_gift = false %}
-							{% if block.settings.show_on == 'both' %}
-								{% assign show_gift = true %}
-							{% elsif block.settings.show_on == 'global' and isGlobal %}
-								{% assign show_gift = true %}
-							{% elsif block.settings.show_on == 'us' and isGlobal == false %}
-								{% assign show_gift = true %}
-							{% endif %}
+				<div class="gift-options flex-nowrap flex justify-start gap-4">
+					{% for block in blocks %}
+						{% case block.type %}
+							{% when 'gift' %}
+								{% assign show_gift = false %}
+								{% if block.settings.show_on == 'both' %}
+									{% assign show_gift = true %}
+								{% elsif block.settings.show_on == 'global' and isGlobal %}
+									{% assign show_gift = true %}
+								{% elsif block.settings.show_on == 'us' and isGlobal == false %}
+									{% assign show_gift = true %}
+								{% endif %}
 
-							{% if show_gift %}
-								{% assign giftProd = block.settings.gift_product %}
-								{% assign giftVariant = giftProd.selected_or_first_available_variant %}
-								{% assign giftProdSubscription = block.settings.gift_product_subscription %}
-								{% assign giftVariantSubscription = giftProdSubscription.selected_or_first_available_variant %}
-								{% assign giftThumb = block.settings.gift_thumbnail | default: giftProdSubscription.featured_image | default: giftProd.featured_image %}
+								{% if show_gift %}
+									{% assign giftProd = block.settings.gift_product %}
+									{% assign giftVariant = giftProd.selected_or_first_available_variant %}
+									{% assign giftProdSubscription = block.settings.gift_product_subscription %}
+									{% assign giftVariantSubscription = giftProdSubscription.selected_or_first_available_variant %}
+									{% assign giftThumb = block.settings.gift_thumbnail | default: giftProdSubscription.featured_image | default: giftProd.featured_image %}
 
-								<div class="gift-option-container flex flex-col items-center">
-									<div class="gift-option-border relative w-full p-2 mb-3 border rounded-lg cursor-pointer" data-gift-id="{{ giftVariant.id }}" data-gift-id-subscription="{{ giftVariantSubscription.id }}">
-										<div class="radio-indicator top-2 right-2 absolute flex items-center justify-center w-6 h-6 rounded-full">
-											<div class="check-mark hidden w-4 h-4 font-bold text-white rounded-full">✓</div>
+									<div class="gift-option-container flex flex-col items-center">
+										<div class="gift-option-border relative w-full p-2 mb-3 border rounded-lg cursor-pointer"
+										data-gift-id="{{ giftVariant.id }}"
+										data-gift-id-subscription="{{ giftVariantSubscription.id | default: giftVariant.id }}">
+											<div class="radio-indicator top-2 right-2 absolute flex items-center justify-center w-6 h-6 rounded-full">
+												<div class="check-mark hidden w-4 h-4 font-bold text-white rounded-full">✓</div>
+											</div>
+
+											<div class="gift-image-container flex justify-center">
+												<img src="{{ giftThumb | image_url }}" alt="{{ giftProd.title }}" class="object-contain w-24 h-24">
+											</div>
 										</div>
 
-										<div class="gift-image-container flex justify-center">
-											<img src="{{ giftThumb | image_url }}" alt="{{ giftProd.title }}" class="object-contain w-24 h-24">
+										<div class="gift-content text-center">
+											<div class="gift-name mb-1 font-medium">{{ giftProd.title | replace: "Free ","" }}</div>
+											<div class="gift-price flex items-center justify-center gap-2">
+												<span class="original-price text-gray-500 line-through">{{ giftVariantSubscription.compare_at_price | money_with_currency }}</span>
+												<span class="sale-price font-bold">FREE</span>
+											</div>
 										</div>
 									</div>
-
-									<div class="gift-content text-center">
-										<div class="gift-name mb-1 font-medium">{{ giftProd.title | replace: "Free ","" }}</div>
-										<div class="gift-price flex items-center justify-center gap-2">
-											<span class="original-price text-gray-500 line-through">{{ giftVariantSubscription.compare_at_price | money_with_currency }}</span>
-											<span class="sale-price font-bold">FREE</span>
-										</div>
-									</div>
-								</div>
-							{% endif %}
-					{% endcase %}
-				{% endfor %}
+								{% endif %}
+						{% endcase %}
+					{% endfor %}
+				</div>
 			</div>
-		</div>
+		{% endif %}
 
     <div class="submit-wrap flex flex-col w-full">
       <div class="checkout-button">
@@ -102,7 +106,7 @@
 			<div class="product-form__buttons main-submit-wrapper flex">
 				<button id="ProductSubmitButton-{{SID}}" data-variant-id="{{ variant | default: product.selected_or_first_available_variant.id }}" type="button" name="add" class="text-black product-form__submit button--full-width justify-center button--primary text-[20px] p-0 min-h-[50px] items-center bg-[--orange]">
 					<span class="submit-title">
-						{% if buyType == "buy_now" %}
+						{% if buyType == "buy_now" and shop.name != "CuraLife Global" %}
 							Buy Now
 						{% else %}
 							Add To Cart
@@ -420,6 +424,20 @@
         submitSellingPlanElement.value = ''; // Clear the selling plan ID for "Buy Once"
       }
 
+			// Update selected gift if any
+			const selectedGiftContainer = document.querySelector('.gift-option-container.selected');
+			if (selectedGiftContainer) {
+				const giftBorder = selectedGiftContainer.querySelector('.gift-option-border');
+				const giftId = isSubscription ?
+					giftBorder.getAttribute('data-gift-id-subscription') :
+					giftBorder.getAttribute('data-gift-id');
+
+				// Validate gift selection after purchase type change
+				if (!giftId) {
+					console.warn('No valid gift ID found for', isSubscription ? 'subscription' : 'one-time', 'purchase');
+				}
+			}
+
       // Update all variant boxes
       purchaseOptionBoxes.forEach(box => {
         const subscriptionContent = box.querySelectorAll('.subscription-content');
@@ -640,99 +658,77 @@
     // Assuming giftProd is defined in your Liquid code
     var giftProductId = {{ giftProd.id | default: 'null' }};
 
-    submitButton.addEventListener('click', async function(event) {
-      console.log('Button clicked, handling submission...');
-      event.preventDefault();
+		submitButton.addEventListener('click', async function(event) {
+	event.preventDefault();
+	if (!productActions) return;
+	toggleButtonLoading(submitButton, true);
 
-      if (!productActions) {
-        console.error('Product actions container not found');
-        return;
-      }
+	try {
+		const variantIdInput = productActions.querySelector('.submit-variant-id');
+		const sellingPlanIdInput = productActions.querySelector('.submit-selling-plan-id');
+		const hasGiftOptions = document.querySelector('.gift-option-container') !== null;
+		const selectedGiftContainer = document.querySelector('.gift-option-container.selected');
+		const giftOptionBorder = selectedGiftContainer?.querySelector('.gift-option-border');
 
-      // Display the loading spinner
-      toggleButtonLoading(submitButton, true);
+		if (!variantIdInput) throw new Error('Variant ID input not found');
 
-      try {
-        const variantIdInput = productActions.querySelector('.submit-variant-id');
-        const sellingPlanIdInput = productActions.querySelector('.submit-selling-plan-id');
-        const selectedGiftContainer = document.querySelector('.gift-option-container.selected');
-        const giftOptionBorder = selectedGiftContainer ? selectedGiftContainer.querySelector('.gift-option-border') : null;
+		const isSubscription = !!sellingPlanIdInput?.value;
+		let giftId = null;
 
-        // Add error checking for required elements
-        if (!variantIdInput) {
-          throw new Error('Variant ID input not found');
-        }
+		if (giftOptionBorder) {
+			giftId = isSubscription ?
+				(giftOptionBorder.getAttribute('data-gift-id-subscription') || giftOptionBorder.getAttribute('data-gift-id')) :
+				giftOptionBorder.getAttribute('data-gift-id');
+		}
 
-        const isSubscription = !!sellingPlanIdInput?.value;
-        const giftId = giftOptionBorder ? (isSubscription ? giftOptionBorder.dataset.giftIdSubscription : giftOptionBorder.dataset.giftId) : null;
-        const variantId = variantIdInput.value;
-        const sellingPlanId = sellingPlanIdInput ? sellingPlanIdInput.value : '';
+		const variantId = variantIdInput.value;
+		if (!variantId) {
+			showNotification('Missing variant ID', 'error');
+			return;
+		}
 
-        if (!variantId || !giftId) {
-          const errorMessage = `Missing required data: ${!variantId ? 'variant ID' : ''} ${!giftId ? 'gift ID' : ''}`;
-          console.error(errorMessage);
-          showNotification(errorMessage, 'error');
-          return;
-        }
+		const items = [{
+			id: variantId,
+			product_id: currentProductId,
+			quantity: 1,
+			...(sellingPlanIdInput?.value && { selling_plan: sellingPlanIdInput.value })
+		}];
 
-        const items = [
-          {
-            id: variantId,
-            product_id: currentProductId, // Include the product ID
-            quantity: 1,
-            ...(sellingPlanId && { selling_plan: sellingPlanId })
-          },
-          {
-            id: giftId,
-            product_id: giftProductId, // Include the gift product ID
-            quantity: 1
-          }
-        ];
+		if (hasGiftOptions) {
+			if (!giftId) {
+				showNotification('Please select a gift', 'error');
+				return;
+			}
+			items.push({
+				id: giftId,
+				product_id: giftProductId,
+				quantity: 1
+			});
+		}
 
-        {% if buyType == "buy_now" %}
-          // Delete cart drawer if it exists
-          const cartDrawer = document.getElementById('upCart');
-          if (cartDrawer) {
-            cartDrawer.remove();
-          }
+		{% if buyType == "buy_now" and shop.name != "CuraLife Global" %}
+			const cartDrawer = document.getElementById('upCart');
+			if (cartDrawer) cartDrawer.remove();
+			await fetch('/cart/clear.js', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' }
+			});
+		{% endif %}
 
-          // Clean cart
-          try {
-            const clearCartResponse = await fetch('/cart/clear.js', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-              }
-            });
-
-            if (!clearCartResponse.ok) {
-              throw new Error('Failed to clear cart');
-            }
-          } catch (error) {
-            console.error('Clear cart error:', error);
-            showNotification('Failed to clear cart. Please try again.', 'error');
-            return;
-          }
-        {% endif %}
-
-        const result = await addValidItemsToCart(items);
-        console.log('Add to cart result:', result);
-
-        if (result.success) {
-          {% if buyType == "buy_now" %}
-            window.location.href = '/checkout';
-          {% endif %}
-        } else if (result.error) {
-          showNotification(result.error.message || 'Failed to add items to cart', 'error');
-        }
-      } catch (error) {
-        console.error('Submission error:', error);
-        showNotification(error.message || 'An unexpected error occurred', 'error');
-      } finally {
-        toggleButtonLoading(submitButton, false);
-      }
-    });
+		const result = await addValidItemsToCart(items);
+		if (result.success) {
+			{% if buyType == "buy_now" and shop.name != "CuraLife Global" %}
+				window.location.href = '/checkout';
+			{% endif %}
+		} else if (result.error) {
+			showNotification(result.error.message || 'Failed to add items to cart', 'error');
+		}
+	} catch (error) {
+		showNotification(error.message || 'An unexpected error occurred', 'error');
+	} finally {
+		toggleButtonLoading(submitButton, false);
+	}
+});
 
 // Helper function to find the corresponding failed validation result
 function findFailedValidationIndex(validationResults, invalidItemIndex) {
@@ -938,14 +934,14 @@ async function addValidItemsToCart(items) {
 
 async function countUniqueProductsWithTag(cart) {
   try {
-    // Use the product title to check for 'Cyber Monday Week'
+    // Use the product title to check for 'Holiday Week'
     const uniqueProducts = cart.items.reduce((acc, item) => {
       if (acc[item.product_id]) {
         return acc;
       }
 
-      const hasBlackFridayWeek = item.title && item.title.includes('Cyber Monday Week');
-      console.log('Checking item:', item.title, 'Has BF Week:', hasBlackFridayWeek);
+      const hasBlackFridayWeek = item.title && item.title.includes('Holiday Sale');
+      console.log('Checking item:', item.title, 'Has Holiday Sale:', hasBlackFridayWeek);
 
       acc[item.product_id] = hasBlackFridayWeek;
       return acc;
@@ -956,7 +952,7 @@ async function countUniqueProductsWithTag(cart) {
     // Always allow at least one free gift
     return Math.max(blackFridayWeekCount, 1);
   } catch (error) {
-    console.error('Error counting Cyber Monday Week products:', error);
+    console.error('Error counting Holiday Sale Week products:', error);
     return 1; // Default to 1 if there's an error
   }
 }
@@ -1088,12 +1084,11 @@ async function countUniqueProductsWithTag(cart) {
   });
 </script>
 
+{% if giftsAmount > 0 %}
 <style>
-	{% if giftsAmount > 0 %}
-		.gift-selector-wrap {
-			margin: 1rem 0;
-		}
-	{% endif %}
+	.gift-selector-wrap {
+		margin: 1rem 0;
+	}
 
   .gift-option-border {
     transition: all 0.3s ease;
@@ -1131,13 +1126,14 @@ async function countUniqueProductsWithTag(cart) {
   }
 
   .gift-option-container.selected .radio-indicator {
-	  background-color: var(--primary-color);
+		background-color: var(--primary-color);
   }
 
   .sale-price {
     color: var(--primary-color-dark);
   }
 </style>
+{% endif %}
 
 <style>
   :root {
