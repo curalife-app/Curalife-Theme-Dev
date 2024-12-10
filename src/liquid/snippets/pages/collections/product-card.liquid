@@ -8,27 +8,29 @@
 	{% assign imgSrc = product.featured_image.src | image_url %}
 {% endif %}
 
-{% if product.url contains '-black-friday' %}
-	{% assign prodURL = product.url | split: '-black-friday' | first %}
+{% if product.url contains '-holiday-sale' %}
+	{% assign prodURL = product.url | split: '-holiday-sale' | first %}
 {% else %}
 	{% assign prodURL = product.url %}
 {% endif %}
 
-<div id='{{ product.handle }}' class='product-card' id='product-card-section'>
+<div id="{{ product.handle }}" class="product-card" id="product-card-section">
 	{% if isDigitalProduct %}
-		<img class='product-image' src='{{ imgSrc }}' width='512' height='475' alt='{{ product.featured_image.alt }}' loading='lazy'>
+		<img class="product-image" src="{{ imgSrc }}" width="512" height="475" alt="{{ product.featured_image.alt }}" loading="lazy">
 	{% else %}
-		<a class='product-link prerender' href='{{ prodURL }}'><img class='product-image' src='{{ imgSrc }}' width='512' height='475' alt='{{ product.featured_image.alt }}' loading='lazy'></a>
+		<a class="product-link prerender" href="{{ prodURL }}"
+			><img class="product-image" src="{{ imgSrc }}" width="512" height="475" alt="{{ product.featured_image.alt }}" loading="lazy"
+		></a>
 	{% endif %}
 
-	<div class='info flex flex-col justify-between w-full h-full text-center'>
-		<div class='main'>
-			<div class='product-titles min-h-[35px] mb-2'>
+	<div class="info flex flex-col justify-between w-full h-full text-center">
+		<div class="main">
+			<div class="product-titles min-h-[35px] mb-2">
 				{% if isDigitalProduct %}
-					<h3 class='text-[22px] text-[--color-primary] m-0'>{{ product.metafields.my_fields.alternative_title | default: product.title }}</h3>
+					<h3 class="text-[22px] text-[--color-primary] m-0">{{ product.metafields.my_fields.alternative_title | default: product.title }}</h3>
 				{% else %}
-					<a class='product-link prerender' href='{{ prodURL }}'
-						><h3 class='text-[22px] text-[--color-primary] m-0'>{{ product.metafields.my_fields.alternative_title | default: product.title }}</h3></a
+					<a class="product-link prerender" href="{{ prodURL }}"
+						><h3 class="text-[22px] text-[--color-primary] m-0">{{ product.metafields.my_fields.alternative_title | default: product.title }}</h3></a
 					>
 				{% endif %}
 			</div>
@@ -39,26 +41,31 @@
 		</div>
 	</div>
 
-	<div class='submit-wrapper w-full'>
+	<div class="submit-wrapper w-full">
 		{% if isAddToCart %}
-			<div class='submit-wrap add-to-cart-button flex flex-col gap-2 mb-1 {% unless customer.b2b? %}hidden{% endunless %}'>
-				<product-form class='product-form' data-hide-errors='false' data-section-id='{{ section.id }}'>
+			<div class="submit-wrap add-to-cart-button flex flex-col gap-2 mb-1 {% unless customer.b2b? %}hidden{% endunless %}">
+				<product-form class="product-form" data-hide-errors="false" data-section-id="{{ section.id }}">
 					{%- form 'product', product, id: product.id, class: 'form', novalidate: 'novalidate', data-type: 'add-to-cart-form' -%}
-						<input type='hidden' name='id' value='{{ product.selected_or_first_available_variant.id }}' disabled class='product-variant-id'>
+						<input type="hidden" name="id" value="{{ product.selected_or_first_available_variant.id }}" disabled class="product-variant-id">
 
-						<div class='product-form__buttons main-submit-wrapper flex'>
-							<div class='qty mbl:hidden {% unless isAddToCartQuantity %}!hidden{% endunless %}'>
-								<input type='text' name='quantity' maxlength='100' value='{{ product.variants.first.quantity_rule.min }}' title='' class='input-text'>
-								<div class='qty_inc_dec'>
-									<i class='increment' onclick="updateQuantity('+')">+</i>
-									<i class='decrement' onclick="updateQuantity('-')">-</i>
+						<div class="product-form__buttons main-submit-wrapper flex">
+							<div class="qty mbl:hidden {% unless isAddToCartQuantity %}!hidden{% endunless %}">
+								<input type="text" name="quantity" maxlength="100" value="{{ product.variants.first.quantity_rule.min }}" title="" class="input-text">
+								<div class="qty_inc_dec">
+									<i class="increment" onclick="updateQuantity('+')">+</i>
+									<i class="decrement" onclick="updateQuantity('-')">-</i>
 								</div>
 							</div>
 
-							<button id='ProductSubmitButton-{{ section_id }}' type='submit' name='add' onclick='resetQuantity()' class='product-form__submit button button--full-width button--primary'>
-								<span class='submit-title'>Add To Cart</span>
-								<div class='loading-overlay__spinner hidden'>
-									<svg aria-hidden='true' focusable='false' class='spinner' viewBox='0 0 66 66' xmlns='http://www.w3.org/2000/svg'>
+							<button
+								id="ProductSubmitButton-{{ section_id }}"
+								type="submit"
+								name="add"
+								onclick="resetQuantity()"
+								class="product-form__submit button button--full-width button--primary">
+								<span class="submit-title">Add To Cart</span>
+								<div class="loading-overlay__spinner hidden">
+									<svg aria-hidden="true" focusable="false" class="spinner" viewBox="0 0 66 66" xmlns="http://www.w3.org/2000/svg">
 										<circle class="path" fill="none" stroke-width="6" cx="33" cy="33" r="30"></circle>
 									</svg>
 								</div>
@@ -68,20 +75,20 @@
 				</product-form>
 
 				{% if isDigitalProduct %}
-					<a href='{{ product.metafields.custom.file_url }}'><button class='secondary'>Download PDF</button></a>
+					<a href="{{ product.metafields.custom.file_url }}"><button class="secondary">Download PDF</button></a>
 				{% endif %}
 			</div>
 		{% endif %}
 
 		{% unless isDigitalProduct %}
-			<a class='product-link w-full' href='{{ prodURL }}'>
+			<a class="product-link w-full" href="{{ prodURL }}">
 				<button
-					class='main-btn w-full'
-					title='{{ product.title }}'
-					prod-sku='{{ product.selected_or_first_available_variant.sku }}'
-					prod-id='{{ product.variants.first.id }}'
-					price='{{ product.selected_or_first_available_variant.price | money_without_currency }}'
-					discount='{% if product.compare_at_price > product.price %}{{ product.compare_at_price | minus: product.price | times: 0.01 }}{% else %}0{% endif %}'>
+					class="main-btn w-full"
+					title="{{ product.title }}"
+					prod-sku="{{ product.selected_or_first_available_variant.sku }}"
+					prod-id="{{ product.variants.first.id }}"
+					price="{{ product.selected_or_first_available_variant.price | money_without_currency }}"
+					discount="{% if product.compare_at_price > product.price %}{{ product.compare_at_price | minus: product.price | times: 0.01 }}{% else %}0{% endif %}">
 					Shop Now
 				</button>
 			</a>
