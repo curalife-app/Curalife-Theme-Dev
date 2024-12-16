@@ -1,13 +1,33 @@
+
+
 {% assign variant_id = var.metafields.custom.reference_variant_id | default: var.id %}
-{% assign bottle_quantity = var.metafields.my_fields.pack_bottles_quantity %}
-{% assign original_item_cap = var.metafields.custom.original_item.value.compare_at_price | default: var.metafields.custom.original_item.value.price %}
+{% assign bottle_quantity = var.metafields.my_fields.pack_bottles_quantity | default: 1 %}
+{% assign original_item_cap = var.metafields.custom.original_item.value.compare_at_price | default: var.metafields.custom.original_item.value.price | default: var.compare_at_price %}
 {% assign original_item_cap_total = original_item_cap | times: bottle_quantity %}
 {% assign original_item_price = var.metafields.custom.original_item.value.price %}
 {% assign item_price = var.price | divided_by: bottle_quantity %}
-{% assign subscription_save_percents = var.metafields.subscription.save_percents %}
+{% assign save_percents = var.metafields.custom.save_percents | default: 0 %}
+{% assign subscription_save_percents = var.metafields.subscription.save_percents | default: 0 %}
 {% assign subscription_item_price_save = original_item_cap | times: subscription_save_percents | divided_by: 100 %}
 {% assign subscription_item_price = original_item_cap | minus: subscription_item_price_save %}
 {% assign subscription_total_price = subscription_item_price | times: bottle_quantity %}
+
+{% if prod.metafields.custom.is_price_per_month %}
+	{% assign is_price_per_month = true %}
+	{% assign final_price = item_price %}
+	{% assign final_subscription_price = subscription_item_price %}
+	{% assign final_striked_price = original_item_cap %}
+{% else %}
+	{% assign final_price = var.price %}
+	{% assign final_subscription_price = subscription_total_price %}
+	{% assign final_striked_price = original_item_cap_total %}
+{% endif %}
+
+{% comment %} {% if var.product.handle == 'curalin-bp' %}
+	{% assign save_price = final_price | times: save_percents | divided_by: 100 %}
+	{% assign final_price = final_price | minus: save_price %}
+{% endif %} {% endcomment %}
+
 {% if var.metafields.custom.referenced_variant_product_handle %}
   {% assign prod = all_products[var.metafields.custom.referenced_variant_product_handle] %}
   {% assign referenced_variant = prod.variants | where: 'id', variant_id | first %}
@@ -24,48 +44,47 @@
   <script>console.log("Didn't find selling plan for the variant")</script>
 {% endif %}
 
-{% if request.path contains "curalin-1-1" or var.product.handle contains 'holiday-sale'  %}
+{% if request.path contains "curalin-1-1" or var.product.handle contains 'holiday-sale' %}
 	{% assign isBFCM = true %}
 {% endif %}
 
-<div class="purchase-option-box flex flex-col items-start overflow-hidden {% if index == 1 %}selected{% endif %}" data-variant="{{ variant_id }}" data-original-variant="{{ var.id }}" data-subscription-selling-plan-id="{{ selling_plan_id }}" data-price="{{ var.price | money_without_currency | replace: ".00", "" }}" data-sku="{{ var.sku }}" data-index="{{ index }}" data-item-price="{{ item_price }}" data-subscription-item-price="{{ subscription_item_price }}" data-original-item-cap="{{ original_item_cap }}" data-dc="{{ var.metafields.custom.discount_code | base64_encode }}" data-buy-once-discount="{{ var.metafields.custom.save_percents }}" data-subscription-discount="{{ var.metafields.subscription.save_percents }}" data-bottle-quantity="{{ bottle_quantity }}">
+<div class="purchase-option-box flex flex-col items-start overflow-hidden {% if index == 1 %}selected{% endif %}" data-variant="{{ variant_id }}" data-original-variant="{{ var.id }}" data-subscription-selling-plan-id="{{ selling_plan_id }}" data-price="{{ var.price | money_without_currency | replace: ".00", "" }}" data-sku="{{ var.sku }}" data-index="{{ index }}" data-item-price="{{ item_price }}" data-subscription-item-price="{{ subscription_item_price }}" data-original-item-cap="{{ original_item_cap }}" data-dc="{{ var.metafields.custom.discount_code | base64_encode }}" data-buy-once-discount="{{ save_percents }}" data-subscription-discount="{{ subscription.save_percents }}" data-bottle-quantity="{{ bottle_quantity }}">
   <div class="top-wrapper flex items-center justify-between w-full gap-4 pb-3">
     <div class="left-wrapper flex items-center gap-4">
       <div class="radio-box"><input type="radio"></input><label for="buyonce"></label></div>
       <div class="titles min-h-[42px] max-w-[220px] flex flex-col justify-center">
         <div class="option-title content-center font-semibold text-black">{% if var.title == 'Default Title' %}{{ prod.title }}{% else %}{{ var.title }}{% endif %}</div>
         {% unless request.path contains 'v4' %}
-          {% unless request.path contains 'presell' %}
-            {% if var.metafields.my_fields.subtitle %}<div class="subtitle buy-once text-[14px] content-center hidden">{{ var.metafields.my_fields.subtitle }}</div>{% endif %}
-            {% if var.metafields.subscription.subtitle %}<div class="subtitle subscription text-[14px] content-center">{{ var.metafields.subscription.subtitle }}</div>{% endif %}
-          {% endunless %}
+					{% if var.metafields.my_fields.subtitle %}<div class="subtitle buy-once text-[14px] content-center hidden">{{ var.metafields.my_fields.subtitle }}</div>{% endif %}
+					{% if var.metafields.subscription.subtitle %}<div class="subtitle subscription text-[14px] content-center">{{ var.metafields.subscription.subtitle }}</div>{% endif %}
         {% endunless %}
       </div>
     </div>
 
     <div class="right-wrapper">
-      {% if var.metafields.subscription.save_percents > 0 %}<div class="save-title subscription-content font-bold text-center mbl:text-[3vw] mbl:min-w-[18vw] p-1 px-2 {% if isBFCM %}bfcm-tag text-[16px] rounded-md{% else %}text-white bg-[--primary-color] rounded-full{% endif %}">{% if isBFCM %}<span class="block font-normal text-white">Holiday Sale</span>{% endif %}Save {{ var.metafields.subscription.save_percents }}%</div>{% endif %}
-      {% if var.metafields.custom.save_percents > 0 %}<div class="save-title buy-once-content hidden font-bold text-center mbl:text-[3vw] mbl:min-w-[18vw] p-1 px-2 {% if isBFCM %}bfcm-tag text-[16px] rounded-md{% else %}text-white bg-[--primary-color] rounded-full{% endif %}" style="display: none; opacity: 0;">{% if isBFCM %}<span class="block font-normal text-white">Holiday Sale</span>{% endif %}Save {{ var.metafields.custom.save_percents }}%</div>{% endif %}
+      {% if subscription_save_percents > 0 %}<div class="save-title subscription-content font-bold text-center mbl:text-[3vw] mbl:min-w-[18vw] p-1 px-2 {% if isBFCM %}bfcm-tag text-[16px] rounded-md{% else %}text-white bg-[--primary-color] rounded-full{% endif %}">{% if isBFCM %}<span class="block font-normal text-white">Holiday Sale</span>{% endif %}Save {{ var.metafields.subscription.save_percents }}%</div>{% endif %}
+      {% if save_percents > 0 %}<div class="save-title buy-once-content hidden font-bold text-center mbl:text-[3vw] mbl:min-w-[18vw] p-1 px-2 {% if isBFCM %}bfcm-tag text-[16px] rounded-md{% else %}text-white bg-[--primary-color] rounded-full{% endif %}" style="display: none; opacity: 0;">{% if isBFCM %}<span class="block font-normal text-white">Holiday Sale</span>{% endif %}Save {{ var.metafields.custom.save_percents }}%</div>{% endif %}
       {% if var.metafields.custom.info_description %}{% render 'tooltip', SID: SID, linkTitle: '<i class="fa-duotone fa-circle-info text-[--blue] text-[18px]"></i>', title: 'Subscription Terms', description: {{ var.metafields.custom.info_description }}, features: ['Save on every order,Guaranteed delivery,Make changes anytime,VIP support,New subscribers gifs'] %}{% endif %}
     </div>
   </div>
 
   <div class="price-wrapper pb-2">
-    {% if prod.metafields.custom.is_price_per_month and var.price > item_price %}
+    {% if is_price_per_month and var.price > item_price %}
       <div class="total-price-wrapper mb-1 text-[16px]">
         {% assign staticSubscriptionTotalPrice = var.metafields.subscription.price | metafield_text %}
         {% assign dynamicSubscriptionTotalPrice = subscription_total_price | money %}
+
         <span class="total-price subscription-content">Total <span class="floor rounded">{{ staticSubscriptionTotalPrice | default: dynamicSubscriptionTotalPrice }}</span></span>
         <span class="total-price buy-once-content" style="display: none; opacity: 0;">Total <span class="floor rounded">{{ var.price | money }}</span></span>
       </div>
     {% endif %}
 
     <div class="calculations flex items-center gap-2 font-bold leading-10">
-      <div class="real-price no-letters text-[40px] subscription-content"><span class="floor rounded">{% if prod.metafields.custom.is_price_per_month %}{{ subscription_item_price | money }}{% else %}{{ subscription_total_price | money }}{% endif %}</span></div>
-      <div class="real-price no-letters text-[40px] buy-once-content" style="display: none; opacity: 0;"><span class="floor rounded">{% if prod.metafields.custom.is_price_per_month %}{{ item_price | money }}{% else %}{{ var.price | money }}{% endif %}</span></div>
-      <div class="compared-at-price rounded line-through text-[30px] font-normal text-[#baced5]">{% if prod.metafields.custom.is_price_per_month %}{{ original_item_cap | money }}{% else %}{{ original_item_cap_total | money }}{% endif %}</div>
+      <div class="real-price no-letters text-[40px] subscription-content"><span class="floor rounded">{{ final_subscription_price | money }}</span></div>
+      <div class="real-price no-letters text-[40px] buy-once-content" style="display: none; opacity: 0;"><span class="floor rounded">{{ final_price | money }}</span></div>
+      <div class="compared-at-price rounded line-through text-[30px] font-normal text-[#baced5]">{{ final_striked_price | money }}</div>
     </div>
 
-    <div class="per-month font-bold">Per Month</div>
+		{% if is_price_per_month %}<div class="per-month font-bold">Per Month</div>{% endif %}
   </div>
 </div>
