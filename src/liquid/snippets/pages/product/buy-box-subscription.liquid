@@ -24,10 +24,10 @@
 	{% endcase %}
 {% endfor %}
 
-<div class="product-actions {% if isVariantBoxToggle %}with-animation{% endif %}" data-default-variant-index="{{ defaultSelectionIndex }}">
+<div class="product-actions" data-default-variant-index="{{ defaultSelectionIndex }}">
 	<div class="purchase-options flex flex-col gap-2">
 		{% for block in blocks %}
-			{% if block.type == 'variant' %}
+			{% if block.type == 'variant' and block.settings.purchase_type == 'subscription' %}
 				{% assign referenced_variant = blank %}
 				{% assign blockVarID = block.settings.variant_id | plus: 0 %}
 				{% for vari in referenced_variant_product.variants %}
@@ -37,7 +37,7 @@
 					{% endif %}
 				{% endfor %}
 
-				{% render 'product-cta-section-actions-variant-2024-new-4',
+				{% render 'product-cta-section-actions-variant-subscription',
 					SID: SID,
 					prod: referenced_variant_product,
 					var: referenced_variant,
@@ -78,10 +78,7 @@
 									{% assign giftVariant = giftProd.selected_or_first_available_variant %}
 									{% assign giftProdSubscription = block.settings.gift_product_subscription | default: giftProd %}
 									{% assign giftVariantSubscription = giftProdSubscription.selected_or_first_available_variant %}
-									{% assign giftThumb = block.settings.gift_thumbnail
-										| default: giftProdSubscription.featured_image
-										| default: giftProd.featured_image
-									%}
+									{% assign giftThumb = block.settings.gift_thumbnail | default: giftProdSubscription.featured_image | default: giftProd.featured_image %}
 
 									<div class="gift-option-container flex flex-col items-center">
 										<div
@@ -146,9 +143,7 @@
 						Buy Once for {{ firstVariant.price | money }}
 					</div>
 				{% endif %}
-				<p class="text-[14px] italic max-w-[80%] m-auto">
-					For best results, use daily for 3-6 months. Clinical study shows up to 30% reduction in HbA1c.*
-				</p>
+				<p class="text-[14px] italic max-w-[80%] m-auto">For best results, use daily for 3-6 months. Clinical study shows up to 30% reduction in HbA1c.*</p>
 			</div>
 		</div>
 	</div>
@@ -767,13 +762,11 @@
 			grid-area: 2/2/3/3;
 			min-height: 415px;
 
-			&:not(.with-animation) {
-				.purchase-option-box {
-					position: relative;
-					gap: 1rem;
-					max-height: none !important;
-					transition: none !important;
-				}
+			.purchase-option-box {
+				position: relative;
+				gap: 1rem;
+				max-height: none !important;
+				transition: none !important;
 			}
 		}
 
