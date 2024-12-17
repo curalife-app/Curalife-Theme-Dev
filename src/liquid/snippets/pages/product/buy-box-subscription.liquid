@@ -25,9 +25,14 @@
 {% endfor %}
 
 <div class="product-actions" data-default-variant-index="{{ defaultSelectionIndex }}">
+	<p class="text-l mb-2 font-bold">Select your plan and shipping frequency</p>
+	<div class="notice flex text-[--primary] text-[16px] mb-4 gap-2">
+		<span>ⓘ</span>
+		<span>Use daily for 3 months for best results. Up to 30% HbA1c reduction (clinical study).*</span>
+	</div>
 	<div class="purchase-options flex flex-col gap-2">
 		{% comment %}Duration Selection Tabs{% endcomment %}
-		<div class="variant-boxes flex justify-around gap-2 mb-8">
+		<div class="variant-boxes flex justify-around gap-2 mb-4">
 			{% for block in blocks %}
 				{% if block.type == 'variant' and block.settings.purchase_type == 'subscribe' %}
 					{% assign referenced_variant = blank %}
@@ -111,17 +116,17 @@
 			<div class="flex items-end gap-4">
 				<div class="final-price">
 					<span class="font-bold">${{ subscription_item_price | divided_by: 100.00 }}</span>
-					<span>/mo</span>
+					<span class="month-text">/mo</span>
 				</div>
 				<span class="text-gray-500 line-through">${{ original_item_cap | divided_by: 100.00 }}</span>
-				<span class="px-4 py-1 text-white bg-[--bronze] rounded-md">{{ subscription_save_percents }}% OFF</span>
+				<span class="px-4 py-1 text-white bg-[--bronze] rounded-full">{{ subscription_save_percents }}% OFF</span>
 			</div>
-			<p class="mt-2">Total of ${{ subscription_total_price | divided_by: 100.00 }} payable every {{ bottle_quantity }} months for {{ bottle_quantity }} bottles.</p>
+			<div class="mt-2">Total of ${{ subscription_total_price | divided_by: 100.00 }} payable every {{ bottle_quantity }} months for {{ bottle_quantity }} bottles.</div>
 		</div>
 
 		{% if giftsAmount > 0 %}
 			<div class="gift-selector-wrap mb-4">
-				<h3 class="gift-selector-title text-xl text-[--bronze] font-medium mb-4">Your Free Gift</h3>
+				<p class="gift-selector-title text-l text-[--bronze] font-medium mb-4">Your Free Gift</p>
 
 				<div class="gift-options flex flex-col gap-2">
 					{% for block in blocks %}
@@ -148,20 +153,20 @@
 											class="gift-option-border bg-[#F8F9FB] rounded-lg p-4"
 											data-gift-id="{{ giftVariant.id }}"
 											data-gift-id-subscription="{{ giftVariantSubscription.id | default: giftVariant.id }}">
-											<div class="flex items-center gap-4">
-												<div class="gift-image-container flex-shrink-0 w-24 h-24">
+											<div class="flex items-center self-end gap-4 ml-auto" style="width:95%">
+												<div class="gift-image-container flex-shrink-0">
 													<img
-														src="{{ giftThumb | image_url }}"
+														src="{{ giftThumb | image_url: width: 80, height: 80 }}"
 														alt="{{ giftProd.title }}"
 														class="object-contain w-full h-full">
 												</div>
 
 												<div class="gift-content flex-grow">
 													<div class="flex items-center gap-2 mb-1">
-														<h4 class="gift-name text-lg font-medium">{{ giftProd.title | replace: 'Free ', '' }}</h4>
+														<div class="gift-name font-bold">{{ giftProd.title | replace: 'Free ', '' }} - FREE</div>
 														<span class="text-gray-400 line-through">${{ giftVariantSubscription.compare_at_price | money_without_currency }}</span>
 													</div>
-													<p class="text-gray-600">Natural appetite suppressant and weight loss supplement.</p>
+													<div>{{ block.settings.description }}</div>
 												</div>
 
 												<div class="check-indicator w-8 h-8 rounded-full border-2 border-[--primary-color] flex items-center justify-center">
@@ -180,25 +185,25 @@
 		{% endif %}
 
 		<div class="subscription-benefits mb-4">
-			<h2 class="mb-4 text-2xl font-semibold text-teal-700">Subscription benefits:</h2>
-			<ul class="no-style space-y-4">
+			<p class="mb-2 font-semibold text-[--primary]">Subscription benefits:</p>
+			<ul class="no-style mb-0 space-y-4">
 				<li class="flex items-center gap-2">
-					<svg class="w-6 h-6 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<svg class="w-6 h-6 text-[--primary]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
 					</svg>
-					<span class="text-lg text-gray-700">Pause, update, or cancel anytime</span>
+					<span>Pause, update, or cancel anytime</span>
 				</li>
 				<li class="flex items-center gap-2">
-					<svg class="w-6 h-6 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<svg class="w-6 h-6 text-[--primary]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
 					</svg>
-					<span class="text-lg text-gray-700">90-day money-back guarantee</span>
+					<span>90-day money-back guarantee</span>
 				</li>
 				<li class="flex items-center gap-2">
-					<svg class="w-6 h-6 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<svg class="w-6 h-6 text-[--primary]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
 					</svg>
-					<span class="text-lg text-gray-700">Free shipping and delivery protection</span>
+					<span>Free shipping and delivery protection</span>
 				</li>
 			</ul>
 		</div>
@@ -229,12 +234,11 @@
 					{% assign firstVariant = prod.selected_or_first_available_variant %}
 					<div
 						id="one-time-add-to-cart"
-						class="one-time-add-to-cart hover:text-gray-800 mb-2 text-sm font-bold text-gray-600 underline cursor-pointer"
+						class="one-time-add-to-cart mb-2 text-[--primary-color] underline cursor-pointer"
 						data-variant-id="{{ firstVariant.id }}">
-						Buy Once for {{ firstVariant.price | money }}
+						Buy Once for {{ firstVariant.price | money }} + Shipping $10
 					</div>
 				{% endif %}
-				<p class="text-[14px] italic max-w-[80%] m-auto">For best results, use daily for 3-6 months. Clinical study shows up to 30% reduction in HbA1c.*</p>
 			</div>
 		</div>
 	</div>
@@ -255,7 +259,8 @@
 		const buyType = '{{ buyType }}';
 
 		const state = {
-			selectedBox: null
+			selectedBox: null,
+			isInitialLoad: true
 		};
 
 		// Move CTA text for mobile if needed
@@ -263,7 +268,7 @@
 		const purchaseOptions = document.querySelector('#cta-section-{{ SID }} .purchase-options');
 		if (ctaText && purchaseOptions && window.innerWidth < 768) {
 			purchaseOptions.insertAdjacentElement('beforebegin', ctaText);
-			ctaText.classList.add('mbl:mt-0', 'mbl:mb-8');
+			ctaText.classList.add('mbl:mt-0', 'mbl:mb-4');
 		}
 
 		// Gift selection functionality
@@ -280,19 +285,30 @@
 			});
 		}
 
+		// Gift selection functionality
+		const updateGiftSelection = selectedContainer => {
+			giftOptionContainers.forEach(container => {
+				const checkMark = container.querySelector('.check-mark');
+				const isSelected = container === selectedContainer;
+
+				container.classList.toggle('selected', isSelected);
+				if (checkMark) {
+					checkMark.style.display = 'block'; // Ensure the check-mark is displayed
+					checkMark.style.opacity = isSelected ? '1' : '0';
+				}
+			});
+		};
+
+		// Add click handlers to gift containers
 		giftOptionContainers.forEach(container => {
 			container.addEventListener('click', () => {
-				giftOptionContainers.forEach(gift => gift.classList.remove('selected'));
-				container.classList.add('selected');
-				updateRadioIndicator(container);
+				updateGiftSelection(container);
 			});
 		});
 
 		// Initialize first gift as selected
 		if (giftOptionContainers.length > 0) {
-			const firstGift = giftOptionContainers[0];
-			firstGift.classList.add('selected');
-			updateRadioIndicator(firstGift);
+			updateGiftSelection(giftOptionContainers[0]);
 		}
 
 		async function addValidItemsToCart(items) {
@@ -405,40 +421,83 @@
 
 			// Update all price displays
 			priceDisplays.forEach(priceDisplay => {
-				// Add the transition class if not present
-				if (!priceDisplay.classList.contains('price-transition')) {
-					priceDisplay.classList.add('price-transition');
+				// Add transition classes if not present
+				const priceContent = priceDisplay.querySelector('.flex.items-end');
+				const description = priceDisplay.querySelector('.mt-2');
+
+				if (state.isInitialLoad) {
+					// Update without animation on initial load
+					if (priceContent) {
+						const mainPrices = priceContent.querySelectorAll('.font-bold');
+						mainPrices.forEach(price => {
+							price.textContent = `$${subscriptionItemPrice.toFixed(2)}`;
+						});
+
+						const comparePrices = priceContent.querySelectorAll('.text-gray-500.line-through');
+						comparePrices.forEach(price => {
+							price.textContent = `$${originalItemCap.toFixed(2)}`;
+						});
+
+						const discountBadges = priceContent.querySelectorAll('.bg-\\[\\-\\-bronze\\]');
+						discountBadges.forEach(badge => {
+							badge.textContent = `${subscriptionDiscount}% OFF`;
+						});
+					}
+
+					if (description) {
+						description.textContent = `Total of $${subscriptionTotalPrice.toFixed(2)} payable every ${bottleQuantity} months for ${bottleQuantity} bottles.`;
+					}
+				} else {
+					// Normal animated update
+					if (priceContent) {
+						priceContent.classList.add('price-content-transition');
+						priceContent.style.opacity = '0';
+					}
+
+					if (description) {
+						description.classList.add('description-transition');
+						description.style.opacity = '0';
+					}
+
+					setTimeout(() => {
+						// Update values while elements are invisible
+						const mainPrices = priceDisplay.querySelectorAll('.font-bold');
+						mainPrices.forEach(price => {
+							price.textContent = `$${subscriptionItemPrice.toFixed(2)}`;
+						});
+
+						const comparePrices = priceDisplay.querySelectorAll('.text-gray-500.line-through');
+						comparePrices.forEach(price => {
+							price.textContent = `$${originalItemCap.toFixed(2)}`;
+						});
+
+						const discountBadges = priceDisplay.querySelectorAll('.bg-\\[\\-\\-bronze\\]');
+						discountBadges.forEach(badge => {
+							badge.textContent = `${subscriptionDiscount}% OFF`;
+						});
+
+						// Fade in main price content
+						if (priceContent) {
+							requestAnimationFrame(() => {
+								priceContent.style.opacity = '1';
+							});
+						}
+
+						// Update and fade in description with delay
+						if (description) {
+							description.textContent = `Total of $${subscriptionTotalPrice.toFixed(2)} payable every ${bottleQuantity} months for ${bottleQuantity} bottles.`;
+							setTimeout(() => {
+								requestAnimationFrame(() => {
+									description.style.opacity = '1';
+								});
+							}, 150);
+						}
+					}, 200);
 				}
-
-				// Fade out
-				priceDisplay.style.opacity = '0';
-
-				setTimeout(() => {
-					// Update all prices while faded out
-					const mainPrices = priceDisplay.querySelectorAll('.text-5xl, .font-bold');
-					mainPrices.forEach(price => {
-						price.textContent = `$${subscriptionItemPrice.toFixed(2)}`;
-					});
-
-					const comparePrices = priceDisplay.querySelectorAll('.text-gray-500.line-through');
-					comparePrices.forEach(price => {
-						price.textContent = `$${originalItemCap.toFixed(2)}`;
-					});
-
-					const discountBadges = priceDisplay.querySelectorAll('.bg-red-400, .bg-\\[\\-\\-bronze\\]');
-					discountBadges.forEach(badge => {
-						badge.textContent = `${subscriptionDiscount}% OFF`;
-					});
-
-					const totalPrices = priceDisplay.querySelectorAll('.text-lg.text-gray-700');
-					totalPrices.forEach(totalPrice => {
-						totalPrice.textContent = `Total of $${subscriptionTotalPrice.toFixed(2)} payable every ${bottleQuantity} months for ${bottleQuantity} bottles.`;
-					});
-
-					// Fade back in
-					priceDisplay.style.opacity = '1';
-				}, 300);
 			});
+
+			// Reset the initial load flag after first update
+			state.isInitialLoad = false;
 		}
 
 		function togglePurchaseBox(element) {
@@ -551,7 +610,8 @@
 					return;
 				}
 
-				if (!giftOptionBorder) {
+				const selectedGift = document.querySelector('.gift-option-container.selected .gift-option-border');
+				if (!selectedGift) {
 					showNotification('Please select a gift option');
 					return;
 				}
@@ -561,7 +621,7 @@
 				try {
 					const isSubscription = selectedBox.getAttribute('data-purchase-type') === 'subscribe';
 					const variantId = selectedBox.getAttribute('data-variant');
-					const giftId = isSubscription ? giftOptionBorder.dataset.giftIdSubscription : giftOptionBorder.dataset.giftId;
+					const giftId = isSubscription ? selectedGift.dataset.giftIdSubscription : selectedGift.dataset.giftId;
 
 					if (!variantId || !giftId) {
 						throw new Error('Invalid product or gift selection');
@@ -732,34 +792,74 @@
 		}
 
 		.gift-selector-wrap {
-			.gift-option-container {
-				.gift-option-border {
-					cursor: pointer;
-					transition: all 0.3s ease;
-					border: 1px solid #E5E7EB;
+				.gift-option-container {
+						.gift-option-border {
+								cursor: pointer;
+								transition: all 0.3s ease;
+								background-color: white;
+								border: 1px solid var(--primary-color-light);
+								position: relative;
 
-					&:hover {
-						border-color: var(--primary-color);
-						background-color: rgba(74, 157, 119, 0.05);
-					}
+								&:hover {
+										background-color: var(--primary-color-lighter);
+								}
+
+								.gift-option-border > div.flex.items-center.gap-4 {
+										padding-left: 3rem;
+								}
+
+								.gift-image-container {
+										width: 80px;
+										height: 80px;
+										flex-shrink: 0;
+								}
+
+								.check-indicator {
+										position: absolute;
+										left: 3%;
+										top: 50%;
+										transform: translateY(-50%);
+										width: 24px;
+										height: 24px;
+										min-width: 24px;  /* Ensure minimum width */
+										min-height: 24px; /* Ensure minimum height */
+										background-color: var(--primary-color);
+										border-radius: 9999px; /* Ensure perfect circle */
+										display: none;
+										align-items: center;
+										justify-content: center;
+
+										svg.check-mark {
+												width: 16px;
+												height: 16px;
+												min-width: 16px;  /* Ensure minimum width */
+												min-height: 16px; /* Ensure minimum height */
+												color: white;
+												stroke: white;    /* Ensure SVG stroke is white */
+												stroke-width: 2;  /* Make the check mark more visible */
+												fill: none;       /* Remove fill */
+										}
+								}
+
+								.gift-content {
+										flex-grow: 1;
+
+										@media (max-width: 767px) {
+												font-size: 4vw;
+										}
+								}
+						}
+
+						&.selected {
+								.gift-option-border {
+										background-color: var(--primary-color-lighter);
+
+										.check-indicator {
+												display: flex;
+										}
+								}
+						}
 				}
-
-				&.selected {
-					.gift-option-border {
-						border-color: var(--primary-color);
-						background-color: rgba(74, 157, 119, 0.05);
-					}
-
-					.check-mark {
-						opacity: 1;
-					}
-				}
-			}
-
-			.check-mark {
-				opacity: 0;
-				transition: opacity 0.2s ease;
-			}
 		}
 
 		.product-actions {
@@ -884,11 +984,29 @@
 	}
 
 	.price-display {
-			transition: opacity 0.3s ease-in-out;
+			.price-content-transition {
+					transition: opacity 400ms ease-in-out;
+			}
+
+			.description-transition {
+					transition: opacity 400ms ease-in-out;
+			}
+
+			.flex.items-end {
+					will-change: opacity;
+			}
+
+			.mt-2 {
+					will-change: opacity;
+			}
 
 			.final-price {
-				font-size: 30px;
-				color: var(--primary-color);
+					font-size: 30px;
+					color: var(--primary-color);
+
+					.month-text {
+							font-size: 20px;
+					}
 			}
 	}
 </style>
