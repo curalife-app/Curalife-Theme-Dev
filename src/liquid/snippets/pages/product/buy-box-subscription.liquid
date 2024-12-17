@@ -107,21 +107,23 @@
 			{% endfor %}
 		</div>
 
-		<div class="price-display mb-8">
-			<div class="flex items-baseline gap-4">
-				<span class="font-bold text-teal-700">${{ subscription_item_price | divided_by: 100.00 }}</span>
-				<span class="">/mo</span>
+		<div class="price-display mb-4">
+			<div class="flex items-end gap-4">
+				<div class="final-price">
+					<span class="font-bold">${{ subscription_item_price | divided_by: 100.00 }}</span>
+					<span>/mo</span>
+				</div>
 				<span class="text-gray-500 line-through">${{ original_item_cap | divided_by: 100.00 }}</span>
 				<span class="px-4 py-1 text-white bg-[--bronze] rounded-md">{{ subscription_save_percents }}% OFF</span>
 			</div>
-			<p class="mt-2 text-lg text-gray-700">Total of ${{ subscription_total_price | divided_by: 100.00 }} payable every {{ bottle_quantity }} months for {{ bottle_quantity }} bottles.</p>
+			<p class="mt-2">Total of ${{ subscription_total_price | divided_by: 100.00 }} payable every {{ bottle_quantity }} months for {{ bottle_quantity }} bottles.</p>
 		</div>
 
 		{% if giftsAmount > 0 %}
-			<div class="gift-selector-wrap">
-				<div class="gift-selector-title mb-2">Your free gift:</div>
+			<div class="gift-selector-wrap mb-4">
+				<h3 class="gift-selector-title text-xl text-[--bronze] font-medium mb-4">Your Free Gift</h3>
 
-				<div class="gift-options flex-nowrap flex justify-start gap-4">
+				<div class="gift-options flex flex-col gap-2">
 					{% for block in blocks %}
 						{% case block.type %}
 							{% when 'gift' %}
@@ -141,29 +143,32 @@
 									{% assign giftVariantSubscription = giftProdSubscription.selected_or_first_available_variant %}
 									{% assign giftThumb = block.settings.gift_thumbnail | default: giftProdSubscription.featured_image | default: giftProd.featured_image %}
 
-									<div class="gift-option-container flex flex-col items-center">
+									<div class="gift-option-container">
 										<div
-											class="gift-option-border relative w-full p-2 mb-3 border rounded-lg cursor-pointer"
+											class="gift-option-border bg-[#F8F9FB] rounded-lg p-4"
 											data-gift-id="{{ giftVariant.id }}"
 											data-gift-id-subscription="{{ giftVariantSubscription.id | default: giftVariant.id }}">
-											<div class="radio-indicator top-2 right-2 absolute flex items-center justify-center w-6 h-6 rounded-full">
-												<div class="check-mark hidden w-4 h-4 font-bold text-white rounded-full">✓</div>
-											</div>
-											<div class="gift-image-container flex justify-center">
-												<img
-													src="{{ giftThumb | image_url }}"
-													alt="{{ giftProd.title }}"
-													class="object-contain w-24 h-24">
-											</div>
-										</div>
+											<div class="flex items-center gap-4">
+												<div class="gift-image-container flex-shrink-0 w-24 h-24">
+													<img
+														src="{{ giftThumb | image_url }}"
+														alt="{{ giftProd.title }}"
+														class="object-contain w-full h-full">
+												</div>
 
-										<div class="gift-content text-center">
-											<div class="gift-name mb-1 font-medium">{{ giftProd.title | replace: 'Free ', '' }}</div>
-											<div class="gift-price flex items-center justify-center gap-2">
-												<span class="original-price text-gray-500 line-through">
-													{{- giftVariantSubscription.compare_at_price | money_with_currency -}}
-												</span>
-												<span class="sale-price font-bold">FREE</span>
+												<div class="gift-content flex-grow">
+													<div class="flex items-center gap-2 mb-1">
+														<h4 class="gift-name text-lg font-medium">{{ giftProd.title | replace: 'Free ', '' }}</h4>
+														<span class="text-gray-400 line-through">${{ giftVariantSubscription.compare_at_price | money_without_currency }}</span>
+													</div>
+													<p class="text-gray-600">Natural appetite suppressant and weight loss supplement.</p>
+												</div>
+
+												<div class="check-indicator w-8 h-8 rounded-full border-2 border-[--primary-color] flex items-center justify-center">
+													<svg class="check-mark w-5 h-5 text-[--primary-color]" viewBox="0 0 20 20" fill="currentColor">
+														<path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+													</svg>
+												</div>
 											</div>
 										</div>
 									</div>
@@ -174,9 +179,9 @@
 			</div>
 		{% endif %}
 
-		<div class="subscription-benefits mb-8">
+		<div class="subscription-benefits mb-4">
 			<h2 class="mb-4 text-2xl font-semibold text-teal-700">Subscription benefits:</h2>
-			<ul class="space-y-4">
+			<ul class="no-style space-y-4">
 				<li class="flex items-center gap-2">
 					<svg class="w-6 h-6 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
@@ -218,6 +223,7 @@
 					isBuyWithPrime: isBuyWithPrime
 				%}
 			</div>
+
 			<div class="one-time-purchase-link mt-3 text-center">
 				{% if isOneTimePurchaseLink %}
 					{% assign firstVariant = prod.selected_or_first_available_variant %}
@@ -266,9 +272,9 @@
 				const checkMark = container.querySelector('.check-mark');
 				if (checkMark) {
 					if (container === selectedContainer) {
-						checkMark.classList.remove('hidden');
+						checkMark.style.opacity = '1';
 					} else {
-						checkMark.classList.add('hidden');
+						checkMark.style.opacity = '0';
 					}
 				}
 			});
@@ -709,45 +715,50 @@
 		.variant-box {
 			border-width: 2px;
 			border-color: var(--primary-color);
-			pointer: cursor;
+			cursor: pointer;
 			transition: all 0.3s ease;
 			padding: 0.5rem;
-			border-radius: 10px;
+			border-radius: 5px;
 
-			&:hover, &.selected {
+			&:hover {
+				background-color: var(--primary-color);
+				color: white;
+			}
+
+			&.selected {
 				background-color: var(--primary-color);
 				color: white;
 			}
 		}
 
-		.gift-option-container {
-			&.selected {
+		.gift-selector-wrap {
+			.gift-option-container {
 				.gift-option-border {
-					border-color: var(--primary-color);
-					background-color: rgba(var(--primary-color-rgb), 0.05);
+					cursor: pointer;
+					transition: all 0.3s ease;
+					border: 1px solid #E5E7EB;
+
+					&:hover {
+						border-color: var(--primary-color);
+						background-color: rgba(74, 157, 119, 0.05);
+					}
 				}
 
-				.radio-indicator {
-					background-color: var(--primary-color);
-					transition: background-color 0.3s ease;
-				}
+				&.selected {
+					.gift-option-border {
+						border-color: var(--primary-color);
+						background-color: rgba(74, 157, 119, 0.05);
+					}
 
-				.check-mark {
-					display: flex;
+					.check-mark {
+						opacity: 1;
+					}
 				}
 			}
 
-			.gift-option-border {
-				transition: all 0.3s ease;
-				border: 2px solid #e5e7eb;
-				background: #fff;
-				width: 120px;
-				height: 120px;
-
-				&:hover {
-					border-color: var(--primary-color-lighter);
-					box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-				}
+			.check-mark {
+				opacity: 0;
+				transition: opacity 0.2s ease;
 			}
 		}
 
@@ -874,5 +885,10 @@
 
 	.price-display {
 			transition: opacity 0.3s ease-in-out;
+
+			.final-price {
+				font-size: 30px;
+				color: var(--primary-color);
+			}
 	}
 </style>
