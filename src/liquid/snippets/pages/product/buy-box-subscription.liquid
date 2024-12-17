@@ -26,7 +26,8 @@
 
 <div class="product-actions" data-default-variant-index="{{ defaultSelectionIndex }}">
 	<div class="purchase-options flex flex-col gap-2">
-		<div class="variant-boxes flex justify-around gap-2">
+		{% comment %}Duration Selection Tabs{% endcomment %}
+		<div class="variant-boxes flex justify-around gap-2 mb-8">
 			{% for block in blocks %}
 				{% if block.type == 'variant' and block.settings.purchase_type == 'subscribe' %}
 					{% assign referenced_variant = blank %}
@@ -38,24 +39,82 @@
 						{% endif %}
 					{% endfor %}
 
-					{% render 'buy-box-subscription-variant',
-						SID: SID,
-						prod: referenced_variant_product,
-						var: referenced_variant,
-						buyBoxColor: block.settings.box_color,
-						pricePer: pricePer,
-						saveFormat: saveFormat,
-						saveText: block.settings.save_text,
-						badgeText: block.settings.badge_text,
-						variantTitle: block.settings.title,
-						variantDescription: block.settings.variant_description,
-						variantSecondDescription: block.settings.variant_second_description,
-						index: forloop.index,
-						purchase_type: block.settings.purchase_type,
-						buyType: buyType
-					%}
+					{% assign var = referenced_variant %}
+
+					{% comment %} Core Variable Assignments {% endcomment %}
+					{% assign variant_id = var.metafields.custom.reference_variant_id | default: var.id %}
+					{% assign bottle_quantity = var.metafields.my_fields.pack_bottles_quantity %}
+
+					{% comment %} Price Calculations {% endcomment %}
+					{% assign original_item_price = var.metafields.custom.original_item.value.price %}
+					{% assign original_item_cap = var.metafields.custom.original_item.value.compare_at_price | default: original_item_price %}
+					{% assign original_item_cap_total = original_item_cap | times: bottle_quantity %}
+					{% assign item_price = var.price | divided_by: bottle_quantity %}
+
+					{% comment %} Subscription-specific Calculations {% endcomment %}
+					{% assign subscription_save_percents = var.metafields.subscription.save_percents %}
+					{% assign subscription_item_price_save = original_item_cap | times: subscription_save_percents | divided_by: 100 %}
+					{% assign subscription_item_price = original_item_cap | minus: subscription_item_price_save %}
+					{% assign subscription_total_price = subscription_item_price | times: bottle_quantity %}
+
+					{% comment %} Savings Calculations {% endcomment %}
+					{% assign subscription_save_money = original_item_cap | minus: subscription_item_price %}
+					{% assign buy_once_save_money = original_item_cap | minus: item_price %}
+
+					{% comment %} Selling Plan ID Logic {% endcomment %}
+					{% if var.metafields.custom.referenced_variant_product_handle %}
+						{% assign prod = all_products[var.metafields.custom.referenced_variant_product_handle] %}
+						{% assign referenced_variant = prod.variants | where: 'id', variant_id | first %}
+						{% assign selling_plan_id = referenced_variant.metafields.subscription.selling_plan_id | default: variant.metafields.subscription.selling_plan_id %}
+					{% elsif var.metafields.subscription.selling_plan_id %}
+						{% assign selling_plan_id = var.metafields.subscription.selling_plan_id %}
+					{% elsif var.selling_plan_allocations.size > 0 %}
+						{% for allocation in var.selling_plan_allocations %}
+							{% if allocation.selling_plan.name contains bottle_quantity %}
+								{% assign selling_plan_id = allocation.selling_plan.id %}
+							{% endif %}
+						{% endfor %}
+					{% else %}
+						<script>
+							console.log("Didn't find selling plan for the variant");
+						</script>
+					{% endif %}
+
+					<div
+						id="variant-box-{{ SID }}-{{ forloop.index }}"
+						class="variant-box text-center font-bold w-full {% if forloop.index == 1 %}selected{% endif %} {{ block.settings.purchase_type }}"
+						data-variant="{{ block.settings.variant_id }}"
+						data-product="{{ prod.id }}"
+						data-original-variant="{{ var.id }}"
+						data-subscription-selling-plan-id="{{ selling_plan_id }}"
+						data-price="{{ var.price | money_without_currency | replace: ".00", "" }}"
+						data-sku="{{ var.sku }}"
+						data-index="{{ forloop.index }}"
+						data-item-price="{{ item_price }}"
+						data-subscription-item-price="{{ subscription_item_price }}"
+						data-original-item-cap="{{ original_item_cap }}"
+						data-dc="{{ var.metafields.custom.discount_code | base64_encode }}"
+						data-buy-once-discount="{{ var.metafields.custom.save_percents }}"
+						data-subscription-discount="{{ var.metafields.subscription.save_percents }}"
+						data-price-per="{{ pricePer }}"
+						data-bottle-quantity="{{ bottle_quantity }}"
+						data-purchase-type="{{ block.settings.purchase_type }}"
+						data-buy-type="{{ buyType }}"
+						name="variant-box-{{ var.sku }}-{{ purchase_type }}">
+						{{ block.settings.title | default: var.title }}
+					</div>
 				{% endif %}
 			{% endfor %}
+		</div>
+
+		<div class="price-display mb-8">
+			<div class="flex items-baseline gap-4">
+				<span class="font-bold text-teal-700">${{ subscription_item_price | divided_by: 100.00 }}</span>
+				<span class="">/mo</span>
+				<span class="text-gray-500 line-through">${{ original_item_cap | divided_by: 100.00 }}</span>
+				<span class="px-4 py-1 text-white bg-[--bronze] rounded-md">{{ subscription_save_percents }}% OFF</span>
+			</div>
+			<p class="mt-2 text-lg text-gray-700">Total of ${{ subscription_total_price | divided_by: 100.00 }} payable every {{ bottle_quantity }} months for {{ bottle_quantity }} bottles.</p>
 		</div>
 
 		{% if giftsAmount > 0 %}
@@ -115,6 +174,30 @@
 			</div>
 		{% endif %}
 
+		<div class="subscription-benefits mb-8">
+			<h2 class="mb-4 text-2xl font-semibold text-teal-700">Subscription benefits:</h2>
+			<ul class="space-y-4">
+				<li class="flex items-center gap-2">
+					<svg class="w-6 h-6 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+					</svg>
+					<span class="text-lg text-gray-700">Pause, update, or cancel anytime</span>
+				</li>
+				<li class="flex items-center gap-2">
+					<svg class="w-6 h-6 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+					</svg>
+					<span class="text-lg text-gray-700">90-day money-back guarantee</span>
+				</li>
+				<li class="flex items-center gap-2">
+					<svg class="w-6 h-6 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+					</svg>
+					<span class="text-lg text-gray-700">Free shipping and delivery protection</span>
+				</li>
+			</ul>
+		</div>
+
 		<div class="submit-wrap flex flex-col w-full">
 			<div class="checkout-button">
 				{% assign buttonSID = SID | append: '-checkout' %}
@@ -152,57 +235,58 @@
 </div>
 
 <script>
-  document.addEventListener('DOMContentLoaded', () => {
+	document.addEventListener('DOMContentLoaded', () => {
 		const productActions = document.querySelector('#cta-section-{{ SID }} .product-actions');
-		const purchaseOptionBoxes = productActions.querySelectorAll('.purchase-option-box');
+		if (!productActions) return;
+
+		const purchaseOptionBoxes = productActions.querySelectorAll('.variant-box');
 		const submitButton = productActions.querySelector('.checkout-button button');
 		const submitSellingPlanIdInput = document.querySelector('.submit-selling-plan-id');
 		const submitVariantIdInput = document.querySelector('.submit-variant-id');
 		const giftOptionContainers = document.querySelectorAll('.gift-option-container');
 		const SID = '{{ SID }}';
-    window.SID = SID;
+		window.SID = SID;
 		const buyType = '{{ buyType }}';
 
-		const submitButtons = productActions.querySelectorAll('.checkout-button button');
-		// console.log('Number of submit buttons:', submitButtons.length);
-		// console.log('buyType:', buyType);
+		const state = {
+			selectedBox: null
+		};
+
+		// Move CTA text for mobile if needed
+		const ctaText = document.querySelector('#cta-section-{{ SID }} .cta-text');
+		const purchaseOptions = document.querySelector('#cta-section-{{ SID }} .purchase-options');
+		if (ctaText && purchaseOptions && window.innerWidth < 768) {
+			purchaseOptions.insertAdjacentElement('beforebegin', ctaText);
+			ctaText.classList.add('mbl:mt-0', 'mbl:mb-8');
+		}
+
+		// Gift selection functionality
+		function updateRadioIndicator(selectedContainer) {
+			giftOptionContainers.forEach(container => {
+				const checkMark = container.querySelector('.check-mark');
+				if (checkMark) {
+					if (container === selectedContainer) {
+						checkMark.classList.remove('hidden');
+					} else {
+						checkMark.classList.add('hidden');
+					}
+				}
+			});
+		}
 
 		giftOptionContainers.forEach(container => {
-			container.addEventListener('click', function(event) {
+			container.addEventListener('click', () => {
 				giftOptionContainers.forEach(gift => gift.classList.remove('selected'));
 				container.classList.add('selected');
 				updateRadioIndicator(container);
 			});
 		});
 
-		function updateRadioIndicator(selectedContainer) {
-			giftOptionContainers.forEach(container => {
-				const checkMark = container.querySelector('.check-mark');
-				if (container === selectedContainer) {
-					checkMark.classList.remove('hidden');
-				} else {
-					checkMark.classList.add('hidden');
-				}
-			});
-		}
-
-		// Initialize the first gift as selected by default
+		// Initialize first gift as selected
 		if (giftOptionContainers.length > 0) {
 			const firstGift = giftOptionContainers[0];
 			firstGift.classList.add('selected');
 			updateRadioIndicator(firstGift);
-		}
-
-		const state = {
-			selectedBox: null,
-		};
-
-		const ctaText = document.querySelector('#cta-section-{{ SID }} .cta-text');
-		const purchaseOptions = document.querySelector('#cta-section-{{ SID }} .purchase-options');
-		if (ctaText && purchaseOptions && window.innerWidth < 768) {
-			purchaseOptions.insertAdjacentElement('beforebegin', ctaText);
-			ctaText.classList.add('mbl:mt-0');
-			ctaText.classList.add('mbl:mb-8');
 		}
 
 		async function addValidItemsToCart(items) {
@@ -215,8 +299,8 @@
 				// Handle subscription replacement
 				const subscriptionItem = items.find(item => item.selling_plan);
 				if (subscriptionItem) {
-					const selectedBox = document.querySelector('.purchase-option-box.selected');
-					const productId = selectedBox.getAttribute('data-product');
+					const selectedBox = document.querySelector('.variant-box.selected');
+					const productId = selectedBox?.getAttribute('data-product');
 
 					if (productId) {
 						const existingSubscription = currentCart.items.find(cartItem => {
@@ -226,49 +310,14 @@
 						});
 
 						if (existingSubscription) {
-							const updates = { [existingSubscription.key]: 0 };
 							await fetch('/cart/update.js', {
 								method: 'POST',
 								headers: { 'Content-Type': 'application/json' },
-								body: JSON.stringify({ updates })
+								body: JSON.stringify({ updates: { [existingSubscription.key]: 0 } })
 							});
 							currentCart = await (await fetch('/cart.js')).json();
 						}
 					}
-				}
-
-				// Check free gift limits
-				const giftItem = items.find(item => {
-					const giftOptions = document.querySelectorAll('.gift-option-border');
-					return Array.from(giftOptions).some(giftOption => {
-						const giftId = subscriptionItem
-							? giftOption.dataset.giftIdSubscription
-							: giftOption.dataset.giftId;
-						return item.id.toString() === giftId;
-					});
-				});
-
-				if (giftItem) {
-					const giftOptions = document.querySelectorAll('.gift-option-border');
-					const currentFreeItems = currentCart.items.filter(cartItem =>
-						Array.from(giftOptions).some(giftOption => {
-							const giftId = cartItem.selling_plan_allocation
-								? giftOption.dataset.giftIdSubscription
-								: giftOption.dataset.giftId;
-							return cartItem.variant_id.toString() === giftId;
-						})
-					);
-
-					const bfcmDealCount = await countUniqueProductsWithTag(currentCart);
-
-					if (currentFreeItems.length >= bfcmDealCount) {
-						itemsToAdd = items.filter(item => item !== giftItem);
-						showNotification(`You can have up to ${bfcmDealCount} free gift${bfcmDealCount !== 1 ? 's' : ''} (one for each BFCM deal in your cart).`, 'error');
-					}
-				}
-
-				if (itemsToAdd.length === 0) {
-					return { success: false, addedItems: [], failedItems: items };
 				}
 
 				const response = await fetch('/cart/add.js', {
@@ -279,112 +328,111 @@
 
 				if (!response.ok) throw new Error('Failed to add items to cart');
 
-				const addResult = await response.json();
-				console.log('Add items response:', addResult);
-
 				if (subscriptionItem && itemsToAdd.includes(subscriptionItem)) {
 					showNotification('Subscription has been updated in your cart', 'success');
 				} else {
 					showNotification('Items added to cart successfully', 'success');
 				}
 
-				return {
-					success: true,
-					addedItems: itemsToAdd,
-					failedItems: items.filter(item => !itemsToAdd.includes(item))
-				};
-
+				return { success: true, addedItems: itemsToAdd };
 			} catch (error) {
 				console.error('Error in addValidItemsToCart:', error);
 				showNotification('An error occurred while adding items to cart. Please try again.');
-				return { success: false, addedItems: [], failedItems: items };
+				return { success: false, addedItems: [] };
 			}
 		}
 
 		async function countUniqueProductsWithTag(cart) {
 			try {
-				// Use the product title to check for 'Black Friday Week'
 				const uniqueProducts = cart.items.reduce((acc, item) => {
-					if (acc[item.product_id]) {
-						return acc;
-					}
-
+					if (acc[item.product_id]) return acc;
 					const hasBlackFridayWeek = item.title && item.title.includes('Black Friday Week');
-					console.log('Checking item:', item.title, 'Has BF Week:', hasBlackFridayWeek);
-
 					acc[item.product_id] = hasBlackFridayWeek;
 					return acc;
 				}, {});
 
 				const blackFridayWeekCount = Object.values(uniqueProducts).filter(Boolean).length;
-				console.log('Unique products:', uniqueProducts);
-				console.log('Black Friday Week Count:', blackFridayWeekCount);
-
-				// Always allow at least one free gift
 				return Math.max(blackFridayWeekCount, 1);
 			} catch (error) {
 				console.error('Error counting Black Friday Week products:', error);
-				return 1; // Default to 1 if there's an error
+				return 1;
 			}
-		}
-
-		// Helper function to find the corresponding failed validation result
-		function findFailedValidationIndex(validationResults, invalidItemIndex) {
-			let failedCount = 0;
-			for (let i = 0; i < validationResults.length; i++) {
-				if (!validationResults[i].isValid) {
-					if (failedCount === invalidItemIndex) {
-						return i;
-					}
-					failedCount++;
-				}
-			}
-			return -1;
-		}
-
-		function isSubscriptionSelected() {
-			const productActions = document.querySelector('.product-actions');
-			const selectedBox = productActions?.querySelector('.purchase-option-box.selected');
-			return selectedBox?.getAttribute('data-purchase-type') === 'subscribe';
 		}
 
 		function showNotification(message, type = 'error') {
-			if (!{{ isCartNotifications }}) return;
 			const notification = document.createElement('div');
-			notification.className = `cart-notification ${type} fixed bottom-4 left-1/2 transform -translate-x-1/2 p-4 rounded-lg shadow-lg max-w-md z-50 transition-opacity duration-300 z-[2147483640]`;
+			notification.className = `cart-notification ${type} fixed bottom-4 left-1/2 transform -translate-x-1/2 p-4 rounded-lg shadow-lg z-[2147483640] transition-opacity duration-300`;
 
-			// Style based on type
 			if (type === 'error') {
 				notification.classList.add('bg-red-100', 'border', 'border-red-400', 'text-red-700');
 			} else if (type === 'success') {
 				notification.classList.add('bg-green-100', 'border', 'border-green-400', 'text-green-700');
-			} else if (type === 'info') {
-				notification.classList.add('bg-blue-100', 'border', 'border-blue-400', 'text-blue-700');
 			}
 
-			// Add content
 			notification.innerHTML = `
 				<div class="flex items-center">
-					<div class="mr-3">
-						${type === 'error' ? '⚠️' : type === 'success' ? '✅' : 'ℹ️'}
-					</div>
-					<div class="text-sm font-medium">
-						${message}
-					</div>
-					<button class="hover:text-gray-500 ml-auto text-gray-400" onclick="this.parentElement.parentElement.remove()">
-						✕
-					</button>
+					<div class="mr-3">${type === 'error' ? '⚠️' : '✅'}</div>
+					<div class="text-sm font-medium">${message}</div>
+					<button class="hover:text-gray-500 ml-auto text-gray-400" onclick="this.parentElement.parentElement.remove()">✕</button>
 				</div>
 			`;
 
-			// Add to document
 			document.body.appendChild(notification);
-
-			// Remove after 5 seconds
 			setTimeout(() => {
 				notification.classList.add('opacity-0');
 				setTimeout(() => notification.remove(), 300);
 			}, 5000);
+		}
+
+		function updatePriceDisplay(element) {
+			// Get all price displays (there might be multiple)
+			const priceDisplays = document.querySelectorAll('.price-display');
+
+			// Get values from the variant box
+			const subscriptionItemPrice = parseFloat(element.getAttribute('data-subscription-item-price')) / 100;
+			const originalItemCap = parseFloat(element.getAttribute('data-original-item-cap')) / 100;
+			const subscriptionDiscount = parseFloat(element.getAttribute('data-subscription-discount'));
+			const bottleQuantity = parseInt(element.getAttribute('data-bottle-quantity'));
+
+			// Calculate total subscription price
+			const subscriptionTotalPrice = subscriptionItemPrice * bottleQuantity;
+
+			// Update all price displays
+			priceDisplays.forEach(priceDisplay => {
+				// Add the transition class if not present
+				if (!priceDisplay.classList.contains('price-transition')) {
+					priceDisplay.classList.add('price-transition');
+				}
+
+				// Fade out
+				priceDisplay.style.opacity = '0';
+
+				setTimeout(() => {
+					// Update all prices while faded out
+					const mainPrices = priceDisplay.querySelectorAll('.text-5xl, .font-bold');
+					mainPrices.forEach(price => {
+						price.textContent = `$${subscriptionItemPrice.toFixed(2)}`;
+					});
+
+					const comparePrices = priceDisplay.querySelectorAll('.text-gray-500.line-through');
+					comparePrices.forEach(price => {
+						price.textContent = `$${originalItemCap.toFixed(2)}`;
+					});
+
+					const discountBadges = priceDisplay.querySelectorAll('.bg-red-400, .bg-\\[\\-\\-bronze\\]');
+					discountBadges.forEach(badge => {
+						badge.textContent = `${subscriptionDiscount}% OFF`;
+					});
+
+					const totalPrices = priceDisplay.querySelectorAll('.text-lg.text-gray-700');
+					totalPrices.forEach(totalPrice => {
+						totalPrice.textContent = `Total of $${subscriptionTotalPrice.toFixed(2)} payable every ${bottleQuantity} months for ${bottleQuantity} bottles.`;
+					});
+
+					// Fade back in
+					priceDisplay.style.opacity = '1';
+				}, 300);
+			});
 		}
 
 		function togglePurchaseBox(element) {
@@ -393,15 +441,12 @@
 			purchaseOptionBoxes.forEach(box => {
 				box.classList.remove('selected');
 				const radio = box.querySelector('input[type="radio"]');
-				if (radio) {
-					radio.checked = false;
-				}
+				if (radio) radio.checked = false;
 			});
 
 			const isSubscription = element.getAttribute('data-purchase-type') === 'subscribe';
 			const subscriptionPlanID = isSubscription ? element.getAttribute('data-subscription-selling-plan-id') : '';
 			const variantID = element.getAttribute('data-variant');
-			const buyType = element.getAttribute('data-buy-type');
 
 			if (submitSellingPlanIdInput) {
 				submitSellingPlanIdInput.value = subscriptionPlanID;
@@ -417,118 +462,143 @@
 			}
 
 			state.selectedBox = element;
+			updatePriceDisplay(element);
 
 			if (window.hasInitialImageUpdateHappened) {
 				updateVariantImage(element);
-			}
-			else {
+			} else {
 				window.hasInitialImageUpdateHappened = true;
 			}
 		}
 
-		function initializePurchaseOptions() {
-			const defaultVariantIndex = parseInt(productActions.getAttribute('data-default-variant-index')) || 0;
-			const defaultBox = purchaseOptionBoxes[defaultVariantIndex - 1] || purchaseOptionBoxes[0];
+		function updateVariantImage(element) {
+			if (!element?.dataset?.variant) return;
 
-			if (defaultBox) {
-				togglePurchaseBox(defaultBox);
+			const sliderId = `productSliderAllInOne${SID}`;
+			let slider = window[sliderId];
+			const targetVariantId = element.dataset.variant;
+
+			if (!slider?.slides?.length) {
+				return new Promise(resolve => {
+					const checkSlider = setInterval(() => {
+						slider = window[sliderId];
+						if (slider?.slides?.length > 0) {
+							clearInterval(checkSlider);
+							performSlideUpdate(slider, targetVariantId);
+							resolve();
+						}
+					}, 100);
+
+					setTimeout(() => {
+						clearInterval(checkSlider);
+						resolve();
+					}, 5000);
+				});
+			}
+
+			performSlideUpdate(slider, targetVariantId);
+		}
+
+		function performSlideUpdate(slider, targetVariantId) {
+			try {
+				if (!slider || !targetVariantId) return;
+
+				const slideIndex = Array.from(slider.slides).findIndex(slide => slide.getAttribute('data-variant-id') === targetVariantId);
+
+				if (slideIndex !== -1) {
+					slider.update();
+					requestAnimationFrame(() => {
+						slider.slideTo(slideIndex, 300);
+						setTimeout(() => slider.update(), 350);
+					});
+				}
+			} catch (error) {
+				console.error('Error during slide update:', error);
 			}
 		}
 
-		// Event listeners for purchase options
-		productActions.addEventListener('click', (event) => {
+		// Event Listeners
+		productActions.addEventListener('click', event => {
 			const radioInput = event.target.closest('input[type="radio"]');
-			const purchaseOptionBox = event.target.closest('.purchase-option-box');
+			const purchaseOptionBox = event.target.closest('.variant-box');
 
 			if (radioInput) {
-				const parentBox = radioInput.closest('.purchase-option-box');
-				if (parentBox) {
-					event.preventDefault();
-					togglePurchaseBox(parentBox);
-				}
+				event.preventDefault();
+				const parentBox = radioInput.closest('.variant-box');
+				if (parentBox) togglePurchaseBox(parentBox);
 			} else if (purchaseOptionBox) {
 				event.preventDefault();
 				togglePurchaseBox(purchaseOptionBox);
 			}
 		});
 
-		// Radio input change handler
-		productActions.addEventListener('change', (event) => {
-			if (event.target.type === 'radio') {
-				const parentBox = event.target.closest('.purchase-option-box');
-				if (parentBox) {
-					togglePurchaseBox(parentBox);
-				}
-			}
-		});
+		if (submitButton) {
+			submitButton.addEventListener('click', async event => {
+				event.preventDefault();
 
-		submitButton.addEventListener('click', async function(event) {
-			event.preventDefault();
+				const selectedBox = productActions.querySelector('.variant-box.selected');
+				const selectedGiftContainer = document.querySelector('.gift-option-container.selected');
+				const giftOptionBorder = selectedGiftContainer?.querySelector('.gift-option-border');
 
-			const selectedBox = productActions.querySelector('.purchase-option-box.selected');
-			const selectedGiftContainer = document.querySelector('.gift-option-container.selected');
-			const giftOptionBorder = selectedGiftContainer?.querySelector('.gift-option-border');
-
-			if (!selectedBox) {
-				showNotification('Please select a purchase option', 'error');
-				return;
-			}
-
-			if (!giftOptionBorder) {
-				showNotification('Please select a gift option', 'error');
-				return;
-			}
-
-			submitButton.disabled = true;
-
-			try {
-				const isSubscription = selectedBox.getAttribute('data-purchase-type') === 'subscribe';
-				const variantId = selectedBox.getAttribute('data-variant');
-				const giftId = isSubscription ? giftOptionBorder.dataset.giftIdSubscription : giftOptionBorder.dataset.giftId;
-
-				if (!variantId || !giftId) {
-					throw new Error('Invalid product or gift selection');
+				if (!selectedBox) {
+					showNotification('Please select a purchase option');
+					return;
 				}
 
-				const items = [
-					{
-						id: variantId,
-						quantity: 1,
-						selling_plan: isSubscription ? selectedBox.getAttribute('data-subscription-selling-plan-id') : undefined
-					},
-					{
-						id: giftId,
-						quantity: 1
-					}
-				];
+				if (!giftOptionBorder) {
+					showNotification('Please select a gift option');
+					return;
+				}
 
-				if (buyType === 'buy_now') {
-					const cartPopup = document.getElementById('upCart');
-					if (cartPopup) {
-						cartPopup.remove();
+				submitButton.disabled = true;
+
+				try {
+					const isSubscription = selectedBox.getAttribute('data-purchase-type') === 'subscribe';
+					const variantId = selectedBox.getAttribute('data-variant');
+					const giftId = isSubscription ? giftOptionBorder.dataset.giftIdSubscription : giftOptionBorder.dataset.giftId;
+
+					if (!variantId || !giftId) {
+						throw new Error('Invalid product or gift selection');
 					}
 
-					await fetch('/cart/clear.js', { method: 'POST' });
-					await fetch('/cart/add.js', {
-						method: 'POST',
-						headers: { 'Content-Type': 'application/json' },
-						body: JSON.stringify({ items })
-					});
-					window.location.href = '/checkout';
-				} else {
-					await addValidItemsToCart(items);
-				}
-			} catch (error) {
-				console.error('Error:', error);
-				showNotification(error.message || 'Failed to add items to cart', 'error');
-				submitButton.disabled = false;
-			}
-		});
+					const items = [
+						{
+							id: variantId,
+							quantity: 1,
+							selling_plan: isSubscription ? selectedBox.getAttribute('data-subscription-selling-plan-id') : undefined
+						},
+						{
+							id: giftId,
+							quantity: 1
+						}
+					];
 
-		// One-time purchase button handler
+					if (buyType === 'buy_now') {
+						const cartPopup = document.getElementById('upCart');
+						if (cartPopup) cartPopup.remove();
+
+						await fetch('/cart/clear.js', { method: 'POST' });
+						await fetch('/cart/add.js', {
+							method: 'POST',
+							headers: { 'Content-Type': 'application/json' },
+							body: JSON.stringify({ items })
+						});
+						window.location.href = '/checkout';
+					} else {
+						await addValidItemsToCart(items);
+					}
+				} catch (error) {
+					console.error('Error:', error);
+					showNotification(error.message || 'Failed to add items to cart');
+				} finally {
+					submitButton.disabled = false;
+				}
+			});
+		}
+
 		const oneTimePurchaseButton = productActions.querySelector('.one-time-add-to-cart');
 		if (oneTimePurchaseButton) {
-			oneTimePurchaseButton.addEventListener('click', async (event) => {
+			oneTimePurchaseButton.addEventListener('click', async event => {
 				event.preventDefault();
 
 				oneTimePurchaseButton.disabled = true;
@@ -539,37 +609,13 @@
 					const selectedGiftContainer = document.querySelector('.gift-option-container.selected');
 					const giftOptionBorder = selectedGiftContainer?.querySelector('.gift-option-border');
 					const giftId = giftOptionBorder?.dataset.giftId;
-
 					const firstVariantID = oneTimePurchaseButton.getAttribute('data-variant-id');
 
-					{% if buyType == "buy_now" %}
-						// Clear the cart
-						const clearResponse = await fetch('/cart/clear.js', { method: 'POST' });
-						if (!clearResponse.ok) throw new Error('Failed to clear cart');
+					if (buyType === 'buy_now') {
+						await fetch('/cart/clear.js', { method: 'POST' });
 
 						const cartPopup = document.getElementById('upCart');
-						if (cartPopup) {
-							cartPopup.remove();
-						}
-
-						// Wait until the cart is actually empty
-						let cartIsEmpty = false;
-						for (let i = 0; i < 5; i++) { // Try up to 5 times
-							const cartResponse = await fetch('/cart.js');
-							if (!cartResponse.ok) throw new Error('Failed to fetch cart');
-
-							const cartData = await cartResponse.json();
-							if (cartData.item_count === 0) {
-								cartIsEmpty = true;
-								break;
-							}
-							// Wait for 200 milliseconds before checking again
-							await new Promise(resolve => setTimeout(resolve, 200));
-						}
-
-						if (!cartIsEmpty) {
-							throw new Error('Cart is not empty after clearing');
-						}
+						if (cartPopup) cartPopup.remove();
 
 						const itemsToAdd = [
 							{
@@ -593,9 +639,8 @@
 
 						if (!response.ok) throw new Error('Failed to add items to cart');
 
-						// Redirect to checkout
 						window.location.href = '/checkout';
-					{% else %}
+					} else {
 						const itemsToAdd = [
 							{
 								id: firstVariantID,
@@ -618,7 +663,6 @@
 
 						if (!response.ok) throw new Error('Failed to add items to cart');
 
-						// Update the cart UI if necessary
 						if (typeof window.updateCart === 'function') {
 							window.updateCart();
 						}
@@ -628,10 +672,10 @@
 							oneTimePurchaseButton.textContent = originalText;
 							oneTimePurchaseButton.disabled = false;
 						}, 2000);
-					{% endif %}
+					}
 				} catch (error) {
 					console.error('Error:', error);
-					oneTimePurchaseButton.textContent = 'Something went wrong! Please contact us.';
+					oneTimePurchaseButton.textContent = 'Error occurred';
 					setTimeout(() => {
 						oneTimePurchaseButton.textContent = originalText;
 						oneTimePurchaseButton.disabled = false;
@@ -640,70 +684,10 @@
 			});
 		}
 
-    function updateVariantImage(element) {
-				if (!element || !element.dataset.variant) {
-						console.warn('Invalid element or missing data-variant attribute');
-						return;
-				}
-
-				const SID = window.SID || '';
-				const sliderId = `productSliderAllInOne${SID}`;
-				let slider = window[sliderId];
-				const targetVariantId = element.dataset.variant;
-
-				// console.log("sliderId:", sliderId);
-				// console.log("Updating variant image for variant ID:", targetVariantId);
-
-				if (!slider || !slider.slides || !slider.slides.length) {
-						return new Promise((resolve) => {
-								const checkSlider = setInterval(() => {
-										slider = window[sliderId];
-										if (slider && slider.slides && slider.slides.length > 0) {
-												clearInterval(checkSlider);
-												performSlideUpdate(slider, targetVariantId);
-												resolve();
-										}
-								}, 100);
-
-								setTimeout(() => {
-										clearInterval(checkSlider);
-										console.warn('Slider initialization timed out');
-										resolve();
-								}, 5000);
-						});
-				}
-
-				performSlideUpdate(slider, targetVariantId);
-		}
-
-		function performSlideUpdate(slider, targetVariantId) {
-				try {
-						if (!slider || !targetVariantId) {
-								console.warn('Invalid slider or variant ID');
-								return;
-						}
-
-						// Find the slide with matching variant ID
-						const slideIndex = Array.from(slider.slides).findIndex(slide =>
-								slide.getAttribute('data-variant-id') === targetVariantId
-						);
-
-						if (slideIndex !== -1) {
-								slider.update();
-
-								requestAnimationFrame(() => {
-										slider.slideTo(slideIndex, 300);
-
-										setTimeout(() => {
-												slider.update();
-										}, 350);
-								});
-						} else {
-								console.warn(`No slide found with variant ID: ${targetVariantId}`);
-						}
-				} catch (error) {
-						console.error('Error during slide update:', error);
-				}
+		function initializePurchaseOptions() {
+			const defaultVariantIndex = parseInt(productActions.getAttribute('data-default-variant-index')) || 0;
+			const defaultBox = purchaseOptionBoxes[defaultVariantIndex - 1] || purchaseOptionBoxes[0];
+			if (defaultBox) togglePurchaseBox(defaultBox);
 		}
 
 		initializePurchaseOptions();
@@ -722,8 +706,18 @@
 			grid-template-columns: 54% 42% !important;
 		}
 
-		.cta-text {
-			font-size: 16px !important;
+		.variant-box {
+			border-width: 2px;
+			border-color: var(--primary-color);
+			pointer: cursor;
+			transition: all 0.3s ease;
+			padding: 0.5rem;
+			border-radius: 10px;
+
+			&:hover, &.selected {
+				background-color: var(--primary-color);
+				color: white;
+			}
 		}
 
 		.gift-option-container {
@@ -760,13 +754,6 @@
 		.product-actions {
 			grid-area: 2/2/3/3;
 			min-height: 415px;
-
-			.purchase-option-box {
-				position: relative;
-				gap: 1rem;
-				max-height: none !important;
-				transition: none !important;
-			}
 		}
 
 		.one-time-purchase-link {
@@ -783,7 +770,7 @@
 
 			input[type='radio'] {
 				&:hover,
-				.purchase-option-box:hover & {
+				.variant-box:hover & {
 					transform: scale(1.1);
 					cursor: pointer;
 					transition: 0.1s all;
@@ -791,64 +778,8 @@
 			}
 		}
 
-		.purchase-option-box {
-			--box-padding: 1rem;
-			--box-max-height: 72px;
-			background: var(--primary-color-light);
-			border: 1px solid var(--primary-color);
-			cursor: pointer;
-			max-height: var(--box-max-height);
-			filter: drop-shadow(0px 4px 4px rgba(47, 47, 47, 0.1));
-			transition: max-height 0.5s ease-in-out, filter 0.3s, background-color 0.3s, border-width 0.3s;
-			border-radius: 10px;
-			border-color: var(--primary-color);
-			padding: var(--box-padding);
-
-			&:hover {
-				filter: drop-shadow(0px 4px 4px rgba(77, 53, 98, 0.3));
-			}
-
-			&.selected {
-				filter: drop-shadow(0px 4px 4px rgba(77, 53, 98, 0.3));
-				background-color: var(--primary-color);
-				max-height: max-content;
-			}
-
-			&[inert] {
-				max-height: var(--box-max-height) !important;
-				background: #ededed;
-				opacity: 0.6;
-
-				.option-title {
-					color: grey;
-				}
-			}
-
-			.radio-box {
-				align-items: center;
-				display: flex;
-			}
-
-			.save-title {
-				background-color: var(--orange);
-				font-weight: bold;
-			}
-
-			.terms {
-				margin-left: 26px;
-			}
-
-			.price-wrapper {
-				min-width: 5rem;
-
-				.total-price {
-					color: {{ buyBoxColor | default: 'var(--primary-color-dark)' }};
-				}
-			}
-		}
-
 		@media (max-width: 1269px) {
-			.purchase-option-box {
+			.variant-box {
 				width: 100%;
 			}
 		}
@@ -861,7 +792,7 @@
 				min-height: unset;
 			}
 
-			.purchase-option-box {
+			.variant-box {
 				font-size: 4vw;
 				padding: 3vw;
 				max-height: 16vw;
@@ -939,5 +870,9 @@
 				font-size: 3.5vw;
 			}
 		}
+	}
+
+	.price-display {
+			transition: opacity 0.3s ease-in-out;
 	}
 </style>
