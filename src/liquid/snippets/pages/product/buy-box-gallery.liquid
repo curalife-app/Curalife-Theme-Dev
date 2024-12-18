@@ -4,9 +4,9 @@
 
 <div id="product-thumbnails-{{ section.id }}" class="product-thumbnails">
 	<div class="product-slider">
-		<div class="sliders-group">
-			{% unless isHideThumbs %}
-				<div class="thumbs-slider absolute">
+		<div class="sliders-group {% if thumbs == 'horizontal' %}flex flex-col-reverse{% endif %}">
+			{% unless thumbs == 'none' %}
+				<div class="thumbs-slider {% if thumbs == 'vertical' %}absolute{% endif %}">
 					<div id="product-thumbs-slider-nav-prev-{{ section.id }}" class="swiper-nav swiper-button-prev"></div>
 
 					<div id="thumbs-slider-{{ section.id }}" class="swiper">
@@ -16,7 +16,6 @@
 								{% for img in product.images %}
 									<div class="swiper-slide cursor-pointer !h-auto">
 										{% render 'image', image: img, lazy: false, preload: true, alt: img.alt %}
-										{% comment %} <img src="{{ img | image_url }}" alt="{{ img.alt | escape }}" width="" height="" loading="lazy"> {% endcomment %}
 									</div>
 								{% endfor %}
 							{% endif %}
@@ -26,7 +25,6 @@
 								{% if block.type == 'image' %}
 									<div class="swiper-slide cursor-pointer !h-auto">
 										{% render 'image', image: block.settings.product_img, lazy: false, preload: true, alt: block.settings.product_img.alt %}
-										{% comment %} <img src="{{ block.settings.product_img | image_url }}" width="291" height="278" alt="Product Image" loading="lazy"> {% endcomment %}
 									</div>
 								{% elsif block.type == 'video' %}
 									<div class="swiper-slide cursor-pointer !h-auto">
@@ -50,7 +48,7 @@
 				</div>
 			{% endunless %}
 
-			<div class="main-slider {% unless isHideThumbs %} dsk:ml-[160px] {% endunless %}">
+			<div class="main-slider {% unless thumbs == 'none' %} dsk:ml-[160px] {% endunless %}">
 				<div id="product-main-slider-sc-{{ section.id }}" class="swiper">
 					<div class="swiper-wrapper">
 						{% if thumbnailImage %}
@@ -62,7 +60,6 @@
 								{% endif %}
 							</div>
 						{% else %}
-							{% comment %} Render Product Images on Main Slider {% endcomment %}
 							{% if isProductThumbs %}
 								{% for img in product.images %}
 									{% if forloop.index == 1 %}
@@ -173,10 +170,10 @@
 
 <script>
 	document.addEventListener('DOMContentLoaded', function() {
-	  {% unless isHideThumbs %}
+	  {% unless thumbs == 'none' %}
 	    loadSwiper(() => {
 	      window.productThumbsSlider{{ SID }} = initializeSwiper('#thumbs-slider-{{ section.id }}', {
-	        direction: 'vertical',
+					{% if thumbs == 'vertical' %}direction: 'vertical',{% endif %}
 	        spaceBetween: 10,
 	        watchSlidesVisibility: true,
 	        grabCursor: true,
@@ -201,7 +198,7 @@
 
 	  loadSwiper(() => {
 	    window.productSliderAllInOne{{ SID }} = initializeSwiper('#product-main-slider-sc-{{ section.id }}', {
-	      {% unless isHideThumbs %}
+	      {% unless thumbs == 'none' %}
 	      thumbs: {
 	        swiper: window.productThumbsSlider{{ SID }},
 	        multipleActiveThumbs: false
@@ -227,7 +224,7 @@
 	      },
 	      on: {
 	        slideChange: function () {
-	          {% unless isHideThumbs %}
+	          {% unless thumbs == 'none' %}
 	          try {
 	            if (!this.thumbs || !this.thumbs.swiper) return;
 
@@ -362,8 +359,10 @@
 	}
 
 	#product-thumbnails-{{ section.id }} .product-slider .thumbs-slider .swiper-wrapper img {
-	  width: 100px;
-	  height: 100px;
+		--thumb-size: {% if thumbs == 'vartical'%}100px{% else %}150px{% endif %};
+
+	  width: var(--thumb-size);
+	  height: var(--thumb-size);
 	  border-radius: 5px;
 	  border: 1px solid #404733;
 	  object-fit: cover;
