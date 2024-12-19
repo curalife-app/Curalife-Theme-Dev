@@ -160,7 +160,13 @@
 				<span class="text-gray-500 line-through">${{ original_item_cap | divided_by: 100.00 }}</span>
 				<span class="px-4 py-1 text-[16px] font-bold text-white bg-[--bronze] rounded-full">{{ subscription_save_percents }}% OFF</span>
 			</div>
-			<div class="mt-2 text-[16px]">Total of ${{ subscription_total_price | divided_by: 100.00 }} payable every {{ bottle_quantity }} months for {{ bottle_quantity }} bottles.</div>
+			<div class="mt-2 text-[16px]">
+				Total of ${{ subscription_total_price | divided_by: 100.00 }} payable every {{ bottle_quantity }}
+				{% if bottle_quantity > 1 %}months{% else %}month{% endif %}
+				for {{ bottle_quantity }}
+				{% if bottle_quantity > 1 %}bottles{% else %}bottle{% endif %}
+				.
+			</div>
 		</div>
 
 		{% if giftsAmount > 0 %}
@@ -454,6 +460,10 @@
 			// Calculate total subscription price
 			const subscriptionTotalPrice = subscriptionItemPrice * bottleQuantity;
 
+			// Determine singular or plural wording
+			const monthText = bottleQuantity > 1 ? 'months' : 'month';
+			const bottleText = bottleQuantity > 1 ? 'bottles' : 'bottle';
+
 			// Update all price displays
 			priceDisplays.forEach(priceDisplay => {
 				// Add transition classes if not present
@@ -480,7 +490,7 @@
 					}
 
 					if (description) {
-						description.textContent = `Total of $${subscriptionTotalPrice.toFixed(2)} payable every ${bottleQuantity} months for ${bottleQuantity} bottles.`;
+						description.textContent = `Total of $${subscriptionTotalPrice.toFixed(2)} payable every ${bottleQuantity} ${monthText} for ${bottleQuantity} ${bottleText}.`;
 					}
 				} else {
 					// Normal animated update
@@ -520,7 +530,7 @@
 
 						// Update and fade in description with delay
 						if (description) {
-							description.textContent = `Total of $${subscriptionTotalPrice.toFixed(2)} payable every ${bottleQuantity} months for ${bottleQuantity} bottles.`;
+							description.textContent = `Total of $${subscriptionTotalPrice.toFixed(2)} payable every ${bottleQuantity} ${monthText} for ${bottleQuantity} ${bottleText}.`;
 							setTimeout(() => {
 								requestAnimationFrame(() => {
 									description.style.opacity = '1';
@@ -534,6 +544,7 @@
 			// Reset the initial load flag after first update
 			state.isInitialLoad = false;
 		}
+
 
 		function togglePurchaseBox(element) {
 			if (!element) return;

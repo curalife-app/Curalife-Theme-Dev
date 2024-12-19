@@ -1,5 +1,7 @@
 {%- assign variantQuantity = product.variants | size -%}
 {%- assign first_3d_model = product.media | where: 'media_type', 'model' | first -%}
+{%- assign firstImage = product.images.first -%}
+{%- assign main_slider_slide_count = 0 -%}
 
 <div id="product-thumbnails-{{ SID }}" class="product-thumbnails">
 	<div class="product-slider">
@@ -7,16 +9,21 @@
 			{% unless thumbs == 'none' %}
 				<div class="thumbs-slider relative">
 					<div id="product-thumbs-slider-nav-prev-{{ SID }}" class="swiper-nav swiper-button-prev"></div>
-
 					<div id="thumbs-slider-{{ SID }}" class="swiper">
 						<div class="swiper-wrapper">
-							{% comment %} Render Product Images on Thumbs Slider {% endcomment %}
-							{% if isProductThumbs %}
-								{% for img in product.images %}
-									<div class="swiper-slide cursor-pointer !h-auto">
-										{% render 'image', image: img, lazy: false, preload: true, alt: img.alt %}
-									</div>
-								{% endfor %}
+							{% comment %} Render Product Main Thumbnail on Thumbs Slider {% endcomment %}
+							{% if thumbnailImage %}
+								<div class="swiper-slide product-image-slide">
+									{% if request.path contains 'lp-wl-curaslim-360-aff-bogo' %}
+										<img src="{{ "product_image.png" | file_url }}" alt="CuraSlim" loading="lazy">
+									{% else %}
+										{% render 'image', image: thumbnailImage, lazy: false, preload: true, alt: thumbnailImage.alt %}
+									{% endif %}
+								</div>
+							{% else %}
+								<div class="swiper-slide cursor-pointer !h-auto">
+									{% render 'image', image: firstImage, lazy: false, preload: true, alt: img.alt %}
+								</div>
 							{% endif %}
 
 							{% comment %} Render Section Images on Thumbs Slider {% endcomment %}
@@ -31,18 +38,34 @@
 											<img src="{{ block.settings.video_thumbnail | image_url }}" width="720" height="680" alt="" loading="lazy">
 										</div>
 									</div>
+								{% elsif block.type == 'variant' %}
+									{% if isProductThumbs %}
+										{% assign referenced_variant = blank %}
+										{% assign blockVarID = block.settings.variant_id | plus: 0 %}
+										{% for vari in referenced_variant_product.variants %}
+											{% assign currVarID = vari.id | plus: 0 %}
+											{% if currVarID == blockVarID %}
+												{% assign referenced_variant = vari %}
+											{% endif %}
+										{% endfor %}
+										{% assign var = referenced_variant %}
+										<div class="swiper-slide cursor-pointer !h-auto" data-variant-id="{{ var.id }}">
+											{% if var.image %}
+												{% render 'image', image: var.image, lazy: false, preload: true, alt: var.image.alt %}
+											{% endif %}
+										</div>
+									{% endif %}
 								{% endif %}
 							{% endfor %}
 
-							{%- if first_3d_model -%}
+							{% if first_3d_model %}
 								<div class="swiper-slide cursor-pointer !h-auto">
 									<img class="p-1" src="https://cdn.shopify.com/s/files/1/0452/2459/1511/files/single_supp.png?v=1704621391" width="291" height="278" alt="Product Image" loading="lazy">
 									<i class="fa-light fa-360-degrees model-icon"></i>
 								</div>
-							{%- endif -%}
+							{% endif %}
 						</div>
 					</div>
-
 					<div id="product-thumbs-slider-nav-next-{{ SID }}" class="swiper-nav swiper-button-next"></div>
 				</div>
 			{% endunless %}
@@ -50,7 +73,9 @@
 			<div class="main-slider {% if thumbs == 'vertical' %}dsk:ml-[160px]{% endif %}">
 				<div id="product-main-slider-sc-{{ SID }}" class="swiper">
 					<div class="swiper-wrapper">
+						{% comment %} Count and render main slider images {% endcomment %}
 						{% if thumbnailImage %}
+							{% assign main_slider_slide_count = main_slider_slide_count | plus: 1 %}
 							<div class="swiper-slide product-image-slide">
 								{% if request.path contains 'lp-wl-curaslim-360-aff-bogo' %}
 									<img src="{{ "product_image.png" | file_url }}" alt="CuraSlim" loading="lazy">
@@ -59,39 +84,35 @@
 								{% endif %}
 							</div>
 						{% else %}
-							{% if isProductThumbs %}
-								{% for img in product.images %}
-									{% if forloop.index == 1 %}
-										{% assign currentImg = img %}
-										{% assign img = thumbnailImage | default: currentImg %}
-									{% endif %}
+							{% assign main_slider_slide_count = main_slider_slide_count | plus: 1 %}
+							<div class="swiper-slide product-image-slide">
+								{% render 'image', image: firstImage, lazy: false, preload: true, alt: img.alt %}
+							</div>
+						{% endif %}
 
-									<div class="swiper-slide product-image-slide">
-										{% render 'image', image: img, lazy: false, preload: true, alt: img.alt %}
+						{% comment %} Render Section Images on Main Slider and count them {% endcomment %}
+						{% for block in section.blocks %}
+							{% if block.type == 'image' %}
+								{% assign main_slider_slide_count = main_slider_slide_count | plus: 1 %}
+								<div class="swiper-slide image-block-slide">
+									{% render 'image', image: block.settings.product_img, lazy: false, preload: true, alt: block.settings.product_img.alt %}
+								</div>
+							{% elsif block.type == 'video' %}
+								{% assign main_slider_slide_count = main_slider_slide_count | plus: 1 %}
+								<div class="swiper-slide video-block-slide">
+									<div class="product-video">
+										<iframe
+											id="product-video-iframe"
+											src="https://player.vimeo.com/video/{{ block.settings.vimeo_video_id }}?playsinline=0"
+											frameborder="0"
+											mozallowfullscreen
+											webkitallowfullscreen
+											allowfullscreen
+											loading="lazy"></iframe>
 									</div>
-								{% endfor %}
-							{% endif %}
-
-							{% comment %} Render Section Images on Main Slider {% endcomment %}
-							{% for block in section.blocks %}
-								{% if block.type == 'image' %}
-									<div class="swiper-slide image-block-slide">
-										{% render 'image', image: block.settings.product_img, lazy: false, preload: true, alt: block.settings.product_img.alt %}
-									</div>
-								{% elsif block.type == 'video' %}
-									<div class="swiper-slide video-block-slide">
-										<div class="product-video">
-											<iframe
-												id="product-video-iframe"
-												src="https://player.vimeo.com/video/{{ block.settings.vimeo_video_id }}?playsinline=0"
-												frameborder="0"
-												webkitallowfullscreen
-												mozallowfullscreen
-												allowfullscreen
-												loading="lazy"></iframe>
-										</div>
-									</div>
-								{% elsif block.type == 'variant' %}
+								</div>
+							{% elsif block.type == 'variant' %}
+								{% if isProductThumbs %}
 									{% assign referenced_variant = blank %}
 									{% assign blockVarID = block.settings.variant_id | plus: 0 %}
 									{% for vari in referenced_variant_product.variants %}
@@ -100,36 +121,41 @@
 											{% assign referenced_variant = vari %}
 										{% endif %}
 									{% endfor %}
-
 									{% assign var = referenced_variant %}
 
+									{% assign main_slider_slide_count = main_slider_slide_count | plus: 1 %}
 									<div class="swiper-slide variant-image-slide" data-variant-id="{{ var.id }}">
 										{% if var.image %}
 											{% render 'image', image: var.image, lazy: false, preload: true, alt: var.image.alt %}
 										{% endif %}
 									</div>
 								{% endif %}
-							{% endfor %}
+							{% endif %}
+						{% endfor %}
 
-							{%- if first_3d_model -%}
-								<div class="swiper-slide 3d-image-slide">
-									<model-viewer
-										class="w-full h-[500px] md:h-[80vw]"
-										alt="Curalin"
-										src="{{ first_3d_model.sources.first.url }}"
-										poster="//curalife.com/cdn/shop/files/curalinsdsdv.png?v=1704651801"
-										shadow-intensity="1"
-										camera-controls
-										camera-orbit="300deg 80deg"
-										auto-rotate></model-viewer>
-								</div>
-							{%- endif -%}
+						{% if first_3d_model %}
+							{% assign main_slider_slide_count = main_slider_slide_count | plus: 1 %}
+							<div class="swiper-slide 3d-image-slide">
+								<model-viewer
+									class="w-full h-[500px] md:h-[80vw]"
+									alt="Curalin"
+									src="{{ first_3d_model.sources.first.url }}"
+									poster="//curalife.com/cdn/shop/files/curalinsdsdv.png?v=1704651801"
+									shadow-intensity="1"
+									camera-controls
+									camera-orbit="300deg 80deg"
+									auto-rotate></model-viewer>
+							</div>
 						{% endif %}
 					</div>
 
 					<div class="swiper-pagination"></div>
-					<div id="product-main-slider-nav-prev-{{ SID }}" class="swiper-button-prev product-main-slider-nav-prev swiper-nav"></div>
-					<div id="product-main-slider-nav-next-{{ SID }}" class="swiper-button-next product-main-slider-nav-next swiper-nav"></div>
+
+					{% comment %} Only show arrows if more than one slide {% endcomment %}
+					{% if main_slider_slide_count > 1 %}
+						<div id="product-main-slider-nav-prev-{{ SID }}" class="swiper-button-prev product-main-slider-nav-prev swiper-nav"></div>
+						<div id="product-main-slider-nav-next-{{ SID }}" class="swiper-button-next product-main-slider-nav-next swiper-nav"></div>
+					{% endif %}
 				</div>
 			</div>
 		</div>
@@ -138,84 +164,84 @@
 
 <script>
 	document.addEventListener('DOMContentLoaded', function() {
-	  {% unless thumbs == 'none' %}
-	    loadSwiper(() => {
-	      window.productThumbsSlider{{ SID }} = initializeSwiper('#thumbs-slider-{{ SID }}', {
+		{% unless thumbs == 'none' %}
+			loadSwiper(() => {
+				window.productThumbsSlider{{ SID }} = initializeSwiper('#thumbs-slider-{{ SID }}', {
 					{% if thumbs == 'vertical' %}direction: 'vertical',{% endif %}
-	        spaceBetween: 10,
-	        watchSlidesVisibility: true,
-	        grabCursor: true,
-	        slideToClickedSlide: true,
-	        slidesPerView: 3,
-	        watchSlidesProgress: true,
-	        navigation: {
-	          nextEl: '#product-thumbs-slider-nav-next-{{ SID }}',
-	          prevEl: '#product-thumbs-slider-nav-prev-{{ SID }}',
-	          disabledClass: 'disabled'
-	        },
-	        on: {
-	          slideChange: function() {
-	            if (window.productSliderAllInOne{{ SID }}) {
-	              window.productSliderAllInOne{{ SID }}.slideTo(this.activeIndex);
-	            }
-	          }
-	        }
-	      });
-	    });
-	  {% endunless %}
+					spaceBetween: 10,
+					watchSlidesVisibility: true,
+					grabCursor: true,
+					slideToClickedSlide: true,
+					slidesPerView: 3,
+					watchSlidesProgress: true,
+					navigation: {
+						nextEl: '#product-thumbs-slider-nav-next-{{ SID }}',
+						prevEl: '#product-thumbs-slider-nav-prev-{{ SID }}',
+						disabledClass: 'disabled'
+					},
+					on: {
+						slideChange: function() {
+							if (window.productSliderAllInOne{{ SID }}) {
+								window.productSliderAllInOne{{ SID }}.slideTo(this.activeIndex);
+							}
+						}
+					}
+				});
+			});
+		{% endunless %}
 
-	  loadSwiper(() => {
-	    window.productSliderAllInOne{{ SID }} = initializeSwiper('#product-main-slider-sc-{{ SID }}', {
-	      {% unless thumbs == 'none' %}
-	      thumbs: {
-	        swiper: window.productThumbsSlider{{ SID }},
-	        multipleActiveThumbs: false
-	      },
-	      {% endunless %}
-	      slidesPerView: 1,
-	      spaceBetween: 15,
-	      watchSlidesVisibility: true,
-	      grabCursor: false,
-	      slideToClickedSlide: true,
-	      breakpoints: {
-	        0: {
-	          navigation: {
-	            nextEl: '#product-main-slider-nav-next-{{ SID }}',
-	            prevEl: '#product-main-slider-nav-prev-{{ SID }}',
-	            disabledClass: 'disabled'
-	          }
-	        },
-	        760: {
-	          grabCursor: true,
-	          navigation: {}
-	        }
-	      },
-	      on: {
-	        slideChange: function () {
-	          {% unless thumbs == 'none' %}
-	          try {
-	            if (!this.thumbs || !this.thumbs.swiper) return;
+		loadSwiper(() => {
+			window.productSliderAllInOne{{ SID }} = initializeSwiper('#product-main-slider-sc-{{ SID }}', {
+				{% unless thumbs == 'none' %}
+				thumbs: {
+					swiper: window.productThumbsSlider{{ SID }},
+					multipleActiveThumbs: false
+				},
+				{% endunless %}
+				slidesPerView: 1,
+				spaceBetween: 15,
+				watchSlidesVisibility: true,
+				grabCursor: false,
+				slideToClickedSlide: true,
+				breakpoints: {
+					0: {
+						navigation: {
+							nextEl: '#product-main-slider-nav-next-{{ SID }}',
+							prevEl: '#product-main-slider-nav-prev-{{ SID }}',
+							disabledClass: 'disabled'
+						}
+					},
+					760: {
+						grabCursor: true,
+						navigation: {}
+					}
+				},
+				on: {
+					slideChange: function () {
+						{% unless thumbs == 'none' %}
+						try {
+							if (!this.thumbs || !this.thumbs.swiper) return;
 
-	            const thumbsSwiper = this.thumbs.swiper;
-	            if (!thumbsSwiper.slides || thumbsSwiper.slides.length === 0) return;
+							const thumbsSwiper = this.thumbs.swiper;
+							if (!thumbsSwiper.slides || thumbsSwiper.slides.length === 0) return;
 
-	            const activeIndex = this.activeIndex;
-	            const visibleSlidesStart = thumbsSwiper.activeIndex;
-	            const visibleSlidesEnd = visibleSlidesStart + thumbsSwiper.params.slidesPerView;
+							const activeIndex = this.activeIndex;
+							const visibleSlidesStart = thumbsSwiper.activeIndex;
+							const visibleSlidesEnd = visibleSlidesStart + thumbsSwiper.params.slidesPerView;
 
-	            if (activeIndex + 1 >= visibleSlidesEnd) {
-	              thumbsSwiper.slideNext();
-	            } else if (activeIndex < visibleSlidesStart) {
-	              thumbsSwiper.slidePrev();
-	            }
-	          } catch (error) {
-	            console.warn('Thumb navigation error:', error);
-	          }
-	          {% endunless %}
-	        }
-	      }
-	    });
-	  });
+							if (activeIndex + 1 >= visibleSlidesEnd) {
+								thumbsSwiper.slideNext();
+							} else if (activeIndex < visibleSlidesStart) {
+								thumbsSwiper.slidePrev();
+							}
+						} catch (error) {
+							console.warn('Thumb navigation error:', error);
+						}
+						{% endunless %}
+					}
+				}
+			});
+		});
 	});
 </script>
 
