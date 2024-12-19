@@ -72,10 +72,6 @@
 								{% endfor %}
 							{% endif %}
 
-							{% if badgeImage %}
-								{% render 'image', image: img, lazy: false, preload: true, alt: img.alt, class: 'sale-badge' %}
-							{% endif %}
-
 							{% comment %} Render Section Images on Main Slider {% endcomment %}
 							{% for block in section.blocks %}
 								{% if block.type == 'image' %}
@@ -95,6 +91,23 @@
 												loading="lazy"></iframe>
 										</div>
 									</div>
+								{% elsif block.type == 'variant' %}
+									{% assign referenced_variant = blank %}
+									{% assign blockVarID = block.settings.variant_id | plus: 0 %}
+									{% for vari in referenced_variant_product.variants %}
+										{% assign currVarID = vari.id | plus: 0 %}
+										{% if currVarID == blockVarID %}
+											{% assign referenced_variant = vari %}
+										{% endif %}
+									{% endfor %}
+
+									{% assign var = referenced_variant %}
+
+									<div class="swiper-slide variant-image-slide" data-variant-id="{{ var.id }}">
+										{% if var.image %}
+											{% render 'image', image: var.image, lazy: false, preload: true, alt: var.image.alt %}
+										{% endif %}
+									</div>
 								{% endif %}
 							{% endfor %}
 
@@ -111,33 +124,6 @@
 										auto-rotate></model-viewer>
 								</div>
 							{%- endif -%}
-
-							{% comment %} Render Vaiants on Main Slider {% endcomment %}
-							{% if product.variants.size > 1 %}
-								{% for var in product.variants %}
-									<div class="swiper-slide variant-image-slide" data-variant-id="{{ var.id }}">
-										{% if var.image %}
-											{% render 'image', image: var.image, lazy: false, preload: true, alt: var.image.alt %}
-										{% endif %}
-
-										{% if badgeImage %}
-											{% render 'image', image: badgeImage, lazy: false, preload: true, alt: badgeImage.alt, class: 'sale-badge' %}
-										{% endif %}
-									</div>
-								{% endfor %}
-							{% endif %}
-
-							{% if customer.email == 'yotam@curalife.com' %}
-								{% for additionalVariant in product.metafields.custom.additional_variants.value %}
-									<div class="swiper-slide">
-										{% render 'image', image: additionalVariant.image, lazy: false, preload: true, alt: additionalVariant.image.alt %}
-
-										{% if badgeImage %}
-											{% render 'image', image: badgeImage, lazy: false, preload: true, alt: badgeImage.alt, class: 'sale-badge' %}
-										{% endif %}
-									</div>
-								{% endfor %}
-							{% endif %}
 						{% endif %}
 					</div>
 
@@ -251,22 +237,6 @@
 				height: 30%;
 				padding: 0.5rem;
 				background: rgba(255,255,255,0.2);
-			}
-		{% endif %}
-
-		{% if badgeImage %}
-			.sale-badge {
-				position: absolute;
-				top: 10px;
-				right: 50px;
-				width: 100px;
-				z-index: 1;
-
-				@media screen and (max-width: 768px) {
-					top: 0;
-					right: 0;
-					width: 25vw;
-				}
 			}
 		{% endif %}
 

@@ -31,7 +31,6 @@
 		<span>Use daily for 3 months for best results. Clinical studies show up to a 30% reduction in HbA1c*</span>
 	</div>
 	<div class="purchase-options flex flex-col gap-2">
-		{% comment %}Duration Selection Tabs{% endcomment %}
 		<div class="variant-boxes flex justify-around gap-2 mb-4">
 			{% for block in blocks %}
 				{% if block.type == 'variant' and block.settings.purchase_type == 'subscribe' %}
@@ -45,6 +44,9 @@
 					{% endfor %}
 
 					{% assign var = referenced_variant %}
+					<script>
+						console.log("Variant assigned:", {{ var | json }});
+					</script>
 
 					{% comment %} Core Variable Assignments {% endcomment %}
 					{% assign variant_id = var.metafields.custom.reference_variant_id | default: var.id %}
@@ -56,34 +58,71 @@
 					{% assign original_item_cap_total = original_item_cap | times: bottle_quantity %}
 					{% assign item_price = var.price | divided_by: bottle_quantity %}
 
-					{% comment %} Subscription-specific Calculations {% endcomment %}
-					{% assign subscription_save_percents = var.metafields.subscription.save_percents %}
-					{% assign subscription_item_price_save = original_item_cap | times: subscription_save_percents | divided_by: 100 %}
-					{% assign subscription_item_price = original_item_cap | minus: subscription_item_price_save %}
-					{% assign subscription_total_price = subscription_item_price | times: bottle_quantity %}
-
 					{% comment %} Savings Calculations {% endcomment %}
 					{% assign subscription_save_money = original_item_cap | minus: subscription_item_price %}
 					{% assign buy_once_save_money = original_item_cap | minus: item_price %}
 
 					{% comment %} Selling Plan ID Logic {% endcomment %}
 					{% if var.metafields.custom.referenced_variant_product_handle %}
-						{% assign prod = all_products[var.metafields.custom.referenced_variant_product_handle] %}
-						{% assign referenced_variant = prod.variants | where: 'id', variant_id | first %}
 						{% assign selling_plan_id = referenced_variant.metafields.subscription.selling_plan_id | default: variant.metafields.subscription.selling_plan_id %}
 					{% elsif var.metafields.subscription.selling_plan_id %}
 						{% assign selling_plan_id = var.metafields.subscription.selling_plan_id %}
 					{% elsif var.selling_plan_allocations.size > 0 %}
+						{% comment %}If no metafields, get first allocated plan or one matching bottle quantity{% endcomment %}
+						{% assign found_plan = false %}
 						{% for allocation in var.selling_plan_allocations %}
 							{% if allocation.selling_plan.name contains bottle_quantity %}
 								{% assign selling_plan_id = allocation.selling_plan.id %}
+								{% assign found_plan = true %}
+								{% break %}
 							{% endif %}
 						{% endfor %}
-					{% else %}
-						<script>
-							console.log("Didn't find selling plan for the variant");
-						</script>
+						{% if found_plan == false %}
+							{% assign selling_plan_id = var.selling_plan_allocations.first.selling_plan.id %}
+						{% endif %}
 					{% endif %}
+
+					{% assign subscription_save_percents = 0 %}
+					{% assign subscription_item_price = original_item_cap %}
+
+					{% for allocation in var.selling_plan_allocations %}
+						{% assign selling = selling_plan_id | minus: 0 %}
+						{% if allocation.selling_plan.id == selling %}
+							<script>
+								console.log("Found matching allocation:", {
+										allocId: {{ allocation.selling_plan.id }},
+										planId: {{ selling }},
+										price: {{ allocation.price }},
+										comparePrice: {{ allocation.compare_at_price }}
+								});
+							</script>
+							{% if allocation.compare_at_price %}
+								{% assign original_price = allocation.compare_at_price %}
+								{% assign discounted_price = allocation.price %}
+								{% assign subscription_save_percents = original_price | minus: discounted_price | times: 100 | divided_by: original_price %}
+								{% assign mod_5_remainder = subscription_save_percents | modulo: 5 %}
+								{% if mod_5_remainder < 3 %}
+									{% assign subscription_save_percents = subscription_save_percents | minus: mod_5_remainder %}
+								{% else %}
+									{% assign subscription_save_percents = subscription_save_percents | plus: 5 | minus: mod_5_remainder %}
+								{% endif %}
+								{% assign subscription_item_price = discounted_price | divided_by: bottle_quantity %}
+							{% else %}
+								{% assign subscription_save_percents = 0 %}
+								{% assign subscription_item_price = allocation.price | divided_by: bottle_quantity %}
+							{% endif %}
+							<script>
+								console.log("Final calculations:", {
+										originalPrice: {{ original_price }},
+										discountedPrice: {{ discounted_price }},
+										savePercents: {{ subscription_save_percents }},
+										itemPrice: {{ subscription_item_price }}
+								});
+							</script>
+						{% endif %}
+					{% endfor %}
+
+					{% assign subscription_total_price = subscription_item_price | times: bottle_quantity %}
 
 					<div
 						id="variant-box-{{ SID }}-{{ forloop.index }}"
@@ -100,7 +139,7 @@
 						data-original-item-cap="{{ original_item_cap }}"
 						data-dc="{{ var.metafields.custom.discount_code | base64_encode }}"
 						data-buy-once-discount="{{ var.metafields.custom.save_percents }}"
-						data-subscription-discount="{{ var.metafields.subscription.save_percents }}"
+						data-subscription-discount="{{ subscription_save_percents }}"
 						data-price-per="{{ pricePer }}"
 						data-bottle-quantity="{{ bottle_quantity }}"
 						data-purchase-type="{{ block.settings.purchase_type }}"
@@ -166,7 +205,7 @@
 														<div class="gift-name text-[16px] font-bold">{{ giftProd.title | replace: 'Free ', '' }} - FREE</div>
 														<span class="text-gray-400 line-through">${{ giftVariantSubscription.compare_at_price | money_without_currency }}</span>
 													</div>
-													<div style="font-size:14px">{{ block.settings.description }}</div>
+													<div style="font-size: 14px">{{ block.settings.description }}</div>
 												</div>
 
 												<div class="check-indicator w-8 h-8 rounded-full border-2 border-[--primary-color] flex items-center justify-center">
