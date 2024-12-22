@@ -44,9 +44,6 @@
 					{% endfor %}
 
 					{% assign var = referenced_variant %}
-					<script>
-						console.log("Variant assigned:", {{ var | json }});
-					</script>
 
 					{% comment %} Core Variable Assignments {% endcomment %}
 					{% assign variant_id = var.metafields.custom.reference_variant_id | default: var.id %}
@@ -88,14 +85,6 @@
 					{% for allocation in var.selling_plan_allocations %}
 						{% assign selling = selling_plan_id | minus: 0 %}
 						{% if allocation.selling_plan.id == selling %}
-							<script>
-								console.log("Found matching allocation:", {
-										allocId: {{ allocation.selling_plan.id }},
-										planId: {{ selling }},
-										price: {{ allocation.price }},
-										comparePrice: {{ allocation.compare_at_price }}
-								});
-							</script>
 							{% if allocation.compare_at_price %}
 								{% assign original_price = allocation.compare_at_price %}
 								{% assign discounted_price = allocation.price %}
@@ -111,14 +100,6 @@
 								{% assign subscription_save_percents = 0 %}
 								{% assign subscription_item_price = allocation.price | divided_by: bottle_quantity %}
 							{% endif %}
-							<script>
-								console.log("Final calculations:", {
-										originalPrice: {{ original_price }},
-										discountedPrice: {{ discounted_price }},
-										savePercents: {{ subscription_save_percents }},
-										itemPrice: {{ subscription_item_price }}
-								});
-							</script>
 						{% endif %}
 					{% endfor %}
 
@@ -144,7 +125,7 @@
 						data-bottle-quantity="{{ bottle_quantity }}"
 						data-purchase-type="{{ block.settings.purchase_type }}"
 						data-buy-type="{{ buyType }}"
-						name="variant-box-{{ var.sku }}-{{ purchase_type }}">
+						name="track:{{ var.sku }}-subscription">
 						{{ block.settings.title | default: var.title }}
 					</div>
 				{% endif %}
@@ -154,7 +135,7 @@
 		<div class="price-display mb-4">
 			<div class="gap-y-2 flex flex-wrap items-end gap-2">
 				<div class="final-price flex items-center">
-					<span class="font-bold">${{ subscription_item_price | divided_by: 100.00 }}</span>
+					<span class="font-bold leading-none">${{ subscription_item_price | divided_by: 100.00 }}</span>
 					<span class="month-text mt-1">/mo</span>
 				</div>
 				<span class="text-gray-500 line-through">${{ original_item_cap | divided_by: 100.00 }}</span>
@@ -169,122 +150,136 @@
 				.
 			</div>
 		</div>
+	</div>
 
-		{% if giftsAmount > 0 %}
-			<div class="gift-selector-wrap mb-4">
-				<p class="gift-selector-title text-l text-[16px] text-[--bronze] font-medium mb-4">Choose your free gift</p>
+	{% if giftsAmount > 0 %}
+		<div class="gift-selector-wrap mb-4">
+			<p class="gift-selector-title text-l text-[16px] text-[--bronze] font-medium mb-4">Choose your free gift</p>
 
-				<div class="gift-options flex flex-col gap-2">
-					{% for block in blocks %}
-						{% case block.type %}
-							{% when 'gift' %}
-								{% assign show_gift = false %}
-								{% if block.settings.show_on == 'both' %}
-									{% assign show_gift = true %}
-								{% elsif block.settings.show_on == 'global' and isGlobal %}
-									{% assign show_gift = true %}
-								{% elsif block.settings.show_on == 'us' and isGlobal == false %}
-									{% assign show_gift = true %}
-								{% endif %}
+			<div class="gift-options flex flex-col gap-2">
+				{% for block in blocks %}
+					{% case block.type %}
+						{% when 'gift' %}
+							{% assign show_gift = false %}
+							{% if block.settings.show_on == 'both' %}
+								{% assign show_gift = true %}
+							{% elsif block.settings.show_on == 'global' and isGlobal %}
+								{% assign show_gift = true %}
+							{% elsif block.settings.show_on == 'us' and isGlobal == false %}
+								{% assign show_gift = true %}
+							{% endif %}
 
-								{% if show_gift %}
-									{% assign giftProd = block.settings.gift_product %}
-									{% assign giftVariant = giftProd.selected_or_first_available_variant %}
-									{% assign giftProdSubscription = block.settings.gift_product_subscription | default: giftProd %}
-									{% assign giftVariantSubscription = giftProdSubscription.selected_or_first_available_variant %}
-									{% assign giftThumb = block.settings.gift_thumbnail | default: giftProdSubscription.featured_image | default: giftProd.featured_image %}
+							{% if show_gift %}
+								{% assign giftProd = block.settings.gift_product %}
+								{% assign giftVariant = giftProd.selected_or_first_available_variant %}
+								{% assign giftProdSubscription = block.settings.gift_product_subscription | default: giftProd %}
+								{% assign giftVariantSubscription = giftProdSubscription.selected_or_first_available_variant %}
+								{% assign giftThumb = block.settings.gift_thumbnail | default: giftProdSubscription.featured_image | default: giftProd.featured_image %}
 
-									<div class="gift-option-container">
-										<div
-											class="gift-option-border bg-[#F8F9FB] rounded-lg p-2"
-											data-gift-id="{{ giftVariant.id }}"
-											data-gift-id-subscription="{{ giftVariantSubscription.id | default: giftVariant.id }}">
-											<div class="flex items-center self-end gap-2 ml-auto" style="width:93%">
-												<div class="gift-image-container flex-shrink-0">
-													<img
-														src="{{ giftThumb | image_url: width: 80, height: 80 }}"
-														alt="{{ giftProd.title }}"
-														class="object-contain w-full h-full">
+								<div class="gift-option-container">
+									<div
+										class="gift-option-border bg-[#F8F9FB] rounded-lg p-2"
+										data-gift-id="{{ giftVariant.id }}"
+										data-gift-id-subscription="{{ giftVariantSubscription.id | default: giftVariant.id }}">
+										<div class="flex items-center self-end gap-2 ml-auto" style="width:93%">
+											<div class="gift-image-container flex-shrink-0">
+												<img
+													src="{{ giftThumb | image_url: width: 80, height: 80 }}"
+													alt="{{ giftProd.title }}"
+													class="object-contain w-full h-full">
+											</div>
+
+											<div class="gift-content flex-grow">
+												<div class="flex items-center gap-2 mb-1">
+													<div class="gift-name text-[16px] font-bold">{{ giftProd.title | replace: 'Free ', '' }} - FREE</div>
+													<span class="text-gray-400 line-through">${{ giftVariantSubscription.compare_at_price | money_without_currency }}</span>
 												</div>
+												<div style="font-size: 14px">{{ block.settings.description }}</div>
+											</div>
 
-												<div class="gift-content flex-grow">
-													<div class="flex items-center gap-2 mb-1">
-														<div class="gift-name text-[16px] font-bold">{{ giftProd.title | replace: 'Free ', '' }} - FREE</div>
-														<span class="text-gray-400 line-through">${{ giftVariantSubscription.compare_at_price | money_without_currency }}</span>
-													</div>
-													<div style="font-size: 14px">{{ block.settings.description }}</div>
-												</div>
-
-												<div class="check-indicator w-8 h-8 rounded-full border-2 border-[--primary-color] flex items-center justify-center">
-													<svg class="check-mark w-5 h-5 text-[--primary-color]" viewBox="0 0 20 20" fill="currentColor">
-														<path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
-													</svg>
-												</div>
+											<div class="check-indicator w-8 h-8 rounded-full border-2 border-[--primary-color] flex items-center justify-center">
+												<svg class="check-mark w-5 h-5 text-[--primary-color]" viewBox="0 0 20 20" fill="currentColor">
+													<path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+												</svg>
 											</div>
 										</div>
 									</div>
-								{% endif %}
-						{% endcase %}
-					{% endfor %}
-				</div>
+								</div>
+							{% endif %}
+					{% endcase %}
+				{% endfor %}
 			</div>
-		{% endif %}
+		</div>
+	{% endif %}
 
-		<div class="subscription-benefits mb-4">
-			<p class="mb-2 font-semibold text-[--primary]">Subscription benefits</p>
-			<ul class="no-style mb-0 space-y-4">
-				<li class="flex items-center gap-2">
-					<svg class="w-6 h-6 text-[--primary]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-					</svg>
-					<span class="font-semibold text-[16px]">Pause, update, or cancel anytime</span>
-				</li>
-				<li class="flex items-center gap-2">
-					<svg class="w-6 h-6 text-[--primary]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-					</svg>
-					<span class="font-semibold text-[16px]">90-day money-back guarantee</span>
-				</li>
-				<li class="flex items-center gap-2">
-					<svg class="w-6 h-6 text-[--primary]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-					</svg>
-					<span class="font-semibold text-[16px]">Free shipping and delivery protection</span>
-				</li>
-			</ul>
+	<div class="subscription-benefits mb-4">
+		<p class="mb-2 font-semibold text-[--primary] text-[16px]">Subscription benefits</p>
+		<ul class="no-style mb-0 space-y-4">
+			<li class="flex items-center gap-2">
+				<svg class="w-6 h-6 text-[--primary]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+				</svg>
+				<span class="font-semibold text-[16px]">Pause, update, or cancel anytime</span>
+			</li>
+			<li class="flex items-center gap-2">
+				<svg class="w-6 h-6 text-[--primary]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+				</svg>
+				<span class="font-semibold text-[16px]">90-day money-back guarantee</span>
+			</li>
+			<li class="flex items-center gap-2">
+				<svg class="w-6 h-6 text-[--primary]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+				</svg>
+				<span class="font-semibold text-[16px]">Free shipping and delivery protection</span>
+			</li>
+		</ul>
+	</div>
+
+	<div class="submit-wrap flex flex-col w-full">
+		<div class="checkout-button">
+			{% assign buttonSID = SID | append: '-checkout' %}
+			{% if buyType == 'buy_now' %}{% assign ctaButtonTitle = 'Get Started' %}{% else %}{% assign ctaButtonTitle = 'Add To Cart' %}{% endif %}
+
+			{% render 'buy-buttons-new-4',
+				SID: buttonSID,
+				product: prod,
+				variant: '',
+				buttonText: ctaButtonTitle,
+				selling_plan_id: selling_plan_id,
+				product_form_id: product_form_id,
+				buyType: buyType,
+				isBuyWithPrime: isBuyWithPrime
+			%}
 		</div>
 
-		<div class="submit-wrap flex flex-col w-full">
-			<div class="checkout-button">
-				{% assign buttonSID = SID | append: '-checkout' %}
-				{% if buyType == 'buy_now' %}{% assign ctaButtonTitle = 'Get Started' %}{% else %}{% assign ctaButtonTitle = 'Add To Cart' %}{% endif %}
-
-				{% render 'buy-buttons-new-4',
-					SID: buttonSID,
-					product: prod,
-					variant: '',
-					buttonText: ctaButtonTitle,
-					selling_plan_id: selling_plan_id,
-					product_form_id: product_form_id,
-					buyType: buyType,
-					isBuyWithPrime: isBuyWithPrime
-				%}
-			</div>
-
-			<div class="one-time-purchase-link mt-3 text-center">
-				{% if isOneTimePurchaseLink %}
-					{% assign firstVariant = prod.selected_or_first_available_variant %}
-					<div
-						id="one-time-add-to-cart"
-						class="one-time-add-to-cart mb-2 text-[--primary-color] underline cursor-pointer"
-						data-variant-id="{{ firstVariant.id }}">
-						Buy Once for {{ firstVariant.price | money }} + Shipping $10
-					</div>
-				{% endif %}
-			</div>
+		<div class="one-time-purchase-link mt-3 text-center">
+			{% if isOneTimePurchaseLink %}
+				{% assign firstVariant = prod.selected_or_first_available_variant %}
+				<div
+					id="one-time-add-to-cart"
+					class="one-time-add-to-cart mb-2 text-[--primary-color] underline cursor-pointer"
+					data-variant-id="{{ firstVariant.id }}">
+					Buy Once for {{ firstVariant.price | money }} + Shipping $10
+				</div>
+			{% endif %}
 		</div>
 	</div>
 </div>
+
+<script>
+	const productActions = document.querySelector('.product-actions');
+	const subscriptionBenefits = productActions.querySelector('.subscription-benefits');
+	const giftSelectorWrap = productActions.querySelector('.gift-selector-wrap');
+	const ctasection = document.querySelector('#cta-section-{{ SID }}');
+
+	if (ctasection.classList.contains('change-layout')) {
+		if (giftSelectorWrap) productActions.insertAdjacentElement('afterbegin', giftSelectorWrap);
+		if (subscriptionBenefits) productActions.insertAdjacentElement('afterbegin', subscriptionBenefits);
+	} else if (ctasection.classList.contains('change-layout-2')) {
+		if (subscriptionBenefits) productActions.insertAdjacentElement('afterbegin', subscriptionBenefits);
+	}
+</script>
 
 <script>
 	document.addEventListener('DOMContentLoaded', () => {
