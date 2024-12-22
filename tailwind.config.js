@@ -42,5 +42,8 @@ module.exports = {
 	variants: {
 		textColor: ["odd", "even"]
 	},
-	plugins: []
+	modules: {
+		display: ["responsive", "empty"]
+	},
+	plugins: [require("tailwindcss-empty")()]
 };
