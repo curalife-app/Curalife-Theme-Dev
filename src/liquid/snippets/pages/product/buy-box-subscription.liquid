@@ -26,7 +26,7 @@
 
 <div class="product-actions" data-default-variant-index="{{ defaultSelectionIndex }}">
 	<div class="purchase-options flex flex-col gap-2">
-		<p class="text-l mb-2 font-bold text-[16px]">Select your plan and shipping frequency</p>
+		<p class="mb-2 font-semibold text-[18px]">Select Plan & Shipping Frequency</p>
 		{% if variantsNotice != blank %}
 			<div class="notice flex text-[--primary] mb-4 gap-2" style="font-size:15px">
 				<span>ⓘ</span>
@@ -135,7 +135,7 @@
 			{% endfor %}
 		</div>
 
-		<div class="price-display mb-4">
+		<div class="price-display" style="margin-bottom: 1.5rem">
 			<div class="gap-y-2 flex flex-wrap items-end gap-2">
 				<div class="final-price flex items-center">
 					<span class="font-bold leading-none">${{ subscription_item_price | divided_by: 100.00 }}</span>
@@ -157,7 +157,7 @@
 
 	{% if giftsAmount > 0 %}
 		<div class="gift-selector-wrap mb-4">
-			<p class="gift-selector-title text-l text-[16px] text-[--bronze] font-medium mb-4">Choose your free gift</p>
+			<p class="gift-selector-title text-[18px] text-[--bronze] font-medium mb-4">Choose your free gift</p>
 
 			<div class="gift-options flex flex-col gap-2">
 				{% for block in blocks %}
@@ -179,7 +179,7 @@
 								{% assign giftVariantSubscription = giftProdSubscription.selected_or_first_available_variant %}
 								{% assign giftThumb = block.settings.gift_thumbnail | default: giftProdSubscription.featured_image | default: giftProd.featured_image %}
 
-								<div class="gift-option-container clickable" name="track:{{ giftVariant.sku }}-gift">
+								<div class="gift-option-container clickable block" name="track:{{ giftVariant.sku }}-gift">
 									<div
 										class="gift-option-border p-2 rounded-lg"
 										data-gift-id="{{ giftVariant.id }}"
@@ -195,7 +195,7 @@
 											<div class="gift-content flex-grow">
 												<div class="flex items-center gap-2 mb-1">
 													<div class="gift-name text-[16px] font-bold">{{ giftProd.title | replace: 'Free ', '' }} - FREE</div>
-													<span class="text-gray-400 line-through">${{ giftVariantSubscription.compare_at_price | money_without_currency }}</span>
+													<span class="text-gray-600 line-through">${{ giftVariantSubscription.compare_at_price | money_without_currency }}</span>
 												</div>
 												<div class="text-gray-600" style="font-size: 14px">{{ giftProd.metafields.custom.short_description }}</div>
 											</div>
@@ -259,9 +259,17 @@
 		const ctasection = document.querySelector('#cta-section-{{ SID }}');
 		const productActions = ctasection.querySelector('.product-actions');
 		const giftSelectorWrap = productActions.querySelector('.gift-selector-wrap');
+		const ctaText = ctasection.querySelector('.cta-text');
+		const purchaseOptions = productActions.querySelector('.purchase-options');
 
-		if (ctasection.classList.contains('change-layout')) {
-			if (giftSelectorWrap) productActions.insertAdjacentElement('afterbegin', giftSelectorWrap);
+		if (window.innerWidth < 768 && ctaText) {
+			productActions.insertAdjacentElement('afterbegin', ctaText);
+		}
+
+		if (ctasection.classList.contains('change-layout') && giftSelectorWrap) {
+			purchaseOptions.insertAdjacentElement('afterend', giftSelectorWrap);
+		} else {
+			ctaText.insertAdjacentElement('afterend', giftSelectorWrap);
 		}
 	})();
 </script>
@@ -284,14 +292,6 @@
 			selectedBox: null,
 			isInitialLoad: true
 		};
-
-		// Move CTA text for mobile if needed
-		const ctaText = document.querySelector('#cta-section-{{ SID }} .cta-text');
-		const purchaseOptions = document.querySelector('#cta-section-{{ SID }} .purchase-options');
-		if (ctaText && purchaseOptions && window.innerWidth < 768) {
-			purchaseOptions.insertAdjacentElement('beforebegin', ctaText);
-			ctaText.classList.add('mbl:mt-0', 'mbl:mb-4');
-		}
 
 		// Gift selection functionality
 		function updateRadioIndicator(selectedContainer) {
