@@ -25,14 +25,15 @@
 {% endfor %}
 
 <div class="product-actions" data-default-variant-index="{{ defaultSelectionIndex }}">
-	<p class="text-l mb-2 font-bold text-[16px]">Select your plan and shipping frequency</p>
-	{% if variantsNotice != blank %}
-		<div class="notice flex text-[--primary] mb-4 gap-2" style="font-size:15px">
-			<span>ⓘ</span>
-			<span>{{ variantsNotice }}</span>
-		</div>
-	{% endif %}
 	<div class="purchase-options flex flex-col gap-2">
+		<p class="text-l mb-2 font-bold text-[16px]">Select your plan and shipping frequency</p>
+		{% if variantsNotice != blank %}
+			<div class="notice flex text-[--primary] mb-4 gap-2" style="font-size:15px">
+				<span>ⓘ</span>
+				<span>{{ variantsNotice }}</span>
+			</div>
+		{% endif %}
+
 		<div class="variant-boxes flex justify-around gap-2 mb-4">
 			{% for block in blocks %}
 				{% if block.type == 'variant' and block.settings.purchase_type == 'subscribe' %}
@@ -178,7 +179,7 @@
 								{% assign giftVariantSubscription = giftProdSubscription.selected_or_first_available_variant %}
 								{% assign giftThumb = block.settings.gift_thumbnail | default: giftProdSubscription.featured_image | default: giftProd.featured_image %}
 
-								<div class="gift-option-container [&_ *]:pointer-events-none" name="track:{{ giftVariant.sku }}-gift">
+								<div class="gift-option-container clickable" name="track:{{ giftVariant.sku }}-gift">
 									<div
 										class="gift-option-border p-2 rounded-lg"
 										data-gift-id="{{ giftVariant.id }}"
@@ -278,17 +279,19 @@
 </style>
 
 <script>
-	const productActions = document.querySelector('.product-actions');
-	const subscriptionBenefits = productActions.querySelector('.subscription-benefits');
-	const giftSelectorWrap = productActions.querySelector('.gift-selector-wrap');
-	const ctasection = document.querySelector('#cta-section-{{ SID }}');
+	(function () {
+		const ctasection = document.querySelector('#cta-section-{{ SID }}');
+		const productActions = ctasection.querySelector('.product-actions');
+		const subscriptionBenefits = productActions.querySelector('.subscription-benefits');
+		const giftSelectorWrap = productActions.querySelector('.gift-selector-wrap');
 
-	if (ctasection.classList.contains('change-layout')) {
-		if (giftSelectorWrap) productActions.insertAdjacentElement('afterbegin', giftSelectorWrap);
-		if (subscriptionBenefits) productActions.insertAdjacentElement('afterbegin', subscriptionBenefits);
-	} else if (ctasection.classList.contains('change-layout-2')) {
-		if (subscriptionBenefits) productActions.insertAdjacentElement('afterbegin', subscriptionBenefits);
-	}
+		if (ctasection.classList.contains('change-layout')) {
+			if (giftSelectorWrap) productActions.insertAdjacentElement('afterbegin', giftSelectorWrap);
+			if (subscriptionBenefits) productActions.insertAdjacentElement('afterbegin', subscriptionBenefits);
+		} else if (ctasection.classList.contains('change-layout-2')) {
+			if (subscriptionBenefits) productActions.insertAdjacentElement('afterbegin', subscriptionBenefits);
+		}
+	})();
 </script>
 
 <script>
