@@ -197,7 +197,7 @@
 													<div class="gift-name text-[16px] font-bold">{{ giftProd.title | replace: 'Free ', '' }} - FREE</div>
 													<span class="text-gray-600 line-through">${{ giftVariantSubscription.compare_at_price | money_without_currency }}</span>
 												</div>
-												<div class="text-gray-600" style="font-size: 14px">{{ giftProd.metafields.custom.short_description }}</div>
+												<div class="text-gray-600" style="font-size: 14px">{{ block.settings.variant_description | default: giftProd.metafields.custom.short_description }}</div>
 											</div>
 
 											<div class="check-indicator w-8 h-8 rounded-full border-2 border-[--primary-color] flex items-center justify-center">
@@ -253,26 +253,6 @@
 		justify-content: center;
 	}
 </style>
-
-<script>
-	(function () {
-		const ctasection = document.querySelector('#cta-section-{{ SID }}');
-		const productActions = ctasection.querySelector('.product-actions');
-		const giftSelectorWrap = productActions.querySelector('.gift-selector-wrap');
-		const ctaText = ctasection.querySelector('.cta-text');
-		const purchaseOptions = productActions.querySelector('.purchase-options');
-
-		if (window.innerWidth < 768 && ctaText) {
-			productActions.insertAdjacentElement('afterbegin', ctaText);
-		}
-
-		if (ctasection.classList.contains('change-layout') && giftSelectorWrap) {
-			purchaseOptions.insertAdjacentElement('afterend', giftSelectorWrap);
-		} else {
-			ctaText.insertAdjacentElement('afterend', giftSelectorWrap);
-		}
-	})();
-</script>
 
 <script>
 	document.addEventListener('DOMContentLoaded', () => {
@@ -793,6 +773,30 @@
 	});
 </script>
 
+<script>
+	document.addEventListener('DOMContentLoaded', function () {
+		const ctasection = document.querySelector('#cta-section-{{ SID }}');
+		if (!ctasection) return;
+
+		const productActions = ctasection.querySelector('.product-actions');
+		const giftSelectorWrap = productActions ? productActions.querySelector('.gift-selector-wrap') : null;
+		const ctaText = ctasection.querySelector('.cta-text');
+		const purchaseOptions = productActions ? productActions.querySelector('.purchase-options') : null;
+
+		if (!productActions) return;
+
+		if (window.innerWidth < 768 && ctaText) {
+			productActions.insertAdjacentElement('afterbegin', ctaText);
+		}
+
+		if (ctasection.classList.contains('change-layout') && giftSelectorWrap) {
+			purchaseOptions.insertAdjacentElement('afterend', giftSelectorWrap);
+		} else if (ctaText && giftSelectorWrap) {
+			ctaText.insertAdjacentElement('afterend', giftSelectorWrap);
+		}
+	});
+</script>
+
 <style>
 	#cta-section-{{ SID }} {
 		--text-color: #4a5568;
@@ -887,6 +891,12 @@
 										.check-indicator {
 												display: flex;
 										}
+								}
+						}
+
+						&:hover {
+								.gift-option-border {
+										background-color: var(--primary-color-lightest);
 								}
 						}
 				}
