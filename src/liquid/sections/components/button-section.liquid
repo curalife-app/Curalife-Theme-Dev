@@ -44,44 +44,65 @@
 {% if section.settings.is_sticky %}
 	<script>
 		document.addEventListener('DOMContentLoaded', function () {
-			var stickyBar = document.getElementById('sticky-bar');
-			var stickyHideSetting = "{{ section.settings.sticky_hide | default: '' | strip }}";
-			var hideOnElements = stickyHideSetting
+			const stickyBar = document.getElementById('sticky-bar');
+			const stickyHideSetting = "{{ section.settings.sticky_hide | default: '' | strip }}";
+			const hideOnElements = stickyHideSetting
 				.split(',')
-				.map(function (s) {
-					return s.trim();
-				})
-				.filter(function (s) {
-					return s !== '';
-				});
+				.map(s => s.trim())
+				.filter(s => s !== '');
 
-			function checkStickyVisibility() {
-				var shouldHide = false;
+			// Track intersecting elements for visibility state
+			const intersectingElements = new Set();
 
-				if (hideOnElements.length > 0) {
-					hideOnElements.forEach(function (selector) {
-						if (selector) {
-							var elements = document.querySelectorAll(selector);
-							elements.forEach(function (element) {
-								var rect = element.getBoundingClientRect();
-								if (rect.top < window.innerHeight && rect.bottom > 0) {
-									shouldHide = true;
-								}
-							});
+			// Handle visibility based on intersection changes
+			const observer = new IntersectionObserver(
+				entries => {
+					entries.forEach(entry => {
+						if (entry.isIntersecting) {
+							intersectingElements.add(entry.target);
+						} else {
+							intersectingElements.delete(entry.target);
 						}
 					});
+
+					// Set visibility - show when no elements intersect
+					if (intersectingElements.size === 0) {
+						stickyBar.classList.add('visible');
+					} else {
+						stickyBar.classList.remove('visible');
+					}
+				},
+				{
+					threshold: [0, 0.1, 0.2, 0.3],
+					rootMargin: '50px'
+				}
+			);
+
+			// Initialize element tracking
+			function setupVisibilityTracking() {
+				if (hideOnElements.length === 0) {
+					// If no hide elements specified, always show button
+					stickyBar.classList.add('visible');
+					return;
 				}
 
-				if (shouldHide) {
-					stickyBar.classList.remove('visible');
-				} else {
+				hideOnElements.forEach(selector => {
+					if (selector) {
+						const elements = document.querySelectorAll(selector);
+						elements.forEach(element => {
+							observer.observe(element);
+						});
+					}
+				});
+
+				// Set initial visibility
+				if (!document.querySelectorAll(hideOnElements.join(',')).length) {
 					stickyBar.classList.add('visible');
 				}
 			}
 
-			window.addEventListener('scroll', checkStickyVisibility);
-			window.addEventListener('resize', checkStickyVisibility);
-			checkStickyVisibility();
+			// Initialize tracking
+			setupVisibilityTracking();
 		});
 	</script>
 
