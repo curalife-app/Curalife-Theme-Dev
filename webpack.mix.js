@@ -61,7 +61,7 @@ function copyFiles() {
 // Configure Webpack for .liquid files with split chunks
 function configureWebpack() {
 	mix.webpackConfig({
-		stats: { warnings: true, errors: true, children: true },
+		stats: "minimal",
 		optimization: { splitChunks: { chunks: "all" } }
 	});
 	log("Webpack configuration complete.");
@@ -85,6 +85,9 @@ function compileTailwind() {
 // Main build function with caching
 function build() {
 	log("Starting optimized build process...");
+
+	// Disable notifications globally for Mix
+	mix.disableNotifications();
 
 	// Enable cache and versioning in production
 	if (mix.inProduction()) {

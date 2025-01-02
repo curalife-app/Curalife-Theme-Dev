@@ -229,7 +229,9 @@
 				selling_plan_id: selling_plan_id,
 				product_form_id: product_form_id,
 				buyType: buyType,
-				isBuyWithPrime: isBuyWithPrime
+				isBuyWithPrime: isBuyWithPrime,
+				buyboxType: buyboxType,
+				buyboxName: buyboxName
 			%}
 		</div>
 
@@ -599,10 +601,32 @@
 
 		// Updates buy button name attribute with SKU and purchase type
 		function updateBuyButtonName(element) {
-				if (!submitButton) return;
-				const sku = element.getAttribute('data-sku');
-				const purchaseType = element.getAttribute('data-purchase-type');
-				submitButton.setAttribute('name', `track:add|variant-sku:${sku}|purchase-type:${purchaseType}`);
+			if (!submitButton) return;
+
+			const sku = element.getAttribute('data-sku');
+			const purchaseType = element.getAttribute('data-purchase-type');
+
+			// Get current name attribute and parse it
+			const currentName = submitButton.getAttribute('name') || '';
+			const parts = currentName.split('|');
+
+			// Create a map of current parameters
+			const params = {};
+			parts.slice(1).forEach(param => {
+				const [key, value] = param.split(':');
+				if (key) params[key] = value;
+			});
+
+			// Update only specific parameters
+			params['variant-sku'] = sku;
+			params['purchase-type'] = purchaseType;
+
+			// Rebuild name attribute
+			const newName = `track:add|${Object.entries(params)
+				.map(([key, value]) => `${key}:${value}`)
+				.join('|')}`;
+
+			submitButton.setAttribute('name', newName);
 		}
 
 		// Event Listeners
