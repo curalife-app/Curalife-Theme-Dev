@@ -1,10 +1,10 @@
 {% assign referenced_variant_product = prod %}
 
 <div class="product-actions {% if isVariantBoxToggle %}with-animation{% endif %}" data-default-variant-index="{{ defaultSelectionIndex }}">
-  <div class="purchase-options flex flex-col gap-2">
-    {% for block in blocks %}
+	<div class="purchase-options flex flex-col gap-2">
+		{% for block in blocks %}
 			{% case block.type %}
-        {% when 'variant' %}
+				{% when 'variant' %}
 					{% assign referenced_variant = blank %}
 					{% assign blockVarID = block.settings.variant_id | plus: 0 %}
 					{% for vari in referenced_variant_product.variants %}
@@ -15,440 +15,450 @@
 					{% endfor %}
 			{% endcase %}
 
-      {% if block.type == 'variant' %}
-          {% render 'product-cta-section-actions-variant-2024-new-4',
-            SID: SID,
-            prod: referenced_variant_product,
-            var: referenced_variant,
-            buyBoxColor: block.settings.box_color,
-            pricePer: pricePer,
-            saveFormat: saveFormat,
-						saveText: block.settings.save_text,
-            badgeText: block.settings.badge_text,
-            variantTitle: block.settings.title,
-						variantDescription: block.settings.variant_description,
-						variantSecondDescription: block.settings.variant_second_description,
-            index: forloop.index,
-            purchase_type: block.settings.purchase_type,
-            buyType: buyType,
-          %}
-      {% endif %}
-    {% endfor %}
+			{% if block.type == 'variant' %}
+				{% render 'product-cta-section-actions-variant-2024-new-4',
+					SID: SID,
+					prod: referenced_variant_product,
+					var: referenced_variant,
+					buyBoxColor: block.settings.box_color,
+					pricePer: pricePer,
+					saveFormat: saveFormat,
+					saveText: block.settings.save_text,
+					badgeText: block.settings.badge_text,
+					variantTitle: block.settings.title,
+					variantDescription: block.settings.variant_description,
+					variantSecondDescription: block.settings.variant_second_description,
+					index: forloop.index,
+					purchase_type: block.settings.purchase_type,
+					buyType: buyType
+				%}
+			{% endif %}
+		{% endfor %}
 
-    <div class="submit-wrap flex flex-col w-full">
-      <div class="checkout-button">
-        {% assign buttonSID = SID | append: '-checkout' %}
-        {% render 'buy-buttons-new-4', SID: buttonSID, product: prod, variant: '', buttonText: "Add To Cart", selling_plan_id: selling_plan_id, product_form_id: product_form_id, buyType: buyType, isBuyWithPrime: isBuyWithPrime %}
-      </div>
+		<div class="submit-wrap flex flex-col w-full">
+			<div class="checkout-button">
+				{% assign buttonSID = SID | append: '-checkout' %}
+				{% render 'buy-buttons-new-4',
+					SID: buttonSID,
+					product: prod,
+					variant: '',
+					buttonText: 'Add To Cart',
+					selling_plan_id: selling_plan_id,
+					product_form_id: product_form_id,
+					buyType: buyType,
+					isBuyWithPrime: isBuyWithPrime
+				%}
+			</div>
 			<div class="one-time-purchase-link mt-3 text-center">
 				{% if isOneTimePurchaseLink %}
 					<div class="one-time-add-to-cart hover:text-gray-800 mb-2 text-sm font-bold text-gray-600 underline cursor-pointer">Buy Once for $59.90</div>
 				{% endif %}
 				<p class="text-[14px] italic max-w-[80%] m-auto">For best results, use daily for 3-6 months. Clinical study shows up to 30% reduction in HbA1c.*</p>
 			</div>
-    </div>
-  </div>
+		</div>
+	</div>
 </div>
 
 <script>
-  document.addEventListener('DOMContentLoaded', () => {
-    const productActions = document.querySelector('#cta-section-{{ SID }} .product-actions');
-    const SID = productActions.id.split('-').pop();
-    const purchaseOptionBoxes = productActions.querySelectorAll('.purchase-option-box');
-    const submitButton = productActions.querySelector('.checkout-button button');
-    const submitSellingPlanIdInput = document.querySelector('.submit-selling-plan-id');
-    const submitVariantIdInput = document.querySelector('.submit-variant-id');
+	document.addEventListener('DOMContentLoaded', () => {
+		const productActions = document.querySelector('#cta-section-{{ SID }} .product-actions');
+		const SID = productActions.id.split('-').pop();
+		const purchaseOptionBoxes = productActions.querySelectorAll('.purchase-option-box');
+		const submitButton = productActions.querySelector('.checkout-button button');
+		const submitSellingPlanIdInput = document.querySelector('.submit-selling-plan-id');
+		const submitVariantIdInput = document.querySelector('.submit-variant-id');
 
-    const state = {
-      selectedBox: null,
-    };
+		const state = {
+			selectedBox: null
+		};
 
-    const ctaText = document.querySelector('#cta-section-{{ SID }} .cta-text');
-    const purchaseOptions = document.querySelector('#cta-section-{{ SID }} .purchase-options');
+		const ctaText = document.querySelector('#cta-section-{{ SID }} .cta-text');
+		const purchaseOptions = document.querySelector('#cta-section-{{ SID }} .purchase-options');
 		console.log('ctaText', ctaText);
 		console.log('purchaseOptions', purchaseOptions);
 		console.log('window.innerWidth', window.innerWidth);
-    if (ctaText && purchaseOptions && window.innerWidth < 768) {
-      console.log('INSERTING CTA TEXT');
-      purchaseOptions.insertAdjacentElement('beforebegin', ctaText);
+		if (ctaText && purchaseOptions && window.innerWidth < 768) {
+			console.log('INSERTING CTA TEXT');
+			purchaseOptions.insertAdjacentElement('beforebegin', ctaText);
 			ctaText.classList.add('mbl:mt-0');
 			ctaText.classList.add('mbl:mb-8');
-    }
+		}
 
-    function togglePurchaseBox(element) {
-      if (!element) return;
+		function togglePurchaseBox(element) {
+			if (!element) return;
 
-      // Remove selected class and uncheck radio from all boxes
-      purchaseOptionBoxes.forEach(box => {
-        box.classList.remove('selected');
-        const radio = box.querySelector('input[type="radio"]');
-        if (radio) {
-          radio.checked = false;
-        }
-      });
+			// Remove selected class and uncheck radio from all boxes
+			purchaseOptionBoxes.forEach(box => {
+				box.classList.remove('selected');
+				const radio = box.querySelector('input[type="radio"]');
+				if (radio) {
+					radio.checked = false;
+				}
+			});
 
-      const isSubscription = element.getAttribute('data-purchase-type') === 'subscribe';
-      const subscriptionPlanID = isSubscription ? element.getAttribute('data-subscription-selling-plan-id') : '';
-      const variantID = element.getAttribute('data-variant');
-      const buyType = element.getAttribute('data-buy-type');
+			const isSubscription = element.getAttribute('data-purchase-type') === 'subscribe';
+			const subscriptionPlanID = isSubscription ? element.getAttribute('data-subscription-selling-plan-id') : '';
+			const variantID = element.getAttribute('data-variant');
+			const buyType = element.getAttribute('data-buy-type');
 
-      if (submitSellingPlanIdInput) {
-        submitSellingPlanIdInput.value = subscriptionPlanID;
-      }
-      if (submitVariantIdInput) {
-        submitVariantIdInput.value = variantID;
-      }
+			if (submitSellingPlanIdInput) {
+				submitSellingPlanIdInput.value = subscriptionPlanID;
+			}
+			if (submitVariantIdInput) {
+				submitVariantIdInput.value = variantID;
+			}
 
-      element.classList.add('selected');
-      const radioInput = element.querySelector('input[type="radio"]');
-      if (radioInput) {
-        radioInput.checked = true;
-      }
+			element.classList.add('selected');
+			const radioInput = element.querySelector('input[type="radio"]');
+			if (radioInput) {
+				radioInput.checked = true;
+			}
 
-      state.selectedBox = element;
-      // updateSubmitButtonText(isSubscription, buyType);
-    }
+			state.selectedBox = element;
+			// updateSubmitButtonText(isSubscription, buyType);
+		}
 
-    function updateSubmitButtonText(isSubscription, buyType) {
-      const buttonText = submitButton.querySelector('.button-text');
-      if (buttonText) {
-        if (isSubscription) {
-          buttonText.textContent = "Subscribe Now";
-        } else if (buyType === 'buy_now') {
-          buttonText.textContent = "Buy Now";
-        } else {
-          buttonText.textContent = "Add to Cart";
-        }
-      }
-    }
+		function updateSubmitButtonText(isSubscription, buyType) {
+			const buttonText = submitButton.querySelector('.button-text');
+			if (buttonText) {
+				if (isSubscription) {
+					buttonText.textContent = 'Subscribe Now';
+				} else if (buyType === 'buy_now') {
+					buttonText.textContent = 'Buy Now';
+				} else {
+					buttonText.textContent = 'Add to Cart';
+				}
+			}
+		}
 
-    function initializePurchaseOptions() {
-      const defaultVariantIndex = parseInt(productActions.getAttribute('data-default-variant-index')) || 0;
-      const defaultBox = purchaseOptionBoxes[defaultVariantIndex - 1] || purchaseOptionBoxes[0];
+		function initializePurchaseOptions() {
+			const defaultVariantIndex = parseInt(productActions.getAttribute('data-default-variant-index')) || 0;
+			const defaultBox = purchaseOptionBoxes[defaultVariantIndex - 1] || purchaseOptionBoxes[0];
 
-      if (defaultBox) {
-        togglePurchaseBox(defaultBox);
-      }
-    }
+			if (defaultBox) {
+				togglePurchaseBox(defaultBox);
+			}
+		}
 
-    // Handle clicks on the purchase option box
-    productActions.addEventListener('click', (event) => {
-      // Check if clicked on radio input or its parent
-      const radioInput = event.target.closest('input[type="radio"]');
-      const purchaseOptionBox = event.target.closest('.purchase-option-box');
+		// Handle clicks on the purchase option box
+		productActions.addEventListener('click', event => {
+			// Check if clicked on radio input or its parent
+			const radioInput = event.target.closest('input[type="radio"]');
+			const purchaseOptionBox = event.target.closest('.purchase-option-box');
 
-      if (radioInput) {
-        // If radio input was clicked, find its parent purchase option box
-        const parentBox = radioInput.closest('.purchase-option-box');
-        if (parentBox) {
-          event.preventDefault(); // Prevent default radio behavior
-          togglePurchaseBox(parentBox);
-        }
-      } else if (purchaseOptionBox) {
-        // If purchase option box was clicked
-        event.preventDefault();
-        togglePurchaseBox(purchaseOptionBox);
-      }
-    });
+			if (radioInput) {
+				// If radio input was clicked, find its parent purchase option box
+				const parentBox = radioInput.closest('.purchase-option-box');
+				if (parentBox) {
+					event.preventDefault(); // Prevent default radio behavior
+					togglePurchaseBox(parentBox);
+				}
+			} else if (purchaseOptionBox) {
+				// If purchase option box was clicked
+				event.preventDefault();
+				togglePurchaseBox(purchaseOptionBox);
+			}
+		});
 
-    // Add change event listener for radio inputs
-    productActions.addEventListener('change', (event) => {
-      if (event.target.type === 'radio') {
-        const parentBox = event.target.closest('.purchase-option-box');
-        if (parentBox) {
-          togglePurchaseBox(parentBox);
-        }
-      }
-    });
+		// Add change event listener for radio inputs
+		productActions.addEventListener('change', event => {
+			if (event.target.type === 'radio') {
+				const parentBox = event.target.closest('.purchase-option-box');
+				if (parentBox) {
+					togglePurchaseBox(parentBox);
+				}
+			}
+		});
 
-    // Handle one-time purchase button click
-    const oneTimePurchaseButton = productActions.querySelector('.one-time-add-to-cart');
-    if (oneTimePurchaseButton) {
-      oneTimePurchaseButton.addEventListener('click', async (event) => {
-        event.preventDefault();
+		// Handle one-time purchase button click
+		const oneTimePurchaseButton = productActions.querySelector('.one-time-add-to-cart');
+		if (oneTimePurchaseButton) {
+			oneTimePurchaseButton.addEventListener('click', async event => {
+				event.preventDefault();
 
-        // Disable button during request
-        oneTimePurchaseButton.disabled = true;
-        const originalText = oneTimePurchaseButton.textContent;
-        oneTimePurchaseButton.textContent = 'Adding...';
+				// Disable button during request
+				oneTimePurchaseButton.disabled = true;
+				const originalText = oneTimePurchaseButton.textContent;
+				oneTimePurchaseButton.textContent = 'Adding...';
 
-        try {
-          const response = await fetch('/cart/add.js', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              items: [{
-                id: 42865141121175,
-                quantity: 1
-              }]
-            })
-          });
+				try {
+					const response = await fetch('/cart/add.js', {
+						method: 'POST',
+						headers: {
+							'Content-Type': 'application/json'
+						},
+						body: JSON.stringify({
+							items: [
+								{
+									id: 42865141121175,
+									quantity: 1
+								}
+							]
+						})
+					});
 
-          if (!response.ok) {
-            throw new Error('Network response was not ok');
-          }
+					if (!response.ok) {
+						throw new Error('Network response was not ok');
+					}
 
-          if (typeof window.updateCart === 'function') {
-            window.updateCart();
-          }
+					if (typeof window.updateCart === 'function') {
+						window.updateCart();
+					}
 
-          // Show success state briefly
-          oneTimePurchaseButton.textContent = 'Added!';
-          setTimeout(() => {
-            oneTimePurchaseButton.textContent = originalText;
-            oneTimePurchaseButton.disabled = false;
-          }, 2000);
+					// Show success state briefly
+					oneTimePurchaseButton.textContent = 'Added!';
+					setTimeout(() => {
+						oneTimePurchaseButton.textContent = originalText;
+						oneTimePurchaseButton.disabled = false;
+					}, 2000);
+				} catch (error) {
+					console.error('Error:', error);
+					oneTimePurchaseButton.textContent = 'Something went wrong! Please contact us.';
+					setTimeout(() => {
+						oneTimePurchaseButton.textContent = originalText;
+						oneTimePurchaseButton.disabled = false;
+					}, 2000);
+				}
+			});
+		}
 
-        } catch (error) {
-          console.error('Error:', error);
-          oneTimePurchaseButton.textContent = 'Something went wrong! Please contact us.';
-          setTimeout(() => {
-            oneTimePurchaseButton.textContent = originalText;
-            oneTimePurchaseButton.disabled = false;
-          }, 2000);
-        }
-      });
-    }
-
-    initializePurchaseOptions();
-  });
+		initializePurchaseOptions();
+	});
 </script>
 
 <style>
-  /* Product Actions Styles */
-  #cta-section-{{ SID }} {
-    --primary-color: {{ buyBoxColor }};
-    --primary-color-dark: color-mix(in srgb, var(--primary-color), black 20%);
-    --primary-color-light: color-mix(in srgb, var(--primary-color), white 90%);
-    --text-color: #4a5568;
-    --border-color: #cbcbcb;
-    --radio-size: 1em;
-    --radio-size-mobile: 1em;
-    --transition-speed: 0.2s;
+	/* Product Actions Styles */
+	#cta-section-{{ SID }} {
+	  --primary-color: {{ buyBoxColor }};
+	  --primary-color-dark: color-mix(in srgb, var(--primary-color), black 20%);
+	  --primary-color-light: color-mix(in srgb, var(--primary-color), white 90%);
+	  --text-color: #4a5568;
+	  --border-color: #cbcbcb;
+	  --radio-size: 1em;
+	  --radio-size-mobile: 1em;
+	  --transition-speed: 0.2s;
 
-    /* Grid Layout */
-    .product-container {
-      grid-template-columns: 54% 42% !important;
-    }
+	  /* Grid Layout */
+	  .buy-box {
+	    grid-template-columns: 54% 42% !important;
+	  }
 
-		.cta-text {
-			font-size: 16px !important;
-		}
+	.cta-text {
+		font-size: 16px !important;
+	}
 
-    .product-actions {
-      grid-area: 2/2/3/3;
-      min-height: 415px;
+	  .product-actions {
+	    grid-area: 2/2/3/3;
+	    min-height: 415px;
 
-      &:not(.with-animation) .purchase-option-box {
-				position: relative;
-				gap: 1rem;
-        max-height: none !important;
-        transition: none !important;
-      }
-    }
+	    &:not(.with-animation) .purchase-option-box {
+			position: relative;
+			gap: 1rem;
+	      max-height: none !important;
+	      transition: none !important;
+	    }
+	  }
 
-    /* One Time Purchase Link */
-    .one-time-purchase-link a {
-      transition: color 0.3s ease;
-    }
+	  /* One Time Purchase Link */
+	  .one-time-purchase-link a {
+	    transition: color 0.3s ease;
+	  }
 
-    /* Radio Input Component */
-    .radio-input {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      position: relative;
+	  /* Radio Input Component */
+	  .radio-input {
+	    display: flex;
+	    align-items: center;
+	    justify-content: center;
+	    position: relative;
 
-      input[type='radio'] {
-        &:hover,
-        .purchase-option-box:hover & {
-          transform: scale(1.1);
-          cursor: pointer;
-					transition: 0.1s all;
-        }
-      }
-    }
+	    input[type='radio'] {
+	      &:hover,
+	      .purchase-option-box:hover & {
+	        transform: scale(1.1);
+	        cursor: pointer;
+				transition: 0.1s all;
+	      }
+	    }
+	  }
 
-    /* Purchase Type Buttons */
-    .purchase-type {
-      button {
-        background-color: var(--primary-color);
-        color: black;
-        border-radius: 5px;
-        font-size: 16px;
-        min-width: 49%;
-        padding: 0.65rem;
-        transition: background-color 0.3s, color 0.3s;
-        font-weight: 600;
+	  /* Purchase Type Buttons */
+	  .purchase-type {
+	    button {
+	      background-color: var(--primary-color);
+	      color: black;
+	      border-radius: 5px;
+	      font-size: 16px;
+	      min-width: 49%;
+	      padding: 0.65rem;
+	      transition: background-color 0.3s, color 0.3s;
+	      font-weight: 600;
 
-        &.selected {
-          color: white !important;
-        }
+	      &.selected {
+	        color: white !important;
+	      }
 
-        &:not(.selected) {
-          background: var(--primary-color-light);
-          border: 1px solid var(--primary-color);
+	      &:not(.selected) {
+	        background: var(--primary-color-light);
+	        border: 1px solid var(--primary-color);
 
-          .subscription-details {
-            color: var(--primary-color-dark);
-          }
-        }
-      }
-    }
+	        .subscription-details {
+	          color: var(--primary-color-dark);
+	        }
+	      }
+	    }
+	  }
 
-    /* Purchase Option Box */
-    .purchase-option-box {
-      --box-padding: 1rem;
-      --box-max-height: 72px;
+	  /* Purchase Option Box */
+	  .purchase-option-box {
+	    --box-padding: 1rem;
+	    --box-max-height: 72px;
 
-      background: #fff;
-      border: 1px solid var(--border-color);
-      cursor: pointer;
-      max-height: var(--box-max-height);
-      filter: drop-shadow(0px 4px 4px rgba(47, 47, 47, 0.1));
-      transition: max-height 0.5s ease-in-out, filter 0.3s, background-color 0.3s, border-width 0.3s;
-      border-radius: 10px;
-      border-color: var(--primary-color);
-      padding: var(--box-padding);
+	    background: #fff;
+	    border: 1px solid var(--border-color);
+	    cursor: pointer;
+	    max-height: var(--box-max-height);
+	    filter: drop-shadow(0px 4px 4px rgba(47, 47, 47, 0.1));
+	    transition: max-height 0.5s ease-in-out, filter 0.3s, background-color 0.3s, border-width 0.3s;
+	    border-radius: 10px;
+	    border-color: var(--primary-color);
+	    padding: var(--box-padding);
 
-      &:hover {
-        filter: drop-shadow(0px 4px 4px rgba(77, 53, 98, 0.3));
-      }
+	    &:hover {
+	      filter: drop-shadow(0px 4px 4px rgba(77, 53, 98, 0.3));
+	    }
 
-      &.selected {
-        filter: drop-shadow(0px 4px 4px rgba(77, 53, 98, 0.3));
-        background-color: var(--primary-color-light);
-        max-height: max-content;
-      }
+	    &.selected {
+	      filter: drop-shadow(0px 4px 4px rgba(77, 53, 98, 0.3));
+	      background-color: var(--primary-color-light);
+	      max-height: max-content;
+	    }
 
-      &[inert] {
-        max-height: var(--box-max-height) !important;
-        background: #ededed;
-        opacity: 0.6;
+	    &[inert] {
+	      max-height: var(--box-max-height) !important;
+	      background: #ededed;
+	      opacity: 0.6;
 
-        .option-title {
-          color: grey;
-        }
-      }
+	      .option-title {
+	        color: grey;
+	      }
+	    }
 
-      .radio-box {
-        align-items: center;
-        display: flex;
-      }
+	    .radio-box {
+	      align-items: center;
+	      display: flex;
+	    }
 
-      /* Price and Terms Styling */
-      .save-title {
-        background-color: var(--orange);
-        font-weight: bold;
-      }
+	    /* Price and Terms Styling */
+	    .save-title {
+	      background-color: var(--orange);
+	      font-weight: bold;
+	    }
 
-      .terms {
-        margin-left: 26px;
-      }
+	    .terms {
+	      margin-left: 26px;
+	    }
 
-      .price-wrapper {
-        min-width: 5rem;
+	    .price-wrapper {
+	      min-width: 5rem;
 
-        .total-price {
-          color: {{ buyBoxColor | default: 'var(--primary-color-dark)' }};
-        }
-      }
-    }
+	      .total-price {
+	        color: {{ buyBoxColor | default: 'var(--primary-color-dark)' }};
+	      }
+	    }
+	  }
 
-    /* Responsive Styles */
-    @media (max-width: 1269px) {
-      .purchase-option-box {
-        width: 100%;
-      }
-    }
+	  /* Responsive Styles */
+	  @media (max-width: 1269px) {
+	    .purchase-option-box {
+	      width: 100%;
+	    }
+	  }
 
-    @media (max-width: 767px) {
-      .product-actions {
-        grid-area: unset;
-        grid-row: 3;
-        max-width: unset;
-        min-height: unset;
-      }
+	  @media (max-width: 767px) {
+	    .product-actions {
+	      grid-area: unset;
+	      grid-row: 3;
+	      max-width: unset;
+	      min-height: unset;
+	    }
 
-      .purchase-option-box {
-        font-size: 4vw;
-        padding: 3vw;
-        max-height: 16vw;
+	    .purchase-option-box {
+	      font-size: 4vw;
+	      padding: 3vw;
+	      max-height: 16vw;
 
-				&::before {
-					font-size: 3vw;
-					width: 23vw;
-					height: 5vw;
-					top: -5vw;
-					padding: 0.75vw;
-					border-radius: 2vw 2vw 0 0;
-				}
+			&::before {
+				font-size: 3vw;
+				width: 23vw;
+				height: 5vw;
+				top: -5vw;
+				padding: 0.75vw;
+				border-radius: 2vw 2vw 0 0;
+			}
 
-        &.selected {
-          max-height: none;
-        }
+	      &.selected {
+	        max-height: none;
+	      }
 
-        .top-wrapper {
-          min-height: 9vw;
-        }
+	      .top-wrapper {
+	        min-height: 9vw;
+	      }
 
-        .left-wrapper {
-          gap: 2vw;
-        }
+	      .left-wrapper {
+	        gap: 2vw;
+	      }
 
-        .option-title {
-          font-size: 3.9vw;
-        }
+	      .option-title {
+	        font-size: 3.9vw;
+	      }
 
-        .price-wrapper {
-          min-width: 17.7vw;
+	      .price-wrapper {
+	        min-width: 17.7vw;
 
-          .real-price {
-            font-size: 4.5vw;
-          }
-        }
+	        .real-price {
+	          font-size: 4.5vw;
+	        }
+	      }
 
-        .terms {
-          margin-left: 5vw;
+	      .terms {
+	        margin-left: 5vw;
 
-          .subtitle,
-          .terms-title {
-            font-size: 3.5vw;
-          }
-        }
+	        .subtitle,
+	        .terms-title {
+	          font-size: 3.5vw;
+	        }
+	      }
 
-        .radio-box {
-          label {
-            width: 3vw;
-            height: 3vw;
+	      .radio-box {
+	        label {
+	          width: 3vw;
+	          height: 3vw;
 
-            &:after {
-              font-size: 2vw;
-              width: 3vw !important;
-              height: 3vw !important;
-              top: -0.25vw !important;
-              left: -0.25vw !important;
-              display: flex;
-              justify-content: center;
-              align-items: center;
-            }
-          }
-        }
+	          &:after {
+	            font-size: 2vw;
+	            width: 3vw !important;
+	            height: 3vw !important;
+	            top: -0.25vw !important;
+	            left: -0.25vw !important;
+	            display: flex;
+	            justify-content: center;
+	            align-items: center;
+	          }
+	        }
+	      }
 
-        &.selected {
-          max-height: max-content;
-        }
+	      &.selected {
+	        max-height: max-content;
+	      }
 
-        &[inert] {
-          max-height: 16vw !important;
-        }
-      }
+	      &[inert] {
+	        max-height: 16vw !important;
+	      }
+	    }
 
-      .one-time-purchase-link {
-        font-size: 3.5vw;
-      }
-    }
-  }
+	    .one-time-purchase-link {
+	      font-size: 3.5vw;
+	    }
+	  }
+	}
 </style>
