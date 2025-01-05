@@ -26,7 +26,8 @@
 
 <div class="product-actions" data-default-variant-index="{{ defaultSelectionIndex }}">
 	<div class="purchase-options flex flex-col gap-2">
-		<p class="mb-2 font-semibold text-[18px]">Select Plan & Shipping Frequency</p>
+		<p class="mb-2 font-semibold text-[18px]">{{ variantsTitle }}</p>
+
 		{% if variantsNotice != blank %}
 			<div class="notice flex text-[--primary] mb-4 gap-2" style="font-size:15px">
 				<span>ⓘ</span>
@@ -69,7 +70,6 @@
 					{% elsif var.metafields.subscription.selling_plan_id %}
 						{% assign selling_plan_id = var.metafields.subscription.selling_plan_id %}
 					{% elsif var.selling_plan_allocations.size > 0 %}
-						{% comment %}If no metafields, get first allocated plan or one matching bottle quantity{% endcomment %}
 						{% assign found_plan = false %}
 						{% for allocation in var.selling_plan_allocations %}
 							{% if allocation.selling_plan.name contains bottle_quantity %}
@@ -111,7 +111,7 @@
 
 					<div
 						id="variant-box-{{ SID }}-{{ forloop.index }}"
-						class="variant-box variant-tab-style text-center font-bold w-full {% if forloop.index == 1 %}selected{% endif %} {{ varPurchaseType }}"
+						class="variant-box flex flex-col items-center variant-tab-style text-center w-full {% if forloop.index == 1 %}selected{% endif %} {{ varPurchaseType }}"
 						data-variant="{{ block.settings.variant_id }}"
 						data-product="{{ prod.id }}"
 						data-original-variant="{{ var.id }}"
@@ -131,7 +131,15 @@
 						data-purchase-type="{{ varPurchaseType }}"
 						data-buy-type="{{ buyType }}"
 						name="track:variant-box|variant-sku:{{ var.sku }}|purchase-type:{{ varPurchaseType }}">
-						{{ block.settings.title | default: var.title }}
+						{% if subscription_save_percents > 0 %}
+							<div class="discount text-white bg-[--primary-color] font-bold w-full text-[13px] p-1">{{ subscription_save_percents }}% OFF</div>
+						{% endif %}
+
+						<!-- prettier-ignore -->
+						<div class="title p-1">
+							<span class="font-bold">{{ bottle_quantity }} Bottle{% if bottle_quantity > 1 %}s{% endif %}</span>
+							<span class="block text-[15px]">every {{ bottle_quantity }} month{% if bottle_quantity > 1 %}s{% endif %}</span>
+						</div>
 					</div>
 				{% endif %}
 			{% endfor %}
@@ -140,20 +148,16 @@
 		<div class="price-display" style="margin-bottom: 1.5rem">
 			<div class="gap-y-2 flex flex-wrap items-end gap-2">
 				<div class="final-price flex items-center">
-					<span class="font-bold leading-none">${{ subscription_item_price | divided_by: 100.00 }}</span>
-					<span class="month-text mt-1">/mo</span>
+					{% if priceFormat == 'total' %}
+						<span class="font-bold leading-none">${{ subscription_total_price | divided_by: 100.00 }}</span>
+					{% else %}
+						<span class="font-bold leading-none">${{ subscription_item_price | divided_by: 100.00 }}</span>
+						<span class="month-text mt-1">/bottle</span>
+					{% endif %}
 				</div>
-				<span class="text-gray-500 line-through">${{ original_item_cap | divided_by: 100.00 }}</span>
-				<span class="px-4 py-1 text-[16px] font-bold text-white bg-[--bronze] rounded-full">{{ subscription_save_percents }}% OFF</span>
 			</div>
 
-			<div class="mt-2 text-[16px]">
-				Total of ${{ subscription_total_price | divided_by: 100.00 }} payable every {{ bottle_quantity }}
-				{% if bottle_quantity > 1 %}months{% else %}month{% endif %}
-				for {{ bottle_quantity }}
-				{% if bottle_quantity > 1 %}bottles{% else %}bottle{% endif %}
-				.
-			</div>
+			<div class="mt-2 text-[16px]">Total of ${{ subscription_total_price | divided_by: 100.00 }}</div>
 		</div>
 	</div>
 
@@ -262,7 +266,7 @@
 </style>
 
 <script>
-	document.addEventListener('DOMContentLoaded', () => {
+		document.addEventListener('DOMContentLoaded', () => {
 		const productActions = document.querySelector('#cta-section-{{ SID }} .product-actions');
 		if (!productActions) return;
 
@@ -272,377 +276,300 @@
 		const submitVariantIdInput = productActions.querySelector('.submit-variant-id');
 		const giftOptionContainers = productActions.querySelectorAll('.gift-box');
 		const SID = '{{ SID }}';
-		window.SID = SID;
 		const buyType = '{{ buyType }}';
+		const priceFormat = '{{ priceFormat }}';
 
 		const state = {
-			selectedBox: null,
-			isInitialLoad: true
+				selectedBox: null,
+				isInitialLoad: true
 		};
 
 		// Gift selection functionality
-		function updateRadioIndicator(selectedContainer) {
-			giftOptionContainers.forEach(container => {
-				const checkMark = container.querySelector('.check-mark');
-				if (checkMark) {
-					if (container === selectedContainer) {
-						checkMark.style.opacity = '1';
-					} else {
-						checkMark.style.opacity = '0';
-					}
-				}
-			});
+		function updateGiftSelection(selectedContainer) {
+				giftOptionContainers.forEach(container => {
+						const checkMark = container.querySelector('.check-mark');
+						const isSelected = container === selectedContainer;
+
+						container.classList.toggle('selected', isSelected);
+						if (checkMark) {
+								checkMark.style.display = 'block';
+								checkMark.style.opacity = isSelected ? '1' : '0';
+						}
+				});
 		}
-
-		// Gift selection functionality
-		const updateGiftSelection = selectedContainer => {
-			giftOptionContainers.forEach(container => {
-				const checkMark = container.querySelector('.check-mark');
-				const isSelected = container === selectedContainer;
-
-				container.classList.toggle('selected', isSelected);
-				if (checkMark) {
-					checkMark.style.display = 'block'; // Ensure the check-mark is displayed
-					checkMark.style.opacity = isSelected ? '1' : '0';
-				}
-			});
-		};
-
-		// Add click handlers to gift containers
-		giftOptionContainers.forEach(container => {
-			container.addEventListener('click', () => {
-				updateGiftSelection(container);
-			});
-		});
 
 		// Initialize first gift as selected
 		if (giftOptionContainers.length > 0) {
-			updateGiftSelection(giftOptionContainers[0]);
+				updateGiftSelection(giftOptionContainers[0]);
 		}
+
+		// Add click handlers to gift containers
+		giftOptionContainers.forEach(container => {
+				container.addEventListener('click', () => {
+						updateGiftSelection(container);
+				});
+		});
 
 		async function addValidItemsToCart(items) {
-			try {
-				const cartResponse = await fetch('/cart.js');
-				if (!cartResponse.ok) throw new Error('Failed to fetch current cart');
-				let currentCart = await cartResponse.json();
-				let itemsToAdd = [...items];
+				try {
+						const cartResponse = await fetch('/cart.js');
+						if (!cartResponse.ok) throw new Error('Failed to fetch current cart');
+						let currentCart = await cartResponse.json();
+						let itemsToAdd = [...items];
 
-				// Handle subscription replacement
-				const subscriptionItem = items.find(item => item.selling_plan);
-				if (subscriptionItem) {
-					const selectedBox = document.querySelector('.variant-box.selected');
-					const productId = selectedBox?.getAttribute('data-product');
+						// Handle subscription replacement
+						const subscriptionItem = items.find(item => item.selling_plan);
+						if (subscriptionItem) {
+								const selectedBox = document.querySelector('.variant-box.selected');
+								const productId = selectedBox?.getAttribute('data-product');
 
-					if (productId) {
-						const existingSubscription = currentCart.items.find(cartItem => {
-							const isSameProduct = cartItem.product_id === parseInt(productId);
-							const isSubscription = Boolean(cartItem.selling_plan_allocation);
-							return isSameProduct && isSubscription;
-						});
+								if (productId) {
+										const existingSubscription = currentCart.items.find(cartItem => {
+												const isSameProduct = cartItem.product_id === parseInt(productId);
+												const isSubscription = Boolean(cartItem.selling_plan_allocation);
+												return isSameProduct && isSubscription;
+										});
 
-						if (existingSubscription) {
-							await fetch('/cart/update.js', {
+										if (existingSubscription) {
+												await fetch('/cart/update.js', {
+														method: 'POST',
+														headers: { 'Content-Type': 'application/json' },
+														body: JSON.stringify({ updates: { [existingSubscription.key]: 0 } })
+												});
+												currentCart = await (await fetch('/cart.js')).json();
+										}
+								}
+						}
+
+						const response = await fetch('/cart/add.js', {
 								method: 'POST',
 								headers: { 'Content-Type': 'application/json' },
-								body: JSON.stringify({ updates: { [existingSubscription.key]: 0 } })
-							});
-							currentCart = await (await fetch('/cart.js')).json();
+								body: JSON.stringify({ items: itemsToAdd })
+						});
+
+						if (!response.ok) throw new Error('Failed to add items to cart');
+
+						if (subscriptionItem && itemsToAdd.includes(subscriptionItem)) {
+								showNotification('Subscription has been updated in your cart', 'success');
+						} else {
+								showNotification('Items added to cart successfully', 'success');
 						}
-					}
+
+						return { success: true, addedItems: itemsToAdd };
+				} catch (error) {
+						console.error('Error in addValidItemsToCart:', error);
+						showNotification('An error occurred while adding items to cart. Please try again.');
+						return { success: false, addedItems: [] };
 				}
-
-				const response = await fetch('/cart/add.js', {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ items: itemsToAdd })
-				});
-
-				if (!response.ok) throw new Error('Failed to add items to cart');
-
-				if (subscriptionItem && itemsToAdd.includes(subscriptionItem)) {
-					showNotification('Subscription has been updated in your cart', 'success');
-				} else {
-					showNotification('Items added to cart successfully', 'success');
-				}
-
-				return { success: true, addedItems: itemsToAdd };
-			} catch (error) {
-				console.error('Error in addValidItemsToCart:', error);
-				showNotification('An error occurred while adding items to cart. Please try again.');
-				return { success: false, addedItems: [] };
-			}
-		}
-
-		async function countUniqueProductsWithTag(cart) {
-			try {
-				const uniqueProducts = cart.items.reduce((acc, item) => {
-					if (acc[item.product_id]) return acc;
-					const hasBlackFridayWeek = item.title && item.title.includes('Black Friday Week');
-					acc[item.product_id] = hasBlackFridayWeek;
-					return acc;
-				}, {});
-
-				const blackFridayWeekCount = Object.values(uniqueProducts).filter(Boolean).length;
-				return Math.max(blackFridayWeekCount, 1);
-			} catch (error) {
-				console.error('Error counting Black Friday Week products:', error);
-				return 1;
-			}
 		}
 
 		function showNotification(message, type = 'error') {
-			const notification = document.createElement('div');
-			notification.className = `cart-notification ${type} fixed bottom-4 left-1/2 transform -translate-x-1/2 p-4 rounded-lg shadow-lg z-[2147483640] transition-opacity duration-300`;
+				const notification = document.createElement('div');
+				notification.className = `cart-notification ${type} fixed bottom-4 left-1/2 transform -translate-x-1/2 p-4 rounded-lg shadow-lg z-[2147483640] transition-opacity duration-300`;
 
-			if (type === 'error') {
-				notification.classList.add('bg-red-100', 'border', 'border-red-400', 'text-red-700');
-			} else if (type === 'success') {
-				notification.classList.add('bg-green-100', 'border', 'border-green-400', 'text-green-700');
-			}
+				if (type === 'error') {
+						notification.classList.add('bg-red-100', 'border', 'border-red-400', 'text-red-700');
+				} else if (type === 'success') {
+						notification.classList.add('bg-green-100', 'border', 'border-green-400', 'text-green-700');
+				}
 
-			notification.innerHTML = `
-				<div class="flex items-center">
-					<div class="mr-3">${type === 'error' ? '⚠️' : '✅'}</div>
-					<div class="text-sm font-medium">${message}</div>
-					<button class="hover:text-gray-500 ml-auto text-gray-400" onclick="this.parentElement.parentElement.remove()">✕</button>
-				</div>
-			`;
+				notification.innerHTML = `
+						<div class="flex items-center">
+								<div class="mr-3">${type === 'error' ? '⚠️' : '✅'}</div>
+								<div class="text-sm font-medium">${message}</div>
+								<button class="hover:text-gray-500 ml-auto text-gray-400" onclick="this.parentElement.parentElement.remove()">✕</button>
+						</div>
+				`;
 
-			document.body.appendChild(notification);
-			setTimeout(() => {
-				notification.classList.add('opacity-0');
-				setTimeout(() => notification.remove(), 300);
-			}, 5000);
+				document.body.appendChild(notification);
+				setTimeout(() => {
+						notification.classList.add('opacity-0');
+						setTimeout(() => notification.remove(), 300);
+				}, 5000);
 		}
 
 		function updatePriceDisplay(element) {
-			// Get all price displays (there might be multiple)
-			const priceDisplays = document.querySelectorAll('.price-display');
+				const priceDisplays = document.querySelectorAll('.price-display');
+				console.log('Price format:', priceFormat, 'Subscription total:', element.getAttribute('data-subscription-price'), 'Per item:', element.getAttribute('data-subscription-item-price'));
 
-			// Get values from the variant box
-			const subscriptionItemPrice = parseFloat(element.getAttribute('data-subscription-item-price')) / 100;
-			const originalItemCap = parseFloat(element.getAttribute('data-original-item-cap')) / 100;
-			const subscriptionDiscount = parseFloat(element.getAttribute('data-subscription-discount'));
-			const bottleQuantity = parseInt(element.getAttribute('data-bottle-quantity'));
+				// Get price data from element attributes
+				const subscriptionItemPrice = parseFloat(element.getAttribute('data-subscription-item-price')) / 100;
+				const subscriptionPrice = parseFloat(element.getAttribute('data-subscription-price')) / 100;
+				const originalItemCap = parseFloat(element.getAttribute('data-original-item-cap')) / 100;
+				const subscriptionDiscount = parseFloat(element.getAttribute('data-subscription-discount'));
+				const bottleQuantity = parseInt(element.getAttribute('data-bottle-quantity'));
 
-			// Calculate total subscription price
-			const subscriptionTotalPrice = subscriptionItemPrice * bottleQuantity;
+				// Format text variables
+				const monthText = bottleQuantity > 1 ? 'months' : 'month';
+				const bottleText = bottleQuantity > 1 ? 'bottles' : 'bottle';
 
-			// Determine singular or plural wording
-			const monthText = bottleQuantity > 1 ? 'months' : 'month';
-			const bottleText = bottleQuantity > 1 ? 'bottles' : 'bottle';
+				priceDisplays.forEach(priceDisplay => {
+						const priceContent = priceDisplay.querySelector('.flex.items-end');
+						const description = priceDisplay.querySelector('.mt-2');
 
-			// Update all price displays
-			priceDisplays.forEach(priceDisplay => {
-				// Add transition classes if not present
-				const priceContent = priceDisplay.querySelector('.flex.items-end');
-				const description = priceDisplay.querySelector('.mt-2');
-
-				if (state.isInitialLoad) {
-					// Update without animation on initial load
-					if (priceContent) {
-						const mainPrices = priceContent.querySelectorAll('.font-bold');
-						mainPrices.forEach(price => {
-							price.textContent = `$${subscriptionItemPrice.toFixed(2)}`;
-						});
-
-						const comparePrices = priceContent.querySelectorAll('.text-gray-500.line-through');
-						comparePrices.forEach(price => {
-							price.textContent = `$${originalItemCap.toFixed(2)}`;
-						});
-
-						const discountBadges = priceContent.querySelectorAll('.bg-\\[\\-\\-bronze\\]');
-						discountBadges.forEach(badge => {
-							badge.textContent = `${subscriptionDiscount}% OFF`;
-						});
-					}
-
-					if (description) {
-						description.textContent = `Total of $${subscriptionTotalPrice.toFixed(2)} payable every ${bottleQuantity} ${monthText} for ${bottleQuantity} ${bottleText}.`;
-					}
-				} else {
-					// Normal animated update
-					if (priceContent) {
-						priceContent.classList.add('price-content-transition');
-						priceContent.style.opacity = '0';
-					}
-
-					if (description) {
-						description.classList.add('description-transition');
-						description.style.opacity = '0';
-					}
-
-					setTimeout(() => {
-						// Update values while elements are invisible
-						const mainPrices = priceDisplay.querySelectorAll('.font-bold');
-						mainPrices.forEach(price => {
-							price.textContent = `$${subscriptionItemPrice.toFixed(2)}`;
-						});
-
-						const comparePrices = priceDisplay.querySelectorAll('.text-gray-500.line-through');
-						comparePrices.forEach(price => {
-							price.textContent = `$${originalItemCap.toFixed(2)}`;
-						});
-
-						const discountBadges = priceDisplay.querySelectorAll('.bg-\\[\\-\\-bronze\\]');
-						discountBadges.forEach(badge => {
-							badge.textContent = `${subscriptionDiscount}% OFF`;
-						});
-
-						// Fade in main price content
 						if (priceContent) {
-							requestAnimationFrame(() => {
-								priceContent.style.opacity = '1';
-							});
-						}
+								// Get price elements
+								const mainPrices = priceContent.querySelectorAll('.font-bold');
 
-						// Update and fade in description with delay
-						if (description) {
-							description.textContent = `Total of $${subscriptionTotalPrice.toFixed(2)} payable every ${bottleQuantity} ${monthText} for ${bottleQuantity} ${bottleText}.`;
-							setTimeout(() => {
-								requestAnimationFrame(() => {
-									description.style.opacity = '1';
+								// IMPORTANT: This was the bug - subscription_total_price should be shown when format is 'total'
+								const displayPrice = priceFormat === 'total' ?
+										subscriptionPrice : // Show total price
+										subscriptionItemPrice; // Show per-bottle price
+
+								// Update prices and display elements
+								mainPrices.forEach(price => {
+										price.textContent = `$${displayPrice.toFixed(2)}`;
 								});
-							}, 150);
-						}
-					}, 200);
-				}
-			});
 
-			// Reset the initial load flag after first update
-			state.isInitialLoad = false;
+								const monthTexts = priceContent.querySelectorAll('.month-text');
+								monthTexts.forEach(monthText => {
+										monthText.style.display = priceFormat === 'total' ? 'none' : 'inline';
+								});
+
+								// Update comparison price display
+								const comparePrices = priceContent.querySelectorAll('.text-gray-500.line-through');
+								comparePrices.forEach(price => {
+										price.textContent = `$${originalItemCap.toFixed(2)}`;
+								});
+
+								// Update discount badge
+								const discountBadges = priceContent.querySelectorAll('.bg-\\[\\-\\-bronze\\]');
+								discountBadges.forEach(badge => {
+										badge.textContent = `${subscriptionDiscount}% OFF`;
+								});
+						}
+
+						if (description && priceFormat === 'per_bottle') {
+							description.textContent = `Total of $${subscriptionPrice.toFixed(2)}`;
+						}
+				});
 		}
 
-
 		function togglePurchaseBox(element) {
-			if (!element) return;
+				if (!element) return;
 
-			purchaseOptionBoxes.forEach(box => {
-				box.classList.remove('selected');
-				const radio = box.querySelector('input[type="radio"]');
-				if (radio) radio.checked = false;
-			});
+				purchaseOptionBoxes.forEach(box => {
+						box.classList.remove('selected');
+						const radio = box.querySelector('input[type="radio"]');
+						if (radio) radio.checked = false;
+				});
 
-			const isSubscription = element.getAttribute('data-purchase-type') === 'subscribe';
-			const subscriptionPlanID = isSubscription ? element.getAttribute('data-subscription-selling-plan-id') : '';
-			const variantID = element.getAttribute('data-variant');
+				const isSubscription = element.getAttribute('data-purchase-type') === 'subscribe';
+				const subscriptionPlanID = isSubscription ? element.getAttribute('data-subscription-selling-plan-id') : '';
+				const variantID = element.getAttribute('data-variant');
 
-			if (submitSellingPlanIdInput) {
-				submitSellingPlanIdInput.value = subscriptionPlanID;
-			}
-			if (submitVariantIdInput) {
-				submitVariantIdInput.value = variantID;
-			}
+				if (submitSellingPlanIdInput) {
+						submitSellingPlanIdInput.value = subscriptionPlanID;
+				}
+				if (submitVariantIdInput) {
+						submitVariantIdInput.value = variantID;
+				}
 
-			element.classList.add('selected');
-			const radioInput = element.querySelector('input[type="radio"]');
-			if (radioInput) {
-				radioInput.checked = true;
-			}
+				element.classList.add('selected');
+				const radioInput = element.querySelector('input[type="radio"]');
+				if (radioInput) {
+						radioInput.checked = true;
+				}
 
-			updateBuyButtonName(element);
+				updateBuyButtonName(element);
 
-			state.selectedBox = element;
-			updatePriceDisplay(element);
+				state.selectedBox = element;
+				updatePriceDisplay(element);
 
-			{% if isSlideVariant %}
-				if (window.hasInitialImageUpdateHappened) {
-					updateVariantImage(element);
-				} else {
-					window.hasInitialImageUpdateHappened = true;
-			}
-			{% endif %}
+				{% if isSlideVariant %}
+						if (window.hasInitialImageUpdateHappened) {
+								updateVariantImage(element);
+						} else {
+								window.hasInitialImageUpdateHappened = true;
+						}
+				{% endif %}
 		}
 
 		function updateVariantImage(element) {
-			if (!element?.dataset?.variant) return;
+				if (!element?.dataset?.variant) return;
 
-			const sliderId = `productSliderAllInOne${SID}`;
-			let slider = window[sliderId];
-			const targetVariantId = element.dataset.variant;
+				const sliderId = `productSliderAllInOne${SID}`;
+				let slider = window[sliderId];
+				const targetVariantId = element.dataset.variant;
 
-			if (!slider?.slides?.length) {
-				return new Promise(resolve => {
-					const checkSlider = setInterval(() => {
-						slider = window[sliderId];
-						if (slider?.slides?.length > 0) {
-							clearInterval(checkSlider);
-							performSlideUpdate(slider, targetVariantId);
-							resolve();
-						}
-					}, 100);
+				if (!slider?.slides?.length) {
+						return new Promise(resolve => {
+								const checkSlider = setInterval(() => {
+										slider = window[sliderId];
+										if (slider?.slides?.length > 0) {
+												clearInterval(checkSlider);
+												performSlideUpdate(slider, targetVariantId);
+												resolve();
+										}
+								}, 100);
 
-					setTimeout(() => {
-						clearInterval(checkSlider);
-						resolve();
-					}, 5000);
-				});
-			}
+								setTimeout(() => {
+										clearInterval(checkSlider);
+										resolve();
+								}, 5000);
+						});
+				}
 
-			performSlideUpdate(slider, targetVariantId);
+				performSlideUpdate(slider, targetVariantId);
 		}
 
 		function performSlideUpdate(slider, targetVariantId) {
-			try {
-				if (!slider || !targetVariantId) return;
+				try {
+						if (!slider || !targetVariantId) return;
 
-				const slideIndex = Array.from(slider.slides).findIndex(slide => slide.getAttribute('data-variant-id') === targetVariantId);
+						const slideIndex = Array.from(slider.slides).findIndex(slide =>
+								slide.getAttribute('data-variant-id') === targetVariantId
+						);
 
-				if (slideIndex !== -1) {
-					slider.update();
-					requestAnimationFrame(() => {
-						slider.slideTo(slideIndex, 300);
-						setTimeout(() => slider.update(), 350);
-					});
+						if (slideIndex !== -1) {
+								slider.update();
+								requestAnimationFrame(() => {
+										slider.slideTo(slideIndex, 300);
+										setTimeout(() => slider.update(), 350);
+								});
+						}
+				} catch (error) {
+						console.error('Error during slide update:', error);
 				}
-			} catch (error) {
-				console.error('Error during slide update:', error);
-			}
 		}
 
-		// Updates buy button name attribute with SKU and purchase type
 		function updateBuyButtonName(element) {
-			if (!submitButton) return;
+				if (!submitButton) return;
 
-			const sku = element.getAttribute('data-sku');
-			const purchaseType = element.getAttribute('data-purchase-type');
+				const sku = element.getAttribute('data-sku');
+				const purchaseType = element.getAttribute('data-purchase-type');
+				const currentName = submitButton.getAttribute('name') || '';
+				const parts = currentName.split('|');
+				const params = {};
 
-			// Get current name attribute and parse it
-			const currentName = submitButton.getAttribute('name') || '';
-			const parts = currentName.split('|');
+				parts.slice(1).forEach(param => {
+						const [key, value] = param.split(':');
+						if (key) params[key] = value;
+				});
 
-			// Create a map of current parameters
-			const params = {};
-			parts.slice(1).forEach(param => {
-				const [key, value] = param.split(':');
-				if (key) params[key] = value;
-			});
+				params['variant-sku'] = sku;
+				params['purchase-type'] = purchaseType;
 
-			// Update only specific parameters
-			params['variant-sku'] = sku;
-			params['purchase-type'] = purchaseType;
+				const newName = `track:add|${Object.entries(params)
+						.map(([key, value]) => `${key}:${value}`)
+						.join('|')}`;
 
-			// Rebuild name attribute
-			const newName = `track:add|${Object.entries(params)
-				.map(([key, value]) => `${key}:${value}`)
-				.join('|')}`;
-
-			submitButton.setAttribute('name', newName);
+				submitButton.setAttribute('name', newName);
 		}
 
 		// Event Listeners
 		productActions.addEventListener('click', event => {
-			const radioInput = event.target.closest('input[type="radio"]');
-			const purchaseOptionBox = event.target.closest('.variant-boxes .variant-box');
+				const radioInput = event.target.closest('input[type="radio"]');
+				const purchaseOptionBox = event.target.closest('.variant-boxes .variant-box');
 
-			if (radioInput) {
-				event.preventDefault();
-				const parentBox = radioInput.closest('.variant-box');
-				if (parentBox) togglePurchaseBox(parentBox);
-			} else if (purchaseOptionBox) {
-				event.preventDefault();
-				togglePurchaseBox(purchaseOptionBox);
-			}
+				if (radioInput) {
+						event.preventDefault();
+						const parentBox = radioInput.closest('.variant-box');
+						if (parentBox) togglePurchaseBox(parentBox);
+				} else if (purchaseOptionBox) {
+						event.preventDefault();
+						togglePurchaseBox(purchaseOptionBox);
+				}
 		});
 
 		if (submitButton) {
@@ -802,6 +729,14 @@
 			});
 		}
 
+		// Initial price format handling
+		document.querySelectorAll('.price-display').forEach(priceDisplay => {
+				const monthText = priceDisplay.querySelector('.month-text');
+				if (monthText && priceFormat === 'total') {
+						monthText.style.display = 'none';
+				}
+		});
+
 		function initializePurchaseOptions() {
 				const defaultVariantIndex = parseInt(productActions.getAttribute('data-default-variant-index')) || 0;
 				const defaultBox = purchaseOptionBoxes[defaultVariantIndex - 1] || purchaseOptionBoxes[0];
@@ -852,18 +787,23 @@
 			border-color: var(--primary-color);
 			cursor: pointer;
 			transition: all 0.3s ease;
-			padding: 0.25rem;
 			align-content: center;
 			border-radius: 5px;
 
-			&:hover {
+			/* &:hover {
 				background-color: var(--primary-color);
 				color: white;
-			}
+			} */
 
 			&.selected {
 				background-color: var(--primary-color);
 				color: white;
+
+				.discount {
+					background-color: var(--orange);
+					color: var(--primary-color);
+					transition: all 0.3s ease;
+				}
 			}
 		}
 
@@ -899,11 +839,12 @@
 										height: 24px;
 										min-width: 24px;  /* Ensure minimum width */
 										min-height: 24px; /* Ensure minimum height */
-										background-color: var(--primary-color);
+										border: 2px solid var(--primary-color);
 										border-radius: 9999px; /* Ensure perfect circle */
-										display: none;
+										display: flex;  /* Changed from 'none' to 'flex' */
 										align-items: center;
 										justify-content: center;
+										background-color: transparent;  /* Changed from primary-color to transparent */
 
 										svg.check-mark {
 												width: 16px;
@@ -911,9 +852,11 @@
 												min-width: 16px;  /* Ensure minimum width */
 												min-height: 16px; /* Ensure minimum height */
 												color: white;
-												stroke: white;    /* Ensure SVG stroke is white */
+												stroke: var(--primary-color);
 												stroke-width: 2;  /* Make the check mark more visible */
 												fill: none;       /* Remove fill */
+												opacity: 0;  /* Hide check mark by default */
+												transition: opacity 0.3s ease;  /* Added transition */
 										}
 								}
 
@@ -931,7 +874,12 @@
 										background-color: var(--primary-color-lighter) !important;
 
 										.check-indicator {
-												display: flex;
+												background-color: var(--primary-color);  /* Added background color when selected */
+
+												svg.check-mark {
+														opacity: 1;  /* Show check mark when selected */
+														stroke: white;  /* Change stroke to white when selected */
+												}
 										}
 								}
 						}
