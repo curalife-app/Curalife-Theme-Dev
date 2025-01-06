@@ -19,7 +19,12 @@
   {% endif %}
 {% endif %}
 
-{% if section.settings.items_slider_on != 'none' or section.settings.is_slider = true %}
+<script>
+	console.log("items_slider_on: {{ section.settings.items_slider_on }}");
+	console.log("is_slider: {{ section.settings.is_slider }}");
+</script>
+
+{% if section.settings.items_slider_on != "none" or section.settings.is_slider == true %}
 	{% assign isSlider = true %}
 {% endif %}
 
@@ -137,151 +142,109 @@
 	{% if section.settings.items_slider_on != 'none' %}
     <script>
 			document.addEventListener('DOMContentLoaded', function() {
-			 function getMaxHeightOfElements(selector) {
-				 let maxHeight = 0;
-				 document.querySelectorAll(selector).forEach(function(element) {
-					 element.style.height = '';
-					 maxHeight = Math.max(maxHeight, element.offsetHeight);
-				 });
-				 return maxHeight;
-			 }
+				function initializeSliderFunctionality() {
+					const itemsContainer = document.getElementById('items-container-{{ section.id }}');
+					if (!itemsContainer) return;
 
-			 function setHeightOfElements(selector, height) {
-				 document.querySelectorAll(selector).forEach(function(element) {
-					 element.style.height = height + 'px';
-				 });
-			 }
+					const isMobile = window.innerWidth <= 768;
+					const sliderSetting = '{{ section.settings.items_slider_on }}';
+					const arrows = document.querySelectorAll('#section-{{ section.id }} .swiper-nav');
 
-			 function adjustTitleHeight() {
-				 const titleMaxHeight = getMaxHeightOfElements(`#section-{{ section.id }} .title-tag`);
-				 setHeightOfElements(`#section-{{ section.id }} .title-tag`, titleMaxHeight);
-			 }
+					function shouldActivateSlider() {
+						return sliderSetting === 'both' ||
+									 (sliderSetting === 'mobile' && isMobile) ||
+									 (sliderSetting === 'desktop' && !isMobile);
+					}
 
-			 function adjustHeights() {
-				 adjustTitleHeight();
-			 }
+					function activateSlider() {
+						if (!itemsContainer.classList.contains('swiper')) {
+							itemsContainer.classList.add('swiper');
+							itemsContainer.classList.remove('items', 'flex', 'flex-wrap');
 
-			 function initSwiper(itemsContainer) {
-				 itemsContainer.classList.add('swiper');
-				 itemsContainer.classList.remove('items', 'flex', 'flex-wrap');
-				 const items = itemsContainer.querySelectorAll('.item');
-				 items.forEach(item => item.classList.add('swiper-slide'));
+							const items = itemsContainer.querySelectorAll('.item');
+							items.forEach(item => {
+								if (!item.classList.contains('swiper-slide')) {
+									item.classList.add('swiper-slide');
+								}
+							});
 
-				 loadSwiper(() => {
-					 let swiper = initializeSwiper('#items-container-{{ section.id }}', {
-						 spaceBetween: 15,
-						 grabCursor: true,
-						 slidesPerView: 'auto',
-						 autoHeight: {{ section.settings.is_auto_height }},
-						 {% if section.settings.is_arrows %}
-						 navigation: {
-							 nextEl: '#items-container-{{ section.id }} .swiper-button-next',
-							 prevEl: '#items-container-{{ section.id }} .swiper-button-prev',
-						 },
-						 {% endif %}
-						 {% if section.settings.is_dots %}
-						 pagination: {
-							 el: '#items-container-{{ section.id }} .swiper-pagination',
-							 clickable: true
-						 },
-						 {% endif %}
-						 {% if section.settings.is_scrollbar %}
-						 scrollbar: {
-							 el: '#items-container-{{ section.id }} .swiper-scrollbar'
-						 },
-						 {% endif %}
-						 {% if section.settings.is_ticker %}
-						 loop: true,
-						 speed: 1500,
-						 autoplay: {
-							 delay: 0,
-							 disableOnInteraction: false
-						 },
-						 {% elsif section.settings.slider_autoplay_speed > 0 %}
-						 loop: true,
-						 speed: {{ section.settings.slider_autoplay_speed }},
-						 autoplay: {
-							 delay: {{ section.settings.slider_autoplay_speed }},
-						 },
-						 {% endif %}
-						 lazy: true,
-						 breakpoints: {
-							 768: {
-								 slidesPerView: {{ section.settings.items_in_row_mobile }},
-							 },
-							 1200: {
-								 slidesPerView: {% if section.settings.items_in_row != 'all' %}{{ section.settings.items_in_row }}{% else %}'auto'{% endif %}
-							 }
-						 }
-					 });
-				 });
-			 }
+							// Initialize Swiper
+							loadSwiper(() => {
+								const swiperOptions = {
+									spaceBetween: 15,
+									grabCursor: true,
+									slidesPerView: 'auto',
+									autoHeight: {{ section.settings.is_auto_height }},
+									{% if section.settings.is_arrows %}
+									navigation: {
+										nextEl: '#items-container-{{ section.id }} .swiper-button-next',
+										prevEl: '#items-container-{{ section.id }} .swiper-button-prev',
+									},
+									{% endif %}
+									{% if section.settings.is_dots %}
+									pagination: {
+										el: '#items-container-{{ section.id }} .swiper-pagination',
+										clickable: true
+									},
+									{% endif %}
+									breakpoints: {
+										320: {
+											slidesPerView: {{ section.settings.items_in_row_mobile }},
+										},
+										768: {
+											slidesPerView: {% if section.settings.items_in_row != 'all' %}{{ section.settings.items_in_row }}{% else %}'auto'{% endif %}
+										}
+									}
+								};
 
-			 function deactivateSwiper(itemsContainer) {
-				 itemsContainer.classList.remove('swiper');
-				 itemsContainer.classList.add('items', 'flex', 'flex-wrap');
-				 const items = itemsContainer.querySelectorAll('.item');
-				 items.forEach(item => item.classList.remove('swiper-slide'));
-			 }
+								new Swiper('#items-container-{{ section.id }}', swiperOptions);
+							});
 
-			 function hideArrows(arrows) {
-				 arrows.forEach(arrow => arrow.style.display = 'none');
-			 }
+							arrows.forEach(arrow => arrow.style.display = '');
+						}
+					}
 
-			 function showArrows(arrows) {
-				 arrows.forEach(arrow => arrow.style.display = '');
-			 }
+					function deactivateSlider() {
+						if (itemsContainer.classList.contains('swiper')) {
+							itemsContainer.classList.remove('swiper');
+							itemsContainer.classList.add('items', 'flex', 'flex-wrap');
+							// remove swiper-slide class from items but leave its children
+							const swiperWrapper = itemsContainer.querySelector('.swiper-wrapper');
+							swiperWrapper.classList.remove('swiper-wrapper');
+							swiperWrapper.classList.add('contents');
 
-			 const displayOnUrlParameter = '{{ section.settings.display_on_utm_parmeters }}';
+							const items = itemsContainer.querySelectorAll('.item');
+							items.forEach(item => item.classList.remove('swiper-slide'));
 
-			 if (displayOnUrlParameter) {
-				 const section = document.getElementById('section-{{ section.id }}');
-				 if (window.location.href.includes(displayOnUrlParameter)) {
-					 section.classList.remove('!hidden');
-				 } else {
-					 document.querySelectorAll('.shopify-section').forEach(shopifySection => {
-						 shopifySection.style.marginTop = '0';
-					 });
-				 }
-			 }
+							arrows.forEach(arrow => arrow.style.display = 'none');
+						}
+					}
 
-			 const itemsContainer = document.getElementById('items-container-{{ section.id }}');
-			 if (itemsContainer) {
-				 let isMobile = window.innerWidth <= 768;
-				 const arrows = document.querySelectorAll('#section-{{ section.id }} .swiper-button-next, #section-{{ section.id }} .swiper-button-prev');
-				 const sliderSetting = '{{ section.settings.items_slider_on }}';
+					// Initial setup
+					if (shouldActivateSlider()) {
+						activateSlider();
+					} else {
+						deactivateSlider();
+					}
 
-				 function shouldEnableSlider() {
-					 return sliderSetting === 'both' ||
-									(sliderSetting === 'mobile' && isMobile) ||
-									(sliderSetting === 'desktop' && !isMobile);
-				 }
+					// Handle resize events
+					let resizeTimer;
+					window.addEventListener('resize', function() {
+						clearTimeout(resizeTimer);
+						resizeTimer = setTimeout(function() {
+							const newIsMobile = window.innerWidth <= 768;
+							if (newIsMobile !== isMobile) {
+								if (shouldActivateSlider()) {
+									activateSlider();
+								} else {
+									deactivateSlider();
+								}
+							}
+						}, 250);
+					});
+				}
 
-				 if (shouldEnableSlider()) {
-					 initSwiper(itemsContainer);
-					 showArrows(arrows);
-				 } else {
-					 deactivateSwiper(itemsContainer);
-					 hideArrows(arrows);
-				 }
-
-				 window.addEventListener('resize', function() {
-					 const newIsMobile = window.innerWidth <= 768;
-					 if (isMobile !== newIsMobile) {
-						 isMobile = newIsMobile;
-						 if (shouldEnableSlider()) {
-							 initSwiper(itemsContainer);
-							 showArrows(arrows);
-						 } else {
-							 deactivateSwiper(itemsContainer);
-							 hideArrows(arrows);
-						 }
-					 }
-				 });
-			 }
-
-			 window.addEventListener('load', adjustHeights);
-			 window.addEventListener('resize', adjustHeights);
+				initializeSliderFunctionality();
 			});
     </script>
 
@@ -323,14 +286,14 @@
         }
       {% endif %}
 
-      #section-{{ section.id }} .swiper-slide {
+      /* #section-{{ section.id }} .swiper-slide {
         opacity: 0;
         transition: opacity 1s ease;
       }
 
       #section-{{ section.id }} .swiper-slide-active {
         opacity: 1;
-      }
+      } */
 
       {% if section.settings.items_in_row == 'all' %}
         {% assign items_in_row = section.blocks.size %}

@@ -182,7 +182,7 @@
 
 	{% if giftsAmount > 0 %}
 		<div class="gift-selector-wrap flex flex-col gap-3 mb-3">
-			<div class="gift-selector-title text-[18px] text-[--bronze] font-medium">Choose your free gift</div>
+			<div class="gift-selector-title text-[18px] text-[--bronze] font-medium">Pick your free gift</div>
 
 			<div class="gift-options flex flex-col gap-2">
 				{% for block in blocks %}
@@ -429,32 +429,58 @@ document.addEventListener('DOMContentLoaded', () => {
 	//   Price Updates
 	// ~~~~~~~~~~~~~~~~~~~~~
 	function updatePriceDisplay(el) {
-		const priceEls    = document.querySelectorAll('.price-display');
-		const subItem     = parseFloat(el.dataset.subscriptionItemPrice) / 100 || 0;
-		const subPrice    = parseFloat(el.dataset.subscriptionPrice) / 100     || 0;
-		const origPerItem = parseFloat(el.dataset.originalItemCap) / 100      || 0;
-		const bottles     = parseInt(el.dataset.bottleQuantity, 10)           || 1;
+		const priceEls = document.querySelectorAll('.price-display');
+		const subItem = parseFloat(el.dataset.subscriptionItemPrice) / 100 || 0;
+		const subPrice = parseFloat(el.dataset.subscriptionPrice) / 100 || 0;
+		const origPerItem = parseFloat(el.dataset.originalItemCap) / 100 || 0;
+		const bottles = parseInt(el.dataset.bottleQuantity, 10) || 1;
 
-		const totalOrig   = origPerItem * bottles;
-		const saveAmt     = priceFormat === 'total'
+		const totalOrig = origPerItem * bottles;
+		const saveAmt = priceFormat === 'total'
 			? (totalOrig - subPrice)
 			: ((origPerItem - subItem) * bottles);
 
 		priceEls.forEach(display => {
-			const mainPrice   = display.querySelector('.final-price');
-			const discount    = display.querySelector('.discount-badge');
-			const totalLine   = display.querySelector('.total-line');
-			const newMain     = `$${(priceFormat === 'total' ? subPrice : subItem).toFixed(2)}`;
-			const newCompare  = `$${(priceFormat === 'total' ? totalOrig : origPerItem).toFixed(2)}`;
+			const mainPrice = display.querySelector('.final-price');
+			const discount = display.querySelector('.discount-badge');
+			const totalLine = display.querySelector('.total-line');
+			const newMain = `$${(priceFormat === 'total' ? subPrice : subItem).toFixed(2)}`;
+			const newCompare = `$${(priceFormat === 'total' ? totalOrig : origPerItem).toFixed(2)}`;
 			const flooredSave = Math.floor(saveAmt);
 
+			// Skip animation if it's the initial load
+			if (state.isInitialLoad) {
+				if (mainPrice) {
+					const pSpan = mainPrice.querySelector('.price');
+					const cSpan = mainPrice.querySelector('.cap');
+					if (pSpan) pSpan.textContent = newMain;
+					if (cSpan) cSpan.textContent = newCompare;
+				}
+
+				if (discount && priceFormat === 'total') {
+					discount.textContent = flooredSave > 0 ? `SAVE $${flooredSave}` : '';
+				}
+
+				if (totalLine && priceFormat === 'per_bottle') {
+					if (flooredSave > 0 && subPrice != totalOrig) {
+						totalLine.innerHTML = `Total $${subPrice.toFixed(2)} <span class="total-price-cap text-gray-500 line-through">$${(origPerItem * bottles).toFixed(2)}</span>`;
+					} else {
+						totalLine.textContent = '';
+					}
+				}
+				state.isInitialLoad = false;
+				return;
+			}
+
+			// Animate for subsequent updates
 			const animate = () => {
 				[mainPrice, discount, totalLine].forEach(el => {
 					if (el) {
 						el.style.transition = 'opacity 200ms ease-out';
-						el.style.opacity    = '0';
+						el.style.opacity = '0';
 					}
 				});
+
 				setTimeout(() => {
 					if (mainPrice) {
 						const pSpan = mainPrice.querySelector('.price');
@@ -464,11 +490,7 @@ document.addEventListener('DOMContentLoaded', () => {
 					}
 
 					if (discount && priceFormat === 'total') {
-						if (flooredSave > 0) {
-							discount.textContent = `SAVE $${flooredSave}`;
-						} else {
-							discount.textContent = '';
-						}
+						discount.textContent = flooredSave > 0 ? `SAVE $${flooredSave}` : '';
 					}
 
 					if (totalLine && priceFormat === 'per_bottle') {
@@ -479,18 +501,13 @@ document.addEventListener('DOMContentLoaded', () => {
 						}
 					}
 
-					setTimeout(() => mainPrice  && (mainPrice.style.opacity  = '1'), 50);
-					setTimeout(() => discount   && (discount.style.opacity   = '1'), 100);
-					setTimeout(() => totalLine  && (totalLine.style.opacity  = '1'), 150);
+					setTimeout(() => mainPrice && (mainPrice.style.opacity = '1'), 50);
+					setTimeout(() => discount && (discount.style.opacity = '1'), 100);
+					setTimeout(() => totalLine && (totalLine.style.opacity = '1'), 150);
 				}, 200);
 			};
 
-			if (state.isInitialLoad) {
-				animate();
-				state.isInitialLoad = false;
-			} else {
-				requestAnimationFrame(animate);
-			}
+			requestAnimationFrame(animate);
 		});
 	}
 
