@@ -25,7 +25,7 @@
 {% endfor %}
 
 <div class="product-actions" data-default-variant-index="{{ defaultSelectionIndex }}">
-	<div class="purchase-options flex flex-col gap-3">
+	<div class="purchase-options flex flex-col gap-3 mb-3">
 		<div class="font-semibold text-[18px]">{{ variantsTitle }}</div>
 
 		<div class="variant-boxes flex justify-around gap-2">
@@ -133,6 +133,14 @@
 							<span class="font-bold mbl:text-[4vw]">{{ bottle_quantity }} Bottle{% if bottle_quantity > 1 %}s{% endif %}</span>
 							<span class="block text-[15px] mbl:text-[3.4vw]">every {{ bottle_quantity }} month{% if bottle_quantity > 1 %}s{% endif %}</span>
 						</div>
+
+						<style>
+							@media (max-width: 767px) {
+								.title .block {
+									font-size: 3.4vw;
+								}
+							}
+						</style>
 					</div>
 				{% endif %}
 			{% endfor %}
@@ -141,7 +149,7 @@
 		<div class="price-display">
 			<div class="gap-y-2 flex flex-wrap items-end gap-2">
 				<div class="final-price flex items-center gap-2">
-					<div class="main-price text-[--primary] flex items-baseline">
+					<div class="main-price text-[--primary] flex items-end">
 						{% if priceFormat == 'total' %}
 							<span class="price font-bold leading-none text-[30px] mbl:text-[6vw]">{{ subscription_total_price | money }}</span>
 						{% else %}
@@ -158,8 +166,13 @@
 				</div>
 			</div>
 
+			<script>
+				console.log('Price format:', '{{ priceFormat }}');
+				console.log('Subscription total price:', '{{ subscription_total_price }}');
+				console.log('Subscription item price:', '{{ subscription_item_price }}');
+			</script>
 			{% if priceFormat == 'per_bottle' and subscription_total_price != subscription_item_price %}
-				<div class="total-line mt-1 text-[16px]">
+				<div class="total-line mt-1 text-[16px] h-4">
 					Total {{ subscription_total_price | money }}
 					<span class="total-price-cap text-gray-500 line-through">{{ original_item_cap_total | money }}</span>
 				</div>
@@ -494,10 +507,10 @@ document.addEventListener('DOMContentLoaded', () => {
 					}
 
 					if (totalLine && priceFormat === 'per_bottle') {
-						if (flooredSave > 0 && subPrice != totalOrig) {
+						if (flooredSave > 0 && subPrice != subItem) {
 							totalLine.innerHTML = `Total $${subPrice.toFixed(2)} <span class="total-price-cap text-gray-500 line-through">$${(origPerItem * bottles).toFixed(2)}</span>`;
 						} else {
-							totalLine.textContent = '';
+							totalLine.textContent = ' ';
 						}
 					}
 
@@ -787,12 +800,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 		if (window.innerWidth < 768 && ctaText) {
 			productActions.insertAdjacentElement('afterbegin', ctaText);
-		}
-
-		if (ctasection.classList.contains('change-layout') && giftSelectorWrap) {
-			purchaseOptions.insertAdjacentElement('afterend', giftSelectorWrap);
-		} else if (ctaText && giftSelectorWrap) {
-			ctaText.insertAdjacentElement('afterend', giftSelectorWrap);
 		}
 	});
 </script>
