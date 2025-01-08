@@ -256,24 +256,70 @@
 			}
 		}
 
-		document.addEventListener('DOMContentLoaded', function () {
-			var incrementButton = document.querySelector('.increment');
-			var decrementButton = document.querySelector('.decrement');
+		// Create a self-executing function to avoid polluting global scope
+		(function () {
+			// Function to set up event listeners
+			function setupQuantityListeners() {
+				console.log('Setting up quantity listeners');
+				var incrementButton = document.querySelector('.increment');
+				var decrementButton = document.querySelector('.decrement');
 
-			if (incrementButton) {
-				incrementButton.addEventListener('click', function (event) {
-					event.stopPropagation();
-					console.log('Incrementing quantity');
-					incrementQty();
-				});
+				// Remove any existing listeners first
+				if (incrementButton && incrementButton.hasAttribute('data-listener-attached')) {
+					var oldIncrementListener = incrementButton.getAttribute('data-listener-function');
+					if (oldIncrementListener) {
+						incrementButton.removeEventListener('click', window[oldIncrementListener]);
+					}
+				}
+
+				if (decrementButton && decrementButton.hasAttribute('data-listener-attached')) {
+					var oldDecrementListener = decrementButton.getAttribute('data-listener-function');
+					if (oldDecrementListener) {
+						decrementButton.removeEventListener('click', window[oldDecrementListener]);
+					}
+				}
+
+				// Add new increment listener
+				if (incrementButton) {
+					const incrementHandler = function (event) {
+						event.stopPropagation();
+						console.log('Incrementing quantity');
+						incrementQty();
+					};
+
+					// Store the handler function name
+					const handlerName = 'incrementHandler_' + Math.random().toString(36).substr(2, 9);
+					window[handlerName] = incrementHandler;
+
+					incrementButton.addEventListener('click', incrementHandler);
+					incrementButton.setAttribute('data-listener-attached', 'true');
+					incrementButton.setAttribute('data-listener-function', handlerName);
+				}
+
+				// Add new decrement listener
+				if (decrementButton) {
+					const decrementHandler = function (event) {
+						event.stopPropagation();
+						console.log('Decrementing quantity');
+						decrementQty();
+					};
+
+					// Store the handler function name
+					const handlerName = 'decrementHandler_' + Math.random().toString(36).substr(2, 9);
+					window[handlerName] = decrementHandler;
+
+					decrementButton.addEventListener('click', decrementHandler);
+					decrementButton.setAttribute('data-listener-attached', 'true');
+					decrementButton.setAttribute('data-listener-function', handlerName);
+				}
 			}
 
-			if (decrementButton) {
-				decrementButton.addEventListener('click', function (event) {
-					event.stopPropagation();
-					decrementQty();
-				});
+			// Set up the listeners when DOM is ready
+			if (document.readyState === 'loading') {
+				document.addEventListener('DOMContentLoaded', setupQuantityListeners);
+			} else {
+				setupQuantityListeners();
 			}
-		});
+		})();
 	</script>
 {% endif %}

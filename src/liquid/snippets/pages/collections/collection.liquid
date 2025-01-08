@@ -1,233 +1,211 @@
 {% comment %}
-  This section can be used with either:
-  - collection_handle: Handle of the collection to display
-  - product_handles: Array of product handles to display
-  Optional parameters:
-  - is_variant_split: If true, renders separate cards for each variant
-  - is_slider_on_mobile: If true, enables Swiper on mobile devices
+	This section can be used with either:
+	- collection_handle: Handle of the collection to display
+	- product_handles: Array of product handles to display
+	Optional parameters:
+	- is_variant_split: If true, renders separate cards for each variant
+	- is_slider_on_mobile: If true, enables Swiper on mobile devices
 {% endcomment %}
 
 {% if collection_handle %}
-  {% assign currentCollection = collections[collection_handle] %}
-  {% assign collection_additional_variant_amount = currentCollection.metafields.custom.additional_variants.value.count %}
-  {% assign collection_products_amount = currentCollection.products.size %}
-  {% assign collection_total_items_amount = collection_additional_variant_amount | plus: collection_products_amount %}
-  {% assign section_title = currentCollection.metafields.custom.alternative_title | default: currentCollection.title %}
-  {% assign section_description = currentCollection.description %}
-  {% assign banner_image = currentCollection.metafields.custom.collection_banner_img %}
-  {% assign banner_image_mobile = currentCollection.metafields.custom.collection_banner_img_mobile %}
-  {% assign banner_link = currentCollection.metafields.custom.collection_banner_lnk %}
-  {% assign is_align_center = currentCollection.metafields.custom.is_align_center %}
-  {% assign products = currentCollection.products %}
-  {% assign use_collection = true %}
-  {% assign additional_variants = currentCollection.metafields.custom.additional_variants.value %}
+	{% assign currentCollection = collections[collection_handle] %}
+	{% assign collection_additional_variant_amount = currentCollection.metafields.custom.additional_variants.value.count %}
+	{% assign collection_products_amount = currentCollection.products.size %}
+	{% assign collection_total_items_amount = collection_additional_variant_amount | plus: collection_products_amount %}
+	{% assign section_title = currentCollection.metafields.custom.alternative_title | default: currentCollection.title %}
+	{% assign section_description = currentCollection.description %}
+	{% assign banner_image = currentCollection.metafields.custom.collection_banner_img %}
+	{% assign banner_image_mobile = currentCollection.metafields.custom.collection_banner_img_mobile %}
+	{% assign banner_link = currentCollection.metafields.custom.collection_banner_lnk %}
+	{% assign is_align_center = currentCollection.metafields.custom.is_align_center %}
+	{% assign products = currentCollection.products %}
+	{% assign use_collection = true %}
+	{% assign additional_variants = currentCollection.metafields.custom.additional_variants.value %}
 {% elsif product_handles %}
-  {% assign handles_array = product_handles %}
-  {% assign use_collection = false %}
-  {% assign collection_total_items_amount = handles_array.size %}
-  {% assign additional_variants = blank %}
+	{% assign handles_array = product_handles %}
+	{% assign use_collection = false %}
+	{% assign collection_total_items_amount = handles_array.size %}
+	{% assign additional_variants = blank %}
 {% endif %}
 
 {% if customer.b2b? %}
-  {% assign isAddToCart = true %}
-  {% if customer.b2b? %}
-    {% assign isAddToCartQuantity = true %}
-  {% endif %}
+	{% assign isAddToCart = true %}
+	{% if customer.b2b? %}
+		{% assign isAddToCartQuantity = true %}
+	{% endif %}
 {% endif %}
 
-<div id="{{ collection_handle | default: collection_index | default: 'custom' }}-collection-section"
-    class="collection-section xl:w-full {% if collection_total_items_amount < 3 and template.name == 'list-collections' %}w-[48%]{% else %}w-full{% endif %}"
-    data-product-collections="{{ collection_handle | default: 'custom' }}" >
+<div
+	id="{{ collection_handle | default: collection_index | default: 'custom' }}-collection-section"
+	class="collection-section xl:w-full {% if collection_total_items_amount < 3 and template.name == 'list-collections' %}w-[48%]{% else %}w-full{% endif %}"
+	data-product-collections="{{ collection_handle | default: 'custom' }}">
+	{% unless isNoTitle %}
+		<div class="title-wrapper border-b-[1px] border-black">
+			<h2 class="relative mb-0 text-[40px] font-thin top-1 w-fit bg-white pr-3">{{ section_title }}</h2>
+		</div>
+	{% endunless %}
 
-  {% unless isNoTitle %}
-    <div class="title-wrapper border-b-[1px] border-black">
-      <h2 class="relative mb-0 text-[40px] font-thin top-1 w-fit bg-white pr-3">{{ section_title }}</h2>
-    </div>
-  {% endunless %}
+	{% if isDescription and section_description != blank %}
+		<p class="description {% if is_align_center or isCentered %}text-center m-auto{% endif %}">{{ section_description }}</p>
+	{% endif %}
 
-  {% if isDescription and section_description != blank %}
-    <p class="description {% if is_align_center or isCentered %}text-center m-auto{% endif %}">{{ section_description }}</p>
-  {% endif %}
+	<div class="product-grid {% if is_slider_on_mobile %}mobile-slider{% endif %}">
+		{% if is_slider_on_mobile %}
+			<div class="swiper">
+				<div class="swiper-wrapper flex flex-wrap gap-4 justify-between {% if isHiddenCollections %}hidden{% endif %}">
+		{% else %}
+			<div class="flex flex-wrap gap-4 justify-between {% if isHiddenCollections %}hidden{% endif %}">
+		{% endif %}
 
-  <div class="product-grid {% if is_slider_on_mobile %}mobile-slider{% endif %}">
-    {% if is_slider_on_mobile %}
-      <div class="swiper">
-        <div class="swiper-wrapper flex flex-wrap gap-4 justify-between {% if isHiddenCollections %}hidden{% endif %}">
-    {% else %}
-      <div class="flex flex-wrap gap-4 justify-between {% if isHiddenCollections %}hidden{% endif %}">
-    {% endif %}
+		{% if banner_image and template.name != 'collection' %}
+			<div class="image-wrapper {% if is_slider_on_mobile %}swiper-slide{% endif %}">
+				{% render 'image', image: banner_image, mobile_image: banner_image_mobile, preload: true, link: banner_link, alt: banner_image.alt, class: block.settings.additional_classes %}
+			</div>
+		{% endif %}
 
-      {% if banner_image and template.name != 'collection'%}
-        <div class="image-wrapper {% if is_slider_on_mobile %}swiper-slide{% endif %}">
-          {% render 'image',
-            image: banner_image,
-            mobile_image: banner_image_mobile,
-            preload: true,
-            link: banner_link,
-            alt: banner_image.alt,
-            class: block.settings.additional_classes
-          %}
-        </div>
-      {% endif %}
+		{% if use_collection %}
+			{% for product in products %}
+				{% if product.metafields.custom.reference_product.value %}
+					{% assign prod = product.metafields.custom.reference_product.value %}
+				{% else %}
+					{% assign prod = product %}
+				{% endif %}
 
-      {% if use_collection %}
-        {% for product in products %}
-					{% if product.metafields.custom.reference_product.value %}
-						{% assign prod = product.metafields.custom.reference_product.value %}
+				{% if is_variant_split and prod.variants.size > 0 %}
+					{% for variant in prod.variants %}
+						<div class="{% if is_slider_on_mobile %}swiper-slide{% endif %}">
+							{% render 'variant-card',
+								variant: variant,
+								product: prod,
+								productCollections: product_collections,
+								isNoPrices: isNoPrices,
+								isAddToCart: isAddToCart,
+								isAddToCartQuantity: isAddToCartQuantity
+							%}
+						</div>
+					{% endfor %}
+				{% else %}
+					<div class="{% if is_slider_on_mobile %}swiper-slide{% endif %}">
+						{% render 'product-card', product: prod, isNoPrices: isNoPrices, isAddToCart: isAddToCart, isAddToCartQuantity: isAddToCartQuantity %}
+					</div>
+				{% endif %}
+			{% endfor %}
+		{% else %}
+			{% for handle in handles_array %}
+				{% assign product = all_products[handle] %}
+				{% if product != blank %}
+					{% if is_variant_split and product.variants.size > 0 %}
+						{% for variant in product.variants %}
+							<div class="{% if is_slider_on_mobile %}swiper-slide{% endif %}">
+								{% render 'variant-card',
+									variant: variant,
+									product: product,
+									productCollections: product_collections,
+									variantIndex: forloop.index,
+									isNoPrices: isNoPrices,
+									isAddToCart: isAddToCart,
+									isAddToCartQuantity: isAddToCartQuantity
+								%}
+							</div>
+						{% endfor %}
 					{% else %}
-						{% assign prod = product %}
+						<div class="{% if is_slider_on_mobile %}swiper-slide{% endif %}">
+							{% render 'product-card', product: product, isNoPrices: isNoPrices, isAddToCart: isAddToCart, isAddToCartQuantity: isAddToCartQuantity %}
+						</div>
 					{% endif %}
+				{% endif %}
+			{% endfor %}
+		{% endif %}
 
-          {% if is_variant_split and prod.variants.size > 0 %}
-            {% for variant in prod.variants %}
-              <div class="{% if is_slider_on_mobile %}swiper-slide{% endif %}">
-                {% render 'variant-card',
-                  variant: variant,
-                  product: prod,
-                  productCollections: product_collections,
-                  isNoPrices: isNoPrices,
-                  isAddToCart: isAddToCart,
-                  isAddToCartQuantity: isAddToCartQuantity
-                %}
-              </div>
-            {% endfor %}
-          {% else %}
-            <div class="{% if is_slider_on_mobile %}swiper-slide{% endif %}">
-              {% render 'product-card',
-                product: prod,
-                isNoPrices: isNoPrices,
-                isAddToCart: isAddToCart,
-                isAddToCartQuantity: isAddToCartQuantity
-              %}
-            </div>
-          {% endif %}
-        {% endfor %}
-      {% else %}
-        {% for handle in handles_array %}
-          {% assign product = all_products[handle] %}
-          {% if product != blank %}
-            {% if is_variant_split and product.variants.size > 0 %}
-              {% for variant in product.variants %}
-                <div class="{% if is_slider_on_mobile %}swiper-slide{% endif %}">
-                  {% render 'variant-card',
-                    variant: variant,
-                    product: product,
-                    productCollections: product_collections,
-                    variantIndex: forloop.index,
-                    isNoPrices: isNoPrices,
-                    isAddToCart: isAddToCart,
-                    isAddToCartQuantity: isAddToCartQuantity
-                  %}
-                </div>
-              {% endfor %}
-            {% else %}
-              <div class="{% if is_slider_on_mobile %}swiper-slide{% endif %}">
-                {% render 'product-card',
-                  product: product,
-                  isNoPrices: isNoPrices,
-                  isAddToCart: isAddToCart,
-                  isAddToCartQuantity: isAddToCartQuantity
-                %}
-              </div>
-            {% endif %}
-          {% endif %}
-        {% endfor %}
-      {% endif %}
+		{% if additional_variants %}
+			{% for additionalVar in additional_variants %}
+				<div class="{% if is_slider_on_mobile %}swiper-slide{% endif %}">
+					{% if additionalVar.product.variants.size == 1 %}
+						{% render 'product-card', product: additionalVar.product, isNoPrices: isNoPrices, isAddToCart: isAddToCart, isAddToCartQuantity: isAddToCartQuantity %}
+					{% else %}
+						{% render 'variant-card',
+							variant: additionalVar,
+							product: additionalVar.product,
+							variantIndex: additionalVar.index,
+							isNoPrices: isNoPrices,
+							isAddToCart: isAddToCart,
+							isAddToCartQuantity: isAddToCartQuantity
+						%}
+					{% endif %}
+				</div>
+			{% endfor %}
+		{% endif %}
 
-      {% if additional_variants %}
-        {% for additionalVar in additional_variants %}
-          <div class="{% if is_slider_on_mobile %}swiper-slide{% endif %}">
-            {% if additionalVar.product.variants.size == 1 %}
-              {% render 'product-card',
-                product: additionalVar.product,
-                isNoPrices: isNoPrices,
-                isAddToCart: isAddToCart,
-                isAddToCartQuantity: isAddToCartQuantity
-              %}
-            {% else %}
-              {% render 'variant-card',
-                variant: additionalVar,
-                product: additionalVar.product,
-                variantIndex: additionalVar.index,
-                isNoPrices: isNoPrices,
-                isAddToCart: isAddToCart,
-                isAddToCartQuantity: isAddToCartQuantity
-              %}
-            {% endif %}
-          </div>
-        {% endfor %}
-      {% endif %}
-
-    {% if is_slider_on_mobile %}
-        </div>
-        <div class="swiper-nav swiper-button-next"></div>
-        <div class="swiper-nav swiper-button-prev"></div>
-      </div>
-    {% else %}
-      </div>
-    {% endif %}
-  </div>
+		{% if is_slider_on_mobile %}
+			</div>
+			<div class="swiper-nav swiper-button-next"></div>
+			<div class="swiper-nav swiper-button-prev"></div>
+			</div>
+		{% else %}
+			</div>
+		{% endif %}
+	</div>
 </div>
 
 {% if is_slider_on_mobile %}
-  <script>
-    document.addEventListener('DOMContentLoaded', function() {
-      loadSwiper(() => {
-        const mediaQuery = window.matchMedia('(max-width: 767px)');
-        let swiper = null;
+	<script>
+		document.addEventListener('DOMContentLoaded', function () {
+			loadSwiper(() => {
+				const mediaQuery = window.matchMedia('(max-width: 767px)');
+				let swiper = null;
 
-        function initializeSlider() {
-          if (mediaQuery.matches) {
-            if (!swiper) {
-              swiper = initializeSwiper('#{{ collection_handle | default: collection_index | default: "custom" }}-collection-section .swiper', {
-                slidesPerView: 1,
-                spaceBetween: 10,
-                grabCursor: true,
-                navigation: {
-                  nextEl: '#{{ collection_handle | default: collection_index | default: "custom" }}-collection-section .swiper-button-next',
-                  prevEl: '#{{ collection_handle | default: collection_index | default: "custom" }}-collection-section .swiper-button-prev',
-                },
-                breakpoints: {
-                  768: {
-                    slidesPerView: 3,
-                  }
-                },
-              });
-            }
-          } else if (swiper) {
-            swiper.destroy();
-            swiper = null;
-          }
-        }
+				function initializeSlider() {
+					if (mediaQuery.matches) {
+						if (!swiper) {
+							swiper = initializeSwiper('#{{ collection_handle | default: collection_index | default: "custom" }}-collection-section .swiper', {
+								slidesPerView: 1,
+								spaceBetween: 10,
+								grabCursor: true,
+								navigation: {
+									nextEl: '#{{ collection_handle | default: collection_index | default: "custom" }}-collection-section .swiper-button-next',
+									prevEl: '#{{ collection_handle | default: collection_index | default: "custom" }}-collection-section .swiper-button-prev'
+								},
+								breakpoints: {
+									768: {
+										slidesPerView: 3
+									}
+								}
+							});
+						}
+					} else if (swiper) {
+						swiper.destroy();
+						swiper = null;
+					}
+				}
 
-        // Initialize on load
-        initializeSlider();
+				// Initialize on load
+				initializeSlider();
 
-        // Listen for window resize
-        mediaQuery.addListener(initializeSlider);
-      });
-    });
-  </script>
+				// Listen for window resize
+				mediaQuery.addListener(initializeSlider);
+			});
+		});
+	</script>
 
-  <style>
+	<style>
 		.product-titles {
 			min-height: 35px;
 		}
 
-    @media (min-width: 768px) {
+		@media (min-width: 768px) {
 			.swiper-slide {
-					width: unset !important;
-				}
-      .mobile-slider .swiper-button-next,
-      .mobile-slider .swiper-button-prev {
-        display: none;
-      }
-    }
+				width: unset !important;
+			}
+			.mobile-slider .swiper-button-next,
+			.mobile-slider .swiper-button-prev {
+				display: none;
+			}
+		}
 
-    @media (max-width: 767px) {
-      .mobile-slider .swiper-wrapper {
-        flex-wrap: nowrap;
-      }
+		@media (max-width: 767px) {
+			.mobile-slider .swiper-wrapper {
+				flex-wrap: nowrap;
+			}
 
 			.swiper-wrapper {
 				gap: unset !important;
@@ -240,220 +218,220 @@
 					}
 				}
 			}
-    }
-  </style>
+		}
+	</style>
 {% endif %}
 
 {% if is_align_center %}
-  <style>
-    #{{ collection_handle | default: 'custom' }}-collection-section {
-      text-align: center;
-    }
+	<style>
+		#{{ collection_handle | default: 'custom' }}-collection-section {
+		  text-align: center;
+		}
 
-    #{{ collection_handle | default: 'custom' }}-collection-section .description {
-      margin: 30px auto;
-    }
-  </style>
+		#{{ collection_handle | default: 'custom' }}-collection-section .description {
+		  margin: 30px auto;
+		}
+	</style>
 {% endif %}
 
 <style>
-  .product-card .image-wrapper img {
-    border-radius: 25px;
-  }
+	.product-card .image-wrapper img {
+		border-radius: 25px;
+	}
 
-  .product-card {
-    position: relative;
-    max-width: 270px;
-    padding: 10px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-direction: column;
-    gap: 1rem;
-    border: 1px solid var(--light-blue);
-    border-radius: 10px;
-  }
+	.product-card {
+		position: relative;
+		max-width: 270px;
+		padding: 10px;
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		flex-direction: column;
+		gap: 1rem;
+		border: 1px solid var(--light-blue);
+		border-radius: 10px;
+	}
 
-  .product-card::before {
-    background-size: contain;
-    position: absolute;
-    top: 30px;
-    right: 10px;
-    width: 68px;
-    height: 68px;
-  }
+	.product-card::before {
+		background-size: contain;
+		position: absolute;
+		top: 30px;
+		right: 10px;
+		width: 68px;
+		height: 68px;
+	}
 
-  .product-card .product-image {
-    height: 250px;
-    border-radius: 10px;
-    object-fit: contain;
-  }
+	.product-card .product-image {
+		height: 250px;
+		border-radius: 10px;
+		object-fit: contain;
+	}
 
-  .product-card .promotion-title {
-    font-size: 18px;
-    margin: unset;
-    color: var(--blue);
-  }
+	.product-card .promotion-title {
+		font-size: 18px;
+		margin: unset;
+		color: var(--blue);
+	}
 
-  .product-card .product-titles p {
-    margin: unset;
-  }
+	.product-card .product-titles p {
+		margin: unset;
+	}
 
-  .product-card .subtitle {
-    font-size: 14px;
-  }
+	.product-card .subtitle {
+		font-size: 14px;
+	}
 
-  .product-card button {
-    padding: 6px;
-    border-radius: 3px;
-    font-weight: bold;
-    border-radius: 50px;
-    min-height: 45px;
-  }
+	.product-card button {
+		padding: 6px;
+		border-radius: 3px;
+		font-weight: bold;
+		border-radius: 50px;
+		min-height: 45px;
+	}
 
-  @media screen and (max-width: 768px) {
-    .product-card {
-      margin-bottom: 3vw;
-      padding: 1vw;
-      margin-top: unset;
-      max-width: unset;
-      border-radius: 5vw !important;
-    }
+	@media screen and (max-width: 768px) {
+		.product-card {
+			margin-bottom: 3vw;
+			padding: 1vw;
+			margin-top: unset;
+			max-width: unset;
+			border-radius: 5vw !important;
+		}
 
-    .product-card .product-image {
-      height: 45vw;
-    }
+		.product-card .product-image {
+			height: 45vw;
+		}
 
-    .product-card button {
-      font-size: 4vw;
-    }
+		.product-card button {
+			font-size: 4vw;
+		}
 
-    .product-grid {
-      gap: 1vw;
-    }
+		.product-grid {
+			gap: 1vw;
+		}
 
-    .product-card .product-titles {
-      min-height: 3.5em;
-      margin: unset;
-    }
+		.product-card .product-titles {
+			min-height: 3.5em;
+			margin: unset;
+		}
 
-    .product-card .product-titles h3 {
-      font-size: 5vw;
-      line-height: 1em;
-    }
+		.product-card .product-titles h3 {
+			font-size: 5vw;
+			line-height: 1em;
+		}
 
-    .product-card .subtitle {
-      font-size: 4vw;
-    }
+		.product-card .subtitle {
+			font-size: 4vw;
+		}
 
-    .product-card .info .price strike {
-      font-size: 4vw;
-    }
+		.product-card .info .price strike {
+			font-size: 4vw;
+		}
 
-    .product-card .info .price .rounded.current-price {
-      font-size: 41px;
-      padding-left: 1vw;
-      padding-right: 1vw;
-    }
-  }
+		.product-card .info .price .rounded.current-price {
+			font-size: 41px;
+			padding-left: 1vw;
+			padding-right: 1vw;
+		}
+	}
 </style>
 
 {% if isAddToCart %}
-  <style>
-    .product-card .submit-wrap button {
-      background-color: var(--orange);
-      border-radius: 10px;
-      font-size: 20px;
-      padding: 0.5rem;
-      min-width: fit-content;
-      color: black;
-      min-height: 45px;
-    }
+	<style>
+		.product-card .submit-wrap button {
+		  background-color: var(--orange);
+		  border-radius: 10px;
+		  font-size: 20px;
+		  padding: 0.5rem;
+		  min-width: fit-content;
+		  color: black;
+		  min-height: 45px;
+		}
 
-    {% if isAddToCartQuantity %}
-      @media (width > 768px) {
-        .product-card .submit-wrap:has(.qty) button {
-          border-radius: 0px 10px 10px 0;
-        }
-      }
-    {% endif %}
+		{% if isAddToCartQuantity %}
+		  @media (width > 768px) {
+		    .product-card .submit-wrap:has(.qty) button {
+		      border-radius: 0px 100px 100px 0;
+		    }
+		  }
+		{% endif %}
 
-    .product-card .submit-wrap .qty_inc_dec i:hover {
-      background-color: #ffe3ae !important;
-    }
+		.product-card .submit-wrap .qty_inc_dec i:hover {
+		  background-color: #ffe3ae !important;
+		}
 
-    .product-card .submit-wrap button.secondary {
-      border-radius: 10px;
-      background-color: var(--blue);
-      color: white;
-      width: 100%;
-    }
-  </style>
+		.product-card .submit-wrap button.secondary {
+		  border-radius: 100px;
+		  background-color: var(--blue);
+		  color: white;
+		  width: 100%;
+		}
+	</style>
 
-  <style>
-    .product-card .submit-wrap .qty {
-      display: flex;
-      -webkit-user-select: none;
-      -moz-user-select: none;
-      -ms-user-select: none;
-      user-select: none;
-    }
+	<style>
+		.product-card .submit-wrap .qty {
+			display: flex;
+			-webkit-user-select: none;
+			-moz-user-select: none;
+			-ms-user-select: none;
+			user-select: none;
+		}
 
-    .product-card .submit-wrap .qty_inc_dec .increment,
-    .product-card .submit-wrap .qty_inc_dec .decrement {
-      cursor: pointer;
-      height: 50%;
-      background-color: #fff2dd !important;;
-      border-block: 1px solid #ccc;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      font-style: normal;
-    }
+		.product-card .submit-wrap .qty_inc_dec .increment,
+		.product-card .submit-wrap .qty_inc_dec .decrement {
+			cursor: pointer;
+			height: 50%;
+			background-color: #fff2dd !important;
+			border-block: 1px solid #ccc;
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			font-style: normal;
+		}
 
-    .product-card .submit-wrap .qty_inc_dec .increment {
-      line-height: 25px;
-    }
+		.product-card .submit-wrap .qty_inc_dec .increment {
+			line-height: 25px;
+		}
 
-    .product-card .submit-wrap .qty_inc_dec {
-      width: 30px;
-    }
+		.product-card .submit-wrap .qty_inc_dec {
+			width: 30px;
+		}
 
-    .product-card .submit-wrap .qty input[type=text] {
-      font-family: "Open Sans", sans-serif;
-      text-align: center;
-      width: 50px;
-      border: 1px solid #ccc;
-      border-radius: 10px 0 0 10px;
-      border-right: 0;
-      font-weight: bold;
-    }
+		.product-card .submit-wrap .qty input[type='text'] {
+			font-family: 'Open Sans', sans-serif;
+			text-align: center;
+			width: 50px;
+			border: 1px solid #ccc;
+			border-radius: 100px 0 0 100px;
+			border-right: 0;
+			font-weight: bold;
+		}
 
-    /* Quantity Selector Transition */
-    .product-card .submit-wrap .qty {
-      transition: width 0.3s ease;
-      width: -webkit-fill-available;
-      flex-basis: content;
-    }
+		/* Quantity Selector Transition */
+		.product-card .submit-wrap .qty {
+			transition: width 0.3s ease;
+			width: -webkit-fill-available;
+			flex-basis: content;
+		}
 
-    .product-card .submit-wrap .qty_inc_dec {
-      transition: opacity 0.3s ease;
-    }
-  </style>
+		.product-card .submit-wrap .qty_inc_dec {
+			transition: opacity 0.3s ease;
+		}
+	</style>
 
-  <script src="{{ 'product-info.js' | asset_url }}" defer="defer"></script>
-  <script src="{{ 'product-form.js' | asset_url }}" defer="defer"></script>
+	<script src="{{ 'product-info.js' | asset_url }}" defer="defer"></script>
+	<script src="{{ 'product-form.js' | asset_url }}" defer="defer"></script>
 
-  <script>
+	<script>
 		function updateQuantity(action) {
 			var qtyElement = event.target.closest('.qty');
 			var quantityField = qtyElement.querySelector('input[name="quantity"]');
 			var value = parseInt(quantityField.value, 10);
 			value = isNaN(value) ? 1 : value;
 
-			if (action === "+") {
+			if (action === '+') {
 				value++;
-			} else if (action === "-") {
+			} else if (action === '-') {
 				value = Math.max(1, value - 1);
 			}
 

@@ -1,100 +1,105 @@
-{% assign disable_on_pages = "index,404,login,/collections/black-friday" | split: "," %}
-{% assign white_text_pages = "partnerships,wholesale,work-with-us,professionals,success-stories,new-look,our-community" | split: "," %}
+{% assign disable_on_pages = 'index,404,login,/collections/wholesale' | split: ',' %}
+{% assign white_text_pages = 'partnerships,wholesale,work-with-us,professionals,success-stories,new-look,our-community' | split: ',' %}
 {% assign page_handle = request.path | split: '/' | last %}
 
 {% if disable_on_pages contains page_handle or disable_on_pages contains template.name or disable_on_pages contains request.path %}
-  {% assign is_disabled_page = true %}
+	{% assign is_disabled_page = true %}
 {% endif %}
 
 {% if white_text_pages contains page_handle %}
-  {% assign is_white_text_page = true %}
+	{% assign is_white_text_page = true %}
 {% endif %}
 
-{% comment %} {% if request.path contains 'collections' or request.path contains 'products/' %}
-  {% assign isBannerExists = true %}
-{% endif %} {% endcomment %}
+{% comment %}
+	{% if request.path contains 'collections' or request.path contains 'products/' %}
+	  {% assign isBannerExists = true %}
+	{% endif %}
+{% endcomment %}
 
-<nav class="breadcrumb absolute w-full top-[10px] z-10 text-[14px] {% if is_disabled_page %}hidden{% endif %} {% if is_white_text_page %}text-white{% endif %} {% if isBannerExists %}mt-[65px] mbl:mt-[47vw]{% endif %}" itemscope itemtype="https://schema.org/BreadcrumbList">
-  <div class="container">
-    <div class="breadcrumbs">
-      <span itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
-        <a href="/" itemprop="item"><span itemprop="name">Home</span></a>
-        <meta itemprop="position" content="1" />
-      </span>
+<nav
+	class="breadcrumb absolute w-full top-[10px] z-10 text-[14px] {% if is_disabled_page %}hidden{% endif %} {% if is_white_text_page %}text-white{% endif %} {% if isBannerExists %}mt-[65px] mbl:mt-[47vw]{% endif %}"
+	itemscope
+	itemtype="https://schema.org/BreadcrumbList">
+	<div class="container">
+		<div class="breadcrumbs">
+			<span itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+				<a href="/" itemprop="item"><span itemprop="name">Home</span></a>
+				<meta itemprop="position" content="1">
+			</span>
 
-      {% assign position = 1 %}
+			{% assign position = 1 %}
 
-      {% if collection %}
-        {% if collection.handle == 'all' %}{% assign collectionTitle = 'Shop' %}{% else %}{% assign collectionTitle = collection.title %}{% endif %}
-        {% assign position = position | plus: 1 %}
-        {% render 'breadcrumb-item', title: collectionTitle, is_current: true, position: position %}
-      {% elsif page %}
-        {% assign position = position | plus: 1 %}
-        {% render 'breadcrumb-item', title: page.title, is_current: true, position: position %}
-      {% elsif article %}
-        {% assign blog_link = "/blogs/" | append: blog.handle %}
-        {% assign position = position | plus: 1 %}
-        {% render 'breadcrumb-item', link: blog_link, title: blog.title, position: position %}
-        {% assign position = position | plus: 1 %}
-        {% render 'breadcrumb-item', title: article.title, is_current: true, position: position %}
-      {% elsif blog %}
-        {% assign blog_link = "/blogs/" | append: blog.handle %}
+			{% if collection %}
+				{% if collection.handle == 'all' %}{% assign collectionTitle = 'Shop' %}{% else %}{% assign collectionTitle = collection.title %}{% endif %}
+				{% assign position = position | plus: 1 %}
+				{% render 'breadcrumb-item', title: collectionTitle, is_current: true, position: position %}
+			{% elsif page %}
+				{% assign position = position | plus: 1 %}
+				{% render 'breadcrumb-item', title: page.title, is_current: true, position: position %}
+			{% elsif article %}
+				{% assign blog_link = '/blogs/' | append: blog.handle %}
+				{% assign position = position | plus: 1 %}
+				{% render 'breadcrumb-item', link: blog_link, title: blog.title, position: position %}
+				{% assign position = position | plus: 1 %}
+				{% render 'breadcrumb-item', title: article.title, is_current: true, position: position %}
+			{% elsif blog %}
+				{% assign blog_link = '/blogs/' | append: blog.handle %}
 
-        {% if request.path contains '/tagged/' %}
-          {% assign url_parts = request.path | split: '/' %}
-          {% assign blog_handle = url_parts[2] %}
-          {% assign tag_name = url_parts[4] | replace: '-', ' ' | capitalize %}
+				{% if request.path contains '/tagged/' %}
+					{% assign url_parts = request.path | split: '/' %}
+					{% assign blog_handle = url_parts[2] %}
+					{% assign tag_name = url_parts[4] | replace: '-', ' ' | capitalize %}
 
-          {% assign position = position | plus: 1 %}
-          {% render 'breadcrumb-item', link: blog_link, title: blog.title, position: position %}
-          {% assign position = position | plus: 1 %}
-          {% render 'breadcrumb-item', title: tag_name, is_current: true, position: position %}
-        {% else %}
-          {% assign position = position | plus: 1 %}
-          {% render 'breadcrumb-item', link: blog_link, title: blog.title, is_current: true, position: position %}
-        {% endif %}
-      {% elsif template.name == 'list-collections' %}
-        {% assign position = position | plus: 1 %}
-        {% render 'breadcrumb-item', title: 'Shop', is_current: true, position: position %}
-      {% elsif template.name == 'cart' %}
-        {% assign position = position | plus: 1 %}
-        {% render 'breadcrumb-item', title: 'Cart', is_current: true, position: position %}
-      {% elsif template.name == 'account' or request.path contains '/tools/recurring/portal' %}
-        {% assign position = position | plus: 1 %}
-        {% render 'breadcrumb-item', link: "/account", title: 'My Account', position: position %}
-        {% if request.path contains '/tools/recurring/portal' %}
-          {% assign position = position | plus: 1 %}
-          {% render 'breadcrumb-item', title: 'Subscriptions', is_current: true, position: position %}
-        {% endif %}
-      {% endif %}
+					{% assign position = position | plus: 1 %}
+					{% render 'breadcrumb-item', link: blog_link, title: blog.title, position: position %}
+					{% assign position = position | plus: 1 %}
+					{% render 'breadcrumb-item', title: tag_name, is_current: true, position: position %}
+				{% else %}
+					{% assign position = position | plus: 1 %}
+					{% render 'breadcrumb-item', link: blog_link, title: blog.title, is_current: true, position: position %}
+				{% endif %}
+			{% elsif template.name == 'list-collections' %}
+				{% assign position = position | plus: 1 %}
+				{% render 'breadcrumb-item', title: 'Shop', is_current: true, position: position %}
+			{% elsif template.name == 'cart' %}
+				{% assign position = position | plus: 1 %}
+				{% render 'breadcrumb-item', title: 'Cart', is_current: true, position: position %}
+			{% elsif template.name == 'account' or request.path contains '/tools/recurring/portal' %}
+				{% assign position = position | plus: 1 %}
+				{% render 'breadcrumb-item', link: '/account', title: 'My Account', position: position %}
+				{% if request.path contains '/tools/recurring/portal' %}
+					{% assign position = position | plus: 1 %}
+					{% render 'breadcrumb-item', title: 'Subscriptions', is_current: true, position: position %}
+				{% endif %}
+			{% endif %}
 
-      {% if product %}
-        {% assign position = position | plus: 1 %}
-        {% if customer.b2b? %}{% assign shopLink = "/collections/wholesale" %}{% else %}{% assign shopLink = "/collections/all" %}{% endif %}
-        {% render 'breadcrumb-item', link: shopLink, title: 'Shop', position: position %}
-        {% assign position = position | plus: 1 %}
-        {% render 'breadcrumb-item', title: product.title, is_current: true, position: position %}
-      {% endif %}
-    </div>
-  </div>
+			{% if product %}
+				{% assign position = position | plus: 1 %}
+				{% if customer.b2b? %}{% assign shopLink = '/collections/wholesale' %}{% else %}{% assign shopLink = '/collections/all' %}{% endif %}
+				{% render 'breadcrumb-item', link: shopLink, title: 'Shop', position: position %}
+				{% assign position = position | plus: 1 %}
+				{% render 'breadcrumb-item', title: product.title, is_current: true, position: position %}
+			{% endif %}
+		</div>
+	</div>
 </nav>
 
 {% schema %}
-{
-  "name": "Breadcrumb",
-  "class": "breadcrumbs-section relative",
-  "settings": [
-    {
-      "type": "color",
-      "id": "current_color",
-      "label": "Current page color"
-    }
-  ],
-  "presets": [
-    {
-      "name": "Breadcrumb",
-      "category": "Navigation"
-    }
-  ]
-}
+	{
+		"name": "Breadcrumb",
+		"class": "breadcrumbs-section relative",
+		"settings": [
+			{
+				"type": "color",
+				"id": "current_color",
+				"label": "Current page color"
+			}
+		],
+		"presets": [
+			{
+				"name": "Breadcrumb",
+				"category": "Navigation"
+			}
+		]
+	}
 {% endschema %}
