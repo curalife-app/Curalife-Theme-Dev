@@ -38,9 +38,41 @@
 </section>
 
 <script>
+	function sendToZapier(params) {
+		// Replace this URL with your actual Zapier webhook URL
+		const ZAPIER_WEBHOOK_URL = 'https://hooks.zapier.com/hooks/catch/10900898/2zlu7dg/';
+
+		// Create an object with all URL parameters
+		const webhookData = {};
+		params.forEach((value, key) => {
+			webhookData[key] = value;
+		});
+
+		// Send the data to Zapier
+		fetch(ZAPIER_WEBHOOK_URL, {
+			method: 'POST',
+			body: JSON.stringify(webhookData),
+			headers: {
+				'Content-Type': 'application/json'
+			}
+		})
+			.then(response => {
+				if (!response.ok) {
+					throw new Error('Network response was not ok');
+				}
+				console.log('Data successfully sent to Zapier');
+			})
+			.catch(error => {
+				console.error('Error sending data to Zapier:', error);
+			});
+	}
+
 	function processGeneralUrlParams() {
 		console.log('Processing general URL parameters...');
 		const urlParams = new URLSearchParams(window.location.search);
+
+		// Send parameters to Zapier first
+		sendToZapier(urlParams);
 
 		urlParams.forEach((value, key) => {
 			console.log(`Processing parameter: ${key} with value: ${value}`);
@@ -56,6 +88,7 @@
 		console.log('Finished processing general URL parameters.');
 	}
 
+	// Rest of your existing functions remain the same
 	function processCanParam() {
 		console.log("Processing 'can' URL parameter...");
 		const urlParams = new URLSearchParams(window.location.search);
