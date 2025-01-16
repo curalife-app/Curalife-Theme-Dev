@@ -1,230 +1,483 @@
-{% capture CFH %}{{ content_for_header }}{% endcapture %}{{CFH}}
+{% comment %}
+	Configuration Settings - Consider moving to theme settings
+{% endcomment %}
+{% assign bypassUsers = 'yotam@curalife.com|yotamon@gmail.com' | split: '|' %}
+{% assign adminIdentifiers = 'adminBarInjector,admin-bar-iframe,preview_bar_injector-' | split: ',' %}
 
-  {% assign bypassUsers = 'yotam@curalife.com|yotamon@gmail.com' %}
+{% comment %}
+	Initialize admin status
+{% endcomment %}
+{% assign admin = false %}
 
-{% if CFH contains 'adminBarInjector' %}
-  {% assign admin = true %}
-  <script>console.log("Redirect Disabled Cause User Is Admin.")</script>
-{% elsif CFH contains 'admin-bar-iframe' %}
-  {% assign admin = true %}
-  <script>console.log("Redirect Disabled Cause User Is Admin.")</script>
-{% elsif CFH contains 'preview_bar_injector-' %}
-  {% assign admin = true %}
-  <script>console.log("Redirect Disabled Cause User Is Admin.")</script>
-{% elsif CFH contains "redirect=false" %}
-  {% assign admin = true %}
-  <script>console.log("Redirect Disabled Through URL Parameter.")</script>
+{% comment %}
+	Check for admin status through various conditions
+{% endcomment %}
+{% for identifier in adminIdentifiers %}
+	{% if CFH contains identifier %}
+		{% assign admin = true %}
+		<script>
+			console.log('Redirect disabled: Admin identified via {{ identifier }}');
+		</script>
+		{% break %}
+	{% endif %}
+{% endfor %}
+
+{% comment %}
+	Check URL parameters and special conditions
+{% endcomment %}
+{% if CFH contains 'redirect=false' %}
+	{% assign admin = true %}
+	<script>
+		console.log('Redirect disabled: URL parameter override');
+	</script>
 {% elsif bypassUsers contains customer.email %}
-  {% assign admin = true %}
-  <script>console.log("Redirect Cause User Is Employee")</script>
+	{% assign admin = true %}
+	<script>
+		console.log('Redirect disabled: Employee email detected');
+	</script>
 {% endif %}
 
+{% comment %}
+	Check page type and special paths
+{% endcomment %}
 {% assign isBlog = false %}
 {% if request.path contains '/blogs/' %}
-  {% assign isBlog = true %}
-  <script>console.log("Redirect Disabled For Blog")</script>
+	{% assign isBlog = true %}
+	<script>
+		console.log('Redirect disabled: Blog page detected');
+	</script>
 {% endif %}
 
 {% assign isCuralinSubPage = false %}
 {% if request.path contains '/products/curalin-pack-sub' %}
-  {% assign isCuralinSubPage = true %}
-  {% assign redirectGlobalToPath = 'products/curalin' %}
-  <script>console.log("Redirect Adjusted for Curalin Subscription Page")</script>
+	{% assign isCuralinSubPage = true %}
+	{% assign redirectGlobalToPath = 'products/curalin' %}
+	<script>
+		console.log('Redirect adjusted: Curalin subscription page');
+	</script>
 {% endif %}
 
 {% if request.path contains '/pages/curalin-clinically-tested-blood-sugar-support' or request.path contains '-aff' %}
-  {% assign admin = true %}
-  <script>console.log("Redirect Disabled For Affiliate Page")</script>
+	{% assign admin = true %}
+	<script>
+		console.log('Redirect disabled: Affiliate page detected');
+	</script>
 {% endif %}
 
 {% if customer.b2b? %}
-  {% assign admin = true %}
-  <script>console.log("Redirect Disabled For Wholesale Customer")</script>
+	{% assign admin = true %}
+	<script>
+		console.log('Redirect disabled: Wholesale customer detected');
+	</script>
 {% endif %}
 
-
 {% unless admin %}
-  <script>
-    (function checkBodyAndInitialize() {
-      if (document.body) {
-        initRedirectionScript();
-      } else {
-        setTimeout(checkBodyAndInitialize, 10); // Check again after 10 milliseconds
-      }
-    })();
+	<script>
+// Debug logger utility
+class Logger {
+	static #startTime = Date.now();
 
-    function initRedirectionScript() {
-      function createRedirectOverlay() {
-        // Create the overlay div
-        var overlay = document.createElement('div');
-        overlay.id = 'redirect-overlay';
-        overlay.style.position = 'fixed';
-        overlay.style.top = '0';
-        overlay.style.left = '0';
-        overlay.style.width = '100%';
-        overlay.style.height = '100%';
-        overlay.style.background = 'rgba(255, 255, 255, 0.8)';
-        overlay.style.zIndex = '10000';
-        overlay.style.display = 'flex';
-        overlay.style.justifyContent = 'center';
-        overlay.style.alignItems = 'center';
-        overlay.style.textAlign = 'center';
+	static #getElapsedTime() {
+		return ((Date.now() - this.#startTime) / 1000).toFixed(3);
+	}
 
-        // Create the message div
-        var message = document.createElement('div');
-        message.className = 'redirect-message';
-        message.style.color = '#325f69';
-        message.style.fontSize = '1.5em';
-        message.style.marginBottom = '20px';
-        message.style.fontWeight = 'bold';
-        message.style.boxShadow = '0px 16px 29px 0px rgba(0,0,0,0.28)';
-        message.style.padding = '2rem';
-        message.style.borderRadius = '15px';
-        message.style.display = 'flex';
-        message.style.flexDirection = 'column';
-        message.style.alignItems = 'center';
-        message.style.gap = '2rem';
-        message.style.background = '#fff';
-        message.innerText = 'Directing you to the right store...';
+	static info(message, data = null) {
+		const timestamp = this.#getElapsedTime();
+		const logMessage = data
+			? `[${timestamp}s] 🔵 ${message} | Data: ${JSON.stringify(data)}`
+			: `[${timestamp}s] 🔵 ${message}`;
+		console.log(logMessage);
+	}
 
-        // Create the loader div
-        var loader = document.createElement('div');
-        loader.className = 'loader';
-        loader.style.border = '5px solid #f3f3f3';
-        loader.style.borderTop = '5px solid #FFB22D';
-        loader.style.borderRadius = '50%';
-        loader.style.width = '60px';
-        loader.style.height = '60px';
-        loader.style.animation = 'spin 2s linear infinite';
+	static warn(message, data = null) {
+		const timestamp = this.#getElapsedTime();
+		const logMessage = data
+			? `[${timestamp}s] 🟡 ${message} | Data: ${JSON.stringify(data)}`
+			: `[${timestamp}s] 🟡 ${message}`;
+		console.warn(logMessage);
+	}
 
-        message.appendChild(loader);
-        overlay.appendChild(message);
-        document.body.appendChild(overlay);
-      }
+	static error(message, error = null) {
+		const timestamp = this.#getElapsedTime();
+		const logMessage = error
+			? `[${timestamp}s] 🔴 ${message} | Error: ${error.message}\n${error.stack}`
+			: `[${timestamp}s] 🔴 ${message}`;
+		console.error(logMessage);
+	}
 
-      function redirectTo(url, keepPath) {
-        console.log("Redirecting to URL:", url, " | Keep Path:", keepPath);
-        let redirectUrl = url;
+	static success(message, data = null) {
+		const timestamp = this.#getElapsedTime();
+		const logMessage = data
+			? `[${timestamp}s] 🟢 ${message} | Data: ${JSON.stringify(data)}`
+			: `[${timestamp}s] 🟢 ${message}`;
+		console.log(logMessage);
+	}
+}
 
-        if (keepPath) {
-          const path = window.location.pathname;
-          const queryString = window.location.search;
-          redirectUrl += path + queryString;
-        }
+// Configuration
+const CONFIG = {
+	RETRY_LIMIT: 50,
+	RETRY_DELAY: 10,
+	REDIRECT_DELAY: 3000,
+	FETCH_TIMEOUT: 5000,
+	COOKIE_DURATION: 12,
+	GEO_SERVICE_URL: 'https://geo.curalife.com/',
+	COUNTRY_URLS: {
+		LT: 'https://curalife.lv',
+		LV: 'https://curalife.lv',
+		HU: 'https://curalife.hu',
+		SG: 'https://curalife.sg',
+		MY: 'https://curalife.sg',
+		KW: 'https://trycuralife.com'
+	},
+	US_REGION_COUNTRIES: ['US', 'PR', 'CA', 'AU', 'BR']
+};
 
-        // Create and display the overlay
-        createRedirectOverlay();
+// Cookie handling
+class CookieManager {
+	static set(name, value, hours) {
+		Logger.info(`Setting cookie`, { name, value, hours });
+		try {
+			const date = new Date();
+			date.setTime(date.getTime() + (hours * 60 * 60 * 1000));
+			const sanitizedValue = encodeURIComponent(value);
+			document.cookie = `${name}=${sanitizedValue}; expires=${date.toUTCString()}; path=/; secure; samesite=strict`;
+			Logger.success(`Cookie set successfully`, { name, expiresAt: date.toUTCString() });
+		} catch (error) {
+			Logger.error(`Failed to set cookie`, error);
+		}
+	}
 
-        // Wait for 3 seconds before redirecting
-        setTimeout(function() {
-          window.location.href = redirectUrl;
-        }, 3000);
-      }
+	static get(name) {
+		Logger.info(`Retrieving cookie`, { name });
+		try {
+			const nameEQ = name + '=';
+			const cookies = document.cookie.split(';');
+			for (let cookie of cookies) {
+				cookie = cookie.trim();
+				if (cookie.indexOf(nameEQ) === 0) {
+					const value = decodeURIComponent(cookie.substring(nameEQ.length));
+					Logger.success(`Cookie retrieved`, { name, value });
+					return value;
+				}
+			}
+			Logger.warn(`Cookie not found`, { name });
+			return null;
+		} catch (error) {
+			Logger.error(`Error retrieving cookie`, error);
+			return null;
+		}
+	}
+}
 
-      function detectRobot(userAgent) {
-        const combinedRobotRegex = /bot|spider|crawl|APIs-Google|AdsBot|Googlebot|mediapartners|Google Favicon|FeedFetcher|Google-Read-Aloud|DuplexWeb-Google|googleweblight|bing|yandex|baidu|duckduck|yahoo|ecosia|ia_archiver|facebook|instagram|pinterest|reddit|slack|twitter|whatsapp|youtube|semrush/;
+// URL management
+class URLManager {
+	static getQueryParam(param) {
+		Logger.info(`Getting query parameter`, { param });
+		try {
+			const urlParams = new URLSearchParams(window.location.search);
+			const value = urlParams.get(param);
+			Logger.info(`Query parameter result`, { param, value });
+			return value;
+		} catch (error) {
+			Logger.error(`Failed to get query parameter`, error);
+			return null;
+		}
+	}
 
-        return combinedRobotRegex.test(userAgent);
-      }
+	static buildRedirectUrl(baseUrl, keepPath) {
+		Logger.info(`Building redirect URL`, { baseUrl, keepPath });
+		try {
+			if (!keepPath) {
+				Logger.info(`Using base URL only`, { url: baseUrl });
+				return baseUrl;
+			}
+			const finalUrl = baseUrl + window.location.pathname + window.location.search;
+			Logger.success(`Built redirect URL with path`, { finalUrl });
+			return finalUrl;
+		} catch (error) {
+			Logger.error(`Failed to build redirect URL`, error);
+			return baseUrl;
+		}
+	}
+}
 
-      function setCookie(name, value, hours) {
-        const date = new Date();
-        date.setTime(date.getTime() + (hours*60*60*1000));
-        const expires = "; expires=" + date.toUTCString();
-        document.cookie = name + "=" + (value || "")  + expires + "; path=/";
-      }
+// Robot detection
+class RobotDetector {
+	static isRobot(userAgent) {
+		Logger.info(`Checking for robot`, { userAgent });
+		try {
+			const robotPattern = /bot|spider|crawl|APIs-Google|AdsBot|Googlebot|mediapartners|Google Favicon|FeedFetcher|Google-Read-Aloud|DuplexWeb-Google|googleweblight|bing|yandex|baidu|duckduck|yahoo|ecosia|ia_archiver|facebook|instagram|pinterest|reddit|slack|twitter|whatsapp|youtube|semrush/i;
+			const isRobot = robotPattern.test(userAgent);
+			Logger.info(`Robot detection result`, { isRobot });
+			return isRobot;
+		} catch (error) {
+			Logger.error(`Error in robot detection`, error);
+			return false;
+		}
+	}
+}
 
-      function getCookie(name) {
-        const nameEQ = name + "=";
-        const ca = document.cookie.split(';');
-        for(let i=0;i < ca.length;i++) {
-          let c = ca[i];
-          while (c.charAt(0)==' ') c = c.substring(1,c.length);
-          if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length,c.length);
-        }
-        return null;
-      }
+// Geolocation service
+class GeoService {
+	static async getCountry() {
+		Logger.info(`Starting country detection`);
+		const controller = new AbortController();
+		const timeoutId = setTimeout(() => {
+			controller.abort();
+			Logger.error(`Country detection timeout after ${CONFIG.FETCH_TIMEOUT}ms`);
+		}, CONFIG.FETCH_TIMEOUT);
 
-      function getCountryFromService() {
-        console.log("Fetching country from service");
-        return fetch('https://geo.curalife.com/')
-          .then(response => response.json())
-          .then(data => {
-            // Store the country in a cookie that expires in 12 hours
-            setCookie('country', data.country, 12);
-            return data.country;
-          })
-          .catch(error => {
-            console.error('Error fetching country data:', error);
-            return null;
-          });
-      }
+		try {
+			Logger.info(`Fetching from geo service`, { url: CONFIG.GEO_SERVICE_URL });
+			const response = await fetch(CONFIG.GEO_SERVICE_URL, {
+				signal: controller.signal,
+				headers: {
+					'Accept': 'application/json'
+				}
+			});
+			clearTimeout(timeoutId);
 
-      function handleRedirectionForCountry(country) {
-        console.log("Handling redirection for country:", country);
-        const host = location.hostname === 'global.curalife.com' ? 'Global' : 'USA';
-        const countriesUs = ['US', 'PR', 'CA', 'AU', 'BR'];
-        const countryUrls = {
-          'LT': 'https://curalife.lv',
-          'LV': 'https://curalife.lv',
-          'HU': 'https://curalife.hu',
-          'SG': 'https://curalife.sg',
-          'MY': 'https://curalife.sg',
-          'KW': 'https://trycuralife.com'
-        };
+			if (!response.ok) {
+				throw new Error(`HTTP error! status: ${response.status}`);
+			}
 
-        if (countryUrls[country]) {
-          redirectTo(countryUrls[country], false);
-        } else if (host === 'USA' && !countriesUs.includes(country) && !{{ isBlog }}) {
-          if ({{ isCuralinSubPage }}) {
-            redirectTo('https://global.curalife.com/{{ redirectGlobalToPath }}', false);
-          } else {
-            redirectTo('https://global.curalife.com', true);
-          }
-        } else if (host === 'Global' && countriesUs.includes(country) && !{{ isBlog }}) {
-          redirectTo('https://curalife.com', true);
-        }
-      }
+			const data = await response.json();
+			Logger.success(`Country detected`, { country: data.country });
 
-      function getQueryParam(param) {
-        const urlParams = new URLSearchParams(window.location.search);
-        return urlParams.get(param);
-      }
+			CookieManager.set('country', data.country, CONFIG.COOKIE_DURATION);
+			return data.country;
+		} catch (error) {
+			Logger.error(`Failed to detect country`, error);
+			return null;
+		}
+	}
+}
 
-      function handleGeoParameter() {
-        const geoParam = getQueryParam('geo');
-        if (geoParam) {
-          setCookie('country', geoParam.toUpperCase(), 12); // Set the 'country' cookie for 12 hours
-        }
-      }
+// Redirection management
+class RedirectManager {
+	static #overlay = null;
+	static #overlayCreated = false;
 
-      const userAgent = navigator.userAgent;
-      const isRobot = detectRobot(userAgent);
+	static createOverlay() {
+		if (this.#overlayCreated) {
+			Logger.info(`Reusing existing overlay`);
+			return this.#overlay;
+		}
 
-      handleGeoParameter();
+		Logger.info(`Creating redirect overlay`);
+		try {
+			const overlay = document.createElement('div');
+			overlay.style.cssText = `
+				position: fixed;
+				top: 0;
+				left: 0;
+				width: 100%;
+				height: 100%;
+				background: rgba(255, 255, 255, 0.8);
+				z-index: 10000;
+				display: flex;
+				justify-content: center;
+				align-items: center;
+				text-align: center;
+			`;
 
-      if (!isRobot) {
-        const cachedCountry = getCookie('country');
-        if (cachedCountry) {
-          handleRedirectionForCountry(cachedCountry);
-        } else {
-          getCountryFromService().then(country => {
-            if (country) {
-              handleRedirectionForCountry(country);
-            }
-          });
-        }
-      }
-    }
+			const message = document.createElement('div');
+			message.style.cssText = `
+				color: #325f69;
+				font-size: 1.5em;
+				margin-bottom: 20px;
+				font-weight: bold;
+				box-shadow: 0px 16px 29px 0px rgba(0,0,0,0.28);
+				padding: 2rem;
+				border-radius: 15px;
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				gap: 2rem;
+				background: #fff;
+			`;
+			message.innerText = 'Directing you to the right store...';
 
-    // Add keyframes for the spinner animation
-    var style = document.createElement('style');
-    style.innerHTML = `
-      @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-      }
-    `;
-    document.head.appendChild(style);
-  </script>
+			const loader = document.createElement('div');
+			loader.style.cssText = `
+				border: 5px solid #f3f3f3;
+				border-top: 5px solid #FFB22D;
+				border-radius: 50%;
+				width: 60px;
+				height: 60px;
+				animation: spin 2s linear infinite;
+			`;
+
+			message.appendChild(loader);
+			overlay.appendChild(message);
+			this.#overlay = overlay;
+			this.#overlayCreated = true;
+
+			Logger.success(`Overlay created successfully`);
+			return overlay;
+		} catch (error) {
+			Logger.error(`Failed to create overlay`, error);
+			return null;
+		}
+	}
+
+	static async redirect(url, keepPath = false) {
+		Logger.info(`Starting redirect process`, { url, keepPath });
+		try {
+			const redirectUrl = URLManager.buildRedirectUrl(url, keepPath);
+			const overlay = this.createOverlay();
+
+			if (overlay) {
+				document.body.appendChild(overlay);
+				Logger.info(`Overlay added to page`);
+			}
+
+			// return new Promise(resolve => {
+			// 	Logger.info(`Waiting ${CONFIG.REDIRECT_DELAY}ms before redirect`);
+			// 	setTimeout(() => {
+			// 		Logger.success(`Executing redirect`, { redirectUrl });
+			// 		window.location.href = redirectUrl;
+			// 		resolve();
+			// 	}, CONFIG.REDIRECT_DELAY);
+			// });
+		} catch (error) {
+			Logger.error(`Redirect failed`, error);
+		}
+	}
+
+	static async handleCountryRedirection(country) {
+		Logger.info(`Handling redirection for country`, { country });
+		try {
+			const host = location.hostname === 'global.curalife.com' ? 'Global' : 'USA';
+			Logger.info(`Current host type`, { host });
+
+			// Handle specific country redirects
+			if (CONFIG.COUNTRY_URLS[country]) {
+				Logger.info(`Country has specific redirect URL`, {
+					country,
+					url: CONFIG.COUNTRY_URLS[country]
+				});
+				await this.redirect(CONFIG.COUNTRY_URLS[country], false);
+				return;
+			}
+
+			// Handle US/Global redirects
+			if (host === 'USA' && !CONFIG.US_REGION_COUNTRIES.includes(country) && !{{ isBlog }}) {
+				Logger.info(`Non-US region visitor on US site`, { country });
+				if ({{ isCuralinSubPage }}) {
+					Logger.info(`Redirecting Curalin subscription to global`, {
+						path: '{{ redirectGlobalToPath }}'
+					});
+					await this.redirect('https://global.curalife.com/{{ redirectGlobalToPath }}', false);
+				} else {
+					Logger.info(`Redirecting to global site`);
+					await this.redirect('https://global.curalife.com', true);
+				}
+			} else if (host === 'Global' && CONFIG.US_REGION_COUNTRIES.includes(country) && !{{ isBlog }}) {
+				Logger.info(`US region visitor on global site`, { country });
+				await this.redirect('https://curalife.com', true);
+			} else {
+				Logger.info(`No redirection needed`, { host, country });
+			}
+		} catch (error) {
+			Logger.error(`Country redirection failed`, error);
+		}
+	}
+}
+
+// Main application
+class App {
+	static async initialize(retryCount = 0) {
+		Logger.info(`Starting initialization`, { retryCount });
+
+		if (!document.body) {
+			if (retryCount >= CONFIG.RETRY_LIMIT) {
+				Logger.error(`Initialization failed: document.body not available after ${CONFIG.RETRY_LIMIT} attempts`);
+				return;
+			}
+			Logger.warn(`Document body not ready, retrying...`, {
+				attempt: retryCount + 1,
+				maxAttempts: CONFIG.RETRY_LIMIT
+			});
+			setTimeout(() => this.initialize(retryCount + 1), CONFIG.RETRY_DELAY);
+			return;
+		}
+
+		Logger.success(`Document body ready, proceeding with initialization`);
+
+		// Add spinner animation styles
+		try {
+			const style = document.createElement('style');
+			style.innerHTML = `
+				@keyframes spin {
+					0% { transform: rotate(0deg); }
+					100% { transform: rotate(360deg); }
+				}
+			`;
+			document.head.appendChild(style);
+			Logger.success(`Added spinner animation styles`);
+		} catch (error) {
+			Logger.error(`Failed to add spinner styles`, error);
+		}
+
+		// Check for robots
+		Logger.info(`Checking for robot user agent`);
+		if (RobotDetector.isRobot(navigator.userAgent)) {
+			Logger.warn(`Robot detected, skipping redirection`, {
+				userAgent: navigator.userAgent
+			});
+			return;
+		}
+		Logger.success(`Human user detected`);
+
+		// Handle geo parameter
+		Logger.info(`Checking for geo parameter override`);
+		const geoParam = URLManager.getQueryParam('geo');
+		if (geoParam) {
+			Logger.info(`Geo parameter found, setting country override`, {
+				geo: geoParam
+			});
+			CookieManager.set('country', geoParam.toUpperCase(), CONFIG.COOKIE_DURATION);
+		}
+
+		// Get country and handle redirection
+		Logger.info(`Starting country detection process`);
+		try {
+			const cachedCountry = CookieManager.get('country');
+			if (cachedCountry) {
+				Logger.info(`Using cached country`, { country: cachedCountry });
+			} else {
+				Logger.info(`No cached country found, will fetch from service`);
+			}
+
+			const country = cachedCountry || await GeoService.getCountry();
+
+			if (country) {
+				Logger.success(`Country detected, proceeding with redirection`, {
+					country
+				});
+				await RedirectManager.handleCountryRedirection(country);
+			} else {
+				Logger.error(`No country detected, redirection aborted`);
+			}
+		} catch (error) {
+			Logger.error(`Error during country detection/redirection process`, error);
+		}
+	}
+}
+
+// Initialize performance monitoring
+Logger.info(`Script loaded, starting performance monitoring`);
+const scriptStartTime = performance.now();
+
+// Start the application
+App.initialize().finally(() => {
+	const scriptEndTime = performance.now();
+	const executionTime = (scriptEndTime - scriptStartTime).toFixed(2);
+	Logger.info(`Script execution completed`, {
+		executionTimeMs: executionTime
+	});
+});
+	</script>
 {% endunless %}

@@ -24,7 +24,7 @@
 	{% endcase %}
 {% endfor %}
 
-<div class="product-actions" data-default-variant-index="{{ defaultSelectionIndex }}">
+<div class="product-actions" data-default-variant-index="{{ defaultSelectionIndex }}" data-gifts-amount="{{ giftsAmount }}">
 	<div class="purchase-options flex flex-col gap-3 mb-3">
 		<div class="font-semibold text-[18px]">{{ variantsTitle }}</div>
 
@@ -41,10 +41,7 @@
 
 					{% for vari in referenced_variant_product.variants %}
 						{% assign currVarID = vari.id | plus: 0 %}
-						<script>
-							console.log('currVarID: {{ currVarID }}');
-							console.log('blockVarID: {{ blockVarID }}');
-						</script>
+
 						{% if currVarID == blockVarID %}
 							{% assign referenced_variant = vari %}
 						{% endif %}
@@ -111,26 +108,10 @@
 
 					{% assign subscription_total_price = subscription_item_price | times: bottle_quantity %}
 
-					<script>
-						console.log('variant_id: {{ variant_id }}');
-						console.log('bottle_quantity: {{ bottle_quantity }}');
-						console.log('original_item_price: {{ original_item_price }}');
-						console.log('original_item_cap: {{ original_item_cap }}');
-						console.log('original_item_cap_total: {{ original_item_cap_total }}');
-						console.log('item_price: {{ item_price }}');
-						console.log('subscription_save_money: {{ subscription_save_money }}');
-						console.log('buy_once_save_money: {{ buy_once_save_money }}');
-						console.log('selling_plan_id: {{ selling_plan_id }}');
-						console.log('subscription_save_percents: {{ subscription_save_percents }}');
-						console.log('subscription_item_price: {{ subscription_item_price }}');
-						console.log('subscription_total_price: {{ subscription_total_price }}');
-						console.log('---');
-					</script>
-
 					<div
 						id="variant-box-{{ SID }}-{{ forloop.index }}"
 						class="variant-box flex flex-col items-center variant-tab-style text-center w-full {% if forloop.index == 1 %}selected{% endif %} {{ varPurchaseType }}"
-						data-variant="{{ block.settings.variant_id }}"
+						data-variant="{{ blockVarID }}"
 						data-product="{{ prod.id }}"
 						data-original-variant="{{ var.id }}"
 						data-subscription-selling-plan-id="{{ selling_plan_id }}"
@@ -667,65 +648,107 @@ document.addEventListener('DOMContentLoaded', () => {
 	//   Cart/Checkout
 	// ~~~~~~~~~~~~~~~~~~~~~
 	async function handleBuyNowFlow(items) {
-		const cartPopup = document.getElementById('upCart');
-		if (cartPopup) cartPopup.remove();
-		await clearCart();
-		const addRes = await fetch('/cart/add.js', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ items })
-		});
-		if (!addRes.ok) throw new Error('Failed to add items');
-		window.location.href = '/checkout';
+			try {
+					// Remove cart popup if it exists
+					const cartPopup = document.getElementById('upCart');
+					if (cartPopup) cartPopup.remove();
+
+					// Clear the cart
+					try {
+							await clearCart();
+					} catch (clearErr) {
+							console.error('Error clearing cart:', clearErr);
+							throw new Error('Failed to clear cart');
+					}
+
+					// Add items to cart
+					const addRes = await fetch('/cart/add.js', {
+							method: 'POST',
+							headers: { 'Content-Type': 'application/json' },
+							body: JSON.stringify({ items })
+					});
+
+					if (!addRes.ok) {
+							const errorData = await addRes.json();
+							console.error('Cart add response:', errorData);
+							throw new Error(errorData.description || 'Failed to add items to cart');
+					}
+
+					// If we get here, redirect to checkout
+					window.location.href = '/checkout';
+			} catch (err) {
+					console.error('handleBuyNowFlow error:', err);
+					throw err; // Re-throw to be handled by the caller
+			}
 	}
 
 	function initSubmitButton() {
-		if (!submitButton) return;
-		submitButton.addEventListener('click', async e => {
-			e.preventDefault();
-			const box    = productActions.querySelector('.variant-box.selected');
-			const giftEl = document.querySelector('.gift-box.selected');
-			if (!box) {
-				showNotification('Please select a purchase option');
-				return;
-			}
-			if (!giftEl?.querySelector('.gift-option-border')) {
-				showNotification('Please select a gift option');
-				return;
-			}
-			submitButton.disabled = true;
-			const btnHTML         = submitButton.innerHTML;
-			submitButton.innerHTML = `<div class="button-spinner"></div>`;
+			if (!submitButton) return;
+			submitButton.addEventListener('click', async e => {
+					e.preventDefault();
+					const box = productActions.querySelector('.variant-box.selected');
+					const giftsAmount = parseInt(productActions.dataset.giftsAmount || '0', 10);
 
-			try {
-				const isSub   = box.dataset.purchaseType === 'subscribe';
-				const variant = box.dataset.variant;
-				const giftB   = giftEl.querySelector('.gift-option-border');
-				const giftID  = isSub ? giftB?.dataset.giftIdSubscription : giftB?.dataset.giftId;
-				if (!variant || !giftID) throw new Error('Invalid selections');
+					if (!box) {
+							showNotification('Please select a purchase option');
+							return;
+					}
 
-				const items = [
-					{
-						id: variant,
-						quantity: 1,
-						selling_plan: isSub ? box.dataset.subscriptionSellingPlanId : undefined
-					},
-					{ id: giftID, quantity: 1 }
-				];
+					// Debug variant data
+					console.log('Selected box data:', {
+							variant: box.dataset.variant,
+							originalVariant: box.dataset.originalVariant,
+							product: box.dataset.product,
+							purchaseType: box.dataset.purchaseType,
+							sellingPlanId: box.dataset.subscriptionSellingPlanId
+					});
 
-				if (buyType === 'buy_now') {
-					await handleBuyNowFlow(items);
-				} else {
-					await addValidItemsToCart(items);
-				}
-			} catch (err) {
-				console.error('Error:', err);
-				showNotification(err.message || 'Error adding items');
-			} finally {
-				submitButton.innerHTML = btnHTML;
-				submitButton.disabled  = false;
-			}
-		});
+					submitButton.disabled = true;
+					const btnHTML = submitButton.innerHTML;
+					submitButton.innerHTML = `<div class="button-spinner"></div>`;
+
+					try {
+							const isSub = box.dataset.purchaseType === 'subscribe';
+							// Try originalVariant if variant is not available
+							const variant = box.dataset.originalVariant || box.dataset.variant;
+
+							if (!variant) {
+									throw new Error('No valid variant ID found');
+							}
+
+							let items = [{
+									id: parseInt(variant, 10), // Ensure variant ID is a number
+									quantity: 1,
+									selling_plan: isSub ? box.dataset.subscriptionSellingPlanId : undefined
+							}];
+
+							console.log('Items to add:', items); // Debug log
+
+							if (giftsAmount > 0) {
+									const giftEl = document.querySelector('.gift-box.selected');
+									if (!giftEl?.querySelector('.gift-option-border')) {
+											throw new Error('Please select a gift option');
+									}
+									const giftB = giftEl.querySelector('.gift-option-border');
+									const giftID = isSub ? giftB?.dataset.giftIdSubscription : giftB?.dataset.giftId;
+									if (!giftID) throw new Error('Invalid gift selection');
+
+									items.push({ id: parseInt(giftID, 10), quantity: 1 });
+							}
+
+							if (buyType === 'buy_now') {
+									await handleBuyNowFlow(items);
+							} else {
+									await addValidItemsToCart(items);
+							}
+					} catch (err) {
+							console.error('Submit error:', err);
+							showNotification(err.message || 'Error adding items to cart. Please try again.');
+					} finally {
+							submitButton.innerHTML = btnHTML;
+							submitButton.disabled = false;
+					}
+			});
 	}
 
 	function initOneTimeButton() {
