@@ -285,6 +285,7 @@
 					name="track:link-submit|buybox-type:{{ buyboxType }}|buybox-name:{{ buyboxName }}|variant-sku:{{ firstVariant.sku }}|purchase-type:buyonce"
 					data-variant-id="{{ firstVariant.id }}"
 					data-bottle-quantity="1"
+					data-sku="{{ firstVariant.sku }}"
 					data-purchase-type="buyonce">
 					Buy Once for {{ firstVariant.price | money }} + Shipping $10
 				</div>
@@ -571,13 +572,12 @@ document.addEventListener('DOMContentLoaded', () => {
 		performSlideUpdate(slider, variantId);
 	}
 
-	// ~~~~~~~~~~~~~~~~~~~~~
-	// Purchase Box Select
-	// ~~~~~~~~~~~~~~~~~~~~~
-	function updateBuyButtonName(el) {
+	function updateBuyButton(el) {
 		if (!submitButton) return;
 		const sku         = el.dataset.sku;
 		const purchase    = el.dataset.purchaseType;
+
+		// Update button's tracking name attribute
 		const currName    = submitButton.getAttribute('name') || '';
 		const parts       = currName.split('|');
 		const params      = {};
@@ -589,7 +589,11 @@ document.addEventListener('DOMContentLoaded', () => {
 		params['purchase-type'] = purchase;
 		const newName = `track:add|${Object.entries(params)
 			.map(([k, v]) => `${k}:${v}`).join('|')}`;
+
+		// Update button attributes
 		submitButton.setAttribute('name', newName);
+		submitButton.setAttribute('data-sku', sku);
+		submitButton.setAttribute('data-purchase-type', purchase);
 	}
 
 	function togglePurchaseBox(el) {
@@ -610,7 +614,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		const radio = el.querySelector('input[type="radio"]');
 		if (radio) radio.checked = true;
 
-		updateBuyButtonName(el);
+		updateBuyButton(el);
 		state.selectedBox = el;
 		updatePriceDisplay(el);
 
@@ -628,7 +632,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		const defBox   = purchaseOptionBoxes[defIdx - 1] || purchaseOptionBoxes[0];
 		if (defBox) {
 			togglePurchaseBox(defBox);
-			updateBuyButtonName(defBox);
+			updateBuyButton(defBox);
 		}
 		productActions.addEventListener('click', e => {
 			const radio = e.target.closest('input[type="radio"]');
