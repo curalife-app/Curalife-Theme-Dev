@@ -5,10 +5,11 @@
 {% if section.settings.is_sticky %}
 	<a id="sticky-bar" href="{{ buttonURL }}" class="clickable container">
 		<button
-			class="sticky-button"
+			class="sticky-button {% if section.settings.is_link_to_next_page %}next-page-link{% endif %}"
 			{% if buttonName %}
 				name="track:button-click|name:{{ buttonName }}"
-			{% endif %}>
+			{% endif %}
+			aria-label="{{ section.settings.button_text }}">
 			{{ section.settings.button_text }}
 		</button>
 	</a>
@@ -37,6 +38,27 @@
 	</section>
 {% endif %}
 
+<style>
+	/* Base section styles */
+	#button-section-{{ section.id }} {
+			padding-top: {% if section.settings.padding_top != 50 and section.settings.padding_top != blank %}{{ section.settings.padding_top }}px{% endif %};
+			padding-bottom: {% if section.settings.padding_bottom != 50 and section.settings.padding_top != blank %}{{ section.settings.padding_bottom }}px{% endif %};
+	}
+
+	/* Hidden state for button section */
+	#button-section-{{ section.id }}.hidden {
+			display: none;
+	}
+
+	/* Mobile padding adjustments */
+	@media screen and (max-width: 768px) {
+			#button-section-{{ section.id }} {
+					padding-top: {% if section.settings.padding_top_mobile != blank %}{{ section.settings.padding_top_mobile }}vw{% endif %};
+					padding-bottom: {% if section.settings.padding_bottom_mobile != blank %}{{ section.settings.padding_bottom_mobile }}vw{% endif %};
+			}
+	}
+</style>
+
 {% if section.settings.is_pass_url_parameters %}
 	<script>
 		document.addEventListener('DOMContentLoaded', function () {
@@ -53,10 +75,15 @@
 		document.addEventListener('DOMContentLoaded', function () {
 			const stickyBar = document.getElementById('sticky-bar');
 			const stickyHideSetting = "{{ section.settings.sticky_hide | default: '' | strip }}";
-			const hideOnElements = stickyHideSetting
-				.split(',')
-				.map(s => s.trim())
-				.filter(s => s !== '');
+			const hideOnElements = [
+				...new Set([
+					'.cta-section',
+					...stickyHideSetting
+						.split(',')
+						.map(s => s.trim())
+						.filter(s => s !== '')
+				])
+			];
 
 			// Track intersecting elements for visibility state
 			const intersectingElements = new Set();
@@ -114,25 +141,6 @@
 	</script>
 
 	<style>
-		/* Base section styles */
-		#button-section-{{ section.id }} {
-				padding-top: {% if section.settings.padding_top != 50 and section.settings.padding_top != blank %}{{ section.settings.padding_top }}px{% endif %};
-				padding-bottom: {% if section.settings.padding_bottom != 50 and section.settings.padding_top != blank %}{{ section.settings.padding_bottom }}px{% endif %};
-		}
-
-		/* Hidden state for button section */
-		#button-section-{{ section.id }}.hidden {
-				display: none;
-		}
-
-		/* Mobile padding adjustments */
-		@media screen and (max-width: 768px) {
-				#button-section-{{ section.id }} {
-						padding-top: {% if section.settings.padding_top_mobile != blank %}{{ section.settings.padding_top_mobile }}vw{% endif %};
-						padding-bottom: {% if section.settings.padding_bottom_mobile != blank %}{{ section.settings.padding_bottom_mobile }}vw{% endif %};
-				}
-		}
-
 		/* Sticky bar container */
 		#sticky-bar {
 				position: fixed;

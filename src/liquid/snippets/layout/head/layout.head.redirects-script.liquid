@@ -1,13 +1,23 @@
 <script>
-  function redirectToRelative(relative_path, new_relativePath) {
-    if (window.location.pathname == relative_path) {
-      window.location.replace(new_relativePath);
-    }
-  }
+	const redirectMap = new Map([
+		['b2b', [['/products/curalin', '/products/curalin-wholesale']]],
+		[
+			'retail',
+			[
+				['/products/curalin-wholesale', '/products/curalin'],
+				['/cart', '/']
+			]
+		]
+	]);
 
-  {% if customer.b2b? %}
-    redirectToRelative("/products/curalin", "/products/curalin-wholesale" )
-  {% else %}
-    redirectToRelative("/products/curalin-wholesale", "/products/curalin" )
-  {% endif %}
+	function executeRedirect() {
+		const currentPath = window.location.pathname;
+		const customerType = '{{ customer.b2b? }}' === 'true' ? 'b2b' : 'retail';
+
+		redirectMap.get(customerType)?.forEach(([from, to]) => {
+			if (currentPath === from) window.location.replace(to);
+		});
+	}
+
+	executeRedirect();
 </script>
