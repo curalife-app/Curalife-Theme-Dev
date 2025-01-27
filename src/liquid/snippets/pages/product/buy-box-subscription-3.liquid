@@ -12,6 +12,7 @@
 {% assign referenced_variant_product = prod %}
 
 {% assign giftsAmount = 0 %}
+{% assign faqsAmount = value %}
 {% for block in blocks %}
 	{% case block.type %}
 		{% when 'gift' %}
@@ -27,6 +28,9 @@
 			{% if show_gift %}
 				{% assign giftsAmount = giftsAmount | plus: 1 %}
 			{% endif %}
+
+		{% when 'faq' %}
+			{% assign faqsAmount = faqsAmount | plus: 1 %}
 	{% endcase %}
 {% endfor %}
 
@@ -114,6 +118,8 @@
 
 					{% assign subscription_total_price = subscription_item_price | times: bottle_quantity %}
 
+					{% assign firstMonthDiscount = block.settings.first_month_discount_percentage %}
+
 					<div
 						id="variant-box-{{ SID }}-{{ forloop.index }}"
 						class="variant-box flex flex-col items-center variant-tab-style text-center w-full {% if forloop.index == 1 %}selected{% endif %} {{ varPurchaseType }}"
@@ -131,6 +137,7 @@
 						data-dc="{{ var.metafields.custom.discount_code | base64_encode }}"
 						data-buy-once-discount="{{ var.metafields.custom.save_percents }}"
 						data-subscription-discount="{{ subscription_save_percents }}"
+						data-first-month-discount="{{ firstMonthDiscount }}"
 						data-price-per="{{ pricePer }}"
 						data-bottle-quantity="{{ bottle_quantity }}"
 						data-purchase-type="{{ varPurchaseType }}"
@@ -140,7 +147,7 @@
 							{% assign subscription_save_percents = var.metafields.subscription.save_percents %}
 						{% endif %}
 						{% if subscription_save_percents > 0 %}
-							<div class="discount mbl:text-[3.5vw] text-white bg-[--primary-color] font-bold w-full text-[13px] p-1">{{ subscription_save_percents }}% OFF</div>
+							<div class="discount mbl:text-[3.5vw] text-white bg-[--primary-color] font-bold w-full text-[13px] p-1">{{ subscription_save_percents | plus: firstMonthDiscount }}% OFF</div>
 						{% endif %}
 
 						<!-- prettier-ignore -->
@@ -163,37 +170,32 @@
 
 		<div class="price-display">
 			<div class="gap-y-2 flex flex-wrap items-end gap-2">
-				<div class="final-price flex items-center gap-2">
-					<div class="main-price text-[--primary] flex items-end">
-						{% if priceFormat == 'total' %}
-							<span class="price font-bold leading-none text-[30px] mbl:text-[6vw]">{{ subscription_total_price | money }}</span>
-						{% else %}
-							<span class="price font-bold leading-none text-[30px] mbl:text-[6vw]">{{ subscription_item_price | money }}</span>
-							<span class="per-text mt-1 text-[20px]">/bottle</span>
-						{% endif %}
+					<div class="final-price flex items-center gap-2">
+							<div class="main-price text-[--primary] flex items-end">
+									{% if priceFormat == 'total' %}
+											<span class="price font-bold leading-none text-[30px] mbl:text-[6vw]">{{ subscription_total_price | money }}</span>
+									{% else %}
+											<span class="price font-bold leading-none text-[30px] mbl:text-[6vw]">{{ subscription_item_price | money }}</span>
+											<span class="per-text mt-1 text-[20px]">/bottle</span>
+									{% endif %}
+							</div>
+
+							<span class="cap self-end text-gray-500 line-through">{{ original_item_cap | money }}</span>
+
+							{% if priceFormat == 'total' and subscription_total_price != subscription_item_price %}
+									<span class="discount-badge px-4 py-1 text-[16px] font-bold text-white bg-[--bronze] rounded-full">SAVE {{ subscription_save_money | money }}</span>
+							{% endif %}
 					</div>
-
-					<span class="cap self-end text-gray-500 line-through">{{ original_item_cap | money }}</span>
-
-					{% if priceFormat == 'total' and subscription_total_price != subscription_item_price %}
-						<span class="discount-badge px-4 py-1 text-[16px] font-bold text-white bg-[--bronze] rounded-full">SAVE {{ subscription_save_money | money }}</span>
-					{% endif %}
-				</div>
 			</div>
 
 			{% if priceFormat == 'per_bottle' and subscription_total_price != subscription_item_price %}
-				<div class="total-line mt-1 text-[16px] h-4">
-					Total {{ subscription_total_price | money }}
-					<span class="total-price-cap text-gray-500 line-through">{{ original_item_cap_total | money }}</span>
-				</div>
+					<div class="total-line mt-1 text-[16px] h-4">
+							Total {{ subscription_total_price | money }}
+							<span class="total-price-cap text-gray-500 line-through">{{ original_item_cap_total | money }}</span>
+					</div>
 			{% endif %}
 
-			<style>
-				.total-price-cap {
-					display: none !important;
-				}
-			</style>
-		</div>
+			<div class="future-price-notice mt-2 text-[14px] text-gray-600"></div>
 	</div>
 
 	{% if variantsNotice != blank %}
@@ -201,6 +203,109 @@
 			<span>ⓘ</span>
 			<span>{{ variantsNotice }}</span>
 		</div>
+	{% endif %}
+
+	{% if faqsAmount > 0 %}
+		<div class="faq-questions flex flex-col my-4">
+			{% for block in blocks %}
+				{% if block.type == 'faq' %}
+					<div class="faq-question overflow-hidden bg-white">
+						<div class="faq-question-header flex items-center justify-between p-4 cursor-pointer">
+							<div class="faq-question-title text-[16px] font-semibold pr-8">{{ block.settings.question }}</div>
+						</div>
+						<div class="faq-answer-wrapper">
+							<div class="faq-answer p-4 pt-0 text-gray-600 text-[16px]">
+								{{ block.settings.answer }}
+							</div>
+						</div>
+					</div>
+				{% endif %}
+			{% endfor %}
+		</div>
+
+		<script>
+			document.addEventListener('DOMContentLoaded', () => {
+				const faqQuestions = document.querySelectorAll('.faq-question');
+
+				faqQuestions.forEach(question => {
+					const header = question.querySelector('.faq-question-header');
+					const answerWrapper = question.querySelector('.faq-answer-wrapper');
+					const answer = question.querySelector('.faq-answer');
+
+					// Initially set height to 0
+					answerWrapper.style.height = '0px';
+
+					header.addEventListener('click', () => {
+						const isOpen = question.classList.contains('open');
+
+						// Close all other questions first
+						faqQuestions.forEach(q => {
+							if (q !== question && q.classList.contains('open')) {
+								q.classList.remove('open');
+								q.querySelector('.faq-answer-wrapper').style.height = '0px';
+							}
+						});
+
+						// Toggle current question
+						question.classList.toggle('open');
+
+						if (!isOpen) {
+							answerWrapper.style.height = answer.offsetHeight + 'px';
+						} else {
+							answerWrapper.style.height = '0px';
+						}
+					});
+				});
+			});
+		</script>
+
+		<style>
+			.faq-question {
+				transition: all 0.3s ease;
+				border-top-width: 2px;
+				border-color: var(--primary-color-light);
+
+				&:last-child {
+					border-bottom-width: 2px;
+				}
+			}
+
+			.faq-answer-wrapper {
+				transition: height 0.3s ease-in-out;
+			}
+
+			.faq-question-header {
+				position: relative;
+				color: var(--primary-color);
+			}
+
+			.faq-question-header::after {
+				content: '+';
+				position: absolute;
+				right: 1rem;
+				font-size: 2rem;
+				transition: transform 0.3s;
+				line-height: 1;
+			}
+
+			.faq-question.open .faq-question-header::after {
+				transform: rotate(45deg);
+			}
+
+			.faq-answer p {
+				margin: 0;
+			}
+
+			@media (max-width: 767px) {
+				.faq-question-title {
+					font-size: 4vw;
+				}
+
+				.faq-answer {
+					font-size: 4vw;
+				}
+			}
+		</style>
 	{% endif %}
 
 	{% if giftsAmount > 0 %}
@@ -310,7 +415,6 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-	// DOM
 	const productActions       = document.querySelector('#cta-section-{{ SID }} .product-actions');
 	if (!productActions) return;
 
@@ -453,86 +557,114 @@ document.addEventListener('DOMContentLoaded', () => {
 	//   Price Updates
 	// ~~~~~~~~~~~~~~~~~~~~~
 	function updatePriceDisplay(el) {
-		const priceEls = document.querySelectorAll('.price-display');
-		const subItem = parseFloat(el.dataset.subscriptionItemPrice) / 100 || 0;
-		const subPrice = parseFloat(el.dataset.subscriptionPrice) / 100 || 0;
-		const origPerItem = parseFloat(el.dataset.originalItemCap) / 100 || 0;
-		const bottles = parseInt(el.dataset.bottleQuantity, 10) || 1;
+			const priceEls = document.querySelectorAll('.price-display');
 
-		const totalOrig = origPerItem * bottles;
-		const saveAmt = priceFormat === 'total'
-			? (totalOrig - subPrice)
-			: ((origPerItem - subItem) * bottles);
+			// Get base prices and convert from cents to dollars
+			const subItem = parseFloat(el.dataset.subscriptionItemPrice) / 100 || 0;
+			const subPrice = parseFloat(el.dataset.subscriptionPrice) / 100 || 0;
+			const origPerItem = parseFloat(el.dataset.originalItemCap) / 100 || 0;
+			const bottles = parseInt(el.dataset.bottleQuantity, 10) || 1;
+			const firstMonthDiscount = parseFloat(el.dataset.firstMonthDiscount) || 0;
 
-		priceEls.forEach(display => {
-			const mainPrice = display.querySelector('.final-price');
-			const discount = display.querySelector('.discount-badge');
-			const totalLine = display.querySelector('.total-line');
-			const newMain = `$${(priceFormat === 'total' ? subPrice : subItem).toFixed(2)}`;
-			const newCompare = `$${(priceFormat === 'total' ? totalOrig : origPerItem).toFixed(2)}`;
-			const flooredSave = Math.floor(saveAmt);
+			// Calculate original and discounted prices
+			const totalOrig = origPerItem * bottles;
+			const firstMonthDiscountMultiplier = (100 - firstMonthDiscount) / 100;
+			const firstMonthSubItem = subItem * firstMonthDiscountMultiplier;
+			const firstMonthSubPrice = subPrice * firstMonthDiscountMultiplier;
 
-			// Skip animation if it's the initial load
-			if (state.isInitialLoad) {
-				if (mainPrice) {
-					const pSpan = mainPrice.querySelector('.price');
-					const cSpan = mainPrice.querySelector('.cap');
-					if (pSpan) pSpan.textContent = newMain;
-					if (cSpan) cSpan.textContent = newCompare;
-				}
+			// Calculate savings amount based on price format
+			const saveAmt = priceFormat === 'total'
+					? (totalOrig - firstMonthSubPrice)
+					: ((origPerItem - firstMonthSubItem) * bottles);
 
-				if (discount && priceFormat === 'total') {
-					discount.textContent = flooredSave > 0 ? `SAVE $${flooredSave}` : '';
-				}
+			priceEls.forEach(display => {
+					const mainPrice = display.querySelector('.final-price');
+					const discount = display.querySelector('.discount-badge');
+					const totalLine = display.querySelector('.total-line');
+					const futurePrice = display.querySelector('.future-price-notice');
 
-				if (totalLine && priceFormat === 'per_bottle') {
-					if (flooredSave > 0 && subPrice != totalOrig) {
-						totalLine.innerHTML = `Total $${subPrice.toFixed(2)} <span class="total-price-cap text-gray-500 line-through">$${(origPerItem * bottles).toFixed(2)}</span>`;
-					} else {
-						totalLine.textContent = '';
-					}
-				}
-				state.isInitialLoad = false;
-				return;
-			}
+					// Format price displays
+					const newMain = `$${(priceFormat === 'total' ? firstMonthSubPrice : firstMonthSubItem).toFixed(2)}`;
+					const newCompare = `$${(priceFormat === 'total' ? totalOrig : origPerItem).toFixed(2)}`;
+					const regularPrice = `$${(priceFormat === 'total' ? subPrice : subItem).toFixed(2)}`;
+					const flooredSave = Math.floor(saveAmt);
 
-			// Animate for subsequent updates
-			const animate = () => {
-				[mainPrice, discount, totalLine].forEach(el => {
-					if (el) {
-						el.style.transition = 'opacity 200ms ease-out';
-						el.style.opacity = '0';
-					}
-				});
+					// Skip animation if it's the initial load
+					if (state.isInitialLoad) {
+							if (mainPrice) {
+									const pSpan = mainPrice.querySelector('.price');
+									const cSpan = mainPrice.querySelector('.cap');
+									if (pSpan) pSpan.textContent = newMain;
+									if (cSpan) cSpan.textContent = newCompare;
+							}
 
-				setTimeout(() => {
-					if (mainPrice) {
-						const pSpan = mainPrice.querySelector('.price');
-						const cSpan = mainPrice.querySelector('.cap');
-						if (pSpan) pSpan.textContent = newMain;
-						if (cSpan) cSpan.textContent = newCompare;
-					}
+							if (discount && priceFormat === 'total') {
+									discount.textContent = flooredSave > 0 ? `SAVE $${flooredSave}` : '';
+							}
 
-					if (discount && priceFormat === 'total') {
-						discount.textContent = flooredSave > 0 ? `SAVE $${flooredSave}` : '';
+							if (totalLine && priceFormat === 'per_bottle') {
+									if (flooredSave > 0 && firstMonthSubPrice != firstMonthSubItem) {
+											totalLine.innerHTML = `Total $${firstMonthSubPrice.toFixed(2)} <span class="total-price-cap text-gray-500 line-through">$${totalOrig.toFixed(2)}</span>`;
+									} else {
+											totalLine.textContent = '';
+									}
+							}
+
+							// Update future price notice
+							if (futurePrice && firstMonthDiscount > 0) {
+									futurePrice.textContent = `First order special price. Refills at ${regularPrice}${priceFormat === 'per_bottle' ? '/bottle' : ''}. `;
+							}
+
+							state.isInitialLoad = false;
+							return;
 					}
 
-					if (totalLine && priceFormat === 'per_bottle') {
-						if (flooredSave > 0 && subPrice != subItem) {
-							totalLine.innerHTML = `Total $${subPrice.toFixed(2)} <span class="total-price-cap text-gray-500 line-through">$${(origPerItem * bottles).toFixed(2)}</span>`;
-						} else {
-							totalLine.textContent = ' ';
-						}
-					}
+					// Animate price updates for subsequent changes
+					const animate = () => {
+							[mainPrice, discount, totalLine, futurePrice].forEach(el => {
+									if (el) {
+											el.style.transition = 'opacity 200ms ease-out';
+											el.style.opacity = '0';
+									}
+							});
 
-					setTimeout(() => mainPrice && (mainPrice.style.opacity = '1'), 50);
-					setTimeout(() => discount && (discount.style.opacity = '1'), 100);
-					setTimeout(() => totalLine && (totalLine.style.opacity = '1'), 150);
-				}, 200);
-			};
+							setTimeout(() => {
+									if (mainPrice) {
+											const pSpan = mainPrice.querySelector('.price');
+											const cSpan = mainPrice.querySelector('.cap');
+											if (pSpan) pSpan.textContent = newMain;
+											if (cSpan) cSpan.textContent = newCompare;
+									}
 
-			requestAnimationFrame(animate);
-		});
+									if (discount && priceFormat === 'total') {
+											discount.textContent = flooredSave > 0 ? `SAVE $${flooredSave}` : '';
+									}
+
+									if (totalLine && priceFormat === 'per_bottle') {
+											if (flooredSave > 0 && firstMonthSubPrice != firstMonthSubItem) {
+													totalLine.innerHTML = `Total $${firstMonthSubPrice.toFixed(2)} <span class="total-price-cap text-gray-500 line-through">$${totalOrig.toFixed(2)}</span>`;
+											} else {
+													totalLine.textContent = ' ';
+											}
+									}
+
+									// Update future price notice
+									if (futurePrice && firstMonthDiscount > 0) {
+											futurePrice.textContent = `First order special price. Refills at ${regularPrice}${priceFormat === 'per_bottle' ? '/bottle' : ''}. `;
+									} else if (futurePrice) {
+											futurePrice.textContent = '';
+									}
+
+									// Fade elements back in with staggered timing
+									setTimeout(() => mainPrice && (mainPrice.style.opacity = '1'), 50);
+									setTimeout(() => discount && (discount.style.opacity = '1'), 100);
+									setTimeout(() => totalLine && (totalLine.style.opacity = '1'), 150);
+									setTimeout(() => futurePrice && (futurePrice.style.opacity = '1'), 200);
+							}, 200);
+					};
+
+					requestAnimationFrame(animate);
+			});
 	}
 
 	// ~~~~~~~~~~~~~~~~~~~~~
@@ -1123,6 +1255,17 @@ document.addEventListener('DOMContentLoaded', () => {
 									font-size: 4vw;
 							}
 					}
+			}
+	}
+
+	.future-price-notice {
+			transition: opacity 200ms ease-out;
+			line-height: 1.4;
+	}
+
+	@media (max-width: 767px) {
+			.future-price-notice {
+					font-size: 12px;
 			}
 	}
 
