@@ -262,11 +262,11 @@
 		<style>
 			.faq-question {
 				transition: all 0.3s ease;
-				border-top-width: 2px;
+				border-top-width: 1px;
 				border-color: var(--primary-color-light);
 
 				&:last-child {
-					border-bottom-width: 2px;
+					border-bottom-width: 1px;
 				}
 			}
 
@@ -564,13 +564,25 @@ document.addEventListener('DOMContentLoaded', () => {
 			const subPrice = parseFloat(el.dataset.subscriptionPrice) / 100 || 0;
 			const origPerItem = parseFloat(el.dataset.originalItemCap) / 100 || 0;
 			const bottles = parseInt(el.dataset.bottleQuantity, 10) || 1;
+
+			// Calculate original total price
+			const totalOrig = origPerItem * bottles;
+
+			// Get subscription and first month discounts
+			const subscriptionDiscount = parseFloat(el.dataset.subscriptionDiscount) || 0;
 			const firstMonthDiscount = parseFloat(el.dataset.firstMonthDiscount) || 0;
 
-			// Calculate original and discounted prices
-			const totalOrig = origPerItem * bottles;
-			const firstMonthDiscountMultiplier = (100 - firstMonthDiscount) / 100;
-			const firstMonthSubItem = subItem * firstMonthDiscountMultiplier;
-			const firstMonthSubPrice = subPrice * firstMonthDiscountMultiplier;
+			// Combine discounts for first month
+			const totalFirstMonthDiscount = subscriptionDiscount + firstMonthDiscount;
+			const firstMonthDiscountMultiplier = (100 - totalFirstMonthDiscount) / 100;
+
+			// Calculate first month prices
+			const firstMonthSubItem = origPerItem * firstMonthDiscountMultiplier;
+			const firstMonthSubPrice = totalOrig * firstMonthDiscountMultiplier;
+
+			// Regular subscription price for future months uses only subscription discount
+			const regularDiscountMultiplier = (100 - subscriptionDiscount) / 100;
+			const regularPrice = (priceFormat === 'total' ? totalOrig : origPerItem) * regularDiscountMultiplier;
 
 			// Calculate savings amount based on price format
 			const saveAmt = priceFormat === 'total'
@@ -586,7 +598,7 @@ document.addEventListener('DOMContentLoaded', () => {
 					// Format price displays
 					const newMain = `$${(priceFormat === 'total' ? firstMonthSubPrice : firstMonthSubItem).toFixed(2)}`;
 					const newCompare = `$${(priceFormat === 'total' ? totalOrig : origPerItem).toFixed(2)}`;
-					const regularPrice = `$${(priceFormat === 'total' ? subPrice : subItem).toFixed(2)}`;
+					const regularPriceFormatted = `$${regularPrice.toFixed(2)}`;
 					const flooredSave = Math.floor(saveAmt);
 
 					// Skip animation if it's the initial load
@@ -612,7 +624,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 							// Update future price notice
 							if (futurePrice && firstMonthDiscount > 0) {
-									futurePrice.textContent = `First order special price. Refills at ${regularPrice}${priceFormat === 'per_bottle' ? '/bottle' : ''}. `;
+									futurePrice.textContent = `Special price for first order. Recurring order at ${regularPriceFormatted}${priceFormat === 'per_bottle' ? '/bottle' : ''}. `;
 							}
 
 							state.isInitialLoad = false;
@@ -650,7 +662,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 									// Update future price notice
 									if (futurePrice && firstMonthDiscount > 0) {
-											futurePrice.textContent = `First order special price. Refills at ${regularPrice}${priceFormat === 'per_bottle' ? '/bottle' : ''}. `;
+											futurePrice.textContent = `Special price for first order. Recurring order at ${regularPriceFormatted}${priceFormat === 'per_bottle' ? '/bottle' : ''}. `;
 									} else if (futurePrice) {
 											futurePrice.textContent = '';
 									}

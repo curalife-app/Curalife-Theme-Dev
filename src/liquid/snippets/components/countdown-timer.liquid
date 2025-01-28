@@ -1,176 +1,192 @@
+{%- comment -%}
+	Countdown Timer Snippet
+	Configuration:
+	- section_id: Unique section identifier
+	- bgColor: Background color setting
+	- isShowDays: Toggle days display (only for non-urgency timer)
+	- showLabels: Toggle time unit labels
+	- urgencyMinutes: Reset duration in minutes
+	- targetDate: Specific end date (Month Day, Year Hour:Minute:00)
+{%- endcomment -%}
+
 <div id="countdown-{{ section_id }}" class="countdown">
-  <ul>
-    {% if isShowDays %}
-      <li><span id="days-{{ section_id }}"></span>Days</li>
-    {% endif %}
-    <li><span id="hours-{{ section_id }}"></span>Hours</li>
-    <li><span id="minutes-{{ section_id }}"></span>Minutes</li>
-    <li><span id="seconds-{{ section_id }}"></span>Seconds</li>
-  </ul>
+	<ul class="no-style">
+		{%- if urgencyMinutes == 0 -%}
+			{%- if isShowDays -%}
+				<li>
+					<span id="days-{{ section_id }}"></span>
+					{%- if showLabels -%}
+						<span class="label">Days</span>
+					{%- endif -%}
+				</li>
+				<li class="separator">:</li>
+			{%- endif -%}
+			<li>
+				<span id="hours-{{ section_id }}"></span>
+				{%- if showLabels -%}
+					<span class="label">Hours</span>
+				{%- endif -%}
+			</li>
+			<li class="separator">:</li>
+		{%- endif -%}
+		<li>
+			<span id="minutes-{{ section_id }}"></span>
+			{%- if showLabels -%}
+				<span class="label">Minutes</span>
+			{%- endif -%}
+		</li>
+		<li class="separator">:</li>
+		<li>
+			<span id="seconds-{{ section_id }}"></span>
+			{%- if showLabels -%}
+				<span class="label">Seconds</span>
+			{%- endif -%}
+		</li>
+	</ul>
 </div>
 
 <style>
-  @font-face {
-    font-family: 'Digital-7';
-    src: url({{ 'digital-7.ttf' | asset_url }}) format('truetype');
-  }
+	.countdown {
+		background-color: {{ bgColor }};
+		max-width: fit-content;
+	}
 
-  .countdown {
-    background-color: {{ bgColor }};
-    margin: auto;
-    max-width: fit-content;
-    max-height: 6rem;
-    margin-bottom: 0;
-  }
+	.countdown ul {
+		display: flex;
+		align-items: center;
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		gap: 0.25rem;
+	}
 
-  .countdown ul {
-    margin-bottom: unset;
-  }
+	.countdown li {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		min-width: 50px;
+	}
 
-  .countdown li {
-    display: inline-block;
-    font-size: 12px;
-    list-style-type: none;
-    text-transform: uppercase;
-    min-width: 70px;
-    text-align: center;
-    padding: unset;
-    margin-bottom: unset;
-  }
+	.countdown li.separator {
+		min-width: auto;
+		font-size: 2rem;
+	}
 
-  .countdown li span {
-    display: block;
-    font-size: 40px;
-    font-weight: 400;
-    font-family: 'Digital-7', sans-serif;
-  }
+	.countdown li span:first-child {
+		font-size: 2.5rem;
+		font-weight: 500;
+		font-variant-numeric: tabular-nums;
+	}
 
-  .countdown li:before {
-    content: unset !important;
-  }
+	.countdown .label {
+		font-size: 0.875rem;
+		text-transform: uppercase;
+		margin-top: 0.25rem;
+	}
 
-  .countdown li:not(:last-child):before {
-    content: ":";
-    color: black;
-    display: block;
-    font-size: 25px;
-    position: relative;
-    top: 40px;
-    left: 40px;
-  }
+	@media screen and (max-width: 640px) {
+		.countdown li {
+			min-width: 7vw;
+		}
 
-  @media screen and (max-width: 760px) {
-      .countdown li {
-        min-width: 20vw;
-        font-size: 3vw;
-      }
+		.countdown li span:first-child {
+			font-size: 5vw;
+		}
 
-      .countdown li span {
-        position: relative;
-        font-size: 15vw;
-      }
+		.countdown li.separator {
+			font-size: 5vw;
+			line-height: 2rem;
+		}
 
-      .countdown li:not(:last-child):before {
-        left: 14vw;
-      }
-  }
+		.countdown .label {
+			font-size: 0.75rem;
+		}
+	}
 </style>
 
 <script>
-    // Define pad function globally if it is used in both blocks
-    Number.prototype.pad = function() {
-        return this < 10 ? '0' + this : this;
-    };
+(function() {
+	const SECOND = 1000;
+	const MINUTE = SECOND * 60;
+	const HOUR = MINUTE * 60;
+	const DAY = HOUR * 24;
+	const SECTION_ID = '{{ section_id }}';
 
-    {% if urgencyMinutes > 0 %}
-        (function() {
-            const second = 1000,
-                  minute = second * 60,
-                  hour = minute * 60,
-                  day = hour * 24,
-                  duration = {{ urgencyMinutes }} * minute;
+	const pad = num => String(num).padStart(2, '0');
 
-            function getCookie(name) {
-                let dc = document.cookie;
-                let prefix = name + "=";
-                let begin = dc.indexOf("; " + prefix);
-                if (begin === -1) {
-                    begin = dc.indexOf(prefix);
-                    if (begin !== 0) return null;
-                } else {
-                    begin += 2;
-                }
-                let end = document.cookie.indexOf(";", begin);
-                if (end === -1) {
-                    end = dc.length;
-                }
-                return decodeURI(dc.substring(begin + prefix.length, end));
-            }
+	const getStorageKey = () => `countdown_${SECTION_ID}`;
 
-            function setCookie(name, value, seconds) {
-                let expires = "";
-                if (seconds) {
-                    let date = new Date();
-                    date.setTime(date.getTime() + seconds * 1000);
-                    expires = "; expires=" + date.toUTCString();
-                }
-                document.cookie = name + "=" + (value || "") + expires + "; path=/";
-            }
+	const getStoredEndTime = () => {
+		const stored = localStorage.getItem(getStorageKey());
+		return stored ? parseInt(stored, 10) : null;
+	};
 
-            let countDown;
-            let existingTime = getCookie('countdownEndTime');
-            if (!existingTime) {
-                countDown = new Date().getTime() + duration;
-                setCookie('countdownEndTime', countDown, duration / 1000);
-            } else {
-                countDown = parseInt(existingTime, 10);
-            }
+	const setStoredEndTime = (time) => {
+		localStorage.setItem(getStorageKey(), time.toString());
+	};
 
-            let x = setInterval(function() {
-                var now = new Date().getTime();
-                var distance = countDown - now;
+	const updateDisplay = (timeLeft) => {
+		{% if urgencyMinutes > 0 %}
+			// For urgency timer, only show minutes and seconds
+			const totalMinutes = (timeLeft.hours * 60) + timeLeft.minutes;
+			document.getElementById(`minutes-${SECTION_ID}`).textContent = pad(totalMinutes);
+			document.getElementById(`seconds-${SECTION_ID}`).textContent = pad(timeLeft.seconds);
+		{% else %}
+			{% if isShowDays %}
+				document.getElementById(`days-${SECTION_ID}`).textContent = pad(timeLeft.days);
+			{% endif %}
+			document.getElementById(`hours-${SECTION_ID}`).textContent = pad(timeLeft.hours);
+			document.getElementById(`minutes-${SECTION_ID}`).textContent = pad(timeLeft.minutes);
+			document.getElementById(`seconds-${SECTION_ID}`).textContent = pad(timeLeft.seconds);
+		{% endif %}
+	};
 
-                {% if isShowDays %}
-                document.getElementById("days-{{ section_id }}").innerText = Math.floor(distance / day).pad(),
-                {% endif %}
-                document.getElementById("hours-{{ section_id }}").innerText = Math.floor((distance % day) / hour).pad(),
-                document.getElementById("minutes-{{ section_id }}").innerText = Math.floor((distance % hour) / minute).pad(),
-                document.getElementById("seconds-{{ section_id }}").innerText = Math.floor((distance % minute) / second).pad();
+	{% if urgencyMinutes > 0 %}
+		let endTime = getStoredEndTime() || Date.now() + ({{ urgencyMinutes }} * MINUTE);
+		setStoredEndTime(endTime);
 
-                if (distance < 0) {
-                    clearInterval(x);
-                    setCookie('countdownEndTime', null, -1); // Delete the cookie
-                    countDown = new Date().getTime() + duration;
-                    setCookie('countdownEndTime', countDown, duration / 1000);
-                }
-            }, 1000);
-        })();
-    {% else %}
-        (function() {
-            const second = 1000,
-                  minute = second * 60,
-                  hour = minute * 60,
-                  day = hour * 24;
-            let birthday = "{{ month }} {{ day }}, {{ year }} {{ hour }}:{{ minute }}:00";
-            let countDown = new Date(birthday).getTime();
+		const updateUrgencyTimer = () => {
+			const now = Date.now();
+			let distance = endTime - now;
 
-            let x = setInterval(function() {
-                var now = new Date().getTime();
-                var distance = countDown - now;
+			if (distance < 0) {
+				endTime = now + ({{ urgencyMinutes }} * MINUTE);
+				setStoredEndTime(endTime);
+				distance = {{ urgencyMinutes }} * MINUTE;
+			}
 
-                {% if isShowDays %}
-                document.getElementById("days-{{ section_id }}").innerText = Math.floor(distance / day).pad(),
-                {% endif %}
-                document.getElementById("hours-{{ section_id }}").innerText = Math.floor((distance % day) / hour).pad(),
-                document.getElementById("minutes-{{ section_id }}").innerText = Math.floor((distance % hour) / minute).pad(),
-                document.getElementById("seconds-{{ section_id }}").innerText = Math.floor((distance % minute) / second).pad();
+			updateDisplay({
+				days: Math.floor(distance / DAY),
+				hours: Math.floor((distance % DAY) / HOUR),
+				minutes: Math.floor((distance % HOUR) / MINUTE),
+				seconds: Math.floor((distance % MINUTE) / SECOND)
+			});
+		};
 
-                if (distance < 0) {
-                    clearInterval(x);
-                    document.getElementById("section-{{ section_id }}").parentElement.remove();
-                    document.querySelector('.shopify-section').firstChild.style.marginTop = '0';
-                }
-            }, 1000)
-        })();
-    {% endif %}
+		setInterval(updateUrgencyTimer, 1000);
+		updateUrgencyTimer();
+	{% else %}
+		const targetDate = new Date("{{ month }} {{ day }}, {{ year }} {{ hour }}:{{ minute }}:00").getTime();
+
+		const updateTimer = () => {
+			const now = Date.now();
+			const distance = targetDate - now;
+
+			if (distance < 0) {
+				document.getElementById(`countdown-${SECTION_ID}`).remove();
+				return;
+			}
+
+			updateDisplay({
+				days: Math.floor(distance / DAY),
+				hours: Math.floor((distance % DAY) / HOUR),
+				minutes: Math.floor((distance % HOUR) / MINUTE),
+				seconds: Math.floor((distance % MINUTE) / SECOND)
+			});
+		};
+
+		setInterval(updateTimer, 1000);
+		updateTimer();
+	{% endif %}
+})();
 </script>
