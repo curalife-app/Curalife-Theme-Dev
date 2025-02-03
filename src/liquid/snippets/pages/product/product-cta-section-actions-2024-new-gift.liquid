@@ -45,6 +45,9 @@
 		</div>
 
 		{% for var in product.variants %}
+			<script>
+				console.log('var: {{var.title}}');
+			</script>
 			{% render 'product-cta-section-actions-variant-2024-new', SID: SID, prod: product, var: var, buyBoxColor: buyBoxColor, index: forloop.index %}
 		{% endfor %}
 
@@ -123,11 +126,6 @@
 							Add To Cart
 						{% endif %}
 					</span>
-					<div class="loading-overlay__spinner hidden">
-						<svg aria-hidden="true" focusable="false" class="spinner" viewBox="0 0 66 66" xmlns="http://www.w3.org/2000/svg">
-							<circle class="path !stroke-white" fill="none" stroke-width="6" cx="33" cy="33" r="30"></circle>
-						</svg>
-					</div>
 				</button>
 			</div>
 
@@ -304,7 +302,12 @@
 			return selectedButton?.classList.contains('subscription') ?? true;
 		}
 
-    function initializePurchaseOptions() {
+		function initializePurchaseOptions() {
+			// Set initial purchase type for all variant boxes to "subscribe"
+			purchaseOptionBoxes.forEach(box => {
+				box.setAttribute('data-purchase-type', 'subscribe');
+			});
+
       const urlParams = new URLSearchParams(window.location.search);
       const defaultVariant = urlParams.get('default-variant') ?
         parseInt(urlParams.get('default-variant')) :
@@ -424,13 +427,18 @@
       productActions.querySelectorAll('.purchase-type button').forEach(btn => btn.classList.remove('selected'));
       button.classList.add('selected');
 
-      const isSubscription = button.classList.contains('subscription');
-      const submitSellingPlanElement = productActions.querySelector('.submit-selling-plan-id');
+			const isSubscription = button.classList.contains('subscription');
+			const submitSellingPlanElement = productActions.querySelector('.submit-selling-plan-id');
 
-      // Set selling plan to blank if "Buy Once" is selected
-      if (!isSubscription && submitSellingPlanElement) {
-        submitSellingPlanElement.value = ''; // Clear the selling plan ID for "Buy Once"
-      }
+			// Update data-purchase-type attribute for all variant boxes
+			purchaseOptionBoxes.forEach(box => {
+				box.setAttribute('data-purchase-type', isSubscription ? 'subscribe' : 'buyonce');
+			});
+
+			// Set selling plan to blank if "Buy Once" is selected
+			if (!isSubscription && submitSellingPlanElement) {
+				submitSellingPlanElement.value = ''; // Clear the selling plan ID for "Buy Once"
+			}
 
 			// Update selected gift if any
 			const selectedGiftContainer = document.querySelector('.gift-option-container.selected');
@@ -729,7 +737,7 @@
 	} catch (error) {
 		showNotification(error.message || 'An unexpected error occurred', 'error');
 	} finally {
-		toggleButtonLoading(submitButton, false);
+		// toggleButtonLoading(submitButton, false);
 	}
 });
 

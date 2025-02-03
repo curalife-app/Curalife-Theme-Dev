@@ -1,771 +1,820 @@
 {% if customer.b2b? %}
-  {% assign isBuyQuantity = true %}
+	{% assign isBuyQuantity = true %}
+{% endif %}
+
+{%- comment -%}
+	Set the buyType variable (if not already passed into the template) and choose a default
+	button title based on its value.
+{%- endcomment -%}
+{% assign buyType = buyType | default: 'add_to_cart' %}
+{% if buyType == 'buy_now' %}
+	{% assign ctaButtonTitle = 'Get Started' %}
+{% else %}
+	{% assign ctaButtonTitle = 'Add To Cart' %}
 {% endif %}
 
 <div class="product-actions">
-  {% assign variantQuantity = product.variants | size %}
-  {% if title != blank %}
-    <div class="cta-title">{{ title }}</div>
-  {% endif %}
+	{% assign variantQuantity = product.variants | size %}
+	{% if title != blank %}
+		<div class="cta-title">{{ title }}</div>
+	{% endif %}
 
-  <div class="variants {% if variantQuantity == 1 %}!hidden{% endif %}">
-    {% for var in product.variants %}
-      {% render 'product-cta-section-actions-variant-box', SID: SID, ctaTextType: ctaTextType, isVariantNotice: isVariantNotice, var: var, index: forloop.index, isHighlightSubtitle: isHighlightSubtitle, isUpdateSaveTitle: true, pricePer: pricePer %}
-    {% endfor %}
+	<div class="variants {% if variantQuantity == 1 %}!hidden{% endif %}">
+		{% for var in product.variants %}
+			{% render 'product-cta-section-actions-variant-box',
+				SID: SID,
+				ctaTextType: ctaTextType,
+				isVariantNotice: isVariantNotice,
+				var: var,
+				index: forloop.index,
+				isHighlightSubtitle: isHighlightSubtitle,
+				isUpdateSaveTitle: true,
+				pricePer: pricePer
+			%}
+		{% endfor %}
 
-    {% if request.path == '/products/curaslim-pack' %}
-      {% for additionalVariant in product.metafields.custom.additional_variants.value %}
-        {% render 'product-cta-section-actions-variant-box', SID: SID, ctaTextType: ctaTextType, isVariantNotice: isVariantNotice, var: additionalVariant, index: forloop.index, isHighlightSubtitle: isHighlightSubtitle, isUpdateSaveTitle: true, isPricePerUnit: isPricePerUnit, challenge_value: challenge_value, curaeats_value: curaeats_value %}
-      {% endfor %}
-    {% endif %}
-  </div>
+		{% if request.path == '/products/curaslim-pack' %}
+			{% for additionalVariant in product.metafields.custom.additional_variants.value %}
+				{% render 'product-cta-section-actions-variant-box',
+					SID: SID,
+					ctaTextType: ctaTextType,
+					isVariantNotice: isVariantNotice,
+					var: additionalVariant,
+					index: forloop.index,
+					isHighlightSubtitle: isHighlightSubtitle,
+					isUpdateSaveTitle: true,
+					isPricePerUnit: isPricePerUnit,
+					challenge_value: challenge_value,
+					curaeats_value: curaeats_value
+				%}
+			{% endfor %}
+		{% endif %}
+	</div>
 
-  {% if variantQuantity == 1 %}
-    <div class="product-price">
-      <div class="price flex items-center gap-2">
-        <div class="real-price text-[40px]">{{ product.price | money }}</div>
-        {% if product.compare_at_price > product.price %}
-          <div class="compared-at-price line-through color-[--blue]">{{ product.compare_at_price | money }}</div>
-        {% endif %}
-      </div>
-    </div>
-  {% endif %}
+	{% if variantQuantity == 1 %}
+		<div class="product-price">
+			<div class="price flex items-center gap-2">
+				<div class="real-price text-[40px]">{{ product.price | money }}</div>
+				{% if product.compare_at_price > product.price %}
+					<div class="compared-at-price line-through color-[--blue]">{{ product.compare_at_price | money }}</div>
+				{% endif %}
+			</div>
+		</div>
+	{% endif %}
 
-  <div class="submit-wrap flex flex-col">
-    <div class="main-submit-wrapper flex">
-      {% if isBuyQuantity %}
-        <div class="qty">
-          <input type="text" name="quantity" maxlength="12" value="1" title="" class="input-text" />
-          <div class="qty_inc_dec">
-            <i class="increment" onclick="incrementQty()">+</i>
-            <i class="decrement" onclick="decrementQty()">-</i>
-          </div>
-        </div>
-      {% endif %}
+	<div class="submit-wrap flex flex-col">
+		<div class="main-submit-wrapper flex">
+			{% if isBuyQuantity %}
+				<div class="qty">
+					<input type="text" name="quantity" maxlength="12" value="1" title="" class="input-text">
+					<div class="qty_inc_dec">
+						<i class="increment" onclick="incrementQty()">+</i>
+						<i class="decrement" onclick="decrementQty()">-</i>
+					</div>
+				</div>
+			{% endif %}
 
-      <button class="main-btn" id="buy-button">
-        <span class="w-1/2 font-bold">{{ buttonTitle | default: "SHOP NOW" }}</span>
-        {% comment %} {% if product.metafields.custom.is_price_per_month %}
-          <span class="total-price w-1/2 border-l-2 border-black">Total <span class="total-price-amount"></span></span>
-        {% endif %} {% endcomment %}
-      </button>
-    </div>
-  </div>
+			<button class="main-btn" id="buy-button">
+				<span class="w-1/2 font-bold">{{ buttonTitle | default: ctaButtonTitle }}</span>
+				{% comment %}
+					{% if product.metafields.custom.is_price_per_month %}
+						<span class="total-price w-1/2 border-l-2 border-black">Total <span class="total-price-amount"></span></span>
+					{% endif %}
+				{% endcomment %}
+			</button>
+		</div>
+	</div>
 
-  {% if customer %}
-    {% unless customer.b2b? %}
-      {% render 'yotpo-product-points-widget' %}
-    {% endunless %}
-  {% endif %}
+	{% if customer %}
+		{% unless customer.b2b? %}
+			{% render 'yotpo-product-points-widget' %}
+		{% endunless %}
+	{% endif %}
 
-  {% if badgesContent %}
-    {% render 'trust-badges-widget', badgesContent: badgesContent, colors: "#5c5c5c", isMiniVersion: true %}
-  {% endif %}
+	{% if badgesContent %}
+		{% render 'trust-badges-widget', badgesContent: badgesContent, colors: '#5c5c5c', isMiniVersion: true %}
+	{% endif %}
 
-  {% if isBuyWithPrime and isGlobal != true %}
-    <div class="bwp-button">
-      {% render 'buy-with-prime-button' %}
-    </div>
-  {% endif %}
+	{% if isBuyWithPrime and isGlobal != true %}
+		<div class="bwp-button">
+			{% render 'buy-with-prime-button' %}
+		</div>
+	{% endif %}
 </div>
 
 <style>
-  #cta-section-{{ SID }} .product-actions {
-    grid-area: 2/2/3/3;
-    max-width: 400px;
-  }
+	#cta-section-{{ SID }} .product-actions {
+	  grid-area: 2/2/3/3;
+	  max-width: 400px;
+	}
 
-  #cta-section-{{ SID }} .product-actions .cta-title {
-    padding: 10px 0;
-  }
+	#cta-section-{{ SID }} .product-actions .cta-title {
+	  padding: 10px 0;
+	}
 
-  #cta-section-{{ SID }} .product-actions .variants {
-    display: flex;
-    flex-direction: {% if isReversed %}column-reverse{% else %}column{% endif %};
-  }
+	#cta-section-{{ SID }} .product-actions .variants {
+	  display: flex;
+	  flex-direction: {% if isReversed %}column-reverse{% else %}column{% endif %};
+	}
 
-  #cta-section-{{ SID }} .product-actions .submit-wrap {
-    display: flex;
-  }
+	#cta-section-{{ SID }} .product-actions .submit-wrap {
+	  display: flex;
+	}
 
-  #cta-section-{{ SID }} .product-actions .submit-wrap button {
-    {% unless isBuyQuantity %}width: 100%;{% endunless %}
-    {% if isBuyQuantity %}border-radius: 0 25px 25px 0;{% endif %}
-    background-color: {{ ctaColor }};
-    color: {{ ctaTextColor | default: 'black' }};
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 320px;
-    transition: width 0.3s ease;
-  }
+	#cta-section-{{ SID }} .product-actions .submit-wrap button {
+	  {% unless isBuyQuantity %}width: 100%;{% endunless %}
+	  {% if isBuyQuantity %}border-radius: 0 25px 25px 0;{% endif %}
+	  background-color: {{ ctaColor }};
+	  color: {{ ctaTextColor | default: 'black' }};
+	  display: flex;
+	  align-items: center;
+	  justify-content: center;
+	  min-width: 320px;
+	  transition: width 0.3s ease;
+	}
 
-  #cta-section-{{ SID }} .product-actions .submit-wrap button span.save {
-    font-weight: 100;
-    border-left: 1px solid white;
-    padding-left: 20px;
-  }
+	#cta-section-{{ SID }} .product-actions .submit-wrap button span.save {
+	  font-weight: 100;
+	  border-left: 1px solid white;
+	  padding-left: 20px;
+	}
 
-  #cta-section-{{ SID }} .product-actions .submit-wrap .qty-data .qty-control {
-    border: 0;
-    background: white;
-  }
+	#cta-section-{{ SID }} .product-actions .submit-wrap .qty-data .qty-control {
+	  border: 0;
+	  background: white;
+	}
 
-  @media screen and (max-width: 768px) {
-    #cta-section-{{ SID }} .product-actions {
-      grid-area: unset;
-      grid-row: 3;
-      max-width: unset;
-      {% if isHideInfo %}
-        top: unset;
-      {% endif %}
-    }
+	@media screen and (max-width: 768px) {
+	  #cta-section-{{ SID }} .product-actions {
+	    grid-area: unset;
+	    grid-row: 3;
+	    max-width: unset;
+	    {% if isHideInfo %}
+	      top: unset;
+	    {% endif %}
+	  }
 
-    #cta-section-{{ SID }} .product-actions .submit-wrap .qty-data .qty-control {
-      border: 1px solid {{ ctaColor }};
-    }
+	  #cta-section-{{ SID }} .product-actions .submit-wrap .qty-data .qty-control {
+	    border: 1px solid {{ ctaColor }};
+	  }
 
-    #cta-section-{{ SID }} .product-actions .submit-wrap button {
-      min-height: 15vw;
-    }
-  }
+	  #cta-section-{{ SID }} .product-actions .submit-wrap button {
+	    min-height: 15vw;
+	  }
+	}
 </style>
 
 <style>
-    .qty {
-      float: left;
-      width: 100px;
-      -webkit-user-select: none;
-      -moz-user-select: none;
-      -ms-user-select: none;
-      user-select: none;
-    }
+	.qty {
+		float: left;
+		width: 100px;
+		-webkit-user-select: none;
+		-moz-user-select: none;
+		-ms-user-select: none;
+		user-select: none;
+	}
 
-    .qty_inc_dec .increment,
-    .qty_inc_dec .decrement {
-      float: left;
-      text-align: center;
-      width: 30px;
-      cursor: pointer;
-      font-size: 1.2em;
-      line-height: 20px;
-      height: 50%;
-      vertical-align: middle;
-      background-color: #fff;
-      border: 1px solid #ccc;
-    }
+	.qty_inc_dec .increment,
+	.qty_inc_dec .decrement {
+		float: left;
+		text-align: center;
+		width: 30px;
+		cursor: pointer;
+		font-size: 1.2em;
+		line-height: 20px;
+		height: 50%;
+		vertical-align: middle;
+		background-color: #fff;
+		border: 1px solid #ccc;
+	}
 
-    .qty_inc_dec .increment {
-      border-bottom: 0;
-      line-height: 25px;
-    }
+	.qty_inc_dec .increment {
+		border-bottom: 0;
+		line-height: 25px;
+	}
 
-    .qty_inc_dec {
-      width: 10px;
-      height: 100%;
-      display: inline-block;
-    }
+	.qty_inc_dec {
+		width: 10px;
+		height: 100%;
+		display: inline-block;
+	}
 
-    .qty input[type=text] {
-      float: left;
-      font-family: "Open Sans", sans-serif;
-      outline: 0;
-      font-size: 1.2em;
-      text-align: center;
-      width: 50px;
-      height: 100%;
-      color: #2a2a2a;
-      line-height: 40px;
-      border: 1px solid #ccc;
-      border-right: 0;
-      border-radius: 25px 0 0 25px;
-    }
+	.qty input[type='text'] {
+		float: left;
+		font-family: 'Open Sans', sans-serif;
+		outline: 0;
+		font-size: 1.2em;
+		text-align: center;
+		width: 50px;
+		height: 100%;
+		color: #2a2a2a;
+		line-height: 40px;
+		border: 1px solid #ccc;
+		border-right: 0;
+		border-radius: 25px 0 0 25px;
+	}
 
-    /* Quantity Selector Transition */
-    .qty {
-      transition: width 0.3s ease;
-    }
+	/* Quantity Selector Transition */
+	.qty {
+		transition: width 0.3s ease;
+	}
 
-    .qty_expanded {
-      width: 120px; /* Adjust the width as per your design */
-    }
+	.qty_expanded {
+		width: 120px; /* Adjust the width as per your design */
+	}
 
-    .qty_inc_dec {
-      transition: opacity 0.3s ease;
-    }
+	.qty_inc_dec {
+		transition: opacity 0.3s ease;
+	}
 
-    .qty_expanded .qty_inc_dec {
-      opacity: 1;
-    }
-  </style>
+	.qty_expanded .qty_inc_dec {
+		opacity: 1;
+	}
+</style>
 
 <style>
-  .variant-notice p {
-    background: var(--blue);
-    color: white;
-    padding: 2px 10px;
-    margin: unset;
-    font-size: 14px;
-  }
+	.variant-notice p {
+	  background: var(--blue);
+	  color: white;
+	  padding: 2px 10px;
+	  margin: unset;
+	  font-size: 14px;
+	}
 
-  .variant-box {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    min-height: 65px;
-    background: #fff;
-    border: 1px solid #cbcbcb;
-    box-sizing: border-box;
-    border-radius: 2px;
-    margin-bottom: 10px;
-    cursor: pointer;
-    filter: drop-shadow(0px 4px 4px rgba(47, 47, 47, 0.1));
-    transition: all .5s;
-    position: relative;
-    border-radius: 10px;
-    border-color: var(--blue);
-  }
+	.variant-box {
+	  display: flex;
+	  justify-content: space-between;
+	  align-items: center;
+	  min-height: 65px;
+	  background: #fff;
+	  border: 1px solid #cbcbcb;
+	  box-sizing: border-box;
+	  border-radius: 2px;
+	  margin-bottom: 10px;
+	  cursor: pointer;
+	  filter: drop-shadow(0px 4px 4px rgba(47, 47, 47, 0.1));
+	  transition: all .5s;
+	  position: relative;
+	  border-radius: 10px;
+	  border-color: var(--blue);
+	}
 
-  .variant-box:hover {
-    border-color: var(--blue);
-    filter: drop-shadow(0px 4px 4px rgba(47, 47, 47, 0.3));
-  }
+	.variant-box:hover {
+	  border-color: var(--blue);
+	  filter: drop-shadow(0px 4px 4px rgba(47, 47, 47, 0.3));
+	}
 
-  .variant-box:hover>.radio-box input[type=radio]:after {
-    background-color: #a9a9a9;
-  }
+	.variant-box:hover>.radio-box input[type=radio]:after {
+	  background-color: #a9a9a9;
+	}
 
-  .variant-box .left-side-wrapper {
-    display: flex;
-  }
+	.variant-box .left-side-wrapper {
+	  display: flex;
+	}
 
-  .variant-box .radio-box {
-    align-items: center;
-    display: flex;
-    padding: 20px;
-  }
+	.variant-box .radio-box {
+	  align-items: center;
+	  display: flex;
+	  padding: 20px;
+	}
 
-  .variant-box .variant-info {
-    padding: 10px 0;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-  }
+	.variant-box .variant-info {
+	  padding: 10px 0;
+	  display: flex;
+	  flex-direction: column;
+	  justify-content: center;
+	}
 
-  .variant-box .variant-info .variant-title {
-    margin: 0;
-    font-weight: bold;
-  }
+	.variant-box .variant-info .variant-title {
+	  margin: 0;
+	  font-weight: bold;
+	}
 
-  .variant-box .variant-info .subtitle {
-    display: inline-block;
-    margin: 0;
-    font-size: 14px;
-    {% if isHighlightSubtitle %}
-      color: white;
-      border-radius: 15px;
-      padding: 2px 10px;
-      background: var(--blue);
-    {% endif %}
-  }
+	.variant-box .variant-info .subtitle {
+	  display: inline-block;
+	  margin: 0;
+	  font-size: 14px;
+	  {% if isHighlightSubtitle %}
+	    color: white;
+	    border-radius: 15px;
+	    padding: 2px 10px;
+	    background: var(--blue);
+	  {% endif %}
+	}
 
-  .variant-box .variant-info p b {
-    font-weight: 700;
-  }
+	.variant-box .variant-info p b {
+	  font-weight: 700;
+	}
 
-  .variant-box .price {
-    display: flex;
-    min-width: 70px;
-    margin-right: 10px;
-    gap: 0.5rem;
-    {% if product.metafields.custom.is_price_per_month %}
-      flex-direction: column;
-      align-items: end;
-      gap: unset;
-    {% else %}
-      align-items: center;
-      justify-content: end;
-      flex-wrap: wrap;
-    {% endif %}
-  }
+	.variant-box .price {
+	  display: flex;
+	  min-width: 70px;
+	  margin-right: 10px;
+	  gap: 0.5rem;
+	  {% if product.metafields.custom.is_price_per_month %}
+	    flex-direction: column;
+	    align-items: end;
+	    gap: unset;
+	  {% else %}
+	    align-items: center;
+	    justify-content: end;
+	    flex-wrap: wrap;
+	  {% endif %}
+	}
 
-  .variant-box .price p {
-    margin: unset;
-  }
+	.variant-box .price p {
+	  margin: unset;
+	}
 
-  .variant-box .price .calculations {
-    display: flex;
-    align-items: center;
-    justify-content: right;
-  }
+	.variant-box .price .calculations {
+	  display: flex;
+	  align-items: center;
+	  justify-content: right;
+	}
 
-  .variant-box .price .calculations p.compared-at-price::after {
-    font-size: 0.3rem;
-  }
+	.variant-box .price .calculations p.compared-at-price::after {
+	  font-size: 0.3rem;
+	}
 
-  .variant-box .price .per-month {
-    color: var(--grey);
-    font-size: 16px;
-  }
+	.variant-box .price .per-month {
+	  color: var(--grey);
+	  font-size: 16px;
+	}
 
-  .variant-box .price .compared-at-price {
-    line-height: 1rem;
-  }
+	.variant-box .price .compared-at-price {
+	  line-height: 1rem;
+	}
 
-  .variant-box .price .compared-at-price strike {
-    font-size: 13px !important;
-  }
+	.variant-box .price .compared-at-price strike {
+	  font-size: 13px !important;
+	}
 
-  .variant-box .price .real-price {
-    font-size: 20px;
-  }
+	.variant-box .price .real-price {
+	  font-size: 20px;
+	}
 
-  @media screen and (max-width: 1270px) {
-    .variant-box {
-      width: 100%
-    }
+	@media screen and (max-width: 1270px) {
+	  .variant-box {
+	    width: 100%
+	  }
 
-    .variant-box .variant-info {
-      padding: 10px 0;
-      width: 95%;
-    }
+	  .variant-box .variant-info {
+	    padding: 10px 0;
+	    width: 95%;
+	  }
 
-    .variant-box .price {
-      position: absolute;
-      right: 10px;
-      margin-right: unset;
-    }
-  }
+	  .variant-box .price {
+	    position: absolute;
+	    right: 10px;
+	    margin-right: unset;
+	  }
+	}
 
-  @media screen and (max-width: 768px) {
-    .variant-box {
-      justify-content: unset;
-    }
+	@media screen and (max-width: 768px) {
+	  .variant-box {
+	    justify-content: unset;
+	  }
 
-    .variant-box .variant-info .variant-title {
-      font-size: 4vw;
-    }
+	  .variant-box .variant-info .variant-title {
+	    font-size: 4vw;
+	  }
 
-    .variant-box .variant-info .subtitle {
-      font-size: 3vw;
-    }
+	  .variant-box .variant-info .subtitle {
+	    font-size: 3vw;
+	  }
 
-    .variant-box .radio-box {
-      padding: 3vw;
-    }
-  }
+	  .variant-box .radio-box {
+	    padding: 3vw;
+	  }
+	}
 </style>
 
 <script>
-  document.addEventListener('DOMContentLoaded', function() {
-    const productActions = document.querySelector(`#cta-section-{{ SID }} .product-actions`);
-    if (!productActions) return;
+	document.addEventListener('DOMContentLoaded', function() {
+		const productActions = document.querySelector(`#cta-section-{{ SID }} .product-actions`);
+		if (!productActions) return;
 
-    const SID = '{{ SID }}';
-    const urlParams = new URLSearchParams(window.location.search);
-    const defaultVariantParam = urlParams.get('default-variant');
-    const defaultVariant = defaultVariantParam ? parseInt(defaultVariantParam) : {{ defaultSelectionIndex }};
-    const variantBoxes = Array.from(productActions.querySelectorAll('.variant-box'));
+		const SID = '{{ SID }}';
+		const urlParams = new URLSearchParams(window.location.search);
+		const defaultVariantParam = urlParams.get('default-variant');
+		const defaultVariant = defaultVariantParam ? parseInt(defaultVariantParam) : {{ defaultSelectionIndex }};
+		const variantBoxes = Array.from(productActions.querySelectorAll('.variant-box'));
 
-    if (variantBoxes.length > 0) {
-      let selectedVariantBox;
+		if (variantBoxes.length > 0) {
+			let selectedVariantBox;
 
-      if (defaultVariant && variantBoxes[defaultVariant - 1]) {
-        selectedVariantBox = variantBoxes[defaultVariant - 1];
-      } else {
-        const defaultIndex = typeof window.defaultSelectionIndex !== 'undefined' ? window.defaultSelectionIndex - 1 : 0;
-        selectedVariantBox = variantBoxes[defaultIndex] || variantBoxes[0];
-      }
+			if (defaultVariant && variantBoxes[defaultVariant - 1]) {
+				selectedVariantBox = variantBoxes[defaultVariant - 1];
+			} else {
+				const defaultIndex = typeof window.defaultSelectionIndex !== 'undefined' ? window.defaultSelectionIndex - 1 : 0;
+				selectedVariantBox = variantBoxes[defaultIndex] || variantBoxes[0];
+			}
 
-      if (selectedVariantBox) {
-        const input = selectedVariantBox.querySelector(`input[name="pack${SID}"]`);
-        if (input) {
-          input.checked = true;
-          updateCTA(productActions, SID);
-          updateSelectedVariantInformation(productActions, SID, 'data-save', '.save-badge');
+			if (selectedVariantBox) {
+				const input = selectedVariantBox.querySelector(`input[name="pack${SID}"]`);
+				if (input) {
+					input.checked = true;
+					updateCTA(productActions, SID);
+					updateSelectedVariantInformation(productActions, SID, 'data-save', '.save-badge');
 
-          const isMonthlyPrice = window?.product?.metafields?.custom?.is_price_per_month;
-          if (isMonthlyPrice) {
-            const variantTotalPrice = input.dataset.price;
-            const totalPriceAmount = productActions.querySelector('.total-price .total-price-amount');
-            if (totalPriceAmount) {
-              totalPriceAmount.textContent = variantTotalPrice;
-            }
-          }
+					const isMonthlyPrice = window?.product?.metafields?.custom?.is_price_per_month;
+					if (isMonthlyPrice) {
+						const variantTotalPrice = input.dataset.price;
+						const totalPriceAmount = productActions.querySelector('.total-price .total-price-amount');
+						if (totalPriceAmount) {
+							totalPriceAmount.textContent = variantTotalPrice;
+						}
+					}
 
-          window[`didClickVariant${SID}`] = true;
-        }
-      }
-    }
+					window[`didClickVariant${SID}`] = true;
+				}
+			}
+		}
 
-    // Handle quantity controls
-    const qtyInput = productActions.querySelector('input[name="quantity"]');
-    if (qtyInput) {
-      const incrementBtn = productActions.querySelector('.increment');
-      const decrementBtn = productActions.querySelector('.decrement');
+		// Handle quantity controls
+		const qtyInput = productActions.querySelector('input[name="quantity"]');
+		if (qtyInput) {
+			const incrementBtn = productActions.querySelector('.increment');
+			const decrementBtn = productActions.querySelector('.decrement');
 
-      if (incrementBtn) {
-        incrementBtn.addEventListener('click', () => {
-          let value = parseInt(qtyInput.value) || 1;
-          value++;
-          qtyInput.value = value;
-          updateCartQty(value);
-        });
-      }
+			if (incrementBtn) {
+				incrementBtn.addEventListener('click', () => {
+					let value = parseInt(qtyInput.value) || 1;
+					value++;
+					qtyInput.value = value;
+					updateCartQty(value);
+				});
+			}
 
-      if (decrementBtn) {
-        decrementBtn.addEventListener('click', () => {
-          let value = parseInt(qtyInput.value) || 1;
-          value = value > 1 ? value - 1 : value;
-          qtyInput.value = value;
-          updateCartQty(value);
-        });
-      }
-    }
+			if (decrementBtn) {
+				decrementBtn.addEventListener('click', () => {
+					let value = parseInt(qtyInput.value) || 1;
+					value = value > 1 ? value - 1 : value;
+					qtyInput.value = value;
+					updateCartQty(value);
+				});
+			}
+		}
 
-    // Handle buy button
-    const buyButton = productActions.querySelector('#buy-button');
-    if (buyButton) {
-      buyButton.addEventListener('click', function() {
-        try {
-          const checkedVariantInput = productActions.querySelector(`input[name="pack${SID}"]:checked`);
-          if (!checkedVariantInput) throw new Error('No pack selected');
+		// Handle buy button with buyType functionality
+		const buyButton = productActions.querySelector('#buy-button');
+		if (buyButton) {
+			buyButton.addEventListener('click', async function() {  // Note the async function here
+				try {
+					const checkedVariantInput = productActions.querySelector(`input[name="pack${SID}"]:checked`);
+					if (!checkedVariantInput) throw new Error('No pack selected');
 
-          let packValue = checkedVariantInput.getAttribute("data-ref-variant") || checkedVariantInput.value;
+					let packValue = checkedVariantInput.getAttribute("data-ref-variant") || checkedVariantInput.value;
+					const checkoutLink = checkedVariantInput.getAttribute("data-checkout-link");
+					if (checkoutLink) {
+						window.location.href = checkoutLink;
+						return;
+					}
 
-          const checkoutLink = checkedVariantInput.getAttribute("data-checkout-link");
-          if (checkoutLink) {
-            window.location.href = checkoutLink;
-            return;
-          }
+					const quantityInput = productActions.querySelector('input[name="quantity"]');
+					const quantityValue = (typeof window.isBuyQuantity !== 'undefined' && window.isBuyQuantity)
+						? (quantityInput?.value || 1)
+						: 1;
 
-          const quantityInput = productActions.querySelector('input[name="quantity"]');
-          const quantityValue = (typeof window.isBuyQuantity !== 'undefined' && window.isBuyQuantity) ?
-            (quantityInput?.value || 1) : 1;
-          window.location.href = `https://${location.hostname}/cart/${packValue}:${quantityValue}`;
-        } catch (error) {
-          console.error(error);
-          alert("Something went wrong! Please contact our support team.");
-        }
-      });
-    }
+					{% if buyType == 'buy_now' %}
+						// If buyType is "buy_now": clear the cart, add the item, and then redirect to checkout.
+						const clearResponse = await fetch('/cart/clear.js', { method: 'POST' });
+						const addResponse = await fetch('/cart/add.js', {
+							method: 'POST',
+							headers: { 'Content-Type': 'application/json' },
+							body: JSON.stringify({ items: [{ id: packValue, quantity: parseInt(quantityValue) }] })
+						});
+						if (!addResponse.ok) {
+							throw new Error('Failed to add item to cart');
+						}
+						window.location.href = '/checkout';
+					{% else %}
+						// Otherwise (buyType is "add_to_cart"): redirect to the cart URL.
+						window.location.href = `https://${location.hostname}/cart/${packValue}:${quantityValue}`;
+					{% endif %}
+				} catch (error) {
+					console.error(error);
+					alert("Something went wrong! Please contact our support team.");
+				}
+			});
+		}
 
     // Handle variant box clicks
-    variantBoxes.forEach(box => {
-      box.addEventListener('click', function() {
-        const input = this.querySelector(`input[name="pack${SID}"]`);
-        if (input) {
-          input.checked = true;
-          updateCTA(productActions, SID);
-          updateSelectedVariantInformation(productActions, SID, 'data-save', '.save-badge');
+		variantBoxes.forEach(box => {
+			box.addEventListener('click', function() {
+				const input = this.querySelector(`input[name="pack${SID}"]`);
+				if (input) {
+					input.checked = true;
+					updateCTA(productActions, SID);
+					updateSelectedVariantInformation(productActions, SID, 'data-save', '.save-badge');
 
-          const isMonthlyPrice = window?.product?.metafields?.custom?.is_price_per_month;
-          if (isMonthlyPrice) {
-            const variantTotalPrice = input.dataset.price;
-            const totalPriceAmount = productActions.querySelector('.total-price .total-price-amount');
-            if (totalPriceAmount) {
-              totalPriceAmount.textContent = variantTotalPrice;
-            }
-          }
+					const isMonthlyPrice = window?.product?.metafields?.custom?.is_price_per_month;
+					if (isMonthlyPrice) {
+						const variantTotalPrice = input.dataset.price;
+						const totalPriceAmount = productActions.querySelector('.total-price .total-price-amount');
+						if (totalPriceAmount) {
+							totalPriceAmount.textContent = variantTotalPrice;
+						}
+					}
 
-          const didClickVariantKey = `didClickVariant${SID}`;
-          if (window[didClickVariantKey]) {
-            const isB2B = window?.customer?.b2b;
-            if (!isB2B) {
-              const product = window.product || {};
-              const variantsAmount = (product?.variants?.length || 0) +
-                (product?.metafields?.custom?.additional_variants?.value?.length || 0);
+					const didClickVariantKey = `didClickVariant${SID}`;
+					if (window[didClickVariantKey]) {
+						const isB2B = window?.customer?.b2b;
+						if (!isB2B) {
+							const product = window.product || {};
+							const variantsAmount = (product?.variants?.length || 0) +
+								(product?.metafields?.custom?.additional_variants?.value?.length || 0);
 
-              if (variantsAmount > 1 && product?.variants?.[0]?.featured_image?.src) {
-                const slideIndex = window[`productSliderAllInOne${SID}`]?.slides?.length -
-                  (variantsAmount + 1 - parseInt(input.getAttribute('data-index')));
-                if (window[`productSliderAllInOne${SID}`]?.slideTo) {
-                  window[`productSliderAllInOne${SID}`].slideTo(slideIndex);
-                }
-              }
-            }
-          } else {
-            window[didClickVariantKey] = true;
-          }
-        }
-      });
-    });
-  });
+							if (variantsAmount > 1 && product?.variants?.[0]?.featured_image?.src) {
+								const slideIndex = window[`productSliderAllInOne${SID}`]?.slides?.length -
+									(variantsAmount + 1 - parseInt(input.getAttribute('data-index')));
+								if (window[`productSliderAllInOne${SID}`]?.slideTo) {
+									window[`productSliderAllInOne${SID}`].slideTo(slideIndex);
+								}
+							}
+						}
+					} else {
+						window[didClickVariantKey] = true;
+					}
+				}
+			});
+		});
+	});
 
-  function updateCartQty(value) {
-    const cartQty = document.querySelector(".cart-qty");
-    if (cartQty) {
-      cartQty.innerHTML = value;
-      cartQty.classList.add("rotate-x");
-    }
-  }
+	function updateCartQty(value) {
+		const cartQty = document.querySelector(".cart-qty");
+		if (cartQty) {
+			cartQty.innerHTML = value;
+			cartQty.classList.add("rotate-x");
+		}
+	}
 
-  function updateCTA(productActions, SID) {
-    if (typeof window.ctaTextType === 'undefined') return;
+	function updateCTA(productActions, SID) {
+		if (typeof window.ctaTextType === 'undefined') return;
 
-    const checkedInput = productActions.querySelector(`input[name="pack${SID}"]:checked`);
-    if (!checkedInput) return;
+		const checkedInput = productActions.querySelector(`input[name="pack${SID}"]:checked`);
+		if (!checkedInput) return;
 
-    const saveElement = productActions.querySelector('#save');
-    if (!saveElement) return;
+		const saveElement = productActions.querySelector('#save');
+		if (!saveElement) return;
 
-    let ctaText = '';
-    const currencySymbol = window?.cart?.currency?.symbol || '$';
+		let ctaText = '';
+		const currencySymbol = window?.cart?.currency?.symbol || '$';
 
-    if (window.ctaTextType === 'save') {
-      const discount = checkedInput.getAttribute('data-discount');
-      ctaText = discount != '0' ? `You Save ${currencySymbol}${discount}` : '';
-    } else if (window.ctaTextType === 'total') {
-      ctaText = `Total ${currencySymbol}${checkedInput.getAttribute('data-price')}`;
-    }
+		if (window.ctaTextType === 'save') {
+			const discount = checkedInput.getAttribute('data-discount');
+			ctaText = discount != '0' ? `You Save ${currencySymbol}${discount}` : '';
+		} else if (window.ctaTextType === 'total') {
+			ctaText = `Total ${currencySymbol}${checkedInput.getAttribute('data-price')}`;
+		}
 
-    fadeOut(saveElement, function() {
-      saveElement.textContent = ctaText;
-      fadeIn(saveElement);
-    });
-  }
+		fadeOut(saveElement, function() {
+			saveElement.textContent = ctaText;
+			fadeIn(saveElement);
+		});
+	}
 
-  function updateSelectedVariantInformation(productActions, SID, infoAttributeName, targetElementSelector) {
-    const checkedInput = productActions.querySelector(`input[name="pack${SID}"]:checked`);
-    const targetElement = productActions.querySelector(targetElementSelector);
+	function updateSelectedVariantInformation(productActions, SID, infoAttributeName, targetElementSelector) {
+		const checkedInput = productActions.querySelector(`input[name="pack${SID}"]:checked`);
+		const targetElement = productActions.querySelector(targetElementSelector);
 
-    if (!checkedInput || !targetElement) return;
+		if (!checkedInput || !targetElement) return;
 
-    const varIndex = checkedInput.getAttribute(infoAttributeName);
+		const varIndex = checkedInput.getAttribute(infoAttributeName);
 
-    fadeOut(targetElement, function() {
-      targetElement.textContent = varIndex > 1 ? `X${varIndex}` : '';
-      fadeIn(targetElement);
-    });
-  }
+		fadeOut(targetElement, function() {
+			targetElement.textContent = varIndex > 1 ? `X${varIndex}` : '';
+			fadeIn(targetElement);
+		});
+	}
 
-  function fadeOut(element, callback) {
-    element.style.opacity = 1;
-    (function fade() {
-      if ((element.style.opacity -= 0.1) < 0) {
-        element.style.display = "none";
-        if (callback) callback();
-      } else {
-        requestAnimationFrame(fade);
-      }
-    })();
-  }
+	function fadeOut(element, callback) {
+		element.style.opacity = 1;
+		(function fade() {
+			if ((element.style.opacity -= 0.1) < 0) {
+				element.style.display = "none";
+				if (callback) callback();
+			} else {
+				requestAnimationFrame(fade);
+			}
+		})();
+	}
 
-  function fadeIn(element, display = "block") {
-    element.style.opacity = 0;
-    element.style.display = display;
-    (function fade() {
-      let val = parseFloat(element.style.opacity);
-      if (!((val += 0.1) > 1)) {
-        element.style.opacity = val;
-        requestAnimationFrame(fade);
-      }
-    })();
-  }
+	function fadeIn(element, display = "block") {
+		element.style.opacity = 0;
+		element.style.display = display;
+		(function fade() {
+			let val = parseFloat(element.style.opacity);
+			if (!((val += 0.1) > 1)) {
+				element.style.opacity = val;
+				requestAnimationFrame(fade);
+			}
+		})();
+	}
 </script>
 
 <style>
-  .gift-product.selected img {
-    background-color: var(--light-blue);
-    border-width: 2px;
-  }
+	.gift-product.selected img {
+	  background-color: var(--light-blue);
+	  border-width: 2px;
+	}
 
-  .purchase-type button {
-    border-radius: 5px;
-    font-size: 16px;
-    min-width: 49%;
-    padding: 0.5rem;
-  }
+	.purchase-type button {
+	  border-radius: 5px;
+	  font-size: 16px;
+	  min-width: 49%;
+	  padding: 0.5rem;
+	}
 
-  .purchase-type button:not(.selected) {
-    background: unset;
-    border: 1px solid var(--blue);
-    color: var(--blue);
-  }
+	.purchase-type button:not(.selected) {
+	  background: unset;
+	  border: 1px solid var(--blue);
+	  color: var(--blue);
+	}
 
-  #cta-section-{{ SID }} .purchase-option-box .radio-box input[type='radio'] {
-      display: none;
-  }
+	#cta-section-{{ SID }} .purchase-option-box .radio-box input[type='radio'] {
+	    display: none;
+	}
 
-  #cta-section-{{ SID }} .purchase-option-box .radio-box label {
-      cursor: pointer;
-      width: 19px;
-      height: 19px;
-      border: 1px solid var(--blue);
-      border-radius: 50%;
-      position: relative;
-  }
+	#cta-section-{{ SID }} .purchase-option-box .radio-box label {
+	    cursor: pointer;
+	    width: 19px;
+	    height: 19px;
+	    border: 1px solid var(--blue);
+	    border-radius: 50%;
+	    position: relative;
+	}
 
-  /* This will only apply the style when the variant box is selected and the radio button is checked */
-  #cta-section-{{ SID }} .purchase-option-box.selected .radio-box input[type='radio'] + label:after {
-      content: '\2713';
-      position: absolute;
-      top: -2px;
-      left: -2px;
-      width: 20px;
-      height: 20px;
-      border-radius: 50%;
-      background: var(--blue);
-      text-align: center;
-      line-height: 22px;
-      color: #fff;
-  }
+	/* This will only apply the style when the variant box is selected and the radio button is checked */
+	#cta-section-{{ SID }} .purchase-option-box.selected .radio-box input[type='radio'] + label:after {
+	    content: '\2713';
+	    position: absolute;
+	    top: -2px;
+	    left: -2px;
+	    width: 20px;
+	    height: 20px;
+	    border-radius: 50%;
+	    background: var(--blue);
+	    text-align: center;
+	    line-height: 22px;
+	    color: #fff;
+	}
 </style>
 
 <style>
-  #cta-section-{{ SID }} .product-actions {
-    grid-area: 2/2/3/3;
-    max-width: 410px;
-    min-height: 300px;
-  }
+	#cta-section-{{ SID }} .product-actions {
+	  grid-area: 2/2/3/3;
+	  max-width: 410px;
+	  min-height: 300px;
+	}
 
-  #cta-section-{{ SID }} .purchase-option-box {
-    background: #fff;
-    border: 1px solid #cbcbcb;
-    cursor: pointer;
-    max-height: 54px;
-    filter: drop-shadow(0px 4px 4px rgba(47, 47, 47, 0.1));
-    transition: max-height 0.5s ease-in-out;
-    border-radius: 10px;
-    border-color: var(--blue);
-    overflow: hidden;
-  }
+	#cta-section-{{ SID }} .purchase-option-box {
+	  background: #fff;
+	  border: 1px solid #cbcbcb;
+	  cursor: pointer;
+	  max-height: 54px;
+	  filter: drop-shadow(0px 4px 4px rgba(47, 47, 47, 0.1));
+	  transition: max-height 0.5s ease-in-out;
+	  border-radius: 10px;
+	  border-color: var(--blue);
+	  overflow: hidden;
+	}
 
-  #cta-section-{{ SID }} .purchase-option-box.selected {
-    border-width: 3px;
-    max-height: max-content;
-  }
+	#cta-section-{{ SID }} .purchase-option-box.selected {
+	  border-width: 3px;
+	  max-height: max-content;
+	}
 
-  #cta-section-{{ SID }} .purchase-option-box:hover,
-  #cta-section-{{ SID }} .purchase-option-box.selected {
-    filter: drop-shadow(0px 4px 4px rgba(47, 47, 47, 0.3));
-  }
+	#cta-section-{{ SID }} .purchase-option-box:hover,
+	#cta-section-{{ SID }} .purchase-option-box.selected {
+	  filter: drop-shadow(0px 4px 4px rgba(47, 47, 47, 0.3));
+	}
 
-  #cta-section-{{ SID }} .purchase-option-box:hover>.radio-box input[type=radio]:after {
-    background-color: #a9a9a9;
-  }
+	#cta-section-{{ SID }} .purchase-option-box:hover>.radio-box input[type=radio]:after {
+	  background-color: #a9a9a9;
+	}
 
-  #cta-section-{{ SID }} .purchase-option-box .radio-box {
-    align-items: center;
-    display: flex;
-  }
+	#cta-section-{{ SID }} .purchase-option-box .radio-box {
+	  align-items: center;
+	  display: flex;
+	}
 
-  #cta-section-{{ SID }} .purchase-option-box .option-info {
-    padding: 10px 0;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 0.25rem;
-  }
+	#cta-section-{{ SID }} .purchase-option-box .option-info {
+	  padding: 10px 0;
+	  display: flex;
+	  flex-direction: column;
+	  justify-content: center;
+	  gap: 0.25rem;
+	}
 
-  #cta-section-{{ SID }} .purchase-option-box .option-info .option-title span {
-    background: var(--blue);
-    color: white;
-    border-radius: 10px;
-    padding: 0 8px;
-    font-size: 15px;
-    margin-left: 5px;
-    font-weight: normal;
-    line-height: 1.2;
-  }
+	#cta-section-{{ SID }} .purchase-option-box .option-info .option-title span {
+	  background: var(--blue);
+	  color: white;
+	  border-radius: 10px;
+	  padding: 0 8px;
+	  font-size: 15px;
+	  margin-left: 5px;
+	  font-weight: normal;
+	  line-height: 1.2;
+	}
 
-  #cta-section-{{ SID }} .purchase-option-box .option-info .subtitle {
-    display: inline-block;
-    margin: 0;
-    font-size: 14px;
-  }
+	#cta-section-{{ SID }} .purchase-option-box .option-info .subtitle {
+	  display: inline-block;
+	  margin: 0;
+	  font-size: 14px;
+	}
 
-  @media screen and (max-width: 1270px) {
-    #cta-section-{{ SID }} .purchase-option-box {
-      width: 100%
-    }
+	@media screen and (max-width: 1270px) {
+	  #cta-section-{{ SID }} .purchase-option-box {
+	    width: 100%
+	  }
 
-    #cta-section-{{ SID }} .purchase-option-box .option-info {
-      padding: 10px 0;
-      width: 95%;
-    }
-  }
+	  #cta-section-{{ SID }} .purchase-option-box .option-info {
+	    padding: 10px 0;
+	    width: 95%;
+	  }
+	}
 
-  @media screen and (max-width: 768px) {
-    #cta-section-{{ SID }} .purchase-option-box {
-      font-size: 4vw;
-      padding-top: 1.5vw;
-    }
+	@media screen and (max-width: 768px) {
+	  #cta-section-{{ SID }} .purchase-option-box {
+	    font-size: 4vw;
+	    padding-top: 1.5vw;
+	  }
 
-    #cta-section-{{ SID }} .purchase-option-box .option-info .option-title {
-      font-size: 4vw;
-    }
+	  #cta-section-{{ SID }} .purchase-option-box .option-info .option-title {
+	    font-size: 4vw;
+	  }
 
-    #cta-section-{{ SID }} .purchase-option-box .option-info .subtitle {
-      font-size: 3vw;
-    }
+	  #cta-section-{{ SID }} .purchase-option-box .option-info .subtitle {
+	    font-size: 3vw;
+	  }
 
-    #cta-section-{{ SID }} .purchase-option-box .radio-box {
-      padding: 3vw 0;
-    }
+	  #cta-section-{{ SID }} .purchase-option-box .radio-box {
+	    padding: 3vw 0;
+	  }
 
-    #cta-section-{{ SID }} .product-actions {
-      grid-area: unset;
-      grid-row: 3;
-      max-width: unset;
-      min-height: unset;
-    }
-  }
+	  #cta-section-{{ SID }} .product-actions {
+	    grid-area: unset;
+	    grid-row: 3;
+	    max-width: unset;
+	    min-height: unset;
+	  }
+	}
 </style>
 
 <style>
-  #cta-section-{{ SID }} .lds-ellipsis {
-    display: inline-block;
-    position: relative;
-    width: 80px;
-    top:-10px;
-  }
-  #cta-section-{{ SID }} .lds-ellipsis div {
-    position: absolute;
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background: #fff;
-    animation-timing-function: cubic-bezier(0, 1, 1, 0);
-  }
-  #cta-section-{{ SID }} .lds-ellipsis div:nth-child(1) {
-    left: 8px;
-    animation: lds-ellipsis1 0.6s infinite;
-  }
-  #cta-section-{{ SID }} .lds-ellipsis div:nth-child(2) {
-    left: 8px;
-    animation: lds-ellipsis2 0.6s infinite;
-  }
-  #cta-section-{{ SID }} .lds-ellipsis div:nth-child(3) {
-    left: 32px;
-    animation: lds-ellipsis2 0.6s infinite;
-  }
-  #cta-section-{{ SID }} .lds-ellipsis div:nth-child(4) {
-    left: 56px;
-    animation: lds-ellipsis3 0.6s infinite;
-  }
-  @keyframes lds-ellipsis1 {
-    0% {
-      transform: scale(0);
-    }
-    100% {
-      transform: scale(1);
-    }
-  }
-  @keyframes lds-ellipsis3 {
-    0% {
-      transform: scale(1);
-    }
-    100% {
-      transform: scale(0);
-    }
-  }
-  @keyframes lds-ellipsis2 {
-    0% {
-      transform: translate(0, 0);
-    }
-    100% {
-      transform: translate(24px, 0);
-    }
-  }
+	#cta-section-{{ SID }} .lds-ellipsis {
+	  display: inline-block;
+	  position: relative;
+	  width: 80px;
+	  top:-10px;
+	}
+	#cta-section-{{ SID }} .lds-ellipsis div {
+	  position: absolute;
+	  width: 10px;
+	  height: 10px;
+	  border-radius: 50%;
+	  background: #fff;
+	  animation-timing-function: cubic-bezier(0, 1, 1, 0);
+	}
+	#cta-section-{{ SID }} .lds-ellipsis div:nth-child(1) {
+	  left: 8px;
+	  animation: lds-ellipsis1 0.6s infinite;
+	}
+	#cta-section-{{ SID }} .lds-ellipsis div:nth-child(2) {
+	  left: 8px;
+	  animation: lds-ellipsis2 0.6s infinite;
+	}
+	#cta-section-{{ SID }} .lds-ellipsis div:nth-child(3) {
+	  left: 32px;
+	  animation: lds-ellipsis2 0.6s infinite;
+	}
+	#cta-section-{{ SID }} .lds-ellipsis div:nth-child(4) {
+	  left: 56px;
+	  animation: lds-ellipsis3 0.6s infinite;
+	}
+	@keyframes lds-ellipsis1 {
+	  0% {
+	    transform: scale(0);
+	  }
+	  100% {
+	    transform: scale(1);
+	  }
+	}
+	@keyframes lds-ellipsis3 {
+	  0% {
+	    transform: scale(1);
+	  }
+	  100% {
+	    transform: scale(0);
+	  }
+	}
+	@keyframes lds-ellipsis2 {
+	  0% {
+	    transform: translate(0, 0);
+	  }
+	  100% {
+	    transform: translate(24px, 0);
+	  }
+	}
 </style>
