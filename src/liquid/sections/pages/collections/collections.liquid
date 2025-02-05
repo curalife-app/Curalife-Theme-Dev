@@ -1,174 +1,191 @@
 {%- comment -%} If store is US {%- endcomment -%}
 {% if shop.name == 'CuraLife' %}
-	{% if customer.email contains 'yotam' %}
-		{% assign collectionsHandles = "black-friday,glucose-support,weight-loss,magnesium,sleep,joint-care,immune-care" | split: "," %}
-	{% else %}
-  	{% assign collectionsHandles = "glucose-support,weight-loss,magnesium,sleep,joint-care,immune-care" | split: "," %}
-	{% endif %}
-{% elsif shop.name == "CuraLife Global" %}
-  {% assign collectionsHandles = "glucose-support,weight-loss" | split: "," %}
+	{% assign collectionsHandles = 'glucose-support,weight-loss,magnesium,sleep,joint-care,immune-care' | split: ',' %}
+{% elsif shop.name == 'CuraLife Global' %}
+	{% assign collectionsHandles = 'glucose-support,weight-loss' | split: ',' %}
 {% endif %}
 
 {% assign collectionAmount = collectionsHandles | size %}
 
 <section id="collections-catalog-section">
-  <h1 class="offscreen">Our Collections</h1>
+	<h1 class="offscreen">Our Collections</h1>
 
-  {% if collectionAmount > 1 %}
-    <div class="category-tabs slide mb-4">
-      <div class="container">
-        <div class="tabs">
-          {% comment %} {% if isAll == true %}<li><a href="#" data-collection-handle="all" class="active">All</a></li>{% endif %} {% endcomment %}
-          {% for collection_handle in collectionsHandles %}
-            <div class="tab"><a href="#{{ collection_handle }}-collection-section" class="active" data-collection-handle="{{ collection_handle }}" data-collection-description="{{ collections[collection_handle].description | strip_html }}" {% if request.path contains collection.handle %}class="active"{% endif %}>{{ collections[collection_handle].title }}</a></div>
-          {% endfor %}
-        </div>
-      </div>
-    </div>
-  {% endif %}
+	{% if collectionAmount > 1 %}
+		<div class="category-tabs slide mb-4">
+			<div class="container">
+				<div class="tabs">
+					{% comment %} {% if isAll == true %}<li><a href="#" data-collection-handle="all" class="active">All</a></li>{% endif %} {% endcomment %}
+					{% for collection_handle in collectionsHandles %}
+						<div class="tab">
+							<a
+								href="#{{ collection_handle }}-collection-section"
+								class="active"
+								data-collection-handle="{{ collection_handle }}"
+								data-collection-description="{{ collections[collection_handle].description | strip_html }}"
+								{% if request.path contains collection.handle %}
+									class="active"
+								{% endif %}>
+								{{ collections[collection_handle].title }}
+							</a>
+						</div>
+					{% endfor %}
+				</div>
+			</div>
+		</div>
+	{% endif %}
 
-  <div class="container flex flex-wrap justify-between gap-[20px]">
-    {% for collection_handle in collectionsHandles %}
-      {% if forloop.last %}{% assign isLastCollectionRender = true %}{% endif %}
-      {% render 'collection', collection_handle: collection_handle, isDescription: true, isNoTitle: false, isNoPrices: false, isCentered: customer.b2b?, isNoBundles: false, isLastCollectionRender: isLastCollectionRender %}
-    {% endfor %}
-  </div>
+	<div class="container flex flex-wrap justify-between gap-[20px]">
+		{% for collection_handle in collectionsHandles %}
+			{% if forloop.last %}{% assign isLastCollectionRender = true %}{% endif %}
+			{% render 'collection',
+				collection_handle: collection_handle,
+				isDescription: true,
+				isNoTitle: false,
+				isNoPrices: false,
+				isCentered: customer.b2b?,
+				isNoBundles: false,
+				isLastCollectionRender: isLastCollectionRender
+			%}
+		{% endfor %}
+	</div>
 </section>
 
 <style>
-  #collections-catalog-section {
-    padding-top: 40px;
-  }
+	#collections-catalog-section {
+		padding-top: 40px;
+	}
 
-  #collections-catalog-section .description {
-    margin-top: 15px;
-  }
+	#collections-catalog-section .description {
+		margin-top: 15px;
+	}
 
-  #collections-catalog-section .collection-section:not(.w-full) .description {
-    min-height: 4rem;
-  }
+	#collections-catalog-section .collection-section:not(.w-full) .description {
+		min-height: 4rem;
+	}
 
-  #collections-catalog-section .line {
-    border-bottom: 1px solid black;
-    width: 300px;
-    margin: 30px 0;
-  }
+	#collections-catalog-section .line {
+		border-bottom: 1px solid black;
+		width: 300px;
+		margin: 30px 0;
+	}
 
-  #collections-catalog-section .category-tabs .tabs {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 35px 10px;
-    padding: 10px 0;
-    justify-content: center;
-  }
+	#collections-catalog-section .category-tabs .tabs {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 35px 10px;
+		padding: 10px 0;
+		justify-content: center;
+	}
 
-  #collections-catalog-section .category-tabs .tabs .tab a {
-    padding: 10px 20px;
-    border-radius: 50px;
-    font-size: 20px;
-    transition: all 0.3s ease-in-out;
-  }
+	#collections-catalog-section .category-tabs .tabs .tab a {
+		padding: 10px 20px;
+		border-radius: 50px;
+		font-size: 20px;
+		transition: all 0.3s ease-in-out;
+	}
 
-  #collections-catalog-section .category-tabs .tabs .tab:before {
-    content: "";
-  }
+	#collections-catalog-section .category-tabs .tabs .tab:before {
+		content: '';
+	}
 
-  #collections-catalog-section .category-tabs .tabs .tab a.active {
-    background: var(--light-blue);
-  }
+	#collections-catalog-section .category-tabs .tabs .tab a.active {
+		background: var(--light-blue);
+	}
 
-  #collections-catalog-section .category-tabs .tabs .tab a.active:hover {
-    background: #d9e5e9;
-  }
+	#collections-catalog-section .category-tabs .tabs .tab a.active:hover {
+		background: #d9e5e9;
+	}
 
-  @media screen and (max-width: 768px) {
-    #collections-catalog-section .category-tabs.slide .container {
-      --scrollbar-width: 0px;
-      --mask-width: 20px;
-      overflow-y: auto;
-      width: 90vw;
-      padding-right: var(--mask-width);
-      --mask-image-content: linear-gradient(to right, transparent, white var(--mask-width), white calc(100% - var(--mask-width)), transparent);
-      --mask-size-content: calc(100% - var(--scrollbar-width)) 100%;
-      --mask-image-scrollbar: linear-gradient(white, white);
-      --mask-size-scrollbar: var(--scrollbar-width) 100%;
-      -webkit-mask-image: var(--mask-image-content), var(--mask-image-scrollbar);
-      -webkit-mask-size: var(--mask-size-content), var(--mask-size-scrollbar);
-      -webkit-mask-position: 0 0, 100% 0;
-      -webkit-mask-repeat: no-repeat, no-repeat;
-      mask-image: var(--mask-image-content), var(--mask-image-scrollbar);
-      mask-size: var(--mask-size-content), var(--mask-size-scrollbar);
-      mask-position: 0 0, 100% 0;
-      mask-repeat: no-repeat, no-repeat;
-    }
+	@media screen and (max-width: 768px) {
+		#collections-catalog-section .category-tabs.slide .container {
+			--scrollbar-width: 0px;
+			--mask-width: 20px;
+			overflow-y: auto;
+			width: 90vw;
+			padding-right: var(--mask-width);
+			--mask-image-content: linear-gradient(to right, transparent, white var(--mask-width), white calc(100% - var(--mask-width)), transparent);
+			--mask-size-content: calc(100% - var(--scrollbar-width)) 100%;
+			--mask-image-scrollbar: linear-gradient(white, white);
+			--mask-size-scrollbar: var(--scrollbar-width) 100%;
+			-webkit-mask-image: var(--mask-image-content), var(--mask-image-scrollbar);
+			-webkit-mask-size: var(--mask-size-content), var(--mask-size-scrollbar);
+			-webkit-mask-position: 0 0, 100% 0;
+			-webkit-mask-repeat: no-repeat, no-repeat;
+			mask-image: var(--mask-image-content), var(--mask-image-scrollbar);
+			mask-size: var(--mask-size-content), var(--mask-size-scrollbar);
+			mask-position: 0 0, 100% 0;
+			mask-repeat: no-repeat, no-repeat;
+		}
 
-    #collections-catalog-section h2 {
-      margin-top: 0;
-    }
+		#collections-catalog-section h2 {
+			margin-top: 0;
+		}
 
-    #collections-catalog-section .product-grid {
-      gap: 2%;
-      height: auto;
-    }
+		#collections-catalog-section .product-grid {
+			gap: 2%;
+			height: auto;
+		}
 
-    #collections-catalog-section .category-tabs .tabs {
-      gap: 3vw;
-      justify-content: center;
-    }
+		#collections-catalog-section .category-tabs .tabs {
+			gap: 3vw;
+			justify-content: center;
+		}
 
-    #collections-catalog-section .category-tabs.slide .tabs {
-      width: max-content;
-      margin-bottom: 15px;
-    }
+		#collections-catalog-section .category-tabs.slide .tabs {
+			width: max-content;
+			margin-bottom: 15px;
+		}
 
-    #collections-catalog-section .category-tabs .tabs .tab a {
-      padding: 1vw 4vw;
-      font-size: 5vw;
-    }
-  }
+		#collections-catalog-section .category-tabs .tabs .tab a {
+			padding: 1vw 4vw;
+			font-size: 5vw;
+		}
+	}
 </style>
 
-{% comment %} {% unless isLink %}
-  <script>
-    isEventHappenedOnce = false;
+{% comment %}
+	{% unless isLink %}
+	  <script>
+	    isEventHappenedOnce = false;
 
-    $('.category-tabs a').click(function (e) {
-      $('.category-tabs a').removeClass('active');
-      $(this).addClass('active');
+	    $('.category-tabs a').click(function (e) {
+	      $('.category-tabs a').removeClass('active');
+	      $(this).addClass('active');
 
-      const collectionHandle = $(this).data('collection-handle');
-      if (collectionHandle == "all") {
-        $('.collection-section').fadeIn();
-        $('.category-badges-section').fadeOut();
-      }
-      else {
-        $('.collection-section').fadeOut();
-        $('.collection-section[data-product-collections*="' + collectionHandle + '"]').fadeIn();
+	      const collectionHandle = $(this).data('collection-handle');
+	      if (collectionHandle == "all") {
+	        $('.collection-section').fadeIn();
+	        $('.category-badges-section').fadeOut();
+	      }
+	      else {
+	        $('.collection-section').fadeOut();
+	        $('.collection-section[data-product-collections*="' + collectionHandle + '"]').fadeIn();
 
-        $('.category-badges-section').fadeOut();
-        $('.category-badges-section[data-product-collections*="' + collectionHandle + '"]').fadeIn();
-      }
+	        $('.category-badges-section').fadeOut();
+	        $('.category-badges-section[data-product-collections*="' + collectionHandle + '"]').fadeIn();
+	      }
 
-      if (isEventHappenedOnce) {
-        woopra.track('Collection Tab Selected', {tab_name: $('.category-tabs a.active').text()});
-      }
+	      if (isEventHappenedOnce) {
+	        woopra.track('Collection Tab Selected', {tab_name: $('.category-tabs a.active').text()});
+	      }
 
-      isEventHappenedOnce = true;
-    });
+	      isEventHappenedOnce = true;
+	    });
 
-    $('.category-tabs a[data-collection-handle="{{ activeCollection }}"]').click();
-  </script>
-{% endunless %} {% endcomment %}
+	    $('.category-tabs a[data-collection-handle="{{ activeCollection }}"]').click();
+	  </script>
+	{% endunless %}
+{% endcomment %}
 
 <script>
-  // Auto click on Tab with Url Param
-  $( document ).ready(function() {
-    let urlParams = new URLSearchParams(window.location.search);
-    let linksAddition = urlParams.get('category');
-    let collectionTabSelector = '.category-tabs a[data-collection-handle="' + linksAddition + '"]';
-    console.log(collectionTabSelector)
-    console.log($(collectionTabSelector))
+	// Auto click on Tab with Url Param
+	$(document).ready(function () {
+		let urlParams = new URLSearchParams(window.location.search);
+		let linksAddition = urlParams.get('category');
+		let collectionTabSelector = '.category-tabs a[data-collection-handle="' + linksAddition + '"]';
+		console.log(collectionTabSelector);
+		console.log($(collectionTabSelector));
 
-    $(collectionTabSelector).click();
-  });
+		$(collectionTabSelector).click();
+	});
 </script>
