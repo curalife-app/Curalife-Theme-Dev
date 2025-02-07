@@ -24,37 +24,6 @@
 			{% render 'product-cta-section-actions-variant-2024-new', SID: SID, prod: product, var: var, buyBoxColor: buyBoxColor, index: forloop.index %}
 		{% endfor %}
 
-		{% comment %}
-			{% if customer.email == 'yotam@curalife.com' and false %}
-			  {% for additionalVariant in product.metafields.custom.additional_variants.value %}
-			    {% assign variantsAmount = variantsAmount | plus: 1 %}
-			    {% render 'product-cta-section-actions-variant-2024-new', SID: SID, prod: additionalVariant.product, var: additionalVariant, index: variantsAmount %}
-			  {% endfor %}
-
-			  {% for block in blocks %}
-			    {% case block.type %}
-			      {% when 'variant' %}
-			        {% assign pathsToReveal = block.settings.reveal_on_paths | split: "," %}
-			        {% if pathsToReveal contains request.path or pathsToReveal == blank %}
-			          {% assign referenced_variant_product = block.settings.prod %}
-			          {% assign referenced_variant = blank %}
-			          {% assign blockVarID = block.settings.variant_id | plus: 0 %}
-			          {% for vari in referenced_variant_product.variants %}
-			            {% assign currVarID = vari.id | plus: 0 %}
-			            {% if currVarID == blockVarID %}
-			              {% assign referenced_variant = vari %}
-			            {% endif %}
-			          {% endfor %}
-
-			          {% if referenced_variant != blank %}
-			            {% render 'product-cta-section-actions-variant-2024-new', SID: SID, prod: referenced_variant_product, var: referenced_variant %}
-			          {% endif %}
-			        {% endif %}
-			    {% endcase %}
-			  {% endfor %}
-			{% endif %}
-		{% endcomment %}
-
 		<div class="submit-wrap flex flex-col w-full">
 			<div class="checkout-button">
 				{%- render 'buy-buttons', product: product, variant: '', selling_plan_id: selling_plan_id, product_form_id: product_form_id, buyType: buyType, isBuyWithPrime: isBuyWithPrime -%}
@@ -770,33 +739,65 @@
       }
     }
 
-    async function buySubscription(variant_id, qty, selling_plan) {
-      const cartCleared = await clearCart();
-      if (!cartCleared) return;
+		async function buySubscription(variant_id, qty, selling_plan) {
+			try {
+				// First get current cart state
+				const cartResponse = await fetch('/cart.js');
+				const cart = await cartResponse.json();
 
-      const data = {
-        "id": variant_id,
-        "quantity": qty,
-        "selling_plan": selling_plan
-      };
+				// If cart is not empty, clear it
+				if (cart.item_count > 0) {
+					const clearResponse = await fetch('/cart/clear.js', {
+						method: 'POST',
+						headers: {
+							'Content-Type': 'application/json'
+						}
+					});
 
-      try {
-        const response = await fetch('/cart/add.js', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(data)
-        });
+					if (!clearResponse.ok) {
+						throw new Error('Failed to clear cart');
+					}
 
-        if (!response.ok) throw new Error('Failed to add item to cart');
+					// Wait for cart to clear
+					await new Promise(resolve => setTimeout(resolve, 500));
+				}
 
-        console.log('success');
-        window.location.href = '/checkout';
-      } catch (error) {
-        console.log('Failed to add item to cart:', error);
-      }
-    }
+				// Get cart again to verify it's empty
+				const verifyResponse = await fetch('/cart.js');
+				const verifiedCart = await verifyResponse.json();
+
+				if (verifiedCart.item_count > 0) {
+					throw new Error('Cart not properly cleared');
+				}
+
+				// Add subscription item
+				const addResponse = await fetch('/cart/add.js', {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						'Accept': 'application/json'
+					},
+					body: JSON.stringify({
+						items: [{
+							id: variant_id,
+							quantity: qty,
+							selling_plan: selling_plan
+						}]
+					})
+				});
+
+				const addResponseData = await addResponse.json();
+
+				if (!addResponse.ok || addResponseData.items?.length === 0) {
+					throw new Error(addResponseData.description || 'Failed to add subscription to cart');
+				}
+
+				window.location.href = '/checkout';
+			} catch (error) {
+				console.error('Subscription error:', error);
+				alert('Failed to add subscription to cart. Please try again or contact support if the issue persists.');
+			}
+		}
   });
 </script>
 
