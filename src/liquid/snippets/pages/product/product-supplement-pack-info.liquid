@@ -1,15 +1,17 @@
 {% comment %}
-	Responsive Pack Info Section
-	- Mobile (≤768px): Vertical tab navigation, only one panel visible at a time.
-	- Desktop (≥800px): All panels are visible side‑by‑side with headers.
+	Responsive Pack Info Section:
+	- On Mobile (≤768px): Vertical tabs with the product image inserted between the subtitle and highlights.
+	- On Desktop (≥800px): Side-by-side layout with the product image shown separately.
 {% endcomment %}
 <section class="pack-info-section instance-{{ index }}">
 	<div class="container">
 		<!-- Product Header -->
 		<div class="header">
-			<div class="titles">
+			<div class="titles max-w-1\/2">
 				<h2 class="title">{{ product.title }}</h2>
 				<div class="subtitle">{{ product.description }}</div>
+				<!-- Mobile-only product image (positioned between subtitle and highlights) -->
+				<img class="product-image mobile" src="{{ product.metafields.custom.pill_image | img_url: 'original' }}" alt="{{ product.title }}" loading="lazy">
 				<ul class="highlights check-list">
 					{% for highlight in product.metafields.custom['product-highlights'].value %}
 						<li class="highlight">
@@ -19,13 +21,15 @@
 					{% endfor %}
 				</ul>
 			</div>
-			<img class="product-image" src="{{ product.metafields.custom.pill_image | img_url: 'original' }}" alt="{{ product.title }}" loading="lazy">
+			<!-- Desktop-only product image -->
+			<img class="product-image desktop" src="{{ product.metafields.custom.pill_image | img_url: 'original' }}" alt="{{ product.title }}" loading="lazy">
 		</div>
 
-		<!-- Tabbed Content -->
+		<!-- Tabbed Content Area -->
 		<div class="tabbed-content">
+			<!-- Mobile Vertical Tabs Navigation -->
 			<nav class="tabs">
-				<ul class="tab-links no-style">
+				<ul class="no-style">
 					<li>
 						<a href="#instructions-{{ index }}" data-tab="instructions" class="tab-link">Usage Instructions</a>
 					</li>
@@ -42,17 +46,18 @@
 
 			<!-- Panels / Tab Content -->
 			<div class="tab-panels">
+				<!-- Usage Instructions Panel -->
 				<div id="instructions-{{ index }}" class="tab-panel" data-tab="instructions">
 					<h3 class="panel-header">Usage Instructions</h3>
 					<div class="instructions">
 						{% for step in product.metafields.custom.instructions.value %}
 							<div class="step">
+								<div class="step-text">{{ step.subtitle }}</div>
 								<div class="capsules">
 									{% for i in (1..step.capsules) %}
-										<img src="{{ 'icon-capsule.png' | asset_url }}" alt="Capsule Pill" width="20" height="31" style="min-width:35px">
+										<img src="{{ 'icon-capsule.svg' | asset_url }}" alt="Capsule Pill" class="inline-block">
 									{% endfor %}
 								</div>
-								<div class="step-text">{{ step.subtitle }}</div>
 							</div>
 						{% endfor %}
 					</div>
@@ -78,7 +83,7 @@
 				<div id="facts-{{ index }}" class="tab-panel" data-tab="facts">
 					<h3 class="panel-header">Supplement Facts</h3>
 					<div class="facts">
-						<img src="{{ product.metafields.custom.supplement_fact | image_url }}" alt="Supplement Facts">
+						<img class="m-0" src="{{ product.metafields.custom.supplement_fact | image_url }}" alt="Supplement Facts">
 					</div>
 				</div>
 			</div>
@@ -92,26 +97,39 @@
 		background: var(--primary-color-lightest);
 		padding: 20px;
 	}
-	.pack-info-section .header {
+	.header {
 		display: flex;
 		flex-wrap: wrap;
+		align-items: center;
 		justify-content: space-between;
 		margin-bottom: 20px;
 	}
-	.pack-info-section .titles {
-		max-width: 60%;
+	.titles {
+		flex: 1 1 60%;
 	}
-	.pack-info-section .check-list {
+	.titles .check-list {
 		list-style: none;
 		padding: 0;
 		margin: 10px 0 0;
 	}
-	.pack-info-section .highlight {
+	.highlight {
 		margin-bottom: 10px;
 	}
-	.pack-info-section .product-image {
-		max-width: 35%;
+
+	/* Product Image Display */
+	.product-image {
+		max-width: 100%;
 		height: auto;
+	}
+	/* Hide mobile image on desktop, show desktop image */
+	@media (min-width: 800px) {
+		.product-image.mobile { display: none; }
+		.product-image.desktop { display: block; flex: 0 0 35%; }
+	}
+	/* On mobile, show the image inside titles and hide the desktop one */
+	@media (max-width: 768px) {
+		.product-image.mobile { display: block; margin: 30px 0; }
+		.product-image.desktop { display: none; }
 	}
 
 	/* Tabs Navigation – Mobile Vertical Alignment */
@@ -125,17 +143,15 @@
 	}
 	.tabbed-content .tabs a {
 		display: block;
-		padding: 10px;
-		background: #f0f0f0;
-		text-decoration: none;
-		color: #333;
-		border: 1px solid transparent;
-		border-radius: 4px;
+		padding: 15px;
+		border-bottom: 1px solid var(--primary-color);
 	}
+	.tabbed-content .tabs a:first-child {
+		border-top: 1px solid var(--primary-color);
+	}
+
 	.tabbed-content .tabs a.active {
-		background: var(--light-green);
-		color: #fff;
-		border-color: var(--light-green);
+		color: var(--primary-color);
 	}
 
 	/* Tab Panels */
