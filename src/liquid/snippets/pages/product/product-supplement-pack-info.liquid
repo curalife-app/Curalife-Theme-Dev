@@ -1,17 +1,18 @@
 {% comment %}
-	Responsive Pack Info Section:
-	- On Mobile (≤768px): Vertical tabs with the product image inserted between the subtitle and highlights.
-	- On Desktop (≥800px): Side-by-side layout with the product image shown separately.
+	Responsive Pack Info Section with Accordion:
+	- Consistent accordion behavior across all screen sizes
+	- Plus/minus icons indicate expandable sections
+	- Smooth transitions for opening/closing
 {% endcomment %}
 <section class="pack-info-section instance-{{ index }}">
 	<div class="container">
 		<!-- Product Header -->
 		<div class="header">
-			<div class="titles max-w-1\/2">
+			<div class="titles max-w-1/2 mbl:max-w-full">
 				<h2 class="title">{{ product.title }}</h2>
 				<div class="subtitle">{{ product.description }}</div>
-				<!-- Mobile-only product image (positioned between subtitle and highlights) -->
-				<img class="product-image mobile" src="{{ product.metafields.custom.pill_image | img_url: 'original' }}" alt="{{ product.title }}" loading="lazy">
+				<!-- Mobile-only product image -->
+				<img class="product-image mobile my-8" src="{{ product.metafields.custom.pill_image | img_url: 'original' }}" alt="{{ product.title }}" loading="lazy">
 				<ul class="highlights check-list">
 					{% for highlight in product.metafields.custom['product-highlights'].value %}
 						<li class="highlight">
@@ -22,38 +23,29 @@
 				</ul>
 			</div>
 			<!-- Desktop-only product image -->
-			<img class="product-image desktop" src="{{ product.metafields.custom.pill_image | img_url: 'original' }}" alt="{{ product.title }}" loading="lazy">
+			<img class="product-image desktop m-0" src="{{ product.metafields.custom.pill_image | img_url: 'original' }}" alt="{{ product.title }}" loading="lazy">
 		</div>
 
-		<!-- Tabbed Content Area -->
-		<div class="tabbed-content">
-			<!-- Mobile Vertical Tabs Navigation -->
-			<nav class="tabs">
-				<ul class="no-style">
-					<li>
-						<a href="#instructions-{{ index }}" data-tab="instructions" class="tab-link">Usage Instructions</a>
-					</li>
-					{% if product.metafields.custom.ingredients.value %}
-						<li>
-							<a href="#ingredients-{{ index }}" data-tab="ingredients" class="tab-link">Ingredients</a>
-						</li>
-					{% endif %}
-					<li>
-						<a href="#facts-{{ index }}" data-tab="facts" class="tab-link">Supplement Facts</a>
-					</li>
-				</ul>
-			</nav>
-
-			<!-- Panels / Tab Content -->
-			<div class="tab-panels">
-				<!-- Usage Instructions Panel -->
-				<div id="instructions-{{ index }}" class="tab-panel" data-tab="instructions">
-					<h3 class="panel-header">Usage Instructions</h3>
+		<!-- Accordion Content Area -->
+		<div class="accordion-content max-w-1/2 mbl:max-w-full">
+			<!-- Usage Instructions -->
+			<div class="accordion-item">
+				<div class="accordion-header">
+					<span>Usage Instructions</span>
+					<svg class="icon-plus" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<line x1="12" y1="5" x2="12" y2="19"></line>
+						<line x1="5" y1="12" x2="19" y2="12"></line>
+					</svg>
+					<svg class="icon-minus hidden" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<line x1="5" y1="12" x2="19" y2="12"></line>
+					</svg>
+				</div>
+				<div class="accordion-panel">
 					<div class="instructions">
 						{% for step in product.metafields.custom.instructions.value %}
 							<div class="step">
 								<div class="step-text">{{ step.subtitle }}</div>
-								<div class="capsules">
+								<div class="capsules mt-2">
 									{% for i in (1..step.capsules) %}
 										<img src="{{ 'icon-capsule.svg' | asset_url }}" alt="Capsule Pill" class="inline-block">
 									{% endfor %}
@@ -62,39 +54,36 @@
 						{% endfor %}
 					</div>
 				</div>
+			</div>
 
-				{% if product.metafields.custom.ingredients.value %}
-					<!-- Ingredients Panel -->
-					<div id="ingredients-{{ index }}" class="tab-panel" data-tab="ingredients">
-						<h3 class="panel-header">Ingredients</h3>
-						<div class="ingredients">
-							{% for ingredient in product.metafields.custom.ingredients.value %}
-								<div class="ingredient">
-									{% assign ingredient_handle = ingredient | downcase | replace: ' ', '-' %}
-									<img src="{{ 'product-supplement-pack-info-ingredient-icon-' | append: ingredient_handle | append: '.png' | asset_url }}" alt="{{ ingredient }}">
-									<p>{{ ingredient }}</p>
-								</div>
-							{% endfor %}
-						</div>
-					</div>
-				{% endif %}
-
-				<!-- Supplement Facts Panel -->
-				<div id="facts-{{ index }}" class="tab-panel" data-tab="facts">
-					<h3 class="panel-header">Supplement Facts</h3>
+			<!-- Supplement Facts -->
+			<div class="accordion-item">
+				<div class="accordion-header">
+					<span>Supplement Facts</span>
+					<svg class="icon-plus" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<line x1="12" y1="5" x2="12" y2="19"></line>
+						<line x1="5" y1="12" x2="19" y2="12"></line>
+					</svg>
+					<svg class="icon-minus hidden" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<line x1="5" y1="12" x2="19" y2="12"></line>
+					</svg>
+				</div>
+				<div class="accordion-panel">
 					<div class="facts">
 						<img class="m-0" src="{{ product.metafields.custom.supplement_fact | image_url }}" alt="Supplement Facts">
 					</div>
 				</div>
 			</div>
 		</div>
+
+		<a href="#cta-section-anchor" class="flex justify-center mt-8"><button class="bg-[--orange] text-black">Buy Now</button></a>
 	</div>
 </section>
 
 <style>
 	/* Base Styles */
 	.pack-info-section {
-		background: var(--primary-color-lightest);
+		background: {{ product.metafields.custom.bg_color | default: "var(--primary-color-lightest)" }};
 		padding: 20px;
 	}
 	.header {
@@ -121,82 +110,63 @@
 		max-width: 100%;
 		height: auto;
 	}
-	/* Hide mobile image on desktop, show desktop image */
-	@media (min-width: 800px) {
-		.product-image.mobile { display: none; }
-		.product-image.desktop { display: block; flex: 0 0 35%; }
-	}
-	/* On mobile, show the image inside titles and hide the desktop one */
-	@media (max-width: 768px) {
-		.product-image.mobile { display: block; margin: 30px 0; }
-		.product-image.desktop { display: none; }
+
+	/* Accordion Styles */
+	.accordion-item {
+		border-bottom: 1px solid var(--primary-color);
+		margin-bottom: -1px;
 	}
 
-	/* Tabs Navigation – Mobile Vertical Alignment */
-	.tabbed-content .tabs ul {
-		list-style: none;
-		margin: 0 0 10px;
-		padding: 0;
-	}
-	.tabbed-content .tabs li {
-		margin-bottom: 5px;
-	}
-	.tabbed-content .tabs a {
-		display: block;
-		padding: 15px;
-		border-bottom: 1px solid var(--primary-color);
-	}
-	.tabbed-content .tabs a:first-child {
+	.accordion-item:first-child {
 		border-top: 1px solid var(--primary-color);
 	}
 
-	.tabbed-content .tabs a.active {
+	.accordion-header {
+		width: 100%;
+		padding: 15px;
+		background: none;
+		border: none;
+		text-align: left;
+		cursor: pointer;
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
 		color: var(--primary-color);
+		font-weight: bold;
+		font-size: 1.1em;
 	}
 
-	/* Tab Panels */
-	.tab-panels .tab-panel {
+	.accordion-panel {
+		max-height: 0;
+		overflow: hidden;
+		transition: max-height 0.3s ease-out;
+		padding: 0 15px;
+	}
+
+	.accordion-panel.active {
+		max-height: 500px; /* Adjust based on content */
+		padding: 15px;
+		padding-bottom: 30px;
+	}
+
+	.icon-plus, .icon-minus {
+		transition: opacity 0.2s ease-in-out;
+	}
+
+	.hidden {
 		display: none;
 	}
-	.tab-panels .tab-panel.active {
-		display: block;
-	}
 
-	/* Panel Headers (Desktop Only) */
-	.panel-header {
-		display: none;
-		margin-bottom: 10px;
-	}
-
-	/* Mobile Styles (≤768px) */
+	/* Responsive Styles */
 	@media (max-width: 768px) {
-		.tabbed-content .tabs {
-			display: block;
-		}
-		.panel-header {
+		.product-image.desktop {
 			display: none;
 		}
 	}
 
-	/* Desktop Styles (≥800px) */
 	@media (min-width: 800px) {
-		.tabbed-content .tabs {
+		.product-image.mobile {
 			display: none;
-		}
-		.tab-panels {
-			display: flex;
-			gap: 20px;
-		}
-		.tab-panels .tab-panel {
-			display: block;
-			flex: 1;
-		}
-		.panel-header {
-			display: block;
-			text-align: center;
-			font-size: 1.5em;
-			font-weight: bold;
-			margin-bottom: 10px;
 		}
 	}
 </style>
@@ -207,61 +177,24 @@
 		var container = document.querySelector(instanceSelector);
 		if (!container) return;
 
-		var tabLinks = container.querySelectorAll(".tab-link");
-		var tabPanels = container.querySelectorAll(".tab-panel");
+		var accordionHeaders = container.querySelectorAll(".accordion-header");
 
-		// Remove active classes from all tabs and panels.
-		function clearActive() {
-			tabLinks.forEach(function(link) {
-				link.classList.remove("active");
+		function toggleAccordion(header) {
+			var panel = header.nextElementSibling;
+			var iconPlus = header.querySelector(".icon-plus");
+			var iconMinus = header.querySelector(".icon-minus");
+
+			// Toggle current panel
+			panel.classList.toggle("active");
+			iconPlus.classList.toggle("hidden");
+			iconMinus.classList.toggle("hidden");
+		}
+
+		// Bind click events
+		accordionHeaders.forEach(function(header) {
+			header.addEventListener("click", function() {
+				toggleAccordion(this);
 			});
-			tabPanels.forEach(function(panel) {
-				panel.classList.remove("active");
-			});
-		}
-
-		// Activate the given tab link and show its corresponding panel.
-		function activateTab(tabLink) {
-			var targetId = tabLink.getAttribute("href");
-			clearActive();
-			tabLink.classList.add("active");
-			var targetPanel = container.querySelector(targetId);
-			if (targetPanel) {
-				targetPanel.classList.add("active");
-			}
-		}
-
-		// Initialize mobile tabs
-		function initTabs() {
-			if (window.innerWidth <= 768) {
-				// Bind click events on mobile if not already bound.
-				tabLinks.forEach(function(link) {
-					link.addEventListener("click", function(e) {
-						e.preventDefault();
-						activateTab(link);
-					});
-				});
-				// Activate the first tab if none is active.
-				if (tabLinks.length && !container.querySelector(".tab-link.active")) {
-					activateTab(tabLinks[0]);
-				}
-			} else {
-				// On desktop, show all panels.
-				clearActive();
-				tabPanels.forEach(function(panel) {
-					panel.classList.add("active");
-				});
-			}
-		}
-
-		initTabs();
-
-		// Reinitialize on window resize (debounced)
-		window.addEventListener("resize", function() {
-			clearTimeout(window.tabResizeTimer);
-			window.tabResizeTimer = setTimeout(function() {
-				initTabs();
-			}, 250);
 		});
 	});
 </script>
