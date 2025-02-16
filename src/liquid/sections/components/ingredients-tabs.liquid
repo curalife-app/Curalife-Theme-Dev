@@ -1,0 +1,222 @@
+{% comment %}
+	INGREDIENTS TABS SECTION
+	Place this file in 'sections/ingredients-tabs.liquid'
+{% endcomment %}
+
+<section id="ingredients-tab-section" class="ingredients-tab-section">
+	<div class="container">
+		<!-- Section Heading -->
+		{% if section.settings.section_heading != blank %}
+			<h2>{{ section.settings.section_heading }}</h2>
+		{% endif %}
+
+		<!-- Section Subheading -->
+		{% if section.settings.section_subheading != blank %}
+			<p class="section-subheading">{{ section.settings.section_subheading }}</p>
+		{% endif %}
+
+		<!-- Tabs Navigation -->
+		<ul class="tab-buttons">
+			{% for block in section.blocks %}
+				<li
+					class="tab-button"
+					data-tab="tab-{{ block.id }}"
+					role="button"
+					aria-controls="tab-{{ block.id }}"
+					aria-selected="false"
+				>
+					{{ block.settings.ingredient_title }}
+				</li>
+			{% endfor %}
+		</ul>
+
+		<!-- Tab Contents -->
+		<div class="tab-contents">
+			{% for block in section.blocks %}
+				<div
+					class="tab-content"
+					id="tab-{{ block.id }}"
+					role="tabpanel"
+					aria-labelledby="tab-button-{{ block.id }}"
+					hidden
+				>
+					{% if block.settings.ingredient_image %}
+						<div class="ingredient-image">
+							<img
+								src="{{ block.settings.ingredient_image | img_url: 'master' }}"
+								alt="{{ block.settings.ingredient_title | escape }}"
+							/>
+						</div>
+					{% endif %}
+					<div class="ingredient-text">
+						<h3>{{ block.settings.ingredient_title }}</h3>
+						<p>{{ block.settings.ingredient_description }}</p>
+					</div>
+				</div>
+			{% endfor %}
+		</div>
+	</div>
+
+	<!-- Minimal CSS for demonstration; customize as needed -->
+	<style>
+		.ingredients-tab-section {
+			padding: 20px;
+			max-width: 1200px;
+			margin: 0 auto;
+			font-family: sans-serif;
+		}
+
+		.ingredients-tab-section h2 {
+			margin-bottom: 10px;
+		}
+
+		.section-subheading {
+			margin-bottom: 30px;
+			color: #666;
+		}
+
+		.tab-buttons {
+			display: flex;
+			flex-wrap: wrap;
+			list-style: none;
+			padding: 0;
+			margin: 0 0 20px 0;
+			border-bottom: 2px solid #ddd;
+		}
+
+		.tab-button {
+			margin-right: 15px;
+			padding: 10px 15px;
+			cursor: pointer;
+			border: none;
+			background: none;
+			font-size: 16px;
+			outline: none;
+			transition: color 0.2s;
+		}
+
+		.tab-button.active {
+			border-bottom: 2px solid #000;
+			font-weight: bold;
+			color: #000;
+		}
+
+		.tab-contents {
+			display: block;
+		}
+
+		.tab-content {
+			display: none;
+		}
+
+		.tab-content.active {
+			display: flex;
+			flex-wrap: wrap;
+			align-items: center;
+			margin-bottom: 30px;
+		}
+
+		.ingredient-image img {
+			max-width: 300px;
+			margin-right: 20px;
+		}
+
+		.ingredient-text {
+			flex: 1;
+			min-width: 200px;
+		}
+
+		.ingredient-text h3 {
+			margin-top: 0;
+			margin-bottom: 10px;
+		}
+	</style>
+
+	<!-- Vanilla JS for tab toggling -->
+	<script>
+		document.addEventListener('DOMContentLoaded', function() {
+			const tabButtons = document.querySelectorAll('#ingredients-tab-section .tab-button');
+			const tabContents = document.querySelectorAll('#ingredients-tab-section .tab-content');
+
+			function showTabContent(tabId) {
+				tabContents.forEach(content => {
+					if (content.id === tabId) {
+						content.classList.add('active');
+						content.removeAttribute('hidden');
+					} else {
+						content.classList.remove('active');
+						content.setAttribute('hidden', true);
+					}
+				});
+			}
+
+			tabButtons.forEach(button => {
+				button.addEventListener('click', () => {
+					// Remove active state from all buttons
+					tabButtons.forEach(btn => btn.classList.remove('active'));
+					// Add active state to the clicked button
+					button.classList.add('active');
+					// Show corresponding tab content
+					const targetTab = button.getAttribute('data-tab');
+					showTabContent(targetTab);
+				});
+			});
+
+			// Optional: Activate the first tab by default
+			if (tabButtons.length > 0) {
+				tabButtons[0].classList.add('active');
+				showTabContent(tabButtons[0].getAttribute('data-tab'));
+			}
+		});
+	</script>
+</section>
+
+{% schema %}
+{
+	"name": "Ingredients Tabs Section",
+	"settings": [
+		{
+			"type": "text",
+			"id": "section_heading",
+			"label": "Section Heading",
+			"default": "It's What's Inside That Counts"
+		},
+		{
+			"type": "text",
+			"id": "section_subheading",
+			"label": "Section Subheading",
+			"default": "Curalife’s all-in-one formula is 100% natural with clinically tested ingredients..."
+		}
+	],
+	"blocks": [
+		{
+			"type": "ingredient",
+			"name": "Ingredient",
+			"settings": [
+				{
+					"type": "text",
+					"id": "ingredient_title",
+					"label": "Ingredient Title",
+					"default": "Bupleurum"
+				},
+				{
+					"type": "textarea",
+					"id": "ingredient_description",
+					"label": "Ingredient Description",
+					"default": "This traditional herb is recognized for its potential in supporting liver function..."
+				},
+				{
+					"type": "image_picker",
+					"id": "ingredient_image",
+					"label": "Ingredient Image"
+				}
+			]
+		}
+	],
+	"presets": [
+		{
+			"name": "Ingredients Tabs Section"
+		}
+	]
+}
+{% endschema %}
