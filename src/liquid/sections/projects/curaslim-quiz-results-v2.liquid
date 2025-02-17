@@ -7,14 +7,16 @@
 					<span class="text-[--primary]"><span id="can"></span> lbs</span><br>
 					in just 6 months with Curaslim
 				</h1>
-				<p class="text-[--bronze] text-center mbl:text-start font-bold font-[21px]">No Injectables Required!</p>
+
+				<p class="text-[--bronze] text-center mbl:text-start font-bold font-[21px]">
+					No Injectables Required!
+				</p>
 			</div>
 
 			<div class="estimated-results mbl:flex-col flex items-center justify-between w-full gap-8">
-				<img class="m-0" src="{{ 'curaslim_results_v2.png' | file_url }}" alt="Curaslim Quiz Results">
-				<div class="estimated-results-wrapper mbl:w-full w-1/2">
-					{% assign quiz_benefits_raw = "Reduced cravings|95,Boosted energy|85,Elevated self-confidence|90,Quick results|82" %}
-					{% render 'quiz-results-bars', benefits_string: quiz_benefits_raw %}
+				<img class="m-0" src="{{ 'Group_1597877953.svg' | file_url }}" alt="Curaslim Quiz Results">
+				<div class="estimated-results-wrapper mbl:w-full w-1/2" id="results-bars-container">
+					<!-- The results bars will be inserted here by JS -->
 				</div>
 			</div>
 		</div>
@@ -28,43 +30,118 @@
 			text-align: start;
 		}
 	}
+
+	/* Progress Bar Styles */
+	.quiz-bar-wrapper {
+		opacity: 0;
+		transform: translateY(20px);
+		animation: fadeInUp 0.5s forwards;
+	}
+	h4 {
+		text-align: start;
+	}
+	.quiz-bar-label {
+		margin-bottom: 0.5rem;
+		font-style: italic;
+		font-size: 26px;
+		text-align: start;
+	}
+
+	.quiz-bar-container {
+		background: #e5e7eb;
+		border-radius: 9999px;
+		height: 1.5rem;
+		overflow: hidden;
+		position: relative;
+	}
+
+	.quiz-bar-fill {
+		background: var(--primary-color, #2563eb);
+		height: 100%;
+		width: 0%;
+		color: white;
+		text-align: right;
+		padding-right: 0.5rem;
+		transition: width 1.5s ease-out;
+	}
+	@keyframes fadeInUp {
+		from {
+			opacity: 0;
+			transform: translateY(20px);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
+	}
 </style>
 
 <script>
-	function sendToZapier(params) {
-		// Replace this URL with your actual Zapier webhook URL
-		const ZAPIER_WEBHOOK_URL = 'https://hooks.zapier.com/hooks/catch/10900898/2zlu7dg/';
+	// Save and retrieve the quiz benefits data for 24 hours
+	function getQuizBenefitsData(goalsValue) {
+		const now = Date.now();
+		const storageKey = 'quizResultsData';
+		const savedDataStr = localStorage.getItem(storageKey);
+		if (savedDataStr) {
+			try {
+				const savedData = JSON.parse(savedDataStr);
+				// Check if saved data is less than 24 hours old
+				if (now - savedData.timestamp < 24 * 60 * 60 * 1000) {
+					return savedData.data;
+				}
+			} catch (e) {
+				console.error("Error parsing saved data", e);
+			}
+		}
 
-		// Create an object with all URL parameters
+		// Generate new data if not found or expired
+		let quizBenefitsData = [];
+		if (goalsValue !== null) {
+			const goalsArray = goalsValue.split(',');
+			goalsArray.forEach(goal => {
+				const trimmedGoal = goal.trim();
+				if (trimmedGoal.toLowerCase() !== 'other' && trimmedGoal !== '') {
+					// Generate a random percentage between 80 and 95
+					let percentage = Math.floor(Math.random() * (95 - 80 + 1)) + 80;
+					quizBenefitsData.push({ goal: trimmedGoal, percentage });
+				}
+			});
+		}
+
+		// Append the static goal at the end
+		quizBenefitsData.push({ goal: "Hunger & Portion Control", percentage: 96 });
+
+		// Save the data along with a timestamp
+		localStorage.setItem(storageKey, JSON.stringify({ timestamp: now, data: quizBenefitsData }));
+		return quizBenefitsData;
+	}
+
+	function sendToZapier(params) {
+		const ZAPIER_WEBHOOK_URL = 'https://hooks.zapier.com/hooks/catch/10900898/2zlu7dg/';
 		const webhookData = {};
 		params.forEach((value, key) => {
 			webhookData[key] = value;
 		});
 
-		// Send the data to Zapier
 		fetch(ZAPIER_WEBHOOK_URL, {
 			method: 'POST',
 			body: JSON.stringify(webhookData),
-			headers: {
-				'Content-Type': 'application/json'
-			}
+			headers: { 'Content-Type': 'application/json' }
 		})
-			.then(response => {
-				if (!response.ok) {
-					throw new Error('Network response was not ok');
-				}
-				console.log('Data successfully sent to Zapier');
-			})
-			.catch(error => {
-				console.error('Error sending data to Zapier:', error);
-			});
+		.then(response => {
+			if (!response.ok) {
+				throw new Error('Network response was not ok');
+			}
+			console.log('Data successfully sent to Zapier');
+		})
+		.catch(error => {
+			console.error('Error sending data to Zapier:', error);
+		});
 	}
 
 	function processGeneralUrlParams() {
 		console.log('Processing general URL parameters...');
 		const urlParams = new URLSearchParams(window.location.search);
-
-		// Send parameters to Zapier first
 		sendToZapier(urlParams);
 
 		urlParams.forEach((value, key) => {
@@ -77,16 +154,13 @@
 				console.warn(`No element found with ID: ${key}`);
 			}
 		});
-
 		console.log('Finished processing general URL parameters.');
 	}
 
-	// Rest of your existing functions remain the same
 	function processCanParam() {
 		console.log("Processing 'can' URL parameter...");
 		const urlParams = new URLSearchParams(window.location.search);
 		const canValue = urlParams.get('wgt');
-
 		if (canValue !== null) {
 			const element = document.getElementById('can');
 			if (element) {
@@ -94,16 +168,77 @@
 				console.log(`Original value of 'wgt': ${canValue}, Processed value: ${processedValue}`);
 				element.textContent = processedValue.toFixed(0);
 			} else {
-				console.warn(`No element found with ID: can`);
+				console.warn("No element found with ID: 'can'");
 			}
 		}
-
 		console.log("Finished processing 'can' URL parameter.");
+	}
+
+	function processGoalsParam() {
+		console.log("Processing 'gls' URL parameter...");
+		const urlParams = new URLSearchParams(window.location.search);
+		const goalsValue = urlParams.get('gls');
+
+		const quizBenefitsData = getQuizBenefitsData(goalsValue);
+		console.log("Quiz Benefits Data:", quizBenefitsData);
+		renderResultsBars(quizBenefitsData);
+		console.log("Finished processing 'gls' URL parameter.");
+	}
+
+	function renderResultsBars(benefits) {
+		const container = document.getElementById('results-bars-container');
+		if (!container) return;
+
+		// Clear any existing content
+		container.innerHTML = '';
+
+		// Add the title header
+		const header = document.createElement('h4');
+		header.textContent = "CuraSlim Users Also Notice:";
+		header.style.marginBottom = '1rem';
+		container.appendChild(header);
+
+		benefits.forEach((item, idx) => {
+			// Create the container for each bar
+			const barWrapper = document.createElement('div');
+			barWrapper.className = 'quiz-bar-wrapper mb-8';
+			barWrapper.style.animationDelay = `${idx * 0.15}s`;
+
+			// Create the label element
+			const label = document.createElement('div');
+			label.className = 'quiz-bar-label';
+			label.textContent = item.goal;
+
+			// Create the progress bar container
+			const progressBarContainer = document.createElement('div');
+			progressBarContainer.className = 'quiz-bar-container';
+
+			// Create the progress bar fill element
+			const progressBarFill = document.createElement('div');
+			progressBarFill.className = 'quiz-bar-fill';
+			progressBarFill.setAttribute('data-target-width', item.percentage);
+			progressBarFill.textContent = `${item.percentage}%`;
+
+			// Assemble the elements
+			progressBarContainer.appendChild(progressBarFill);
+			barWrapper.appendChild(label);
+			barWrapper.appendChild(progressBarContainer);
+			container.appendChild(barWrapper);
+		});
+
+		// Trigger the animation after a short delay to ensure elements are rendered
+		setTimeout(() => {
+			document.querySelectorAll('.quiz-bar-fill').forEach(bar => {
+				const targetWidth = bar.getAttribute('data-target-width');
+				bar.style.width = `${targetWidth}%`;
+			});
+		}, 100);
 	}
 
 	document.addEventListener('DOMContentLoaded', () => {
 		processGeneralUrlParams();
 		processCanParam();
+		processGoalsParam();
 	});
 </script>
 

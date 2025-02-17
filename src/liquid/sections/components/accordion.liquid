@@ -1,6 +1,7 @@
 {% comment %}
-	SECTION: accordion-component.liquid
-	Purpose: Displays a full-width background image with an overlay accordion widget.
+		SECTION: accordion-component.liquid
+		Purpose: Displays a full-width background image with an overlay heading,
+						 with either an Accordion or List layout based on user selection.
 {% endcomment %}
 
 <style>
@@ -23,7 +24,7 @@
 	color: #fff;
 	left: 4rem;
 	bottom: 4rem;
-	max-width: 40%;
+	max-width: 50%;
 }
 
 /* Accordion widget styling */
@@ -36,7 +37,6 @@
 	justify-self: end;
 }
 
-/* Accordion item styling */
 .accordion-item {
 	border-bottom: 1px solid #ccc;
 	padding: 1rem 0;
@@ -59,28 +59,68 @@
 	margin-top: 0.5rem;
 }
 
+/* List layout styling */
+.list-widget {
+	background: #fff;
+	box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+	border-radius: 8px;
+	max-width: 40%;
+	justify-self: end;
+}
+
+.list-item {
+	display: flex;
+		gap: 1rem;
+		border-bottom: 1px solid #B7C8CC;
+
+		h5, .content {
+			padding: 1rem;
+
+		}
+
+		&:last-child {
+			border-bottom: none;
+		}
+}
+
+.list-item h5 {
+	color: var(--primary-color);
+	text-wrap-mode: nowrap;
+
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
 	#accordion-component {
-		padding: 2rem;
 		min-height: auto;
+		padding: 2rem;
 	}
 	.image-overlay-heading {
-		/* Remove absolute positioning on smaller screens */
 		position: static;
 		margin-bottom: 1rem;
 		max-width: 100%;
 		text-align: center;
 	}
-	.accordion-widget {
+	.accordion-widget,
+	.list-widget {
 		max-width: 100%;
-		padding: 2rem;
 		margin: 0 auto;
 	}
 	.accordion-header {
 		font-size: 1rem;
 	}
-	.accordion-content {
+	h5 {
+		padding-bottom: 0 !important;
+	}
+	.content {
+		padding-top: 0 !important;
+	}
+	.list-item {
+		flex-direction: column;
+		gap: 0;
+	}
+	.accordion-content,
+	.list-item p {
 		font-size: 0.9rem;
 	}
 }
@@ -90,67 +130,92 @@
 	<div class="container">
 		<div id="accordion-component">
 
-			<!-- Optional overlay heading on the background image -->
 			{% if section.settings.heading != blank %}
 				<div class="image-overlay-heading">
 					{{ section.settings.heading }}
 				</div>
 			{% endif %}
 
-			<!-- Accordion Widget -->
-			<div class="accordion-widget">
-				{% for block in section.blocks %}
-					{% if block.type == 'accordion_item' %}
-						<div class="accordion-item">
-							<h5 class="accordion-header">
-								<span style="font-weight: bold;">{{ block.settings.month_title }}</span>
-								<span class="accordion-icon" style="margin-left: 1rem;">+</span>
-							</h5>
-							<div class="accordion-content">
-								{% if block.settings.subtitle != blank %}
-									<h4 style="margin: 0 0 0.25rem;">{{ block.settings.subtitle }}</h4>
-								{% endif %}
-								<p style="margin: 0;">{{ block.settings.description }}</p>
+			{%- comment -%}
+				We check the layout setting:
+				- If "accordion", render the accordion widget + JS
+				- If "list", render a simple list version
+			{%- endcomment -%}
+
+			{% if section.settings.layout == 'accordion' %}
+				<!-- Accordion Widget -->
+				<div class="accordion-widget">
+					{% for block in section.blocks %}
+						{% if block.type == 'accordion_item' %}
+							<div class="accordion-item">
+								<h5 class="accordion-header">
+									<span style="font-weight: bold;">{{ block.settings.month_title }}</span>
+									<span class="accordion-icon" style="margin-left: 1rem;">+</span>
+								</h5>
+								<div class="accordion-content">
+									{% if block.settings.subtitle != blank %}
+										<h4>{{ block.settings.subtitle }}</h4>
+									{% endif %}
+									<p style="margin: 0;">{{ block.settings.description }}</p>
+								</div>
 							</div>
-						</div>
-					{% endif %}
-				{% endfor %}
-			</div>
+						{% endif %}
+					{% endfor %}
+				</div>
+
+				<!-- JavaScript to handle accordion toggle -->
+				<script>
+				document.addEventListener('DOMContentLoaded', function() {
+					var accordionHeaders = document.querySelectorAll('#accordion-component .accordion-header');
+
+					accordionHeaders.forEach(function(header) {
+						header.addEventListener('click', function() {
+							var parentItem = header.parentElement;
+							var content = parentItem.querySelector('.accordion-content');
+							var icon = header.querySelector('.accordion-icon');
+
+							// Close other open accordion items
+							document.querySelectorAll('#accordion-component .accordion-content').forEach(function(otherContent) {
+								if (otherContent !== content) {
+									otherContent.style.maxHeight = "0px";
+									otherContent.parentElement.querySelector('.accordion-icon').textContent = '+';
+								}
+							});
+
+							// Toggle current accordion
+							if (content.style.maxHeight && content.style.maxHeight !== "0px") {
+								content.style.maxHeight = "0px";
+								icon.textContent = '+';
+							} else {
+								content.style.maxHeight = content.scrollHeight + 'px';
+								icon.textContent = '-';
+							}
+						});
+					});
+				});
+				</script>
+
+			{% elsif section.settings.layout == 'list' %}
+				<!-- List Widget -->
+				<div class="list-widget">
+					{% for block in section.blocks %}
+						{% if block.type == 'accordion_item' %}
+							<div class="list-item">
+								<h5 class="italic font-thin">{{ block.settings.month_title }}</h5>
+								<div class="content">
+									{% if block.settings.subtitle != blank %}
+										<h4 class="text-[18px] font-bold">{{ block.settings.subtitle }}</h4>
+									{% endif %}
+									<p class="m-0 text-[14px]">{{ block.settings.description }}</p>
+								</div>
+							</div>
+						{% endif %}
+					{% endfor %}
+				</div>
+			{% endif %}
 		</div>
 	</div>
 </section>
-
-<!-- JavaScript to handle accordion toggle -->
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-	var accordionHeaders = document.querySelectorAll('#accordion-component .accordion-header');
-
-	accordionHeaders.forEach(function(header) {
-		header.addEventListener('click', function() {
-			var parentItem = header.parentElement;
-			var content = parentItem.querySelector('.accordion-content');
-			var icon = header.querySelector('.accordion-icon');
-
-			// Close other open accordion items
-			document.querySelectorAll('#accordion-component .accordion-content').forEach(function(otherContent) {
-				if (otherContent !== content) {
-					otherContent.style.maxHeight = "0px";
-					otherContent.parentElement.querySelector('.accordion-icon').textContent = '+';
-				}
-			});
-
-			// Toggle current accordion
-			if (content.style.maxHeight && content.style.maxHeight !== "0px") {
-				content.style.maxHeight = "0px";
-				icon.textContent = '+';
-			} else {
-				content.style.maxHeight = content.scrollHeight + 'px';
-				icon.textContent = '-';
-			}
-		});
-	});
-});
-</script>
 
 {% schema %}
 {
@@ -160,12 +225,22 @@ document.addEventListener('DOMContentLoaded', function() {
 			"type": "richtext",
 			"id": "heading",
 			"label": "Overlay Heading",
-			"default": "<h2>Your Journey: Shed Pounds & Feel Great</h2>"
+			"default": "<h2>Your Journey: Shed Pounds &amp; Feel Great</h2>"
 		},
 		{
 			"type": "image_picker",
 			"id": "background_image",
 			"label": "Background Image"
+		},
+		{
+			"type": "select",
+			"id": "layout",
+			"label": "Layout",
+			"default": "accordion",
+			"options": [
+				{ "value": "accordion", "label": "Accordion" },
+				{ "value": "list", "label": "List" }
+			]
 		}
 	],
 	"blocks": [
