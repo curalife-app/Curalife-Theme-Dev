@@ -13,7 +13,19 @@
 			<div class="estimated-results flex items-center justify-center gap-8">
 				<img class="max-w-1/2 mbl:max-w-full" src="{{ 'curaslim_results_v2.png' | file_url }}" alt="Curaslim Quiz Results">
 				<div class="estimated-results-wrapper">
+					{% assign quiz_benefits_raw = "Reduced cravings|95,Boosted energy|85,Elevated self-confidence|90,Quick results|82" %}
+					{% assign quiz_benefits = '[]' | parse_json %}
+					{% assign pairs = quiz_benefits_raw | split: "," %}
 
+					{% for pair in pairs %}
+						{% assign item = pair | split: "|" %}
+						{% assign benefit_json = '{"title":"' | append: item[0] | append: '","percentage":' | append: item[1] | append: '}' %}
+						{% assign benefit = benefit_json | parse_json %}
+						{% assign quiz_benefits = quiz_benefits | push: benefit %}
+						<!-- Debug Log: Added Benefit {{ forloop.index }}: {{ benefit | json }} -->
+					{% endfor %}
+
+					{% include 'quiz-results-bars', benefits: quiz_benefits %}
 				</div>
 			</div>
 		</div>

@@ -1,171 +1,270 @@
 {% comment %}
-	INGREDIENTS TABS SECTION
-	Place this file in 'sections/ingredients-tabs.liquid'
+	INGREDIENT TABS SECTION
+	This section replicates the "blue box" layout with tabs on the left and an image on the right.
 {% endcomment %}
 
-<section id="ingredients-tab-section" class="ingredients-tab-section">
+<section id="ingredient-tabs-section" class="ingredient-tabs-section">
 	<div class="container">
-		<!-- Section Heading -->
-		{% if section.settings.section_heading != blank %}
-			<h2>{{ section.settings.section_heading }}</h2>
-		{% endif %}
+		<!-- Blue Box Container -->
+		<div class="blue-box">
+			<div class="left-column">
+				<!-- Tab Buttons -->
+				<ul class="ingredient-tab-buttons no-style">
+					{% for block in section.blocks %}
+						<li class="tab-button"
+							data-tab="tab-{{ block.id }}"
+							role="button"
+							aria-controls="tab-{{ block.id }}"
+							aria-selected="false">
+							{{ block.settings.ingredient_title }}
+						</li>
+					{% endfor %}
+				</ul>
 
-		<!-- Section Subheading -->
-		{% if section.settings.section_subheading != blank %}
-			<p class="section-subheading">{{ section.settings.section_subheading }}</p>
-		{% endif %}
+				<!-- Ingredient Text Container -->
+				<div class="ingredient-text-container">
+					{% for block in section.blocks %}
+						<div class="ingredient-text" id="tab-{{ block.id }}">
+							<h3>{{ block.settings.ingredient_title }}</h3>
+							<p>{{ block.settings.ingredient_description }}</p>
+						</div>
+					{% endfor %}
+				</div>
+			</div>
 
-		<!-- Tabs Navigation -->
-		<ul class="tab-buttons">
-			{% for block in section.blocks %}
-				<li
-					class="tab-button"
-					data-tab="tab-{{ block.id }}"
-					role="button"
-					aria-controls="tab-{{ block.id }}"
-					aria-selected="false"
-				>
-					{{ block.settings.ingredient_title }}
-				</li>
-			{% endfor %}
-		</ul>
-
-		<!-- Tab Contents -->
-		<div class="tab-contents">
-			{% for block in section.blocks %}
-				<div
-					class="tab-content"
-					id="tab-{{ block.id }}"
-					role="tabpanel"
-					aria-labelledby="tab-button-{{ block.id }}"
-					hidden
-				>
+			<!-- Image Area on the Right -->
+			<div class="right-column">
+				{% for block in section.blocks %}
 					{% if block.settings.ingredient_image %}
-						<div class="ingredient-image">
-							<img
-								src="{{ block.settings.ingredient_image | img_url: 'master' }}"
-								alt="{{ block.settings.ingredient_title | escape }}"
-							/>
+						<div class="ingredient-image" id="img-{{ block.id }}">
+							<img src="{{ block.settings.ingredient_image | img_url: 'master' }}"
+									 alt="{{ block.settings.ingredient_title | escape }}" />
 						</div>
 					{% endif %}
-					<div class="ingredient-text">
-						<h3>{{ block.settings.ingredient_title }}</h3>
-						<p>{{ block.settings.ingredient_description }}</p>
-					</div>
-				</div>
-			{% endfor %}
+				{% endfor %}
+			</div>
 		</div>
 	</div>
 
-	<!-- Minimal CSS for demonstration; customize as needed -->
 	<style>
-		.ingredients-tab-section {
-			padding: 20px;
-			max-width: 1200px;
-			margin: 0 auto;
-			font-family: sans-serif;
+		/* ============= DESKTOP STYLES ============= */
+		.blue-box {
+			background-color: var(--primary-color);
+			display: flex;
+			flex-wrap: wrap;
+			padding: 40px;
+			gap: 20px;
+			height: 580px;
+			border-radius: 15px;
 		}
 
-		.ingredients-tab-section h2 {
-			margin-bottom: 10px;
+		.left-column {
+			flex: 1 1 300px;
+			display: flex;
+			flex-direction: column;
+			justify-content: space-between;
 		}
 
-		.section-subheading {
-			margin-bottom: 30px;
-			color: #666;
-		}
-
-		.tab-buttons {
+		/* Tab Buttons */
+		.ingredient-tab-buttons {
 			display: flex;
 			flex-wrap: wrap;
 			list-style: none;
 			padding: 0;
-			margin: 0 0 20px 0;
-			border-bottom: 2px solid #ddd;
+			margin: 0 0 15px;
+			gap: 10px;
 		}
 
 		.tab-button {
-			margin-right: 15px;
-			padding: 10px 15px;
+			background-color: var(--bg-color);
+			color: var(--primary-color);
+			padding: 14px 18px;
+			border-radius: 5px;
 			cursor: pointer;
 			border: none;
-			background: none;
-			font-size: 16px;
-			outline: none;
-			transition: color 0.2s;
+			transition: background-color 0.2s, color 0.2s;
+		}
+
+		.tab-button:hover {
+			background-color: white;
 		}
 
 		.tab-button.active {
-			border-bottom: 2px solid #000;
+			background-color: white;
 			font-weight: bold;
-			color: #000;
 		}
 
-		.tab-contents {
-			display: block;
+		/* Ingredient Text Container (Desktop) */
+		.ingredient-text-container {
+			position: relative;
+			min-height: 200px; /* Adjust if needed */
 		}
 
-		.tab-content {
-			display: none;
-		}
-
-		.tab-content.active {
-			display: flex;
-			flex-wrap: wrap;
-			align-items: center;
-			margin-bottom: 30px;
-		}
-
-		.ingredient-image img {
-			max-width: 300px;
-			margin-right: 20px;
-		}
-
+		/* Text Blocks: absolutely positioned & anchored at the bottom */
 		.ingredient-text {
-			flex: 1;
-			min-width: 200px;
+			position: absolute;
+			bottom: 0;
+			left: 0;
+			width: 100%;
+			opacity: 0;
+			transform: translateY(20px);
+			transition: opacity 0.5s ease, transform 0.5s ease;
+			pointer-events: none;
+		}
+
+		.ingredient-text.visible {
+			opacity: 1;
+			transform: translateY(0);
+			pointer-events: auto;
 		}
 
 		.ingredient-text h3 {
-			margin-top: 0;
-			margin-bottom: 10px;
+			margin: 0 0 8px;
+			font-size: 28px;
+			color: {{ page.metafields.custom.product.metafields.custom.secondary_color | default: "var(--orange)" }};
+		}
+
+		.ingredient-text p {
+			color: white;
+			line-height: 1.4em;
+		}
+
+		/* Right Column & Image (Desktop) */
+		.right-column {
+			flex: 1 1 300px;
+			position: relative;
+			display: flex;
+			justify-content: center;
+			align-items: center;
+		}
+
+		.ingredient-image {
+			position: absolute;
+			top: 0;
+			left: 0;
+			width: 100%;
+			height: 100%;
+			opacity: 0;
+			transform: scale(0.95);
+			transition: opacity 0.5s ease, transform 0.5s ease;
+			pointer-events: none;
+		}
+
+		.ingredient-image.visible {
+			opacity: 1;
+			transform: scale(1);
+			pointer-events: auto;
+		}
+
+		.ingredient-image img {
+			width: 100%;
+			height: 100%;
+			object-fit: cover;
+			border-radius: 15px;
+		}
+
+		/* ============= MOBILE STYLES ============= */
+		@media (max-width: 768px) {
+			.blue-box {
+				flex-direction: column;
+				height: auto;
+				gap: 0;
+				padding: 5vw;
+			}
+
+			.tab-button {
+				padding: 2vw;
+				font-size: 4vw;
+			}
+
+			.left-column,
+			.right-column {
+				position: static;
+				max-width: 100%;
+				gap: 1rem;
+				flex: unset;
+			}
+
+			/* For mobile, let elements flow naturally and use display toggling */
+			.ingredient-text-container {
+				position: static;
+				min-height: auto;
+			}
+
+			.ingredient-text {
+				position: static;
+				opacity: 1 !important;
+				transform: none !important;
+				transition: none !important;
+				pointer-events: auto;
+				display: none;
+				margin-bottom: 20px;
+			}
+
+			.ingredient-text.visible {
+				display: block;
+			}
+
+			.ingredient-image {
+				position: static;
+				opacity: 1 !important;
+				transform: none !important;
+				transition: none !important;
+				pointer-events: auto;
+				display: none;
+
+				img {
+					height: 50%;
+				}
+			}
+
+			.ingredient-image.visible {
+				display: block;
+			}
 		}
 	</style>
 
-	<!-- Vanilla JS for tab toggling -->
+	<!-- JavaScript for Tab Behavior with Animation -->
 	<script>
 		document.addEventListener('DOMContentLoaded', function() {
-			const tabButtons = document.querySelectorAll('#ingredients-tab-section .tab-button');
-			const tabContents = document.querySelectorAll('#ingredients-tab-section .tab-content');
+			const tabButtons = document.querySelectorAll('#ingredient-tabs-section .tab-button');
+			const textBlocks = document.querySelectorAll('#ingredient-tabs-section .ingredient-text');
+			const imageBlocks = document.querySelectorAll('#ingredient-tabs-section .ingredient-image');
 
-			function showTabContent(tabId) {
-				tabContents.forEach(content => {
-					if (content.id === tabId) {
-						content.classList.add('active');
-						content.removeAttribute('hidden');
-					} else {
-						content.classList.remove('active');
-						content.setAttribute('hidden', true);
-					}
-				});
+			function showTab(tabId) {
+				// Remove "visible" class from all text blocks and images
+				textBlocks.forEach(text => text.classList.remove('visible'));
+				imageBlocks.forEach(img => img.classList.remove('visible'));
+
+				// Activate the corresponding text block
+				const activeText = document.getElementById(tabId);
+				if (activeText) {
+					activeText.classList.add('visible');
+				}
+
+				// Activate the corresponding image block
+				const imageId = 'img-' + tabId.split('tab-')[1];
+				const activeImage = document.getElementById(imageId);
+				if (activeImage) {
+					activeImage.classList.add('visible');
+				}
 			}
 
+			// Click handler for each tab button
 			tabButtons.forEach(button => {
 				button.addEventListener('click', () => {
-					// Remove active state from all buttons
 					tabButtons.forEach(btn => btn.classList.remove('active'));
-					// Add active state to the clicked button
 					button.classList.add('active');
-					// Show corresponding tab content
+
 					const targetTab = button.getAttribute('data-tab');
-					showTabContent(targetTab);
+					showTab(targetTab);
 				});
 			});
 
-			// Optional: Activate the first tab by default
+			// Activate the first tab by default
 			if (tabButtons.length > 0) {
 				tabButtons[0].classList.add('active');
-				showTabContent(tabButtons[0].getAttribute('data-tab'));
+				showTab(tabButtons[0].getAttribute('data-tab'));
 			}
 		});
 	</script>
@@ -174,20 +273,7 @@
 {% schema %}
 {
 	"name": "Ingredients Tabs Section",
-	"settings": [
-		{
-			"type": "text",
-			"id": "section_heading",
-			"label": "Section Heading",
-			"default": "It's What's Inside That Counts"
-		},
-		{
-			"type": "text",
-			"id": "section_subheading",
-			"label": "Section Subheading",
-			"default": "Curalife’s all-in-one formula is 100% natural with clinically tested ingredients..."
-		}
-	],
+	"settings": [],
 	"blocks": [
 		{
 			"type": "ingredient",
@@ -196,14 +282,12 @@
 				{
 					"type": "text",
 					"id": "ingredient_title",
-					"label": "Ingredient Title",
-					"default": "Bupleurum"
+					"label": "Ingredient Title"
 				},
 				{
-					"type": "textarea",
+					"type": "richtext",
 					"id": "ingredient_description",
-					"label": "Ingredient Description",
-					"default": "This traditional herb is recognized for its potential in supporting liver function..."
+					"label": "Ingredient Description"
 				},
 				{
 					"type": "image_picker",
