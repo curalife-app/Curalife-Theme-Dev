@@ -1,15 +1,25 @@
+{% comment %}
+	Inside the snippet, we'll process the passed-in benefits_string.
+	We split the string by commas to get individual benefit entries,
+	then split each entry by "|" to extract the title and percentage.
+{% endcomment %}
+
+{% assign benefits = benefits_string | split: "," %}
+
 <div class="quiz-results">
-	<h2>CuraSlim Users Also Notice:</h2>
+	<h4>CuraSlim Users Also Notice:</h4>
+
 	{% for benefit in benefits %}
-		<!-- Debug Output: {{ benefit | json }} -->
+		{% assign parts = benefit | split: "|" %}
+		{% assign title = parts[0] %}
+		{% assign percentage = parts[1] %}
 		<div class="benefit-item">
 			<div class="benefit-label">
-				{{ benefit.title }}
-				<span class="benefit-percentage">{{ benefit.percentage }}%</span>
+				{{ title }}
+				<span class="benefit-percentage">{{ percentage }}%</span>
 			</div>
 			<div class="benefit-bar-container">
-				<!-- The data-percentage attribute is used to animate the bar -->
-				<div class="benefit-bar-fill" data-percentage="{{ benefit.percentage }}"></div>
+				<div class="benefit-bar-fill" data-percentage="{{ percentage }}"></div>
 			</div>
 		</div>
 	{% endfor %}
@@ -19,51 +29,64 @@
 	.quiz-results {
 		max-width: 600px;
 		margin: 0 auto;
-		font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
 	}
-	.quiz-results h2 {
-		margin-bottom: 1rem;
-		font-size: 1.25rem;
+	.quiz-results h4 {
+		margin-bottom: 2rem;
+		font-size: 34px;
+		font-weight: bold;
+		text-align: start;
 	}
 	.benefit-item {
 		margin-bottom: 1.5rem;
 	}
 	.benefit-label {
-		font-weight: 600;
 		margin-bottom: 0.5rem;
+		text-align: start;
+		font-style: italic;
+		font-size: 26px;
 	}
 	.benefit-percentage {
-		margin-left: 0.5rem;
-		font-weight: normal;
-		color: #666;
+		margin-left: 0.25rem;
+		font-weight: bold;
+		color: var(--primary-color);
 	}
 	.benefit-bar-container {
-		background-color: #e0e0e0;
+		background-color: var(--bg-color);
 		border-radius: 6px;
 		height: 10px;
 		overflow: hidden;
 		position: relative;
 	}
 	.benefit-bar-fill {
-		background-color: #007acc;
+		background-color: var(--primary-color);
 		height: 100%;
 		width: 0%;
 		transition: width 1s ease-in-out;
+	}
+
+	@media (max-width: 768px) {
+		.quiz-results h4 {
+			font-size: 7vw;
+		}
+		.benefit-label {
+			font-size: 5vw;
+		}
 	}
 </style>
 
 <script>
 document.addEventListener("DOMContentLoaded", function() {
-	// Debug: Log the benefits array passed from Liquid
-	var benefits = {{ benefits | json }};
-	console.log("Benefits array:", benefits);
+	var benefitsString = "{{ benefits_string }}";
+	var benefitsArray = benefitsString.split(',');
+	console.log("Benefits string:", benefitsString);
+	console.log("Benefits array:", benefitsArray);
 
 	var bars = document.querySelectorAll('.benefit-bar-fill');
 	console.log("Found " + bars.length + " benefit bars.");
 
 	bars.forEach(function(bar, index) {
 		var percentage = bar.getAttribute('data-percentage');
-		console.log("Animating Benefit " + index + " with percentage: " + percentage);
+		console.log("Animating Benefit " + (index + 1) + " with percentage: " + percentage);
 		bar.style.width = percentage + '%';
 	});
 });
