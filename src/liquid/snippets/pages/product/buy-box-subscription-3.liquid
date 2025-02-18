@@ -147,15 +147,8 @@
 							{% assign subscription_save_percents = var.metafields.subscription.save_percents %}
 						{% endif %}
 						{% if subscription_save_percents > 0 %}
-							{% assign original_multiplier = 100 | minus: subscription_save_percents %}
-							{% assign temp_discount = 100 | minus: firstMonthDiscount %}
-							{% assign combined_multiplier = original_multiplier | times: temp_discount | divided_by: 100 %}
-							{% assign combined_discount = 100 | minus: combined_multiplier %}
-							<div class="discount mbl:text-[3.5vw] text-white bg-[--primary-color] font-bold w-full text-[13px] p-1">
-								{{ combined_discount | round }}% OFF
-							</div>
+							<div class="discount mbl:text-[3.5vw] text-white bg-[--primary-color] font-bold w-full text-[13px] p-1">{{ subscription_save_percents | plus: firstMonthDiscount }}% OFF</div>
 						{% endif %}
-
 
 						<!-- prettier-ignore -->
 						<div class="title p-1">
@@ -575,11 +568,15 @@ document.addEventListener('DOMContentLoaded', () => {
 			// Calculate original total price
 			const totalOrig = origPerItem * bottles;
 
+			// Get subscription and first month discounts
 			const subscriptionDiscount = parseFloat(el.dataset.subscriptionDiscount) || 0;
 			const firstMonthDiscount = parseFloat(el.dataset.firstMonthDiscount) || 0;
-			const originalMultiplier = (100 - subscriptionDiscount) / 100;
-			const additionalMultiplier = (100 - firstMonthDiscount) / 100;
-			const firstMonthDiscountMultiplier = originalMultiplier * additionalMultiplier;
+
+			// Combine discounts for first month
+			const totalFirstMonthDiscount = subscriptionDiscount + firstMonthDiscount;
+			const firstMonthDiscountMultiplier = (100 - totalFirstMonthDiscount) / 100;
+
+			// Calculate first month prices
 			const firstMonthSubItem = origPerItem * firstMonthDiscountMultiplier;
 			const firstMonthSubPrice = totalOrig * firstMonthDiscountMultiplier;
 
