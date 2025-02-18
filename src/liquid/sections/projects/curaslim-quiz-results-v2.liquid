@@ -4,17 +4,16 @@
 			<div class="titles">
 				<h1 class="h1 !text-black text-center text-[25px] font-thin mbl:text-start">
 					You can lose at least
-					<span class="text-[--primary]"><span id="can"></span> lbs</span><br>
+					<span class="text-[--primary]"><span id="can"></span> lbs</span><br class="desktop">
 					in just 6 months with Curaslim
 				</h1>
-
-				<p class="text-[--bronze] text-center mbl:text-start font-bold font-[21px]">
+				<p class="text-[--bronze] text-center mbl:text-start italic font-bold font-[21px]">
 					No Injectables Required!
 				</p>
 			</div>
 
 			<div class="estimated-results mbl:flex-col flex items-center justify-between w-full gap-8">
-				<img class="m-0" src="{{ 'Group_1597877953.svg' | file_url }}" alt="Curaslim Quiz Results">
+				<img class="mbl:my-4 m-0" src="{{ 'Group_1597877953.svg' | file_url }}" alt="Curaslim Quiz Results">
 				<div class="estimated-results-wrapper mbl:w-full w-1/2" id="results-bars-container">
 					<!-- The results bars will be inserted here by JS -->
 				</div>
@@ -29,9 +28,16 @@
 		.quiz-results-section .titles p {
 			text-align: start;
 		}
+
+		h4 {
+			font-size: 5vw;
+		}
+
+		.quiz-results-section .quiz-bar-label {
+			font-size: 5vw;
+		}
 	}
 
-	/* Progress Bar Styles */
 	.quiz-bar-wrapper {
 		opacity: 0;
 		transform: translateY(20px);
@@ -46,19 +52,21 @@
 		font-size: 26px;
 		text-align: start;
 	}
-
+	.quiz-percentage {
+		/* Optional styling for percentage text */
+		font-weight: bold;
+	}
 	.quiz-bar-container {
-		background: #e5e7eb;
+		background: var(--bg-color, #f3f3f3);
 		border-radius: 9999px;
-		height: 1.5rem;
+		height: 1rem;
 		overflow: hidden;
 		position: relative;
 	}
-
 	.quiz-bar-fill {
 		background: var(--primary-color, #2563eb);
 		height: 100%;
-		width: 0%;
+		line-height: normal;
 		color: white;
 		text-align: right;
 		padding-right: 0.5rem;
@@ -164,7 +172,8 @@
 		if (canValue !== null) {
 			const element = document.getElementById('can');
 			if (element) {
-				const processedValue = parseFloat(canValue) - (parseFloat(canValue) - parseFloat(canValue) * 0.075);
+				// Simplified calculation: original value * 0.075 (equivalent to x - (x - x*0.075))
+				const processedValue = parseFloat(canValue) * 0.075;
 				console.log(`Original value of 'wgt': ${canValue}, Processed value: ${processedValue}`);
 				element.textContent = processedValue.toFixed(0);
 			} else {
@@ -195,7 +204,7 @@
 		// Add the title header
 		const header = document.createElement('h4');
 		header.textContent = "CuraSlim Users Also Notice:";
-		header.style.marginBottom = '1rem';
+		header.style.marginBottom = '2rem';
 		container.appendChild(header);
 
 		benefits.forEach((item, idx) => {
@@ -204,24 +213,37 @@
 			barWrapper.className = 'quiz-bar-wrapper mb-8';
 			barWrapper.style.animationDelay = `${idx * 0.15}s`;
 
-			// Create the label element
-			const label = document.createElement('div');
-			label.className = 'quiz-bar-label';
-			label.textContent = item.goal;
+			// Create a flex container for the goal title and its percentage
+			const labelContainer = document.createElement('div');
+			labelContainer.className = 'quiz-bar-label';
+			labelContainer.style.display = 'flex';
+			labelContainer.style.justifyContent = 'start';
+			labelContainer.style.gap = '1rem';
+			labelContainer.style.alignItems = 'center';
+
+			const labelText = document.createElement('span');
+			labelText.textContent = item.goal;
+
+			const percentageText = document.createElement('span');
+			percentageText.textContent = `${item.percentage}%`;
+			percentageText.className = 'quiz-percentage';
+			percentageText.style.color = 'var(--primary-color)';
+
+			labelContainer.appendChild(labelText);
+			labelContainer.appendChild(percentageText);
 
 			// Create the progress bar container
 			const progressBarContainer = document.createElement('div');
 			progressBarContainer.className = 'quiz-bar-container';
 
-			// Create the progress bar fill element
+			// Create the progress bar fill element (now without percentage text)
 			const progressBarFill = document.createElement('div');
 			progressBarFill.className = 'quiz-bar-fill';
 			progressBarFill.setAttribute('data-target-width', item.percentage);
-			progressBarFill.textContent = `${item.percentage}%`;
 
 			// Assemble the elements
 			progressBarContainer.appendChild(progressBarFill);
-			barWrapper.appendChild(label);
+			barWrapper.appendChild(labelContainer);
 			barWrapper.appendChild(progressBarContainer);
 			container.appendChild(barWrapper);
 		});

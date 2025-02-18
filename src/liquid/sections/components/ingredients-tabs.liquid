@@ -3,7 +3,7 @@
 	This section replicates the "blue box" layout with tabs on the left and an image on the right.
 {% endcomment %}
 
-<section id="ingredient-tabs-section" class="ingredient-tabs-section">
+<section id="ingredient-tabs-section" class="ingredient-tabs-section{% unless section.settings.enable_animations %} no-animations{% endunless %}">
 	<div class="container">
 		<!-- Blue Box Container -->
 		<div class="blue-box">
@@ -13,6 +13,7 @@
 					{% for block in section.blocks %}
 						<li class="tab-button"
 							data-tab="tab-{{ block.id }}"
+							data-title="{{ block.settings.ingredient_title }}"
 							role="button"
 							aria-controls="tab-{{ block.id }}"
 							aria-selected="false">
@@ -81,8 +82,20 @@
 			padding: 14px 18px;
 			border-radius: 5px;
 			cursor: pointer;
+			text-align: center;
 			border: none;
 			transition: background-color 0.2s, color 0.2s;
+			position: relative;
+		}
+
+		/* Pseudo-element to reserve space for bold text */
+		.tab-button::after {
+			content: attr(data-title);
+			font-weight: bold;
+			visibility: hidden;
+			height: 0;
+			overflow: hidden;
+			display: block;
 		}
 
 		.tab-button:hover {
@@ -174,7 +187,7 @@
 			}
 
 			.tab-button {
-				padding: 2vw;
+				padding: 3vw;
 				font-size: 4vw;
 			}
 
@@ -201,6 +214,10 @@
 				transition: max-height 0.5s ease, opacity 0.5s ease, transform 0.5s ease;
 			}
 
+			.ingredient-text h3 {
+				font-size: 7vw;
+			}
+
 			.ingredient-text.visible {
 				opacity: 1;
 				transform: translateY(0);
@@ -216,7 +233,6 @@
 
 			.ingredient-image.visible {
 				display: block;
-				opacity: 0;
 				transform: scale(0.95);
 				animation: fadeInImage 0.5s forwards;
 			}
@@ -231,6 +247,13 @@
 			.ingredient-image img {
 				height: 40vw;
 			}
+		}
+
+		/* ============= No Animations Override ============= */
+		.no-animations .ingredient-text,
+		.no-animations .ingredient-image {
+			transition: none !important;
+			animation: none !important;
 		}
 	</style>
 
@@ -283,7 +306,14 @@
 {% schema %}
 {
 	"name": "Ingredients Tabs Section",
-	"settings": [],
+	"settings": [
+		{
+			"type": "checkbox",
+			"id": "enable_animations",
+			"label": "Enable Animations",
+			"default": true
+		}
+	],
 	"blocks": [
 		{
 			"type": "ingredient",
