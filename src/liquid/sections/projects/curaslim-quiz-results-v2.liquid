@@ -2,12 +2,12 @@
 	<div class="container text-center">
 		<div class="flex-col flex items-center gap-y-8 gap-x-20 justify-between [&>*]:w-1/2 mbl:[&>*]:w-full">
 			<div class="titles">
-				<h1 class="h1 !text-black text-center text-[25px] font-thin mbl:text-start">
+				<h1 class="h1 !text-black text-center font-thin mbl:text-start">
 					You can lose at least
 					<span class="text-[--primary]"><span id="can"></span> lbs</span><br class="desktop">
 					in just 6 months with Curaslim
 				</h1>
-				<p class="text-[--bronze] text-center mbl:text-start italic font-bold font-[21px]">
+				<p class="text-[--bronze] text-center mbl:text-start italic font-bold text-[22px]">
 					No Injectables Required!
 				</p>
 			</div>
@@ -36,6 +36,10 @@
 		.quiz-results-section .quiz-bar-label {
 			font-size: 5vw;
 		}
+	}
+
+	h1 {
+		font-size: 60px !important;
 	}
 
 	.quiz-bar-wrapper {
@@ -85,33 +89,32 @@
 </style>
 
 <script>
-	// Save and retrieve the quiz benefits data for 24 hours
 	function getQuizBenefitsData(goalsValue) {
-		const now = Date.now();
-		const storageKey = 'quizResultsData';
-		const savedDataStr = localStorage.getItem(storageKey);
-		if (savedDataStr) {
-			try {
-				const savedData = JSON.parse(savedDataStr);
-				// Check if saved data is less than 24 hours old
-				if (now - savedData.timestamp < 24 * 60 * 60 * 1000) {
-					return savedData.data;
-				}
-			} catch (e) {
-				console.error("Error parsing saved data", e);
-			}
-		}
+		// Mapping of URL goals to new title and percentage
+		const mapping = {
+			"Improve health & reduce risks": { title: "Improved Well-Being", percentage: 89 },
+			"Increase your energy levels": { title: "Boosted Energy", percentage: 88 },
+			"Feel great in your clothes": { title: "Wardrobe Freedom", percentage: 81 },
+			"Enhance your appearance": { title: "Happy with Appearance", percentage: 86 },
+			"Elevate your self-confidence": { title: "More Self-Confident", percentage: 83 },
+			"Boost physical performance": { title: "Enhanced Performance", percentage: 82 }
+		};
 
-		// Generate new data if not found or expired
 		let quizBenefitsData = [];
 		if (goalsValue !== null) {
 			const goalsArray = goalsValue.split(',');
 			goalsArray.forEach(goal => {
 				const trimmedGoal = goal.trim();
 				if (trimmedGoal.toLowerCase() !== 'other' && trimmedGoal !== '') {
-					// Generate a random percentage between 80 and 95
-					let percentage = Math.floor(Math.random() * (95 - 80 + 1)) + 80;
-					quizBenefitsData.push({ goal: trimmedGoal, percentage });
+					if (mapping[trimmedGoal]) {
+						quizBenefitsData.push({
+							goal: mapping[trimmedGoal].title,
+							percentage: mapping[trimmedGoal].percentage
+						});
+					} else {
+						// Fallback: if the goal is not in the mapping, you can set a default percentage.
+						quizBenefitsData.push({ goal: trimmedGoal, percentage: 80 });
+					}
 				}
 			});
 		}
@@ -119,37 +122,54 @@
 		// Append the static goal at the end
 		quizBenefitsData.push({ goal: "Hunger & Portion Control", percentage: 96 });
 
-		// Save the data along with a timestamp
-		localStorage.setItem(storageKey, JSON.stringify({ timestamp: now, data: quizBenefitsData }));
 		return quizBenefitsData;
 	}
 
-	function sendToZapier(params) {
+	/**
+	 * Sends data to Zapier with retry logic for improved reliability.
+	 *
+	 * @param {URLSearchParams} params - The URL parameters to be sent.
+	 * @param {number} [maxAttempts=3] - Maximum number of attempts.
+	 * @param {number} [delay=1000] - Initial delay between retries in milliseconds.
+	 */
+	async function sendToZapier(params, maxAttempts = 3, delay = 1000) {
 		const ZAPIER_WEBHOOK_URL = 'https://hooks.zapier.com/hooks/catch/10900898/2zlu7dg/';
 		const webhookData = {};
 		params.forEach((value, key) => {
 			webhookData[key] = value;
 		});
 
-		fetch(ZAPIER_WEBHOOK_URL, {
-			method: 'POST',
-			body: JSON.stringify(webhookData),
-			headers: { 'Content-Type': 'application/json' }
-		})
-		.then(response => {
-			if (!response.ok) {
-				throw new Error('Network response was not ok');
+		let attempts = 0;
+		while (attempts < maxAttempts) {
+			try {
+				const response = await fetch(ZAPIER_WEBHOOK_URL, {
+					method: 'POST',
+					body: JSON.stringify(webhookData),
+					headers: { 'Content-Type': 'application/json' }
+				});
+				if (!response.ok) {
+					throw new Error('Network response was not ok: ' + response.status);
+				}
+				console.log('Data successfully sent to Zapier on attempt', attempts + 1);
+				return response;
+			} catch (error) {
+				attempts++;
+				console.error(`Attempt ${attempts} failed to send data to Zapier:`, error);
+				if (attempts < maxAttempts) {
+					console.log(`Retrying in ${delay}ms...`);
+					await new Promise(resolve => setTimeout(resolve, delay));
+					delay *= 2; // Exponential backoff
+				} else {
+					console.error('Max attempts reached. Giving up on sending data to Zapier.');
+				}
 			}
-			console.log('Data successfully sent to Zapier');
-		})
-		.catch(error => {
-			console.error('Error sending data to Zapier:', error);
-		});
+		}
 	}
 
 	function processGeneralUrlParams() {
 		console.log('Processing general URL parameters...');
 		const urlParams = new URLSearchParams(window.location.search);
+		// Fire-and-forget the Zapier call. The retry logic inside handles errors.
 		sendToZapier(urlParams);
 
 		urlParams.forEach((value, key) => {
@@ -172,7 +192,7 @@
 		if (canValue !== null) {
 			const element = document.getElementById('can');
 			if (element) {
-				// Simplified calculation: original value * 0.075 (equivalent to x - (x - x*0.075))
+				// Simplified calculation: original value * 0.075
 				const processedValue = parseFloat(canValue) * 0.075;
 				console.log(`Original value of 'wgt': ${canValue}, Processed value: ${processedValue}`);
 				element.textContent = processedValue.toFixed(0);
@@ -236,7 +256,7 @@
 			const progressBarContainer = document.createElement('div');
 			progressBarContainer.className = 'quiz-bar-container';
 
-			// Create the progress bar fill element (now without percentage text)
+			// Create the progress bar fill element
 			const progressBarFill = document.createElement('div');
 			progressBarFill.className = 'quiz-bar-fill';
 			progressBarFill.setAttribute('data-target-width', item.percentage);
