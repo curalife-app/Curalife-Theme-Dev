@@ -1,5 +1,5 @@
 const mix = require("laravel-mix");
-const tailwindcss = require("@tailwindcss/postcss");
+const tailwindcss = require("tailwindcss");
 const path = require("path");
 const { reduce } = require("bluebird");
 
@@ -60,17 +60,14 @@ function copyFiles() {
 
 // Configure Webpack for .liquid files with split chunks
 function configureWebpack() {
-	mix.webpackConfig({
-		stats: "minimal",
-		optimization: { splitChunks: { chunks: "all" } }
-	});
+	mix.webpackConfig({ stats: "minimal", optimization: { splitChunks: { chunks: "all" } } });
 	log("Webpack configuration complete.");
 }
 
 // Compile Tailwind CSS with PostCSS and Minify
 function compileTailwind() {
 	try {
-		mix.postCss(paths.assets.tailwind, paths.build.assets, [tailwindcss()]).options({ processCssUrls: true });
+		mix.postCss(paths.assets.tailwind, paths.build.assets, [require("postcss-import"), tailwindcss("./tailwind.config.js"), require("autoprefixer")]).options({ processCssUrls: true });
 
 		if (mix.inProduction()) {
 			log("Purging unused CSS classes...");
