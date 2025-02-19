@@ -67,7 +67,7 @@ function configureWebpack() {
 // Compile Tailwind CSS with PostCSS and Minify
 function compileTailwind() {
 	try {
-		mix.postCss(paths.assets.tailwind, paths.build.assets, [require("postcss-import"), tailwindcss("./tailwind.config.js"), require("autoprefixer")]).options({ processCssUrls: true });
+		mix.postCss(paths.assets.tailwind, paths.build.assets, [require("postcss-import"), require("tailwindcss")("./tailwind.config.js"), require("autoprefixer")]).options({ processCssUrls: true });
 
 		if (mix.inProduction()) {
 			log("Purging unused CSS classes...");
