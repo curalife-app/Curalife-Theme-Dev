@@ -3,17 +3,17 @@
 		<div class="flex-col flex items-center gap-y-8 gap-x-20 justify-between [&>*]:w-1/2 mbl:[&>*]:w-full">
 			<div class="titles">
 				<h1 class="h1 !text-black text-center font-thin mbl:text-start">
-					You can lose at least
-					<span class="text-[--primary]"><span id="can"></span> lbs</span><br class="desktop">
-					in just 3 months with Curaslim
+					{{ settings.heading_pre }}
+					<span class="text-[--primary]"><span id="can"></span></span>
+					{{ settings.heading_post }}
 				</h1>
 				<p class="text-[--bronze] text-center mbl:text-start italic font-bold text-[22px]">
-					No Injectables Required!
+					{{ settings.subheading }}
 				</p>
 			</div>
 
 			<div class="estimated-results mbl:flex-col flex items-center justify-between w-full gap-8">
-				<img class="mbl:my-4 m-0" src="{{ 'Group_1597877953.svg' | file_url }}" alt="Curaslim Quiz Results">
+				<img class="mbl:my-4 m-0" src="{{ settings.result_image | file_url }}" alt="Curaslim Quiz Results">
 				<div class="estimated-results-wrapper mbl:w-full w-1/2" id="results-bars-container">
 					<!-- The results bars will be inserted here by JS -->
 				</div>
@@ -41,8 +41,10 @@
 
 	h1 {
 		font-size: 60px !important;
+	}
 
-		@media (max-width: 768px) {
+	@media (max-width: 768px) {
+		h1 {
 			font-size: 10vw !important;
 		}
 	}
@@ -63,7 +65,6 @@
 		text-align: start;
 	}
 	.quiz-percentage {
-		/* Optional styling for percentage text */
 		font-weight: bold;
 	}
 	.quiz-bar-container {
@@ -95,6 +96,12 @@
 </style>
 
 <script>
+	// Configurable values from the settings
+	const benefitsHeader = "{{ settings.benefits_header | escape }}";
+	const calcFactor = {{ settings.calc_factor }};
+	const staticBenefitText = "{{ settings.static_benefit_text | escape }}";
+	const staticBenefitPercentage = {{ settings.static_benefit_percentage }};
+
 	function getQuizBenefitsData(goalsValue) {
 		// Mapping of URL goals to new title and percentage
 		const mapping = {
@@ -118,26 +125,18 @@
 							percentage: mapping[trimmedGoal].percentage
 						});
 					} else {
-						// Fallback: if the goal is not in the mapping, you can set a default percentage.
+						// Fallback: if the goal is not in the mapping, set a default percentage.
 						quizBenefitsData.push({ goal: trimmedGoal, percentage: 80 });
 					}
 				}
 			});
 		}
-
-		// Append the static goal at the end
-		quizBenefitsData.push({ goal: "Hunger & Portion Control", percentage: 96 });
+		// Append the configurable static goal at the end
+		quizBenefitsData.push({ goal: staticBenefitText, percentage: staticBenefitPercentage });
 
 		return quizBenefitsData;
 	}
 
-	/**
-	 * Sends data to Zapier with retry logic for improved reliability.
-	 *
-	 * @param {URLSearchParams} params - The URL parameters to be sent.
-	 * @param {number} [maxAttempts=3] - Maximum number of attempts.
-	 * @param {number} [delay=1000] - Initial delay between retries in milliseconds.
-	 */
 	async function sendToZapier(params, maxAttempts = 3, delay = 1000) {
 		const ZAPIER_WEBHOOK_URL = 'https://hooks.zapier.com/hooks/catch/10900898/2zlu7dg/';
 		const webhookData = {};
@@ -175,9 +174,7 @@
 	function processGeneralUrlParams() {
 		console.log('Processing general URL parameters...');
 		const urlParams = new URLSearchParams(window.location.search);
-		// Fire-and-forget the Zapier call. The retry logic inside handles errors.
 		sendToZapier(urlParams);
-
 		urlParams.forEach((value, key) => {
 			console.log(`Processing parameter: ${key} with value: ${value}`);
 			const element = document.getElementById(key);
@@ -198,8 +195,8 @@
 		if (canValue !== null) {
 			const element = document.getElementById('can');
 			if (element) {
-				// Simplified calculation: original value * 0.075
-				const processedValue = parseFloat(canValue) * 0.075;
+				// Use the configurable calculation factor
+				const processedValue = parseFloat(canValue) * calcFactor;
 				console.log(`Original value of 'wgt': ${canValue}, Processed value: ${processedValue}`);
 				element.textContent = processedValue.toFixed(0);
 			} else {
@@ -213,7 +210,6 @@
 		console.log("Processing 'gls' URL parameter...");
 		const urlParams = new URLSearchParams(window.location.search);
 		const goalsValue = urlParams.get('gls');
-
 		const quizBenefitsData = getQuizBenefitsData(goalsValue);
 		console.log("Quiz Benefits Data:", quizBenefitsData);
 		renderResultsBars(quizBenefitsData);
@@ -224,22 +220,18 @@
 		const container = document.getElementById('results-bars-container');
 		if (!container) return;
 
-		// Clear any existing content
 		container.innerHTML = '';
 
-		// Add the title header
 		const header = document.createElement('h4');
-		header.textContent = "Upon reaching their goal users also report:";
+		header.textContent = benefitsHeader;
 		header.style.marginBottom = '2rem';
 		container.appendChild(header);
 
 		benefits.forEach((item, idx) => {
-			// Create the container for each bar
 			const barWrapper = document.createElement('div');
 			barWrapper.className = 'quiz-bar-wrapper mb-8';
 			barWrapper.style.animationDelay = `${idx * 0.15}s`;
 
-			// Create a flex container for the goal title and its percentage
 			const labelContainer = document.createElement('div');
 			labelContainer.className = 'quiz-bar-label';
 			labelContainer.style.display = 'flex';
@@ -258,23 +250,19 @@
 			labelContainer.appendChild(labelText);
 			labelContainer.appendChild(percentageText);
 
-			// Create the progress bar container
 			const progressBarContainer = document.createElement('div');
 			progressBarContainer.className = 'quiz-bar-container';
 
-			// Create the progress bar fill element
 			const progressBarFill = document.createElement('div');
 			progressBarFill.className = 'quiz-bar-fill';
 			progressBarFill.setAttribute('data-target-width', item.percentage);
 
-			// Assemble the elements
 			progressBarContainer.appendChild(progressBarFill);
 			barWrapper.appendChild(labelContainer);
 			barWrapper.appendChild(progressBarContainer);
 			container.appendChild(barWrapper);
 		});
 
-		// Trigger the animation after a short delay to ensure elements are rendered
 		setTimeout(() => {
 			document.querySelectorAll('.quiz-bar-fill').forEach(bar => {
 				const targetWidth = bar.getAttribute('data-target-width');
@@ -291,14 +279,67 @@
 </script>
 
 {% schema %}
-	{
-		"name": "Quiz Results V2",
-		"class": "quiz-results-section",
-		"settings": [],
-		"presets": [
-			{
-				"name": "Quiz Results"
-			}
-		]
-	}
+{
+	"name": "Quiz Results V2",
+	"class": "quiz-results-section",
+	"settings": [
+		{
+			"type": "text",
+			"id": "heading_pre",
+			"label": "Heading Text (before dynamic weight)",
+			"default": "You can lose at least"
+		},
+		{
+			"type": "text",
+			"id": "heading_post",
+			"label": "Heading Text (after dynamic weight)",
+			"default": "lbs in just 3 months with Curaslim"
+		},
+		{
+			"type": "text",
+			"id": "subheading",
+			"label": "Subheading",
+			"default": "No Injectables Required!"
+		},
+		{
+			"type": "image_picker",
+			"id": "result_image",
+			"label": "Results Image",
+			"default": "Group_1597877953.svg"
+		},
+		{
+			"type": "text",
+			"id": "benefits_header",
+			"label": "Benefits Header",
+			"default": "Upon reaching their goal users also report:"
+		},
+		{
+			"type": "number",
+			"id": "calc_factor",
+			"label": "Calculation Factor for Weight",
+			"default": 0.075,
+			"min": 0,
+			"step": 0.001
+		},
+		{
+			"type": "text",
+			"id": "static_benefit_text",
+			"label": "Static Benefit Text",
+			"default": "Hunger & Portion Control"
+		},
+		{
+			"type": "number",
+			"id": "static_benefit_percentage",
+			"label": "Static Benefit Percentage",
+			"default": 96,
+			"min": 0,
+			"step": 1
+		}
+	],
+	"presets": [
+		{
+			"name": "Quiz Results"
+		}
+	]
+}
 {% endschema %}
