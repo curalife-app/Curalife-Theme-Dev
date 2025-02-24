@@ -36,6 +36,14 @@
 			{% endif %}
 
 			{% for block in section.blocks %}
+				{%- comment -%}
+					Determine if this is the first block that contains only an image (and no title/description)
+				{%- endcomment -%}
+				{% assign onlyImage = false %}
+				{% if forloop.first and block.settings.image != blank and block.settings.title == blank and block.settings.description == blank %}
+					{% assign onlyImage = true %}
+				{% endif %}
+
 				{% if shop.name == 'CuraLife Global' %}
 					{% assign imageLink = block.settings.image_global | default: block.settings.image %}
 					{% assign imageMobileLink = block.settings.image_mobile_global | default: block.settings.image_mobile %}
@@ -49,20 +57,32 @@
 				{% if linkUrl and section.settings.link_style == 'item' %}<a class="contents">{% endif %}
 				{% assign itemID = 'item-' | append: section.id | append: forloop.index %}
 
-				<div class="{% if section.settings.is_slider %}swiper-slide{% endif %} item relative !h-auto" id="{{ itemID }}">
+				<div class="{% if section.settings.is_slider %}swiper-slide{% endif %} item relative !h-auto" id="{{ itemID }}" {% if onlyImage %}style="padding: 0;"{% endif %}>
 					<div class="item-content flex flex-col items-center justify-{% if section.settings.item_layout_mobile == 'row' %}start{% else %}center{% endif %} text-center gap-4 m-auto">
 						{% unless block.settings.is_image_background %}
-							<div class="img-wrapper flex items-center">
+							<div class="img-wrapper contents">
 								{% if imageLink != blank or imageMobileLink != blank %}
-									{% render 'image-test',
-										image: imageLink,
-										mobile_image: imageMobileLink,
-										lazy: lazyLoad,
-										preload: false,
-										alt: imageLink.alt,
-										link: linkUrl,
-										class: 'max-h-350px object-contain m-0'
-									%}
+									{% if onlyImage %}
+										{% render 'image-test',
+											image: imageLink,
+											mobile_image: imageMobileLink,
+											lazy: lazyLoad,
+											preload: false,
+											alt: imageLink.alt,
+											link: linkUrl,
+											class: 'w-full h-full object-contain m-0'
+										%}
+									{% else %}
+										{% render 'image-test',
+											image: imageLink,
+											mobile_image: imageMobileLink,
+											lazy: lazyLoad,
+											preload: false,
+											alt: imageLink.alt,
+											link: linkUrl,
+											class: 'max-h-350px object-contain m-0'
+										%}
+									{% endif %}
 								{% elsif block.settings.icon != blank %}
 									<i class="{{ block.settings.icon }}"></i>
 								{% endif %}
@@ -106,7 +126,6 @@
 
 				{% if linkUrl and section.settings.link_style == 'item' %}</a>{% endif %}
 
-
 				{% if block.settings.is_image_background %}
 					<style>
 						#{{ itemID }} {
@@ -124,7 +143,6 @@
 							}
 						{% endif %}
 					</style>
-
 				{% endif %}
 			{% endfor %}
 		</div>
@@ -171,8 +189,8 @@
 				}
 
 				function adjustTitleHeight() {
-					const titleMaxHeight = getMaxHeightOfElements(`#section-{{ section.id }} .title-tag`);
-					setHeightOfElements(`#section-{{ section.id }} .title-tag`, titleMaxHeight);
+					const titleMaxHeight = getMaxHeightOfElements(#section-{{ section.id }} .title-tag);
+					setHeightOfElements(#section-{{ section.id }} .title-tag, titleMaxHeight);
 				}
 
 				function adjustHeights() {
@@ -441,6 +459,7 @@
 				align-self: stretch;
 				border-radius: 15px;
 				background-color: {{ section.settings.item_bg_color | default: 'unset' }};
+				{% if section.settings.is_item_shadow %}box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);{% endif %}
 
 
 				.text-wrapper {
@@ -1022,6 +1041,11 @@
 			"type": "checkbox",
 			"id": "is_auto_height",
 			"label": "Auto Height"
+		},
+		{
+				"type": "checkbox",
+				"id": "is_item_shadow",
+				"label": "Add Shadow to Items"
 		},
 		{
 			"type": "checkbox",
