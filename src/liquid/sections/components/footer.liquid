@@ -24,219 +24,209 @@
 {%- endif -%}
 
 {%- if show_footer and isDisplayOnThisPage -%}
-	<footer
-		class="bg-primary print:hidden text-white">
+	<footer class="print:hidden" style="background-color: {{ section.settings.bg_color }}; color: {{ section.settings.text_color }};">
 		<div class="container px-4 mx-auto">
 			{%- # Top Section -%}
 			<div class="pt-12 pb-4">
-				<div class="md:flex-col flex items-start justify-between gap-8">
+				<div class="{% if menu_blocks.size == 1 %}flex items-center justify-between gap-8{% else %}md:flex-col flex items-start justify-between gap-8{% endif %}">
 					{%- # Brand & Social Column -%}
 					<div class="shrink-0 md:w-auto">
 						<a href="/" class="block">
-							{%- # Use native lazy loading and exact dimensions -%}
-							<img
-								class="logo invert max-w-[150px]"
-								src="{{ 'logo-new.svg' | asset_url }}"
-								alt="{{ shop_name }} logo"
-								width="134"
-								height="32"
-								loading="lazy"
-								decoding="async">
+							{%- # Use the configured logo if provided -%}
+							<img class="logo invert max-w-[150px]" src="{% if section.settings.logo_img != blank %}{{ section.settings.logo_img | img_url: '134x32' }}{% else %}{{ 'logo-new.svg' | asset_url }}{% endif %}" alt="{{ shop_name }} logo" width="134" height="32" loading="lazy" decoding="async">
 						</a>
 
-						{%- # Social Links Section -%}
-						<div class="social-links flex gap-4 mt-4 text-2xl">
-							<a
-								href="https://www.facebook.com/curalife/"
-								target="_blank"
-								rel="noopener noreferrer"
-								className="hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-white/20 p-1 transition-opacity rounded-full"
-								aria-label="Visit us on Facebook">
-								<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-									<path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/>
-								</svg>
-							</a>
-
-							<a
-								href="https://www.instagram.com/curalife/"
-								target="_blank"
-								rel="noopener noreferrer"
-								className="hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-white/20 p-1 transition-opacity rounded-full"
-								aria-label="Visit us on Instagram">
-								<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-									<rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
-									<path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/>
-									<line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/>
-								</svg>
-							</a>
-
-							<a
-								href="https://www.youtube.com/channel/UCaiEVA0zN9-Y4bqIkHRAONA"
-								target="_blank"
-								rel="noopener noreferrer"
-								className="hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-white/20 p-1 transition-opacity rounded-full"
-								aria-label="Visit us on YouTube">
-								<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-									<path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33z"/>
-									<polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02"/>
-								</svg>
-							</a>
-						</div>
+						{%- # Only show social icons if there are any social blocks -%}
+						{% if social_blocks.size > 0 %}
+							<div class="social-links flex gap-4 mt-4 text-2xl">
+								{% for block in social_blocks %}
+									{% if block.settings.social_link != blank %}
+										<a href="{{ block.settings.social_link }}" target="_blank" rel="noopener noreferrer" class="hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-current p-1 transition-opacity rounded-full" aria-label="Visit us on social">
+											{% if block.settings.social_icon_class != blank %}
+												<i class="{{ block.settings.social_icon_class }}"></i>
+											{% endif %}
+										</a>
+									{% endif %}
+								{% endfor %}
+							</div>
+						{% endif %}
 					</div>
 
-					{%- # Menu Columns -%}
-					{%- if menu_blocks.size > 0 -%}
+					{%- # Menu Section -%}
+					{% if menu_blocks.size == 1 %}
+						{% assign block = menu_blocks.first %}
+						{% assign footer_linklist = block.settings.footer_linklist %}
+						{% assign links = linklists[footer_linklist].links %}
+						{% if links.size > 0 %}
+							<div class="grow flex items-center">
+								<nav class="flex flex-row gap-4" aria-label="Footer menu">
+									{% for link in links %}
+										<a href="{{ link.url | escape }}" class="font-light text-[16px] hover:opacity-80 transition-opacity focus:outline-none whitespace-nowrap">
+											{{ link.title }}
+										</a>
+									{% endfor %}
+								</nav>
+							</div>
+						{% endif %}
+					{% elsif menu_blocks.size > 1 %}
 						<div class="grow">
 							<div class="md:flex-col md:justify-end md:gap-16 flex gap-8">
-								{%- for block in menu_blocks -%}
-									{%- assign footer_linklist = block.settings.footer_linklist -%}
-									{%- assign links = linklists[footer_linklist].links -%}
-									{%- if links.size > 0 -%}
+								{% for block in menu_blocks %}
+									{% assign footer_linklist = block.settings.footer_linklist %}
+									{% assign links = linklists[footer_linklist].links %}
+									{% if links.size > 0 %}
 										<div class="flex flex-col gap-2.5 min-w-[150px]" {{ block.shopify_attributes }}>
-											{%- if block.settings.menu_title != blank -%}
-												<h2 class="text-sm font-bold text-white uppercase">
-													{{- block.settings.menu_title -}}
+											{% if block.settings.menu_title != blank %}
+												<h2 class="text-sm font-bold uppercase" style="color: {{ section.settings.titles_color }};">
+													{{ block.settings.menu_title }}
 												</h2>
-											{%- endif -%}
-											<nav
-												class="flex flex-col gap-4"
-												aria-label="{{ block.settings.menu_title | default: 'Footer menu' | escape }}">
-												{%- for link in links -%}
-													<a
-														href="{{ link.url | escape }}"
-														class="font-light text-[16px] hover:opacity-80 transition-opacity focus:outline-none focus:text-white/80 whitespace-nowrap">
-														{{- link.title -}}
+											{% endif %}
+											<nav class="flex flex-col gap-4" aria-label="{{ block.settings.menu_title | default: 'Footer menu' | escape }}">
+												{% for link in links %}
+													<a href="{{ link.url | escape }}" class="font-light text-[16px] hover:opacity-80 transition-opacity focus:outline-none whitespace-nowrap">
+														{{ link.title }}
 													</a>
-												{%- endfor -%}
+												{% endfor %}
 											</nav>
 										</div>
-									{%- endif -%}
-								{%- endfor -%}
+									{% endif %}
+								{% endfor %}
 							</div>
 						</div>
-					{%- endif -%}
+					{% endif %}
 				</div>
 
 				{%- # Disclaimer Section -%}
-				{%- if section.settings.disclaimer != blank -%}
-					<div class="text-white/70 mt-8 text-xs">
-						{{- section.settings.disclaimer -}}
+				{% if section.settings.disclaimer != blank %}
+					<div class="mt-8 text-xs" style="opacity: 0.7;">
+						{{ section.settings.disclaimer }}
 					</div>
-				{%- endif -%}
+				{% endif %}
 			</div>
 
 			{%- # Footer Bottom -%}
-			<div class="py-2.5 border-t border-white/40">
+			<div class="py-2.5 border-t" style="border-color: {{ section.settings.text_color }}80;">
 				<div class="flex items-center justify-between gap-4 text-xs">
 					<p class="md:order-1 order-2">
-						&copy; {{ current_year }}
-						{{ shop_name | escape -}}
+						&copy; {{ current_year }} {{ shop_name | escape }}
 					</p>
 					<p class="order-3">All Rights Reserved</p>
 				</div>
 			</div>
 		</div>
 	</footer>
-{%- endif -%}
+{%- endif %}
 
 {% schema %}
-	{
-		"name": "Footer",
-		"class": "footer_section",
-		"settings": [
-			{
-				"type": "header",
-				"content": "Colors"
-			},
-			{
-				"type": "color",
-				"id": "titles_color",
-				"label": "Heading Color",
-				"default": "#ffffff"
-			},
-			{
-				"type": "header",
-				"content": "Content"
-			},
-			{
-				"type": "image_picker",
-				"id": "logo_img",
-				"label": "Logo",
-				"info": "134x32px recommended"
-			},
-			{
-				"type": "richtext",
-				"id": "disclaimer",
-				"label": "Disclaimer text",
-				"info": "Optional footer disclaimer"
-			},
-			{
-				"type": "header",
-				"content": "Settings"
-			},
-			{
-				"type": "checkbox",
-				"id": "hide_on_affiliate_pages",
-				"label": "Hide on affiliate pages",
-				"default": false,
-				"info": "When enabled, footer will be hidden on affiliate pages"
-			},
-			{
-				"type": "text",
-				"id": "display_on_pages",
-				"label": "Display Only On Pages",
-				"info": "Enter a comma separated list of page paths to display this section only on those pages. Leave blank to display on all pages."
-			}
-		],
-		"blocks": [
-			{
-				"type": "menu",
-				"name": "Menu Column",
-				"settings": [
-					{
-						"type": "text",
-						"id": "menu_title",
-						"label": "Heading",
-						"info": "Leave empty to hide heading"
-					},
-					{
-						"type": "link_list",
-						"id": "footer_linklist",
-						"label": "Menu links"
-					}
-				]
-			},
-			{
-				"type": "social",
-				"name": "Social Link",
-				"settings": [
-					{
-						"type": "text",
-						"id": "social_icon_class",
-						"label": "Icon class",
-						"info": "Font Awesome class (e.g., fab fa-facebook)",
-						"placeholder": "fab fa-facebook"
-					},
-					{
-						"id": "social_link",
-						"type": "url",
-						"label": "Profile URL"
-					}
-				]
-			}
-		],
-		"presets": [
-			{
-				"name": "Footer",
-				"blocks": [
-					{
-						"type": "menu"
-					},
-					{
-						"type": "social"
-					}
-				]
-			}
-		]
-	}
+{
+	"name": "Footer",
+	"class": "footer_section",
+	"settings": [
+		{
+			"type": "header",
+			"content": "Colors"
+		},
+		{
+			"type": "color",
+			"id": "titles_color",
+			"label": "Heading Color",
+			"default": "#ffffff"
+		},
+		{
+			"type": "color",
+			"id": "bg_color",
+			"label": "Background Color",
+			"default": "#3490dc"
+		},
+		{
+			"type": "color",
+			"id": "text_color",
+			"label": "Text Color",
+			"default": "#ffffff"
+		},
+		{
+			"type": "header",
+			"content": "Content"
+		},
+		{
+			"type": "image_picker",
+			"id": "logo_img",
+			"label": "Logo",
+			"info": "134x32px recommended"
+		},
+		{
+			"type": "richtext",
+			"id": "disclaimer",
+			"label": "Disclaimer text",
+			"info": "Optional footer disclaimer"
+		},
+		{
+			"type": "header",
+			"content": "Settings"
+		},
+		{
+			"type": "checkbox",
+			"id": "hide_on_affiliate_pages",
+			"label": "Hide on affiliate pages",
+			"default": false,
+			"info": "When enabled, footer will be hidden on affiliate pages"
+		},
+		{
+			"type": "text",
+			"id": "display_on_pages",
+			"label": "Display Only On Pages",
+			"info": "Enter a comma separated list of page paths to display this section only on those pages. Leave blank to display on all pages."
+		}
+	],
+	"blocks": [
+		{
+			"type": "menu",
+			"name": "Menu Column",
+			"settings": [
+				{
+					"type": "text",
+					"id": "menu_title",
+					"label": "Heading",
+					"info": "Leave empty to hide heading"
+				},
+				{
+					"type": "link_list",
+					"id": "footer_linklist",
+					"label": "Menu links"
+				}
+			]
+		},
+		{
+			"type": "social",
+			"name": "Social Link",
+			"settings": [
+				{
+					"type": "text",
+					"id": "social_icon_class",
+					"label": "Icon class",
+					"info": "Font Awesome class (e.g., fab fa-facebook)",
+					"placeholder": "fab fa-facebook"
+				},
+				{
+					"id": "social_link",
+					"type": "url",
+					"label": "Profile URL"
+				}
+			]
+		}
+	],
+	"presets": [
+		{
+			"name": "Footer",
+			"blocks": [
+				{
+					"type": "menu"
+				},
+				{
+					"type": "social"
+				}
+			]
+		}
+	]
+}
 {% endschema %}
