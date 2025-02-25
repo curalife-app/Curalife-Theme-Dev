@@ -20,6 +20,10 @@
 {% endif %}
 
 {% unless hideSection %}
+	{% if section.blocks.first.settings.image != blank and section.blocks.first.settings.title == blank and section.blocks.first.settings.description == blank %}
+		{% assign onlyImage = true %}
+	{% endif %}
+
 	{% if section.settings.anchor_id != blank %}<div id="{{ section.settings.anchor_id }}"></div>{% endif %}
 	<section id="section-{{ section.id }}" class="items-collection {% if section.settings.is_decor_relative_full %}static{% endif %} {{ section.settings.section_additional_classes }} {% if section.settings.display_on_utm_parmeters != blank %}!hidden{% endif %}">
 		<div class="container main-container {% if section.settings.is_decor_relative_full %}static{% endif %}">
@@ -36,14 +40,6 @@
 			{% endif %}
 
 			{% for block in section.blocks %}
-				{%- comment -%}
-					Determine if this is the first block that contains only an image (and no title/description)
-				{%- endcomment -%}
-				{% assign onlyImage = false %}
-				{% if forloop.first and block.settings.image != blank and block.settings.title == blank and block.settings.description == blank %}
-					{% assign onlyImage = true %}
-				{% endif %}
-
 				{% if shop.name == 'CuraLife Global' %}
 					{% assign imageLink = block.settings.image_global | default: block.settings.image %}
 					{% assign imageMobileLink = block.settings.image_mobile_global | default: block.settings.image_mobile %}
@@ -57,7 +53,7 @@
 				{% if linkUrl and section.settings.link_style == 'item' %}<a class="contents">{% endif %}
 				{% assign itemID = 'item-' | append: section.id | append: forloop.index %}
 
-				<div class="{% if section.settings.is_slider %}swiper-slide{% endif %} item relative !h-auto" id="{{ itemID }}" {% if onlyImage %}style="padding: 0;"{% endif %}>
+				<div class="{% if section.settings.is_slider %}swiper-slide{% endif %} item relative !h-auto" id="{{ itemID }}">
 					<div class="item-content flex flex-col items-center justify-{% if section.settings.item_layout_mobile == 'row' %}start{% else %}center{% endif %} text-center gap-4 m-auto">
 						{% unless block.settings.is_image_background %}
 							<div class="img-wrapper contents">
@@ -83,8 +79,6 @@
 											class: 'max-h-350px object-contain m-0'
 										%}
 									{% endif %}
-								{% elsif block.settings.icon != blank %}
-									<i class="{{ block.settings.icon }}"></i>
 								{% endif %}
 							</div>
 
@@ -97,19 +91,19 @@
 												<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6" style="max-width:20px;">
 													<path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
 												</svg><span class="font-thin ml-2 text-[18px]"> Varified</span>
+
+												<style>
+													#{{ itemID }} .text-wrapper {
+														gap: 0;
+													}
+													#{{ itemID }} .title-tag {
+														width: 100%;
+														justify-content: start;
+														margin-bottom:0;
+													}
+												</style>
 											{% endif %}
 										</h3>
-
-										<style>
-											#{{ itemID }} .text-wrapper {
-												gap: 0;
-											}
-											#{{ itemID }} .title-tag {
-												width: 100%;
-												justify-content: start;
-												margin-bottom:0;
-											}
-										</style>
 									{% endif %}
 									{% if section.settings.is_reviews %}{% render 'rating-stars', rating: '5' %}{% endif %}
 									{% if block.settings.description != blank %}<div class="description">{{ block.settings.description }}</div>{% endif %}
@@ -170,6 +164,7 @@
 		</div>
 	</section>
 
+
 	{% if section.settings.is_slider %}
 		<script>
 			document.addEventListener('DOMContentLoaded', function() {
@@ -189,8 +184,8 @@
 				}
 
 				function adjustTitleHeight() {
-					const titleMaxHeight = getMaxHeightOfElements(#section-{{ section.id }} .title-tag);
-					setHeightOfElements(#section-{{ section.id }} .title-tag, titleMaxHeight);
+					const titleMaxHeight = getMaxHeightOfElements("#section-{{ section.id }} .title-tag");
+					setHeightOfElements("#section-{{ section.id }} .title-tag", titleMaxHeight);
 				}
 
 				function adjustHeights() {
@@ -207,6 +202,7 @@
 						let swiper = initializeSwiper('#items-container-{{ section.id }}', {
 							spaceBetween: 15,
 							grabCursor: true,
+							watchSlidesVisibility: true,
 							slidesPerView: 'auto',
 							autoHeight: {{ section.settings.is_auto_height }},
 							{% if section.settings.is_arrows %}
@@ -455,27 +451,27 @@
 				{% assign gapsInRow = itemsInRow | minus: 1 %}
 
 				width: calc((100% / {{ itemsInRow }}) - ({{ gapsInRow }} * ({{ section.settings.column_gap }}rem / {{ itemsInRow }})));
-				padding: {{ section.settings.item_padding }}rem;
+				padding:  {% if onlyImage %}0{% else %}{{ section.settings.item_padding }}rem{% endif %};
 				align-self: stretch;
 				border-radius: 15px;
 				background-color: {{ section.settings.item_bg_color | default: 'unset' }};
-				{% if section.settings.is_item_shadow %}box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);{% endif %}
 
+				.item-content {
+					{% if section.settings.is_item_shadow %}box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);{% endif %}
+					max-width: {{ section.settings.item_content_width }}%;
+					flex-direction: {{ section.settings.item_layout }};
+					color: {{ section.settings.text_color }};
+					border-radius: inherit;
+
+					svg {
+						font-size: 40px;
+					}
+				}
 
 				.text-wrapper {
 					text-align: {{ section.settings.item_content_align }};
 					justify-content: {{ section.settings.item_content_align }};
 				}
-		}
-
-		#section-{{ section.id }} .item-content {
-			max-width: {{ section.settings.item_content_width }}%;
-			flex-direction: {{ section.settings.item_layout }};
-			color: {{ section.settings.text_color }};
-		}
-
-		#section-{{ section.id }} .item-content svg {
-			font-size: 40px;
 		}
 
 		#section-{{ section.id }} .item-content .text-wrapper strong {
@@ -1344,11 +1340,6 @@
 					"id": "image_mobile",
 					"label": "Image on Mobile",
 					"info": "Deprecated! please upload '-mbl' image instead."
-				},
-				{
-					"type": "text",
-					"id": "icon",
-					"label": "Icon (class)"
 				},
 				{
 					"type": "text",
