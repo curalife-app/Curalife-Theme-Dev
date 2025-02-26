@@ -31,7 +31,13 @@
 		.comment-text {margin:0;color:#555;line-height:1.4em}
 		.comment-form-container {
 			background:#fafafa;border:1px solid #e5e5e5;
-			border-radius:6px;padding:20px
+			border-radius:6px;padding:20px;
+			max-height:0;overflow:hidden;opacity:0;
+			transition:max-height 0.4s ease-in-out, opacity 0.3s ease-in-out, padding 0.3s ease-in-out, margin 0.3s ease-in-out;
+			margin:0;
+		}
+		.comment-form-container.active {
+			max-height:500px;opacity:1;padding:20px;margin-top:20px;
 		}
 		.comment-form-container label {
 			display:block;margin-bottom:5px;font-weight:700
@@ -47,6 +53,17 @@
 		}
 		.comment-form-container button:hover {background:#555}
 		#thank-you-message {margin-top:10px;font-style:italic;color:#333;display:none}
+		.comments-list-footer {
+			display:flex;justify-content:flex-end;margin-bottom:20px;
+		}
+		.toggle-comment-form {
+			padding:10px 20px;background:#333;color:#fff;
+			border:none;border-radius:4px;cursor:pointer;font-size:14px;
+			transition:background 0.2s ease;
+		}
+		.toggle-comment-form:hover {
+			background:#555;
+		}
 	</style>
 
 	{% if section.settings.title != blank %}
@@ -73,6 +90,10 @@
 		{% endfor %}
 	</div>
 
+	<div class="comments-list-footer">
+		<button type="button" class="toggle-comment-form">Add Comment</button>
+	</div>
+
 	<div class="comment-form-container">
 		<form id="fake-comment-form">
 			<label for="new-comment-name">Name</label>
@@ -87,10 +108,22 @@
 	</div>
 
 	<script>
+		document.querySelector('.toggle-comment-form').addEventListener('click', function() {
+			document.querySelector('.comment-form-container').classList.toggle('active');
+			this.textContent = document.querySelector('.comment-form-container').classList.contains('active') ? 'Hide Form' : 'Add Comment';
+		});
+
 		document.getElementById('fake-comment-form').addEventListener('submit', function(e) {
 			e.preventDefault();
 			document.getElementById('thank-you-message').style.display = 'block';
 			this.reset();
+
+			// Hide the form after submission with a delay
+			setTimeout(function() {
+				document.querySelector('.comment-form-container').classList.remove('active');
+				document.querySelector('.toggle-comment-form').textContent = 'Add Comment';
+				document.getElementById('thank-you-message').style.display = 'none';
+			}, 3000);
 		});
 	</script>
 </section>
