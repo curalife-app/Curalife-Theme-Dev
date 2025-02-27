@@ -1,0 +1,75 @@
+{% comment %}
+  Reusable SVG Fill Component
+  Parameters:
+  - svg_url: URL of the SVG file to use (required)
+  - fill_color: Color to fill the SVG with (required)
+  - max_width: Maximum width for the SVG container (optional)
+  - max_height: Maximum height for the SVG container (optional)
+  - additional_classes: Extra CSS classes to add to the wrapper (optional)
+  - link_url: URL to wrap the SVG in a link (optional)
+  - alt_text: Alt text for accessibility (optional, defaults to empty)
+
+  Usage example:
+  {% render 'svg-fill',
+    svg_url: 'logo-new.svg' | asset_url,
+    fill_color: section.settings.logo_fill_color,
+    max_width: '150px',
+    max_height: '32px',
+    additional_classes: 'my-custom-class',
+    link_url: section.settings.logo_url,
+    alt_text: 'Company logo'
+  %}
+{% endcomment %}
+
+{% comment %} Set default values for optional parameters {% endcomment %}
+{% assign max_width = max_width | default: 'auto' %}
+{% assign max_height = max_height | default: 'auto' %}
+{% assign additional_classes = additional_classes | default: '' %}
+{% assign alt_text = alt_text | default: '' %}
+
+{% comment %} Create wrapper element {% endcomment %}
+{% if link_url != blank %}
+  <a href="{{ link_url }}" class="svg-fill-link block">
+{% endif %}
+
+<div class="svg-fill-wrapper {{ additional_classes }}" style="--svg-fill-color: {{ fill_color }}; max-width: {{ max_width }}; max-height: {{ max_height }};">
+  <img src="{{ svg_url }}" alt="{{ alt_text }}" loading="lazy" decoding="async" class="svg-fill-image"
+    {% if width != blank %}width="{{ width }}"{% endif %}
+    {% if height != blank %}height="{{ height }}"{% endif %}>
+</div>
+
+{% if link_url != blank %}
+  </a>
+{% endif %}
+
+<style>
+  .svg-fill-wrapper {
+    position: relative;
+    display: inline-block;
+  }
+
+  /* Hide original image when using the mask approach */
+  .svg-fill-wrapper .svg-fill-image {
+    visibility: hidden;
+  }
+
+  /* Mask-image approach for better compatibility */
+  .svg-fill-wrapper::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: var(--svg-fill-color, currentColor);
+    -webkit-mask-image: url({{ svg_url }});
+    -webkit-mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-image: url({{ svg_url }});
+    mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    z-index: 1;
+  }
+</style>
