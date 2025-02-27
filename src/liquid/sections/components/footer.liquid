@@ -9,8 +9,29 @@
 	{% endfor %}
 {% endif %}
 
+{% assign disclaimer = section.settings.disclaimer | default: page.metafields.custom.disclaimer %}
+{% assign sources = section.settings.sources | default: page.metafields.custom.sources %}
+
 {%- assign current_year = 'now' | date: '%Y' -%}
-{%- assign shop_name = shop.name -%}
+
+{% if section.settings.bg_color.alpha != 0.0 and section.settings.bg_color != blank %}
+	{%- assign bg_color = section.settings.bg_color -%}
+{% else %}
+	{%- assign bg_color = 'var(--bg-color)' -%}
+{% endif %}
+
+{% if section.settings.text_color.alpha != 0.0 and section.settings.text_color != blank %}
+	{%- assign text_color = section.settings.text_color -%}
+{% else %}
+	{%- assign text_color = 'var(--primary-color)' -%}
+{% endif %}
+
+{% if section.settings.logo_fill_color.alpha != 0.0 and section.settings.logo_fill_color != blank %}
+	{%- assign logo_fill_color = section.settings.logo_fill_color -%}
+{% else %}
+	{%- assign logo_fill_color = 'var(--primary-color)' -%}
+{% endif %}
+
 
 {%- # Process blocks for performance -%}
 {%- assign menu_blocks = section.blocks | where: 'type', 'menu' -%}
@@ -24,37 +45,25 @@
 {%- endif -%}
 
 {%- if show_footer and isDisplayOnThisPage -%}
-	<footer class="print:hidden {{ section.settings.additional_classes }}" style="background-color: {{ section.settings.bg_color }}; color: {{ section.settings.text_color }};">
+	<footer class="print:hidden {{ section.settings.additional_classes }}" style="background-color: {{ bg_color }}; color: {{ text_color }};">
 		<div class="container px-4 mx-auto">
 			<div class="pt-12 pb-4">
-				{% if section.settings.sources != blank %}
-					<div class="mb-8 text-xs">
-						{{ section.settings.sources }}
-					</div>
-				{% endif %}
+				{% if sources %}<div class="mb-8 text-xs">{{ sources }}</div>{% endif %}
 
 				<div class="{% if menu_blocks.size == 1 %}flex md:flex-col items-center md:items-start justify-between gap-8{% else %}md:flex-col flex items-start justify-between gap-8{% endif %}">
 					<div class="shrink-0 md:w-auto">
-						{% if section.settings.logo_img != blank %}
-							{% if section.settings.logo_url != blank %}
-								<a href="{{ section.settings.logo_url }}" class="block">
-									<img class="logo max-w-[150px] {% if section.settings.logo_img == blank %}invert{% endif %}" src="{{ section.settings.logo_img | img_url: '134x32' }}" alt="{{ shop_name }} logo" width="134" height="32" loading="lazy" decoding="async">
-								</a>
-							{% else %}
-								<div class="block">
-									<img class="logo max-w-[150px] {% if section.settings.logo_img == blank %}invert{% endif %}" src="{{ section.settings.logo_img | img_url: '134x32' }}" alt="{{ shop_name }} logo" width="134" height="32" loading="lazy" decoding="async">
+						{% if section.settings.logo_url != blank %}
+							<a href="{{ section.settings.logo_url }}" class="block">
+								<div class="logo-wrapper max-w-[150px]" style="--logo-color: {{ logo_fill_color }};">
+									<img src="{{ 'logo-new.svg' | asset_url }}" alt="Curalife logo" width="134" height="32" loading="lazy" decoding="async" class="logo invert">
 								</div>
-							{% endif %}
+							</a>
 						{% else %}
-							{% if section.settings.logo_url != blank %}
-								<a href="{{ section.settings.logo_url }}" class="block">
-									<img class="logo max-w-[150px] invert" src="{{ 'logo-new.svg' | asset_url }}" alt="{{ shop_name }} logo" width="134" height="32" loading="lazy" decoding="async">
-								</a>
-							{% else %}
-								<div class="block">
-									<img class="logo max-w-[150px] invert" src="{{ 'logo-new.svg' | asset_url }}" alt="{{ shop_name }} logo" width="134" height="32" loading="lazy" decoding="async">
+							<div class="block">
+								<div class="logo-wrapper max-w-[150px]" style="--logo-color: {{ logo_fill_color }};">
+									<img src="{{ 'logo-new.svg' | asset_url }}" alt="Curalife logo" width="134" height="32" loading="lazy" decoding="async" class="logo invert">
 								</div>
-							{% endif %}
+							</div>
 						{% endif %}
 
 						{% if social_blocks.size > 0 %}
@@ -119,14 +128,9 @@
 					{% endif %}
 				</div>
 
-				{% if section.settings.disclaimer != blank %}
-					<div class="mt-8 text-xs" style="opacity: 0.7;">
-						{{ section.settings.disclaimer }}
-					</div>
-				{% endif %}
-			</div>
+				{% if disclaimer %}<div class="mt-8 text-xs">{{ disclaimer }}</div>{% endif %}</div>
 
-			<div class="py-2.5 border-t" style="border-color: {{ section.settings.text_color }}80;">
+			<div class="py-2.5 border-t" style="border-color: {{ text_color }}80;">
 				<div class="flex items-center justify-between gap-4 text-xs">
 					<p class="md:order-1 order-2">
 						&copy; {{ current_year }} Curalife
@@ -144,6 +148,41 @@
 				max-height: 25px;
 			}
 		}
+
+		.logo-wrapper {
+			position: relative;
+			display: inline-block;
+		}
+
+		/* Method 1: Using CSS Variables and filters */
+		.logo-wrapper img.logo {
+			filter: brightness(0) saturate(100%);
+		}
+
+		/* Method 2: Using mask-image approach */
+		.logo-wrapper::after {
+			content: '';
+			position: absolute;
+			top: 0;
+			left: 0;
+			right: 0;
+			bottom: 0;
+			background-color: {{ logo_fill_color }};
+			-webkit-mask-image: url({{ 'logo-new.svg' | asset_url }});
+			-webkit-mask-size: contain;
+			-webkit-mask-repeat: no-repeat;
+			-webkit-mask-position: center;
+			mask-image: url({{ 'logo-new.svg' | asset_url }});
+			mask-size: contain;
+			mask-repeat: no-repeat;
+			mask-position: center;
+			z-index: 1;
+		}
+
+		/* Hide original image when using the mask approach */
+		.logo-wrapper img.logo {
+			visibility: hidden;
+		}
 	</style>
 {%- endif %}
 
@@ -158,6 +197,12 @@
 		},
 		{
 			"type": "color",
+			"id": "logo_fill_color",
+			"label": "Logo Fill Color",
+			"info": "Changes logo color. Works with SVG logos or logos with transparent backgrounds. For best results, use a simple, single-color logo."
+		},
+		{
+			"type": "color",
 			"id": "titles_color",
 			"label": "Heading Color",
 			"default": "#ffffff"
@@ -165,24 +210,16 @@
 		{
 			"type": "color",
 			"id": "bg_color",
-			"label": "Background Color",
-			"default": "#3A7684"
+			"label": "Background Color"
 		},
 		{
 			"type": "color",
 			"id": "text_color",
-			"label": "Text Color",
-			"default": "#ffffff"
+			"label": "Text Color"
 		},
 		{
 			"type": "header",
 			"content": "Content"
-		},
-		{
-			"type": "image_picker",
-			"id": "logo_img",
-			"label": "Logo",
-			"info": "134x32px recommended"
 		},
 		{
 			"type": "url",
