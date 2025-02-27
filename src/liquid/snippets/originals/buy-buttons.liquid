@@ -89,7 +89,6 @@
 			}
 		});
 	</script>
-
 {% else %}
 	<script src="{{ 'product-info.js' | asset_url }}" defer="defer"></script>
 	<script src="{{ 'product-form.js' | asset_url }}" defer="defer"></script>
@@ -165,7 +164,6 @@
 	<style>
 		.qty-button {
 			cursor: pointer;
-			font-size: 1.2em;
 			background-color: #fff;
 			border: 1px solid #ccc;
 			display: flex;
@@ -173,6 +171,28 @@
 			align-items: center;
 			width: 40px;
 			height: 100%;
+			transition: all 0.2s ease;
+		}
+
+		.qty-button:hover {
+			background-color: #f5f5f5;
+			border-color: #999;
+		}
+
+		.qty-button:active {
+			background-color: #e8e8e8;
+			transform: scale(0.95);
+		}
+
+		.qty-button.disabled {
+			cursor: not-allowed;
+			opacity: 0.5;
+			background-color: #f8f8f8;
+		}
+
+		.qty-button.disabled:hover {
+			background-color: #f8f8f8;
+			border-color: #ccc;
 		}
 
 		.qty-button.decrement {
@@ -188,17 +208,34 @@
 			outline: 0;
 			font-size: 1.2em;
 			text-align: center;
-			width: calc(100% - 80px);
-			height: 40px;
+			width: 3rem;
+			height: 100%;
 			color: #2a2a2a;
 			border: 1px solid #ccc;
 			border-left: 0;
 			border-right: 0;
+			transition: border-color 0.2s ease;
+		}
+
+		.qty input[type='text']:focus {
+			border-color: #999;
+			box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1) inset;
 		}
 
 		/* Quantity Selector Transition */
 		.qty {
-			transition: width 0.3s ease;
+			transition: all 0.3s ease;
+		}
+
+		/* Animation for quantity change */
+		.rotate-x {
+			animation: rotateX 0.5s ease;
+		}
+
+		@keyframes rotateX {
+			0% { transform: rotateX(0deg); }
+			50% { transform: rotateX(180deg); }
+			100% { transform: rotateX(360deg); }
 		}
 	</style>
 
@@ -210,6 +247,9 @@
 			value = isNaN(value) ? 1 : value;
 			value++;
 			quantityInput.value = value;
+
+			// Update disabled state
+			updateButtonStates();
 
 			if (cardQty) {
 				cardQty.innerHTML = value;
@@ -225,9 +265,26 @@
 			value = value > 1 ? value - 1 : 1;
 			quantityInput.value = value;
 
+			// Update disabled state
+			updateButtonStates();
+
 			if (cardQty) {
 				cardQty.innerHTML = value;
 				cardQty.classList.add('rotate-x');
+			}
+		}
+
+		function updateButtonStates() {
+			var quantityInput = document.querySelector('input[name="quantity"]');
+			var decrementButton = document.querySelector('.decrement');
+			var value = parseInt(quantityInput.value);
+
+			if (decrementButton) {
+				if (value <= 1) {
+					decrementButton.classList.add('disabled');
+				} else {
+					decrementButton.classList.remove('disabled');
+				}
 			}
 		}
 
@@ -238,6 +295,7 @@
 				console.log('Setting up quantity listeners');
 				var incrementButton = document.querySelector('.increment');
 				var decrementButton = document.querySelector('.decrement');
+				var quantityInput = document.querySelector('input[name="quantity"]');
 
 				// Remove any existing listeners first
 				if (incrementButton && incrementButton.hasAttribute('data-listener-attached')) {
@@ -275,8 +333,10 @@
 				if (decrementButton) {
 					const decrementHandler = function (event) {
 						event.stopPropagation();
-						console.log('Decrementing quantity');
-						decrementQty();
+						if (!decrementButton.classList.contains('disabled')) {
+							console.log('Decrementing quantity');
+							decrementQty();
+						}
 					};
 
 					// Store the handler function name
@@ -287,6 +347,20 @@
 					decrementButton.setAttribute('data-listener-attached', 'true');
 					decrementButton.setAttribute('data-listener-function', handlerName);
 				}
+
+				// Add input change listener
+				if (quantityInput) {
+					quantityInput.addEventListener('change', function() {
+						var value = parseInt(this.value);
+						if (isNaN(value) || value < 1) {
+							this.value = 1;
+						}
+						updateButtonStates();
+					});
+				}
+
+				// Initialize button states
+				updateButtonStates();
 			}
 
 			// Set up the listeners when DOM is ready
