@@ -11,7 +11,7 @@
 
   Usage example:
   {% render 'svg-fill',
-    svg_url: 'logo-new.svg' | asset_url,
+    svg_url: 'logo-new.svg' | file_url,
     fill_color: section.settings.logo_fill_color,
     max_width: '150px',
     max_height: '32px',
@@ -32,7 +32,7 @@
   <a href="{{ link_url }}" class="svg-fill-link block">
 {% endif %}
 
-<div class="svg-fill-wrapper {{ additional_classes }}" style="--svg-fill-color: {{ fill_color }}; max-width: {{ max_width }}; max-height: {{ max_height }};">
+<div class="svg-fill-wrapper {{ additional_classes }}" style="--svg-fill-color: {{ fill_color }}; max-width: {{ max_width }}; max-height: {{ max_height }};" data-svg-url="{{ svg_url }}">
   <img src="{{ svg_url }}" alt="{{ alt_text }}" loading="lazy" decoding="async" class="svg-fill-image"
     {% if width != blank %}width="{{ width }}"{% endif %}
     {% if height != blank %}height="{{ height }}"{% endif %}>
@@ -62,14 +62,25 @@
     right: 0;
     bottom: 0;
     background-color: var(--svg-fill-color, currentColor);
-    -webkit-mask-image: url({{ svg_url }});
+    -webkit-mask-image: var(--mask-url);
     -webkit-mask-size: contain;
     -webkit-mask-repeat: no-repeat;
     -webkit-mask-position: center;
-    mask-image: url({{ svg_url }});
+    mask-image: var(--mask-url);
     mask-size: contain;
     mask-repeat: no-repeat;
     mask-position: center;
     z-index: 1;
   }
 </style>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.svg-fill-wrapper').forEach(function(wrapper) {
+      const svgUrl = wrapper.getAttribute('data-svg-url');
+      if (svgUrl) {
+        wrapper.style.setProperty('--mask-url', `url(${svgUrl})`);
+      }
+    });
+  });
+</script>

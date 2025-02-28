@@ -39,104 +39,109 @@
 				<div class="items !overflow-{{ section.settings.overflow }} z-10 py-8 flex flex-wrap {% if section.settings.items_align == 'center' %}items-center{% else %}items-start{% endif %} {% if section.settings.collection_align == 'center' %}m-auto{% endif %} justify-center overflow-visible" id="items-container-{{ section.id }}" {% if section.settings.animation %}data-aos="{{ section.settings.animation }}"{% endif %}>
 			{% endif %}
 
+			{% assign itemsCounter = 0 %}
 			{% for block in section.blocks %}
-				{% if shop.name == 'CuraLife Global' %}
-					{% assign imageLink = block.settings.image_global | default: block.settings.image %}
-					{% assign imageMobileLink = block.settings.image_mobile_global | default: block.settings.image_mobile %}
-					{% assign linkUrl = block.settings.link_url_global | default: block.settings.link_url %}
-				{% else %}
-					{% assign imageLink = block.settings.image %}
-					{% assign imageMobileLink = block.settings.image_mobile %}
-					{% assign linkUrl = block.settings.link_url %}
-				{% endif %}
+				{% if block.type == 'item' %}
+					{% assign itemsCounter = itemsCounter | plus: 1 %}
 
-				{% if linkUrl and section.settings.link_style == 'item' %}<a class="contents">{% endif %}
-				{% assign itemID = 'item-' | append: section.id | append: forloop.index %}
+					{% if shop.name == 'CuraLife Global' %}
+						{% assign imageLink = block.settings.image_global | default: block.settings.image %}
+						{% assign imageMobileLink = block.settings.image_mobile_global | default: block.settings.image_mobile %}
+						{% assign linkUrl = block.settings.link_url_global | default: block.settings.link_url %}
+					{% else %}
+						{% assign imageLink = block.settings.image %}
+						{% assign imageMobileLink = block.settings.image_mobile %}
+						{% assign linkUrl = block.settings.link_url %}
+					{% endif %}
 
-				<div class="{% if section.settings.is_slider %}swiper-slide{% endif %} item relative !h-auto" id="{{ itemID }}">
-					<div class="item-content flex flex-col items-center justify-{% if section.settings.item_layout_mobile == 'row' %}start{% else %}center{% endif %} text-center m-auto">
-						{% unless block.settings.is_image_background %}
-							<div class="img-wrapper contents">
-								{% if imageLink != blank or imageMobileLink != blank %}
-									{% if onlyImage %}
-										{% render 'image-test',
-											image: imageLink,
-											mobile_image: imageMobileLink,
-											lazy: lazyLoad,
-											preload: false,
-											alt: imageLink.alt,
-											link: linkUrl,
-											class: 'w-full h-full object-contain m-0'
-										%}
-									{% else %}
-										{% render 'image-test',
-											image: imageLink,
-											mobile_image: imageMobileLink,
-											lazy: lazyLoad,
-											preload: false,
-											alt: imageLink.alt,
-											link: linkUrl,
-											class: 'max-h-350px object-contain m-0'
-										%}
-									{% endif %}
-								{% endif %}
-							</div>
+					{% if linkUrl and section.settings.link_style == 'item' %}<a class="contents">{% endif %}
+					{% assign itemID = 'item-' | append: section.id | append: forloop.index %}
 
-							{% if block.settings.title != blank or block.settings.description != blank or block.settings.link_title != blank %}
-								<div class="text-wrapper flex flex-col gap-2 {% if section.settings.item_layout_mobile == 'row' %}md:items-start md:w-[70vw]{% endif %}">
-									{% if block.settings.title != blank %}
-										<h3 class="title-tag text-wrap flex gap-1 w-fit justify-center items-center {% if section.settings.item_content_align == 'center' %}m-auto{% endif %} {{ section.settings.title_tag }}">
-											<div>{{ block.settings.title }}</div>
-											{% if section.settings.is_reviews %}
-												<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6" style="max-width:20px;">
-													<path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-												</svg><span class="font-thin ml-2 text-[18px]"> Varified</span>
-
-												<style>
-													#{{ itemID }} .text-wrapper {
-														gap: 0;
-													}
-													#{{ itemID }} .title-tag {
-														width: 100%;
-														justify-content: start;
-														margin-bottom:0;
-													}
-												</style>
-											{% endif %}
-										</h3>
-									{% endif %}
-									{% if section.settings.is_reviews %}{% render 'rating-stars', rating: '5' %}{% endif %}
-									{% if block.settings.description != blank %}<div class="description">{{ block.settings.description }}</div>{% endif %}
-									{% if section.settings.link_style == 'a' %}
-										<a class="underline" href="{{ linkUrl }}">{{ block.settings.link_title }}</a>
-									{% elsif section.settings.link_style == 'button' %}
-										<a class="w-max m-auto" href="{{ linkUrl }}"><button>{{ block.settings.link_title }}</button></a>
+					<div class="{% if section.settings.is_slider %}swiper-slide{% endif %} item relative !h-auto" id="{{ itemID }}">
+						<div class="item-content flex flex-col items-center justify-{% if section.settings.item_layout_mobile == 'row' %}start{% else %}center{% endif %} text-center m-auto">
+							{% unless block.settings.is_image_background %}
+								<div class="img-wrapper">
+									{% if imageLink != blank or imageMobileLink != blank %}
+										{% if onlyImage %}
+											{% render 'image-test',
+												image: imageLink,
+												mobile_image: imageMobileLink,
+												lazy: lazyLoad,
+												preload: false,
+												alt: imageLink.alt,
+												link: linkUrl,
+												class: 'w-full h-full object-contain m-0'
+											%}
+										{% else %}
+											{% render 'image-test',
+												image: imageLink,
+												mobile_image: imageMobileLink,
+												lazy: lazyLoad,
+												preload: false,
+												alt: imageLink.alt,
+												link: linkUrl,
+												class: 'max-h-350px object-contain m-0'
+											%}
+										{% endif %}
 									{% endif %}
 								</div>
-							{% endif %}
-						{% endunless %}
+
+								{% if block.settings.title != blank or block.settings.description != blank or block.settings.link_title != blank %}
+									<div class="text-wrapper flex flex-col gap-2 {% if section.settings.item_layout_mobile == 'row' %}md:items-start md:w-[70vw]{% endif %}">
+										{% if block.settings.title != blank %}
+											<h3 class="title-tag text-wrap flex gap-1 w-fit justify-center items-center {% if section.settings.item_content_align == 'center' %}m-auto{% endif %} {{ section.settings.title_tag }}">
+												<div>{{ block.settings.title }}</div>
+												{% if section.settings.is_reviews %}
+													<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6" style="max-width:20px;">
+														<path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+													</svg><span class="font-thin ml-2 text-[18px]"> Varified</span>
+
+													<style>
+														#{{ itemID }} .text-wrapper {
+															gap: 0;
+														}
+														#{{ itemID }} .title-tag {
+															width: 100%;
+															justify-content: start;
+															margin-bottom:0;
+														}
+													</style>
+												{% endif %}
+											</h3>
+										{% endif %}
+										{% if section.settings.is_reviews %}{% render 'rating-stars', rating: '5' %}{% endif %}
+										{% if block.settings.description != blank %}<div class="description">{{ block.settings.description }}</div>{% endif %}
+										{% if section.settings.link_style == 'a' %}
+											<a class="underline" href="{{ linkUrl }}">{{ block.settings.link_title }}</a>
+										{% elsif section.settings.link_style == 'button' %}
+											<a class="w-max m-auto" href="{{ linkUrl }}"><button>{{ block.settings.link_title }}</button></a>
+										{% endif %}
+									</div>
+								{% endif %}
+							{% endunless %}
+						</div>
 					</div>
-				</div>
 
-				{% if linkUrl and section.settings.link_style == 'item' %}</a>{% endif %}
+					{% if linkUrl and section.settings.link_style == 'item' %}</a>{% endif %}
 
-				{% if block.settings.is_image_background %}
-					<style>
-						#{{ itemID }} {
-							background-image: url('{{ imageLink | image_url }}') !important;
-							background-repeat: no-repeat;
-							background-size: cover;
-							background-position: center;
-						}
-
-						{% if imageMobileLink %}
-							@media screen and (max-width: 768px) {
-								#{{ itemID }} {
-									background-image: url('{{ imageMobileLink | image_url }}') !important;
-								}
+					{% if block.settings.is_image_background %}
+						<style>
+							#{{ itemID }} {
+								background-image: url('{{ imageLink | image_url }}') !important;
+								background-repeat: no-repeat;
+								background-size: cover;
+								background-position: center;
 							}
-						{% endif %}
-					</style>
+
+							{% if imageMobileLink %}
+								@media screen and (max-width: 768px) {
+									#{{ itemID }} {
+										background-image: url('{{ imageMobileLink | image_url }}') !important;
+									}
+								}
+							{% endif %}
+						</style>
+					{% endif %}
 				{% endif %}
 			{% endfor %}
 		</div>
@@ -158,9 +163,26 @@
 
 			{% if section.settings.is_slider %}</div>{% endif %}
 
-			{% if section.settings.decor_img %}
-				{% render 'decoration', id: section.id, decor_img: section.settings.decor_img, decor_position_top: section.settings.decor_position_top, decor_position_left: section.settings.decor_position_left, decor_position_top_mobile: section.settings.decor_position_top_mobile, decor_position_left_mobile: section.settings.decor_position_left_mobile, decor_opacity: section.settings.decor_opacity, decor_max_width: section.settings.decor_max_width, is_decor_above: section.settings.is_decor_above, is_decor_bg: section.settings.is_decor_bg, is_decor_relative_full: section.settings.is_decor_relative_full, is_decor_remove_on_mobile: section.settings.is_decor_remove_on_mobile %}
-			{% endif %}
+			{% for block in section.blocks %}
+				{% if block.type == 'decoration' and block.settings.decor_img != blank %}
+					{% render 'decoration',
+						id: block.id,
+						decor_img: block.settings.decor_img,
+						decor_position_top: block.settings.decor_position_top,
+						decor_position_left: block.settings.decor_position_left,
+						decor_position_top_mobile: block.settings.decor_position_top_mobile,
+						decor_position_left_mobile: block.settings.decor_position_left_mobile,
+						decor_opacity: block.settings.decor_opacity,
+						decor_max_width: block.settings.decor_max_width,
+						decor_max_width_mobile: block.settings.decor_max_width_mobile,
+						is_decor_above: block.settings.is_decor_above,
+						is_decor_bg: block.settings.is_decor_bg,
+						is_decor_relative_full: block.settings.is_decor_relative_full,
+						is_decor_remove_on_desktop: block.settings.is_decor_remove_on_desktop,
+						is_decor_remove_on_mobile: block.settings.is_decor_remove_on_mobile
+					%}
+				{% endif %}
+			{% endfor %}
 		</div>
 	</section>
 
@@ -384,7 +406,7 @@
 			}
 
 			{% if section.settings.items_in_row == 'all' %}
-				{% assign items_in_row = section.blocks.size %}
+				{% assign items_in_row = itemsCounter %}
 			{% else %}
 				{% assign items_in_row = section.settings.items_in_row | minus: 1 %}
 			{% endif %}
@@ -401,7 +423,7 @@
 				}
 
 				{% if section.settings.items_in_row_mobile == 'all' %}
-					{% assign items_in_row_mobile = section.blocks.size %}
+					{% assign items_in_row_mobile = itemsCounter %}
 				{% else %}
 					{% assign items_in_row_mobile = section.settings.items_in_row_mobile | minus: 1 %}
 				{% endif %}
@@ -450,7 +472,7 @@
 
 		#section-{{ section.id }} .item {
 				{% if section.settings.items_in_row == 'all' %}
-						{% assign itemsInRow = section.blocks.size %}
+						{% assign itemsInRow = itemsCounter %}
 				{% else %}
 						{% assign itemsInRow = section.settings.items_in_row %}
 				{% endif %}
@@ -469,7 +491,7 @@
 					flex-direction: {{ section.settings.item_layout }};
 					color: {{ section.settings.text_color }};
 					border-radius: inherit;
-					gap: {% if onlyImage %}0{% else %}1rem{% endif %}
+					gap: {% if onlyImage %}0{% else %}1rem{% endif %};
 
 					svg {
 						font-size: 40px;
@@ -568,7 +590,7 @@
 
 			#section-{{ section.id }} .item {
 				{% if section.settings.items_in_row_mobile == 'all' %}
-					{% assign itemsInRowMobile = section.blocks.size %}
+					{% assign itemsInRowMobile = itemsCounter %}
 					{% for block in section.blocks %}
 						{% if block.settings.is_hide_on_mobile %}
 							{% assign itemsInRowMobile = itemsInRowMobile | minus: 1 %}
@@ -581,12 +603,12 @@
 				{% assign gapsInRowMobile = itemsInRowMobile | minus: 1 %}
 				width: calc((100% / {{ itemsInRowMobile }}) - ({{ gapsInRowMobile }} * ({{ section.settings.column_gap }}rem / {{ itemsInRowMobile }})));
 				max-width: unset;
-			}
 
-			#section-{{ section.id }} .item-content {
-				flex-direction: {{ section.settings.item_layout_mobile }};
-				text-align: {{ section.settings.item_content_align_mobile }};
-				max-width: unset;
+				.item-content {
+					flex-direction: {{ section.settings.item_layout_mobile }} !important;
+					text-align: {{ section.settings.item_content_align_mobile }};
+					max-width: unset;
+				}
 			}
 
 			{% unless section.settings.item_content_align_mobile == 'center' %}
@@ -605,8 +627,8 @@
 	</style>
 
 	{% if section.settings.is_bigger_center_item %}
-		{% assign centerPosition = section.blocks.size | divided_by: 2 | plus: 1 %}
-		{% assign centerElementSelector = "swiper-slide[aria-label='" | append: centerPosition | append: " / " | append: section.blocks.size | append: "']" %}
+		{% assign centerPosition = itemsCounter | divided_by: 2 | plus: 1 %}
+		{% assign centerElementSelector = "swiper-slide[aria-label='" | append: centerPosition | append: " / " | append: itemsCounter | append: "']" %}
 
 		<style>
 			#section-{{ section.id }} swiper-slide img {
@@ -1248,95 +1270,6 @@
 				}
 			],
 			"default": "none"
-		},
-		{
-			"type": "header",
-			"content": "Decoration Image"
-		},
-		{
-			"type": "image_picker",
-			"id": "decor_img",
-			"label": "Decoration Image"
-		},
-		{
-			"type": "range",
-			"id": "decor_opacity",
-			"label": "Decoration Opacity",
-			"min": 0,
-			"max": 100,
-			"step": 1,
-			"unit": "%",
-			"default": 100
-		},
-		{
-			"type": "range",
-			"id": "decor_max_width",
-			"label": "Decoration Maximum Width",
-			"min": 0,
-			"max": 100,
-			"step": 1,
-			"unit": "%",
-			"default": 50
-		},
-		{
-			"type": "range",
-			"id": "decor_position_top",
-			"label": "Decoration Position Top",
-			"min": 0,
-			"max": 100,
-			"step": 1,
-			"unit": "%",
-			"default": 0
-		},
-		{
-			"type": "range",
-			"id": "decor_position_left",
-			"label": "Decoration Position Left",
-			"min": 0,
-			"max": 100,
-			"step": 1,
-			"unit": "%",
-			"default": 0
-		},
-		{
-			"type": "range",
-			"id": "decor_position_top_mobile",
-			"label": "Decoration Mobile Top",
-			"min": 0,
-			"max": 100,
-			"step": 1,
-			"unit": "%",
-			"default": 0
-		},
-		{
-			"type": "range",
-			"id": "decor_position_left_mobile",
-			"label": "Decoration Mobile Left",
-			"min": 0,
-			"max": 100,
-			"step": 1,
-			"unit": "%",
-			"default": 0
-		},
-		{
-			"type": "checkbox",
-			"id": "is_decor_above",
-			"label": "Decoration Above Content"
-		},
-		{
-			"type": "checkbox",
-			"id": "is_decor_bg",
-			"label": "Decoration is a Background"
-		},
-		{
-			"type": "checkbox",
-			"id": "is_decor_relative_full",
-			"label": "Decoration Relative to Full Width"
-		},
-		{
-			"type": "checkbox",
-			"id": "is_decor_remove_on_mobile",
-			"label": "Remove Decoration On Mobile"
 		}
 	],
 	"blocks": [
@@ -1405,6 +1338,112 @@
 					"type": "url",
 					"id": "link_url_global",
 					"label": "Link URL - Global"
+				}
+			]
+		},
+		{
+			"type": "decoration",
+			"name": "Decoration",
+			"settings": [
+				{
+					"type": "image_picker",
+					"id": "decor_img",
+					"label": "Decoration Image"
+				},
+				{
+					"type": "range",
+					"id": "decor_opacity",
+					"label": "Decoration Opacity",
+					"min": 0,
+					"max": 100,
+					"step": 1,
+					"unit": "%",
+					"default": 100
+				},
+				{
+					"type": "range",
+					"id": "decor_max_width",
+					"label": "Decoration Maximum Width",
+					"min": 0,
+					"max": 100,
+					"step": 1,
+					"unit": "%",
+					"default": 50
+				},
+				{
+					"type": "range",
+					"id": "decor_max_width_mobile",
+					"label": "Decoration Maximum Width on Mobile",
+					"min": 0,
+					"max": 100,
+					"step": 1,
+					"unit": "%",
+					"default": 50
+				},
+				{
+					"type": "range",
+					"id": "decor_position_top",
+					"label": "Decoration Position Top",
+					"min": 0,
+					"max": 100,
+					"step": 1,
+					"unit": "%",
+					"default": 0
+				},
+				{
+					"type": "range",
+					"id": "decor_position_left",
+					"label": "Decoration Position Left",
+					"min": 0,
+					"max": 100,
+					"step": 1,
+					"unit": "%",
+					"default": 0
+				},
+				{
+					"type": "range",
+					"id": "decor_position_top_mobile",
+					"label": "Decoration Mobile Top",
+					"min": 0,
+					"max": 100,
+					"step": 1,
+					"unit": "%",
+					"default": 0
+				},
+				{
+					"type": "range",
+					"id": "decor_position_left_mobile",
+					"label": "Decoration Mobile Left",
+					"min": 0,
+					"max": 100,
+					"step": 1,
+					"unit": "%",
+					"default": 0
+				},
+				{
+					"type": "checkbox",
+					"id": "is_decor_above",
+					"label": "Decoration Above Content"
+				},
+				{
+					"type": "checkbox",
+					"id": "is_decor_bg",
+					"label": "Decoration is a Background"
+				},
+				{
+					"type": "checkbox",
+					"id": "is_decor_relative_full",
+					"label": "Decoration Relative to Full Width"
+				},
+				{
+					"type": "checkbox",
+					"id": "is_decor_remove_on_desktop",
+					"label": "Remove Decoration On Desktop"
+				},
+				{
+					"type": "checkbox",
+					"id": "is_decor_remove_on_mobile",
+					"label": "Remove Decoration On Mobile"
 				}
 			]
 		}
