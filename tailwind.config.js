@@ -1,4 +1,6 @@
-module.exports = {
+import tailwindcssEmpty from "tailwindcss-empty";
+
+export default {
 	content: ["./src/liquid/**/*.liquid", "./src/scripts/**/*.js"],
 	theme: {
 		fontSize: { xs: ["12px", "16px"], sm: ["16px", "20px"], base: ["18px", "24px"], lg: ["20px", "28px"], xl: ["24px", "32px"] },
@@ -12,7 +14,7 @@ module.exports = {
 	},
 	variants: { textColor: ["odd", "even"] },
 	modules: { display: ["responsive", "empty"] },
-	plugins: [require("tailwindcss-empty")()],
+	plugins: [tailwindcssEmpty()],
 	corePlugins: {
 		container: false
 	}
