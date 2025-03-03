@@ -1,7 +1,7 @@
 const mix = require("laravel-mix");
 const tailwindcss = require("tailwindcss");
 const path = require("path");
-const { reduce } = require("bluebird");
+const fs = require("fs");
 
 console.log("Starting optimized Laravel Mix configuration...");
 
@@ -58,22 +58,75 @@ function copyFiles() {
 	log("File copying complete.");
 }
 
-// Configure Webpack for .liquid files with split chunks
+// Configure Webpack for .liquid files with split chunks and caching
 function configureWebpack() {
-	mix.webpackConfig({ stats: "minimal", optimization: { splitChunks: { chunks: "all" } } });
+	mix.webpackConfig({
+		stats: "minimal",
+		optimization: {
+			splitChunks: { chunks: "all" }
+		},
+		// Add webpack caching here - this is the proper way to enable caching
+		cache: {
+			type: "filesystem",
+			cacheDirectory: path.resolve(__dirname, "node_modules/.cache/webpack")
+		}
+	});
 	log("Webpack configuration complete.");
 }
 
-// Compile Tailwind CSS with PostCSS and Minify
+// Compile only Tailwind CSS - fix for duplicate entry issue
 function compileTailwind() {
 	try {
-		mix.postCss(paths.assets.tailwind, paths.build.assets, [require("postcss-import"), require("tailwindcss")("./tailwind.config.js"), require("autoprefixer")]).options({ processCssUrls: true });
+		// Only create the regular tailwind.css file using Mix
+		mix.postCss(paths.assets.tailwind, path.join(paths.build.assets, "tailwind.css"), [require("postcss-import"), require("tailwindcss")("./tailwind.config.js"), require("autoprefixer")]).options({
+			processCssUrls: false // Faster processing
+		});
+
+		// Add a finish event to create the minified version after the build completes
+		// This avoids the duplicate entry point issue
+		mix.then(() => {
+			// Create minified version after the build completes
+			try {
+				const outputPath = path.join(paths.build.assets, "tailwind.css");
+				const minPath = path.join(paths.build.assets, "tailwind.min.css");
+
+				if (fs.existsSync(outputPath)) {
+					const css = fs.readFileSync(outputPath, "utf8");
+
+					// Use cssnano directly to minify the file
+					const postcss = require("postcss");
+					const cssnano = require("cssnano");
+
+					postcss([
+						cssnano({
+							preset: [
+								"default",
+								{
+									discardComments: { removeAll: true },
+									reduceIdents: false,
+									reduceInitial: false,
+									zindex: false,
+									mergeIdents: false
+								}
+							]
+						})
+					])
+						.process(css, { from: outputPath, to: minPath })
+						.then(result => {
+							fs.writeFileSync(minPath, result.css);
+							log("Tailwind CSS minified version created.", "success");
+						});
+				}
+			} catch (error) {
+				console.error("Error creating minified version:", error);
+			}
+		});
 
 		if (mix.inProduction()) {
-			log("Purging unused CSS classes...");
+			log("Purging unused CSS classes for Tailwind...");
 		}
 
-		log("Tailwind CSS compiled successfully.");
+		log("Tailwind CSS compilation started...");
 	} catch (error) {
 		console.error("Error in Tailwind CSS compilation:", error);
 	}
@@ -86,7 +139,7 @@ function build() {
 	// Disable notifications globally for Mix
 	mix.disableNotifications();
 
-	// Enable cache and versioning in production
+	// Enable versioning in production
 	if (mix.inProduction()) {
 		mix.version();
 		log("Enabled versioning for cache.");
@@ -98,7 +151,7 @@ function build() {
 	// Copy assets and Liquid files
 	copyFiles();
 
-	// Compile Tailwind CSS
+	// Compile Tailwind CSS only
 	compileTailwind();
 
 	log("Optimized build process complete.");
@@ -106,3 +159,14 @@ function build() {
 
 // Run the build function
 build();
+
+// Only in development mode (when watching)
+if (process.argv.includes("--watch")) {
+	mix.webpackConfig({
+		watchOptions: {
+			ignored: /node_modules/,
+			aggregateTimeout: 300,
+			poll: 1000
+		}
+	});
+}

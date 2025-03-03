@@ -1,5 +1,5 @@
 module.exports = {
-	content: ["./src/liquid/sections/**/*.liquid", "./src/liquid/snippets/**/*.liquid", "./src/styles/tailwind-classes.liquid"],
+	content: ["./src/liquid/**/*.liquid", "./src/scripts/**/*.js"],
 	theme: {
 		fontSize: { xs: ["12px", "16px"], sm: ["16px", "20px"], base: ["18px", "24px"], lg: ["20px", "28px"], xl: ["24px", "32px"] },
 		screens: { sm: { max: "640px" }, md: { max: "768px" }, lg: { max: "1024px" }, xl: { max: "1200px" }, mbl: { max: "768px" }, dsk: { min: "768px" } },
@@ -12,5 +12,8 @@ module.exports = {
 	},
 	variants: { textColor: ["odd", "even"] },
 	modules: { display: ["responsive", "empty"] },
-	plugins: [require("tailwindcss-empty")()]
+	plugins: [require("tailwindcss-empty")()],
+	corePlugins: {
+		container: false
+	}
 };
