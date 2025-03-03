@@ -3,11 +3,11 @@
 # and generates a report of truly unused sections (excluding deprecated ones)
 
 # Define paths
-$sourceSectionsPath = "src/liquid/sections"
-$buildSectionsPath = "Curalife-Theme-Build/sections"
-$buildTemplatesPath = "Curalife-Theme-Build/templates"
-$outputReportPath = "unused-sections-report.txt"
-$detailedAnalysisPath = "section-usage-analysis.csv"
+$sourceSectionsPath = "..\src/liquid/sections"
+$buildSectionsPath = "..\Curalife-Theme-Build/sections"
+$buildTemplatesPath = "..\Curalife-Theme-Build/templates"
+$outputReportPath = "..\unused-sections-report.txt"
+$detailedAnalysisPath = "..\section-usage-analysis.csv"
 
 Write-Host "Starting analysis of unused sections..." -ForegroundColor Cyan
 

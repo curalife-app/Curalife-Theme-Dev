@@ -1,12 +1,12 @@
 # Script to back up potentially unused files from the Shopify theme
-$buildFolder = "Curalife-Theme-Build"
-$backupFolder = "Unused-Assets-Backup"
+$buildFolder = "..\Curalife-Theme-Build"
+$backupFolder = "..\backups\Unused-Assets-Backup"
 $logFile = "unused-files-backup-log.txt"
-$reportFile = "unused-files-report.txt"
+$reportFile = "..\unused-files-report.txt"
 
 # Create backup folder if it doesn't exist
 if (-not (Test-Path -Path $backupFolder)) {
-    New-Item -Path $backupFolder -ItemType Directory | Out-Null
+    New-Item -Path $backupFolder -ItemType Directory -Force | Out-Null
     Write-Output "Created backup folder: $backupFolder"
 }
 

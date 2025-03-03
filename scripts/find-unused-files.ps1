@@ -1,6 +1,6 @@
 # Script to find potentially unused files in the Shopify theme build folder
-$buildFolder = "Curalife-Theme-Build"
-$resultsFile = "unused-files-report.txt"
+$buildFolder = "..\Curalife-Theme-Build"
+$resultsFile = "..\unused-files-report.txt"
 
 # Initialize results
 $unusedFiles = @()

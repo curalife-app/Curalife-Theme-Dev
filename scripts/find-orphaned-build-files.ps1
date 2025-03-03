@@ -21,12 +21,12 @@ function Show-Banner {
 Show-Banner
 
 # Set paths for build and src directories
-$buildDir = Join-Path $PSScriptRoot "Curalife-Theme-Build"
-$srcDir = Join-Path $PSScriptRoot "src"
+$buildDir = Join-Path $PSScriptRoot "..\Curalife-Theme-Build"
+$srcDir = Join-Path $PSScriptRoot "..\src"
 
 # Create timestamped backup directory
 $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-$backupDir = Join-Path $PSScriptRoot "Orphaned-Files-Backup_$timestamp"
+$backupDir = Join-Path $PSScriptRoot "..\backups\Orphaned-Files-Backup_$timestamp"
 
 # Output file for results
 $outputFile = Join-Path $PSScriptRoot "orphaned-build-files.txt"

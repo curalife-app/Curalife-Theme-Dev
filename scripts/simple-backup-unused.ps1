@@ -1,11 +1,11 @@
 # Simple script to back up and remove unused files
-$buildFolder = "Curalife-Theme-Build"
-$backupFolder = "Unused-Assets-Backup"
-$reportFile = "unused-files-report.txt"
+$buildFolder = "..\Curalife-Theme-Build"
+$backupFolder = "..\backups\Unused-Assets-Backup"
+$reportFile = "..\unused-files-report.txt"
 
 # Ensure the backup folder exists
 if (-not (Test-Path -Path $backupFolder)) {
-    New-Item -Path $backupFolder -ItemType Directory | Out-Null
+    New-Item -Path $backupFolder -ItemType Directory -Force | Out-Null
     Write-Host "Created backup folder: $backupFolder"
 }
 
