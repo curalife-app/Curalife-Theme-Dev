@@ -19,7 +19,6 @@
 
 import { defineConfig } from "vite";
 import path from "path";
-import { viteStaticCopy } from "vite-plugin-static-copy";
 import postcss from "postcss";
 import postcssImport from "postcss-import";
 import tailwindcss from "tailwindcss";
@@ -28,7 +27,25 @@ import cssnano from "cssnano";
 import fs from "fs";
 import glob from "glob";
 
-console.log("Starting optimized Vite configuration...");
+const isProduction = process.env.NODE_ENV === "production";
+
+// Fancy console banner for the build process - more compact version
+const printWelcomeBanner = () => {
+	const boxWidth = 60;
+	console.log(`
+\x1b[35m┏${"━".repeat(boxWidth)}┓
+┃${" ".repeat(boxWidth)}┃
+┃${" ".repeat(Math.floor((boxWidth - 23) / 2))}\x1b[33m𝘾𝙐𝙍𝘼𝙇𝙄𝙁𝙀 \x1b[32m𝘽𝙐𝙄𝙇𝘿\x1b[35m${" ".repeat(Math.ceil((boxWidth - 23) / 2))}┃
+┃${" ".repeat(boxWidth)}┃
+┗${"━".repeat(boxWidth)}┛
+\x1b[36m
+  🔮 ${isProduction ? "\x1b[32mProduction" : "\x1b[33mDevelopment"} Build
+  📦 Shopify Theme Builder
+  ⏱️  ${new Date().toLocaleTimeString()}
+\x1b[0m`);
+};
+
+printWelcomeBanner();
 
 // Define absolute paths for all directories and files - matching the webpack.mix.js structure
 const paths = {
@@ -55,27 +72,81 @@ const paths = {
 	}
 };
 
-// Logging function to streamline messages (matches the webpack.mix.js implementation)
+// Logging function to streamline messages - modified to show only filenames, not full paths
 const log = (message, type = "info") => {
 	const colors = {
-		info: "\x1b[36m", // Blue
+		info: "\x1b[36m", // Cyan
 		success: "\x1b[32m", // Green
-		error: "\x1b[31m" // Red
+		error: "\x1b[31m", // Red
+		warning: "\x1b[33m", // Yellow
+		header: "\x1b[35m", // Magenta
+		detail: "\x1b[90m", // Gray
+		path: "\x1b[94m" // Light Blue for paths
 	};
-	console.log(`${colors[type]}${message}\x1b[0m`);
+
+	const icons = {
+		info: "ℹ️ ",
+		success: "✅ ",
+		error: "❌ ",
+		warning: "⚠️ ",
+		header: "🚀 ",
+		detail: "  → ",
+		path: "📄 "
+	};
+
+	// Simplify paths for cleaner output
+	let displayMessage = message;
+	if (message.includes("\\")) {
+		// Extract just the filename from paths
+		const parts = message.split("\\");
+		const filename = parts[parts.length - 1];
+		displayMessage = message.replace(
+			/C:\\Users\\yotam\\Desktop\\Curalife Projects\\Curalife-Theme-Dev\\Curalife-Theme-Build\\[^\\]+/g,
+			match => `output: ${colors.path}${filename}\x1b[0m${colors[type]}`
+		);
+	}
+
+	console.log(`${colors[type]}${icons[type]}${displayMessage}\x1b[0m`);
+};
+
+// Print a fancy section divider - more compact version
+const printSectionDivider = title => {
+	const boxWidth = 60;
+	log("", "detail");
+	log(`┏${"━".repeat(boxWidth)}┓`, "header");
+	log(`┃ ${title.padEnd(boxWidth - 2, " ")} ┃`, "header");
+	log(`┗${"━".repeat(boxWidth)}┛`, "header");
+};
+
+// Print build summary with more compact format
+const printBuildSummary = (startTime, totalFiles) => {
+	const boxWidth = 60; // Smaller box for more compact display
+	const endTime = new Date();
+	const buildTimeSeconds = ((endTime - startTime) / 1000).toFixed(2);
+	log("", "detail");
+	log(`┏${"━".repeat(boxWidth)}┓`, "success");
+	log(`┃ ${" BUILD COMPLETED ".padEnd(boxWidth - 2, " ")} ┃`, "success");
+	log(`┃ ${" ".repeat(boxWidth - 2)} ┃`, "success");
+	log(`┃  ⏱️  Time: ${buildTimeSeconds}s ${" ".repeat(boxWidth - 12 - buildTimeSeconds.length)} ┃`, "success");
+	log(`┃  📦 Files: ${totalFiles} ${" ".repeat(boxWidth - 12 - totalFiles.toString().length)} ┃`, "success");
+	log(`┗${"━".repeat(boxWidth)}┛`, "success");
+	log("", "detail");
 };
 
 // Handle post-build minification of Tailwind CSS
-const createMinifiedCss = () => {
+const createMinifiedCss = async () => {
 	try {
 		const outputPath = path.join(paths.build.assets, "tailwind.css");
 		const minPath = path.join(paths.build.assets, "tailwind.min.css");
 
 		if (fs.existsSync(outputPath)) {
+			log("Processing CSS", "info");
+
 			const css = fs.readFileSync(outputPath, "utf8");
+			const startSize = Buffer.byteLength(css, "utf8") / 1024;
 
 			// Use cssnano directly to minify the file
-			postcss([
+			const result = await postcss([
 				cssnano({
 					preset: [
 						"default",
@@ -88,15 +159,22 @@ const createMinifiedCss = () => {
 						}
 					]
 				})
-			])
-				.process(css, { from: outputPath, to: minPath })
-				.then(result => {
-					fs.writeFileSync(minPath, result.css);
-					log("Tailwind CSS minified version created.", "success");
-				});
+			]).process(css, { from: outputPath, to: minPath });
+
+			fs.writeFileSync(minPath, result.css);
+
+			const endSize = Buffer.byteLength(result.css, "utf8") / 1024;
+			const reduction = (((startSize - endSize) / startSize) * 100).toFixed(1);
+
+			log(`CSS: ${startSize.toFixed(1)}KB → ${endSize.toFixed(1)}KB (${reduction}%)`, "success");
+			return true;
+		} else {
+			log("CSS file not found", "warning");
+			return false;
 		}
 	} catch (error) {
-		console.error("Error creating minified version:", error);
+		log(`CSS Error: ${error.message}`, "error");
+		return false;
 	}
 };
 
@@ -116,8 +194,17 @@ const cleanDirectory = directory => {
 	if (fs.existsSync(directory)) {
 		const files = fs.readdirSync(directory);
 
+		// Get directory name for cleaner output
+		const dirName = path.basename(directory);
+
 		files.forEach(file => {
 			const fullPath = path.join(directory, file);
+
+			// Skip files in sections directory that contain "group" in their names
+			if (directory === paths.build.sections && file.toLowerCase().includes("group")) {
+				log(`Preserving: ${file}`, "info");
+				return;
+			}
 
 			if (fs.lstatSync(fullPath).isDirectory()) {
 				// Recursively delete directories
@@ -128,16 +215,55 @@ const cleanDirectory = directory => {
 			}
 		});
 
-		log(`Cleaned directory: ${directory}`, "success");
+		log(`Cleaned: ${dirName}`, "success");
 	}
+};
+
+// File operation progress tracker - enhanced for more compact display
+const createProgressBar = (total, title) => {
+	let current = 0;
+	const barWidth = 30; // Shorter bar width for more compact display
+
+	return {
+		increment: () => {
+			current++;
+			const percent = Math.floor((current / total) * 100);
+			const chars = Math.floor((current / total) * barWidth);
+			const bar = "█".repeat(chars) + "░".repeat(barWidth - chars);
+
+			// Use carriage return for inline updates
+			process.stdout.write(`\r\x1b[36m🔄 ${title}: \x1b[0m${bar} \x1b[32m${percent}%\x1b[0m`);
+
+			if (current === total) {
+				process.stdout.write("\n");
+			}
+		},
+		finish: () => {
+			if (current < total) {
+				current = total;
+				const bar = "█".repeat(barWidth);
+				process.stdout.write(`\r\x1b[36m✓ ${title}: \x1b[0m${bar} \x1b[32m100%\x1b[0m\n`);
+			}
+		},
+		// New summary method that just shows the completed count
+		summary: () => {
+			return `Processed ${total} files`;
+		}
+	};
 };
 
 // Custom plugin for file copying
 const createCopyPlugin = () => {
+	// Store the start time and file counter
+	const buildStartTime = new Date();
+	let totalFilesProcessed = 0;
+
 	return {
 		name: "custom-copy-plugin",
 		buildStart() {
-			log("Starting custom copy plugin", "info");
+			printSectionDivider("STARTING CURALIFE THEME BUILD");
+			log("Initializing build process", "header");
+			log("Cleaning directories to prepare for build", "info");
 
 			// Clean directories to ensure they're completely flat
 			if (fs.existsSync(paths.build.assets)) {
@@ -167,18 +293,40 @@ const createCopyPlugin = () => {
 				}
 			}
 
+			// Initialize file arrays to track processed files
+			let fontFiles = [];
+			let imageFiles = [];
+			let cssFiles = [];
+			let scriptFiles = [];
+			let layoutFiles = [];
+			let sectionFiles = [];
+			let snippetFiles = [];
+			let blockFiles = [];
+
 			// Copy files - fonts (flatten structure)
 			if (fs.existsSync(path.join(__dirname, "src/fonts"))) {
 				try {
-					const fontFiles = findFiles(path.join(__dirname, "src/fonts"), "**/*.{woff,woff2,eot,ttf,otf}");
-					for (const file of fontFiles) {
-						// Flatten the path - just use the filename
-						const flatFile = flattenPath(file);
-						const destPath = path.join(paths.build.assets, flatFile);
+					fontFiles = findFiles(path.join(__dirname, "src/fonts"), "**/*.{woff,woff2,eot,ttf,otf}");
 
-						fs.copyFileSync(file, destPath);
+					if (fontFiles.length > 0) {
+						log(`Processing ${fontFiles.length} font files`, "info");
+						const progressBar = createProgressBar(fontFiles.length, "Fonts");
+
+						for (const file of fontFiles) {
+							// Flatten the path - just use the filename
+							const flatFile = flattenPath(file);
+							const destPath = path.join(paths.build.assets, flatFile);
+
+							fs.copyFileSync(file, destPath);
+							progressBar.increment();
+						}
+						progressBar.finish();
 					}
-					log("Copied font files (flattened)", "success");
+
+					// Simplify success message to be more concise
+					if (fontFiles.length > 0) {
+						log(`Fonts: ${fontFiles.length} files`, "success");
+					}
 				} catch (e) {
 					log(`Error copying fonts: ${e.message}`, "error");
 				}
@@ -187,15 +335,26 @@ const createCopyPlugin = () => {
 			// Copy files - images (flatten structure)
 			if (fs.existsSync(path.join(__dirname, "src/images"))) {
 				try {
-					const imageFiles = findFiles(path.join(__dirname, "src/images"), "**/*.{png,jpg,jpeg,gif,svg}");
-					for (const file of imageFiles) {
-						// Flatten the path - just use the filename
-						const flatFile = flattenPath(file);
-						const destPath = path.join(paths.build.assets, flatFile);
+					imageFiles = findFiles(path.join(__dirname, "src/images"), "**/*.{png,jpg,jpeg,gif,svg}");
 
-						fs.copyFileSync(file, destPath);
+					if (imageFiles.length > 0) {
+						log(`Processing ${imageFiles.length} image files`, "info");
+						const progressBar = createProgressBar(imageFiles.length, "Images");
+
+						for (const file of imageFiles) {
+							// Flatten the path - just use the filename
+							const flatFile = flattenPath(file);
+							const destPath = path.join(paths.build.assets, flatFile);
+
+							fs.copyFileSync(file, destPath);
+							progressBar.increment();
+						}
+						progressBar.finish();
 					}
-					log("Copied image files (flattened)", "success");
+
+					if (imageFiles.length > 0) {
+						log(`Images: ${imageFiles.length} files`, "success");
+					}
 				} catch (e) {
 					log(`Error copying images: ${e.message}`, "error");
 				}
@@ -204,53 +363,86 @@ const createCopyPlugin = () => {
 			// Copy files - CSS (flatten structure)
 			if (fs.existsSync(path.join(__dirname, "src/styles/css"))) {
 				try {
-					const cssFiles = findFiles(path.join(__dirname, "src/styles/css"), "**/*");
-					for (const file of cssFiles) {
-						if (fs.statSync(file).isFile()) {
-							// Flatten the path - just use the filename
-							const flatFile = flattenPath(file);
-							const destPath = path.join(paths.build.assets, flatFile);
+					cssFiles = findFiles(path.join(__dirname, "src/styles/css"), "**/*");
 
-							fs.copyFileSync(file, destPath);
+					if (cssFiles.length > 0) {
+						log(`Processing ${cssFiles.length} CSS files`, "info");
+						const progressBar = createProgressBar(cssFiles.length, "CSS");
+
+						for (const file of cssFiles) {
+							if (fs.statSync(file).isFile()) {
+								// Flatten the path - just use the filename
+								const flatFile = flattenPath(file);
+								const destPath = path.join(paths.build.assets, flatFile);
+
+								fs.copyFileSync(file, destPath);
+								progressBar.increment();
+							}
 						}
+						progressBar.finish();
 					}
-					log("Copied CSS files (flattened)", "success");
+
+					if (cssFiles.length > 0) {
+						log(`CSS: ${cssFiles.length} files`, "success");
+					}
 				} catch (e) {
 					log(`Error copying CSS: ${e.message}`, "error");
 				}
 			}
 
-			// Copy files - scripts (flatten structure)
+			// Copy files - JS Scripts (flatten structure)
 			if (fs.existsSync(path.join(__dirname, "src/scripts"))) {
 				try {
-					const scriptFiles = findFiles(path.join(__dirname, "src/scripts"), "**/*.js");
-					for (const file of scriptFiles) {
-						// Flatten the path - just use the filename
-						const flatFile = flattenPath(file);
-						const destPath = path.join(paths.build.assets, flatFile);
+					scriptFiles = findFiles(path.join(__dirname, "src/scripts"), "**/*.js");
 
-						fs.copyFileSync(file, destPath);
+					if (scriptFiles.length > 0) {
+						log(`Processing ${scriptFiles.length} script files`, "info");
+						const progressBar = createProgressBar(scriptFiles.length, "Scripts");
+
+						for (const file of scriptFiles) {
+							// Flatten the path - just use the filename
+							const flatFile = flattenPath(file);
+							const destPath = path.join(paths.build.assets, flatFile);
+
+							fs.copyFileSync(file, destPath);
+							progressBar.increment();
+						}
+						progressBar.finish();
 					}
-					log("Copied script files (flattened)", "success");
+
+					if (scriptFiles.length > 0) {
+						log(`Scripts: ${scriptFiles.length} files`, "success");
+					}
 				} catch (e) {
 					log(`Error copying scripts: ${e.message}`, "error");
 				}
 			}
 
-			// Copy files - liquid layout (FLATTEN structure for layout files)
+			// Copy files - liquid layout (flatten structure)
 			if (fs.existsSync(path.join(__dirname, "src/liquid/layout"))) {
 				try {
-					const layoutFiles = findFiles(path.join(__dirname, "src/liquid/layout"), "**/*");
-					for (const file of layoutFiles) {
-						if (fs.statSync(file).isFile()) {
-							// Flatten the path - just use the filename
-							const flatFile = flattenPath(file);
-							const destPath = path.join(paths.build.layout, flatFile);
+					layoutFiles = findFiles(path.join(__dirname, "src/liquid/layout"), "**/*");
 
-							fs.copyFileSync(file, destPath);
+					if (layoutFiles.length > 0) {
+						log(`Processing ${layoutFiles.length} layout files`, "info");
+						const progressBar = createProgressBar(layoutFiles.length, "Layout");
+
+						for (const file of layoutFiles) {
+							if (fs.statSync(file).isFile()) {
+								// For layout files, we keep the base name
+								const flatFile = flattenPath(file);
+								const destPath = path.join(paths.build.layout, flatFile);
+
+								fs.copyFileSync(file, destPath);
+								progressBar.increment();
+							}
 						}
+						progressBar.finish();
 					}
-					log("Copied layout files (flattened)", "success");
+
+					if (layoutFiles.length > 0) {
+						log(`Layout: ${layoutFiles.length} files`, "success");
+					}
 				} catch (e) {
 					log(`Error copying layout: ${e.message}`, "error");
 				}
@@ -259,15 +451,26 @@ const createCopyPlugin = () => {
 			// Copy files - liquid sections (FLATTEN structure for sections files)
 			if (fs.existsSync(path.join(__dirname, "src/liquid/sections"))) {
 				try {
-					const sectionFiles = findFiles(path.join(__dirname, "src/liquid/sections"), "**/*.liquid");
-					for (const file of sectionFiles) {
-						// Flatten the path - just use the filename
-						const flatFile = flattenPath(file);
-						const destPath = path.join(paths.build.sections, flatFile);
+					sectionFiles = findFiles(path.join(__dirname, "src/liquid/sections"), "**/*.liquid");
 
-						fs.copyFileSync(file, destPath);
+					if (sectionFiles.length > 0) {
+						log(`Processing ${sectionFiles.length} section files`, "info");
+						const progressBar = createProgressBar(sectionFiles.length, "Sections");
+
+						for (const file of sectionFiles) {
+							// Flatten the path - just use the filename
+							const flatFile = flattenPath(file);
+							const destPath = path.join(paths.build.sections, flatFile);
+
+							fs.copyFileSync(file, destPath);
+							progressBar.increment();
+						}
+						progressBar.finish();
 					}
-					log("Copied section files (flattened)", "success");
+
+					if (sectionFiles.length > 0) {
+						log(`Sections: ${sectionFiles.length} files`, "success");
+					}
 				} catch (e) {
 					log(`Error copying sections: ${e.message}`, "error");
 				}
@@ -276,15 +479,26 @@ const createCopyPlugin = () => {
 			// Copy files - liquid snippets (FLATTEN structure for snippets files)
 			if (fs.existsSync(path.join(__dirname, "src/liquid/snippets"))) {
 				try {
-					const snippetFiles = findFiles(path.join(__dirname, "src/liquid/snippets"), "**/*.liquid");
-					for (const file of snippetFiles) {
-						// Flatten the path - just use the filename
-						const flatFile = flattenPath(file);
-						const destPath = path.join(paths.build.snippets, flatFile);
+					snippetFiles = findFiles(path.join(__dirname, "src/liquid/snippets"), "**/*.liquid");
 
-						fs.copyFileSync(file, destPath);
+					if (snippetFiles.length > 0) {
+						log(`Processing ${snippetFiles.length} snippet files`, "info");
+						const progressBar = createProgressBar(snippetFiles.length, "Snippets");
+
+						for (const file of snippetFiles) {
+							// Flatten the path - just use the filename
+							const flatFile = flattenPath(file);
+							const destPath = path.join(paths.build.snippets, flatFile);
+
+							fs.copyFileSync(file, destPath);
+							progressBar.increment();
+						}
+						progressBar.finish();
 					}
-					log("Copied snippet files (flattened)", "success");
+
+					if (snippetFiles.length > 0) {
+						log(`Snippets: ${snippetFiles.length} files`, "success");
+					}
 				} catch (e) {
 					log(`Error copying snippets: ${e.message}`, "error");
 				}
@@ -293,15 +507,28 @@ const createCopyPlugin = () => {
 			// Copy files - liquid blocks (FLATTEN structure for blocks files)
 			if (fs.existsSync(path.join(__dirname, "src/liquid/blocks"))) {
 				try {
-					const blockFiles = findFiles(path.join(__dirname, "src/liquid/blocks"), "**/*.liquid");
-					for (const file of blockFiles) {
-						// Flatten the path - just use the filename
-						const flatFile = flattenPath(file);
-						const destPath = path.join(paths.build.blocks, flatFile);
+					blockFiles = findFiles(path.join(__dirname, "src/liquid/blocks"), "**/*.liquid");
 
-						fs.copyFileSync(file, destPath);
+					if (blockFiles.length > 0) {
+						log(`Processing ${blockFiles.length} block files`, "info");
+						const progressBar = createProgressBar(blockFiles.length, "Blocks");
+
+						for (const file of blockFiles) {
+							// Flatten the path - just use the filename
+							const flatFile = flattenPath(file);
+							const destPath = path.join(paths.build.blocks, flatFile);
+
+							fs.copyFileSync(file, destPath);
+							progressBar.increment();
+						}
+						progressBar.finish();
 					}
-					log("Copied block files (flattened)", "success");
+
+					if (blockFiles.length > 0) {
+						log(`Blocks: ${blockFiles.length} files`, "success");
+					} else {
+						log("No blocks found", "info");
+					}
 				} catch (e) {
 					log(`Error copying blocks: ${e.message}`, "error");
 				}
@@ -309,9 +536,40 @@ const createCopyPlugin = () => {
 				log("No blocks directory found, skipping", "info");
 			}
 
-			log("All files copied successfully", "success");
+			// Update with processed files count
+			totalFilesProcessed +=
+				fontFiles.length + imageFiles.length + cssFiles.length + scriptFiles.length + layoutFiles.length + sectionFiles.length + snippetFiles.length + (blockFiles ? blockFiles.length : 0);
+
+			log("Build completed successfully!", "success");
+
+			// Process Tailwind CSS separately
+			await createMinifiedCss();
+
+			// Final build completion message
+			printBuildSummary(buildStartTime, totalFilesProcessed);
+
+			// Add a final success message at the very end
+			const currentTime = new Date().toLocaleTimeString();
+			log(`✓ Ready at ${currentTime}`, "header");
 		}
 	};
+};
+
+const copyFiles = (sourceDir, pattern, destDir) => {
+	if (!fs.existsSync(sourceDir)) return;
+
+	try {
+		const files = findFiles(sourceDir, pattern);
+		for (const file of files) {
+			if (!fs.statSync(file).isFile()) continue;
+			const flatFile = flattenPath(file);
+			const destPath = path.join(destDir, flatFile);
+			fs.copyFileSync(file, destPath);
+		}
+		log(`Copied files from ${sourceDir} (flattened)`, "success");
+	} catch (e) {
+		log(`Error copying from ${sourceDir}: ${e.message}`, "error");
+	}
 };
 
 // Main Vite configuration
@@ -332,8 +590,11 @@ export default defineConfig(({ command, mode }) => {
 		build: {
 			outDir: paths.build_folder,
 			emptyOutDir: false, // Don't empty the output directory
-			minify: isProduction,
-			sourcemap: !isProduction,
+			minify: isProduction ? "terser" : false,
+			sourcemap: false,
+			target: ["es2015", "edge88", "firefox78", "chrome87", "safari13"],
+			reportCompressedSize: isProduction,
+			chunkSizeWarningLimit: 500,
 			rollupOptions: {
 				input: {
 					tailwind: paths.assets.tailwind
@@ -341,7 +602,10 @@ export default defineConfig(({ command, mode }) => {
 				output: {
 					entryFileNames: "assets/[name].js",
 					chunkFileNames: "assets/[name]-[hash].js",
-					assetFileNames: "assets/[name].[ext]"
+					assetFileNames: "assets/[name].[ext]",
+					manualChunks: id => {
+						if (id.includes("node_modules")) return "vendor";
+					}
 				}
 			}
 		},
@@ -353,23 +617,20 @@ export default defineConfig(({ command, mode }) => {
 					postcssImport(),
 					tailwindcss("./tailwind.config.js"),
 					autoprefixer(),
-					...(isProduction
-						? [
-								cssnano({
-									preset: [
-										"default",
-										{
-											discardComments: { removeAll: true },
-											reduceIdents: false,
-											reduceInitial: false,
-											zindex: false,
-											mergeIdents: false
-										}
-									]
-								})
+					isProduction &&
+						cssnano({
+							preset: [
+								"default",
+								{
+									discardComments: { removeAll: true },
+									reduceIdents: false,
+									reduceInitial: false,
+									zindex: false,
+									mergeIdents: false
+								}
 							]
-						: [])
-				]
+						})
+				].filter(Boolean)
 			},
 			devSourcemap: !isProduction
 		},
@@ -377,14 +638,6 @@ export default defineConfig(({ command, mode }) => {
 		// Use our custom file copying plugin instead of vite-plugin-static-copy
 		plugins: [
 			createCopyPlugin(),
-			// Custom plugin to handle post-build operations (like tailwind minification)
-			{
-				name: "post-build",
-				closeBundle() {
-					createMinifiedCss();
-					log("Optimized build process complete.", "success");
-				}
-			},
 			// Custom plugin for file watching
 			{
 				name: "watch-plugin",
@@ -478,8 +731,11 @@ export default defineConfig(({ command, mode }) => {
 				ignored: ["node_modules/**", "Curalife-Theme-Build/**"]
 			},
 			hmr: {
-				overlay: true
-			}
+				overlay: true,
+				timeout: 3000
+			},
+			open: true,
+			cors: true
 		}
 	};
 });
