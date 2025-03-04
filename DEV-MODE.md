@@ -11,12 +11,22 @@ Development mode provides visual indicators and debugging tools that are only vi
 The theme can detect development mode in these situations:
 
 1. **Local Development**: When accessing the theme via `localhost` or `127.0.0.1`
-2. **Shopify Preview**: When using `.shopifypreview.com` URLs or URLs containing `preview_theme_id=`
+2. **Shopify CLI Preview**: When using `.shopifypreview.com` URLs from the `shopify theme dev` command
 3. **URL Parameter**: By adding `?dev_mode=1` to any URL (sets a browser cookie)
 4. **Development Stores**: URLs containing `dev-`, `-dev.`, or `-development.`
 5. **Theme Settings**: By enabling "Force Development Mode" in theme settings
 6. **Browser Cookie**: Once set with `?dev_mode=1`, development mode persists for 1 hour
-7. **Hot Reload Script**: When using the `npm run shopify` command, which automatically adds the `dev_mode=1` parameter
+
+## Using with Shopify Hot Reload
+
+When you run `npm run shopify`, the development mode is automatically activated through:
+
+1. The Shopify CLI generates a preview URL with `.shopifypreview.com` domain
+2. The development-mode.liquid snippet detects this domain and enables development mode
+3. A cookie is set to maintain development mode during your session
+4. Internal links are processed to maintain development mode as you navigate
+
+No manual steps are required - it works automatically with the hot reload script!
 
 ## Automatic Link Processing
 

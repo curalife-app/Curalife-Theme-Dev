@@ -19,20 +19,24 @@
 {% endcomment %}
 {% if request.host contains '127.0.0.1' or request.host contains 'localhost' %}
   {% assign isDevelopment = true %}
+  {% assign devModeSource = 'local' %}
 {% endif %}
 
 {% comment %}
   Option 2: Shopify preview URLs from the theme dev command
+  This detects Shopify CLI theme dev preview environments
 {% endcomment %}
 {% if request.host contains '.shopifypreview.com' or request.path contains 'preview_theme_id=' %}
   {% assign isDevelopment = true %}
+  {% assign devModeSource = 'shopify-preview' %}
 {% endif %}
 
 {% comment %}
-  Option 3: Check URL for dev_mode parameter (from Shopify CLI hot reload script)
+  Option 3: Check URL for dev_mode parameter
 {% endcomment %}
 {% if request.query_string contains 'dev_mode=1' %}
   {% assign isDevelopment = true %}
+  {% assign devModeSource = 'param' %}
 {% endif %}
 
 {% comment %}
@@ -41,6 +45,7 @@
 {% endcomment %}
 {% if request.host contains 'dev-' or request.host contains '-dev.' or request.host contains '-development.' %}
   {% assign isDevelopment = true %}
+  {% assign devModeSource = 'dev-store' %}
 {% endif %}
 
 {% comment %}
@@ -48,6 +53,7 @@
 {% endcomment %}
 {% if settings.force_development_mode %}
   {% assign isDevelopment = true %}
+  {% assign devModeSource = 'settings' %}
 {% endif %}
 
 {% comment %}
@@ -65,6 +71,9 @@
 
     // Check if dev_mode parameter is present
     var fromHotReload = false;
+    var isShopifyPreview = window.location.hostname.includes('.shopifypreview.com') ||
+                           window.location.search.includes('preview_theme_id=');
+
     if (getUrlParameter('dev_mode') === '1') {
       window.isDevelopmentMode = true;
       fromHotReload = document.referrer.indexOf('theme dev') !== -1;
@@ -76,13 +85,20 @@
       window.isDevelopmentMode = true;
     } else {
       window.isDevelopmentMode = {% if isDevelopment %}true{% else %}false{% endif %};
+      // Auto-enable dev mode cookie for Shopify preview environments
+      if (isShopifyPreview && window.isDevelopmentMode) {
+        document.cookie = "dev_mode=1; path=/; max-age=3600"; // Expires in 1 hour
+        console.log('[Dev Mode] Automatically enabled for Shopify preview');
+      }
     }
 
     // Log more detailed development mode information
     if (window.isDevelopmentMode) {
       console.log('%c[Dev Mode]%c Active', 'background:#2196F3; color:white; padding:2px 6px; border-radius:3px;', 'color:#2196F3; font-weight:bold;');
-      if (fromHotReload) {
-        console.log('%c[Dev Mode]%c Enabled via Shopify hot reload script', 'background:#2196F3; color:white; padding:2px 6px; border-radius:3px;', 'color:#2196F3;');
+      if (isShopifyPreview) {
+        console.log('%c[Dev Mode]%c Enabled via Shopify CLI preview', 'background:#2196F3; color:white; padding:2px 6px; border-radius:3px;', 'color:#2196F3;');
+      } else if (fromHotReload) {
+        console.log('%c[Dev Mode]%c Enabled via hot reload script', 'background:#2196F3; color:white; padding:2px 6px; border-radius:3px;', 'color:#2196F3;');
       }
     }
 
@@ -167,7 +183,6 @@
       });
     }
 
-    // Add dev_mode parameter to all links if in development mode
     appendDevModeToLinks();
 
     // Create dev indicator if needed
@@ -178,27 +193,29 @@
           var themeName = "{{ shop.name | escape }}";
           var themeID = "{{ theme.id }}";
           var templateName = "{{ template.name | default: 'unknown' }}";
-          var templateType = "{{ template.type | default: 'unknown' }}";
+          var templateType = "{{ template.suffix | default: 'unknown' }}";
           var pageHandle = "{{ page.handle | default: product.handle | default: collection.handle | default: 'unknown' }}";
           var currentDate = new Date().toLocaleString();
 
           // Determine source of development mode
           var devSource = "Unknown";
-          if (getUrlParameter('dev_mode') === '1') {
+          if (isShopifyPreview) {
+            devSource = "Shopify Preview";
+          } else if (getUrlParameter('dev_mode') === '1') {
             devSource = "URL Parameter";
             if (fromHotReload) {
-              devSource = "Shopify Hot Reload";
+              devSource = "Hot Reload";
             }
           } else if (document.cookie.indexOf('dev_mode=1') !== -1) {
             devSource = "Cookie";
           } else if (window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1')) {
             devSource = "Local Dev";
-          } else if (window.location.hostname.includes('.shopifypreview.com')) {
-            devSource = "Shopify Preview";
           } else if (window.location.hostname.includes('dev-') || window.location.hostname.includes('-dev.')) {
             devSource = "Dev Store";
           } else if ({% if settings.force_development_mode %}true{% else %}false{% endif %}) {
             devSource = "Theme Settings";
+          } else {
+            devSource = "{% if devModeSource %}{{ devModeSource }}{% else %}Unknown{% endif %}";
           }
 
           // Create element and set styles
@@ -397,7 +414,7 @@
         debugPanel.style.boxShadow = '0 0 10px rgba(0,0,0,0.2)';
 
         // Check if this might be a hot reload session
-        var fromHotReload = document.referrer.indexOf('theme dev') !== -1;
+        var shopifyPreviewIndicator = isShopifyPreview ? 'Yes' : 'No';
         var hotReloadIndicator = fromHotReload ? 'Yes' : 'No';
 
         debugPanel.innerHTML = `
@@ -411,7 +428,9 @@
             <li>Dev Mode Param: ${getUrlParameter('dev_mode')}</li>
             <li>Dev Cookie: ${document.cookie.indexOf('dev_mode=1') !== -1}</li>
             <li>Links Modified: Yes</li>
+            <li>Shopify Preview: ${shopifyPreviewIndicator}</li>
             <li>Hot Reload: ${hotReloadIndicator}</li>
+            <li>Source: ${devSource}</li>
           </ul>
           <button onclick="this.parentNode.style.display='none';"
                   style="background: #f44336; color: white; border: none; padding: 5px 10px; cursor: pointer;">
