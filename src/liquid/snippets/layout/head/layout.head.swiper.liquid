@@ -1,8 +1,78 @@
 <script>
   window.isSwiperLoaded = window.isSwiperLoaded || false;
   window.isSwiperLoading = window.isSwiperLoading || false;
+  window.swiperInstances = window.swiperInstances || new Map();
+  window.pendingSwiperInitializations = window.pendingSwiperInitializations || [];
+
+  // Observer for lazy loading swiper only when elements are visible
+  window.swiperObserver = window.swiperObserver || new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const swiperContainer = entry.target;
+        // Mark this container as having been observed so we don't re-observe it
+        swiperContainer.dataset.swiperObserved = 'true';
+        // Stop observing once we've seen it
+        window.swiperObserver.unobserve(swiperContainer);
+        // Load swiper if it's not already loaded
+        if (!window.isSwiperLoaded && !window.isSwiperLoading) {
+          loadSwiper();
+        }
+      }
+    });
+  }, {
+    root: null,
+    rootMargin: '200px', // Load when within 200px of viewport
+    threshold: 0.01
+  });
+
+  // Function to start observing all swiper containers
+  function observeSwiperContainers() {
+    const swiperContainers = document.querySelectorAll('.swiper:not([data-swiper-observed="true"])');
+    swiperContainers.forEach(container => {
+      if (!container.dataset.swiperObserved) {
+        window.swiperObserver.observe(container);
+      }
+    });
+  }
+
+  // Set up intersection observer on DOMContentLoaded
+  document.addEventListener('DOMContentLoaded', () => {
+    observeSwiperContainers();
+
+    // Also set up a mutation observer to catch dynamically added swiper elements
+    const swiperMutationObserver = new MutationObserver((mutations) => {
+      let shouldCheckForNewSwipers = false;
+
+      mutations.forEach(mutation => {
+        if (mutation.type === 'childList' && mutation.addedNodes.length) {
+          mutation.addedNodes.forEach(node => {
+            if (node.nodeType === Node.ELEMENT_NODE) {
+              if (node.classList && node.classList.contains('swiper')) {
+                shouldCheckForNewSwipers = true;
+              } else if (node.querySelectorAll) {
+                const swipers = node.querySelectorAll('.swiper');
+                if (swipers.length > 0) {
+                  shouldCheckForNewSwipers = true;
+                }
+              }
+            }
+          });
+        }
+      });
+
+      if (shouldCheckForNewSwipers) {
+        observeSwiperContainers();
+      }
+    });
+
+    swiperMutationObserver.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+  });
 
   function loadSwiper(initializeCallback) {
+    // If swiper is already loaded, just run the callback
     if (window.isSwiperLoaded) {
       if (typeof initializeCallback === "function") {
         initializeCallback();
@@ -10,51 +80,293 @@
       return;
     }
 
+    // If swiper is currently loading, queue the callback
     if (window.isSwiperLoading) {
-      var checkSwiperInterval = setInterval(function() {
-        if (window.isSwiperLoaded) {
-          clearInterval(checkSwiperInterval);
-          if (typeof initializeCallback === "function") {
-            initializeCallback();
-          }
-        }
-      }, 50);
+      if (typeof initializeCallback === "function") {
+        window.pendingSwiperInitializations.push(initializeCallback);
+      }
       return;
     }
 
     window.isSwiperLoading = true;
 
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = "https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css";
-    document.head.appendChild(link);
+    // Add loading state to all swiper containers
+    const swiperContainers = document.querySelectorAll('.swiper');
+    swiperContainers.forEach(container => {
+      if (!container.querySelector('.swiper-loader')) {
+        // Create loader element
+        const loader = document.createElement('div');
+        loader.className = 'swiper-loader';
 
-    const script = document.createElement("script");
-    script.src = "https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js";
-    script.onload = () => {
+        // Add the loading animation inside
+        loader.innerHTML = `
+          <div class="swiper-loader-spinner">
+            <div class="swiper-loader-bounce1"></div>
+            <div class="swiper-loader-bounce2"></div>
+            <div class="swiper-loader-bounce3"></div>
+          </div>
+        `;
+
+        // Add loader to container
+        container.appendChild(loader);
+
+        // Add loading class to container
+        container.classList.add('swiper-loading');
+      }
+    });
+
+    // Store the callback for later execution
+    if (typeof initializeCallback === "function") {
+      window.pendingSwiperInitializations.push(initializeCallback);
+    }
+
+    // Create a promise for script loading to better handle failures
+    const loadScriptsPromise = new Promise((resolve, reject) => {
+      // Load CSS first
+      const link = document.createElement("link");
+      link.rel = "stylesheet";
+      link.href = "https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css";
+
+      document.head.appendChild(link);
+
+      // Then load JS
+      const script = document.createElement("script");
+      script.src = "https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js";
+
+      // Set loading timeout (15 seconds)
+      const timeout = setTimeout(() => {
+        reject(new Error("Swiper script loading timed out"));
+      }, 15000);
+
+      script.onload = () => {
+        clearTimeout(timeout);
+        resolve();
+      };
+
+      script.onerror = () => {
+        clearTimeout(timeout);
+        reject(new Error("Failed to load Swiper script"));
+      };
+
+      document.body.appendChild(script);
+    });
+
+    // Handle the promise results
+    loadScriptsPromise.then(() => {
+      // Scripts loaded successfully
       window.isSwiperLoaded = true;
       window.isSwiperLoading = false;
-      if (typeof initializeCallback === "function") {
-        initializeCallback();
+
+      // Remove loading state from all swiper containers
+      const swiperContainers = document.querySelectorAll('.swiper');
+      swiperContainers.forEach(container => {
+        const loader = container.querySelector('.swiper-loader');
+        if (loader) {
+          loader.remove();
+        }
+        container.classList.remove('swiper-loading');
+      });
+
+      // Execute all pending callbacks
+      while (window.pendingSwiperInitializations.length > 0) {
+        const callback = window.pendingSwiperInitializations.shift();
+        try {
+          callback();
+        } catch (error) {
+          console.error("Error during swiper initialization:", error);
+        }
       }
-    };
-    script.onerror = () => {
+    }).catch(error => {
+      // Handle loading errors
+      console.error("Swiper loading error:", error);
       window.isSwiperLoading = false;
-    };
-    document.body.appendChild(script);
+
+      // Remove loading class but show error state
+      const swiperContainers = document.querySelectorAll('.swiper');
+      swiperContainers.forEach(container => {
+        container.classList.remove('swiper-loading');
+        container.classList.add('swiper-error');
+
+        // Change loader to error message
+        const loader = container.querySelector('.swiper-loader');
+        if (loader) {
+          loader.innerHTML = '<div class="swiper-loader-error">Failed to load slider</div>';
+        }
+      });
+
+      // Clear pending initializations
+      window.pendingSwiperInitializations = [];
+    });
   }
 
   function initializeSwiper(swiperElementSelector, swiperOptions) {
     if (typeof Swiper !== 'undefined') {
       const swiperElement = document.querySelector(swiperElementSelector);
       if (swiperElement) {
-        const swiperInstance = new Swiper(swiperElementSelector, swiperOptions);
-        return swiperInstance;
+        // Destroy previous instance if exists to prevent memory leaks
+        if (window.swiperInstances.has(swiperElementSelector)) {
+          const oldInstance = window.swiperInstances.get(swiperElementSelector);
+          if (oldInstance && typeof oldInstance.destroy === 'function') {
+            oldInstance.destroy(true, true); // true, true = deleteInstance, cleanStyles
+          }
+          window.swiperInstances.delete(swiperElementSelector);
+        }
+
+        // Create and store new instance
+        try {
+          const swiperInstance = new Swiper(swiperElementSelector, swiperOptions);
+          window.swiperInstances.set(swiperElementSelector, swiperInstance);
+
+          // Add data attribute for tracking
+          swiperElement.dataset.swiperInitialized = 'true';
+
+          // Automatically destroy on page unload to prevent memory leaks
+          if (!window.swiperCleanupRegistered) {
+            window.addEventListener('beforeunload', () => {
+              window.swiperInstances.forEach((instance, selector) => {
+                if (instance && typeof instance.destroy === 'function') {
+                  instance.destroy(true, true);
+                }
+              });
+              window.swiperInstances.clear();
+            });
+            window.swiperCleanupRegistered = true;
+          }
+
+          return swiperInstance;
+        } catch (error) {
+          console.error(`Error initializing swiper at ${swiperElementSelector}:`, error);
+          return null;
+        }
       } else {
+        console.warn(`Swiper element not found: ${swiperElementSelector}`);
         return null;
       }
     } else {
+      console.warn("Swiper is not loaded yet");
       return null;
     }
   }
+
+  // Helper to destroy a specific swiper instance
+  function destroySwiper(swiperElementSelector) {
+    if (window.swiperInstances.has(swiperElementSelector)) {
+      const instance = window.swiperInstances.get(swiperElementSelector);
+      if (instance && typeof instance.destroy === 'function') {
+        instance.destroy(true, true);
+      }
+      window.swiperInstances.delete(swiperElementSelector);
+
+      const swiperElement = document.querySelector(swiperElementSelector);
+      if (swiperElement) {
+        swiperElement.dataset.swiperInitialized = 'false';
+      }
+
+      return true;
+    }
+    return false;
+  }
+
+  // Helper to check if an element is in viewport
+  function isInViewport(element) {
+    const rect = element.getBoundingClientRect();
+    return (
+      rect.top <= (window.innerHeight || document.documentElement.clientHeight) + 200 &&
+      rect.bottom >= -200 &&
+      rect.left <= (window.innerWidth || document.documentElement.clientWidth) + 200 &&
+      rect.right >= -200
+    );
+  }
+
+  // Preload swiper if we have any swiper elements visible in the viewport on page load
+  (() => {
+    // Wait a tiny bit for the DOM to settle
+    setTimeout(() => {
+      const swiperContainers = document.querySelectorAll('.swiper');
+      let shouldPreload = false;
+
+      for (let i = 0; i < swiperContainers.length; i++) {
+        if (isInViewport(swiperContainers[i])) {
+          shouldPreload = true;
+          break;
+        }
+      }
+
+      if (shouldPreload && !window.isSwiperLoaded && !window.isSwiperLoading) {
+        loadSwiper();
+      }
+    }, 50);
+  })();
 </script>
+
+<style>
+  /* Swiper Loader Styles */
+  .swiper.swiper-loading {
+    position: relative;
+    min-height: 200px;
+  }
+
+  .swiper.swiper-loading .swiper-wrapper {
+    visibility: hidden;
+  }
+
+  .swiper-loader {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.6);
+    z-index: 100;
+  }
+
+  .swiper-loader-spinner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .swiper-loader-bounce1,
+  .swiper-loader-bounce2,
+  .swiper-loader-bounce3 {
+    width: 8px;
+    height: 8px;
+    background-color: #bbb;
+    border-radius: 100%;
+    display: inline-block;
+    margin: 0 4px;
+    animation: swiper-loader-bouncedelay 1.2s infinite ease-in-out both;
+    opacity: 0.8;
+  }
+
+  .swiper-loader-bounce1 {
+    animation-delay: -0.32s;
+  }
+
+  .swiper-loader-bounce2 {
+    animation-delay: -0.16s;
+  }
+
+  @keyframes swiper-loader-bouncedelay {
+    0%, 80%, 100% {
+      transform: scale(0.6);
+    }
+    40% {
+      transform: scale(1.0);
+    }
+  }
+
+  .swiper-loader-error {
+    color: #e74c3c;
+    font-size: 14px;
+    text-align: center;
+    padding: 10px;
+  }
+
+  .swiper.swiper-error .swiper-wrapper {
+    opacity: 0.5;
+  }
+</style>
