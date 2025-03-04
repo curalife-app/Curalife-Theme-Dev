@@ -159,14 +159,15 @@ const runBuild = () => {
 
 // Start Shopify theme dev
 const startShopifyThemeDev = () => {
-	log("Starting Shopify theme preview...", colors.magenta);
+	log("Starting Shopify theme preview with development mode...", colors.magenta);
 
 	// Convert to a path that works in Windows command line
 	const buildDirPath = BUILD_DIR.replace(/\\/g, "/");
 	log(`Build directory: ${buildDirPath}`, colors.cyan);
 
 	// Try Shopify CLI theme dev command with quotes for paths containing spaces
-	const themeDev = spawn("shopify", ["theme", "dev", "--path", `"${buildDirPath}"`], {
+	// Add --query parameter with dev_mode=1 to enable development mode
+	const themeDev = spawn("shopify", ["theme", "dev", "--path", `"${buildDirPath}"`, "--query", "dev_mode=1"], {
 		shell: true,
 		stdio: "inherit"
 	});
