@@ -110,6 +110,125 @@ const ensureDirectories = () => {
 	});
 };
 
+// Initial copy of all files to the build directory
+const initialCopyAllFiles = async () => {
+	log("Performing initial copy of all files to build directory", "info");
+
+	// Copy fonts
+	if (fs.existsSync(paths.source.fonts)) {
+		const fontFiles = fs.readdirSync(paths.source.fonts, { recursive: true });
+		fontFiles.forEach(file => {
+			const sourcePath = path.join(paths.source.fonts, file);
+			if (fs.statSync(sourcePath).isFile()) {
+				const destPath = path.join(paths.build.assets, path.basename(file));
+				fs.copyFileSync(sourcePath, destPath);
+				stats.filesCopied++;
+			}
+		});
+		log(`Copied ${fontFiles.length} font files`, "success");
+	}
+
+	// Copy images
+	if (fs.existsSync(paths.source.images)) {
+		const imageFiles = fs.readdirSync(paths.source.images, { recursive: true });
+		imageFiles.forEach(file => {
+			const sourcePath = path.join(paths.source.images, file);
+			if (fs.statSync(sourcePath).isFile()) {
+				const destPath = path.join(paths.build.assets, path.basename(file));
+				fs.copyFileSync(sourcePath, destPath);
+				stats.filesCopied++;
+			}
+		});
+		log(`Copied ${imageFiles.length} image files`, "success");
+	}
+
+	// Copy CSS
+	if (fs.existsSync(paths.source.styles)) {
+		const cssFiles = fs.readdirSync(paths.source.styles, { recursive: true });
+		cssFiles.forEach(file => {
+			const sourcePath = path.join(paths.source.styles, file);
+			if (fs.statSync(sourcePath).isFile()) {
+				const destPath = path.join(paths.build.assets, path.basename(file));
+				fs.copyFileSync(sourcePath, destPath);
+				stats.filesCopied++;
+			}
+		});
+		log(`Copied ${cssFiles.length} CSS files`, "success");
+	}
+
+	// Copy scripts
+	if (fs.existsSync(paths.source.scripts)) {
+		const scriptFiles = fs.readdirSync(paths.source.scripts, { recursive: true });
+		scriptFiles.forEach(file => {
+			const sourcePath = path.join(paths.source.scripts, file);
+			if (fs.statSync(sourcePath).isFile()) {
+				const destPath = path.join(paths.build.assets, path.basename(file));
+				fs.copyFileSync(sourcePath, destPath);
+				stats.filesCopied++;
+			}
+		});
+		log(`Copied ${scriptFiles.length} script files`, "success");
+	}
+
+	// Copy liquid layout
+	if (fs.existsSync(paths.source.liquid.layout)) {
+		const layoutFiles = fs.readdirSync(paths.source.liquid.layout, { recursive: true });
+		layoutFiles.forEach(file => {
+			const sourcePath = path.join(paths.source.liquid.layout, file);
+			if (fs.statSync(sourcePath).isFile()) {
+				const destPath = path.join(paths.build.layout, path.basename(file));
+				fs.copyFileSync(sourcePath, destPath);
+				stats.filesCopied++;
+			}
+		});
+		log(`Copied ${layoutFiles.length} layout files`, "success");
+	}
+
+	// Copy liquid sections
+	if (fs.existsSync(paths.source.liquid.sections)) {
+		const sectionFiles = fs.readdirSync(paths.source.liquid.sections, { recursive: true });
+		sectionFiles.forEach(file => {
+			const sourcePath = path.join(paths.source.liquid.sections, file);
+			if (fs.statSync(sourcePath).isFile()) {
+				const destPath = path.join(paths.build.sections, path.basename(file));
+				fs.copyFileSync(sourcePath, destPath);
+				stats.filesCopied++;
+			}
+		});
+		log(`Copied ${sectionFiles.length} section files`, "success");
+	}
+
+	// Copy liquid snippets
+	if (fs.existsSync(paths.source.liquid.snippets)) {
+		const snippetFiles = fs.readdirSync(paths.source.liquid.snippets, { recursive: true });
+		snippetFiles.forEach(file => {
+			const sourcePath = path.join(paths.source.liquid.snippets, file);
+			if (fs.statSync(sourcePath).isFile()) {
+				const destPath = path.join(paths.build.snippets, path.basename(file));
+				fs.copyFileSync(sourcePath, destPath);
+				stats.filesCopied++;
+			}
+		});
+		log(`Copied ${snippetFiles.length} snippet files`, "success");
+	}
+
+	// Copy liquid blocks
+	if (fs.existsSync(paths.source.liquid.blocks)) {
+		const blockFiles = fs.readdirSync(paths.source.liquid.blocks, { recursive: true });
+		blockFiles.forEach(file => {
+			const sourcePath = path.join(paths.source.liquid.blocks, file);
+			if (fs.statSync(sourcePath).isFile()) {
+				const destPath = path.join(paths.build.blocks, path.basename(file));
+				fs.copyFileSync(sourcePath, destPath);
+				stats.filesCopied++;
+			}
+		});
+		log(`Copied ${blockFiles.length} block files`, "success");
+	}
+
+	log(`Initial copy complete: ${stats.filesCopied} files copied`, "success");
+};
+
 // Get destination path based on source file
 const getDestinationPath = sourcePath => {
 	const fileName = path.basename(sourcePath);
@@ -240,6 +359,9 @@ const startWatch = async () => {
 		// Ensure build directories exist
 		ensureDirectories();
 
+		// Perform initial copy of all files
+		await initialCopyAllFiles();
+
 		// Set up file watchers
 		setupWatchers();
 
@@ -250,8 +372,17 @@ const startWatch = async () => {
 		const viteServer = await createServer({
 			configFile: path.resolve(__dirname, "vite.config.js"),
 			mode: "development",
+			// Disable automatic cleaning in Vite to prevent our copied files from being removed
+			optimizeDeps: {
+				force: false
+			},
 			server: {
 				hmr: false // Disable HMR to avoid conflicts
+			},
+			// Custom environment variables to control behavior
+			define: {
+				"process.env.VITE_SKIP_CLEAN": JSON.stringify("true"),
+				"process.env.VITE_WATCH_MODE": JSON.stringify("true")
 			}
 		});
 

@@ -28,21 +28,115 @@ import fs from "fs";
 import glob from "glob";
 
 const isProduction = process.env.NODE_ENV === "production";
+const isWatchMode = process.env.VITE_WATCH_MODE === "true";
+const skipClean = process.env.VITE_SKIP_CLEAN === "true";
+// Control logging verbosity - set to false for minimal logging
+const verboseLogging = process.env.VITE_VERBOSE_LOGGING === "true";
+
+// Console styling configuration
+const STYLES = {
+	// Base colors
+	reset: "\x1b[0m",
+	bold: "\x1b[1m",
+	dim: "\x1b[2m",
+	italic: "\x1b[3m",
+	underline: "\x1b[4m",
+
+	// Text colors
+	black: "\x1b[30m",
+	red: "\x1b[31m",
+	green: "\x1b[32m",
+	yellow: "\x1b[33m",
+	blue: "\x1b[34m",
+	magenta: "\x1b[35m",
+	cyan: "\x1b[36m",
+	white: "\x1b[37m",
+
+	// Bright text
+	brightRed: "\x1b[91m",
+	brightGreen: "\x1b[92m",
+	brightYellow: "\x1b[93m",
+	brightBlue: "\x1b[94m",
+	brightMagenta: "\x1b[95m",
+	brightCyan: "\x1b[96m",
+	brightWhite: "\x1b[97m",
+
+	// Background colors
+	bgBlack: "\x1b[40m",
+	bgRed: "\x1b[41m",
+	bgGreen: "\x1b[42m",
+	bgYellow: "\x1b[43m",
+	bgBlue: "\x1b[44m",
+	bgMagenta: "\x1b[45m",
+	bgCyan: "\x1b[46m",
+	bgWhite: "\x1b[47m",
+
+	// Modern symbols
+	symbols: {
+		check: "✓",
+		cross: "✗",
+		bullet: "•",
+		arrow: "→",
+		arrowRight: "▶",
+		arrowDown: "▼",
+		star: "★",
+		warning: "⚠",
+		info: "ℹ",
+		folder: "📁",
+		file: "📄",
+		build: "🔨",
+		watch: "👁",
+		sparkles: "✨",
+		gear: "⚙",
+		clock: "🕒",
+		checkmark: "✓",
+		error: "❌",
+		success: "✅",
+		progress: "⏳",
+		complete: "🏁",
+		delete: "🗑"
+	}
+};
+
+// Theme colors
+const THEME = {
+	primary: STYLES.cyan,
+	secondary: STYLES.magenta,
+	success: STYLES.brightGreen,
+	error: STYLES.brightRed,
+	warning: STYLES.brightYellow,
+	info: STYLES.brightBlue,
+	accent: STYLES.brightMagenta,
+	muted: STYLES.dim
+};
 
 // Fancy console banner for the build process - more compact version
 const printWelcomeBanner = () => {
-	const boxWidth = 60;
+	if (!verboseLogging) {
+		console.log(`${THEME.primary}${STYLES.bold}${STYLES.symbols.build} CURALIFE ${isProduction ? `${THEME.success}PRODUCTION` : `${THEME.warning}DEVELOPMENT`}${THEME.primary} BUILD${STYLES.reset}`);
+		return;
+	}
+
+	// Brand colors for Curalife
+	const brandPrimary = THEME.primary;
+	const brandSecondary = THEME.secondary;
+	const brandAccent = THEME.accent;
+
+	const date = new Date();
+	const timeString = date.toLocaleTimeString();
+	const dateString = date.toLocaleDateString();
+
 	console.log(`
-\x1b[35m┏${"━".repeat(boxWidth)}┓
-┃${" ".repeat(boxWidth)}┃
-┃${" ".repeat(Math.floor((boxWidth - 23) / 2))}\x1b[33m𝘾𝙐𝙍𝘼𝙇𝙄𝙁𝙀 \x1b[32m𝘽𝙐𝙄𝙇𝘿\x1b[35m${" ".repeat(Math.ceil((boxWidth - 23) / 2))}┃
-┃${" ".repeat(boxWidth)}┃
-┗${"━".repeat(boxWidth)}┛
-\x1b[36m
-  🔮 ${isProduction ? "\x1b[32mProduction" : "\x1b[33mDevelopment"} Build
-  📦 Shopify Theme Builder
-  ⏱️  ${new Date().toLocaleTimeString()}
-\x1b[0m`);
+${STYLES.reset}${brandPrimary}╔════════════════════════════════════════════════════════════╗
+║                                                            ║
+${brandPrimary}║  ${brandSecondary}${STYLES.bold}CURALIFE${STYLES.reset}${brandPrimary} ${brandAccent}${STYLES.bold}THEME BUILDER${STYLES.reset}${brandPrimary}                                    ║
+║                                                            ║
+╚════════════════════════════════════════════════════════════╝${STYLES.reset}
+
+${THEME.info}${STYLES.symbols.build}  ${STYLES.bold}Build Mode:${STYLES.reset} ${isProduction ? `${THEME.success}Production` : `${THEME.warning}Development`}
+${THEME.info}${STYLES.symbols.gear}  ${STYLES.bold}Task:${STYLES.reset} ${isWatchMode ? `${THEME.info}Watch` : `${THEME.info}Build`}
+${THEME.info}${STYLES.symbols.clock}  ${STYLES.bold}Time:${STYLES.reset} ${timeString} | ${dateString}
+${STYLES.reset}`);
 };
 
 printWelcomeBanner();
@@ -61,76 +155,84 @@ const paths = {
 		layout: path.join(__dirname, "./src", "liquid", "layout", "**"),
 		sections: path.join(__dirname, "./src", "liquid", "sections", "**/*.liquid"),
 		snippets: path.join(__dirname, "./src", "liquid", "snippets", "**/*.liquid"),
-		blocks: path.join(__dirname, "./src", "liquid", "blocks", "**/*.liquid")
+		blocks: path.join(__dirname, "./src", "liquid", "blocks", "**/*.liquid"),
+		templates: path.join(__dirname, "./src", "liquid", "templates", "**/*.liquid")
 	},
+	locales: path.join(__dirname, "./src", "locales", "**/*.json"),
+	config: path.join(__dirname, "./src", "config", "**/*.json"),
 	build: {
 		assets: path.join(__dirname, "Curalife-Theme-Build", "assets"),
 		layout: path.join(__dirname, "Curalife-Theme-Build", "layout"),
 		sections: path.join(__dirname, "Curalife-Theme-Build", "sections"),
 		snippets: path.join(__dirname, "Curalife-Theme-Build", "snippets"),
-		blocks: path.join(__dirname, "Curalife-Theme-Build", "blocks")
+		blocks: path.join(__dirname, "Curalife-Theme-Build", "blocks"),
+		templates: path.join(__dirname, "Curalife-Theme-Build", "templates"),
+		locales: path.join(__dirname, "Curalife-Theme-Build", "locales"),
+		config: path.join(__dirname, "Curalife-Theme-Build", "config")
 	}
 };
 
-// Logging function to streamline messages - modified to show only filenames, not full paths
-const log = (message, type = "info") => {
-	const colors = {
-		info: "\x1b[36m", // Cyan
-		success: "\x1b[32m", // Green
-		error: "\x1b[31m", // Red
-		warning: "\x1b[33m", // Yellow
-		header: "\x1b[35m", // Magenta
-		detail: "\x1b[90m", // Gray
-		path: "\x1b[94m" // Light Blue for paths
+// Enhanced logging function with improved visual styling
+const log = (message, type = "info", importance = "normal") => {
+	// Skip detailed logs if not in verbose mode, unless they are important
+	if (!verboseLogging && importance === "detail") return;
+
+	// Define symbols and colors for different log types
+	const logStyles = {
+		info: { color: THEME.info, symbol: STYLES.symbols.info },
+		success: { color: THEME.success, symbol: STYLES.symbols.success },
+		error: { color: THEME.error, symbol: STYLES.symbols.error },
+		warning: { color: THEME.warning, symbol: STYLES.symbols.warning },
+		header: { color: THEME.accent, symbol: STYLES.symbols.star },
+		detail: { color: THEME.muted, symbol: STYLES.symbols.bullet },
+		path: { color: THEME.primary, symbol: STYLES.symbols.arrow }
 	};
 
-	const icons = {
-		info: "ℹ️ ",
-		success: "✅ ",
-		error: "❌ ",
-		warning: "⚠️ ",
-		header: "🚀 ",
-		detail: "  → ",
-		path: "📄 "
-	};
+	const style = logStyles[type] || logStyles.info;
 
-	// Simplify paths for cleaner output
-	let displayMessage = message;
-	if (message.includes("\\")) {
-		// Extract just the filename from paths
-		const parts = message.split("\\");
-		const filename = parts[parts.length - 1];
-		displayMessage = message.replace(
-			/C:\\Users\\yotam\\Desktop\\Curalife Projects\\Curalife-Theme-Dev\\Curalife-Theme-Build\\[^\\]+/g,
-			match => `output: ${colors.path}${filename}\x1b[0m${colors[type]}`
-		);
-	}
-
-	console.log(`${colors[type]}${icons[type]}${displayMessage}\x1b[0m`);
+	// Format the message with appropriate styling
+	console.log(`${style.color}${style.symbol} ${message}${STYLES.reset}`);
 };
 
 // Print a fancy section divider - more compact version
 const printSectionDivider = title => {
-	const boxWidth = 60;
-	log("", "detail");
-	log(`┏${"━".repeat(boxWidth)}┓`, "header");
-	log(`┃ ${title.padEnd(boxWidth - 2, " ")} ┃`, "header");
-	log(`┗${"━".repeat(boxWidth)}┛`, "header");
+	if (!verboseLogging) {
+		console.log(`\n${THEME.secondary}${STYLES.bold}${STYLES.symbols.arrowRight} ${title} ${STYLES.reset}\n`);
+		return;
+	}
+
+	const titleLine = ` ${title} `;
+	const padding = 65 - titleLine.length;
+	const leftPad = "═".repeat(Math.floor(padding / 2));
+	const rightPad = "═".repeat(Math.ceil(padding / 2));
+
+	console.log(`\n${THEME.muted}${leftPad}${STYLES.reset}${THEME.secondary}${STYLES.bold}${titleLine}${STYLES.reset}${THEME.muted}${rightPad}${STYLES.reset}\n`);
 };
 
-// Print build summary with more compact format
+// Enhanced build summary with improved visual design
 const printBuildSummary = (startTime, totalFiles) => {
-	const boxWidth = 60; // Smaller box for more compact display
 	const endTime = new Date();
-	const buildTimeSeconds = ((endTime - startTime) / 1000).toFixed(2);
-	log("", "detail");
-	log(`┏${"━".repeat(boxWidth)}┓`, "success");
-	log(`┃ ${" BUILD COMPLETED ".padEnd(boxWidth - 2, " ")} ┃`, "success");
-	log(`┃ ${" ".repeat(boxWidth - 2)} ┃`, "success");
-	log(`┃  ⏱️  Time: ${buildTimeSeconds}s ${" ".repeat(boxWidth - 12 - buildTimeSeconds.length)} ┃`, "success");
-	log(`┃  📦 Files: ${totalFiles} ${" ".repeat(boxWidth - 12 - totalFiles.toString().length)} ┃`, "success");
-	log(`┗${"━".repeat(boxWidth)}┛`, "success");
-	log("", "detail");
+	const elapsedMs = endTime - startTime;
+	const elapsedSec = (elapsedMs / 1000).toFixed(2);
+
+	const filesPerSecond = totalFiles > 0 ? (totalFiles / (elapsedMs / 1000)).toFixed(2) : 0;
+
+	if (!verboseLogging) {
+		log(`${STYLES.bold}Build completed in ${elapsedSec}s${STYLES.reset} (${totalFiles} files, ${filesPerSecond}/s)`, "success");
+		return;
+	}
+
+	console.log(`
+${THEME.success}╔════════════════════════════════════════════════════════════╗
+║                    ${STYLES.bold}BUILD COMPLETED${STYLES.reset}${THEME.success}                      ║
+╚════════════════════════════════════════════════════════════╝${STYLES.reset}
+
+${THEME.primary}${STYLES.symbols.checkmark}  ${STYLES.bold}Time:${STYLES.reset} ${elapsedSec} seconds
+${THEME.primary}${STYLES.symbols.file}  ${STYLES.bold}Files:${STYLES.reset} ${totalFiles} processed
+${THEME.primary}${STYLES.symbols.gear}  ${STYLES.bold}Speed:${STYLES.reset} ${filesPerSecond} files/second
+
+${THEME.success}${STYLES.symbols.sparkles} ${STYLES.bold}Successfully completed all tasks!${STYLES.reset}
+`);
 };
 
 // Handle post-build minification of Tailwind CSS
@@ -189,65 +291,98 @@ const flattenPath = filePath => {
 	return path.basename(filePath);
 };
 
-// Helper to recursively delete a directory but keep the parent
-const cleanDirectory = directory => {
-	if (fs.existsSync(directory)) {
+// Clean directory with improved visual feedback
+const cleanDirectory = (directory, preserveFilters = []) => {
+	// Skip cleaning in watch mode if VITE_SKIP_CLEAN is true
+	if (skipClean) {
+		log(`Skipping clean for ${path.basename(directory)} in watch mode`, "info");
+		return { removed: 0, preserved: 0 };
+	}
+
+	if (!fs.existsSync(directory)) {
+		return { removed: 0, preserved: 0 };
+	}
+
+	try {
 		const files = fs.readdirSync(directory);
-
-		// Get directory name for cleaner output
 		const dirName = path.basename(directory);
+		let preservedCount = 0;
+		let removedCount = 0;
 
-		files.forEach(file => {
+		// Show clean operation header
+		if (verboseLogging && files.length > 0) {
+			console.log(`${THEME.muted}Cleaning directory: ${STYLES.reset}${STYLES.bold}${dirName}${STYLES.reset}`);
+		}
+
+		for (const file of files) {
 			const fullPath = path.join(directory, file);
 
-			// Skip files in sections directory that contain "group" in their names
-			if (directory === paths.build.sections && file.toLowerCase().includes("group")) {
-				log(`Preserving: ${file}`, "info");
-				return;
+			// Check if this file/directory should be preserved
+			const shouldPreserve = preserveFilters.some(filter => {
+				if (typeof filter === "function") return filter(file);
+				return file === filter || file.includes(filter);
+			});
+
+			if (shouldPreserve) {
+				preservedCount++;
+				if (verboseLogging) {
+					console.log(`  ${THEME.info}${STYLES.symbols.bullet} ${STYLES.reset}${STYLES.italic}Preserving:${STYLES.reset} ${file}`);
+				}
+				continue;
 			}
 
 			if (fs.lstatSync(fullPath).isDirectory()) {
-				// Recursively delete directories
 				fs.rmSync(fullPath, { recursive: true, force: true });
 			} else {
-				// Delete files
 				fs.unlinkSync(fullPath);
 			}
-		});
+			removedCount++;
 
-		log(`Cleaned: ${dirName}`, "success");
+			if (verboseLogging) {
+				console.log(`  ${THEME.error}${STYLES.symbols.delete} ${STYLES.reset}${STYLES.italic}Removing:${STYLES.reset} ${file}`);
+			}
+		}
+
+		// Show clean operation summary with visual elements
+		if (removedCount > 0 || preservedCount > 0) {
+			log(`Cleaned: ${STYLES.bold}${dirName}${STYLES.reset} (${removedCount} removed, ${preservedCount} preserved)`, "success");
+		}
+		return { removed: removedCount, preserved: preservedCount };
+	} catch (error) {
+		log(`Error cleaning directory ${directory}: ${error.message}`, "error");
+		return { removed: 0, preserved: 0, error: true };
 	}
 };
 
-// File operation progress tracker - enhanced for more compact display
+// Simplified progress bar with improved visual styling
 const createProgressBar = (total, title) => {
+	if (total === 0) return { increment: () => {}, finish: () => {} };
+
 	let current = 0;
-	const barWidth = 30; // Shorter bar width for more compact display
+	const barWidth = 30;
+
+	// Choose appropriate colors based on file type
+	let color = THEME.info;
+	if (title.toLowerCase().includes("css")) color = THEME.primary;
+	if (title.toLowerCase().includes("script")) color = THEME.secondary;
+	if (title.toLowerCase().includes("image")) color = THEME.accent;
 
 	return {
 		increment: () => {
 			current++;
-			const percent = Math.floor((current / total) * 100);
-			const chars = Math.floor((current / total) * barWidth);
-			const bar = "█".repeat(chars) + "░".repeat(barWidth - chars);
+			if (verboseLogging) {
+				const percent = Math.floor((current / total) * 100);
+				const chars = Math.floor((current / total) * barWidth);
+				const bar = "█".repeat(chars) + "░".repeat(barWidth - chars);
 
-			// Use carriage return for inline updates
-			process.stdout.write(`\r\x1b[36m🔄 ${title}: \x1b[0m${bar} \x1b[32m${percent}%\x1b[0m`);
-
-			if (current === total) {
-				process.stdout.write("\n");
+				process.stdout.write(`\r${color}${STYLES.symbols.progress} ${title}: ${STYLES.reset}${bar} ${color}${percent}%${STYLES.reset}`);
 			}
 		},
 		finish: () => {
-			if (current < total) {
-				current = total;
+			if (verboseLogging) {
 				const bar = "█".repeat(barWidth);
-				process.stdout.write(`\r\x1b[36m✓ ${title}: \x1b[0m${bar} \x1b[32m100%\x1b[0m\n`);
+				process.stdout.write(`\r${color}${STYLES.symbols.complete} ${title}: ${STYLES.reset}${bar} ${color}100%${STYLES.reset}\n`);
 			}
-		},
-		// New summary method that just shows the completed count
-		summary: () => {
-			return `Processed ${total} files`;
 		}
 	};
 };
@@ -263,33 +398,19 @@ const createCopyPlugin = () => {
 		buildStart() {
 			printSectionDivider("STARTING CURALIFE THEME BUILD");
 			log("Initializing build process", "header");
-			log("Cleaning directories to prepare for build", "info");
 
-			// Clean directories to ensure they're completely flat
-			if (fs.existsSync(paths.build.assets)) {
-				cleanDirectory(paths.build.assets);
-			}
-			if (fs.existsSync(paths.build.sections)) {
-				cleanDirectory(paths.build.sections);
-			}
-			if (fs.existsSync(paths.build.snippets)) {
-				cleanDirectory(paths.build.snippets);
-			}
-			if (fs.existsSync(paths.build.layout)) {
-				cleanDirectory(paths.build.layout);
-			}
-			if (fs.existsSync(paths.build.blocks)) {
-				cleanDirectory(paths.build.blocks);
-			}
+			// We'll skip the cleaning here since it's handled by the selective-clean plugin
+			// This prevents double-cleaning and makes the process more efficient
 		},
 		async closeBundle() {
 			// Create the necessary directories
-			const dirs = [paths.build.assets, paths.build.layout, paths.build.sections, paths.build.snippets, paths.build.blocks];
+			const dirs = [paths.build.assets, paths.build.layout, paths.build.sections, paths.build.snippets, paths.build.blocks, paths.build.templates, paths.build.locales, paths.build.config];
 
+			// Create missing directories silently
 			for (const dir of dirs) {
 				if (!fs.existsSync(dir)) {
 					fs.mkdirSync(dir, { recursive: true });
-					log(`Created directory: ${dir}`, "success");
+					log(`Created directory: ${dir}`, "success", "detail");
 				}
 			}
 
@@ -303,13 +424,17 @@ const createCopyPlugin = () => {
 			let snippetFiles = [];
 			let blockFiles = [];
 
+			// Track total files for summary
+			let totalProcessedFiles = 0;
+
 			// Copy files - fonts (flatten structure)
 			if (fs.existsSync(path.join(__dirname, "src/fonts"))) {
 				try {
 					fontFiles = findFiles(path.join(__dirname, "src/fonts"), "**/*.{woff,woff2,eot,ttf,otf}");
 
 					if (fontFiles.length > 0) {
-						log(`Processing ${fontFiles.length} font files`, "info");
+						totalProcessedFiles += fontFiles.length;
+						log(`Processing ${fontFiles.length} font files`, "info", "detail");
 						const progressBar = createProgressBar(fontFiles.length, "Fonts");
 
 						for (const file of fontFiles) {
@@ -338,7 +463,8 @@ const createCopyPlugin = () => {
 					imageFiles = findFiles(path.join(__dirname, "src/images"), "**/*.{png,jpg,jpeg,gif,svg}");
 
 					if (imageFiles.length > 0) {
-						log(`Processing ${imageFiles.length} image files`, "info");
+						totalProcessedFiles += imageFiles.length;
+						log(`Processing ${imageFiles.length} image files`, "info", "detail");
 						const progressBar = createProgressBar(imageFiles.length, "Images");
 
 						for (const file of imageFiles) {
@@ -366,7 +492,8 @@ const createCopyPlugin = () => {
 					cssFiles = findFiles(path.join(__dirname, "src/styles/css"), "**/*");
 
 					if (cssFiles.length > 0) {
-						log(`Processing ${cssFiles.length} CSS files`, "info");
+						totalProcessedFiles += cssFiles.length;
+						log(`Processing ${cssFiles.length} CSS files`, "info", "detail");
 						const progressBar = createProgressBar(cssFiles.length, "CSS");
 
 						for (const file of cssFiles) {
@@ -396,7 +523,8 @@ const createCopyPlugin = () => {
 					scriptFiles = findFiles(path.join(__dirname, "src/scripts"), "**/*.js");
 
 					if (scriptFiles.length > 0) {
-						log(`Processing ${scriptFiles.length} script files`, "info");
+						totalProcessedFiles += scriptFiles.length;
+						log(`Processing ${scriptFiles.length} script files`, "info", "detail");
 						const progressBar = createProgressBar(scriptFiles.length, "Scripts");
 
 						for (const file of scriptFiles) {
@@ -424,7 +552,8 @@ const createCopyPlugin = () => {
 					layoutFiles = findFiles(path.join(__dirname, "src/liquid/layout"), "**/*");
 
 					if (layoutFiles.length > 0) {
-						log(`Processing ${layoutFiles.length} layout files`, "info");
+						totalProcessedFiles += layoutFiles.length;
+						log(`Processing ${layoutFiles.length} layout files`, "info", "detail");
 						const progressBar = createProgressBar(layoutFiles.length, "Layout");
 
 						for (const file of layoutFiles) {
@@ -454,7 +583,8 @@ const createCopyPlugin = () => {
 					sectionFiles = findFiles(path.join(__dirname, "src/liquid/sections"), "**/*.liquid");
 
 					if (sectionFiles.length > 0) {
-						log(`Processing ${sectionFiles.length} section files`, "info");
+						totalProcessedFiles += sectionFiles.length;
+						log(`Processing ${sectionFiles.length} section files`, "info", "detail");
 						const progressBar = createProgressBar(sectionFiles.length, "Sections");
 
 						for (const file of sectionFiles) {
@@ -482,7 +612,8 @@ const createCopyPlugin = () => {
 					snippetFiles = findFiles(path.join(__dirname, "src/liquid/snippets"), "**/*.liquid");
 
 					if (snippetFiles.length > 0) {
-						log(`Processing ${snippetFiles.length} snippet files`, "info");
+						totalProcessedFiles += snippetFiles.length;
+						log(`Processing ${snippetFiles.length} snippet files`, "info", "detail");
 						const progressBar = createProgressBar(snippetFiles.length, "Snippets");
 
 						for (const file of snippetFiles) {
@@ -510,7 +641,8 @@ const createCopyPlugin = () => {
 					blockFiles = findFiles(path.join(__dirname, "src/liquid/blocks"), "**/*.liquid");
 
 					if (blockFiles.length > 0) {
-						log(`Processing ${blockFiles.length} block files`, "info");
+						totalProcessedFiles += blockFiles.length;
+						log(`Processing ${blockFiles.length} block files`, "info", "detail");
 						const progressBar = createProgressBar(blockFiles.length, "Blocks");
 
 						for (const file of blockFiles) {
@@ -536,9 +668,113 @@ const createCopyPlugin = () => {
 				log("No blocks directory found, skipping", "info");
 			}
 
-			// Update with processed files count
-			totalFilesProcessed +=
-				fontFiles.length + imageFiles.length + cssFiles.length + scriptFiles.length + layoutFiles.length + sectionFiles.length + snippetFiles.length + (blockFiles ? blockFiles.length : 0);
+			// Copy files - liquid templates (keep structure for template files)
+			let templateFiles = [];
+			if (fs.existsSync(path.join(__dirname, "src/liquid/templates"))) {
+				try {
+					templateFiles = findFiles(path.join(__dirname, "src/liquid/templates"), "**/*.liquid");
+
+					if (templateFiles.length > 0) {
+						totalProcessedFiles += templateFiles.length;
+						log(`Processing ${templateFiles.length} template files`, "info", "detail");
+						const progressBar = createProgressBar(templateFiles.length, "Templates");
+
+						for (const file of templateFiles) {
+							// Get the relative path within the templates directory
+							const relativePath = path.relative(path.join(__dirname, "src/liquid/templates"), file);
+							const destPath = path.join(paths.build.templates, relativePath);
+
+							// Ensure the destination directory exists
+							fs.mkdirSync(path.dirname(destPath), { recursive: true });
+							fs.copyFileSync(file, destPath);
+							progressBar.increment();
+						}
+						progressBar.finish();
+					}
+
+					if (templateFiles.length > 0) {
+						log(`Templates: ${templateFiles.length} files`, "success");
+					} else {
+						log("No templates found", "info");
+					}
+				} catch (e) {
+					log(`Error copying templates: ${e.message}`, "error");
+				}
+			} else {
+				log("No templates directory found, skipping", "info");
+			}
+
+			// Copy files - locales (keep structure)
+			let localeFiles = [];
+			if (fs.existsSync(path.join(__dirname, "src/locales"))) {
+				try {
+					localeFiles = findFiles(path.join(__dirname, "src/locales"), "**/*.json");
+
+					if (localeFiles.length > 0) {
+						totalProcessedFiles += localeFiles.length;
+						log(`Processing ${localeFiles.length} locale files`, "info", "detail");
+						const progressBar = createProgressBar(localeFiles.length, "Locales");
+
+						for (const file of localeFiles) {
+							// Keep the same structure as in src
+							const relativePath = path.relative(path.join(__dirname, "src/locales"), file);
+							const destPath = path.join(paths.build.locales, relativePath);
+
+							// Ensure the destination directory exists
+							fs.mkdirSync(path.dirname(destPath), { recursive: true });
+							fs.copyFileSync(file, destPath);
+							progressBar.increment();
+						}
+						progressBar.finish();
+					}
+
+					if (localeFiles.length > 0) {
+						log(`Locales: ${localeFiles.length} files`, "success");
+					} else {
+						log("No locale files found", "info");
+					}
+				} catch (e) {
+					log(`Error copying locales: ${e.message}`, "error");
+				}
+			} else {
+				log("No locales directory found, skipping", "info");
+			}
+
+			// Copy files - config (keep structure)
+			let configFiles = [];
+			if (fs.existsSync(path.join(__dirname, "src/config"))) {
+				try {
+					configFiles = findFiles(path.join(__dirname, "src/config"), "**/*.json");
+
+					if (configFiles.length > 0) {
+						totalProcessedFiles += configFiles.length;
+						log(`Processing ${configFiles.length} config files`, "info", "detail");
+						const progressBar = createProgressBar(configFiles.length, "Config");
+
+						for (const file of configFiles) {
+							// Keep the same structure as in src
+							const relativePath = path.relative(path.join(__dirname, "src/config"), file);
+							const destPath = path.join(paths.build.config, relativePath);
+
+							// Ensure the destination directory exists
+							fs.mkdirSync(path.dirname(destPath), { recursive: true });
+							fs.copyFileSync(file, destPath);
+							progressBar.increment();
+						}
+						progressBar.finish();
+					}
+
+					if (configFiles.length > 0) {
+						log(`Config: ${configFiles.length} files`, "success");
+					} else {
+						log("No config files found", "info");
+					}
+				} catch (e) {
+					log(`Error copying config: ${e.message}`, "error");
+				}
+			} else {
+				log("No config directory found, skipping", "info");
+			}
 
 			log("Build completed successfully!", "success");
 
@@ -546,7 +782,7 @@ const createCopyPlugin = () => {
 			await createMinifiedCss();
 
 			// Final build completion message
-			printBuildSummary(buildStartTime, totalFilesProcessed);
+			printBuildSummary(buildStartTime, totalProcessedFiles);
 
 			// Add a final success message at the very end
 			const currentTime = new Date().toLocaleTimeString();
@@ -572,155 +808,195 @@ const copyFiles = (sourceDir, pattern, destDir) => {
 	}
 };
 
+// Custom plugin for file watching
+const createWatchPlugin = () => {
+	return {
+		name: "custom-watch-plugin",
+		apply: "serve", // Only apply during development
+		configureServer(server) {
+			if (!isWatchMode) return;
+
+			// Create a visually appealing watch mode start message
+			console.log(`
+${THEME.info}╔════════════════════════════════════════════════════════════╗
+║                    ${STYLES.bold}WATCH MODE ACTIVE${STYLES.reset}${THEME.info}                     ║
+╚════════════════════════════════════════════════════════════╝${STYLES.reset}
+
+${THEME.primary}${STYLES.symbols.watch}  ${STYLES.bold}Watching for file changes...${STYLES.reset}
+${THEME.muted}Changes will be automatically processed and deployed${STYLES.reset}
+`);
+
+			// Create cache manager instance for watch mode
+			const watchCacheManager = createCacheManager();
+
+			// Create watch patterns from source directories
+			const watchPatterns = sourceDirectories.map(({ dir, pattern }) => path.join(dir, pattern).replace(/\\/g, "/"));
+
+			// Add watchers for all patterns
+			watchPatterns.forEach(pattern => {
+				server.watcher.add(pattern);
+			});
+
+			// Handle file events (both change and add)
+			const handleFileEvent = (filePath, event) => {
+				return processFileChange(filePath, event, watchCacheManager);
+			};
+
+			// Set up event handlers
+			server.watcher.on("change", filePath => {
+				handleFileEvent(filePath, "change");
+			});
+
+			server.watcher.on("add", filePath => {
+				handleFileEvent(filePath, "add");
+			});
+
+			server.watcher.on("unlink", filePath => {
+				console.log(`${THEME.warning}${STYLES.symbols.delete} Deleted:${STYLES.reset} ${STYLES.bold}${path.basename(filePath)}${STYLES.reset}`);
+			});
+
+			log(`Enhanced file watchers established for all source directories`, "success");
+		}
+	};
+};
+
 // Main Vite configuration
 export default defineConfig(({ command, mode }) => {
-	const isProduction = mode === "production";
-	const isWatchMode = process.argv.includes("--watch") || command === "serve";
+	// Set isWatchMode based on command or environment variable
+	const isWatchMode = command === "serve" || process.env.VITE_WATCH_MODE === "true";
 
-	log(`Starting Vite build in ${isProduction ? "production" : "development"} mode${isWatchMode ? " with file watching" : ""}...`);
-
-	// Create build folder if it doesn't exist
-	if (!fs.existsSync(paths.build_folder)) {
-		fs.mkdirSync(paths.build_folder, { recursive: true });
-		log(`Created build directory: ${paths.build_folder}`, "success");
-	}
+	// Log the mode for clarity
+	log(`Running in ${isWatchMode ? "watch" : "build"} mode with ${isProduction ? "production" : "development"} settings`, "info");
 
 	return {
-		// Set the build output directory to match webpack.mix.js
+		// Base configuration
+		root: path.resolve(__dirname, "src"),
+		base: "/",
+
+		// Build configuration
 		build: {
-			outDir: paths.build_folder,
-			emptyOutDir: false, // Don't empty the output directory
-			minify: isProduction ? "terser" : false,
-			sourcemap: false,
-			target: ["es2015", "edge88", "firefox78", "chrome87", "safari13"],
-			reportCompressedSize: isProduction,
-			chunkSizeWarningLimit: 500,
+			outDir: path.resolve(__dirname, "Curalife-Theme-Build"),
+			emptyOutDir: false, // We'll handle directory cleaning ourselves
+			assetsDir: "assets",
+			sourcemap: !isProduction,
+			minify: isProduction,
+			cssCodeSplit: true,
+
+			// Output CSS to assets directory with flattened structure
 			rollupOptions: {
 				input: {
-					tailwind: paths.assets.tailwind
+					tailwind: path.resolve(__dirname, "src/styles/tailwind.css")
 				},
 				output: {
 					entryFileNames: "assets/[name].js",
-					chunkFileNames: "assets/[name]-[hash].js",
-					assetFileNames: "assets/[name].[ext]",
-					manualChunks: id => {
-						if (id.includes("node_modules")) return "vendor";
+					chunkFileNames: "assets/[name].js",
+					assetFileNames: "assets/[name].[ext]"
+				},
+				// Add a plugin to preserve specific directories during the build process
+				plugins: [
+					{
+						name: "selective-clean",
+						buildStart() {
+							// Skip cleaning if in watch mode or skipClean is true
+							if (skipClean) {
+								log("Skipping directory cleaning in watch mode", "info");
+								return;
+							}
+
+							log("Selectively cleaning build directory", "info");
+
+							// Define directories to preserve
+							const preserveDirs = ["templates", "locales", "config"];
+
+							// Define directories to clean
+							const cleanDirs = ["assets", "layout", "sections", "snippets", "blocks"];
+
+							// Track preserved files
+							let preservedFiles = [];
+
+							// Clean only specified directories
+							cleanDirs.forEach(dir => {
+								const dirPath = path.join(paths.build_folder, dir);
+								if (fs.existsSync(dirPath)) {
+									// Get all files and directories
+									const entries = fs.readdirSync(dirPath);
+
+									// Count how many files were removed and preserved
+									let filesRemoved = 0;
+
+									// Remove each file/directory
+									entries.forEach(entry => {
+										const entryPath = path.join(dirPath, entry);
+
+										// Skip files in sections directory that contain "group" in their names
+										if (dir === "sections" && entry.toLowerCase().includes("group")) {
+											preservedFiles.push(entry);
+											return;
+										}
+
+										if (fs.lstatSync(entryPath).isDirectory()) {
+											fs.rmSync(entryPath, { recursive: true, force: true });
+										} else {
+											fs.unlinkSync(entryPath);
+										}
+										filesRemoved++;
+									});
+
+									log(`Cleaned: ${dir} (${filesRemoved} files removed)`, "success");
+								}
+							});
+
+							// Log which directories are being preserved
+							log(`Preserving folders: ${preserveDirs.join(", ")}`, "info");
+
+							// Log preserved files count
+							if (preservedFiles.length > 0) {
+								log(`Preserved ${preservedFiles.length} group files in sections`, "success");
+								// Only log individual files in verbose mode
+								if (verboseLogging) {
+									preservedFiles.forEach(file => {
+										log(`Preserved: ${file}`, "detail", "detail");
+									});
+								}
+							}
+						}
 					}
-				}
+				]
 			}
 		},
 
-		// CSS processing with Tailwind - matches the webpack.mix.js setup
+		// CSS configuration
 		css: {
 			postcss: {
 				plugins: [
 					postcssImport(),
-					tailwindcss("./tailwind.config.js"),
+					tailwindcss({
+						config: path.resolve(__dirname, "tailwind.config.js")
+					}),
 					autoprefixer(),
-					isProduction &&
-						cssnano({
-							preset: [
-								"default",
-								{
-									discardComments: { removeAll: true },
-									reduceIdents: false,
-									reduceInitial: false,
-									zindex: false,
-									mergeIdents: false
-								}
+					...(isProduction
+						? [
+								cssnano({
+									preset: [
+										"default",
+										{
+											discardComments: { removeAll: true },
+											reduceIdents: false,
+											reduceInitial: false,
+											zindex: false,
+											mergeIdents: false
+										}
+									]
+								})
 							]
-						})
-				].filter(Boolean)
-			},
-			devSourcemap: !isProduction
+						: [])
+				]
+			}
 		},
 
-		// Use our custom file copying plugin instead of vite-plugin-static-copy
 		plugins: [
 			createCopyPlugin(),
-			// Custom plugin for file watching
-			{
-				name: "watch-plugin",
-				apply: "serve", // Only apply during development server
-				configureServer(server) {
-					if (isWatchMode || command === "serve") {
-						// Watch all source files
-						const srcFolders = [
-							"src/fonts/**/*",
-							"src/images/**/*",
-							"src/styles/css/**/*",
-							"src/scripts/**/*.js",
-							"src/liquid/layout/**/*",
-							"src/liquid/sections/**/*.liquid",
-							"src/liquid/snippets/**/*.liquid",
-							"src/liquid/blocks/**/*.liquid"
-						];
-
-						// Setup watchers for each folder
-						srcFolders.forEach(pattern => {
-							server.watcher.add(pattern);
-						});
-
-						// Watch for changes to copy files on change
-						server.watcher.on("change", filePath => {
-							log(`File changed: ${filePath}`, "info");
-
-							// Determine destination based on file path
-							if (filePath.includes("/fonts/")) {
-								// Copy changed font file
-								const flatFile = flattenPath(filePath);
-								const destPath = path.join(paths.build.assets, flatFile);
-								fs.copyFileSync(filePath, destPath);
-								log(`Updated font file: ${flatFile}`, "success");
-							} else if (filePath.includes("/images/")) {
-								// Copy changed image file
-								const flatFile = flattenPath(filePath);
-								const destPath = path.join(paths.build.assets, flatFile);
-								fs.copyFileSync(filePath, destPath);
-								log(`Updated image file: ${flatFile}`, "success");
-							} else if (filePath.includes("/styles/css/")) {
-								// Copy changed CSS file
-								const flatFile = flattenPath(filePath);
-								const destPath = path.join(paths.build.assets, flatFile);
-								fs.copyFileSync(filePath, destPath);
-								log(`Updated CSS file: ${flatFile}`, "success");
-							} else if (filePath.includes("/scripts/")) {
-								// Copy changed script file
-								const flatFile = flattenPath(filePath);
-								const destPath = path.join(paths.build.assets, flatFile);
-								fs.copyFileSync(filePath, destPath);
-								log(`Updated script file: ${flatFile}`, "success");
-							} else if (filePath.includes("/liquid/layout/")) {
-								// Copy changed layout file
-								const flatFile = flattenPath(filePath);
-								const destPath = path.join(paths.build.layout, flatFile);
-								fs.copyFileSync(filePath, destPath);
-								log(`Updated layout file: ${flatFile}`, "success");
-							} else if (filePath.includes("/liquid/sections/")) {
-								// Copy changed section file
-								const flatFile = flattenPath(filePath);
-								const destPath = path.join(paths.build.sections, flatFile);
-								fs.copyFileSync(filePath, destPath);
-								log(`Updated section file: ${flatFile}`, "success");
-							} else if (filePath.includes("/liquid/snippets/")) {
-								// Copy changed snippet file
-								const flatFile = flattenPath(filePath);
-								const destPath = path.join(paths.build.snippets, flatFile);
-								fs.copyFileSync(filePath, destPath);
-								log(`Updated snippet file: ${flatFile}`, "success");
-							} else if (filePath.includes("/liquid/blocks/")) {
-								// Copy changed block file
-								const flatFile = flattenPath(filePath);
-								const destPath = path.join(paths.build.blocks, flatFile);
-								fs.copyFileSync(filePath, destPath);
-								log(`Updated block file: ${flatFile}`, "success");
-							}
-						});
-
-						log("File watchers established for all source directories", "success");
-					}
-				}
-			}
+			createWatchPlugin() // Add our custom watch plugin
 		],
 
 		// Configure server for development
