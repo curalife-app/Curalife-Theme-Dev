@@ -222,7 +222,7 @@ const runBuild = () => {
 	return new Promise((resolve, reject) => {
 		log("Building theme...", colors.magenta);
 
-		const build = spawn("npm", ["run", "build"], {
+		const build = spawn("npm", ["run", "build:light"], {
 			shell: true,
 			stdio: "inherit",
 			// Increase max buffer to handle larger outputs
