@@ -1,67 +1,181 @@
-<style>
-  #cookies-banner {
-    display: none;
-    justify-content: center;
-    align-items: center;
-    padding: 1em;
-    position: fixed;
-    bottom: 0px;
-    width: 100%;
-    background: #fff;
-    border-top: 1px solid #dcdcdc;
-  }
-</style>
-<div id="cookies-banner">
-  <i class="fa-thin fa-cookie-bite"></i>
-  <span>This website uses cookies to ensure you get the best experience on our website.</span>
-  <button style="margin-left: 1em;" onclick="handleDecline()">Decline</button>
-  <button style="margin-left: 1em;" onclick="handleAccept()">Accept</button>
+{% comment %}
+  Cookie Banner Component - Used to display cookie consent message
+{% endcomment %}
+
+
+<div class="cookie-banner js-cookie-banner fixed-element" role="dialog" aria-live="polite" data-section-id="{{ section.id }}" data-section-type="cookie-banner">
+  <style>
+    .cookie-banner {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      background-color: var(--color-page-background);
+      color: var(--color-body-text);
+      padding: 15px 20px;
+      border-top: 1px solid var(--color-borders);
+      box-shadow: 0 -4px 12px rgba(0,0,0,0.15);
+      transform: translateY(100%);
+      transition: transform 0.5s ease-in-out;
+      display: none;
+    }
+
+
+    .cookie-banner--visible {
+      transform: translateY(0);
+      display: block;
+    }
+
+    .cookie-banner__container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      max-width: 1400px;
+      margin: 0 auto;
+      gap: 15px;
+    }
+
+    .cookie-banner__text {
+      flex: 1 1 auto;
+      font-size: 14px;
+      line-height: 1.5;
+      margin: 0;
+    }
+
+    .cookie-banner__buttons {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .cookie-banner__button {
+      cursor: pointer;
+      padding: 10px 15px;
+      border-radius: 4px;
+      font-weight: 600;
+      font-size: 14px;
+      transition: all 0.2s ease-in-out;
+    }
+
+    .cookie-banner__button--accept {
+      background-color: var(--color-button-primary);
+      color: var(--color-button-text);
+      border: none;
+    }
+
+    .cookie-banner__button--accept:hover {
+      background-color: var(--color-button-hover);
+    }
+
+    .cookie-banner__button--decline {
+      background-color: transparent;
+      color: var(--color-button-primary);
+      border: 1px solid var(--color-button-primary);
+    }
+
+    .cookie-banner__button--decline:hover {
+      background-color: rgba(var(--color-button-primary-rgb), 0.1);
+    }
+
+    @media screen and (max-width: 767px) {
+      .cookie-banner__container {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .cookie-banner__buttons {
+        width: 100%;
+        justify-content: stretch;
+      }
+
+      .cookie-banner__button {
+        flex: 1;
+        text-align: center;
+      }
+    }
+  </style>
+
+  <div class="cookie-banner__container">
+    <p class="cookie-banner__text">
+      {{ 'general.cookie_banner.text' | t }}
+    </p>
+    <div class="cookie-banner__buttons">
+      <button type="button" class="cookie-banner__button cookie-banner__button--accept js-cookie-accept">
+        {{ 'general.cookie_banner.accept' | t }}
+      </button>
+      <button type="button" class="cookie-banner__button cookie-banner__button--decline js-cookie-decline">
+        {{ 'general.cookie_banner.decline' | t }}
+      </button>
+    </div>
+  </div>
 </div>
-<script>
-  function getBannerEl() {
-    return document.getElementById('cookies-banner');
-  }
 
-  function hideBanner(res) {
-    getBannerEl().style.display = 'none';
-  }
+<script type="text/javascript">
+  document.addEventListener('DOMContentLoaded', function() {
+    // DEBUG: Cookie Banner Initialization
+    console.log('Cookie banner initializing...');
 
-  function showBanner() {
-   getBannerEl().style.display = 'block';
-  }
+    const cookieBanner = document.querySelector('.js-cookie-banner');
+    const acceptButton = document.querySelector('.js-cookie-accept');
+    const declineButton = document.querySelector('.js-cookie-decline');
+    const cookieName = 'curalife_cookie_consent';
+    const cookieValue = 'accepted';
+    const cookieDeclineValue = 'declined';
 
-  function handleAccept(e) {
-    window.Shopify.customerPrivacy.setTrackingConsent(true, hideBanner);
-
-    document.addEventListener('trackingConsentAccepted',function() {
-      console.log('trackingConsentAccepted event fired');
-    });
-  }
-
-  function handleDecline() {
-    window.Shopify.customerPrivacy.setTrackingConsent(false,hideBanner);
-  }
-
-  function initCookieBanner() {
-    const userCanBeTracked = window.Shopify.customerPrivacy.userCanBeTracked();
-    const userTrackingConsent = window.Shopify.customerPrivacy.getTrackingConsent();
-
-    if(!userCanBeTracked && userTrackingConsent === 'no_interaction') {
-      showBanner();
-    }
-  }
-
-  window.Shopify.loadFeatures([
-    {
-      name: 'consent-tracking-api',
-      version: '0.1',
-    }
-  ],
-  function(error) {
-    if (error) {
-      throw error;
+    // Set cookie with expiration
+    function setCookie(name, value, days) {
+      let expires = '';
+      if (days) {
+        const date = new Date();
+        date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+        expires = '; expires=' + date.toUTCString();
+      }
+      document.cookie = name + '=' + (value || '') + expires + '; path=/';
+      console.log(`Cookie ${name} set with value: ${value}`);
     }
 
-    initCookieBanner();
+    // Get cookie by name
+    function getCookie(name) {
+      const nameEQ = name + '=';
+      const ca = document.cookie.split(';');
+      for (let i = 0; i < ca.length; i++) {
+        let c = ca[i];
+        while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+        if (c.indexOf(nameEQ) === 0) return c.substring(nameEQ.length, c.length);
+      }
+      return null;
+    }
+
+    // Show the cookie banner if consent not given
+    function showBannerIfNeeded() {
+      const consent = getCookie(cookieName);
+      if (!consent) {
+        cookieBanner.classList.add('cookie-banner--visible');
+        console.log('Cookie banner shown - no previous consent found');
+      } else {
+        console.log(`Cookie consent already given: ${consent}`);
+      }
+    }
+
+    // Handle accept button click
+    if (acceptButton) {
+      acceptButton.addEventListener('click', function() {
+        setCookie(cookieName, cookieValue, 365); // Cookie valid for 1 year
+        cookieBanner.classList.remove('cookie-banner--visible');
+      });
+    }
+
+    // Handle decline button click
+    if (declineButton) {
+      declineButton.addEventListener('click', function() {
+        setCookie(cookieName, cookieDeclineValue, 30); // Decline valid for 30 days
+        cookieBanner.classList.remove('cookie-banner--visible');
+      });
+    }
+
+    // Initialize banner
+    showBannerIfNeeded();
   });
 </script>

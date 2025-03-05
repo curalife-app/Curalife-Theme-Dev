@@ -829,30 +829,95 @@ ${THEME.muted}Changes will be automatically processed and deployed${STYLES.reset
 			// Create cache manager instance for watch mode
 			const watchCacheManager = createCacheManager();
 
-			// Create watch patterns from source directories
+			// Create watch patterns from source directories with optimized globbing
 			const watchPatterns = sourceDirectories.map(({ dir, pattern }) => path.join(dir, pattern).replace(/\\/g, "/"));
 
-			// Add watchers for all patterns
+			// Add watchers for all patterns with improved config
+			let watcher = server.watcher;
+
+			// Override watcher configuration for better reliability
+			watcher.options = {
+				...watcher.options,
+				usePolling: true,
+				interval: 300,
+				batchDelay: 50,
+				awaitWriteFinish: {
+					stabilityThreshold: 100,
+					pollInterval: 50
+				},
+				alwaysStat: true,
+				ignoreInitial: true
+			};
+
 			watchPatterns.forEach(pattern => {
-				server.watcher.add(pattern);
+				watcher.add(pattern);
 			});
 
-			// Handle file events (both change and add)
+			// Debounce function to avoid processing the same file multiple times
+			const debounceMap = new Map();
+
+			// Handle file events (both change and add) with debouncing
 			const handleFileEvent = (filePath, event) => {
-				return processFileChange(filePath, event, watchCacheManager);
+				const key = `${filePath}-${event}`;
+
+				// Clear any existing timeout for this file+event
+				if (debounceMap.has(key)) {
+					clearTimeout(debounceMap.get(key));
+				}
+
+				// Set a new timeout
+				const timeoutId = setTimeout(() => {
+					processFileChange(filePath, event, watchCacheManager);
+					debounceMap.delete(key);
+				}, 100);
+
+				debounceMap.set(key, timeoutId);
 			};
 
 			// Set up event handlers
-			server.watcher.on("change", filePath => {
+			watcher.on("change", filePath => {
 				handleFileEvent(filePath, "change");
 			});
 
-			server.watcher.on("add", filePath => {
+			watcher.on("add", filePath => {
 				handleFileEvent(filePath, "add");
 			});
 
-			server.watcher.on("unlink", filePath => {
+			watcher.on("unlink", filePath => {
 				console.log(`${THEME.warning}${STYLES.symbols.delete} Deleted:${STYLES.reset} ${STYLES.bold}${path.basename(filePath)}${STYLES.reset}`);
+
+				// Process deletion events
+				const key = `${filePath}-unlink`;
+				if (debounceMap.has(key)) {
+					clearTimeout(debounceMap.get(key));
+				}
+
+				const timeoutId = setTimeout(() => {
+					// Try to determine the destination path and delete it
+					try {
+						const relativePath = path.relative(path.resolve(__dirname, "src"), filePath);
+						// Find which directory pattern this file belongs to
+						for (const { dir, destDir } of sourceDirectories) {
+							const dirRelative = path.relative(path.resolve(__dirname, "src"), dir);
+							if (relativePath.startsWith(dirRelative)) {
+								const fileName = path.basename(filePath);
+								const destPath = path.join(destDir, fileName);
+
+								if (fs.existsSync(destPath)) {
+									fs.unlinkSync(destPath);
+									console.log(`${THEME.success} Deleted from build: ${fileName}`);
+								}
+								break;
+							}
+						}
+					} catch (err) {
+						console.error(`Error processing deletion: ${err.message}`);
+					}
+
+					debounceMap.delete(key);
+				}, 100);
+
+				debounceMap.set(key, timeoutId);
 			});
 
 			log(`Enhanced file watchers established for all source directories`, "success");
@@ -1003,12 +1068,13 @@ export default defineConfig(({ command, mode }) => {
 		server: {
 			watch: {
 				usePolling: true,
-				interval: 100,
-				ignored: ["node_modules/**", "Curalife-Theme-Build/**"]
+				interval: 300, // Reduced interval for faster detection
+				batchDelay: 50, // Add a short delay to batch multiple changes
+				ignored: ["node_modules/**", "Curalife-Theme-Build/**", ".git/**"]
 			},
 			hmr: {
 				overlay: true,
-				timeout: 3000
+				timeout: 5000 // Increased timeout for slower systems
 			},
 			open: true,
 			cors: true
