@@ -6,7 +6,7 @@
  *
  * Key features:
  * - Flattens ALL folder structures (assets, sections, snippets, layout, blocks) as required by Shopify
- * - Processes Tailwind CSS with optimizations
+ * - Processes Tailwind CSS with optimizations using @tailwindcss/vite
  * - Creates minified CSS files
  * - Optimized for production builds
  *
@@ -21,7 +21,7 @@ import { defineConfig } from "vite";
 import path from "path";
 import postcss from "postcss";
 import postcssImport from "postcss-import";
-import tailwindcss from "tailwindcss";
+import tailwind from "@tailwindcss/vite";
 import autoprefixer from "autoprefixer";
 import cssnano from "cssnano";
 import fs from "fs";
@@ -1035,9 +1035,6 @@ export default defineConfig(({ command, mode }) => {
 			postcss: {
 				plugins: [
 					postcssImport(),
-					tailwindcss({
-						config: path.resolve(__dirname, "tailwind.config.js")
-					}),
 					autoprefixer(),
 					...(isProduction
 						? [
@@ -1045,11 +1042,10 @@ export default defineConfig(({ command, mode }) => {
 									preset: [
 										"default",
 										{
-											discardComments: { removeAll: true },
-											reduceIdents: false,
-											reduceInitial: false,
-											zindex: false,
-											mergeIdents: false
+											discardComments: {
+												removeAll: true
+											},
+											normalizeWhitespace: false
 										}
 									]
 								})
@@ -1060,6 +1056,10 @@ export default defineConfig(({ command, mode }) => {
 		},
 
 		plugins: [
+			// Add Tailwind CSS Vite plugin
+			tailwind({
+				config: path.resolve(__dirname, "tailwind.config.js")
+			}),
 			createCopyPlugin(),
 			createWatchPlugin() // Add our custom watch plugin
 		],
