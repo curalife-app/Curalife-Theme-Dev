@@ -4,9 +4,13 @@ export default {
 
 	// Only keeping minimal JavaScript configuration for backward compatibility
 	theme: {
-		// Empty base theme since we're defining everything in CSS
-		extend: {
-			// Extensions that need to stay in JS for compatibility
+		screens: {
+			sm: { max: "640px" },
+			md: { max: "768px" },
+			lg: { max: "1024px" },
+			xl: { max: "1200px" },
+			mbl: { max: "768px" },
+			dsk: { min: "768px" }
 		}
 	},
 
