@@ -1,0 +1,102 @@
+{% if faqsAmount > 0 %}
+  <div class="faq-questions flex flex-col my-4">
+    {% for block in blocks %}
+      {% if block.type == 'faq' %}
+        <div class="faq-question overflow-hidden bg-white">
+          <div class="faq-question-header flex items-center justify-between p-4 cursor-pointer">
+            <div class="faq-question-title text-[16px] font-semibold pr-8">{{ block.settings.question }}</div>
+          </div>
+          <div class="faq-answer-wrapper">
+            <div class="faq-answer p-4 pt-0 text-gray-600 text-[16px]">
+              {{ block.settings.answer }}
+            </div>
+          </div>
+        </div>
+      {% endif %}
+    {% endfor %}
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const faqQuestions = document.querySelectorAll('#cta-section-{{ SID }} .faq-question');
+
+      faqQuestions.forEach(question => {
+        const header = question.querySelector('.faq-question-header');
+        const answerWrapper = question.querySelector('.faq-answer-wrapper');
+        const answer = question.querySelector('.faq-answer');
+
+        // Initially set height to 0
+        answerWrapper.style.height = '0px';
+
+        header.addEventListener('click', () => {
+          const isOpen = question.classList.contains('open');
+
+          // Close all other questions first
+          faqQuestions.forEach(q => {
+            if (q !== question && q.classList.contains('open')) {
+              q.classList.remove('open');
+              q.querySelector('.faq-answer-wrapper').style.height = '0px';
+            }
+          });
+
+          // Toggle current question
+          question.classList.toggle('open');
+
+          if (!isOpen) {
+            answerWrapper.style.height = answer.offsetHeight + 'px';
+          } else {
+            answerWrapper.style.height = '0px';
+          }
+        });
+      });
+    });
+  </script>
+
+  <style>
+    .faq-question {
+      transition: all 0.3s ease;
+      border-top-width: 1px;
+      border-color: var(--primary-color-light);
+
+      &:last-child {
+        border-bottom-width: 1px;
+      }
+    }
+
+    .faq-answer-wrapper {
+      transition: height 0.3s ease-in-out;
+    }
+
+    .faq-question-header {
+      position: relative;
+      color: var(--primary-color);
+    }
+
+    .faq-question-header::after {
+      content: '+';
+      position: absolute;
+      right: 1rem;
+      font-size: 2rem;
+      transition: transform 0.3s;
+      line-height: 1;
+    }
+
+    .faq-question.open .faq-question-header::after {
+      transform: rotate(45deg);
+    }
+
+    .faq-answer p {
+      margin: 0;
+    }
+
+    @media (max-width: 767px) {
+      .faq-question-title {
+        font-size: 4vw;
+      }
+
+      .faq-answer {
+        font-size: 4vw;
+      }
+    }
+  </style>
+{% endif %}

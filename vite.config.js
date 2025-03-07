@@ -247,6 +247,12 @@ const createMinifiedCss = async () => {
 			const css = fs.readFileSync(outputPath, "utf8");
 			const startSize = Buffer.byteLength(css, "utf8") / 1024;
 
+			// Skip minification in watch mode
+			if (isWatchMode) {
+				log("Skipping CSS minification in watch mode", "info");
+				return true;
+			}
+
 			// Use cssnano directly to minify the file
 			const result = await postcss([
 				cssnano({

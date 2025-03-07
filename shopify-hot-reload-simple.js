@@ -222,11 +222,19 @@ const runBuild = () => {
 	return new Promise((resolve, reject) => {
 		log("Building theme...", colors.magenta);
 
-		const build = spawn("npm", ["run", "build:light"], {
+		// Create a build command that preserves the watch mode env variable
+		const buildCommand = process.env.VITE_WATCH_MODE === "true" ? "build:light -- --mode development" : "build:light";
+
+		const build = spawn("npm", ["run", buildCommand], {
 			shell: true,
 			stdio: "inherit",
 			// Increase max buffer to handle larger outputs
-			maxBuffer: 1024 * 1024 * 10 // 10 MB
+			maxBuffer: 1024 * 1024 * 10, // 10 MB
+			env: {
+				...process.env,
+				// Ensure we're not minifying in watch mode
+				VITE_WATCH_MODE: process.env.VITE_WATCH_MODE || "false"
+			}
 		});
 
 		// Handle build process errors

@@ -1,0 +1,210 @@
+{% if giftsAmount > 0 %}
+  <div class="gift-selector-wrap flex flex-col gap-3 mb-3">
+    <div class="gift-selector-title text-[18px] font-medium">Pick your free gift</div>
+
+    <div class="gift-options flex flex-col gap-2">
+      {% for block in blocks %}
+        {% case block.type %}
+          {% when 'gift' %}
+            {% assign show_gift = false %}
+            {% if block.settings.show_on == 'both' %}
+              {% assign show_gift = true %}
+            {% elsif block.settings.show_on == 'global' and isGlobal %}
+              {% assign show_gift = true %}
+            {% elsif block.settings.show_on == 'us' and isGlobal == false %}
+              {% assign show_gift = true %}
+            {% endif %}
+
+            {% if show_gift %}
+              {% assign giftProd = block.settings.gift_product %}
+              {% assign giftVariant = giftProd.selected_or_first_available_variant %}
+              {% assign giftProdSubscription = block.settings.gift_product_subscription | default: giftProd %}
+              {% assign giftVariantSubscription = giftProdSubscription.selected_or_first_available_variant %}
+              {% assign giftThumb = block.settings.gift_thumbnail | default: giftProdSubscription.featured_image | default: giftProd.featured_image %}
+
+              <div class="gift-box clickable block" name="track:gift|variant-sku:{{ giftVariant.sku }}">
+                <div
+                  class="gift-option-border p-2 rounded-lg"
+                  data-gift-id="{{ giftVariant.id }}"
+                  data-gift-id-subscription="{{ giftVariantSubscription.id | default: giftVariant.id }}">
+                  <div class="flex items-center self-end gap-2 ml-auto" style="width:93%">
+                    <div class="gift-image-container flex-shrink-0">
+                      <img
+                        src="{{ giftThumb | image_url: width: 160, height: 160 }}"
+                        alt="{{ giftProd.title }}"
+                        class="object-contain w-full h-full">
+                    </div>
+
+                    <div class="gift-content flex-grow">
+                      <div class="flex items-center gap-2 mb-1">
+                        <div class="gift-name text-[16px] font-bold">{{ giftProd.title | replace: 'Free ', '' }} - FREE</div>
+                        <span class="text-gray-600 line-through">${{ giftVariantSubscription.compare_at_price | money_without_currency }}</span>
+                      </div>
+                      <div class="text-gray-600" style="font-size: 14px">{{ block.settings.variant_description | default: giftProd.metafields.custom.short_description }}</div>
+                    </div>
+
+                    <div class="check-indicator w-8 h-8 rounded-full border-2 border-[--primary-color] flex items-center justify-center">
+                      <svg class="check-mark w-5 h-5 text-primary" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            {% endif %}
+        {% endcase %}
+      {% endfor %}
+    </div>
+  </div>
+
+  <style>
+    /* Gift Selector Component */
+    #cta-section-{{ SID }} .gift-selector-wrap {
+      .gift-box {
+        .gift-option-border {
+          position: relative;
+          cursor: pointer;
+          background-color: white;
+          border: 1px solid var(--primary-color-light);
+          transition: all 0.3s ease;
+
+          &:hover {
+            background-color: var(--primary-color-lighter);
+          }
+
+          /* Gift Option Layout */
+          & > div.flex.items-center.gap-4 {
+            padding-left: 3rem;
+          }
+
+          .gift-image-container {
+            width: 80px;
+            height: 80px;
+            flex-shrink: 0;
+          }
+
+          /* Check Indicator */
+          .check-indicator {
+            position: absolute;
+            left: 3%;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 20px;
+            height: 20px;
+            min-width: 20px;
+            min-height: 20px;
+            border: 1px solid var(--primary-color);
+            border-radius: 9999px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: transparent;
+
+            svg.check-mark {
+              width: 12px;
+              height: 12px;
+              min-width: 12px;
+              min-height: 12px;
+              color: white;
+              stroke: var(--primary-color);
+              stroke-width: 2;
+              fill: none;
+              opacity: 0;
+              transition: opacity 0.3s ease;
+            }
+          }
+
+          .gift-content {
+            flex-grow: 1;
+          }
+        }
+
+        /* Selected State */
+        &.selected {
+          .gift-option-border {
+            background-color: var(--primary-color-lighter) !important;
+
+            .check-indicator {
+              background-color: var(--primary-color);
+
+              svg.check-mark {
+                opacity: 1;
+                stroke: white;
+              }
+            }
+          }
+        }
+
+        &:hover {
+          .gift-option-border {
+            background-color: var(--primary-color-lightest);
+          }
+        }
+      }
+    }
+
+    @media (max-width: 767px) {
+      .gift-content {
+        font-size: 4vw;
+      }
+    }
+  </style>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // Initialize the gift selector functionality
+      const SID = '{{ SID }}';
+      const productActions = document.querySelector('#cta-section-' + SID + ' .product-actions');
+      if (!productActions) return;
+
+      const giftOptionContainers = productActions.querySelectorAll('.gift-box');
+
+      // Make the getSelectedGift function available globally for other components
+      window.subscriptionBox = window.subscriptionBox || {};
+      window.subscriptionBox[SID] = window.subscriptionBox[SID] || {};
+
+      // Function to update the selected gift visually
+      function updateGiftSelection(container) {
+        giftOptionContainers.forEach(c => {
+          const mark = c.querySelector('.check-mark');
+          const sel = c === container;
+          c.classList.toggle('selected', sel);
+          if (mark) {
+            mark.style.display = 'block';
+            mark.style.opacity = sel ? '1' : '0';
+          }
+        });
+      }
+
+      // Function to get the currently selected gift
+      window.subscriptionBox[SID].getSelectedGift = function(isSubscription = false) {
+        const giftEl = document.querySelector('#cta-section-' + SID + ' .gift-box.selected');
+        if (!giftEl || !giftEl.querySelector('.gift-option-border')) {
+          return null;
+        }
+
+        const giftBorder = giftEl.querySelector('.gift-option-border');
+        const giftID = isSubscription
+          ? giftBorder.dataset.giftIdSubscription
+          : giftBorder.dataset.giftId;
+
+        if (!giftID) return null;
+
+        return {
+          id: parseInt(giftID, 10),
+          quantity: 1,
+          element: giftEl
+        };
+      };
+
+      // Initialize gift selection
+      if (giftOptionContainers.length > 0) {
+        updateGiftSelection(giftOptionContainers[0]);
+      }
+
+      giftOptionContainers.forEach(c => {
+        c.addEventListener('click', () => updateGiftSelection(c));
+      });
+    });
+  </script>
+{% endif %}
