@@ -36,7 +36,7 @@
 
 <div class="product-actions" data-default-variant-index="{{ defaultSelectionIndex }}" data-gifts-amount="{{ giftsAmount }}">
 	<div class="purchase-options flex flex-col gap-3 mb-3">
-		<div class="font-semibold text-[18px]">{{ variantsTitle }}</div>
+		<div class="font-semibold text-[18px]">Select your pack</div>
 
 		<div class="variant-boxes flex justify-around gap-2">
 			{% for block in blocks %}
@@ -142,6 +142,9 @@
 						data-bottle-quantity="{{ bottle_quantity }}"
 						data-purchase-type="{{ varPurchaseType }}"
 						data-buy-type="{{ buyType }}"
+						{% if block.settings.allowed_selling_plan_ids %}
+						data-allowed-selling-plans="{{ block.settings.allowed_selling_plan_ids | escape }}"
+						{% endif %}
 						name="track:variant-box|variant-sku:{{ var.sku }}|purchase-type:{{ varPurchaseType }}">
 						{% if product.handle == 'curalin' %}
 							{% assign subscription_save_percents = var.metafields.subscription.save_percents %}
@@ -153,16 +156,12 @@
 						<!-- prettier-ignore -->
 						<div class="title p-1">
 							<span class="font-bold mbl:text-[4vw]">{{ bottle_quantity }} Bottle{% if bottle_quantity > 1 %}s{% endif %}</span>
-							<span class="block text-[15px] mbl:text-[3.4vw]">every {{ bottle_quantity }} month{% if bottle_quantity > 1 %}s{% endif %}</span>
 						</div>
 
-						<style>
-							@media (max-width: 767px) {
-								.title .block {
-									font-size: 3.4vw;
-								}
-							}
-						</style>
+						<!-- Replace the inline style with Tailwind class -->
+						<div class="md:hidden">
+							<span class="title block mbl:text-[3.4vw]"></span>
+						</div>
 					</div>
 				{% endif %}
 			{% endfor %}
@@ -199,11 +198,22 @@
 	</div>
 
 	{% if variantsNotice != blank %}
-		<div class="notice text-primary flex gap-2 my-4" style="font-size:15px">
+		<div class="notice text-primary flex gap-2 my-4 text-[15px]">
 			<span>ⓘ</span>
 			<span>{{ variantsNotice }}</span>
 		</div>
 	{% endif %}
+
+	<!-- Subscription Frequency Selector with direct Tailwind classes -->
+	<div class="hidden my-4 transition-all duration-300 ease-in-out">
+		<div class="mb-3 font-semibold">Choose Delivery Frequency</div>
+		<div class="subscription-frequency-selector">
+			<div id="frequency-options-{{ SID }}" class="flex justify-center gap-2">
+				<!-- Options will be dynamically populated by JavaScript -->
+			</div>
+		</div>
+		<div class="text-[14px] text-gray-600 mt-2 transition-opacity duration-300 ease-in-out leading-normal"><!-- Frequency description will be populated by JavaScript --></div>
+	</div>
 
 	{% render 'subscription-box-faq',
 		SID: SID,
@@ -252,16 +262,20 @@
 				</div>
 			{% endif %}
 		</div>
+
+		{% if blocks.size > 0 %}
+			{% for block in blocks %}
+				{% if block.type == 'text' %}
+					<div class="text-content text-[14px] text-primary whitespace-break-spaces">{{ block.settings.content }}</div>
+				{% endif %}
+			{% endfor %}
+		{% endif %}
 	</div>
 </div>
 
-<style>
-	.buy-box {
-		grid-template-columns: 45% 40% !important;
-		grid-column-gap: 5% !important;
-		justify-content: center;
-	}
-</style>
+<!-- Replace style with Tailwind classes added to parent div -->
+<div class="buy-box grid grid-cols-[45%_40%] gap-x-[5%] justify-center">
+</div>
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
@@ -273,18 +287,366 @@ document.addEventListener('DOMContentLoaded', () => {
 	const submitSellingPlanId  = productActions.querySelector('.submit-selling-plan-id');
 	const submitVariantId      = productActions.querySelector('.submit-variant-id');
 	const oneTimeButton        = productActions.querySelector('.one-time-add-to-cart');
-
-	// Liquid Data
+	// Update selector to use direct Tailwind classes
+	const frequencySelector    = productActions.querySelector('.hidden.my-4.transition-all');
 	const SID         = '{{ SID }}';
 	const buyType     = '{{ buyType }}';
 	const priceFormat = '{{ priceFormat }}';
 
-	// Component State
-	const state = { selectedBox: null, isInitialLoad: true };
+	if (!window.productData) window.productData = {};
+
+	const firstVariantBox = purchaseOptionBoxes[0];
+	if (firstVariantBox) {
+		const productId = firstVariantBox.dataset.product;
+		if (productId && !window.productData[productId]) {
+			window.productData[productId] = {
+				id: productId,
+				variants: [],
+				initialized: false
+			};
+		}
+	}
+
+	// Store current product data from Liquid if available
+	{% if prod and prod.id %}
+	window.productData['{{ prod.id }}'] = {
+		id: {{ prod.id | json }},
+		handle: {{ prod.handle | json }},
+		title: {{ prod.title | json }},
+		variants: [
+			{% for variant in prod.variants %}
+			{
+				id: {{ variant.id | json }},
+				title: {{ variant.title | json }},
+				price: {{ variant.price | json }},
+				sku: {{ variant.sku | json }},
+				{% if variant.selling_plan_allocations.size > 0 %}
+				selling_plan_allocations: [
+					{% for allocation in variant.selling_plan_allocations %}
+					{
+						selling_plan: {
+							id: {{ allocation.selling_plan.id | json }},
+							name: {{ allocation.selling_plan.name | json }}
+						},
+						price: {{ allocation.price | json }},
+						compare_at_price: {{ allocation.compare_at_price | json }}
+					}{% unless forloop.last %},{% endunless %}
+					{% endfor %}
+				]
+				{% else %}
+				selling_plan_allocations: []
+				{% endif %}
+			}{% unless forloop.last %},{% endunless %}
+			{% endfor %}
+		],
+		initialized: true
+	};
+	{% endif %}
+
+	// Centralized state management
+	const BuyBoxState = {
+		// State properties
+		data: {
+			selectedBox: null,
+			selectedFrequency: null,
+			isInitialLoad: true,
+			isLoading: false,
+			isRedirectingToCheckout: false, // New flag to track if we're redirecting to checkout
+			selectedGift: null,
+			productId: null,
+			variantId: null,
+			sellingPlanId: null,
+			purchaseType: null, // 'subscribe' or 'buyonce'
+			priceFormat: '{{ priceFormat }}',
+			buyType: '{{ buyType }}',
+			SID: '{{ SID }}'
+		},
+
+		// Set state and trigger UI updates
+		setState(updates) {
+			// Store previous state for comparison
+			const previousState = {...this.data};
+
+			// Update state with new values
+			Object.assign(this.data, updates);
+
+			// React to specific state changes
+			this.updateUI(updates, previousState);
+		},
+
+		// Update UI based on state changes
+		updateUI(changes, previousState) {
+			// If loading state changed
+			if ('isLoading' in changes) {
+				this.updateLoadingState(this.data.isLoading);
+			}
+
+			// If selected box changed
+			if ('selectedBox' in changes) {
+				// Only trigger if it's a different box
+				if (this.data.selectedBox !== previousState.selectedBox) {
+					this.updateSelectedBox(this.data.selectedBox);
+				}
+			}
+
+			// If selected frequency changed
+			if ('selectedFrequency' in changes || 'sellingPlanId' in changes) {
+				this.updateFrequencyUI();
+			}
+		},
+
+		// Update UI elements when box selection changes
+		updateSelectedBox(boxElement) {
+			if (!boxElement) return;
+
+			// Extract data from the box
+			const isSub = boxElement.dataset.purchaseType === 'subscribe';
+			const planId = isSub ? boxElement.dataset.subscriptionSellingPlanId : '';
+			const variantId = boxElement.dataset.variant;
+
+			// Update submit button settings
+			if (submitSellingPlanId) submitSellingPlanId.value = planId;
+			if (submitVariantId) submitVariantId.value = variantId;
+
+			// Update selling plan and variant IDs in state
+			this.setState({
+				sellingPlanId: planId,
+				variantId: variantId,
+				purchaseType: boxElement.dataset.purchaseType,
+				productId: boxElement.dataset.product
+			});
+
+			// Visually update the UI
+			document.querySelectorAll('.variant-box').forEach(box => {
+				box.classList.remove('selected');
+				const radio = box.querySelector('input[type="radio"]');
+				if (radio) radio.checked = false;
+			});
+
+			boxElement.classList.add('selected');
+			const radio = boxElement.querySelector('input[type="radio"]');
+			if (radio) radio.checked = true;
+
+			// Update button tracking data
+			updateBuyButton(boxElement);
+
+			// Update price display
+			updatePriceDisplay(boxElement);
+
+			// Update frequency selector
+			populateFrequencySelector(boxElement);
+
+			{% if isSlideVariant %}
+				if (window.hasInitialImageUpdateHappened) {
+					updateVariantImage(boxElement);
+				} else {
+					window.hasInitialImageUpdateHappened = true;
+				}
+			{% endif %}
+		},
+
+		// Update frequency UI based on state
+		updateFrequencyUI() {
+			const frequencyOptions = document.getElementById('frequency-options-{{ SID }}');
+			if (!frequencyOptions) return;
+
+			const sellingPlanId = this.data.sellingPlanId;
+			if (!sellingPlanId) return;
+
+			// Update selected frequency option
+			frequencyOptions.querySelectorAll('.frequency-box').forEach(box => {
+				const boxId = box.getAttribute('data-selling-plan-id');
+				if (boxId === sellingPlanId) {
+					box.classList.add('selected');
+				} else {
+					box.classList.remove('selected');
+				}
+			});
+
+			// Update frequency description
+			updateFrequencyDescription();
+		},
+
+		// Update loading state UI
+		updateLoadingState(isLoading) {
+			if (submitButton) {
+				if (isLoading) {
+					submitButton.disabled = true;
+					submitButton.innerHTML = `<div class="border-white/20 border-t-white animate-spin inline-block w-6 h-6 mx-auto border-2 rounded-full"></div>`;
+					submitButton.setAttribute('aria-busy', 'true');
+				} else {
+					submitButton.disabled = false;
+					submitButton.innerHTML = submitButton.getAttribute('data-original-text') || 'Add To Cart';
+					submitButton.removeAttribute('aria-busy');
+				}
+			}
+
+			// Also update one-time purchase button if it exists
+			if (oneTimeButton) {
+				oneTimeButton.disabled = isLoading;
+				if (isLoading) {
+					oneTimeButton.setAttribute('aria-busy', 'true');
+				} else {
+					oneTimeButton.removeAttribute('aria-busy');
+				}
+			}
+
+			// Disable all interactive elements during loading
+			document.querySelectorAll('.variant-box, .frequency-box, .gift-option-border').forEach(el => {
+				el.style.pointerEvents = isLoading ? 'none' : '';
+			});
+		},
+
+		// Initialize state with default values
+		init() {
+			const defaultIdx = parseInt(productActions.dataset.defaultVariantIndex, 10) || 0;
+			const defaultBox = purchaseOptionBoxes[defaultIdx - 1] || purchaseOptionBoxes[0];
+
+			// Store original button text for later restoration
+			if (submitButton) {
+				submitButton.setAttribute('data-original-text', submitButton.textContent);
+			}
+
+			// Set initial state if a default box exists
+			if (defaultBox) {
+				this.setState({
+					selectedBox: defaultBox,
+					isInitialLoad: true
+				});
+			}
+
+			// Mark initialization as complete
+			setTimeout(() => {
+				this.setState({ isInitialLoad: false });
+			}, 100);
+		}
+	};
+
+	// Component State (kept for backwards compatibility)
+	const state = BuyBoxState.data;
 
 	// ~~~~~~~~~~~~~~~~~~~~~
 	//    Utility Methods
 	// ~~~~~~~~~~~~~~~~~~~~~
+
+	/**
+	 * Cart Cache - Reduces unnecessary network requests
+	 */
+	const CartCache = {
+		data: null,
+		lastFetched: 0,
+		maxAge: 2000, // 2 seconds
+
+		async getCart(forceRefresh = false) {
+			const now = Date.now();
+			if (!forceRefresh && this.data && (now - this.lastFetched < this.maxAge)) {
+				// Using cached cart data
+				return this.data;
+			}
+
+			try {
+				// Fetching fresh cart data
+				const res = await fetch('/cart.js');
+				if (!res.ok) throw new Error('Failed to fetch cart');
+				this.data = await res.json();
+				this.lastFetched = now;
+				return this.data;
+			} catch (err) {
+				console.error('Error fetching cart:', err);
+				throw err;
+			}
+		},
+
+		invalidate() {
+			// Invalidating cart cache
+			this.data = null;
+			this.lastFetched = 0;
+		}
+	};
+
+	/**
+	 * DOM Update utilities for efficient updates
+	 */
+	const DOMUtils = {
+		updateProperty(element, property, newValue) {
+			if (!element) return false;
+
+			if (element[property] !== newValue) {
+				element[property] = newValue;
+				return true;
+			}
+			return false;
+		},
+
+		updateAttribute(element, attribute, newValue) {
+			if (!element) return false;
+
+			const currentValue = element.getAttribute(attribute);
+			if (currentValue !== newValue) {
+				element.setAttribute(attribute, newValue);
+				return true;
+			}
+			return false;
+		},
+
+		toggleClass(element, className, shouldHave) {
+			if (!element) return false;
+
+			const hasClass = element.classList.contains(className);
+			if (shouldHave && !hasClass) {
+				element.classList.add(className);
+				return true;
+			} else if (!shouldHave && hasClass) {
+				element.classList.remove(className);
+				return true;
+			}
+			return false;
+		},
+
+		updateStyle(element, property, newValue) {
+			if (!element) return false;
+
+			if (element.style[property] !== newValue) {
+				element.style[property] = newValue;
+				return true;
+			}
+			return false;
+		},
+
+		createElement(tagName, properties = {}, parent = null) {
+			const element = document.createElement(tagName);
+
+			// Set properties
+			Object.entries(properties).forEach(([key, value]) => {
+				if (key === 'className') {
+					element.className = value;
+				} else if (key === 'innerHTML') {
+					element.innerHTML = value;
+				} else if (key === 'textContent') {
+					element.textContent = value;
+				} else if (key === 'style' && typeof value === 'object') {
+					Object.entries(value).forEach(([prop, val]) => {
+						element.style[prop] = val;
+					});
+				} else if (key.startsWith('data-')) {
+					element.setAttribute(key, value);
+				} else if (key.startsWith('on') && typeof value === 'function') {
+					const eventName = key.substring(2).toLowerCase();
+					element.addEventListener(eventName, value);
+				} else {
+					element[key] = value;
+				}
+			});
+
+			// Append to parent if provided
+			if (parent) {
+				parent.appendChild(element);
+			}
+
+			return element;
+		}
+	};
+
 	function showNotification(msg, type = 'error') {
 		const note = document.createElement('div');
 		note.className = `
@@ -319,40 +681,177 @@ document.addEventListener('DOMContentLoaded', () => {
 		}, 5000);
 	}
 
-	async function getCart() {
-		const res = await fetch('/cart.js');
-		if (!res.ok) throw new Error('Failed to fetch cart');
-		return res.json();
+	function parseErrorMessage(error, context = '') {
+		// Log detailed error information for debugging
+		console.error(`Error in ${context}:`, {
+			message: error.message,
+			response: error.response,
+			stack: error.stack,
+			originalError: error
+		});
+
+		// Extract Shopify error messages if available
+		if (error.response && typeof error.response === 'object') {
+			// Handle Shopify API error responses
+			if (error.response.description) {
+				return error.response.description;
+			}
+
+			// Handle Shopify checkout errors
+			if (error.response.message) {
+				return error.response.message;
+			}
+		}
+
+		// Common error patterns
+		if (error.message && error.message.includes('network')) {
+			return 'Network connection issue. Please check your internet connection and try again.';
+		}
+
+		if (error.message && error.message.includes('timeout')) {
+			return 'Request timed out. Please try again.';
+		}
+
+		if (error.message && error.message.includes('sold out')) {
+			return 'This product is currently sold out. Please try again later.';
+		}
+
+		if (error.message && error.message.includes('variant')) {
+			return 'There was an issue with the selected option. Please try selecting a different option.';
+		}
+
+		// Context-specific default messages
+		switch (context) {
+			case 'cart-add':
+				return 'Unable to add items to your cart. Please try again.';
+			case 'checkout':
+				return 'Unable to proceed to checkout. Please try again.';
+			case 'frequency-selection':
+				return 'Unable to update subscription frequency. Please try again.';
+			default:
+				return 'Something went wrong. Please try again or contact customer support.';
+		}
+	}
+
+	async function getCart(forceRefresh = false) {
+		try {
+			return await CartCache.getCart(forceRefresh);
+		} catch (err) {
+			console.error('Error in getCart:', err);
+			throw new Error('Unable to access your cart');
+		}
 	}
 
 	async function removeCartItem(key) {
-		await fetch('/cart/update.js', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ updates: { [key]: 0 } })
-		});
+		try {
+			const res = await fetch('/cart/update.js', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ updates: { [key]: 0 } })
+			});
+
+			if (!res.ok) {
+				const errorData = await res.json();
+				throw Object.assign(new Error('Failed to remove item'), { response: errorData });
+			}
+
+			// Invalidate cart cache after modification
+			CartCache.invalidate();
+			return res.json();
+		} catch (err) {
+			console.error('Error removing cart item:', err);
+			throw err;
+		}
 	}
 
 	async function clearCart() {
-		await fetch('/cart/clear.js', { method: 'POST' });
+		try {
+			const res = await fetch('/cart/clear.js', { method: 'POST' });
+			if (!res.ok) {
+				const errorData = await res.json();
+				throw Object.assign(new Error('Failed to clear cart'), { response: errorData });
+			}
+
+			// Invalidate cart cache after modification
+			CartCache.invalidate();
+			return res.json();
+		} catch (err) {
+			console.error('Error clearing cart:', err);
+			throw err;
+		}
+	}
+
+	// ~~~~~~~~~~~~~~~~~~~~~
+	//   Cart/Checkout
+	// ~~~~~~~~~~~~~~~~~~~~~
+	async function handleBuyNowFlow(items) {
+		try {
+			// Remove cart popup if it exists
+			const cartPopup = document.getElementById('upCart');
+			if (cartPopup) cartPopup.remove();
+
+			// Clear the cart
+			try {
+				await clearCart();
+				// Cart cache already invalidated by clearCart()
+			} catch (clearErr) {
+				console.error('Error clearing cart:', clearErr);
+				throw Object.assign(
+					new Error('Failed to prepare checkout'),
+					{ cause: 'cart-clear', originalError: clearErr }
+				);
+			}
+
+			// Add items to cart
+			const addRes = await fetch('/cart/add.js', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ items })
+			});
+
+			if (!addRes.ok) {
+				const errorData = await addRes.json();
+				console.error('Cart add response:', errorData);
+				throw Object.assign(
+					new Error('Failed to add items'),
+					{ response: errorData }
+				);
+			}
+
+			// Invalidate cart cache after modification
+			CartCache.invalidate();
+
+			// Set a flag to indicate we're redirecting to checkout
+			// This prevents the loading state from being reset in the finally block
+			BuyBoxState.setState({ isRedirectingToCheckout: true });
+
+			// If we get here, redirect to checkout
+			window.location.href = '/checkout';
+		} catch (err) {
+			console.error('handleBuyNowFlow error details:', err);
+			throw err; // Re-throw to be handled by the caller
+		}
 	}
 
 	// Add items, remove any existing subscription for same product if needed
 	async function addValidItemsToCart(items) {
 		try {
-			let cart = await getCart();
+			let cart = await getCart(true); // Force a fresh cart fetch
 			const subItem = items.find(i => i.selling_plan);
+
 			if (subItem) {
 				const selectedBox = document.querySelector('.variant-box.selected');
-				const productId   = selectedBox?.dataset?.product;
+				const productId = selectedBox?.dataset?.product;
+
 				if (productId) {
 					const existingSub = cart.items.find(ci => (
 						ci.product_id === parseInt(productId, 10) &&
 						Boolean(ci.selling_plan_allocation)
 					));
+
 					if (existingSub) {
 						await removeCartItem(existingSub.key);
-						cart = await getCart();
+						// Don't need to refetch cart here as we'll add items anyway
 					}
 				}
 			}
@@ -362,7 +861,14 @@ document.addEventListener('DOMContentLoaded', () => {
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ items })
 			});
-			if (!addRes.ok) throw new Error('Failed to add items');
+
+			if (!addRes.ok) {
+				const errorData = await addRes.json();
+				throw Object.assign(new Error('Failed to add items'), { response: errorData });
+			}
+
+			// Invalidate cart cache after modification
+			CartCache.invalidate();
 
 			showNotification(
 				subItem && items.includes(subItem)
@@ -372,9 +878,9 @@ document.addEventListener('DOMContentLoaded', () => {
 			);
 			return { success: true, addedItems: items };
 		} catch (err) {
-			console.error('addValidItemsToCart:', err);
-			showNotification('Error adding items. Please try again.');
-			return { success: false, addedItems: [] };
+			console.error('addValidItemsToCart error details:', err);
+			showNotification(parseErrorMessage(err, 'cart-add'), 'error');
+			return { success: false, addedItems: [], error: err };
 		}
 	}
 
@@ -382,126 +888,176 @@ document.addEventListener('DOMContentLoaded', () => {
 	//   Price Updates
 	// ~~~~~~~~~~~~~~~~~~~~~
 	function updatePriceDisplay(el) {
-			const priceEls = document.querySelectorAll('.price-display');
+		const priceEls = document.querySelectorAll('.price-display');
 
-			// Get base prices and convert from cents to dollars
-			const subItem = parseFloat(el.dataset.subscriptionItemPrice) / 100 || 0;
-			const subPrice = parseFloat(el.dataset.subscriptionPrice) / 100 || 0;
-			const origPerItem = parseFloat(el.dataset.originalItemCap) / 100 || 0;
-			const bottles = parseInt(el.dataset.bottleQuantity, 10) || 1;
+		// Get base prices and convert from cents to dollars
+		const subItem = parseFloat(el.dataset.subscriptionItemPrice) / 100 || 0;
+		const subPrice = parseFloat(el.dataset.subscriptionPrice) / 100 || 0;
+		const origPerItem = parseFloat(el.dataset.originalItemCap) / 100 || 0;
+		const bottles = parseInt(el.dataset.bottleQuantity, 10) || 1;
 
-			// Calculate original total price
-			const totalOrig = origPerItem * bottles;
+		// Calculate original total price
+		const totalOrig = origPerItem * bottles;
 
-			// Get subscription and first month discounts
-			const subscriptionDiscount = parseFloat(el.dataset.subscriptionDiscount) || 0;
-			const firstMonthDiscount = parseFloat(el.dataset.firstMonthDiscount) || 0;
+		// Get subscription and first month discounts
+		const subscriptionDiscount = parseFloat(el.dataset.subscriptionDiscount) || 0;
+		const firstMonthDiscount = parseFloat(el.dataset.firstMonthDiscount) || 0;
 
-			// Combine discounts for first month
-			const totalFirstMonthDiscount = subscriptionDiscount + firstMonthDiscount;
-			const firstMonthDiscountMultiplier = (100 - totalFirstMonthDiscount) / 100;
+		// Combine discounts for first month
+		const totalFirstMonthDiscount = subscriptionDiscount + firstMonthDiscount;
+		const firstMonthDiscountMultiplier = (100 - totalFirstMonthDiscount) / 100;
 
-			// Calculate first month prices
-			const firstMonthSubItem = origPerItem * firstMonthDiscountMultiplier;
-			const firstMonthSubPrice = totalOrig * firstMonthDiscountMultiplier;
+		// Calculate first month prices
+		const firstMonthSubItem = origPerItem * firstMonthDiscountMultiplier;
+		const firstMonthSubPrice = totalOrig * firstMonthDiscountMultiplier;
 
-			// Regular subscription price for future months uses only subscription discount
-			const regularDiscountMultiplier = (100 - subscriptionDiscount) / 100;
-			const regularPrice = (priceFormat === 'total' ? totalOrig : origPerItem) * regularDiscountMultiplier;
+		// Regular subscription price for future months uses only subscription discount
+		const regularDiscountMultiplier = (100 - subscriptionDiscount) / 100;
+		const regularPrice = (priceFormat === 'total' ? totalOrig : origPerItem) * regularDiscountMultiplier;
 
-			// Calculate savings amount based on price format
-			const saveAmt = priceFormat === 'total'
-					? (totalOrig - firstMonthSubPrice)
-					: ((origPerItem - firstMonthSubItem) * bottles);
+		// Calculate savings amount based on price format
+		const saveAmt = priceFormat === 'total'
+				? (totalOrig - firstMonthSubPrice)
+				: ((origPerItem - firstMonthSubItem) * bottles);
 
-			priceEls.forEach(display => {
-					const mainPrice = display.querySelector('.final-price');
-					const discount = display.querySelector('.discount-badge');
-					const totalLine = display.querySelector('.total-line');
-					const futurePrice = display.querySelector('.future-price-notice');
+		// Format values for display
+		const newMainPrice = `$${(priceFormat === 'total' ? firstMonthSubPrice : firstMonthSubItem).toFixed(2)}`;
+		const newComparePrice = `$${(priceFormat === 'total' ? totalOrig : origPerItem).toFixed(2)}`;
+		const regularPriceFormatted = `$${regularPrice.toFixed(2)}`;
+		const flooredSave = Math.floor(saveAmt);
+		const savingsText = flooredSave > 0 ? `SAVE $${flooredSave}` : '';
 
-					// Format price displays
-					const newMain = `$${(priceFormat === 'total' ? firstMonthSubPrice : firstMonthSubItem).toFixed(2)}`;
-					const newCompare = `$${(priceFormat === 'total' ? totalOrig : origPerItem).toFixed(2)}`;
-					const regularPriceFormatted = `$${regularPrice.toFixed(2)}`;
-					const flooredSave = Math.floor(saveAmt);
+		priceEls.forEach(display => {
+			const mainPrice = display.querySelector('.final-price');
+			const discount = display.querySelector('.discount-badge');
+			const totalLine = display.querySelector('.total-line');
+			const futurePrice = display.querySelector('.future-price-notice');
 
-					// Skip animation if it's the initial load
-					if (state.isInitialLoad) {
-							if (mainPrice) {
-									const pSpan = mainPrice.querySelector('.price');
-									const cSpan = mainPrice.querySelector('.cap');
-									if (pSpan) pSpan.textContent = newMain;
-									if (cSpan) cSpan.textContent = newCompare;
-							}
+			// Skip animation if it's the initial load
+			if (state.isInitialLoad) {
+				if (mainPrice) {
+					const pSpan = mainPrice.querySelector('.price');
+					const cSpan = mainPrice.querySelector('.cap');
+					if (pSpan) DOMUtils.updateProperty(pSpan, 'textContent', newMainPrice);
+					if (cSpan) DOMUtils.updateProperty(cSpan, 'textContent', newComparePrice);
+				}
 
-							if (discount && priceFormat === 'total') {
-									discount.textContent = flooredSave > 0 ? `SAVE $${flooredSave}` : '';
-							}
+				if (discount && priceFormat === 'total') {
+					DOMUtils.updateProperty(discount, 'textContent', savingsText);
+					DOMUtils.toggleClass(discount, 'hidden', flooredSave <= 0);
+				}
 
-							if (totalLine && priceFormat === 'per_bottle') {
-									if (flooredSave > 0 && firstMonthSubPrice != firstMonthSubItem) {
-											totalLine.innerHTML = `Total $${firstMonthSubPrice.toFixed(2)} <span class="total-price-cap text-gray-500 line-through">$${totalOrig.toFixed(2)}</span>`;
-									} else {
-											totalLine.textContent = '';
-									}
-							}
-
-							// Update future price notice
-							if (futurePrice && firstMonthDiscount > 0) {
-									futurePrice.textContent = `Special price for first order. Refills for ${regularPriceFormatted}${priceFormat === 'per_bottle' ? '/bottle' : ''}. `;
-							}
-
-							state.isInitialLoad = false;
-							return;
+				if (totalLine && priceFormat === 'per_bottle') {
+					if (flooredSave > 0 && firstMonthSubPrice != firstMonthSubItem) {
+						DOMUtils.updateProperty(
+							totalLine,
+							'innerHTML',
+							`Total $${firstMonthSubPrice.toFixed(2)} <span class="total-price-cap text-gray-500 line-through">$${totalOrig.toFixed(2)}</span>`
+						);
+					} else {
+						DOMUtils.updateProperty(totalLine, 'textContent', '');
 					}
+				}
 
-					// Animate price updates for subsequent changes
-					const animate = () => {
-							[mainPrice, discount, totalLine, futurePrice].forEach(el => {
-									if (el) {
-											el.style.transition = 'opacity 200ms ease-out';
-											el.style.opacity = '0';
-									}
-							});
+				// Update future price notice
+				if (futurePrice) {
+					const newFuturePriceText = firstMonthDiscount > 0
+						? `Special price for first order. Refills for ${regularPriceFormatted}${priceFormat === 'per_bottle' ? '/bottle' : ''}.`
+						: '';
 
-							setTimeout(() => {
-									if (mainPrice) {
-											const pSpan = mainPrice.querySelector('.price');
-											const cSpan = mainPrice.querySelector('.cap');
-											if (pSpan) pSpan.textContent = newMain;
-											if (cSpan) cSpan.textContent = newCompare;
-									}
+					DOMUtils.updateProperty(futurePrice, 'textContent', newFuturePriceText);
+				}
 
-									if (discount && priceFormat === 'total') {
-											discount.textContent = flooredSave > 0 ? `SAVE $${flooredSave}` : '';
-									}
+				return;
+			}
 
-									if (totalLine && priceFormat === 'per_bottle') {
-											if (flooredSave > 0 && firstMonthSubPrice != firstMonthSubItem) {
-													totalLine.innerHTML = `Total $${firstMonthSubPrice.toFixed(2)} <span class="total-price-cap text-gray-500 line-through">$${totalOrig.toFixed(2)}</span>`;
-											} else {
-													totalLine.textContent = ' ';
-											}
-									}
+			// Track if any content changed to determine if animation is needed
+			let hasContentChanged = false;
 
-									// Update future price notice
-									if (futurePrice && firstMonthDiscount > 0) {
-											futurePrice.textContent = `Special price for first order. Refills for ${regularPriceFormatted}${priceFormat === 'per_bottle' ? '/bottle' : ''}. `;
-									} else if (futurePrice) {
-											futurePrice.textContent = '';
-									}
+			// Check if price content has changed before animating
+			if (mainPrice) {
+				const pSpan = mainPrice.querySelector('.price');
+				const cSpan = mainPrice.querySelector('.cap');
+				hasContentChanged =
+					(pSpan && pSpan.textContent !== newMainPrice) ||
+					(cSpan && cSpan.textContent !== newComparePrice);
+			}
 
-									// Fade elements back in with staggered timing
-									setTimeout(() => mainPrice && (mainPrice.style.opacity = '1'), 50);
-									setTimeout(() => discount && (discount.style.opacity = '1'), 100);
-									setTimeout(() => totalLine && (totalLine.style.opacity = '1'), 150);
-									setTimeout(() => futurePrice && (futurePrice.style.opacity = '1'), 200);
-							}, 200);
-					};
+			if (discount && priceFormat === 'total') {
+				hasContentChanged = hasContentChanged || discount.textContent !== savingsText;
+			}
 
-					requestAnimationFrame(animate);
-			});
+			if (totalLine && priceFormat === 'per_bottle') {
+				const newTotalLineHTML = flooredSave > 0 && firstMonthSubPrice != firstMonthSubItem
+					? `Total $${firstMonthSubPrice.toFixed(2)} <span class="total-price-cap text-gray-500 line-through">$${totalOrig.toFixed(2)}</span>`
+					: '';
+				hasContentChanged = hasContentChanged || totalLine.innerHTML !== newTotalLineHTML;
+			}
+
+			if (futurePrice) {
+				const newFuturePriceText = firstMonthDiscount > 0
+					? `Special price for first order. Refills for ${regularPriceFormatted}${priceFormat === 'per_bottle' ? '/bottle' : ''}.`
+					: '';
+				hasContentChanged = hasContentChanged || futurePrice.textContent !== newFuturePriceText;
+			}
+
+			// Only animate if content actually changed
+			if (hasContentChanged) {
+				const animate = () => {
+					// Fade out elements that will change
+					[mainPrice, discount, totalLine, futurePrice].forEach(el => {
+						if (el) DOMUtils.updateStyle(el, 'opacity', '0');
+					});
+
+					setTimeout(() => {
+						// Update content while elements are invisible
+						if (mainPrice) {
+							const pSpan = mainPrice.querySelector('.price');
+							const cSpan = mainPrice.querySelector('.cap');
+							if (pSpan) DOMUtils.updateProperty(pSpan, 'textContent', newMainPrice);
+							if (cSpan) DOMUtils.updateProperty(cSpan, 'textContent', newComparePrice);
+						}
+
+						if (discount && priceFormat === 'total') {
+							DOMUtils.updateProperty(discount, 'textContent', savingsText);
+							DOMUtils.toggleClass(discount, 'hidden', flooredSave <= 0);
+						}
+
+						if (totalLine && priceFormat === 'per_bottle') {
+							if (flooredSave > 0 && firstMonthSubPrice != firstMonthSubItem) {
+								DOMUtils.updateProperty(
+									totalLine,
+									'innerHTML',
+									`Total $${firstMonthSubPrice.toFixed(2)} <span class="total-price-cap text-gray-500 line-through">$${totalOrig.toFixed(2)}</span>`
+								);
+							} else {
+								DOMUtils.updateProperty(totalLine, 'textContent', ' ');
+							}
+						}
+
+						// Update future price notice
+						if (futurePrice && firstMonthDiscount > 0) {
+							DOMUtils.updateProperty(
+								futurePrice,
+								'textContent',
+								`Special price for first order. Refills for ${regularPriceFormatted}${priceFormat === 'per_bottle' ? '/bottle' : ''}.`
+							);
+						} else if (futurePrice) {
+							DOMUtils.updateProperty(futurePrice, 'textContent', '');
+						}
+
+						// Fade elements back in with staggered timing
+						setTimeout(() => mainPrice && DOMUtils.updateStyle(mainPrice, 'opacity', '1'), 50);
+						setTimeout(() => discount && DOMUtils.updateStyle(discount, 'opacity', '1'), 100);
+						setTimeout(() => totalLine && DOMUtils.updateStyle(totalLine, 'opacity', '1'), 150);
+						setTimeout(() => futurePrice && DOMUtils.updateStyle(futurePrice, 'opacity', '1'), 200);
+					}, 200);
+				};
+
+				// Use requestAnimationFrame for smoother animation
+				requestAnimationFrame(animate);
+			}
+		});
 	}
 
 	// ~~~~~~~~~~~~~~~~~~~~~
@@ -573,33 +1129,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	function togglePurchaseBox(el) {
 		if (!el) return;
-		purchaseOptionBoxes.forEach(box => {
-			box.classList.remove('selected');
-			const r = box.querySelector('input[type="radio"]');
-			if (r) r.checked = false;
-		});
-		const isSub     = el.dataset.purchaseType === 'subscribe';
-		const planId    = isSub ? el.dataset.subscriptionSellingPlanId : '';
-		const variantId = el.dataset.variant;
-
-		if (submitSellingPlanId) submitSellingPlanId.value = planId;
-		if (submitVariantId)     submitVariantId.value     = variantId;
-
-		el.classList.add('selected');
-		const radio = el.querySelector('input[type="radio"]');
-		if (radio) radio.checked = true;
-
-		updateBuyButton(el);
-		state.selectedBox = el;
-		updatePriceDisplay(el);
-
-		{% if isSlideVariant %}
-			if (window.hasInitialImageUpdateHappened) {
-				updateVariantImage(el);
-			} else {
-				window.hasInitialImageUpdateHappened = true;
-			}
-		{% endif %}
+		BuyBoxState.setState({ selectedBox: el });
 	}
 
 	function initPurchaseOptions() {
@@ -623,202 +1153,202 @@ document.addEventListener('DOMContentLoaded', () => {
 		});
 	}
 
-	// ~~~~~~~~~~~~~~~~~~~~~
-	//   Cart/Checkout
-	// ~~~~~~~~~~~~~~~~~~~~~
-	async function handleBuyNowFlow(items) {
-			try {
-					// Remove cart popup if it exists
-					const cartPopup = document.getElementById('upCart');
-					if (cartPopup) cartPopup.remove();
+	function selectFrequencyOption(optionEl) {
+		const frequencyOptions = document.getElementById('frequency-options-{{ SID }}');
+		if (!frequencyOptions) return;
 
-					// Clear the cart
-					try {
-							await clearCart();
-					} catch (clearErr) {
-							console.error('Error clearing cart:', clearErr);
-							throw new Error('Failed to clear cart');
-					}
+		const newSellingPlanId = optionEl.getAttribute('data-selling-plan-id');
 
-					// Add items to cart
-					const addRes = await fetch('/cart/add.js', {
-							method: 'POST',
-							headers: { 'Content-Type': 'application/json' },
-							body: JSON.stringify({ items })
-					});
+		BuyBoxState.setState({
+			selectedFrequency: optionEl,
+			sellingPlanId: newSellingPlanId
+		});
 
-					if (!addRes.ok) {
-							const errorData = await addRes.json();
-							console.error('Cart add response:', errorData);
-							throw new Error(errorData.description || 'Failed to add items to cart');
-					}
-
-					// If we get here, redirect to checkout
-					window.location.href = '/checkout';
-			} catch (err) {
-					console.error('handleBuyNowFlow error:', err);
-					throw err; // Re-throw to be handled by the caller
+		Array.from(frequencyOptions.children).forEach(box => {
+			if (box === optionEl) {
+				box.style.backgroundColor = 'var(--primary-color)';
+				box.style.color = 'white';
+			} else {
+				box.style.backgroundColor = 'var(--bg-color)';
+				box.style.color = 'var(--primary-color)';
 			}
+		});
+
+		const selectedBox = productActions.querySelector('.variant-box.selected');
+		if (selectedBox && selectedBox.dataset.purchaseType === 'subscribe') {
+			selectedBox.dataset.subscriptionSellingPlanId = newSellingPlanId;
+		}
+
+		updateFrequencyDescription();
 	}
 
 	function initSubmitButton() {
-			if (!submitButton) return;
-			submitButton.addEventListener('click', async e => {
-					e.preventDefault();
-					const box = productActions.querySelector('.variant-box.selected');
-					const giftsAmount = parseInt(productActions.dataset.giftsAmount || '0', 10);
+		if (!submitButton) return;
+		submitButton.addEventListener('click', async e => {
+			e.preventDefault();
+			const box = productActions.querySelector('.variant-box.selected');
+			const giftsAmount = parseInt(productActions.dataset.giftsAmount || '0', 10);
 
-					if (!box) {
-							showNotification('Please select a purchase option');
-							return;
+			if (!box) {
+				showNotification('Please select a purchase option');
+				return;
+			}
+
+			BuyBoxState.setState({ isLoading: true });
+
+			try {
+				const isSub = box.dataset.purchaseType === 'subscribe';
+				const variant = box.dataset.originalVariant || box.dataset.variant;
+
+				if (!variant) {
+					throw new Error('No valid variant ID found');
+				}
+
+				let sellingPlanId = isSub ? box.dataset.subscriptionSellingPlanId : undefined;
+				if (isSub && frequencySelector && !frequencySelector.classList.contains('hidden')) {
+					sellingPlanId = frequencySelector.value;
+				}
+
+				let items = [{
+					id: parseInt(variant, 10), // Ensure variant ID is a number
+					quantity: 1,
+					selling_plan: isSub ? sellingPlanId : undefined
+				}];
+
+				console.log('Items to add:', items); // Debug log
+
+				if (giftsAmount > 0) {
+					const giftEl = document.querySelector('.gift-box.selected');
+					if (!giftEl?.querySelector('.gift-option-border')) {
+						throw new Error('Please select a gift option');
 					}
+					const giftB = giftEl.querySelector('.gift-option-border');
+					const giftID = isSub ? giftB?.dataset.giftIdSubscription : giftB?.dataset.giftId;
+					if (!giftID) throw new Error('Invalid gift selection');
 
-					// Debug variant data
-					console.log('Selected box data:', {
-							variant: box.dataset.variant,
-							originalVariant: box.dataset.originalVariant,
-							product: box.dataset.product,
-							purchaseType: box.dataset.purchaseType,
-							sellingPlanId: box.dataset.subscriptionSellingPlanId
-					});
+					items.push({ id: parseInt(giftID, 10), quantity: 1 });
+				}
 
-					submitButton.disabled = true;
-					const btnHTML = submitButton.innerHTML;
-					submitButton.innerHTML = `<div class="button-spinner"></div>`;
-
-					try {
-							const isSub = box.dataset.purchaseType === 'subscribe';
-							// Try originalVariant if variant is not available
-							const variant = box.dataset.originalVariant || box.dataset.variant;
-
-							if (!variant) {
-									throw new Error('No valid variant ID found');
-							}
-
-							let items = [{
-									id: parseInt(variant, 10), // Ensure variant ID is a number
-									quantity: 1,
-									selling_plan: isSub ? box.dataset.subscriptionSellingPlanId : undefined
-							}];
-
-							console.log('Items to add:', items); // Debug log
-
-							if (giftsAmount > 0) {
-									const giftEl = document.querySelector('.gift-box.selected');
-									if (!giftEl?.querySelector('.gift-option-border')) {
-											throw new Error('Please select a gift option');
-									}
-									const giftB = giftEl.querySelector('.gift-option-border');
-									const giftID = isSub ? giftB?.dataset.giftIdSubscription : giftB?.dataset.giftId;
-									if (!giftID) throw new Error('Invalid gift selection');
-
-									items.push({ id: parseInt(giftID, 10), quantity: 1 });
-							}
-
-							if (buyType === 'buy_now') {
-									await handleBuyNowFlow(items);
-							} else {
-									await addValidItemsToCart(items);
-							}
-					} catch (err) {
-							console.error('Submit error:', err);
-							showNotification(err.message || 'Error adding items to cart. Please try again.');
-					} finally {
-							submitButton.innerHTML = btnHTML;
-							submitButton.disabled = false;
-					}
-			});
+				if (buyType === 'buy_now') {
+					await handleBuyNowFlow(items);
+				} else {
+					await addValidItemsToCart(items);
+				}
+			} catch (err) {
+				console.error('Submit error:', err);
+				showNotification(parseErrorMessage(err, 'checkout'), 'error');
+			} finally {
+				if (!BuyBoxState.data.isRedirectingToCheckout) {
+					BuyBoxState.setState({ isLoading: false });
+				}
+			}
+		});
 	}
 
 	function initOneTimeButton() {
 		if (!oneTimeButton) return;
+
+		oneTimeButton.setAttribute('data-original-text', oneTimeButton.textContent);
+
 		oneTimeButton.addEventListener('click', async e => {
-				e.preventDefault();
-				oneTimeButton.disabled = true;
-				const origText = oneTimeButton.textContent;
-				oneTimeButton.textContent = 'Adding...';
+			e.preventDefault();
 
-				try {
-						const giftEl = document.querySelector('.gift-box.selected');
-						const giftB = giftEl?.querySelector('.gift-option-border');
-						const giftID = giftB?.dataset.giftId;
-						const variant1 = oneTimeButton.dataset.variantId;
+			BuyBoxState.setState({ isLoading: true });
+			oneTimeButton.innerHTML = '<div class="border-primary/20 border-t-primary animate-spin inline-block w-4 h-4 mr-2 align-middle border-2 rounded-full"></div> Adding...';
+			oneTimeButton.setAttribute('aria-busy', 'true');
 
-						if (!variant1) {
-								throw new Error('Invalid variant ID');
-						}
+			try {
+				const giftEl = document.querySelector('.gift-box.selected');
+				const giftB = giftEl?.querySelector('.gift-option-border');
+				const giftID = giftB?.dataset.giftId;
+				const variant1 = oneTimeButton.dataset.variantId;
 
-						const toAdd = [{ id: parseInt(variant1, 10), quantity: 1 }];
-
-						{% if isOneTimeGift %}
-							if (giftID) toAdd.push({ id: parseInt(giftID, 10), quantity: 1 });
-						{% endif %}
-
-						console.log('Adding to cart:', toAdd);
-
-						if (buyType === 'buy_now') {
-								const cartPopup = document.getElementById('upCart');
-								if (cartPopup) cartPopup.remove();
-								await clearCart();
-
-								const res = await fetch('/cart/add.js', {
-										method: 'POST',
-										headers: { 'Content-Type': 'application/json' },
-										body: JSON.stringify({ items: toAdd })
-								});
-
-								const responseData = await res.json();
-								console.log('Cart response:', responseData);
-
-								if (!res.ok) {
-										const error = new Error(responseData.description || 'Failed to add items');
-										error.response = responseData;
-										throw error;
-								}
-
-								window.location.href = '/checkout';
-						} else {
-								const res = await fetch('/cart/add.js', {
-										method: 'POST',
-										headers: { 'Content-Type': 'application/json' },
-										body: JSON.stringify({ items: toAdd })
-								});
-
-								const responseData = await res.json();
-								console.log('Cart response:', responseData);
-
-								if (!res.ok) {
-										const error = new Error(responseData.description || 'Failed to add items');
-										error.response = responseData;
-										throw error;
-								}
-
-								if (typeof window.updateCart === 'function') {
-										window.updateCart();
-								}
-
-								oneTimeButton.textContent = 'Added!';
-								setTimeout(() => {
-										oneTimeButton.textContent = origText;
-										oneTimeButton.disabled = false;
-								}, 2000);
-						}
-				} catch (err) {
-						console.error('Cart error details:', {
-								message: err.message,
-								response: err.response,
-								error: err
-						});
-
-						const errorMessage = err.message || 'Error adding items to cart';
-						showNotification(errorMessage, 'error');
-						oneTimeButton.textContent = 'Failed';
-
-						setTimeout(() => {
-								oneTimeButton.textContent = origText;
-								oneTimeButton.disabled = false;
-						}, 2000);
+				if (!variant1) {
+					throw new Error('Invalid variant ID');
 				}
+
+				const toAdd = [{ id: parseInt(variant1, 10), quantity: 1 }];
+
+				{% if isOneTimeGift %}
+					if (giftID) toAdd.push({ id: parseInt(giftID, 10), quantity: 1 });
+				{% endif %}
+
+				console.log('Adding to cart:', toAdd);
+
+				if (buyType === 'buy_now') {
+					const cartPopup = document.getElementById('upCart');
+					if (cartPopup) cartPopup.remove();
+					await clearCart();
+
+					const res = await fetch('/cart/add.js', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ items: toAdd })
+					});
+
+					const responseData = await res.json();
+					console.log('Cart response:', responseData);
+
+					if (!res.ok) {
+						const error = new Error(responseData.description || 'Failed to add items');
+						error.response = responseData;
+						throw error;
+					}
+
+					BuyBoxState.setState({ isRedirectingToCheckout: true });
+					window.location.href = '/checkout';
+				} else {
+					const res = await fetch('/cart/add.js', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ items: toAdd })
+					});
+
+					const responseData = await res.json();
+					console.log('Cart response:', responseData);
+
+					if (!res.ok) {
+						const error = new Error(responseData.description || 'Failed to add items');
+						error.response = responseData;
+						throw error;
+					}
+
+					if (typeof window.updateCart === 'function') {
+						window.updateCart();
+					}
+
+					oneTimeButton.innerHTML = '✓ Added!';
+					oneTimeButton.classList.add('text-green-700', 'border-green-700');
+					setTimeout(() => {
+						oneTimeButton.innerHTML = oneTimeButton.getAttribute('data-original-text');
+						oneTimeButton.classList.remove('text-green-700', 'border-green-700');
+						oneTimeButton.removeAttribute('aria-busy');
+					}, 2000);
+				}
+			} catch (err) {
+				console.error('Cart error details:', {
+					message: err.message,
+					response: err.response,
+					error: err
+				});
+
+				const errorMessage = parseErrorMessage(err, 'cart-add');
+				showNotification(errorMessage, 'error');
+				oneTimeButton.innerHTML = '⚠ Failed';
+				oneTimeButton.classList.add('text-red-600', 'border-red-600');
+
+				setTimeout(() => {
+					oneTimeButton.innerHTML = oneTimeButton.getAttribute('data-original-text');
+					oneTimeButton.classList.remove('text-red-600', 'border-red-600');
+					oneTimeButton.removeAttribute('aria-busy');
+				}, 2000);
+			} finally {
+				if (!BuyBoxState.data.isRedirectingToCheckout) {
+					setTimeout(() => {
+						BuyBoxState.setState({ isLoading: false });
+					}, 2000);
+				}
+			}
 		});
 	}
 
@@ -832,15 +1362,344 @@ document.addEventListener('DOMContentLoaded', () => {
 	}
 
 	// ~~~~~~~~~~~~~~~~~~~~~
+	//  Update Frequency Selector
+	// ~~~~~~~~~~~~~~~~~~~~~
+	function populateFrequencySelector(el) {
+		try {
+			const frequencyContainer = productActions.querySelector('div.hidden.my-4.transition-all');
+			if (!frequencyContainer) return;
+
+			const frequencyOptions = document.getElementById('frequency-options-{{ SID }}');
+			if (!frequencyOptions) return;
+
+			frequencyOptions.innerHTML = '';
+
+			const variant = el.dataset.originalVariant || el.dataset.variant;
+			const isSub = el.dataset.purchaseType === 'subscribe';
+
+			if (!isSub) {
+				frequencyContainer.classList.add('hidden');
+				return;
+			}
+
+			const productId = el.dataset.product;
+
+			console.log('Populating frequency selector:', {
+				productId,
+				variant,
+				hasProductData: window.productData && window.productData[productId] ? 'Yes' : 'No',
+				allowedSellingPlans: el.dataset.allowedSellingPlans || 'None specified'
+			});
+
+			const variantId = parseInt(variant);
+
+			let selectedVariant = null;
+			if (window.productData && window.productData[productId]) {
+				const product = window.productData[productId];
+				if (product.variants) {
+					selectedVariant = product.variants.find(v => v.id === variantId);
+
+					if (!selectedVariant) {
+						console.log('Variant not found in product data. Available variants:', product.variants.map(v => v.id));
+
+						const originalVariantId = parseInt(el.dataset.originalVariant || '0');
+						if (originalVariantId > 0) {
+							selectedVariant = product.variants.find(v => v.id === originalVariantId);
+						}
+					}
+				}
+			}
+
+			if (!selectedVariant) {
+				console.log('Using fallback for subscription plan options');
+				const currentSellingPlanId = el.dataset.subscriptionSellingPlanId;
+				if (currentSellingPlanId) {
+					const frequencyBox = document.createElement('div');
+					frequencyBox.className = 'rounded-md cursor-pointer py-2 min-w-[90px] text-center w-full selected transition-all duration-300 ease-in-out';
+					frequencyBox.style.backgroundColor = 'var(--primary-color)';
+					frequencyBox.style.color = 'white';
+					frequencyBox.setAttribute('data-selling-plan-id', currentSellingPlanId);
+					frequencyBox.innerHTML = `
+						<div class="p-1">
+							<span class="font-semibold">Current Plan</span>
+						</div>
+					`;
+					frequencyOptions.appendChild(frequencyBox);
+					frequencyBox.addEventListener('click', function() {
+						selectFrequencyOption(this);
+					});
+					frequencyContainer.classList.remove('hidden');
+				} else {
+					frequencyContainer.classList.add('hidden');
+				}
+
+				return;
+			}
+
+			updateFrequencyOptionsFromVariant(selectedVariant, el.dataset.subscriptionSellingPlanId);
+		} catch (error) {
+			console.error('Error in populateFrequencySelector:', error);
+			const frequencyOptions = document.getElementById('frequency-options-{{ SID }}');
+			const frequencyContainer = productActions.querySelector('div.hidden.my-4.transition-all');
+
+			if (frequencyOptions && frequencyContainer && el.dataset.purchaseType === 'subscribe') {
+				const currentSellingPlanId = el.dataset.subscriptionSellingPlanId;
+				if (currentSellingPlanId) {
+					frequencyOptions.innerHTML = '';
+					const frequencyBox = document.createElement('div');
+					frequencyBox.className = 'rounded-md cursor-pointer py-2 min-w-[90px] text-center w-full transition-all duration-300 ease-in-out';
+					frequencyBox.style.backgroundColor = 'var(--primary-color)';
+					frequencyBox.style.color = 'white';
+					frequencyBox.setAttribute('data-selling-plan-id', currentSellingPlanId);
+					frequencyBox.innerHTML = `
+						<div class="p-1">
+							<span class="font-semibold">Current Plan</span>
+						</div>
+					`;
+					frequencyOptions.appendChild(frequencyBox);
+					frequencyContainer.classList.remove('hidden');
+				}
+			}
+		}
+	}
+
+	function rebuildFrequencyOptions(frequencyOptions, filteredPlans, currentSellingPlanId) {
+		const fragment = document.createDocumentFragment();
+
+		filteredPlans.forEach(allocation => {
+			const plan = allocation.selling_plan;
+			const months = extractFrequencyMonths(plan.name);
+
+			const frequencyBox = document.createElement('div');
+			frequencyBox.className = 'rounded-md cursor-pointer py-2 min-w-[90px] text-center w-full transition-all duration-300 ease-in-out';
+
+			frequencyBox.style.backgroundColor = 'var(--bg-color)';
+			frequencyBox.style.color = 'var(--primary-color)';
+
+			frequencyBox.setAttribute('data-selling-plan-id', plan.id);
+			frequencyBox.setAttribute('data-months', months);
+
+			if (plan.id.toString() === currentSellingPlanId) {
+				frequencyBox.style.backgroundColor = 'var(--primary-color)';
+				frequencyBox.style.color = 'white';
+			}
+
+			let displayText = months === 1 ? 'Monthly' : `${months} Months`;
+
+			frequencyBox.innerHTML = `
+				<div class="p-1">
+					<span class="font-semibold">${displayText}</span>
+				</div>
+			`;
+
+			frequencyBox.addEventListener('click', function() {
+				selectFrequencyOption(this);
+			});
+
+			fragment.appendChild(frequencyBox);
+		});
+
+		frequencyOptions.innerHTML = '';
+		frequencyOptions.appendChild(fragment);
+	}
+
+	function updateSelectedFrequencyState(frequencyOptions, currentSellingPlanId) {
+		const options = frequencyOptions.querySelectorAll('div[data-selling-plan-id]');
+		let selectionChanged = false;
+
+		options.forEach(box => {
+			const isSelected = box.getAttribute('data-selling-plan-id') === currentSellingPlanId;
+			if (isSelected && box.style.backgroundColor !== 'var(--primary-color)') {
+				box.style.backgroundColor = 'var(--primary-color)';
+				box.style.color = 'white';
+				selectionChanged = true;
+			} else if (!isSelected && box.style.backgroundColor === 'var(--primary-color)') {
+				box.style.backgroundColor = 'var(--bg-color)';
+				box.style.color = 'var(--primary-color)';
+				selectionChanged = true;
+			}
+		});
+
+		if (selectionChanged) {
+			updateFrequencyDescription();
+		}
+	}
+
+	function updateFrequencyDescription() {
+		const descriptionEl = productActions.querySelector('.text-gray-600.mt-2.transition-opacity');
+		if (!descriptionEl) return;
+
+		const frequencyOptions = document.getElementById('frequency-options-{{ SID }}');
+		if (!frequencyOptions) return;
+
+		const selectedOption = Array.from(frequencyOptions.children).find(el =>
+			el.style.backgroundColor === 'var(--primary-color)'
+		);
+		if (!selectedOption) return;
+
+		const months = selectedOption.getAttribute('data-months') || '1';
+		const bottleQuantity = state.selectedBox?.dataset.bottleQuantity || '1';
+
+		let description = '';
+		if (months === '1') {
+			description = `You'll receive ${bottleQuantity} bottle${bottleQuantity > 1 ? 's' : ''} every month.`;
+		} else {
+			description = `You'll receive ${bottleQuantity} bottle${bottleQuantity > 1 ? 's' : ''} every ${months} months.`;
+		}
+
+		if (descriptionEl.textContent !== description) {
+			if (descriptionEl.style.opacity !== '0') {
+				DOMUtils.updateStyle(descriptionEl, 'opacity', '0');
+
+				setTimeout(() => {
+					DOMUtils.updateProperty(descriptionEl, 'textContent', description);
+					DOMUtils.updateStyle(descriptionEl, 'opacity', '1');
+				}, 200);
+			} else {
+				DOMUtils.updateProperty(descriptionEl, 'textContent', description);
+				DOMUtils.updateStyle(descriptionEl, 'opacity', '1');
+			}
+		}
+	}
+
+	// ~~~~~~~~~~~~~~~~~~~~~
 	//      Initialize
 	// ~~~~~~~~~~~~~~~~~~~~~
 	function init() {
 		initPurchaseOptions();
+
+		BuyBoxState.init();
 		initSubmitButton();
 		initOneTimeButton();
 		hideMonthTextIfNeeded();
 	}
 	init();
+
+	function extractFrequencyMonths(planName) {
+		const match = planName.match(/(\d+)\s*Month/i);
+		return match ? parseInt(match[1], 10) : 0;
+	}
+
+	function updateFrequencyOptionsFromVariant(variant, currentSellingPlanId) {
+		if (!variant) return;
+		const frequencyOptions = document.getElementById('frequency-options-{{ SID }}');
+		if (!frequencyOptions) return;
+
+		const frequencyContainer = productActions.querySelector('div.hidden.my-4.transition-all');
+		if (!frequencyContainer) return;
+
+		let sellingPlans = variant.selling_plan_allocations || [];
+
+		console.log('Updating frequency options:', {
+			variantId: variant.id,
+			plansCount: sellingPlans.length,
+			currentSellingPlanId
+		});
+
+		if (sellingPlans.length === 0) {
+			frequencyContainer.classList.add('hidden');
+			return;
+		}
+
+		const currentPlanIds = new Set(
+			Array.from(frequencyOptions.querySelectorAll('div[data-selling-plan-id]'))
+				.map(box => box.getAttribute('data-selling-plan-id'))
+		);
+
+		const { filteredPlans, hasChanged } = getFilteredSellingPlans(
+			sellingPlans,
+			currentPlanIds,
+			currentSellingPlanId
+		);
+
+		if (filteredPlans.length === 0) {
+			handleNoMatchingPlans(frequencyOptions, currentSellingPlanId, frequencyContainer);
+			return;
+		}
+
+		if (hasChanged) {
+			rebuildFrequencyOptions(frequencyOptions, filteredPlans, currentSellingPlanId);
+		} else {
+			updateSelectedFrequencyState(frequencyOptions, currentSellingPlanId);
+		}
+
+		updateFrequencyDescription();
+
+		if (frequencyContainer.classList.contains('hidden')) {
+			frequencyContainer.style.opacity = '0';
+			frequencyContainer.classList.remove('hidden');
+			setTimeout(() => {
+				frequencyContainer.style.opacity = '1';
+			}, 10);
+		}
+	}
+
+	function getFilteredSellingPlans(sellingPlans, currentPlanIds, currentSellingPlanId) {
+		const selectedBox = productActions.querySelector('.variant-box.selected');
+		let filteredPlans = [...sellingPlans];
+		let allowedPlans = [];
+
+		if (selectedBox && selectedBox.dataset.allowedSellingPlans) {
+			try {
+				allowedPlans = selectedBox.dataset.allowedSellingPlans.split(',').map(id => id.trim());
+				console.log('Filtering by allowed selling plans:', allowedPlans);
+
+				if (allowedPlans.length > 0) {
+					filteredPlans = filteredPlans.filter(allocation =>
+						allowedPlans.includes(allocation.selling_plan.id.toString())
+					);
+
+					console.log('Filtered to', filteredPlans.length, 'selling plans');
+				}
+			} catch (err) {
+				console.error('Error filtering selling plans:', err);
+			}
+		}
+
+		filteredPlans.sort((a, b) => {
+			const freqA = extractFrequencyMonths(a.selling_plan.name);
+			const freqB = extractFrequencyMonths(b.selling_plan.name);
+			return freqA - freqB;
+		});
+
+		const newPlanIds = new Set(filteredPlans.map(plan => plan.selling_plan.id.toString()));
+
+		let hasChanged = currentPlanIds.size !== newPlanIds.size;
+
+		if (!hasChanged) {
+			for (const id of currentPlanIds) {
+				if (!newPlanIds.has(id)) {
+					hasChanged = true;
+					break;
+				}
+			}
+		}
+
+		return { filteredPlans, hasChanged, allowedPlans };
+	}
+
+	function handleNoMatchingPlans(frequencyOptions, currentSellingPlanId, frequencyContainer) {
+		if (currentSellingPlanId) {
+			frequencyOptions.innerHTML = '';
+			const fallbackBox = document.createElement('div');
+			fallbackBox.className = 'rounded-md cursor-pointer py-2 min-w-[90px] text-center w-full transition-all duration-300 ease-in-out';
+			fallbackBox.style.backgroundColor = 'var(--primary-color)';
+			fallbackBox.style.color = 'white';
+			fallbackBox.setAttribute('data-selling-plan-id', currentSellingPlanId);
+			fallbackBox.innerHTML = `
+				<div class="p-1">
+					<span class="font-semibold">Current Plan</span>
+				</div>
+			`;
+			frequencyOptions.appendChild(fallbackBox);
+			fallbackBox.addEventListener('click', function() {
+				selectFrequencyOption(this);
+			});
+			frequencyContainer.classList.remove('hidden');
+		} else {
+			frequencyContainer.classList.add('hidden');
+		}
+	}
 });
 </script>
 
@@ -862,8 +1721,8 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 
 <style>
+	/* Core variables - keep these as CSS variables */
 	#cta-section-{{ SID }} {
-			/* Core variables */
 			--text-color: #4a5568;
 			--border-color: #cbcbcb;
 			--radio-size: 1em;
@@ -874,7 +1733,7 @@ document.addEventListener('DOMContentLoaded', () => {
 			.variant-box.variant-tab-style {
 					border-width: 2px;
 					border-color: var(--primary-color);
-					border-radius: 5px;
+					border-radius: 0.375rem;
 					cursor: pointer;
 					align-content: center;
 					transition: all 0.3s ease;
@@ -889,18 +1748,15 @@ document.addEventListener('DOMContentLoaded', () => {
 									transition: all 0.3s ease;
 							}
 					}
+
+					&:not(.selected):hover {
+						background-color: var(--bg-color);
+					}
 			}
 
-			/* Product Actions */
+			/* Product Actions - Keep these custom grid areas */
 			.product-actions {
 					grid-area: {% if isHideInfo %}1{% else %}2{% endif %}/2/3/3;
-			}
-
-			/* One Time Purchase Link */
-			.one-time-purchase-link {
-					a {
-							transition: color 0.3s ease;
-					}
 			}
 
 			/* Radio Input Styles */
@@ -974,30 +1830,41 @@ document.addEventListener('DOMContentLoaded', () => {
 			}
 	}
 
-	.future-price-notice {
-			transition: opacity 200ms ease-out;
-			line-height: 1.4;
+	/* Loading state styles */
+	[aria-busy="true"] {
+		position: relative;
+		cursor: wait !important;
 	}
 
+	/* Transparent overlay for disabled items */
+	.variant-box[aria-busy="true"],
+	.frequency-box[aria-busy="true"],
+	.gift-option-border[aria-busy="true"] {
+		opacity: 0.7;
+		pointer-events: none;
+	}
+
+	/* Improved button loading states */
+	button[aria-busy="true"] {
+		background-color: var(--primary-color-darker, #004085) !important;
+		position: relative;
+	}
+
+	button[aria-busy="true"]::before {
+		content: "";
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		background-color: rgba(0, 0, 0, 0.15);
+		border-radius: inherit;
+	}
+
+	/* Mobile styles for frequency container */
 	@media (max-width: 767px) {
-			.future-price-notice {
-					font-size: 12px;
-			}
-	}
-
-	.button-spinner {
-		display: inline-block;
-		width: 1.5rem;
-		height: 1.5rem;
-		border: 2px solid rgba(0, 0, 0, 0.1);
-		border-radius: 9999px;
-		border-top-color: #000;
-		animation: button-spinner 0.6s linear infinite;
-		margin-right: 0.5rem; /* Some spacing before/after text, if desired */
-	}
-
-	@keyframes button-spinner {
-		0%   { transform: rotate(0deg);   }
-		100% { transform: rotate(360deg); }
+		.hidden.my-4.transition-all .font-semibold {
+			font-size: 15px;
+		}
 	}
 </style>
