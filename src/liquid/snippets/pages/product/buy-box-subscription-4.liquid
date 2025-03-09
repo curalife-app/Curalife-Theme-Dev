@@ -170,7 +170,7 @@
 		<div class="price-display">
 			<div class="gap-y-2 flex flex-wrap items-end gap-2">
 					<div class="final-price flex items-center gap-2">
-							<div class="main-price text-primary flex items-end">
+							<div class="main-price text-primary flex items-end transition-opacity duration-200 ease-in-out">
 									{% if priceFormat == 'total' %}
 											<span class="price font-bold leading-none text-[30px] mbl:text-[6vw]">{{ subscription_total_price | money }}</span>
 									{% else %}
@@ -179,22 +179,22 @@
 									{% endif %}
 							</div>
 
-							<span class="cap self-end text-gray-500 line-through">{{ original_item_cap | money }}</span>
+							<span class="cap self-end text-gray-500 line-through transition-opacity duration-200 ease-in-out">{{ original_item_cap | money }}</span>
 
 							{% if priceFormat == 'total' and subscription_total_price != subscription_item_price %}
-									<span class="discount-badge px-4 py-1 text-[16px] font-bold text-white bg-bronze rounded-full">SAVE {{ subscription_save_money | money }}</span>
+									<span class="discount-badge px-4 py-1 text-[16px] font-bold text-white bg-bronze rounded-full transition-opacity duration-200 ease-in-out">SAVE {{ subscription_save_money | money }}</span>
 							{% endif %}
 					</div>
 			</div>
 
 			{% if priceFormat == 'per_bottle' and subscription_total_price != subscription_item_price %}
-					<div class="total-line mt-1 text-[16px] h-4">
+					<div class="total-line mt-1 text-[16px] h-4 transition-opacity duration-200 ease-in-out">
 							Total {{ subscription_total_price | money }}
 							<span class="total-price-cap text-gray-500 line-through">{{ original_item_cap_total | money }}</span>
 					</div>
 			{% endif %}
 
-			<div class="future-price-notice mt-2 text-[14px] text-gray-600"></div>
+			<div class="future-price-notice mt-2 text-[14px] text-gray-600 transition-opacity duration-200 ease-in-out"></div>
 	</div>
 
 	{% if variantsNotice != blank %}
@@ -205,14 +205,14 @@
 	{% endif %}
 
 	<!-- Subscription Frequency Selector with direct Tailwind classes -->
-	<div class="hidden my-4 transition-all duration-300 ease-in-out">
+	<div class="hidden my-4 transition-all duration-300 ease-in-out" data-frequency-container>
 		<div class="mb-3 font-semibold">Choose Delivery Frequency</div>
 		<div class="subscription-frequency-selector">
 			<div id="frequency-options-{{ SID }}" class="flex justify-center gap-2">
 				<!-- Options will be dynamically populated by JavaScript -->
 			</div>
 		</div>
-		<div class="text-[14px] text-gray-600 mt-2 transition-opacity duration-300 ease-in-out leading-normal"><!-- Frequency description will be populated by JavaScript --></div>
+		<div class="frequency-description text-[14px] text-gray-600 mt-2 transition-opacity duration-300 ease-in-out leading-normal"><!-- Frequency description will be populated by JavaScript --></div>
 	</div>
 
 	{% render 'subscription-box-faq',
@@ -287,8 +287,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	const submitSellingPlanId  = productActions.querySelector('.submit-selling-plan-id');
 	const submitVariantId      = productActions.querySelector('.submit-variant-id');
 	const oneTimeButton        = productActions.querySelector('.one-time-add-to-cart');
-	// Update selector to use direct Tailwind classes
-	const frequencySelector    = productActions.querySelector('.hidden.my-4.transition-all');
+	// Use data attribute for more specific selection
+	const frequencySelector    = productActions.querySelector('[data-frequency-container]');
 	const SID         = '{{ SID }}';
 	const buyType     = '{{ buyType }}';
 	const priceFormat = '{{ priceFormat }}';
@@ -454,12 +454,14 @@ document.addEventListener('DOMContentLoaded', () => {
 			if (!sellingPlanId) return;
 
 			// Update selected frequency option
-			frequencyOptions.querySelectorAll('.frequency-box').forEach(box => {
+			frequencyOptions.querySelectorAll('div[data-selling-plan-id]').forEach(box => {
 				const boxId = box.getAttribute('data-selling-plan-id');
 				if (boxId === sellingPlanId) {
-					box.classList.add('selected');
+					box.style.backgroundColor = 'var(--primary-color)';
+					box.style.color = 'white';
 				} else {
-					box.classList.remove('selected');
+					box.style.backgroundColor = 'var(--bg-color)';
+					box.style.color = 'var(--primary-color)';
 				}
 			});
 
@@ -467,17 +469,20 @@ document.addEventListener('DOMContentLoaded', () => {
 			updateFrequencyDescription();
 		},
 
-		// Update loading state UI
+		// Update loading state UI - optimized version
 		updateLoadingState(isLoading) {
 			if (submitButton) {
 				if (isLoading) {
 					submitButton.disabled = true;
+					// Pre-allocate the spinner HTML to avoid layout thrashing
 					submitButton.innerHTML = `<div class="border-white/20 border-t-white animate-spin inline-block w-6 h-6 mx-auto border-2 rounded-full"></div>`;
 					submitButton.setAttribute('aria-busy', 'true');
+					submitButton.classList.add('loading-active');
 				} else {
 					submitButton.disabled = false;
 					submitButton.innerHTML = submitButton.getAttribute('data-original-text') || 'Add To Cart';
 					submitButton.removeAttribute('aria-busy');
+					submitButton.classList.remove('loading-active');
 				}
 			}
 
@@ -486,15 +491,19 @@ document.addEventListener('DOMContentLoaded', () => {
 				oneTimeButton.disabled = isLoading;
 				if (isLoading) {
 					oneTimeButton.setAttribute('aria-busy', 'true');
+					oneTimeButton.classList.add('disabled');
 				} else {
 					oneTimeButton.removeAttribute('aria-busy');
+					oneTimeButton.classList.remove('disabled');
 				}
 			}
 
-			// Disable all interactive elements during loading
-			document.querySelectorAll('.variant-box, .frequency-box, .gift-option-border').forEach(el => {
-				el.style.pointerEvents = isLoading ? 'none' : '';
-			});
+			// Use class-based disabling for better performance
+			if (isLoading) {
+				productActions.classList.add('processing-order');
+			} else {
+				productActions.classList.remove('processing-order');
+			}
 		},
 
 		// Initialize state with default values
@@ -545,8 +554,15 @@ document.addEventListener('DOMContentLoaded', () => {
 			}
 
 			try {
-				// Fetching fresh cart data
-				const res = await fetch('/cart.js');
+				// Fetching fresh cart data with cache-busting
+				const res = await fetch('/cart.js?t=' + now, {
+					cache: 'no-store',
+					headers: {
+						'Cache-Control': 'no-cache',
+						'Pragma': 'no-cache'
+					}
+				});
+
 				if (!res.ok) throw new Error('Failed to fetch cart');
 				this.data = await res.json();
 				this.lastFetched = now;
@@ -766,13 +782,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	async function clearCart() {
 		try {
-			const res = await fetch('/cart/clear.js', { method: 'POST' });
+			const res = await fetch('/cart/clear.js', {
+				method: 'POST',
+				cache: 'no-store',
+				headers: {
+					'Cache-Control': 'no-cache',
+					'Pragma': 'no-cache'
+				}
+			});
+
 			if (!res.ok) {
 				const errorData = await res.json();
 				throw Object.assign(new Error('Failed to clear cart'), { response: errorData });
 			}
 
-			// Invalidate cart cache after modification
+			// Invalidate cart cache
 			CartCache.invalidate();
 			return res.json();
 		} catch (err) {
@@ -786,27 +810,29 @@ document.addEventListener('DOMContentLoaded', () => {
 	// ~~~~~~~~~~~~~~~~~~~~~
 	async function handleBuyNowFlow(items) {
 		try {
-			// Remove cart popup if it exists
+			// Set loading state immediately and prevent multiple clicks
+			BuyBoxState.setState({
+				isLoading: true,
+				isRedirectingToCheckout: true
+			});
+
+			// Remove cart popup if it exists (do this early)
 			const cartPopup = document.getElementById('upCart');
 			if (cartPopup) cartPopup.remove();
 
-			// Clear the cart
-			try {
-				await clearCart();
-				// Cart cache already invalidated by clearCart()
-			} catch (clearErr) {
-				console.error('Error clearing cart:', clearErr);
-				throw Object.assign(
-					new Error('Failed to prepare checkout'),
-					{ cause: 'cart-clear', originalError: clearErr }
-				);
-			}
+			// Perform cart operations in parallel when possible
+			const clearCartPromise = clearCart();
 
-			// Add items to cart
+			// Wait for cart clearing to complete
+			await clearCartPromise;
+
+			// Add items to cart (with improved error handling)
 			const addRes = await fetch('/cart/add.js', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ items })
+				body: JSON.stringify({ items }),
+				// Add cache control to prevent browser caching
+				cache: 'no-store'
 			});
 
 			if (!addRes.ok) {
@@ -818,17 +844,17 @@ document.addEventListener('DOMContentLoaded', () => {
 				);
 			}
 
-			// Invalidate cart cache after modification
+			// Invalidate cart cache
 			CartCache.invalidate();
 
-			// Set a flag to indicate we're redirecting to checkout
-			// This prevents the loading state from being reset in the finally block
-			BuyBoxState.setState({ isRedirectingToCheckout: true });
-
-			// If we get here, redirect to checkout
+			// Redirect to checkout immediately
 			window.location.href = '/checkout';
 		} catch (err) {
 			console.error('handleBuyNowFlow error details:', err);
+			BuyBoxState.setState({
+				isRedirectingToCheckout: false,
+				isLoading: false
+			});
 			throw err; // Re-throw to be handled by the caller
 		}
 	}
@@ -836,51 +862,81 @@ document.addEventListener('DOMContentLoaded', () => {
 	// Add items, remove any existing subscription for same product if needed
 	async function addValidItemsToCart(items) {
 		try {
+			// If this is a subscription item, we need to check for existing subscriptions
 			let cart = await getCart(true); // Force a fresh cart fetch
 			const subItem = items.find(i => i.selling_plan);
 
 			if (subItem) {
-				const selectedBox = document.querySelector('.variant-box.selected');
-				const productId = selectedBox?.dataset?.product;
+				// Extract product ID from the variant ID
+				const variantId = subItem.id;
+				let foundExistingSubscription = false;
+				let itemsToRemove = [];
 
-				if (productId) {
-					const existingSub = cart.items.find(ci => (
-						ci.product_id === parseInt(productId, 10) &&
-						Boolean(ci.selling_plan_allocation)
-					));
-
-					if (existingSub) {
-						await removeCartItem(existingSub.key);
-						// Don't need to refetch cart here as we'll add items anyway
+				// Identify any existing subscriptions for the same product
+				for (const item of cart.items) {
+					if (item.selling_plan_allocation && item.variant_id === variantId) {
+						// Found existing subscription for same variant
+						itemsToRemove.push(item.key);
+						foundExistingSubscription = true;
 					}
+				}
+
+				// If we found existing subscriptions, remove them first
+				if (foundExistingSubscription && itemsToRemove.length > 0) {
+					// Build updates object for cart update
+					const updates = {};
+					itemsToRemove.forEach(key => {
+						updates[key] = 0;
+					});
+
+					// Remove items in a single request
+					await fetch('/cart/update.js', {
+						method: 'POST',
+						headers: {
+							'Content-Type': 'application/json',
+							'Cache-Control': 'no-cache'
+						},
+						cache: 'no-store',
+						body: JSON.stringify({ updates })
+					});
+
+					// Invalidate cart cache
+					CartCache.invalidate();
 				}
 			}
 
-			const addRes = await fetch('/cart/add.js', {
+			// Add items to cart
+			const res = await fetch('/cart/add.js', {
 				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
+				headers: {
+					'Content-Type': 'application/json',
+					'Cache-Control': 'no-cache'
+				},
+				cache: 'no-store',
 				body: JSON.stringify({ items })
 			});
 
-			if (!addRes.ok) {
-				const errorData = await addRes.json();
-				throw Object.assign(new Error('Failed to add items'), { response: errorData });
+			if (!res.ok) {
+				const errorData = await res.json();
+				console.error('Error adding items to cart:', errorData);
+				throw Object.assign(new Error('Failed to add items to cart'), { response: errorData });
 			}
 
 			// Invalidate cart cache after modification
 			CartCache.invalidate();
 
-			showNotification(
-				subItem && items.includes(subItem)
-					? 'Subscription updated in your cart'
-					: 'Items added to cart',
-				'success'
-			);
-			return { success: true, addedItems: items };
+			// Update cart UI if needed
+			if (typeof window.updateCart === 'function') {
+				window.updateCart();
+			}
+
+			// Show a success message
+			showNotification('Items added to cart!', 'success');
+
+			return res.json();
 		} catch (err) {
-			console.error('addValidItemsToCart error details:', err);
-			showNotification(parseErrorMessage(err, 'cart-add'), 'error');
-			return { success: false, addedItems: [], error: err };
+			console.error('Error in addValidItemsToCart:', err);
+			throw err;
 		}
 	}
 
@@ -928,7 +984,8 @@ document.addEventListener('DOMContentLoaded', () => {
 		const savingsText = flooredSave > 0 ? `SAVE $${flooredSave}` : '';
 
 		priceEls.forEach(display => {
-			const mainPrice = display.querySelector('.final-price');
+			const mainPrice = display.querySelector('.main-price');
+			const cap = display.querySelector('.cap');
 			const discount = display.querySelector('.discount-badge');
 			const totalLine = display.querySelector('.total-line');
 			const futurePrice = display.querySelector('.future-price-notice');
@@ -937,10 +994,10 @@ document.addEventListener('DOMContentLoaded', () => {
 			if (state.isInitialLoad) {
 				if (mainPrice) {
 					const pSpan = mainPrice.querySelector('.price');
-					const cSpan = mainPrice.querySelector('.cap');
 					if (pSpan) DOMUtils.updateProperty(pSpan, 'textContent', newMainPrice);
-					if (cSpan) DOMUtils.updateProperty(cSpan, 'textContent', newComparePrice);
 				}
+
+				if (cap) DOMUtils.updateProperty(cap, 'textContent', newComparePrice);
 
 				if (discount && priceFormat === 'total') {
 					DOMUtils.updateProperty(discount, 'textContent', savingsText);
@@ -977,10 +1034,11 @@ document.addEventListener('DOMContentLoaded', () => {
 			// Check if price content has changed before animating
 			if (mainPrice) {
 				const pSpan = mainPrice.querySelector('.price');
-				const cSpan = mainPrice.querySelector('.cap');
-				hasContentChanged =
-					(pSpan && pSpan.textContent !== newMainPrice) ||
-					(cSpan && cSpan.textContent !== newComparePrice);
+				hasContentChanged = (pSpan && pSpan.textContent !== newMainPrice);
+			}
+
+			if (cap) {
+				hasContentChanged = hasContentChanged || cap.textContent !== newComparePrice;
 			}
 
 			if (discount && priceFormat === 'total') {
@@ -1005,18 +1063,20 @@ document.addEventListener('DOMContentLoaded', () => {
 			if (hasContentChanged) {
 				const animate = () => {
 					// Fade out elements that will change
-					[mainPrice, discount, totalLine, futurePrice].forEach(el => {
-						if (el) DOMUtils.updateStyle(el, 'opacity', '0');
-					});
+					if (mainPrice) mainPrice.style.opacity = '0';
+					if (cap) cap.style.opacity = '0';
+					if (discount) discount.style.opacity = '0';
+					if (totalLine) totalLine.style.opacity = '0';
+					if (futurePrice) futurePrice.style.opacity = '0';
 
 					setTimeout(() => {
 						// Update content while elements are invisible
 						if (mainPrice) {
 							const pSpan = mainPrice.querySelector('.price');
-							const cSpan = mainPrice.querySelector('.cap');
 							if (pSpan) DOMUtils.updateProperty(pSpan, 'textContent', newMainPrice);
-							if (cSpan) DOMUtils.updateProperty(cSpan, 'textContent', newComparePrice);
 						}
+
+						if (cap) DOMUtils.updateProperty(cap, 'textContent', newComparePrice);
 
 						if (discount && priceFormat === 'total') {
 							DOMUtils.updateProperty(discount, 'textContent', savingsText);
@@ -1047,10 +1107,11 @@ document.addEventListener('DOMContentLoaded', () => {
 						}
 
 						// Fade elements back in with staggered timing
-						setTimeout(() => mainPrice && DOMUtils.updateStyle(mainPrice, 'opacity', '1'), 50);
-						setTimeout(() => discount && DOMUtils.updateStyle(discount, 'opacity', '1'), 100);
-						setTimeout(() => totalLine && DOMUtils.updateStyle(totalLine, 'opacity', '1'), 150);
-						setTimeout(() => futurePrice && DOMUtils.updateStyle(futurePrice, 'opacity', '1'), 200);
+						setTimeout(() => { if (mainPrice) mainPrice.style.opacity = '1'; }, 50);
+						setTimeout(() => { if (cap) cap.style.opacity = '1'; }, 75);
+						setTimeout(() => { if (discount) discount.style.opacity = '1'; }, 100);
+						setTimeout(() => { if (totalLine) totalLine.style.opacity = '1'; }, 150);
+						setTimeout(() => { if (futurePrice) futurePrice.style.opacity = '1'; }, 200);
 					}, 200);
 				};
 
@@ -1179,18 +1240,31 @@ document.addEventListener('DOMContentLoaded', () => {
 			selectedBox.dataset.subscriptionSellingPlanId = newSellingPlanId;
 		}
 
+		// Make sure to update the frequency description text
 		updateFrequencyDescription();
 	}
 
 	function initSubmitButton() {
 		if (!submitButton) return;
+
+		// Use a variable to track if a submission is in progress
+		let isSubmitting = false;
+
 		submitButton.addEventListener('click', async e => {
 			e.preventDefault();
+
+			// Prevent double-clicks or multiple submissions
+			if (isSubmitting || BuyBoxState.data.isLoading) {
+				return;
+			}
+
+			isSubmitting = true;
 			const box = productActions.querySelector('.variant-box.selected');
 			const giftsAmount = parseInt(productActions.dataset.giftsAmount || '0', 10);
 
 			if (!box) {
 				showNotification('Please select a purchase option');
+				isSubmitting = false;
 				return;
 			}
 
@@ -1210,12 +1284,10 @@ document.addEventListener('DOMContentLoaded', () => {
 				}
 
 				let items = [{
-					id: parseInt(variant, 10), // Ensure variant ID is a number
+					id: parseInt(variant, 10),
 					quantity: 1,
 					selling_plan: isSub ? sellingPlanId : undefined
 				}];
-
-				console.log('Items to add:', items); // Debug log
 
 				if (giftsAmount > 0) {
 					const giftEl = document.querySelector('.gift-box.selected');
@@ -1231,16 +1303,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
 				if (buyType === 'buy_now') {
 					await handleBuyNowFlow(items);
+					// Don't reset loading state if we're redirecting
 				} else {
 					await addValidItemsToCart(items);
+					// Only reset loading state if we're not redirecting
+					isSubmitting = false;
+					BuyBoxState.setState({ isLoading: false });
 				}
 			} catch (err) {
 				console.error('Submit error:', err);
 				showNotification(parseErrorMessage(err, 'checkout'), 'error');
-			} finally {
-				if (!BuyBoxState.data.isRedirectingToCheckout) {
-					BuyBoxState.setState({ isLoading: false });
-				}
+				isSubmitting = false;
+				BuyBoxState.setState({ isLoading: false });
 			}
 		});
 	}
@@ -1250,9 +1324,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
 		oneTimeButton.setAttribute('data-original-text', oneTimeButton.textContent);
 
+		// Track submission state
+		let isSubmittingOneTime = false;
+
 		oneTimeButton.addEventListener('click', async e => {
 			e.preventDefault();
 
+			// Prevent multiple submissions
+			if (isSubmittingOneTime || BuyBoxState.data.isLoading) {
+				return;
+			}
+
+			isSubmittingOneTime = true;
 			BuyBoxState.setState({ isLoading: true });
 			oneTimeButton.innerHTML = '<div class="border-primary/20 border-t-primary animate-spin inline-block w-4 h-4 mr-2 align-middle border-2 rounded-full"></div> Adding...';
 			oneTimeButton.setAttribute('aria-busy', 'true');
@@ -1273,21 +1356,35 @@ document.addEventListener('DOMContentLoaded', () => {
 					if (giftID) toAdd.push({ id: parseInt(giftID, 10), quantity: 1 });
 				{% endif %}
 
-				console.log('Adding to cart:', toAdd);
-
 				if (buyType === 'buy_now') {
+					// Optimize for buy now flow
+					BuyBoxState.setState({ isRedirectingToCheckout: true });
+
+					// Remove cart popup first
 					const cartPopup = document.getElementById('upCart');
 					if (cartPopup) cartPopup.remove();
-					await clearCart();
 
+					// Clear cart with optimized fetch
+					await fetch('/cart/clear.js', {
+						method: 'POST',
+						cache: 'no-store',
+						headers: {
+							'Cache-Control': 'no-cache'
+						}
+					});
+
+					// Add items with optimized fetch
 					const res = await fetch('/cart/add.js', {
 						method: 'POST',
-						headers: { 'Content-Type': 'application/json' },
+						headers: {
+							'Content-Type': 'application/json',
+							'Cache-Control': 'no-cache'
+						},
+						cache: 'no-store',
 						body: JSON.stringify({ items: toAdd })
 					});
 
 					const responseData = await res.json();
-					console.log('Cart response:', responseData);
 
 					if (!res.ok) {
 						const error = new Error(responseData.description || 'Failed to add items');
@@ -1295,17 +1392,21 @@ document.addEventListener('DOMContentLoaded', () => {
 						throw error;
 					}
 
-					BuyBoxState.setState({ isRedirectingToCheckout: true });
+					// Go to checkout immediately
 					window.location.href = '/checkout';
 				} else {
+					// Regular add to cart
 					const res = await fetch('/cart/add.js', {
 						method: 'POST',
-						headers: { 'Content-Type': 'application/json' },
+						headers: {
+							'Content-Type': 'application/json',
+							'Cache-Control': 'no-cache'
+						},
+						cache: 'no-store',
 						body: JSON.stringify({ items: toAdd })
 					});
 
 					const responseData = await res.json();
-					console.log('Cart response:', responseData);
 
 					if (!res.ok) {
 						const error = new Error(responseData.description || 'Failed to add items');
@@ -1313,16 +1414,24 @@ document.addEventListener('DOMContentLoaded', () => {
 						throw error;
 					}
 
+					// Invalidate cart cache
+					CartCache.invalidate();
+
+					// Update cart UI if needed
 					if (typeof window.updateCart === 'function') {
 						window.updateCart();
 					}
 
 					oneTimeButton.innerHTML = '✓ Added!';
 					oneTimeButton.classList.add('text-green-700', 'border-green-700');
+
+					// Reset state
 					setTimeout(() => {
 						oneTimeButton.innerHTML = oneTimeButton.getAttribute('data-original-text');
 						oneTimeButton.classList.remove('text-green-700', 'border-green-700');
 						oneTimeButton.removeAttribute('aria-busy');
+						isSubmittingOneTime = false;
+						BuyBoxState.setState({ isLoading: false });
 					}, 2000);
 				}
 			} catch (err) {
@@ -1337,17 +1446,14 @@ document.addEventListener('DOMContentLoaded', () => {
 				oneTimeButton.innerHTML = '⚠ Failed';
 				oneTimeButton.classList.add('text-red-600', 'border-red-600');
 
+				// Reset state
 				setTimeout(() => {
 					oneTimeButton.innerHTML = oneTimeButton.getAttribute('data-original-text');
 					oneTimeButton.classList.remove('text-red-600', 'border-red-600');
 					oneTimeButton.removeAttribute('aria-busy');
+					isSubmittingOneTime = false;
+					BuyBoxState.setState({ isLoading: false });
 				}, 2000);
-			} finally {
-				if (!BuyBoxState.data.isRedirectingToCheckout) {
-					setTimeout(() => {
-						BuyBoxState.setState({ isLoading: false });
-					}, 2000);
-				}
 			}
 		});
 	}
@@ -1366,7 +1472,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	// ~~~~~~~~~~~~~~~~~~~~~
 	function populateFrequencySelector(el) {
 		try {
-			const frequencyContainer = productActions.querySelector('div.hidden.my-4.transition-all');
+			// Use the data attribute for more specific selection
+			const frequencyContainer = productActions.querySelector('[data-frequency-container]');
 			if (!frequencyContainer) return;
 
 			const frequencyOptions = document.getElementById('frequency-options-{{ SID }}');
@@ -1440,26 +1547,81 @@ document.addEventListener('DOMContentLoaded', () => {
 		} catch (error) {
 			console.error('Error in populateFrequencySelector:', error);
 			const frequencyOptions = document.getElementById('frequency-options-{{ SID }}');
-			const frequencyContainer = productActions.querySelector('div.hidden.my-4.transition-all');
+			const frequencyContainer = productActions.querySelector('[data-frequency-container]');
 
 			if (frequencyOptions && frequencyContainer && el.dataset.purchaseType === 'subscribe') {
 				const currentSellingPlanId = el.dataset.subscriptionSellingPlanId;
 				if (currentSellingPlanId) {
 					frequencyOptions.innerHTML = '';
-					const frequencyBox = document.createElement('div');
-					frequencyBox.className = 'rounded-md cursor-pointer py-2 min-w-[90px] text-center w-full transition-all duration-300 ease-in-out';
-					frequencyBox.style.backgroundColor = 'var(--primary-color)';
-					frequencyBox.style.color = 'white';
-					frequencyBox.setAttribute('data-selling-plan-id', currentSellingPlanId);
-					frequencyBox.innerHTML = `
+					const fallbackBox = document.createElement('div');
+					fallbackBox.className = 'rounded-md cursor-pointer py-2 min-w-[90px] text-center w-full transition-all duration-300 ease-in-out';
+					fallbackBox.style.backgroundColor = 'var(--primary-color)';
+					fallbackBox.style.color = 'white';
+					fallbackBox.setAttribute('data-selling-plan-id', currentSellingPlanId);
+					fallbackBox.innerHTML = `
 						<div class="p-1">
 							<span class="font-semibold">Current Plan</span>
 						</div>
 					`;
-					frequencyOptions.appendChild(frequencyBox);
+					frequencyOptions.appendChild(fallbackBox);
 					frequencyContainer.classList.remove('hidden');
 				}
 			}
+		}
+	}
+
+	function updateFrequencyOptionsFromVariant(variant, currentSellingPlanId) {
+		if (!variant) return;
+		const frequencyOptions = document.getElementById('frequency-options-{{ SID }}');
+		if (!frequencyOptions) return;
+
+		// Use data attribute for more specific selection
+		const frequencyContainer = productActions.querySelector('[data-frequency-container]');
+		if (!frequencyContainer) return;
+
+		let sellingPlans = variant.selling_plan_allocations || [];
+
+		console.log('Updating frequency options:', {
+			variantId: variant.id,
+			plansCount: sellingPlans.length,
+			currentSellingPlanId
+		});
+
+		if (sellingPlans.length === 0) {
+			frequencyContainer.classList.add('hidden');
+			return;
+		}
+
+		const currentPlanIds = new Set(
+			Array.from(frequencyOptions.querySelectorAll('div[data-selling-plan-id]'))
+				.map(box => box.getAttribute('data-selling-plan-id'))
+		);
+
+		const { filteredPlans, hasChanged } = getFilteredSellingPlans(
+			sellingPlans,
+			currentPlanIds,
+			currentSellingPlanId
+		);
+
+		if (filteredPlans.length === 0) {
+			handleNoMatchingPlans(frequencyOptions, currentSellingPlanId, frequencyContainer);
+			return;
+		}
+
+		if (hasChanged) {
+			rebuildFrequencyOptions(frequencyOptions, filteredPlans, currentSellingPlanId);
+		} else {
+			updateSelectedFrequencyState(frequencyOptions, currentSellingPlanId);
+		}
+
+		updateFrequencyDescription();
+
+		if (frequencyContainer.classList.contains('hidden')) {
+			frequencyContainer.style.opacity = '0';
+			frequencyContainer.classList.remove('hidden');
+			setTimeout(() => {
+				frequencyContainer.style.opacity = '1';
+			}, 10);
 		}
 	}
 
@@ -1526,7 +1688,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	}
 
 	function updateFrequencyDescription() {
-		const descriptionEl = productActions.querySelector('.text-gray-600.mt-2.transition-opacity');
+		const descriptionEl = productActions.querySelector('.frequency-description');
 		if (!descriptionEl) return;
 
 		const frequencyOptions = document.getElementById('frequency-options-{{ SID }}');
@@ -1578,60 +1740,6 @@ document.addEventListener('DOMContentLoaded', () => {
 	function extractFrequencyMonths(planName) {
 		const match = planName.match(/(\d+)\s*Month/i);
 		return match ? parseInt(match[1], 10) : 0;
-	}
-
-	function updateFrequencyOptionsFromVariant(variant, currentSellingPlanId) {
-		if (!variant) return;
-		const frequencyOptions = document.getElementById('frequency-options-{{ SID }}');
-		if (!frequencyOptions) return;
-
-		const frequencyContainer = productActions.querySelector('div.hidden.my-4.transition-all');
-		if (!frequencyContainer) return;
-
-		let sellingPlans = variant.selling_plan_allocations || [];
-
-		console.log('Updating frequency options:', {
-			variantId: variant.id,
-			plansCount: sellingPlans.length,
-			currentSellingPlanId
-		});
-
-		if (sellingPlans.length === 0) {
-			frequencyContainer.classList.add('hidden');
-			return;
-		}
-
-		const currentPlanIds = new Set(
-			Array.from(frequencyOptions.querySelectorAll('div[data-selling-plan-id]'))
-				.map(box => box.getAttribute('data-selling-plan-id'))
-		);
-
-		const { filteredPlans, hasChanged } = getFilteredSellingPlans(
-			sellingPlans,
-			currentPlanIds,
-			currentSellingPlanId
-		);
-
-		if (filteredPlans.length === 0) {
-			handleNoMatchingPlans(frequencyOptions, currentSellingPlanId, frequencyContainer);
-			return;
-		}
-
-		if (hasChanged) {
-			rebuildFrequencyOptions(frequencyOptions, filteredPlans, currentSellingPlanId);
-		} else {
-			updateSelectedFrequencyState(frequencyOptions, currentSellingPlanId);
-		}
-
-		updateFrequencyDescription();
-
-		if (frequencyContainer.classList.contains('hidden')) {
-			frequencyContainer.style.opacity = '0';
-			frequencyContainer.classList.remove('hidden');
-			setTimeout(() => {
-				frequencyContainer.style.opacity = '1';
-			}, 10);
-		}
 	}
 
 	function getFilteredSellingPlans(sellingPlans, currentPlanIds, currentSellingPlanId) {
@@ -1692,10 +1800,14 @@ document.addEventListener('DOMContentLoaded', () => {
 				</div>
 			`;
 			frequencyOptions.appendChild(fallbackBox);
+			// Add event listener to handle clicks
 			fallbackBox.addEventListener('click', function() {
 				selectFrequencyOption(this);
 			});
 			frequencyContainer.classList.remove('hidden');
+
+			// Make sure the frequency description is updated too
+			updateFrequencyDescription();
 		} else {
 			frequencyContainer.classList.add('hidden');
 		}
@@ -1828,12 +1940,49 @@ document.addEventListener('DOMContentLoaded', () => {
 							}
 					}
 			}
+
+			/* Processing state styles */
+			&.processing-order,
+			.processing-order {
+				position: relative;
+
+				&::after {
+					content: "";
+					position: absolute;
+					top: 0;
+					left: 0;
+					right: 0;
+					bottom: 0;
+					background: rgba(255, 255, 255, 0.6);
+					z-index: 5;
+					pointer-events: none;
+					transition: opacity 0.2s ease;
+				}
+
+				.variant-box,
+				div[data-selling-plan-id],
+				.gift-option-border {
+					pointer-events: none;
+				}
+			}
 	}
 
 	/* Loading state styles */
 	[aria-busy="true"] {
 		position: relative;
 		cursor: wait !important;
+	}
+
+	/* Button loading optimization */
+	button.loading-active {
+		background-color: var(--primary-color-darker, #004085) !important;
+		transition: none !important;
+	}
+
+	/* Performance optimized disabled styles */
+	.disabled {
+		opacity: 0.7;
+		pointer-events: none;
 	}
 
 	/* Transparent overlay for disabled items */
@@ -1863,7 +2012,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	/* Mobile styles for frequency container */
 	@media (max-width: 767px) {
-		.hidden.my-4.transition-all .font-semibold {
+		[data-frequency-container] .font-semibold {
 			font-size: 15px;
 		}
 	}

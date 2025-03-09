@@ -376,10 +376,13 @@ const runTailwindBuild = async () => {
 		// Use proper npx command based on platform
 		const npxCommand = getNpxCommand();
 
-		// Run tailwindcss directly - this will use the Vite plugin configuration
-		const tailwindProcess = spawn(npxCommand, ["tailwindcss", "-i", "./src/styles/tailwind.css", "-o", "./Curalife-Theme-Build/assets/tailwind.css"], {
+		// Force development mode and explicitly disable minification
+		const env = { ...process.env, NODE_ENV: "development" };
+
+		// Run tailwindcss directly with explicit flags to disable minification
+		const tailwindProcess = spawn(npxCommand, ["tailwindcss", "-i", "./src/styles/tailwind.css", "-o", "./Curalife-Theme-Build/assets/tailwind.css", "--minify=false"], {
 			stdio: "pipe",
-			env: process.env,
+			env: env,
 			shell: true // Use shell on Windows for better command resolution
 		});
 
