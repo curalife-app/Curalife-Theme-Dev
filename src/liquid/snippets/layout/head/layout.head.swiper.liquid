@@ -158,14 +158,7 @@
       window.isSwiperLoading = false;
 
       // Remove loading state from all swiper containers
-      const swiperContainers = document.querySelectorAll('.swiper');
-      swiperContainers.forEach(container => {
-        const loader = container.querySelector('.swiper-loader');
-        if (loader) {
-          loader.remove();
-        }
-        container.classList.remove('swiper-loading');
-      });
+      window.removeSwiperLoaders();
 
       // Execute all pending callbacks
       while (window.pendingSwiperInitializations.length > 0) {
@@ -176,6 +169,39 @@
           console.error("Error during swiper initialization:", error);
         }
       }
+
+      // Set up an additional observer to catch and clean up loaders on any swiper elements
+      // that might be added to the DOM after Swiper has loaded
+      const loaderCleanupObserver = new MutationObserver((mutations) => {
+        let hasNewSwipers = false;
+
+        mutations.forEach(mutation => {
+          if (mutation.type === 'childList' && mutation.addedNodes.length) {
+            mutation.addedNodes.forEach(node => {
+              if (node.nodeType === Node.ELEMENT_NODE) {
+                if (node.classList && node.classList.contains('swiper')) {
+                  hasNewSwipers = true;
+                } else if (node.querySelectorAll) {
+                  const swipers = node.querySelectorAll('.swiper');
+                  if (swipers.length > 0) {
+                    hasNewSwipers = true;
+                  }
+                }
+              }
+            });
+          }
+        });
+
+        if (hasNewSwipers) {
+          // Clean up loaders on any newly added swiper elements
+          window.removeSwiperLoaders();
+        }
+      });
+
+      loaderCleanupObserver.observe(document.body, {
+        childList: true,
+        subtree: true
+      });
     }).catch(error => {
       // Handle loading errors
       console.error("Swiper loading error:", error);
@@ -212,6 +238,9 @@
           window.swiperInstances.delete(swiperElementSelector);
         }
 
+        // Remove any loader that might still be present on this element
+        removeSwiperLoader(swiperElement);
+
         // Create and store new instance
         try {
           const swiperInstance = new Swiper(swiperElementSelector, swiperOptions);
@@ -246,6 +275,28 @@
       console.warn("Swiper is not loaded yet");
       return null;
     }
+  }
+
+  // Helper function to remove loader from a specific swiper container
+  function removeSwiperLoader(container) {
+    // Can accept either an element or a selector
+    if (typeof container === 'string') {
+      container = document.querySelector(container);
+    }
+
+    if (container) {
+      const loader = container.querySelector('.swiper-loader');
+      if (loader) {
+        loader.remove();
+      }
+      container.classList.remove('swiper-loading');
+    }
+  }
+
+  // Public function to remove loaders from all swiper containers
+  window.removeSwiperLoaders = function() {
+    const swiperContainers = document.querySelectorAll('.swiper');
+    swiperContainers.forEach(container => removeSwiperLoader(container));
   }
 
   // Helper to destroy a specific swiper instance
