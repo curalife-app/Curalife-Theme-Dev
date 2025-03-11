@@ -8,8 +8,8 @@
 	- Lazy loading with priority options
 	- Conditional error logging and fallback handling
 	- WebP format support
-	- Configurable breakpoints and sizes
 	- Link wrapper functionality
+	- Configurable max-width for CDN image delivery
 {%- endcomment -%}
 
 {%- liquid
@@ -24,9 +24,9 @@
 	assign is_retina = is_retina | default: false
 	assign alt = alt | default: image.alt
 	assign mobile_breakpoint = mobile_breakpoint | default: 768
-	assign sizes = sizes | default: '(min-width: 1200px) 1200px, (min-width: 768px) 768px, 100vw'
-	assign breakpoints = '375,640,768,1080,1200,1920,2560' | split: ','
+	assign sizes = '(min-width: 1200px) 1200px, (min-width: 768px) 768px, 100vw'
 	assign is_log = is_log | default: false
+	assign max_width = max_width | default: nil
 
 	#######################################
 	# Process image source
@@ -46,7 +46,7 @@
 		assign image_ext = filename | split: '.' | last
 		assign base_image_name = image_name
 
-		if base_image_name contains '-x2'
+		if base_image_name contains '-x2' or base_image_name contains '-2x'
 			assign is_retina = true
 		endif
 
@@ -58,6 +58,7 @@
 		endif
 
 		if desktop_image.src != blank and provided_images_in_files == false
+			# Base URL construction without width parameters
 			assign desktop_variant_url = desktop_image | image_url | split: '?' | first
 		else
 			assign desktop_variant_url = filename | file_url
@@ -67,13 +68,53 @@
 		# Handle Retina Images
 		#######################################
 		if is_retina
-			assign original_width = desktop_image.width
-			assign regular_width = original_width | divided_by: 2
+			# Base URL without parameters
+			assign desktop_1x_parts = desktop_variant_url | split: '?'
+			assign desktop_1x_base = desktop_1x_parts | first
+
+			# For retina images, use half the original width or max_width if specified
+			if desktop_image.width
+				assign original_width = desktop_image.width
+				assign regular_width = original_width | divided_by: 2
+
+				# Apply max_width constraint if specified and smaller than regular_width
+				if max_width and max_width < regular_width
+					assign regular_width = max_width
+				endif
+
+				assign doubled_width = regular_width | times: 2
+				if doubled_width > original_width
+					assign doubled_width = original_width
+				endif
+			else
+				if max_width
+					assign regular_width = max_width
+					assign doubled_width = max_width | times: 2
+				endif
+			endif
+
 			assign desktop_1x_url = desktop_image | image_url: width: regular_width
-			assign desktop_2x_url = desktop_variant_url
+			assign desktop_2x_url = desktop_image | image_url: width: doubled_width
 		else
-			assign desktop_1x_url = desktop_variant_url
-			assign desktop_2x_url = desktop_variant_url
+			if max_width
+				assign regular_width = max_width
+				assign doubled_width = max_width | times: 2
+
+				assign desktop_1x_url = desktop_image | image_url: width: regular_width
+				assign desktop_2x_url = desktop_image | image_url: width: doubled_width
+			else
+				assign desktop_1x_url = desktop_image | image_url
+				assign desktop_2x_url = desktop_image | image_url
+
+				# Set default width values for debug purposes
+				if desktop_image.width
+					assign regular_width = desktop_image.width
+					assign doubled_width = desktop_image.width
+				else
+					assign regular_width = 'auto'
+					assign doubled_width = 'auto'
+				endif
+			endif
 		endif
 
 		#######################################
@@ -82,26 +123,84 @@
 		assign has_mobile_variant = false
 		if mobile_image_provided != blank
 			assign has_mobile_variant = true
+
 			if is_retina
 				assign mobile_original_width = mobile_image_provided.width
 				assign mobile_regular_width = mobile_original_width | divided_by: 2
+
+				# Apply max_width constraint if specified and smaller
+				if max_width and max_width < mobile_regular_width
+					assign mobile_regular_width = max_width
+				endif
+
+				# Calculate doubled width but don't exceed original
+				assign mobile_doubled_width = mobile_regular_width | times: 2
+				if mobile_doubled_width > mobile_original_width
+					assign mobile_doubled_width = mobile_original_width
+				endif
+
+				# Construct mobile URLs with width parameters
 				assign mobile_1x_url = mobile_image_provided | image_url: width: mobile_regular_width
-				assign mobile_2x_url = mobile_image_provided | image_url
+				assign mobile_2x_url = mobile_image_provided | image_url: width: mobile_doubled_width
 			else
-				assign mobile_1x_url = mobile_image_provided | image_url
-				assign mobile_2x_url = mobile_image_provided | image_url
+				# For non-retina mobile
+				if max_width
+					assign mobile_regular_width = max_width
+					assign mobile_doubled_width = max_width | times: 2
+
+					assign mobile_1x_url = mobile_image_provided | image_url: width: mobile_regular_width
+					assign mobile_2x_url = mobile_image_provided | image_url: width: mobile_doubled_width
+				else
+					assign mobile_1x_url = mobile_image_provided | image_url
+					assign mobile_2x_url = mobile_image_provided | image_url
+
+					# Set default width values for debug purposes
+					if mobile_image_provided.width
+						assign mobile_regular_width = mobile_image_provided.width
+						assign mobile_doubled_width = mobile_image_provided.width
+					else
+						assign mobile_regular_width = 'auto'
+						assign mobile_doubled_width = 'auto'
+					endif
+				endif
 			endif
 		elsif load_mobile
 			assign mobile_variant_filename = image_name | append: '-mbl.' | append: image_ext
 			assign mobile_variant_url = mobile_variant_filename | file_url
+
 			if mobile_variant_url contains '?v='
 				assign has_mobile_variant = true
+
 				if is_retina
+					# For retina, determine appropriate widths
+					if max_width
+						assign mobile_regular_width = max_width
+						assign mobile_doubled_width = max_width | times: 2
+					else
+						# Default values if no max_width specified
+						assign mobile_regular_width = 375
+						assign mobile_doubled_width = 750
+					endif
+
+					# Construct mobile variant URLs
 					assign mobile_1x_url = mobile_variant_url | image_url: width: mobile_regular_width
-					assign mobile_2x_url = mobile_variant_url
+					assign mobile_2x_url = mobile_variant_url | image_url: width: mobile_doubled_width
 				else
-					assign mobile_1x_url = mobile_variant_url
-					assign mobile_2x_url = mobile_variant_url
+					# For non-retina mobile variants
+					if max_width
+						assign mobile_regular_width = max_width
+						assign mobile_doubled_width = max_width | times: 2
+
+						assign mobile_1x_url = mobile_variant_url | image_url: width: mobile_regular_width
+						assign mobile_2x_url = mobile_variant_url | image_url: width: mobile_doubled_width
+					else
+						assign mobile_1x_url = mobile_variant_url
+						assign mobile_2x_url = mobile_variant_url
+
+						# Set default widths for debugging
+						assign mobile_regular_width = 'auto'
+						assign mobile_doubled_width = 'auto'
+					endif
 				endif
 			else
 				assign mobile_variant_url = ''
@@ -135,11 +234,29 @@
 		assign display_height = desktop_image.height
 	endif
 
+	# Apply max-width constraint to display dimensions if specified
+	if max_width and display_width and display_width > max_width and display_height
+		# Calculate aspect ratio with better precision
+		assign ratio_width = display_width | times: 1.0
+		assign ratio_height = display_height | times: 1.0
+		assign aspect_ratio = ratio_height | divided_by: ratio_width
+
+		# Apply max-width while preserving aspect ratio
+		assign display_width = max_width
+		assign display_height = max_width | times: aspect_ratio | round
+	endif
+
 	#######################################
 	# Generate unique IDs and URLs
 	#######################################
 	assign unique_id = 'img-' | append: desktop_image.id | append: '-' | append: now | date: '%N'
-	assign fallback_url = desktop_image | image_url: width: 1100
+
+	# Generate fallback URL with appropriate width
+	if max_width
+		assign fallback_url = desktop_image | image_url: width: max_width
+	else
+		assign fallback_url = desktop_image | image_url: width: 1200
+	endif
 -%}
 
 <!-- Image Component -->
@@ -147,13 +264,13 @@
 	{% if has_mobile_variant %}
 		<source
 			media="(max-width: {{ mobile_breakpoint }}px)"
-			srcset="{{ mobile_1x_url }} 1x, {{ mobile_2x_url }} 2x"
+			srcset="{{ mobile_1x_url }}, {{ mobile_2x_url }} 2x"
 			sizes="{{ sizes }}">
 	{% endif %}
 
 	<source
 		media="(min-width: {{ mobile_breakpoint | plus: 1 }}px)"
-		srcset="{{ desktop_1x_url }} 1x, {{ desktop_2x_url }} 2x"
+		srcset="{{ desktop_1x_url }}, {{ desktop_2x_url }} 2x"
 		sizes="{{ sizes }}">
 
 	<img
@@ -178,6 +295,9 @@
 		data-original-url="{{ fallback_url }}"
 		{% if is_retina %}
 			data-is-retina="true"
+		{% endif %}
+		{% if max_width %}
+			data-max-width="{{ max_width }}"
 		{% endif %}>
 </picture>
 
@@ -198,6 +318,11 @@
 		  shop_name: {{ shop.name | json }},
 		  force_original: {{ force_original | json }},
 		  is_retina: {{ is_retina | json }},
+		  max_width: {{ max_width | json }},
+		  regular_width: {{ regular_width | json }},
+		  doubled_width: {{ doubled_width | json }},
+		  desktop_1x_url: {{ desktop_1x_url | json }},
+		  desktop_2x_url: {{ desktop_2x_url | json }},
 		  desktop_image: {
 		    src: {{ desktop_image.src | json }},
 		    alt: {{ desktop_image.alt | json }},
@@ -212,7 +337,11 @@
 		  load_mobile: {{ load_mobile | json }},
 		  alt: {{ alt | json }},
 		  mobile_breakpoint: {{ mobile_breakpoint | json }},
-		  sizes: {{ sizes | json }}
+		  sizes: {{ sizes | json }},
+		  display_dimensions: {
+		    width: {{ display_width | json }},
+		    height: {{ display_height | json }}
+		  }
 		});
 
 		if (!window.debouncedDisplayImageDebugLogs) {
