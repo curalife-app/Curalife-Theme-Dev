@@ -36,7 +36,7 @@
 
 <div class="product-actions" data-default-variant-index="{{ defaultSelectionIndex }}" data-gifts-amount="{{ giftsAmount }}">
 	<div class="purchase-options flex flex-col gap-3 mb-3">
-		<div class="font-semibold text-[18px]">Select your pack</div>
+		<div class="font-semibold text-[18px]">Choose your package</div>
 
 		<div class="variant-boxes flex justify-around gap-2">
 			{% for block in blocks %}
@@ -121,30 +121,30 @@
 					{% assign firstMonthDiscount = block.settings.first_month_discount_percentage %}
 
 					<div
-						id="variant-box-{{ SID }}-{{ forloop.index }}"
-						class="variant-box flex flex-col items-center variant-tab-style text-center w-full {% if forloop.index == 1 %}selected{% endif %} {{ varPurchaseType }}"
-						data-variant="{{ blockVarID }}"
-						data-product="{{ prod.id }}"
-						data-original-variant="{{ var.id }}"
-						data-subscription-selling-plan-id="{{ selling_plan_id }}"
-						data-price="{{ var.price | money_without_currency | replace: ".00", "" }}"
-						data-sku="{{ var.sku }}"
-						data-index="{{ forloop.index }}"
-						data-item-price="{{ item_price }}"
-						data-subscription-price="{{ subscription_total_price }}"
-						data-subscription-item-price="{{ subscription_item_price }}"
-						data-original-item-cap="{{ original_item_cap }}"
-						data-dc="{{ var.metafields.custom.discount_code | base64_encode }}"
-						data-buy-once-discount="{{ var.metafields.custom.save_percents }}"
-						data-subscription-discount="{{ subscription_save_percents }}"
-						data-first-month-discount="{{ firstMonthDiscount }}"
-						data-price-per="{{ pricePer }}"
-						data-bottle-quantity="{{ bottle_quantity }}"
-						data-purchase-type="{{ varPurchaseType }}"
-						data-buy-type="{{ buyType }}"
-						{% if block.settings.allowed_selling_plan_ids %}
-						data-allowed-selling-plans="{{ block.settings.allowed_selling_plan_ids | escape }}"
-						{% endif %}
+					id="variant-box-{{ SID }}-{{ forloop.index }}"
+				class="variant-box flex flex-col items-center variant-tab-style text-center w-full {% if forloop.index == 1 %}selected{% endif %} {{ varPurchaseType }}"
+				data-variant="{{ blockVarID }}"
+				data-product="{{ prod.id }}"
+				data-original-variant="{{ var.id }}"
+				data-subscription-selling-plan-id="{{ selling_plan_id }}"
+				data-price="{{ var.price | money_without_currency | replace: ".00", "" }}"
+				data-sku="{{ var.sku }}"
+				data-index="{{ forloop.index }}"
+				data-item-price="{{ item_price }}"
+				data-subscription-price="{{ subscription_total_price }}"
+				data-subscription-item-price="{{ subscription_item_price }}"
+				data-original-item-cap="{{ original_item_cap }}"
+				data-dc="{{ var.metafields.custom.discount_code | base64_encode }}"
+				data-buy-once-discount="{{ var.metafields.custom.save_percents }}"
+				data-subscription-discount="{{ subscription_save_percents }}"
+				data-first-month-discount="{{ firstMonthDiscount }}"
+				data-price-per="{{ pricePer }}"
+				data-bottle-quantity="{{ bottle_quantity }}"
+				data-purchase-type="{{ varPurchaseType }}"
+				data-buy-type="{{ buyType }}"
+				{% if block.settings.allowed_selling_plan_ids != blank %}
+				data-allowed-selling-plans="{{ block.settings.allowed_selling_plan_ids | strip | escape }}"
+				{% endif %}
 						name="track:variant-box|variant-sku:{{ var.sku }}|purchase-type:{{ varPurchaseType }}">
 						{% if product.handle == 'curalin' %}
 							{% assign subscription_save_percents = var.metafields.subscription.save_percents %}
@@ -206,9 +206,9 @@
 
 	<!-- Subscription Frequency Selector with direct Tailwind classes -->
 	<div class="hidden my-4 transition-all duration-300 ease-in-out" data-frequency-container>
-		<div class="mb-3 font-semibold">Choose Delivery Frequency</div>
+		<div class="mb-3 font-semibold">Choose delivery frequency</div>
 		<div class="subscription-frequency-selector">
-			<div id="frequency-options-{{ SID }}" class="flex justify-center gap-2">
+			<div id="frequency-options-{{ SID }}" class="flex justify-start gap-2">
 				<!-- Options will be dynamically populated by JavaScript -->
 			</div>
 		</div>
@@ -263,10 +263,11 @@
 			{% endif %}
 		</div>
 
+
 		{% if blocks.size > 0 %}
 			{% for block in blocks %}
 				{% if block.type == 'text' %}
-					<div class="text-content text-[14px] text-primary whitespace-break-spaces">{{ block.settings.content }}</div>
+					<div class="text-content text-[14px] text-primary whitespace-break-spaces {% if block.settings.text_position == 'center' %}text-center{% else %}text-start{% endif %}">{{ block.settings.content }}</div>
 				{% endif %}
 			{% endfor %}
 		{% endif %}
@@ -401,7 +402,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 			// Extract data from the box
 			const isSub = boxElement.dataset.purchaseType === 'subscribe';
-			const planId = isSub ? boxElement.dataset.subscriptionSellingPlanId : '';
+			const bottleQuantity = parseInt(boxElement.dataset.bottleQuantity || '1', 10);
+			let planId = isSub ? boxElement.dataset.subscriptionSellingPlanId : '';
 			const variantId = boxElement.dataset.variant;
 
 			// Update submit button settings
@@ -1483,6 +1485,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
 			const variant = el.dataset.originalVariant || el.dataset.variant;
 			const isSub = el.dataset.purchaseType === 'subscribe';
+			const allowedSellingPlans = el.dataset.allowedSellingPlans ? el.dataset.allowedSellingPlans.trim() : '';
+			const bottleQuantity = parseInt(el.dataset.bottleQuantity || '1', 10);
+
+			// For debugging allowed selling plans
+			if (allowedSellingPlans) {
+				console.log('Variant has allowed selling plans:', allowedSellingPlans);
+			}
 
 			if (!isSub) {
 				frequencyContainer.classList.add('hidden');
@@ -1495,7 +1504,8 @@ document.addEventListener('DOMContentLoaded', () => {
 				productId,
 				variant,
 				hasProductData: window.productData && window.productData[productId] ? 'Yes' : 'No',
-				allowedSellingPlans: el.dataset.allowedSellingPlans || 'None specified'
+				allowedSellingPlans: allowedSellingPlans || 'None specified',
+				recommendedFrequency: bottleQuantity
 			});
 
 			const variantId = parseInt(variant);
@@ -1504,69 +1514,98 @@ document.addEventListener('DOMContentLoaded', () => {
 			if (window.productData && window.productData[productId]) {
 				const product = window.productData[productId];
 				if (product.variants) {
+					// First try exact match
 					selectedVariant = product.variants.find(v => v.id === variantId);
 
 					if (!selectedVariant) {
 						console.log('Variant not found in product data. Available variants:', product.variants.map(v => v.id));
 
+						// Try original variant as fallback
 						const originalVariantId = parseInt(el.dataset.originalVariant || '0');
 						if (originalVariantId > 0) {
 							selectedVariant = product.variants.find(v => v.id === originalVariantId);
+
+							if (selectedVariant) {
+								console.log('Found variant using original variant ID fallback');
+							}
 						}
 					}
 				}
 			}
 
 			if (!selectedVariant) {
-				console.log('Using fallback for subscription plan options');
-				const currentSellingPlanId = el.dataset.subscriptionSellingPlanId;
-				if (currentSellingPlanId) {
-					const frequencyBox = document.createElement('div');
-					frequencyBox.className = 'rounded-md cursor-pointer py-2 min-w-[90px] text-center w-full selected transition-all duration-300 ease-in-out';
-					frequencyBox.style.backgroundColor = 'var(--primary-color)';
-					frequencyBox.style.color = 'white';
-					frequencyBox.setAttribute('data-selling-plan-id', currentSellingPlanId);
-					frequencyBox.innerHTML = `
-						<div class="p-1">
-							<span class="font-semibold">Current Plan</span>
-						</div>
-					`;
-					frequencyOptions.appendChild(frequencyBox);
-					frequencyBox.addEventListener('click', function() {
-						selectFrequencyOption(this);
-					});
-					frequencyContainer.classList.remove('hidden');
-				} else {
-					frequencyContainer.classList.add('hidden');
-				}
-
+				console.log('Using fallback for subscription plan options - variant not found in product data');
+				handleFallbackFrequencyOptions(el, frequencyOptions, frequencyContainer);
 				return;
+			}
+
+			// Check if variant has selling plan allocations
+			if (!selectedVariant.selling_plan_allocations || selectedVariant.selling_plan_allocations.length === 0) {
+				console.warn('Selected variant has no selling plan allocations:', selectedVariant.id);
+				handleFallbackFrequencyOptions(el, frequencyOptions, frequencyContainer);
+				return;
+			}
+
+			// Find selling plan that matches the bottle quantity (recommended frequency)
+			let recommendedSellingPlanId = '';
+			if (selectedVariant.selling_plan_allocations) {
+				for (const allocation of selectedVariant.selling_plan_allocations) {
+					const months = extractFrequencyMonths(allocation.selling_plan.name);
+					if (months === bottleQuantity) {
+						recommendedSellingPlanId = allocation.selling_plan.id.toString();
+						break;
+					}
+				}
+			}
+
+			// If we found a recommended selling plan, set it as the current
+			if (recommendedSellingPlanId && !el.dataset.subscriptionSellingPlanId) {
+				el.dataset.subscriptionSellingPlanId = recommendedSellingPlanId;
 			}
 
 			updateFrequencyOptionsFromVariant(selectedVariant, el.dataset.subscriptionSellingPlanId);
 		} catch (error) {
 			console.error('Error in populateFrequencySelector:', error);
-			const frequencyOptions = document.getElementById('frequency-options-{{ SID }}');
-			const frequencyContainer = productActions.querySelector('[data-frequency-container]');
+			handleFallbackFrequencyOptions(el, document.getElementById('frequency-options-{{ SID }}'), productActions.querySelector('[data-frequency-container]'));
+		}
+	}
 
-			if (frequencyOptions && frequencyContainer && el.dataset.purchaseType === 'subscribe') {
-				const currentSellingPlanId = el.dataset.subscriptionSellingPlanId;
-				if (currentSellingPlanId) {
-					frequencyOptions.innerHTML = '';
-					const fallbackBox = document.createElement('div');
-					fallbackBox.className = 'rounded-md cursor-pointer py-2 min-w-[90px] text-center w-full transition-all duration-300 ease-in-out';
-					fallbackBox.style.backgroundColor = 'var(--primary-color)';
-					fallbackBox.style.color = 'white';
-					fallbackBox.setAttribute('data-selling-plan-id', currentSellingPlanId);
-					fallbackBox.innerHTML = `
-						<div class="p-1">
-							<span class="font-semibold">Current Plan</span>
-						</div>
-					`;
-					frequencyOptions.appendChild(fallbackBox);
-					frequencyContainer.classList.remove('hidden');
-				}
+	// Helper function for fallback frequency option handling
+	function handleFallbackFrequencyOptions(el, frequencyOptions, frequencyContainer) {
+		if (!frequencyOptions || !frequencyContainer) return;
+
+		if (el.dataset.purchaseType === 'subscribe') {
+			const bottleQuantity = parseInt(el.dataset.bottleQuantity || '1', 10);
+			const currentSellingPlanId = el.dataset.subscriptionSellingPlanId;
+
+			if (currentSellingPlanId) {
+				frequencyOptions.innerHTML = '';
+				const fallbackBox = document.createElement('div');
+				fallbackBox.className = 'rounded-md cursor-pointer py-2 min-w-[90px] max-w-[168px] text-center w-full transition-all duration-300 ease-in-out';
+				fallbackBox.style.backgroundColor = 'var(--primary-color)';
+				fallbackBox.style.color = 'white';
+				fallbackBox.setAttribute('data-selling-plan-id', currentSellingPlanId);
+				fallbackBox.setAttribute('data-months', bottleQuantity.toString()); // Use bottle quantity as default recommended frequency
+				fallbackBox.innerHTML = `
+					<div class="p-1">
+						<span class="font-semibold">Every ${bottleQuantity} Month${bottleQuantity > 1 ? 's' : ''}</span>
+					</div>
+				`;
+				frequencyOptions.appendChild(fallbackBox);
+				frequencyContainer.classList.remove('hidden');
+
+				// Make sure fallback box has click handler
+				fallbackBox.addEventListener('click', function() {
+					selectFrequencyOption(this);
+				});
+
+				// Update description
+				setTimeout(updateFrequencyDescription, 100);
+			} else {
+				frequencyContainer.classList.add('hidden');
 			}
+		} else {
+			frequencyContainer.classList.add('hidden');
 		}
 	}
 
@@ -1627,13 +1666,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	function rebuildFrequencyOptions(frequencyOptions, filteredPlans, currentSellingPlanId) {
 		const fragment = document.createDocumentFragment();
+		const selectedBox = productActions.querySelector('.variant-box.selected');
+		const recommendedMonths = parseInt(selectedBox?.dataset.bottleQuantity || '1', 10);
 
 		filteredPlans.forEach(allocation => {
 			const plan = allocation.selling_plan;
 			const months = extractFrequencyMonths(plan.name);
 
 			const frequencyBox = document.createElement('div');
-			frequencyBox.className = 'rounded-md cursor-pointer py-2 min-w-[90px] text-center w-full transition-all duration-300 ease-in-out';
+			frequencyBox.className = 'rounded-md cursor-pointer py-2 min-w-[90px] max-w-[168px] text-center w-full transition-all duration-300 ease-in-out';
 
 			frequencyBox.style.backgroundColor = 'var(--bg-color)';
 			frequencyBox.style.color = 'var(--primary-color)';
@@ -1641,12 +1682,29 @@ document.addEventListener('DOMContentLoaded', () => {
 			frequencyBox.setAttribute('data-selling-plan-id', plan.id);
 			frequencyBox.setAttribute('data-months', months);
 
-			if (plan.id.toString() === currentSellingPlanId) {
+			// Set the current selling plan ID to recommended months if it's a new selection
+			// or keep existing selection if it was already set
+			const shouldSelectRecommended = !currentSellingPlanId || (months === recommendedMonths);
+
+			if ((plan.id.toString() === currentSellingPlanId) ||
+				(shouldSelectRecommended && months === recommendedMonths)) {
 				frequencyBox.style.backgroundColor = 'var(--primary-color)';
 				frequencyBox.style.color = 'white';
+
+				// Update the current box with the recommended selling plan ID
+				if (shouldSelectRecommended && months === recommendedMonths) {
+					currentSellingPlanId = plan.id.toString();
+
+					// Update the selected box with the new selling plan ID
+					if (selectedBox) {
+						selectedBox.dataset.subscriptionSellingPlanId = currentSellingPlanId;
+						if (submitSellingPlanId) submitSellingPlanId.value = currentSellingPlanId;
+					}
+				}
 			}
 
-			let displayText = months === 1 ? 'Monthly' : `${months} Months`;
+			// Change label format to "Every X Month/s"
+			let displayText = months === 1 ? 'Every Month' : `Every ${months} Months`;
 
 			frequencyBox.innerHTML = `
 				<div class="p-1">
@@ -1699,26 +1757,26 @@ document.addEventListener('DOMContentLoaded', () => {
 		);
 		if (!selectedOption) return;
 
-		const months = selectedOption.getAttribute('data-months') || '1';
-		const bottleQuantity = state.selectedBox?.dataset.bottleQuantity || '1';
+		const months = parseInt(selectedOption.getAttribute('data-months') || '1', 10);
+		const bottleQuantity = parseInt(state.selectedBox?.dataset.bottleQuantity || '1', 10);
 
-		let description = '';
-		if (months === '1') {
-			description = `You'll receive ${bottleQuantity} bottle${bottleQuantity > 1 ? 's' : ''} every month.`;
-		} else {
-			description = `You'll receive ${bottleQuantity} bottle${bottleQuantity > 1 ? 's' : ''} every ${months} months.`;
+		let description = `You'll receive ${bottleQuantity} bottle${bottleQuantity > 1 ? 's' : ''} every ${months} month${months > 1 ? 's' : ''}.`;
+
+		// Show recommendation message if selected frequency doesn't match recommended frequency
+		if (months !== bottleQuantity) {
+			description += ` <span class="text-primary font-medium">Recommended - every ${bottleQuantity} month${bottleQuantity > 1 ? 's' : ''}</span>`;
 		}
 
-		if (descriptionEl.textContent !== description) {
+		if (descriptionEl.textContent !== description && descriptionEl.innerHTML !== description) {
 			if (descriptionEl.style.opacity !== '0') {
 				DOMUtils.updateStyle(descriptionEl, 'opacity', '0');
 
 				setTimeout(() => {
-					DOMUtils.updateProperty(descriptionEl, 'textContent', description);
+					DOMUtils.updateProperty(descriptionEl, 'innerHTML', description);
 					DOMUtils.updateStyle(descriptionEl, 'opacity', '1');
 				}, 200);
 			} else {
-				DOMUtils.updateProperty(descriptionEl, 'textContent', description);
+				DOMUtils.updateProperty(descriptionEl, 'innerHTML', description);
 				DOMUtils.updateStyle(descriptionEl, 'opacity', '1');
 			}
 		}
@@ -1743,73 +1801,196 @@ document.addEventListener('DOMContentLoaded', () => {
 	}
 
 	function getFilteredSellingPlans(sellingPlans, currentPlanIds, currentSellingPlanId) {
-		const selectedBox = productActions.querySelector('.variant-box.selected');
-		let filteredPlans = [...sellingPlans];
-		let allowedPlans = [];
+    const selectedBox = productActions.querySelector('.variant-box.selected');
+    let filteredPlans = [...sellingPlans];
+    let allowedPlans = [];
+    let hasChanged = false;
 
-		if (selectedBox && selectedBox.dataset.allowedSellingPlans) {
-			try {
-				allowedPlans = selectedBox.dataset.allowedSellingPlans.split(',').map(id => id.trim());
-				console.log('Filtering by allowed selling plans:', allowedPlans);
+    if (selectedBox && selectedBox.dataset.allowedSellingPlans) {
+        try {
+            // More robust parsing - handle malformed inputs
+            const allowedSellingPlansStr = selectedBox.dataset.allowedSellingPlans.trim();
 
-				if (allowedPlans.length > 0) {
-					filteredPlans = filteredPlans.filter(allocation =>
-						allowedPlans.includes(allocation.selling_plan.id.toString())
-					);
+            // Log the raw value for debugging
+            console.log('Raw allowed selling plans attribute:', allowedSellingPlansStr);
 
-					console.log('Filtered to', filteredPlans.length, 'selling plans');
-				}
-			} catch (err) {
-				console.error('Error filtering selling plans:', err);
-			}
-		}
+            // Better parsing with validation
+            if (allowedSellingPlansStr) {
+                allowedPlans = allowedSellingPlansStr
+                    .split(',')
+                    .map(id => id.trim())
+                    .filter(id => id && !isNaN(parseInt(id, 10))); // Ensure numeric values only
 
-		filteredPlans.sort((a, b) => {
-			const freqA = extractFrequencyMonths(a.selling_plan.name);
-			const freqB = extractFrequencyMonths(b.selling_plan.name);
-			return freqA - freqB;
-		});
+                console.log('Parsed allowed selling plans:', allowedPlans);
 
-		const newPlanIds = new Set(filteredPlans.map(plan => plan.selling_plan.id.toString()));
+                if (allowedPlans.length > 0) {
+                    // Store original length for comparison
+                    const originalLength = filteredPlans.length;
 
-		let hasChanged = currentPlanIds.size !== newPlanIds.size;
+                    // Create a Set of normalized strings for consistent comparison
+                    const allowedPlansSet = new Set(allowedPlans.map(id => id.toString()));
 
-		if (!hasChanged) {
-			for (const id of currentPlanIds) {
-				if (!newPlanIds.has(id)) {
-					hasChanged = true;
-					break;
-				}
-			}
-		}
+                    // Check if we have any valid selling plans
+                    let validPlanFound = false;
 
-		return { filteredPlans, hasChanged, allowedPlans };
-	}
+                    // Log each selling plan for debugging
+                    sellingPlans.forEach(plan => {
+                        const id = plan.selling_plan.id.toString();
+                        const isAllowed = allowedPlansSet.has(id);
+                        console.log(`Plan ID: ${id}, Allowed: ${isAllowed}`);
+                        if (isAllowed) validPlanFound = true;
+                    });
+
+                    // Early warning if no plans will match
+                    if (!validPlanFound) {
+                        console.warn('None of the specified allowed selling plans match any actual plans!', {
+                            allowedPlans: [...allowedPlansSet],
+                            availablePlans: sellingPlans.map(p => p.selling_plan.id.toString())
+                        });
+                    }
+
+                    // Filter plans with consistent string comparison
+                    filteredPlans = filteredPlans.filter(allocation => {
+                        const planId = allocation.selling_plan.id.toString();
+                        const isAllowed = allowedPlansSet.has(planId);
+
+                        // Additional debug info to identify any mismatches
+                        if (!isAllowed) {
+                            console.log(`Plan ${planId} not in allowed set:`, [...allowedPlansSet]);
+                        }
+
+                        return isAllowed;
+                    });
+
+                    console.log('Filtered to', filteredPlans.length, 'selling plans from', originalLength);
+
+                    // Set hasChanged if the filtering actually changed something
+                    if (filteredPlans.length !== originalLength) {
+                        hasChanged = true;
+                    }
+                }
+            } else {
+                console.log('Empty allowed selling plans attribute, not filtering');
+            }
+        } catch (err) {
+            console.error('Error filtering selling plans:', err, 'Raw value:', selectedBox.dataset.allowedSellingPlans);
+
+            // More informative error reporting
+            if (window.Shopify && window.Shopify.designMode) {
+                console.warn('Allowed selling plans format issue detected in theme editor mode. Check the format of your selling plan IDs.');
+            }
+
+            // Don't filter if there's an error - keep all plans
+            filteredPlans = [...sellingPlans];
+        }
+    }
+
+    // Always ensure we have at least one plan if available
+    if (filteredPlans.length === 0 && sellingPlans.length > 0) {
+        console.warn('Filtering removed all selling plans! Restoring first available plan as fallback.');
+        filteredPlans = [sellingPlans[0]];
+        hasChanged = true;
+    }
+
+    // Sort by frequency in months
+    filteredPlans.sort((a, b) => {
+        const freqA = extractFrequencyMonths(a.selling_plan.name);
+        const freqB = extractFrequencyMonths(b.selling_plan.name);
+        return freqA - freqB;
+    });
+
+    // Handle case when current selling plan ID is not in the filtered list
+    if (currentSellingPlanId && filteredPlans.length > 0) {
+        const currentPlanExists = filteredPlans.some(
+            plan => plan.selling_plan.id.toString() === currentSellingPlanId.toString()
+        );
+
+        if (!currentPlanExists) {
+            // Add current selling plan back if it was filtered out
+            console.log('Current selling plan not in filtered list, adding it back');
+            const originalPlan = sellingPlans.find(
+                plan => plan.selling_plan.id.toString() === currentSellingPlanId.toString()
+            );
+
+            if (originalPlan) {
+                filteredPlans.push(originalPlan);
+                hasChanged = true;
+
+                // Re-sort after adding
+                filteredPlans.sort((a, b) => {
+                    const freqA = extractFrequencyMonths(a.selling_plan.name);
+                    const freqB = extractFrequencyMonths(b.selling_plan.name);
+                    return freqA - freqB;
+                });
+            }
+        }
+    }
+
+    const newPlanIds = new Set(filteredPlans.map(plan => plan.selling_plan.id.toString()));
+
+    // Check if the plans have changed beyond what we already determined
+    if (!hasChanged) {
+        if (currentPlanIds.size !== newPlanIds.size) {
+            hasChanged = true;
+        } else {
+            for (const id of currentPlanIds) {
+                if (!newPlanIds.has(id)) {
+                    hasChanged = true;
+                    break;
+                }
+            }
+        }
+    }
+
+    return { filteredPlans, hasChanged, allowedPlans };
+}
 
 	function handleNoMatchingPlans(frequencyOptions, currentSellingPlanId, frequencyContainer) {
+		// Clear existing options
+		frequencyOptions.innerHTML = '';
+
 		if (currentSellingPlanId) {
-			frequencyOptions.innerHTML = '';
+			// If we have a current plan, create a fallback option
+			console.log('Creating fallback option for current selling plan:', currentSellingPlanId);
+
 			const fallbackBox = document.createElement('div');
-			fallbackBox.className = 'rounded-md cursor-pointer py-2 min-w-[90px] text-center w-full transition-all duration-300 ease-in-out';
+			fallbackBox.className = 'rounded-md cursor-pointer py-2 min-w-[90px] max-w-[168px] text-center w-full transition-all duration-300 ease-in-out';
 			fallbackBox.style.backgroundColor = 'var(--primary-color)';
 			fallbackBox.style.color = 'white';
 			fallbackBox.setAttribute('data-selling-plan-id', currentSellingPlanId);
+			fallbackBox.setAttribute('data-months', '1'); // Default to monthly for description
 			fallbackBox.innerHTML = `
 				<div class="p-1">
 					<span class="font-semibold">Current Plan</span>
 				</div>
 			`;
-			frequencyOptions.appendChild(fallbackBox);
+
 			// Add event listener to handle clicks
 			fallbackBox.addEventListener('click', function() {
 				selectFrequencyOption(this);
 			});
+
+			frequencyOptions.appendChild(fallbackBox);
 			frequencyContainer.classList.remove('hidden');
+
+			// Log details about what happened
+			console.log('No matching filtered plans found, using fallback with current selling plan ID:', currentSellingPlanId);
 
 			// Make sure the frequency description is updated too
 			updateFrequencyDescription();
 		} else {
+			// If no current plan either, hide the container
+			console.warn('No current or filtered plans available, hiding frequency selector');
 			frequencyContainer.classList.add('hidden');
+
+			// If in theme editor, add a visible notice
+			if (window.Shopify && window.Shopify.designMode) {
+				const notice = document.createElement('div');
+				notice.className = 'text-red-500 text-sm mt-2 p-2 border border-red-300 rounded';
+				notice.textContent = 'No valid subscription frequencies available. Check your allowed selling plan IDs configuration.';
+				frequencyContainer.appendChild(notice);
+				frequencyContainer.classList.remove('hidden');
+			}
 		}
 	}
 });

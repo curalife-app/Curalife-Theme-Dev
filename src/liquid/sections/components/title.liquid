@@ -1,8 +1,22 @@
 {% if section.settings.is_hide_on_global and shop.name == "CuraLife Global" %}
-	{% assign is_hide = true %}
+	{% assign hideSection = true %}
 {% endif %}
 
-{% unless is_hide %}
+{% if section.settings.display_on_pages != blank %}
+	{% assign isDisplayOnThisPage = false %}
+	{% assign displayOnPagesArray = section.settings.display_on_pages | split: ',' %}
+	{% for currentPage in displayOnPagesArray %}
+		{% if currentPage == request.path %}
+			{% assign isDisplayOnThisPage = true %}
+		{% endif %}
+	{% endfor %}
+
+	{% unless isDisplayOnThisPage %}
+		{% assign hideSection = true %}
+	{% endunless %}
+{% endif %}
+
+{% unless hideSection %}
 	{% assign mainTitle = section.settings.title | default: section.settings.title_rich %}
 
 	{% if section.settings.anchor_id != blank %}<div id="{{ section.settings.anchor_id }}"></div>{% endif %}
@@ -258,6 +272,12 @@
 		{
 			"type": "header",
 			"content": "Section Settings"
+		},
+		{
+			"type": "text",
+			"id": "display_on_pages",
+			"label": "Display Only On Pages",
+			"info": "Enter a comma separated list of page paths to display this section only on those pages. Leave blank to display on all pages."
 		},
 		{
 			"type": "color",
