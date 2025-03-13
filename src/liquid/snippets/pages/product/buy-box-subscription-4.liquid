@@ -212,7 +212,7 @@
 				<!-- Options will be dynamically populated by JavaScript -->
 			</div>
 		</div>
-		<div class="frequency-description text-[14px] text-gray-600 mt-2 transition-opacity duration-300 ease-in-out leading-normal"><!-- Frequency description will be populated by JavaScript --></div>
+		<div class="frequency-description text-[14px] text-gray-600 mt-2 transition-opacity duration-300 ease-in-out leading-normal min-h-[24px]"><!-- Frequency description will be populated by JavaScript --></div>
 	</div>
 
 	{% render 'subscription-box-faq',
@@ -1760,25 +1760,28 @@ document.addEventListener('DOMContentLoaded', () => {
 		const months = parseInt(selectedOption.getAttribute('data-months') || '1', 10);
 		const bottleQuantity = parseInt(state.selectedBox?.dataset.bottleQuantity || '1', 10);
 
-		let description = `You'll receive ${bottleQuantity} bottle${bottleQuantity > 1 ? 's' : ''} every ${months} month${months > 1 ? 's' : ''}.`;
+		let description = '';
 
-		// Show recommendation message if selected frequency doesn't match recommended frequency
-		if (months !== bottleQuantity) {
-			description += ` <span class="text-primary font-medium">Recommended - every ${bottleQuantity} month${bottleQuantity > 1 ? 's' : ''}</span>`;
+		// If selected frequency matches recommended frequency, show nothing
+		if (months === bottleQuantity) {
+			description = ''; // No text when on recommended frequency
+		} else {
+			// Otherwise only show the recommendation
+			description = `Recommended - every ${bottleQuantity} month${bottleQuantity > 1 ? 's' : ''}`;
 		}
 
-		if (descriptionEl.textContent !== description && descriptionEl.innerHTML !== description) {
-			if (descriptionEl.style.opacity !== '0') {
-				DOMUtils.updateStyle(descriptionEl, 'opacity', '0');
+		// Always update with fade animation, even if going to/from empty
+		if (descriptionEl.innerHTML !== description) {
+			// Fade out
+			DOMUtils.updateStyle(descriptionEl, 'opacity', '0');
 
-				setTimeout(() => {
-					DOMUtils.updateProperty(descriptionEl, 'innerHTML', description);
-					DOMUtils.updateStyle(descriptionEl, 'opacity', '1');
-				}, 200);
-			} else {
+			setTimeout(() => {
+				// Update content while faded out
 				DOMUtils.updateProperty(descriptionEl, 'innerHTML', description);
+
+				// Fade back in
 				DOMUtils.updateStyle(descriptionEl, 'opacity', '1');
-			}
+			}, 200);
 		}
 	}
 

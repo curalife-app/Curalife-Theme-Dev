@@ -50,13 +50,26 @@
 	color: var(--primary-color);
 	font-style: italic;
 	font-weight: 100;
+	padding: 0.5rem 0;
+	transition: all 0.3s ease;
+}
+
+.accordion-header.active {
+	color: var(--primary-color);
+	opacity: 0.9;
 }
 
 .accordion-content {
 	overflow: hidden;
 	max-height: 0;
-	transition: max-height 0.3s ease;
+	transition: max-height 0.3s ease-out;
 	margin-top: 0.5rem;
+	opacity: 0;
+}
+
+.accordion-content.active {
+	opacity: 1;
+	transition: opacity 0.5s ease-in;
 }
 
 /* List layout styling */
@@ -92,25 +105,33 @@
 @media (max-width: 768px) {
 	#accordion-component {
 		min-height: auto; /* Will be set dynamically */
-		padding: 1rem;
+		padding: 1.5rem;
+		display: flex;
+		flex-direction: column;
+		gap: 1.5rem;
 	}
 	.image-overlay-heading {
 		position: static;
-		margin-bottom: 1rem;
-		margin-top: 2rem;
+		margin-bottom: 0;
+		margin-top: 0;
 		max-width: 100%;
 		text-align: center;
+		color: #fff;
 	}
 	.accordion-widget,
 	.list-widget {
 		max-width: 100%;
 		margin: 0 auto;
+		width: 100%;
 	}
 	.accordion-header {
 		font-size: 1rem;
+		padding: 0.75rem 0;
 	}
 	h5 {
 		padding-bottom: 0 !important;
+		margin-top: 0;
+		margin-bottom: 0.5rem;
 	}
 	.content {
 		padding-top: 0 !important;
@@ -118,10 +139,23 @@
 	.list-item {
 		flex-direction: column;
 		gap: 0;
+		padding: 1rem;
 	}
 	.accordion-content,
 	.list-item p {
-		font-size: 4.2vw;
+		font-size: 16px;
+	}
+}
+
+@media (max-width: 480px) {
+	#accordion-component {
+		padding: 1rem;
+	}
+	.accordion-widget {
+		padding: 1.5rem;
+	}
+	.image-overlay-heading h2 {
+		font-size: 1.75rem;
 	}
 }
 </style>
@@ -149,11 +183,11 @@
 					{% for block in section.blocks %}
 						{% if block.type == 'accordion_item' %}
 							<div class="accordion-item">
-								<h5 class="accordion-header">
+								<h5 class="accordion-header" aria-expanded="false" aria-controls="accordion-content-{{ forloop.index }}">
 									<span style="font-weight: bold;">{{ block.settings.month_title }}</span>
-									<span class="accordion-icon" style="margin-left: 1rem;">+</span>
+									<span class="accordion-icon" style="margin-left: 1rem;" aria-hidden="true">+</span>
 								</h5>
-								<div class="accordion-content">
+								<div id="accordion-content-{{ forloop.index }}" class="accordion-content" aria-hidden="true">
 									{% if block.settings.subtitle != blank %}
 										<h4>{{ block.settings.subtitle }}</h4>
 									{% endif %}
@@ -251,3 +285,49 @@
 	]
 }
 {% endschema %}
+
+{% if section.settings.layout == 'accordion' %}
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const accordionHeaders = document.querySelectorAll('.accordion-header');
+
+    accordionHeaders.forEach(header => {
+      header.addEventListener('click', function() {
+        const content = this.nextElementSibling;
+        const icon = this.querySelector('.accordion-icon');
+        const isExpanded = this.getAttribute('aria-expanded') === 'true';
+
+        // Toggle active class
+        this.classList.toggle('active');
+        content.classList.toggle('active');
+
+        // Update ARIA attributes
+        this.setAttribute('aria-expanded', !isExpanded);
+        content.setAttribute('aria-hidden', isExpanded);
+
+        // Toggle content visibility
+        if (content.style.maxHeight) {
+          content.style.maxHeight = null;
+          icon.textContent = '+';
+        } else {
+          content.style.maxHeight = content.scrollHeight + 'px';
+          icon.textContent = '-';
+        }
+      });
+    });
+
+    // Ensure proper initialization for keyboard navigation
+    accordionHeaders.forEach(header => {
+      header.setAttribute('tabindex', '0');
+
+      // Handle keyboard interaction
+      header.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          this.click();
+        }
+      });
+    });
+  });
+</script>
+{% endif %}
