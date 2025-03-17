@@ -1,135 +1,151 @@
-<section class="comments-section pre" id="comments-section">
-	<style>
-		.comments-section {
-			max-width:800px;margin:0 auto;padding:30px 15px;
-			font-family:Arial,sans-serif;color:#333
-		}
-		.comments-section h2 {
-			font-size:24px;font-weight:700;margin-bottom:25px;
-			border-bottom:2px solid #ddd;padding-bottom:10px;
-			font-size: 26px !important;
-			color: black;
-		}
-		.comments-list {margin-bottom:25px}
-		.comment {
-			display:flex;align-items:flex-start;margin-bottom:20px
-		}
-		.comment-avatar {
-			width:60px;height:60px;object-fit:cover;border-radius:50%;margin-right:15px;margin-top: 26px;
-		}
-		.comment-content {
-			background:#f9f9f9;border:1px solid #e5e5e5;border-radius:8px;
-			padding:15px;flex:1;position:relative
-		}
-		.comment-content::before,.comment-content::after {
-			content:"";position:absolute;top:20px;width:0;height:0;
-			border-top:10px solid transparent;border-bottom:10px solid transparent
-		}
-		.comment-content::before {left:-10px;border-right:10px solid #f9f9f9}
-		.comment-content::after {left:-11px;border-right:10px solid #e5e5e5;z-index:-1}
-		.comment-author {font-weight:700;margin-bottom:5px;color:#333;font-size: 20px;}
-		.comment-text {margin:0;color:#555;line-height:1.4em}
-		.comment-form-container {
-			background:#fafafa;border:1px solid #e5e5e5;
-			border-radius:6px;padding:20px;
-			max-height:0;overflow:hidden;opacity:0;
-			transition:max-height 0.4s ease-in-out, opacity 0.3s ease-in-out, padding 0.3s ease-in-out, margin 0.3s ease-in-out;
-			margin:0;
-		}
-		.comment-form-container.active {
-			max-height:500px;opacity:1;padding:20px;margin-top:20px;
-		}
-		.comment-form-container label {
-			display:block;margin-bottom:5px;font-weight:700
-		}
-		.comment-form-container input[type=text],
-		.comment-form-container textarea {
-			width:100%;padding:10px;margin-bottom:15px;
-			border:1px solid #ccc;border-radius:4px;font-size:14px
-		}
-		.comment-form-container button {
-			padding:10px 20px;background:var(--primary);color:#fff;
-			border:none;border-radius:4px;cursor:pointer;font-size:14px
-		}
-		.comment-form-container button:hover {background:#555}
-		#thank-you-message {margin-top:10px;font-style:italic;color:#333;display:none}
-		.comments-list-footer {
-			display:flex;justify-content:flex-end;margin-bottom:20px;
-		}
-		.toggle-comment-form {
-			padding:10px 20px;
-			color: var(--primary);
-			text-decoration: underline !important;
-			font-weight: bold;
-			border-radius: 4px;
-			cursor: pointer;
-			transition: background 0.2s ease;
-			text-decoration:none;
-			display:inline-block;
-		}
-	</style>
+{% if section.settings.display_on_pages != blank %}
+	{% assign isDisplayOnThisPage = false %}
+	{% assign displayOnPagesArray = section.settings.display_on_pages | split: ',' %}
+	{% for currentPage in displayOnPagesArray %}
+		{% if currentPage == request.path %}
+			{% assign isDisplayOnThisPage = true %}
+		{% endif %}
+	{% endfor %}
 
-	{% if section.settings.title != blank %}
-		<h2>{{ section.settings.title }}</h2>
-	{% endif %}
+	{% unless isDisplayOnThisPage %}
+		{% assign hideSection = true %}
+	{% endunless %}
+{% endif %}
 
-	<div class="comments-list">
-		{% for block in section.blocks %}
-			{% if block.type == 'comment' %}
-				<div class="comment">
-					{% if block.settings.comment_avatar %}
-						<img
-							class="comment-avatar"
-							src="{{ block.settings.comment_avatar | img_url: '60x60' }}"
-							alt="{{ block.settings.comment_author | escape }}"
-						>
-					{% endif %}
-					<div class="comment-content">
-						<h4 class="comment-author">{{ block.settings.comment_author }}</h4>
-						<p class="comment-text">{{ block.settings.comment_text }}</p>
+{% unless hideSection %}
+	<section class="comments-section pre" id="comments-section">
+		<style>
+			.comments-section {
+				max-width:800px;margin:0 auto;padding:30px 15px;
+				font-family:Arial,sans-serif;color:#333
+			}
+			.comments-section h2 {
+				font-size:24px;font-weight:700;margin-bottom:25px;
+				border-bottom:2px solid #ddd;padding-bottom:10px;
+				font-size: 26px !important;
+				color: black;
+			}
+			.comments-list {margin-bottom:25px}
+			.comment {
+				display:flex;align-items:flex-start;margin-bottom:20px
+			}
+			.comment-avatar {
+				width:60px;height:60px;object-fit:cover;border-radius:50%;margin-right:15px;margin-top: 26px;
+			}
+			.comment-content {
+				background:#f9f9f9;border:1px solid #e5e5e5;border-radius:8px;
+				padding:15px;flex:1;position:relative
+			}
+			.comment-content::before,.comment-content::after {
+				content:"";position:absolute;top:20px;width:0;height:0;
+				border-top:10px solid transparent;border-bottom:10px solid transparent
+			}
+			.comment-content::before {left:-10px;border-right:10px solid #f9f9f9}
+			.comment-content::after {left:-11px;border-right:10px solid #e5e5e5;z-index:-1}
+			.comment-author {font-weight:700;margin-bottom:5px;color:#333;font-size: 20px;}
+			.comment-text {margin:0;color:#555;line-height:1.4em}
+			.comment-form-container {
+				background:#fafafa;border:1px solid #e5e5e5;
+				border-radius:6px;padding:20px;
+				max-height:0;overflow:hidden;opacity:0;
+				transition:max-height 0.4s ease-in-out, opacity 0.3s ease-in-out, padding 0.3s ease-in-out, margin 0.3s ease-in-out;
+				margin:0;
+			}
+			.comment-form-container.active {
+				max-height:500px;opacity:1;padding:20px;margin-top:20px;
+			}
+			.comment-form-container label {
+				display:block;margin-bottom:5px;font-weight:700
+			}
+			.comment-form-container input[type=text],
+			.comment-form-container textarea {
+				width:100%;padding:10px;margin-bottom:15px;
+				border:1px solid #ccc;border-radius:4px;font-size:14px
+			}
+			.comment-form-container button {
+				padding:10px 20px;background:var(--primary);color:#fff;
+				border:none;border-radius:4px;cursor:pointer;font-size:14px
+			}
+			.comment-form-container button:hover {background:#555}
+			#thank-you-message {margin-top:10px;font-style:italic;color:#333;display:none}
+			.comments-list-footer {
+				display:flex;justify-content:flex-end;margin-bottom:20px;
+			}
+			.toggle-comment-form {
+				padding:10px 20px;
+				color: var(--primary);
+				text-decoration: underline !important;
+				font-weight: bold;
+				border-radius: 4px;
+				cursor: pointer;
+				transition: background 0.2s ease;
+				text-decoration:none;
+				display:inline-block;
+			}
+		</style>
+
+		{% if section.settings.title != blank %}
+			<h2>{{ section.settings.title }}</h2>
+		{% endif %}
+
+		<div class="comments-list">
+			{% for block in section.blocks %}
+				{% if block.type == 'comment' %}
+					<div class="comment">
+						{% if block.settings.comment_avatar %}
+							<img
+								class="comment-avatar"
+								src="{{ block.settings.comment_avatar | img_url: '60x60' }}"
+								alt="{{ block.settings.comment_author | escape }}"
+							>
+						{% endif %}
+						<div class="comment-content">
+							<h4 class="comment-author">{{ block.settings.comment_author }}</h4>
+							<p class="comment-text">{{ block.settings.comment_text }}</p>
+						</div>
 					</div>
-				</div>
-			{% endif %}
-		{% endfor %}
-	</div>
+				{% endif %}
+			{% endfor %}
+		</div>
 
-	<div class="comments-list-footer">
-		<a href="#" class="toggle-comment-form">Add Comment</a>
-	</div>
+		<div class="comments-list-footer">
+			<a href="#" class="toggle-comment-form">Add Comment</a>
+		</div>
 
-	<div class="comment-form-container">
-		<form id="fake-comment-form">
-			<label for="new-comment-name">Name</label>
-			<input type="text" id="new-comment-name" required>
+		<div class="comment-form-container">
+			<form id="fake-comment-form">
+				<label for="new-comment-name">Name</label>
+				<input type="text" id="new-comment-name" required>
 
-			<label for="new-comment-text">Comment</label>
-			<textarea id="new-comment-text" rows="3" required></textarea>
+				<label for="new-comment-text">Comment</label>
+				<textarea id="new-comment-text" rows="3" required></textarea>
 
-			<button type="submit">{{ section.settings.submit_button_label }}</button>
-		</form>
-		<div id="thank-you-message">{{ section.settings.thank_you_message }}</div>
-	</div>
+				<button type="submit">{{ section.settings.submit_button_label }}</button>
+			</form>
+			<div id="thank-you-message">{{ section.settings.thank_you_message }}</div>
+		</div>
 
-	<script>
-		document.querySelector('.toggle-comment-form').addEventListener('click', function(e) {
-			e.preventDefault();
-			document.querySelector('.comment-form-container').classList.add('active');
-			// Hide the link after activating the form
-			this.style.display = 'none';
-		});
+		<script>
+			document.querySelector('.toggle-comment-form').addEventListener('click', function(e) {
+				e.preventDefault();
+				document.querySelector('.comment-form-container').classList.add('active');
+				// Hide the link after activating the form
+				this.style.display = 'none';
+			});
 
-		document.getElementById('fake-comment-form').addEventListener('submit', function(e) {
-			e.preventDefault();
-			document.getElementById('thank-you-message').style.display = 'block';
-			this.reset();
+			document.getElementById('fake-comment-form').addEventListener('submit', function(e) {
+				e.preventDefault();
+				document.getElementById('thank-you-message').style.display = 'block';
+				this.reset();
 
-			// Hide the thank you message after a delay, but keep form visible
-			setTimeout(function() {
-				document.getElementById('thank-you-message').style.display = 'none';
-			}, 3000);
-		});
-	</script>
-</section>
+				// Hide the thank you message after a delay, but keep form visible
+				setTimeout(function() {
+					document.getElementById('thank-you-message').style.display = 'none';
+				}, 3000);
+			});
+		</script>
+	</section>
+{% endunless %}
 
 {% schema %}
 {
@@ -152,6 +168,12 @@
 			"id": "thank_you_message",
 			"label": "Thank You Message",
 			"default": "Thank you! Your comment will be reviewed."
+		},
+		{
+			"type": "text",
+			"id": "display_on_pages",
+			"label": "Display Only On Pages",
+			"info": "Enter a comma separated list of page paths to display this section only on those pages. Leave blank to display on all pages."
 		}
 	],
 	"blocks": [

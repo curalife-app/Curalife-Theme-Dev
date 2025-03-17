@@ -3,7 +3,7 @@
 	{% assign isGlobal = true %}
 {% endif %}
 
-{% if product.handle == 'curalin' or product.handle == 'curaslim' %}
+{% if product.handle == 'curalin' or product.handle == 'curaslim' or product.handle == 'curalin-tm' %}
 	{% assign shippingPrice = 790 %}
 {% else %}
 	{% assign shippingPrice = 1000 %}
@@ -205,7 +205,7 @@
 	{% endif %}
 
 	<!-- Subscription Frequency Selector with direct Tailwind classes -->
-	<div class="hidden my-4 transition-all duration-300 ease-in-out" data-frequency-container>
+	<div class="mbl:my-0 hidden my-2 transition-all duration-300 ease-in-out" data-frequency-container>
 		<div class="mb-3 font-semibold">Choose delivery frequency</div>
 		<div class="subscription-frequency-selector">
 			<div id="frequency-options-{{ SID }}" class="flex justify-start gap-2">
@@ -510,8 +510,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
 		// Initialize state with default values
 		init() {
+			// Use the data attribute to determine default selection index
 			const defaultIdx = parseInt(productActions.dataset.defaultVariantIndex, 10) || 0;
-			const defaultBox = purchaseOptionBoxes[defaultIdx - 1] || purchaseOptionBoxes[0];
+
+			// Try to find a subscription box first (if exists)
+			let defaultBox = null;
+
+			// First try to find a subscription box
+			for (const box of purchaseOptionBoxes) {
+				if (box.dataset.purchaseType === 'subscribe') {
+					defaultBox = box;
+					break;
+				}
+			}
+
+			// If no subscription box found, fall back to the default or first box
+			if (!defaultBox) {
+				defaultBox = purchaseOptionBoxes[defaultIdx - 1] || purchaseOptionBoxes[0];
+			}
 
 			// Store original button text for later restoration
 			if (submitButton) {
@@ -522,8 +538,19 @@ document.addEventListener('DOMContentLoaded', () => {
 			if (defaultBox) {
 				this.setState({
 					selectedBox: defaultBox,
-					isInitialLoad: true
+					isInitialLoad: true,
+					purchaseType: defaultBox.dataset.purchaseType || null,
+					sellingPlanId: defaultBox.dataset.subscriptionSellingPlanId || null
 				});
+
+				// Make sure the UI is updated to reflect this selection
+				if (defaultBox.dataset.purchaseType === 'subscribe') {
+					console.log('Default selecting subscription option');
+					// Also update UI to reflect subscription is selected
+					defaultBox.classList.add('selected');
+					const radio = defaultBox.querySelector('input[type="radio"]');
+					if (radio) radio.checked = true;
+				}
 			}
 
 			// Mark initialization as complete
@@ -1192,7 +1219,48 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	function togglePurchaseBox(el) {
 		if (!el) return;
-		BuyBoxState.setState({ selectedBox: el });
+
+		purchaseOptionBoxes.forEach(box => {
+			box.classList.remove('selected');
+			const r = box.querySelector('input[type="radio"]');
+			if (r) r.checked = false;
+		});
+
+		const isSub = el.dataset.purchaseType === 'subscribe';
+		const planId = isSub ? el.dataset.subscriptionSellingPlanId : '';
+		const variantId = el.dataset.variant;
+
+		if (submitSellingPlanId) submitSellingPlanId.value = planId;
+		if (submitVariantId) submitVariantId.value = variantId;
+
+		el.classList.add('selected');
+		const radio = el.querySelector('input[type="radio"]');
+		if (radio) radio.checked = true;
+
+		// Update the state with all relevant information
+		BuyBoxState.setState({
+			selectedBox: el,
+			purchaseType: el.dataset.purchaseType,
+			sellingPlanId: planId,
+			variantId: variantId
+		});
+
+		console.log('Box selected:', {
+			type: el.dataset.purchaseType,
+			sellingPlanId: planId,
+			variantId: variantId
+		});
+
+		updateBuyButton(el);
+		updatePriceDisplay(el);
+
+		{% if isSlideVariant %}
+			if (window.hasInitialImageUpdateHappened) {
+				updateVariantImage(el);
+			} else {
+				window.hasInitialImageUpdateHappened = true;
+			}
+		{% endif %}
 	}
 
 	function initPurchaseOptions() {
@@ -1280,9 +1348,32 @@ document.addEventListener('DOMContentLoaded', () => {
 					throw new Error('No valid variant ID found');
 				}
 
-				let sellingPlanId = isSub ? box.dataset.subscriptionSellingPlanId : undefined;
-				if (isSub && frequencySelector && !frequencySelector.classList.contains('hidden')) {
-					sellingPlanId = frequencySelector.value;
+				// MODIFIED: Ensure we always get a valid selling plan ID for subscriptions
+				let sellingPlanId = null;
+				if (isSub) {
+					// First try the box's subscription selling plan ID
+					sellingPlanId = box.dataset.subscriptionSellingPlanId;
+
+					// If frequency selector is visible, use its value instead
+					if (frequencySelector && !frequencySelector.classList.contains('hidden')) {
+						sellingPlanId = frequencySelector.value;
+					}
+
+					// Fallback to state if needed
+					if (!sellingPlanId && BuyBoxState.data.sellingPlanId) {
+						sellingPlanId = BuyBoxState.data.sellingPlanId;
+					}
+
+					console.log('Using selling plan ID:', sellingPlanId);
+
+					// Last resort - check if there are any selling plan allocations for this variant
+					if (!sellingPlanId) {
+						const variantData = findVariantInProductData(variant);
+						if (variantData && variantData.selling_plan_allocations && variantData.selling_plan_allocations.length > 0) {
+							sellingPlanId = variantData.selling_plan_allocations[0].selling_plan.id;
+							console.log('Using fallback selling plan from allocations:', sellingPlanId);
+						}
+					}
 				}
 
 				let items = [{
@@ -1290,6 +1381,9 @@ document.addEventListener('DOMContentLoaded', () => {
 					quantity: 1,
 					selling_plan: isSub ? sellingPlanId : undefined
 				}];
+
+				// Debug log to check what's being sent to cart
+				console.log('Adding to cart with items:', JSON.stringify(items));
 
 				if (giftsAmount > 0) {
 					const giftEl = document.querySelector('.gift-box.selected');
@@ -1550,8 +1644,10 @@ document.addEventListener('DOMContentLoaded', () => {
 			let recommendedSellingPlanId = '';
 			if (selectedVariant.selling_plan_allocations) {
 				for (const allocation of selectedVariant.selling_plan_allocations) {
-					const months = extractFrequencyMonths(allocation.selling_plan.name);
-					if (months === bottleQuantity) {
+					const { value, unit } = extractFrequency(allocation.selling_plan.name);
+
+                    // If unit is months and matches bottle quantity
+					if (unit === 'month' && value === bottleQuantity) {
 						recommendedSellingPlanId = allocation.selling_plan.id.toString();
 						break;
 					}
@@ -1585,7 +1681,8 @@ document.addEventListener('DOMContentLoaded', () => {
 				fallbackBox.style.backgroundColor = 'var(--primary-color)';
 				fallbackBox.style.color = 'white';
 				fallbackBox.setAttribute('data-selling-plan-id', currentSellingPlanId);
-				fallbackBox.setAttribute('data-months', bottleQuantity.toString()); // Use bottle quantity as default recommended frequency
+				fallbackBox.setAttribute('data-frequency-value', bottleQuantity.toString()); // Use bottle quantity as default recommended frequency
+				fallbackBox.setAttribute('data-frequency-unit', 'month'); // Default to months
 				fallbackBox.innerHTML = `
 					<div class="p-1">
 						<span class="font-semibold">Every ${bottleQuantity} Month${bottleQuantity > 1 ? 's' : ''}</span>
@@ -1670,8 +1767,30 @@ document.addEventListener('DOMContentLoaded', () => {
 		const recommendedMonths = parseInt(selectedBox?.dataset.bottleQuantity || '1', 10);
 
 		filteredPlans.forEach(allocation => {
+			// Defensive check to ensure allocation exists
+			if (!allocation || !allocation.selling_plan) {
+				console.warn('Invalid selling plan allocation detected:', allocation);
+				return; // Skip this iteration
+			}
+
 			const plan = allocation.selling_plan;
-			const months = extractFrequencyMonths(plan.name);
+
+			// Defensive check to ensure plan and plan.name exist
+			if (!plan || typeof plan.name === 'undefined') {
+				console.warn('Selling plan missing name property:', plan);
+				return; // Skip this iteration
+			}
+
+			let value, unit;
+			try {
+				const result = extractFrequency(plan.name);
+				value = result.value;
+				unit = result.unit;
+			} catch (error) {
+				console.warn('Error extracting frequency from plan name:', plan.name, error);
+				value = 1;
+				unit = 'month';
+			}
 
 			const frequencyBox = document.createElement('div');
 			frequencyBox.className = 'rounded-md cursor-pointer py-2 min-w-[90px] max-w-[168px] text-center w-full transition-all duration-300 ease-in-out';
@@ -1680,19 +1799,21 @@ document.addEventListener('DOMContentLoaded', () => {
 			frequencyBox.style.color = 'var(--primary-color)';
 
 			frequencyBox.setAttribute('data-selling-plan-id', plan.id);
-			frequencyBox.setAttribute('data-months', months);
+			frequencyBox.setAttribute('data-frequency-value', value);
+			frequencyBox.setAttribute('data-frequency-unit', unit);
 
 			// Set the current selling plan ID to recommended months if it's a new selection
 			// or keep existing selection if it was already set
-			const shouldSelectRecommended = !currentSellingPlanId || (months === recommendedMonths);
+			const isRecommendedMonthPlan = (unit === 'month' && value === recommendedMonths);
+			const shouldSelectRecommended = !currentSellingPlanId || isRecommendedMonthPlan;
 
-			if ((plan.id.toString() === currentSellingPlanId) ||
-				(shouldSelectRecommended && months === recommendedMonths)) {
+			if ((plan.id && plan.id.toString() === currentSellingPlanId) ||
+				(shouldSelectRecommended && isRecommendedMonthPlan)) {
 				frequencyBox.style.backgroundColor = 'var(--primary-color)';
 				frequencyBox.style.color = 'white';
 
 				// Update the current box with the recommended selling plan ID
-				if (shouldSelectRecommended && months === recommendedMonths) {
+				if (shouldSelectRecommended && isRecommendedMonthPlan) {
 					currentSellingPlanId = plan.id.toString();
 
 					// Update the selected box with the new selling plan ID
@@ -1703,8 +1824,13 @@ document.addEventListener('DOMContentLoaded', () => {
 				}
 			}
 
-			// Change label format to "Every X Month/s"
-			let displayText = months === 1 ? 'Every Month' : `Every ${months} Months`;
+			// Change label format based on the frequency unit
+            let displayText = '';
+            if (unit === 'day') {
+                displayText = value === 1 ? 'Every Day' : `Every ${value} Days`;
+            } else { // month
+                displayText = value === 1 ? 'Every Month' : `Every ${value} Months`;
+            }
 
 			frequencyBox.innerHTML = `
 				<div class="p-1">
@@ -1757,16 +1883,17 @@ document.addEventListener('DOMContentLoaded', () => {
 		);
 		if (!selectedOption) return;
 
-		const months = parseInt(selectedOption.getAttribute('data-months') || '1', 10);
+		const selectedFrequencyValue = parseInt(selectedOption.getAttribute('data-frequency-value') || '1', 10);
+		const selectedFrequencyUnit = selectedOption.getAttribute('data-frequency-unit') || 'month';
 		const bottleQuantity = parseInt(state.selectedBox?.dataset.bottleQuantity || '1', 10);
 
 		let description = '';
 
-		// If selected frequency matches recommended frequency, show nothing
-		if (months === bottleQuantity) {
+		// If selected frequency matches recommended frequency (only for months)
+		if (selectedFrequencyUnit === 'month' && selectedFrequencyValue === bottleQuantity) {
 			description = ''; // No text when on recommended frequency
 		} else {
-			// Otherwise only show the recommendation
+			// Otherwise show the recommendation
 			description = `Recommended - every ${bottleQuantity} month${bottleQuantity > 1 ? 's' : ''}`;
 		}
 
@@ -1798,10 +1925,29 @@ document.addEventListener('DOMContentLoaded', () => {
 	}
 	init();
 
-	function extractFrequencyMonths(planName) {
-		const match = planName.match(/(\d+)\s*Month/i);
-		return match ? parseInt(match[1], 10) : 0;
-	}
+	// Updated to extract both value and unit (days or months)
+    function extractFrequency(planName) {
+        // Try matching days pattern first
+        let daysMatch = planName.match(/(\d+)\s*Day/i);
+        if (daysMatch) {
+            return {
+                value: parseInt(daysMatch[1], 10),
+                unit: 'day'
+            };
+        }
+
+        // Try matching months pattern
+        let monthsMatch = planName.match(/(\d+)\s*Month/i);
+        if (monthsMatch) {
+            return {
+                value: parseInt(monthsMatch[1], 10),
+                unit: 'month'
+            };
+        }
+
+        // Default fallback
+        return { value: 1, unit: 'month' };
+    }
 
 	function getFilteredSellingPlans(sellingPlans, currentPlanIds, currentSellingPlanId) {
     const selectedBox = productActions.querySelector('.variant-box.selected');
@@ -1895,11 +2041,34 @@ document.addEventListener('DOMContentLoaded', () => {
         hasChanged = true;
     }
 
-    // Sort by frequency in months
+    // Helper function to convert frequency to approximate days for sorting
+    function getDaysFromFrequency(plan) {
+        try {
+            if (!plan || !plan.selling_plan || !plan.selling_plan.name) {
+                return Number.MAX_SAFE_INTEGER; // Force unknown plans to the end
+            }
+
+            const { value, unit } = extractFrequency(plan.selling_plan.name);
+
+            // Convert to days for comparison
+            if (unit === 'day') {
+                return value;
+            } else if (unit === 'month') {
+                return value * 30; // Approximate 30 days per month
+            }
+
+            return Number.MAX_SAFE_INTEGER; // Force unknown units to the end
+        } catch (error) {
+            console.warn('Error calculating days for plan:', plan, error);
+            return Number.MAX_SAFE_INTEGER;
+        }
+    }
+
+    // Sort by the actual duration in approximate days
     filteredPlans.sort((a, b) => {
-        const freqA = extractFrequencyMonths(a.selling_plan.name);
-        const freqB = extractFrequencyMonths(b.selling_plan.name);
-        return freqA - freqB;
+        const daysA = getDaysFromFrequency(a);
+        const daysB = getDaysFromFrequency(b);
+        return daysA - daysB;
     });
 
     // Handle case when current selling plan ID is not in the filtered list
@@ -1921,9 +2090,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Re-sort after adding
                 filteredPlans.sort((a, b) => {
-                    const freqA = extractFrequencyMonths(a.selling_plan.name);
-                    const freqB = extractFrequencyMonths(b.selling_plan.name);
-                    return freqA - freqB;
+                    const daysA = getDaysFromFrequency(a);
+                    const daysB = getDaysFromFrequency(b);
+                    return daysA - daysB;
                 });
             }
         }
@@ -1961,7 +2130,8 @@ document.addEventListener('DOMContentLoaded', () => {
 			fallbackBox.style.backgroundColor = 'var(--primary-color)';
 			fallbackBox.style.color = 'white';
 			fallbackBox.setAttribute('data-selling-plan-id', currentSellingPlanId);
-			fallbackBox.setAttribute('data-months', '1'); // Default to monthly for description
+			fallbackBox.setAttribute('data-frequency-value', '1'); // Default to 1 for description
+			fallbackBox.setAttribute('data-frequency-unit', 'month'); // Default to monthly for description
 			fallbackBox.innerHTML = `
 				<div class="p-1">
 					<span class="font-semibold">Current Plan</span>
@@ -1997,6 +2167,24 @@ document.addEventListener('DOMContentLoaded', () => {
 		}
 	}
 });
+
+// Helper function to find variant data in product data
+function findVariantInProductData(variantId) {
+	if (!window.productData) return null;
+
+	// Convert variantId to integer for consistent comparison
+	const numericVariantId = parseInt(variantId, 10);
+
+	for (const productId in window.productData) {
+		const product = window.productData[productId];
+		if (product && product.variants) {
+			const variant = product.variants.find(v => parseInt(v.id, 10) === numericVariantId);
+			if (variant) return variant;
+		}
+	}
+
+	return null;
+}
 </script>
 
 <script>
@@ -2192,12 +2380,5 @@ document.addEventListener('DOMContentLoaded', () => {
 		bottom: 0;
 		background-color: rgba(0, 0, 0, 0.15);
 		border-radius: inherit;
-	}
-
-	/* Mobile styles for frequency container */
-	@media (max-width: 767px) {
-		[data-frequency-container] .font-semibold {
-			font-size: 15px;
-		}
 	}
 </style>
