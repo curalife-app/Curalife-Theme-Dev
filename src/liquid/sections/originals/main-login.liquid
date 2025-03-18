@@ -1,136 +1,496 @@
-{{ 'customer.css' | asset_url | stylesheet_tag }}
+{% comment %}
+  Login and Password Recovery Component
+  - Handles both login and password recovery forms
+  - Uses CSS :target for form switching
+  - Maintains accessibility standards
+{% endcomment %}
 
 <section class="customer login">
   <div class="container">
-    <h2 id="recover" tabindex="-1">{{ 'customer.recover_password.title' | t }}</h2>
-
-    <div>
-      <p>{{ 'customer.recover_password.subtext' | t }}</p>
+    {% comment %} Password Recovery Form {% endcomment %}
+    <div class="recover-form" id="recover">
+      <h2 tabindex="-1">Reset Password</h2>
+      <p>We'll send you an email to reset your password.</p>
 
       {%- form 'recover_customer_password' -%}
         {% assign recover_success = form.posted_successfully? %}
         <div class="field">
-          <input type="email" value="" name="email" id="RecoverEmail" autocorrect="off" autocapitalize="off" autocomplete="email" {% if form.errors %}aria-invalid="true" aria-describedby="RecoverEmail-email-error" autofocus{% endif %} placeholder="{{ 'customer.login_page.email' | t }}">
-          <label for="RecoverEmail">{{ 'customer.login_page.email' | t }}</label>
+          <input
+            type="email"
+            name="email"
+            id="RecoverEmail"
+            autocomplete="email"
+            autocorrect="off"
+            autocapitalize="off"
+            {% if form.errors %}
+              aria-invalid="true"
+              aria-describedby="RecoverEmail-email-error"
+              autofocus
+            {% endif %}
+            placeholder="Email"
+          >
+          <label for="RecoverEmail">Email</label>
         </div>
 
         {%- if form.errors -%}
-          <small id="RecoverEmail-email-error" class="form__message">
-            <svg aria-hidden="true" focusable="false" viewBox="0 0 13 13">
-              <circle cx="6.5" cy="6.50049" r="5.5" stroke="white" stroke-width="2"/>
-              <circle cx="6.5" cy="6.5" r="5.5" fill="#EB001B" stroke="#EB001B" stroke-width="0.7"/>
-              <path d="M5.87413 3.52832L5.97439 7.57216H7.02713L7.12739 3.52832H5.87413ZM6.50076 9.66091C6.88091 9.66091 7.18169 9.37267 7.18169 9.00504C7.18169 8.63742 6.88091 8.34917 6.50076 8.34917C6.12061 8.34917 5.81982 8.63742 5.81982 9.00504C5.81982 9.37267 6.12061 9.66091 6.50076 9.66091Z" fill="white"/>
-              <path d="M5.87413 3.17832H5.51535L5.52424 3.537L5.6245 7.58083L5.63296 7.92216H5.97439H7.02713H7.36856L7.37702 7.58083L7.47728 3.537L7.48617 3.17832H7.12739H5.87413ZM6.50076 10.0109C7.06121 10.0109 7.5317 9.57872 7.5317 9.00504C7.5317 8.43137 7.06121 7.99918 6.50076 7.99918C5.94031 7.99918 5.46982 8.43137 5.46982 9.00504C5.46982 9.57872 5.94031 10.0109 6.50076 10.0109Z" fill="white" stroke="#EB001B" stroke-width="0.7">
-            </svg>
+          <div id="RecoverEmail-email-error" class="form__message form__message--error">
+            {% render 'icon-error' %}
             {{ form.errors.messages.form }}
-          </small>
+          </div>
         {%- endif -%}
 
-        <button>{{ 'customer.login_page.submit' | t }}</button>
-        <a href="#login">{{ 'customer.login_page.cancel' | t }}</a>
+        <div class="button-group">
+          <button type="submit" class="button button--primary">
+            Submit
+          </button>
+          <a href="#login" class="button button--secondary">
+            Cancel
+          </a>
+        </div>
       {%- endform -%}
     </div>
 
-    <h1 id="login" tabindex="-1">{{ 'customer.login_page.title' | t }}</h1>
+    {% comment %} Login Form {% endcomment %}
+    <div class="login-form" id="login">
+      <h1 tabindex="-1">Login</h1>
 
-    <div>
       {%- if recover_success == true -%}
-        <h3 class="form__message" tabindex="-1" autofocus>
-          <svg aria-hidden="true" focusable="false" viewBox="0 0 13 13">
-            <path d="M6.5 12.35C9.73087 12.35 12.35 9.73086 12.35 6.5C12.35 3.26913 9.73087 0.65 6.5 0.65C3.26913 0.65 0.65 3.26913 0.65 6.5C0.65 9.73086 3.26913 12.35 6.5 12.35Z" fill="#428445" stroke="white" stroke-width="0.7"/>
-            <path d="M5.53271 8.66357L9.25213 4.68197" stroke="white"/>
-            <path d="M4.10645 6.7688L6.13766 8.62553" stroke="white">
-          </svg>
-
-          {{ 'customer.recover_password.success' | t }}
-        </h3>
+        <div class="form__message form__message--success" tabindex="-1" autofocus>
+          {% render 'icon-success' %}
+          Check your email for a password reset link
+        </div>
       {%- endif -%}
 
       {%- form 'customer_login', novalidate: 'novalidate' -%}
         {%- if form.errors -%}
-          <h2 class="form__message" tabindex="-1" autofocus>
-            <span class="visually-hidden">{{ 'accessibility.error' | t }} </span>
-            <svg aria-hidden="true" focusable="false" viewBox="0 0 13 13">
-              <circle cx="6.5" cy="6.50049" r="5.5" stroke="white" stroke-width="2"/>
-              <circle cx="6.5" cy="6.5" r="5.5" fill="#EB001B" stroke="#EB001B" stroke-width="0.7"/>
-              <path d="M5.87413 3.52832L5.97439 7.57216H7.02713L7.12739 3.52832H5.87413ZM6.50076 9.66091C6.88091 9.66091 7.18169 9.37267 7.18169 9.00504C7.18169 8.63742 6.88091 8.34917 6.50076 8.34917C6.12061 8.34917 5.81982 8.63742 5.81982 9.00504C5.81982 9.37267 6.12061 9.66091 6.50076 9.66091Z" fill="white"/>
-              <path d="M5.87413 3.17832H5.51535L5.52424 3.537L5.6245 7.58083L5.63296 7.92216H5.97439H7.02713H7.36856L7.37702 7.58083L7.47728 3.537L7.48617 3.17832H7.12739H5.87413ZM6.50076 10.0109C7.06121 10.0109 7.5317 9.57872 7.5317 9.00504C7.5317 8.43137 7.06121 7.99918 6.50076 7.99918C5.94031 7.99918 5.46982 8.43137 5.46982 9.00504C5.46982 9.57872 5.94031 10.0109 6.50076 10.0109Z" fill="white" stroke="#EB001B" stroke-width="0.7">
-            </svg>
-            {{ 'templates.contact.form.error_heading' | t }}
-          </h2>
-          {{ form.errors | default_errors }}
+          <div class="form__message form__message--error" tabindex="-1" autofocus>
+            {% render 'icon-error' %}
+            {{ form.errors | default_errors }}
+          </div>
         {%- endif -%}
 
         <div class="field">
-          <input type="email" name="customer[email]" id="CustomerEmail" autocomplete="email" autocorrect="off" autocapitalize="off" {% if form.errors contains 'form' %}aria-invalid="true"{% endif %} placeholder="{{ 'customer.login_page.email' | t }}">
-          <label for="CustomerEmail">{{ 'customer.login_page.email' | t }}</label>
+          <input
+            type="email"
+            name="customer[email]"
+            id="CustomerEmail"
+            autocomplete="email"
+            autocorrect="off"
+            autocapitalize="off"
+            {% if form.errors contains 'form' %}
+              aria-invalid="true"
+            {% endif %}
+            placeholder="Email"
+          >
+          <label for="CustomerEmail">Email</label>
         </div>
 
         {%- if form.password_needed -%}
           <div class="field">
-            <input type="password" value="" name="customer[password]" id="CustomerPassword" autocomplete="current-password" {% if form.errors contains 'form' %}aria-invalid="true"{% endif %} placeholder="{{ 'customer.login_page.password' | t }}">
-            <label for="CustomerPassword">{{ 'customer.login_page.password' | t }}</label>
+            <input
+              type="password"
+              name="customer[password]"
+              id="CustomerPassword"
+              autocomplete="current-password"
+              {% if form.errors contains 'form' %}
+                aria-invalid="true"
+              {% endif %}
+              placeholder="Password"
+            >
+            <label for="CustomerPassword">Password</label>
           </div>
         {%- endif -%}
 
-        <button>{{ 'customer.login_page.sign_in' | t }}</button>
-        <a href="#recover">{{ 'customer.login_page.forgot_password' | t }}</a>
-        <a href="{{ routes.account_register_url }}">{{ 'customer.login_page.create_account' | t }}</a>
-        {% if shop.name == 'CuraLife' %}<a href="https://b2b.curalife.com">Wholesale Customer? Login here</a>{% endif %}
+        <button type="submit" class="button button--primary">
+          Sign In
+        </button>
+
+        <div class="link-group">
+          <a href="#recover">Forgot your password?</a>
+          <a href="{{ routes.account_register_url }}">Create account</a>
+          {% if shop.name == 'CuraLife' %}
+            <a href="https://b2b.curalife.com" class="wholesale-link">
+              Wholesale Customer? Login here
+            </a>
+          {% endif %}
+        </div>
       {%- endform -%}
+
+      {% comment %} Guest Checkout {% endcomment %}
+      {%- if shop.checkout.guest_login -%}
+        <div class="guest-login">
+          <div class="divider">
+            <span>or</span>
+          </div>
+          <button type="submit" class="button button--secondary">
+            Continue as Guest
+          </button>
+        </div>
+      {%- endif -%}
     </div>
-
-    {%- if shop.checkout.guest_login -%}
-      <div>
-        <hr>
-        <h2>{{ 'customer.login_page.guest_title' | t }}</h2>
-
-        {%- form 'guest_login' -%}
-          <button>{{ 'customer.login_page.guest_continue' | t }}</button>
-        {%- endform -%}
-      </div>
-    {%- endif -%}
   </div>
 </section>
 
 <style>
+  /* Base Styles */
+  :root {
+    --form-max-width: 450px;
+    --form-padding: clamp(20px, 5vw, 40px);
+    --input-height: 48px;
+    --border-radius: 8px;
+
+    /* Colors - Using CSS variables for theming */
+    --color-primary: var(--primary-color, #4a7c7d);
+    --color-primary-dark: var(--primary-color-dark, #3a6162);
+    --color-primary-light: rgba(74, 124, 125, 0.1);
+    --color-text: var(--heading-color, #2c3338);
+    --color-text-light: #666;
+    --color-border: #e0e0e0;
+    --color-error: #dc3545;
+    --color-success: #28a745;
+    --color-background: white;
+
+    /* Shadows */
+    --shadow-card: 0 10px 40px rgba(0, 0, 0, 0.08);
+    --shadow-focus: 0 0 0 3px var(--color-primary-light);
+  }
+
   main {
-    background: var(--beige);
+    background: linear-gradient(135deg, var(--beige) 0%, #f5f5f5 100%);
+    display: grid;
+    place-items: center;
+    padding: 2rem;
   }
 
-  .customer .container {
-    background: white;
-    border-radius: 10px;
-    padding: 20px;
-    box-shadow: 1px 4px 18px -16px rgba(0,0,0,0.75);
+	.shopify-section {
+		@media (max-width: 768px) {
+			width: 90%;
+		}
+	}
+
+	form {
+		min-height: 370px;
+	}
+
+
+  .customer.login {
+    width: min(var(--form-max-width), 100%);
+    margin: 0 auto;
+
+    /* Form Display Logic */
+    .recover-form,
+    .login-form {
+      transition: opacity 0.3s ease;
+    }
+
+    .recover-form {
+      display: none;
+      opacity: 0;
+    }
+
+    .login-form {
+      display: block;
+      opacity: 1;
+    }
+
+    /* Show recover form and hide login form when #recover is targeted */
+    :target#recover {
+      display: block;
+      opacity: 1;
+
+      & ~ .login-form {
+        display: none;
+        opacity: 0;
+      }
+    }
+
+    .container {
+      background: var(--color-background);
+      border-radius: var(--border-radius);
+      padding: var(--form-padding);
+      box-shadow: var(--shadow-card);
+      position: relative;
+      overflow: hidden;
+
+      &::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(to right, var(--color-primary), var(--color-primary-dark));
+      }
+    }
+
+    .logo {
+      text-align: center;
+      margin-bottom: 2rem;
+
+      img {
+        max-width: 180px;
+        height: auto;
+      }
+    }
+
+    /* Typography */
+    h1, h2 {
+      color: var(--color-text);
+      text-align: center;
+      margin-bottom: 1rem;
+      font-size: clamp(24px, 5vw, 32px);
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+
+    p {
+      color: var(--color-text-light);
+      text-align: center;
+      margin-bottom: 2rem;
+      font-size: 1rem;
+      line-height: 1.5;
+    }
+
+    /* Form Fields */
+    .field {
+      position: relative;
+      margin-bottom: 1rem;
+
+      input {
+        width: 100%;
+        height: var(--input-height);
+        padding: 0.75rem 1rem;
+        border: 2px solid var(--color-border);
+        border-radius: var(--border-radius);
+        font-size: 1rem;
+        background: var(--color-background);
+        transition: all 0.2s ease-in-out;
+
+        &:focus {
+          outline: none;
+          border-color: var(--color-primary);
+          box-shadow: var(--shadow-focus);
+        }
+
+        &::placeholder {
+          color: transparent;
+        }
+
+        &:focus + label,
+        &:not(:placeholder-shown) + label {
+          top: -8px;
+          left: 12px;
+          transform: translateY(0);
+          font-size: 0.875rem;
+          color: var(--color-primary);
+          background: var(--color-background);
+          padding: 0 6px;
+        }
+      }
+
+      label {
+        position: absolute;
+        left: 1rem;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 1rem;
+        color: var(--color-text-light);
+        background: transparent;
+        padding: 0 0.25rem;
+        transition: all 0.2s ease-in-out;
+        pointer-events: none;
+      }
+    }
+
+    /* Buttons */
+    .button {
+      display: inline-block;
+      width: 100%;
+      padding: 0.875rem;
+      border: none;
+      border-radius: var(--border-radius);
+      font-size: 1rem;
+      font-weight: 600;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s ease-in-out;
+
+      &--primary {
+        background: linear-gradient(to right, var(--color-primary), var(--color-primary-dark));
+        color: white;
+
+        &:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(74, 124, 125, 0.2);
+        }
+      }
+
+      &--secondary {
+        background: transparent;
+        color: var(--color-primary);
+        border: 2px solid var(--color-primary);
+
+        &:hover {
+          background: var(--color-primary-light);
+        }
+      }
+    }
+
+    /* Links */
+    .link-group {
+      margin-top: 1.5rem;
+      text-align: center;
+
+      a {
+        display: inline-block;
+        color: var(--color-primary);
+        text-decoration: none;
+        font-size: 0.875rem;
+        margin: 0.5rem 1rem;
+        transition: all 0.2s ease-in-out;
+
+        &:hover {
+          color: var(--color-primary-dark);
+          transform: translateY(-1px);
+        }
+      }
+
+      .wholesale-link {
+        display: block;
+        margin-top: 1rem;
+        font-weight: 500;
+      }
+    }
+
+    /* Messages */
+    .form__message {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+      padding: 1rem;
+      border-radius: var(--border-radius);
+      font-size: 0.875rem;
+      animation: slideIn 0.3s ease-out;
+
+      svg {
+        width: 1.25rem;
+        height: 1.25rem;
+        flex-shrink: 0;
+      }
+
+      &--success {
+        background: #e8f5e9;
+        color: var(--color-success);
+        border: 1px solid #c8e6c9;
+      }
+
+      &--error {
+        background: #ffebee;
+        color: var(--color-error);
+        border: 1px solid #ffcdd2;
+      }
+    }
+
+    /* Guest Login */
+    .guest-login {
+      margin-top: 2rem;
+    }
+
+    .divider {
+      position: relative;
+      text-align: center;
+      margin: 1.5rem 0;
+
+      &::before,
+      &::after {
+        content: '';
+        position: absolute;
+        top: 50%;
+        width: calc(50% - 30px);
+        height: 1px;
+        background: var(--color-border);
+      }
+
+      &::before {
+        left: 0;
+      }
+
+      &::after {
+        right: 0;
+      }
+
+      span {
+        background: var(--color-background);
+        padding: 0 1rem;
+        color: var(--color-text-light);
+        font-size: 0.875rem;
+      }
+    }
   }
 
-  .customer .container button {
-    min-width: 300px;
+  /* Animations */
+  @keyframes slideIn {
+    from {
+      transform: translateY(-10px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  /* Utilities */
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    main {
+      padding: 1rem;
+    }
+
+    .customer.login {
+      .container {
+        padding: 1.5rem;
+      }
+
+      .link-group a {
+        display: block;
+        margin: 0.75rem 0;
+      }
+    }
   }
 </style>
 
-{% comment %} Style Kraken's Login Error Messages {% endcomment %}
-<style>
-  #messageWrapper {
-    background: var(--light-peach);
-    padding: 10px;
-    border: 3px solid var(--peach);
-    font-weight: bold;
-  }
-
-  #messageWrapper.form-message--success{
-    display: none;
-  }
-</style>
+<script>
+  document.querySelectorAll('.password-toggle').forEach(button => {
+    button.addEventListener('click', () => {
+      const input = button.previousElementSibling;
+      const type = input.getAttribute('type') === 'password' ? 'text' : 'password';
+      input.setAttribute('type', type);
+      button.classList.toggle('show');
+    });
+  });
+</script>
 
 {% schema %}
 {
-  "name": "t:sections.main-login.name",
+  "name": "Login",
   "settings": [
     {
       "type": "header",
-      "content": "t:sections.all.padding.section_padding_heading"
+      "content": "Padding"
     },
     {
       "type": "range",
@@ -139,7 +499,7 @@
       "max": 100,
       "step": 4,
       "unit": "px",
-      "label": "t:sections.all.padding.padding_top",
+      "label": "Top padding",
       "default": 36
     },
     {
@@ -149,7 +509,7 @@
       "max": 100,
       "step": 4,
       "unit": "px",
-      "label": "t:sections.all.padding.padding_bottom",
+      "label": "Bottom padding",
       "default": 36
     }
   ]

@@ -1,96 +1,52 @@
-{{ 'customer.css' | asset_url | stylesheet_tag }}
+{% comment %}
+  Register Component
+  - Handles customer registration
+  - Maintains consistent styling with login form
+  - Uses modern form design and animations
+{% endcomment %}
 
-{%- style -%}
-  main .shopify-section {
-    background: #fef6ea;
-    padding: 50px 0;
-  }
-
-  form#create_customer {
-    margin-top: 1em;
-  }
-
-  .section-{{ section.id }}-padding {
-    padding-top: {{ section.settings.padding_top | times: 0.75 | round: 0 }}px;
-    padding-bottom: {{ section.settings.padding_bottom | times: 0.75 | round: 0 }}px;
-  }
-
-  @media screen and (min-width: 750px) {
-    .section-{{ section.id }}-padding {
-      padding-top: {{ section.settings.padding_top }}px;
-      padding-bottom: {{ section.settings.padding_bottom }}px;
-    }
-  }
-{%- endstyle -%}
-
-<div class="customer register section-{{ section.id }}-padding bg-white rounded-lg">
+<section class="customer register">
   <div class="container">
-    <svg style="display: none">
-      <symbol id="icon-error" viewBox="0 0 13 13">
-        <circle cx="6.5" cy="6.50049" r="5.5" stroke="white" stroke-width="2"/>
-        <circle cx="6.5" cy="6.5" r="5.5" fill="#EB001B" stroke="#EB001B" stroke-width="0.7"/>
-        <path d="M5.87413 3.52832L5.97439 7.57216H7.02713L7.12739 3.52832H5.87413ZM6.50076 9.66091C6.88091 9.66091 7.18169 9.37267 7.18169 9.00504C7.18169 8.63742 6.88091 8.34917 6.50076 8.34917C6.12061 8.34917 5.81982 8.63742 5.81982 9.00504C5.81982 9.37267 6.12061 9.66091 6.50076 9.66091Z" fill="white"/>
-        <path d="M5.87413 3.17832H5.51535L5.52424 3.537L5.6245 7.58083L5.63296 7.92216H5.97439H7.02713H7.36856L7.37702 7.58083L7.47728 3.537L7.48617 3.17832H7.12739H5.87413ZM6.50076 10.0109C7.06121 10.0109 7.5317 9.57872 7.5317 9.00504C7.5317 8.43137 7.06121 7.99918 6.50076 7.99918C5.94031 7.99918 5.46982 8.43137 5.46982 9.00504C5.46982 9.57872 5.94031 10.0109 6.50076 10.0109Z" fill="white" stroke="#EB001B" stroke-width="0.7">
-      </symbol>
-    </svg>
-
-    <h1>{{ 'customer.register.title' | t }}</h1>
+    <h1 tabindex="-1">Create Account</h1>
 
     {%- form 'create_customer', novalidate: 'novalidate' -%}
       {%- if form.errors -%}
-        <h2 class="form__message" tabindex="-1" autofocus>
-          <svg aria-hidden="true" focusable="false"><use href="#icon-error" /></svg>
-          Oops! something went wrong.<br>Please fix the errors below and try again.
-        </h2>
-        {% comment %} <ul>
-          {%- for field in form.errors -%}
-            <li>
-              {%- if field == 'form' -%}
-                {{ form.errors.messages[field] }}
-              {%- else -%}
-                <a href="#RegisterForm-{{ field }}">
-                  {{ form.errors.translated_fields[field] | capitalize }}
-                  {{ form.errors.messages[field] }}
-                </a>
-              {%- endif -%}
-            </li>
-          {%- endfor -%}
-        </ul> {% endcomment %}
+        <div class="form__message form__message--error" tabindex="-1" autofocus>
+          {% render 'icon-error' %}
+          {{ form.errors | default_errors }}
+        </div>
       {%- endif -%}
+
       <div class="field">
         <input
           type="text"
           name="customer[first_name]"
           id="RegisterForm-FirstName"
-          {% if form.first_name %}
-            value="{{ form.first_name }}"
-          {% endif %}
+          {% if form.first_name %}value="{{ form.first_name }}"{% endif %}
           autocomplete="given-name"
-          placeholder="{{ 'customer.register.first_name' | t }}"
+          placeholder="First Name"
         >
-        <label for="RegisterForm-FirstName">{{ 'customer.register.first_name' | t }}</label>
+        <label for="RegisterForm-FirstName">First Name</label>
       </div>
+
       <div class="field">
         <input
           type="text"
           name="customer[last_name]"
           id="RegisterForm-LastName"
-          {% if form.last_name %}
-            value="{{ form.last_name }}"
-          {% endif %}
+          {% if form.last_name %}value="{{ form.last_name }}"{% endif %}
           autocomplete="family-name"
-          placeholder="{{ 'customer.register.last_name' | t }}"
+          placeholder="Last Name"
         >
-        <label for="RegisterForm-LastName">{{ 'customer.register.last_name' | t }}</label>
+        <label for="RegisterForm-LastName">Last Name</label>
       </div>
+
       <div class="field">
         <input
           type="email"
           name="customer[email]"
           id="RegisterForm-email"
-          {% if form.email %}
-            value="{{ form.email }}"
-          {% endif %}
+          {% if form.email %}value="{{ form.email }}"{% endif %}
           spellcheck="false"
           autocapitalize="off"
           autocomplete="email"
@@ -99,17 +55,10 @@
             aria-invalid="true"
             aria-describedby="RegisterForm-email-error"
           {% endif %}
-          placeholder="{{ 'customer.register.email' | t }}"
+          placeholder="Email"
         >
-        <label for="RegisterForm-email">{{ 'customer.register.email' | t }}</label>
+        <label for="RegisterForm-email">Email</label>
       </div>
-      {%- if form.errors contains 'email' -%}
-        <span id="RegisterForm-email-error" class="form__message">
-          <svg aria-hidden="true" focusable="false"><use href="#icon-error" /></svg>
-          {{ form.errors.translated_fields.email | capitalize }}
-          {{ form.errors.messages.email }}.
-        </span>
-      {%- endif -%}
 
       <div class="field">
         <input
@@ -121,32 +70,248 @@
             aria-invalid="true"
             aria-describedby="RegisterForm-password-error"
           {% endif %}
-          placeholder="{{ 'customer.register.password' | t }}"
+          placeholder="Password"
         >
-        <label for="RegisterForm-password">{{ 'customer.register.password' | t }}</label>
+        <label for="RegisterForm-password">Password</label>
       </div>
-      {%- if form.errors contains 'password' -%}
-        <span id="RegisterForm-password-error" class="form__message">
-          <svg aria-hidden="true" focusable="false"><use href="#icon-error" /></svg>
-          {{ form.errors.translated_fields.password | capitalize }}
-          {{ form.errors.messages.password }}.
-        </span>
-      {%- endif -%}
 
-      <button>
-        {{ 'customer.register.submit' | t }}
+      <button type="submit" class="button button--primary">
+        Create Account
       </button>
+
+      <div class="link-group">
+        <a href="{{ routes.account_login_url }}">Already have an account? Sign in</a>
+      </div>
     {%- endform -%}
   </div>
-</div>
+</section>
+
+<style>
+  /* Base Styles */
+  :root {
+    --form-max-width: 450px;
+    --form-padding: clamp(20px, 5vw, 40px);
+    --input-height: 48px;
+    --border-radius: 8px;
+
+    /* Colors - Using CSS variables for theming */
+    --color-primary: var(--primary-color, #4a7c7d);
+    --color-primary-dark: var(--primary-color-dark, #3a6162);
+    --color-primary-light: rgba(74, 124, 125, 0.1);
+    --color-text: var(--heading-color, #2c3338);
+    --color-text-light: #666;
+    --color-border: #e0e0e0;
+    --color-error: #dc3545;
+    --color-success: #28a745;
+    --color-background: white;
+
+    /* Shadows */
+    --shadow-card: 0 10px 40px rgba(0, 0, 0, 0.08);
+    --shadow-focus: 0 0 0 3px var(--color-primary-light);
+  }
+
+  main {
+    background: linear-gradient(135deg, var(--beige) 0%, #f5f5f5 100%);
+    display: grid;
+    place-items: center;
+    padding: 2rem;
+  }
+
+  .shopify-section {
+    @media (max-width: 768px) {
+      width: 90%;
+    }
+  }
+
+  form {
+    min-height: 370px;
+  }
+
+  .customer.register {
+    width: 400px;
+    margin: 0 auto;
+
+    .container {
+      background: var(--color-background);
+      border-radius: var(--border-radius);
+      padding: var(--form-padding);
+      box-shadow: var(--shadow-card);
+      position: relative;
+      overflow: hidden;
+
+      &::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(to right, var(--color-primary), var(--color-primary-dark));
+      }
+    }
+
+    /* Typography */
+    h1 {
+      color: var(--color-text);
+      text-align: center;
+      margin-bottom: 2rem;
+      font-size: clamp(24px, 5vw, 32px);
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+
+    /* Form Fields */
+    .field {
+      position: relative;
+      margin-bottom: 1rem;
+
+      input {
+        width: 100%;
+        height: var(--input-height);
+        padding: 0.75rem 1rem;
+        border: 2px solid var(--color-border);
+        border-radius: var(--border-radius);
+        font-size: 1rem;
+        background: var(--color-background);
+        transition: all 0.2s ease-in-out;
+
+        &:focus {
+          outline: none;
+          border-color: var(--color-primary);
+          box-shadow: var(--shadow-focus);
+        }
+
+        &::placeholder {
+          color: transparent;
+        }
+
+        &:focus + label,
+        &:not(:placeholder-shown) + label {
+          top: -8px;
+          left: 12px;
+          transform: translateY(0);
+          font-size: 0.875rem;
+          color: var(--color-primary);
+          background: var(--color-background);
+          padding: 0 6px;
+        }
+      }
+
+      label {
+        position: absolute;
+        left: 1rem;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 1rem;
+        color: var(--color-text-light);
+        background: transparent;
+        padding: 0 0.25rem;
+        transition: all 0.2s ease-in-out;
+        pointer-events: none;
+      }
+    }
+
+    /* Buttons */
+    .button {
+      display: inline-block;
+      width: 100%;
+      padding: 0.875rem;
+      border: none;
+      border-radius: var(--border-radius);
+      font-size: 1rem;
+      font-weight: 600;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s ease-in-out;
+
+      &--primary {
+        background: linear-gradient(to right, var(--color-primary), var(--color-primary-dark));
+        color: white;
+
+        &:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(74, 124, 125, 0.2);
+        }
+      }
+    }
+
+    /* Links */
+    .link-group {
+      margin-top: 1.5rem;
+      text-align: center;
+
+      a {
+        display: inline-block;
+        color: var(--color-primary);
+        text-decoration: none;
+        font-size: 0.875rem;
+        transition: all 0.2s ease-in-out;
+
+        &:hover {
+          color: var(--color-primary-dark);
+          transform: translateY(-1px);
+        }
+      }
+    }
+
+    /* Messages */
+    .form__message {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+      padding: 1rem;
+      border-radius: var(--border-radius);
+      font-size: 0.875rem;
+      animation: slideIn 0.3s ease-out;
+
+      svg {
+        width: 1.25rem;
+        height: 1.25rem;
+        flex-shrink: 0;
+      }
+
+      &--error {
+        background: #ffebee;
+        color: var(--color-error);
+        border: 1px solid #ffcdd2;
+      }
+    }
+  }
+
+  /* Animations */
+  @keyframes slideIn {
+    from {
+      transform: translateY(-10px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    main {
+      padding: 1rem;
+    }
+
+    .customer.register {
+      .container {
+        padding: 1.5rem;
+      }
+    }
+  }
+</style>
 
 {% schema %}
 {
-  "name": "t:sections.main-register.name",
+  "name": "Register",
   "settings": [
     {
       "type": "header",
-      "content": "t:sections.all.padding.section_padding_heading"
+      "content": "Padding"
     },
     {
       "type": "range",
@@ -155,7 +320,7 @@
       "max": 100,
       "step": 4,
       "unit": "px",
-      "label": "t:sections.all.padding.padding_top",
+      "label": "Top padding",
       "default": 36
     },
     {
@@ -165,7 +330,7 @@
       "max": 100,
       "step": 4,
       "unit": "px",
-      "label": "t:sections.all.padding.padding_bottom",
+      "label": "Bottom padding",
       "default": 36
     }
   ]
