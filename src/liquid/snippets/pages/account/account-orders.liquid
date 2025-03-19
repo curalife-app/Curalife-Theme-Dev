@@ -5,374 +5,625 @@
   {% assign invoice_id = "656f0dbf9392657eed7feefc486781fb" %}
 {% endif %}
 
-<div class="data-title">
-  <h5 class="m-0">Your Orders</h5>
-</div>
-
-{% if customer.orders %}
-  <div class="data-list">
-    <ul class="no-style"></ul>
-      {% for order in customer.orders %}
-        <li>
-          <div class="order-head">
-            <div class="number">
-              <p>Order {{ order.name }}</p>
-            </div>
-            <div class="date">
-              <p>{{ order.created_at | date: format: 'abbreviated_date' }}</p>
-            </div>
-            <div class="more">
-              <p><a href="{{ shop.secured_url }}/apps/download?ids={{ order.id }}&t=invoice&public_key={{ invoice_id }}&source=shopify_notification_email" target="_blank"><svg style="width:20px" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><g data-name="93.Download"><path d="M12 24a12 12 0 1 1 12-12 12.013 12.013 0 0 1-12 12zm0-22a10 10 0 1 0 10 10A10.011 10.011 0 0 0 12 2z"/><path d="M7 17h10v2H7zM12 15.414l-4.707-4.707 1.414-1.414L12 12.586l3.293-3.293 1.414 1.414L12 15.414z"/><path d="M11 5h2v9h-2z"/></g></svg></a></p>
-            </div>
-          </div>
-
-          {% for a in order.line_items %}
-            <div class="order-body">
-              <div class="order-item">
-                <div class="rows-wrap">
-                  <div class="img-wrap">
-                    <span>
-                      {% if a.product.featured_image %}
-                        <img src="{{ a.product.featured_image | image_url }}" alt="{{ a.product.title }}">
-                      {% else %}
-                        <img src="{{ 'product-placeholder.svg' | asset_url }}" alt="Product placeholder">
-                      {% endif %}
-                    </span>
-                  </div>
-
-                  <div class="name"><p>{{ a.product.title }}</p></div>
-                </div>
-
-                <div class="item-quantity"><p>Quantity: {{ a.quantity }}</p></div>
-                <div class="item-price"><p>{{ order.total_price | money_with_currency }}</p></div>
-
-                <div class="status done">
-                  <p>
-                    {% if order.fulfillment_status != "fulfilled" %}
-                      <style>
-                        #{{ order.name }} { color: #d8ae13; }
-                        #{{ order.name }}:before { background: #d8ae13; }
-                      </style>
-                    {% endif %}
-                    <span id="{{ order.name }}">{{ order.fulfillment_status }}</span>
-                  </p>
-                </div>
-              </div>
-
-            </div>
-            <div class="view-details d-mobile">
-              <div class="more-btn">
-                <p>
-                  <a href="https://curalife-commerce.myshopify.com/apps/download?ids={{ order.id }}&t=invoice&public_key=51da85a3c3dfa1f360b48852b64218b2&source=shopify_notification_email" target="_blank">Download Invoice</a>                                                        </div>
-            </div>
-            {% endfor %}
-          </li>
-      {% endfor %}
-
-    </ul>
+<div class="orders-container">
+  <div class="data-title">
+    <h5 class="m-0">Your Orders</h5>
   </div>
 
-  <style>
-    .data-list {
-      background: white;
-      border-radius: 16px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-      overflow: hidden;
-    }
+  {% if customer.orders %}
+    <div class="orders-filter-bar">
+      <div class="filter-group">
+        <label for="order-status-filter">Filter by status:</label>
+        <select id="order-status-filter">
+          <option value="all">All orders</option>
+          <option value="fulfilled">Fulfilled</option>
+          <option value="partial">Partial</option>
+          <option value="unfulfilled">Unfulfilled</option>
+        </select>
+      </div>
+      <div class="search-group">
+        <input type="text" id="order-search" placeholder="Search by order number...">
+        <button id="order-search-btn" class="no-style" aria-label="Search orders">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        </button>
+      </div>
+    </div>
 
-    .data-list ul {
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-      padding: 20px;
-      margin: 0;
-    }
+    <div class="data-list">
+      <ul class="no-style" id="orders-list">
+        {% for order in customer.orders %}
+          <li class="order-item-container" data-order-name="{{ order.name }}" data-fulfillment-status="{{ order.fulfillment_status | default: 'unfulfilled' }}">
+            <div class="order-head">
+              <div class="number">
+                <p>Order {{ order.name }}</p>
+              </div>
+              <div class="date">
+                <p>{{ order.created_at | date: format: 'abbreviated_date' }}</p>
+              </div>
+              <div class="more">
+                <a href="{{ shop.secured_url }}/apps/download?ids={{ order.id }}&t=invoice&public_key={{ invoice_id }}&source=shopify_notification_email" target="_blank" aria-label="Download invoice" class="download-link">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                  <span>Download Invoice</span>
+                </a>
+              </div>
+            </div>
 
-    .data-list ul li {
-      display: block;
-      margin: 0;
-      border: 1px solid rgba(0,0,0,0.08);
-      border-radius: 12px;
-      overflow: hidden;
-      transition: all 0.3s ease;
-    }
+            {% for a in order.line_items %}
+              <div class="order-body">
+                <div class="order-item">
+                  <div class="rows-wrap">
+                    <div class="img-wrap">
+                      <span>
+                        {% if a.product.featured_image %}
+                          <img src="{{ a.product.featured_image | image_url }}" alt="{{ a.product.title }}">
+                        {% else %}
+                          <img src="{{ 'product-placeholder.svg' | asset_url }}" alt="Product placeholder">
+                        {% endif %}
+                      </span>
+                    </div>
 
-    .data-list ul li:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 24px rgba(0,0,0,0.12);
-    }
+                    <div class="name"><p>{{ a.product.title }}</p></div>
+                  </div>
 
-    .data-list ul li .order-head {
-      display: flex;
-      align-items: center;
-      min-height: 60px;
-      padding: 0 24px;
-      background: var(--blue);
-      color: white;
-    }
+                  <div class="order-details">
+                    <div class="item-quantity"><p>Quantity: {{ a.quantity }}</p></div>
+                    <div class="item-price"><p>{{ order.total_price | money_with_currency }}</p></div>
 
-    .data-list ul li .order-head .number {
-      width: 30%;
-      text-align: left;
-    }
+                    <div class="status done">
+                      <p>
+                        {% if order.fulfillment_status == "fulfilled" %}
+                          <span data-status="fulfilled">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                            Fulfilled
+                          </span>
+                        {% elsif order.fulfillment_status == "partial" %}
+                          <span data-status="partial">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+                            Partial
+                          </span>
+                        {% else %}
+                          <span data-status="unfulfilled">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line></svg>
+                            {{ order.fulfillment_status | default: "Unfulfilled" }}
+                          </span>
+                        {% endif %}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            {% endfor %}
+          </li>
+        {% endfor %}
+      </ul>
 
-    .data-list ul li .order-head p {
-      margin: 0;
-      font-weight: 600;
-      font-size: 15px;
-      line-height: 1.4;
-    }
+      <div id="no-orders-message" class="empty-message hidden">
+        <p>No orders match your filter criteria.</p>
+      </div>
+    </div>
 
-    .data-list ul li .order-head .date {
-      width: 40%;
-      padding: 0 20px;
-      text-align: center;
-    }
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        const statusFilter = document.getElementById('order-status-filter');
+        const searchInput = document.getElementById('order-search');
+        const searchBtn = document.getElementById('order-search-btn');
+        const ordersList = document.getElementById('orders-list');
+        const orderItems = ordersList.querySelectorAll('.order-item-container');
+        const noOrdersMessage = document.getElementById('no-orders-message');
 
-    .data-list ul li .order-head .more {
-      width: 30%;
-      text-align: right;
-    }
+        function filterOrders() {
+          const statusValue = statusFilter.value;
+          const searchValue = searchInput.value.toLowerCase();
+          let visibleCount = 0;
 
-    .data-list ul li .order-head .more svg {
-      fill: white;
-      transition: all 0.3s ease;
-    }
+          orderItems.forEach(item => {
+            const orderName = item.getAttribute('data-order-name').toLowerCase();
+            const fulfillmentStatus = item.getAttribute('data-fulfillment-status');
 
-    .data-list ul li .order-head .more svg:hover {
-      transform: scale(1.1);
-    }
+            const matchesStatus = statusValue === 'all' || fulfillmentStatus === statusValue;
+            const matchesSearch = searchValue === '' || orderName.includes(searchValue);
 
-    .data-list ul li .order-item {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 24px;
-      background: white;
-      transition: all 0.3s ease;
-    }
+            if (matchesStatus && matchesSearch) {
+              item.style.display = '';
+              visibleCount++;
+            } else {
+              item.style.display = 'none';
+            }
+          });
 
-    .data-list ul li .order-item:hover {
-      background: rgba(var(--blue-rgb), 0.02);
-    }
+          // Only show the no orders message if there are no visible items
+          if (visibleCount === 0) {
+            noOrdersMessage.classList.remove('hidden');
+            ordersList.classList.add('hidden');
+          } else {
+            noOrdersMessage.classList.add('hidden');
+            ordersList.classList.remove('hidden');
+          }
+        }
 
-    .data-list ul li .order-item .rows-wrap {
-      display: flex;
-      align-items: center;
-      padding-right: 20px;
-      flex: 1;
-    }
+        // Run initial filter to ensure proper display state
+        setTimeout(filterOrders, 100);
 
-    .data-list ul li .order-item .img-wrap {
-      width: 80px;
-      height: 80px;
-      flex-shrink: 0;
-      position: relative;
-      border: 1px solid rgba(0,0,0,0.08);
-      border-radius: 8px;
-      overflow: hidden;
-      background: white;
-    }
+        statusFilter.addEventListener('change', filterOrders);
+        searchBtn.addEventListener('click', function(e) {
+          e.preventDefault();
+          filterOrders();
+        });
+        searchInput.addEventListener('keyup', function(e) {
+          if (e.key === 'Enter') {
+            filterOrders();
+          }
+        });
+      });
+    </script>
 
-    .data-list ul li .order-item .img-wrap span {
-      padding: 8px;
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-    }
-
-    .data-list ul li .order-item .img-wrap span img {
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-    }
-
-    .data-list ul li .order-item .name {
-      padding-left: 24px;
-      flex: 1;
-    }
-
-    .data-list ul li .order-item .name p {
-      margin: 0;
-      font-weight: 500;
-      font-size: 16px;
-      line-height: 1.4;
-      color: var(--dark);
-    }
-
-    .data-list ul li .order-item .item-quantity {
-      padding: 0 20px;
-      text-align: center;
-    }
-
-    .data-list ul li .order-item .item-quantity p {
-      margin: 0;
-      font-weight: 500;
-      font-size: 15px;
-      color: var(--dark);
-    }
-
-    .data-list ul li .order-item .item-price {
-      padding: 0 20px;
-      text-align: right;
-    }
-
-    .data-list ul li .order-item .item-price p {
-      margin: 0;
-      font-weight: 600;
-      font-size: 16px;
-      color: var(--blue);
-    }
-
-    .data-list ul li .order-item .status {
-      padding-left: 20px;
-    }
-
-    .data-list ul li .order-item .status p {
-      margin: 0;
-      font-weight: 500;
-      font-size: 14px;
-      text-transform: capitalize;
-    }
-
-    .data-list ul li .order-item .status p span {
-      display: inline-flex;
-      align-items: center;
-      padding: 6px 12px;
-      border-radius: 20px;
-      font-size: 13px;
-      font-weight: 600;
-    }
-
-    .data-list ul li .order-item .status p span:before {
-      content: "";
-      display: inline-block;
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      margin-right: 8px;
-    }
-
-    .data-list ul li .order-item .status p span[data-status="fulfilled"] {
-      background: rgba(46, 204, 113, 0.1);
-      color: #2ecc71;
-    }
-
-    .data-list ul li .order-item .status p span[data-status="fulfilled"]:before {
-      background: #2ecc71;
-    }
-
-    .data-list ul li .order-item .status p span[data-status="partial"] {
-      background: rgba(241, 196, 15, 0.1);
-      color: #f1c40f;
-    }
-
-    .data-list ul li .order-item .status p span[data-status="partial"]:before {
-      background: #f1c40f;
-    }
-
-    .data-list ul li .order-item .status p span[data-status="unfulfilled"] {
-      background: rgba(231, 76, 60, 0.1);
-      color: #e74c3c;
-    }
-
-    .data-list ul li .order-item .status p span[data-status="unfulfilled"]:before {
-      background: #e74c3c;
-    }
-
-    .data-list ul li .view-details.d-mobile {
-      display: none;
-    }
-
-    .data-list ul li .view-details .more-btn {
-      display: flex;
-      justify-content: center;
-      padding: 20px;
-      border-top: 1px solid rgba(0,0,0,0.08);
-      background: rgba(var(--blue-rgb), 0.02);
-    }
-
-    .data-list ul li .view-details .more-btn p a {
-      font-weight: 500;
-      font-size: 14px;
-      color: var(--blue);
-      text-decoration: none;
-      transition: all 0.3s ease;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .data-list ul li .view-details .more-btn p a:hover {
-      color: var(--dark);
-    }
-
-    @media (max-width: 767px) {
-      .data-list ul {
-        padding: 16px;
-        gap: 12px;
+    <style>
+      .hidden {
+        display: none !important;
       }
 
-      .data-list ul li .order-head {
-        padding: 0 16px;
-        min-height: 50px;
+      .orders-container {
+        width: 100%;
       }
 
-      .data-list ul li .order-head p {
-        font-size: 14px;
-      }
-
-      .data-list ul li .order-item {
-        padding: 16px;
-        flex-wrap: wrap;
+      .orders-filter-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0 20px;
+        margin-bottom: 24px;
         gap: 16px;
       }
 
-      .data-list ul li .order-item .rows-wrap {
+      .filter-group {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .filter-group label {
+        font-weight: 500;
+        color: var(--dark);
+        white-space: nowrap;
+      }
+
+      .filter-group select {
+        padding: 8px 12px;
+        border-radius: 8px;
+        border: 1px solid rgba(0,0,0,0.1);
+        background-color: white;
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--dark);
+        cursor: pointer;
+        transition: all 0.3s ease;
+        min-width: 140px;
+      }
+
+      .filter-group select:hover {
+        border-color: var(--blue);
+      }
+
+      .search-group {
+        display: flex;
+        position: relative;
+        max-width: 240px;
+      }
+
+      .search-group input {
         width: 100%;
-        padding-right: 0;
+        padding: 8px 40px 8px 12px;
+        border-radius: 8px;
+        border: 1px solid rgba(0,0,0,0.1);
+        font-size: 14px;
+        color: var(--dark);
+        transition: all 0.3s ease;
       }
 
-      .data-list ul li .order-item .img-wrap {
-        width: 60px;
-        height: 60px;
+      .search-group input:focus {
+        border-color: var(--blue);
+        outline: none;
+        box-shadow: 0 0 0 2px rgba(var(--blue-rgb), 0.2);
       }
 
-      .data-list ul li .order-item .name {
-        padding-left: 16px;
+      .search-group button {
+        position: absolute;
+        right: 0;
+        top: 0;
+        bottom: 0;
+        padding: 0 12px;
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        color: var(--dark);
+        transition: color 0.3s ease;
       }
 
-      .data-list ul li .order-item .name p {
+      .search-group button:hover {
+        color: var(--blue);
+      }
+
+      .empty-message {
+        text-align: center;
+        padding: 40px 20px;
+        color: var(--dark);
+        font-weight: 500;
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      }
+
+      .data-list {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        overflow: hidden;
+      }
+
+      .data-list ul {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        padding: 20px;
+        margin: 0;
+      }
+
+      .data-list ul li {
+        display: block;
+        margin: 0;
+        border: 1px solid rgba(0,0,0,0.08);
+        border-radius: 12px;
+        overflow: hidden;
+        transition: all 0.3s ease;
+      }
+
+      .data-list ul li:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+      }
+
+      .data-list ul li .order-head {
+        display: flex;
+        align-items: center;
+        min-height: 60px;
+        padding: 0 24px;
+        background: var(--blue);
+        color: white;
+      }
+
+      .data-list ul li .order-head .number {
+        width: 30%;
+        text-align: left;
+      }
+
+      .data-list ul li .order-head p {
+        margin: 0;
+        font-weight: 600;
         font-size: 15px;
+        line-height: 1.4;
       }
 
-      .data-list ul li .order-item .item-quantity,
-      .data-list ul li .order-item .item-price,
-      .data-list ul li .order-item .status {
-        width: 100%;
-        padding: 8px 0;
+      .data-list ul li .order-head .date {
+        width: 30%;
+        padding: 0 20px;
+        text-align: center;
+      }
+
+      .data-list ul li .order-head .more {
+        width: 40%;
         text-align: right;
       }
 
-      .data-list ul li .order-item .status {
-        padding-left: 0;
+      .data-list ul li .order-head .more .download-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: white;
+        text-decoration: none;
+        transition: all 0.3s ease;
+        font-weight: 500;
+        font-size: 14px;
       }
 
-      .data-list ul li .view-details.d-mobile {
-        display: block;
+      .data-list ul li .order-head .more .download-link:hover {
+        transform: translateY(-2px);
+        opacity: 0.9;
       }
-    }
-  </style>
-{% else %}
-  <div class="data-content">
-    <div class="empty-content">
-      <div class="empty-text">
-        <p>
-          <span class="icon-smile"></span>You haven't placed any orders yet.</p>
-        <a href="{{ section.settings.ord_btnlink }}" class="main-btn blank">SHOP NOW</a>
+
+      .data-list ul li .order-head .more svg {
+        stroke: white;
+        transition: all 0.3s ease;
+      }
+
+      .data-list ul li .order-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 24px;
+        background: white;
+        transition: all 0.3s ease;
+        border-bottom: 1px solid rgba(0,0,0,0.05);
+      }
+
+      .data-list ul li .order-item:last-child {
+        border-bottom: none;
+      }
+
+      .data-list ul li .order-item .rows-wrap {
+        display: flex;
+        align-items: center;
+        padding-right: 20px;
+        flex: 1;
+      }
+
+      .data-list ul li .order-item .img-wrap {
+        width: 80px;
+        height: 80px;
+        flex-shrink: 0;
+        position: relative;
+        border: 1px solid rgba(0,0,0,0.08);
+        border-radius: 8px;
+        overflow: hidden;
+        background: white;
+      }
+
+      .data-list ul li .order-item .img-wrap span {
+        padding: 8px;
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+      }
+
+      .data-list ul li .order-item .img-wrap span img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+      }
+
+      .data-list ul li .order-item .name {
+        padding-left: 24px;
+        flex: 1;
+      }
+
+      .data-list ul li .order-item .name p {
+        margin: 0;
+        font-weight: 500;
+        font-size: 16px;
+        line-height: 1.4;
+        color: var(--dark);
+      }
+
+      .data-list ul li .order-item .order-details {
+        display: flex;
+        gap: 24px;
+        align-items: center;
+        flex-wrap: nowrap;
+      }
+
+      .data-list ul li .order-item .item-quantity {
+        text-align: center;
+      }
+
+      .data-list ul li .order-item .item-quantity p {
+        margin: 0;
+        font-weight: 500;
+        font-size: 15px;
+        color: var(--dark);
+        white-space: nowrap;
+      }
+
+      .data-list ul li .order-item .item-price {
+        text-align: right;
+      }
+
+      .data-list ul li .order-item .item-price p {
+        margin: 0;
+        font-weight: 600;
+        font-size: 16px;
+        color: var(--blue);
+        white-space: nowrap;
+      }
+
+      .data-list ul li .order-item .status {
+        padding-left: 10px;
+      }
+
+      .data-list ul li .order-item .status p {
+        margin: 0;
+        font-weight: 500;
+        font-size: 14px;
+        text-transform: capitalize;
+      }
+
+      .data-list ul li .order-item .status p span {
+        display: inline-flex;
+        align-items: center;
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 13px;
+        font-weight: 600;
+        gap: 5px;
+        white-space: nowrap;
+      }
+
+      .data-list ul li .order-item .status p span svg {
+        stroke-width: 2.5;
+      }
+
+      .data-list ul li .order-item .status p span[data-status="fulfilled"] {
+        background: rgba(46, 204, 113, 0.1);
+        color: #2ecc71;
+      }
+
+      .data-list ul li .order-item .status p span[data-status="fulfilled"] svg {
+        stroke: #2ecc71;
+      }
+
+      .data-list ul li .order-item .status p span[data-status="partial"] {
+        background: rgba(241, 196, 15, 0.1);
+        color: #f1c40f;
+      }
+
+      .data-list ul li .order-item .status p span[data-status="partial"] svg {
+        stroke: #f1c40f;
+      }
+
+      .data-list ul li .order-item .status p span[data-status="unfulfilled"] {
+        background: rgba(231, 76, 60, 0.1);
+        color: #e74c3c;
+      }
+
+      .data-list ul li .order-item .status p span[data-status="unfulfilled"] svg {
+        stroke: #e74c3c;
+      }
+
+      .data-list ul li .view-details .more-btn {
+        display: flex;
+        justify-content: center;
+        padding: 20px;
+        border-top: 1px solid rgba(0,0,0,0.08);
+        background: rgba(var(--blue-rgb), 0.02);
+      }
+
+      .data-list ul li .view-details .more-btn p a {
+        font-weight: 500;
+        font-size: 14px;
+        color: var(--blue);
+        text-decoration: none;
+        transition: all 0.3s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .data-list ul li .view-details .more-btn p a:hover {
+        color: var(--dark);
+      }
+
+      @media (max-width: 1024px) {
+        .data-list ul li .order-item .order-details {
+          gap: 16px;
+        }
+      }
+
+      @media (max-width: 767px) {
+        .orders-filter-bar {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 12px;
+          padding: 0 16px;
+        }
+
+        .filter-group {
+          width: 100%;
+        }
+
+        .filter-group select {
+          flex: 1;
+        }
+
+        .search-group {
+          width: 100%;
+          max-width: none;
+        }
+
+        .search-group input {
+          width: 100%;
+        }
+
+        .data-list ul {
+          padding: 16px;
+          gap: 12px;
+        }
+
+        .data-list ul li .order-head {
+          padding: 0 16px;
+          min-height: 50px;
+        }
+
+        .data-list ul li .order-head p {
+          font-size: 14px;
+        }
+
+        .data-list ul li .order-item {
+          padding: 16px;
+          flex-wrap: wrap;
+          gap: 16px;
+        }
+
+        .data-list ul li .order-item .rows-wrap {
+          width: 100%;
+          padding-right: 0;
+        }
+
+        .data-list ul li .order-item .img-wrap {
+          width: 60px;
+          height: 60px;
+        }
+
+        .data-list ul li .order-item .name {
+          padding-left: 16px;
+        }
+
+        .data-list ul li .order-item .name p {
+          font-size: 15px;
+        }
+
+        .data-list ul li .order-item .order-details {
+          width: 100%;
+          justify-content: space-between;
+        }
+
+        .data-list ul li .order-item .item-quantity,
+        .data-list ul li .order-item .item-price,
+        .data-list ul li .order-item .status {
+          padding: 8px 0;
+        }
+
+        .data-list ul li .view-details.d-mobile {
+          display: block;
+        }
+
+        .data-list ul li .order-head .number {
+          width: 35%;
+        }
+
+        .data-list ul li .order-head .date {
+          width: 50%;
+          padding: 0 10px;
+        }
+
+        .data-list ul li .order-head .more {
+          width: 40%;
+        }
+
+        .data-list ul li .order-head .more .download-link span {
+          display: none;
+        }
+
+        .data-list ul li .order-item .order-details {
+          width: 100%;
+          justify-content: space-between;
+          gap: 12px;
+        }
+
+        .data-list ul li .order-item .status {
+          width: 100%;
+          text-align: right;
+        }
+      }
+    </style>
+  {% else %}
+    <div class="data-content">
+      <div class="empty-content">
+        <div class="empty-text">
+          <p>
+            <span class="icon-smile"></span>You haven't placed any orders yet.</p>
+          <a href="{{ section.settings.ord_btnlink }}" class="main-btn blank">SHOP NOW</a>
+        </div>
       </div>
     </div>
-  </div>
-{% endif %}
+  {% endif %}
+</div>

@@ -35,7 +35,7 @@
 				</div>
 
 				<div class="account-menu-mobile-dropdown mobile w-full">
-					<select id="mobile-dropdown" onchange="changeContent()">
+					<select id="mobile-dropdown">
 						{% if show_curalifer_tab %}
 							<option value="#curalifer"><i class="fa-thin fa-user-crown"></i>Curalifer</option>
 						{% endif %}
@@ -146,19 +146,12 @@
 
 <script>
 	document.addEventListener("DOMContentLoaded", function () {
-		const accountData = document.querySelector('.account-data'); // Initialize once at the top
+		const accountData = document.querySelector('.account-data');
+		const mobileDropdown = document.getElementById('mobile-dropdown');
 
 		if (!accountData) {
 			console.error("accountData element is not found");
 			return;
-		}
-
-		function changeContent() {
-			let selectedTab = document.querySelector('#mobile-dropdown').value;
-			let tabLink = document.querySelector(`.tabs .tab a[href="${selectedTab}"]`);
-			if (tabLink) {
-				tabLink.click();
-			}
 		}
 
 		function setActiveTab(targetLink) {
@@ -176,11 +169,13 @@
 
 			tabLinks.forEach(link => link.parentElement.classList.remove("active"));
 
-			if (tabPane && accountData) { // Check if accountData is available
+			if (tabPane && accountData) {
 				tabPane.classList.add("active");
 				tabPane.style.pointerEvents = "auto";
 				const tabPaneWrap = tabPane.querySelector('.data-wrap');
-				accountData.style.height = `${tabPaneWrap.offsetHeight}px`;
+				if (tabPaneWrap) {
+					accountData.style.minHeight = `${tabPaneWrap.offsetHeight}px`;
+				}
 			}
 
 			targetLink.parentElement.classList.add("active");
@@ -206,21 +201,28 @@
 			pane.addEventListener('transitionend', function () {
 				const activeTabPane = tabs.querySelector('.account-data .data-row.active');
 				if (activeTabPane) {
-					accountData.style.height = `${activeTabPane.clientHeight}px`;
+					const activeWrap = activeTabPane.querySelector('.data-wrap');
+					if (activeWrap) {
+						accountData.style.minHeight = `${activeWrap.offsetHeight}px`;
+					}
 				}
 			});
 		});
 
-		const mobileDropdown = document.querySelector('#mobile-dropdown');
-		mobileDropdown.addEventListener('change', function() {
-			if (this.value.charAt(0) != '#') {
-				window.location.href = this.value;
-				return;
-			}
-			else {
-				changeContent()
-			}
-		});
+		// Handle mobile dropdown navigation
+		if (mobileDropdown) {
+			mobileDropdown.addEventListener('change', function() {
+				const selectedValue = this.value;
+				if (selectedValue.charAt(0) === '#') {
+					const targetLink = document.querySelector(`.tabs .tab a[href="${selectedValue}"]`);
+					if (targetLink) {
+						setActiveTab(targetLink);
+					}
+				} else {
+					window.location.href = selectedValue;
+				}
+			});
+		}
 	});
 </script>
 
@@ -228,7 +230,7 @@
 	main {
 		background: var(--beige);
 		min-height: 100vh;
-		padding: 40px 0;
+		padding: 60px 0;
 	}
 
 	.account-page {
@@ -278,7 +280,8 @@
 	.account-data {
 		flex: 1;
 		position: relative;
-		transition: height 0.3s ease;
+		transition: min-height 0.3s ease;
+		min-height: 500px;
 	}
 
 	.data-row {
@@ -292,6 +295,7 @@
 	.data-row.active {
 		opacity: 1;
 		visibility: visible;
+		position: relative;
 	}
 
 	.account-data .data-row {
@@ -426,7 +430,7 @@
 
 	@media screen and (max-width: 768px) {
 		main {
-			padding: 20px 0;
+			padding: 15vw 0;
 		}
 
 		.account-content {
@@ -445,6 +449,7 @@
 
 		.account-data {
 			width: 100%;
+			min-height: 400px;
 		}
 
 		.account-data .data-row .data-wrap {
