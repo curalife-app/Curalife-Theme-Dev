@@ -6,99 +6,105 @@
 {% endif %}
 
 <div class="orders-container">
-  <div class="data-title">
-    <h5 class="m-0">Your Orders</h5>
+  <div class="panel-header">
+    <h2>Your Orders</h2>
   </div>
 
   {% if customer.orders %}
-    <div class="orders-filter-bar">
-      <div class="filter-group">
-        <label for="order-status-filter">Filter by status:</label>
-        <select id="order-status-filter">
-          <option value="all">All orders</option>
-          <option value="fulfilled">Fulfilled</option>
-          <option value="partial">Partial</option>
-          <option value="unfulfilled">Unfulfilled</option>
-        </select>
+    <div class="panel-body">
+      <div class="orders-filter-bar">
+        <div class="filter-group">
+          <label for="order-status-filter">Filter by status:</label>
+          <select id="order-status-filter">
+            <option value="all">All orders</option>
+            <option value="fulfilled">Fulfilled</option>
+            <option value="partial">Partial</option>
+            <option value="unfulfilled">Unfulfilled</option>
+          </select>
+        </div>
+        <div class="search-group">
+          <input type="text" id="order-search" placeholder="Search by order number...">
+          <button id="order-search-btn" class="search-button" aria-label="Search orders">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          </button>
+        </div>
       </div>
-      <div class="search-group">
-        <input type="text" id="order-search" placeholder="Search by order number...">
-        <button id="order-search-btn" class="no-style" aria-label="Search orders">
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-        </button>
-      </div>
-    </div>
 
-    <div class="data-list">
-      <ul class="no-style" id="orders-list">
-        {% for order in customer.orders %}
-          <li class="order-item-container" data-order-name="{{ order.name }}" data-fulfillment-status="{{ order.fulfillment_status | default: 'unfulfilled' }}">
-            <div class="order-head">
-              <div class="number">
-                <p>Order {{ order.name }}</p>
+      <div class="orders-list-wrapper">
+        <ul class="orders-list no-style" id="orders-list">
+          {% for order in customer.orders %}
+            <li class="order-item" data-order-name="{{ order.name }}" data-fulfillment-status="{{ order.fulfillment_status | default: 'unfulfilled' }}">
+              <div class="order-header">
+                <div class="order-number">
+                  <p>Order {{ order.name }}</p>
+                </div>
+                <div class="order-date">
+                  <p>{{ order.created_at | date: format: 'abbreviated_date' }}</p>
+                </div>
+                <div class="order-actions">
+                  <a href="{{ shop.secured_url }}/apps/download?ids={{ order.id }}&t=invoice&public_key={{ invoice_id }}&source=shopify_notification_email" target="_blank" aria-label="Download invoice" class="download-link">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    <span>Download Invoice</span>
+                  </a>
+                </div>
               </div>
-              <div class="date">
-                <p>{{ order.created_at | date: format: 'abbreviated_date' }}</p>
-              </div>
-              <div class="more">
-                <a href="{{ shop.secured_url }}/apps/download?ids={{ order.id }}&t=invoice&public_key={{ invoice_id }}&source=shopify_notification_email" target="_blank" aria-label="Download invoice" class="download-link">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                  <span>Download Invoice</span>
-                </a>
-              </div>
-            </div>
 
-            {% for a in order.line_items %}
-              <div class="order-body">
-                <div class="order-item">
-                  <div class="rows-wrap">
-                    <div class="img-wrap">
-                      <span>
+              {% for a in order.line_items %}
+                <div class="order-content">
+                  <div class="order-product">
+                    <div class="product-info">
+                      <div class="product-image">
                         {% if a.product.featured_image %}
                           <img src="{{ a.product.featured_image | image_url }}" alt="{{ a.product.title }}">
                         {% else %}
                           <img src="{{ 'product-placeholder.svg' | asset_url }}" alt="Product placeholder">
                         {% endif %}
-                      </span>
+                      </div>
+
+                      <div class="product-name">
+                        <p>{{ a.product.title }}</p>
+                      </div>
                     </div>
 
-                    <div class="name"><p>{{ a.product.title }}</p></div>
-                  </div>
+                    <div class="order-details">
+                      <div class="order-quantity">
+                        <p>Quantity: {{ a.quantity }}</p>
+                      </div>
+                      <div class="order-price">
+                        <p>{{ order.total_price | money_with_currency }}</p>
+                      </div>
 
-                  <div class="order-details">
-                    <div class="item-quantity"><p>Quantity: {{ a.quantity }}</p></div>
-                    <div class="item-price"><p>{{ order.total_price | money_with_currency }}</p></div>
-
-                    <div class="status done">
-                      <p>
-                        {% if order.fulfillment_status == "fulfilled" %}
-                          <span data-status="fulfilled">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-                            Fulfilled
-                          </span>
-                        {% elsif order.fulfillment_status == "partial" %}
-                          <span data-status="partial">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="8" y1="12" x2="16" y2="12"></line></svg>
-                            Partial
-                          </span>
-                        {% else %}
-                          <span data-status="unfulfilled">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line></svg>
-                            {{ order.fulfillment_status | default: "Unfulfilled" }}
-                          </span>
-                        {% endif %}
-                      </p>
+                      <div class="order-status">
+                        <p>
+                          {% if order.fulfillment_status == "fulfilled" %}
+                            <span class="status-badge fulfilled">
+                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                              Fulfilled
+                            </span>
+                          {% elsif order.fulfillment_status == "partial" %}
+                            <span class="status-badge partial">
+                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+                              Partial
+                            </span>
+                          {% else %}
+                            <span class="status-badge unfulfilled">
+                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line></svg>
+                              {{ order.fulfillment_status | default: "Unfulfilled" }}
+                            </span>
+                          {% endif %}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            {% endfor %}
-          </li>
-        {% endfor %}
-      </ul>
+              {% endfor %}
+            </li>
+          {% endfor %}
+        </ul>
 
-      <div id="no-orders-message" class="empty-message hidden">
-        <p>No orders match your filter criteria.</p>
+        <div id="no-orders-message" class="empty-message hidden">
+          <p>No orders match your filter criteria.</p>
+        </div>
       </div>
     </div>
 
@@ -108,7 +114,7 @@
         const searchInput = document.getElementById('order-search');
         const searchBtn = document.getElementById('order-search-btn');
         const ordersList = document.getElementById('orders-list');
-        const orderItems = ordersList.querySelectorAll('.order-item-container');
+        const orderItems = ordersList.querySelectorAll('.order-item');
         const noOrdersMessage = document.getElementById('no-orders-message');
 
         function filterOrders() {
@@ -158,38 +164,44 @@
     </script>
 
     <style>
+      /* Orders styling */
+      .orders-container {
+        height: 100%;
+      }
+
       .hidden {
         display: none !important;
       }
 
-      .orders-container {
-        width: 100%;
+      .panel-body {
+        padding: 0;
       }
 
       .orders-filter-bar {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 0 20px;
-        margin-bottom: 24px;
-        gap: 16px;
+        padding: 20px 30px;
+        background-color: rgba(0,0,0,0.02);
+        border-bottom: 1px solid rgba(0,0,0,0.06);
       }
 
       .filter-group {
         display: flex;
         align-items: center;
-        gap: 10px;
+        gap: 12px;
       }
 
       .filter-group label {
-        font-weight: 500;
+        font-weight: 600;
         color: var(--dark);
         white-space: nowrap;
+        font-size: 15px;
       }
 
       .filter-group select {
-        padding: 8px 12px;
-        border-radius: 8px;
+        padding: 10px 16px;
+        border-radius: 10px;
         border: 1px solid rgba(0,0,0,0.1);
         background-color: white;
         font-size: 14px;
@@ -197,7 +209,13 @@
         color: var(--dark);
         cursor: pointer;
         transition: all 0.3s ease;
-        min-width: 140px;
+        min-width: 160px;
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23333' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 10px center;
+        background-size: 16px;
+        padding-right: 35px;
       }
 
       .filter-group select:hover {
@@ -207,13 +225,14 @@
       .search-group {
         display: flex;
         position: relative;
-        max-width: 240px;
+        max-width: 280px;
+        width: 100%;
       }
 
       .search-group input {
         width: 100%;
-        padding: 8px 40px 8px 12px;
-        border-radius: 8px;
+        padding: 10px 45px 10px 16px;
+        border-radius: 10px;
         border: 1px solid rgba(0,0,0,0.1);
         font-size: 14px;
         color: var(--dark);
@@ -223,221 +242,188 @@
       .search-group input:focus {
         border-color: var(--blue);
         outline: none;
-        box-shadow: 0 0 0 2px rgba(var(--blue-rgb), 0.2);
+        box-shadow: 0 0 0 3px rgba(var(--blue-rgb), 0.1);
       }
 
-      .search-group button {
+      .search-button {
         position: absolute;
-        right: 0;
-        top: 0;
-        bottom: 0;
-        padding: 0 12px;
-        background: transparent;
+        right: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: none;
         border: none;
-        cursor: pointer;
+        padding: 0;
         color: var(--dark);
+        cursor: pointer;
         transition: color 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
       }
 
-      .search-group button:hover {
+      .search-button:hover {
         color: var(--blue);
       }
 
-      .empty-message {
-        text-align: center;
-        padding: 40px 20px;
-        color: var(--dark);
-        font-weight: 500;
+      .orders-list-wrapper {
+        padding: 30px;
+      }
+
+      .orders-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: grid;
+        gap: 25px;
+      }
+
+      .order-item {
         background: white;
         border-radius: 16px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-      }
-
-      .data-list {
-        background: white;
-        border-radius: 16px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
         overflow: hidden;
-      }
-
-      .data-list ul {
-        display: flex;
-        flex-direction: column;
-        gap: 16px;
-        padding: 20px;
-        margin: 0;
-      }
-
-      .data-list ul li {
-        display: block;
-        margin: 0;
-        border: 1px solid rgba(0,0,0,0.08);
-        border-radius: 12px;
-        overflow: hidden;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.06);
+        border: 1px solid rgba(0,0,0,0.06);
         transition: all 0.3s ease;
       }
 
-      .data-list ul li:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+      .order-item:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
       }
 
-      .data-list ul li .order-head {
+      .order-header {
         display: flex;
         align-items: center;
-        min-height: 60px;
-        padding: 0 24px;
+        padding: 16px 24px;
         background: var(--blue);
         color: white;
       }
 
-      .data-list ul li .order-head .number {
+      .order-number {
         width: 30%;
-        text-align: left;
       }
 
-      .data-list ul li .order-head p {
+      .order-number p {
         margin: 0;
-        font-weight: 600;
-        font-size: 15px;
-        line-height: 1.4;
+        font-weight: 700;
+        font-size: 16px;
       }
 
-      .data-list ul li .order-head .date {
+      .order-date {
         width: 30%;
-        padding: 0 20px;
         text-align: center;
       }
 
-      .data-list ul li .order-head .more {
+      .order-date p {
+        margin: 0;
+        font-weight: 500;
+        font-size: 15px;
+      }
+
+      .order-actions {
         width: 40%;
         text-align: right;
       }
 
-      .data-list ul li .order-head .more .download-link {
+      .download-link {
         display: inline-flex;
         align-items: center;
         gap: 8px;
         color: white;
         text-decoration: none;
-        transition: all 0.3s ease;
-        font-weight: 500;
+        transition: opacity 0.3s ease;
+        font-weight: 600;
         font-size: 14px;
+        background-color: rgba(255,255,255,0.2);
+        padding: 8px 15px;
+        border-radius: 20px;
       }
 
-      .data-list ul li .order-head .more .download-link:hover {
-        transform: translateY(-2px);
+      .download-link:hover {
         opacity: 0.9;
+        transform: translateY(-2px);
       }
 
-      .data-list ul li .order-head .more svg {
-        stroke: white;
-        transition: all 0.3s ease;
+      .order-content {
+        padding: 0;
       }
 
-      .data-list ul li .order-item {
+      .order-product {
         display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 24px;
-        background: white;
-        transition: all 0.3s ease;
+        flex-direction: column;
+        gap: 15px;
+        padding: 20px 24px;
         border-bottom: 1px solid rgba(0,0,0,0.05);
       }
 
-      .data-list ul li .order-item:last-child {
+      .order-product:last-child {
         border-bottom: none;
       }
 
-      .data-list ul li .order-item .rows-wrap {
+      .product-info {
         display: flex;
         align-items: center;
-        padding-right: 20px;
-        flex: 1;
       }
 
-      .data-list ul li .order-item .img-wrap {
+      .product-image {
         width: 80px;
         height: 80px;
         flex-shrink: 0;
         position: relative;
         border: 1px solid rgba(0,0,0,0.08);
-        border-radius: 8px;
+        border-radius: 12px;
         overflow: hidden;
         background: white;
       }
 
-      .data-list ul li .order-item .img-wrap span {
-        padding: 8px;
+      .product-image img {
         position: absolute;
         top: 0;
         left: 0;
-        right: 0;
-        bottom: 0;
-      }
-
-      .data-list ul li .order-item .img-wrap span img {
         width: 100%;
         height: 100%;
-        object-fit: contain;
+        object-fit: cover;
+        padding: 8px;
       }
 
-      .data-list ul li .order-item .name {
-        padding-left: 24px;
+      .product-name {
+        padding-left: 20px;
         flex: 1;
       }
 
-      .data-list ul li .order-item .name p {
+      .product-name p {
         margin: 0;
-        font-weight: 500;
+        font-weight: 600;
         font-size: 16px;
-        line-height: 1.4;
         color: var(--dark);
       }
 
-      .data-list ul li .order-item .order-details {
+      .order-details {
         display: flex;
-        gap: 24px;
+        justify-content: space-between;
         align-items: center;
-        flex-wrap: nowrap;
+        padding: 8px 0 0;
+        border-top: 1px dashed rgba(0,0,0,0.05);
       }
 
-      .data-list ul li .order-item .item-quantity {
-        text-align: center;
-      }
-
-      .data-list ul li .order-item .item-quantity p {
+      .order-quantity p,
+      .order-price p {
         margin: 0;
         font-weight: 500;
         font-size: 15px;
         color: var(--dark);
-        white-space: nowrap;
       }
 
-      .data-list ul li .order-item .item-price {
-        text-align: right;
-      }
-
-      .data-list ul li .order-item .item-price p {
-        margin: 0;
-        font-weight: 600;
-        font-size: 16px;
+      .order-price p {
+        font-weight: 700;
         color: var(--blue);
-        white-space: nowrap;
       }
 
-      .data-list ul li .order-item .status {
-        padding-left: 10px;
-      }
-
-      .data-list ul li .order-item .status p {
+      .order-status p {
         margin: 0;
-        font-weight: 500;
-        font-size: 14px;
-        text-transform: capitalize;
       }
 
-      .data-list ul li .order-item .status p span {
+      .status-badge {
         display: inline-flex;
         align-items: center;
         padding: 6px 12px;
@@ -445,75 +431,66 @@
         font-size: 13px;
         font-weight: 600;
         gap: 5px;
-        white-space: nowrap;
       }
 
-      .data-list ul li .order-item .status p span svg {
-        stroke-width: 2.5;
-      }
-
-      .data-list ul li .order-item .status p span[data-status="fulfilled"] {
-        background: rgba(46, 204, 113, 0.1);
+      .status-badge.fulfilled {
+        background-color: rgba(46, 204, 113, 0.1);
         color: #2ecc71;
       }
 
-      .data-list ul li .order-item .status p span[data-status="fulfilled"] svg {
+      .status-badge.fulfilled svg {
         stroke: #2ecc71;
       }
 
-      .data-list ul li .order-item .status p span[data-status="partial"] {
-        background: rgba(241, 196, 15, 0.1);
+      .status-badge.partial {
+        background-color: rgba(241, 196, 15, 0.1);
         color: #f1c40f;
       }
 
-      .data-list ul li .order-item .status p span[data-status="partial"] svg {
+      .status-badge.partial svg {
         stroke: #f1c40f;
       }
 
-      .data-list ul li .order-item .status p span[data-status="unfulfilled"] {
-        background: rgba(231, 76, 60, 0.1);
+      .status-badge.unfulfilled {
+        background-color: rgba(231, 76, 60, 0.1);
         color: #e74c3c;
       }
 
-      .data-list ul li .order-item .status p span[data-status="unfulfilled"] svg {
+      .status-badge.unfulfilled svg {
         stroke: #e74c3c;
       }
 
-      .data-list ul li .view-details .more-btn {
-        display: flex;
-        justify-content: center;
-        padding: 20px;
-        border-top: 1px solid rgba(0,0,0,0.08);
-        background: rgba(var(--blue-rgb), 0.02);
+      .empty-message {
+        text-align: center;
+        padding: 60px 30px;
+        background-color: white;
+        border-radius: 16px;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.06);
+        border: 1px dashed rgba(0,0,0,0.1);
       }
 
-      .data-list ul li .view-details .more-btn p a {
+      .empty-message p {
+        margin: 0;
+        color: var(--gray);
         font-weight: 500;
-        font-size: 14px;
-        color: var(--blue);
-        text-decoration: none;
-        transition: all 0.3s ease;
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
+        font-size: 16px;
       }
 
-      .data-list ul li .view-details .more-btn p a:hover {
-        color: var(--dark);
-      }
+      @media (max-width: 992px) {
+        .orders-filter-bar {
+          padding: 16px 20px;
+        }
 
-      @media (max-width: 1024px) {
-        .data-list ul li .order-item .order-details {
-          gap: 16px;
+        .orders-list-wrapper {
+          padding: 20px;
         }
       }
 
-      @media (max-width: 767px) {
+      @media (max-width: 768px) {
         .orders-filter-bar {
           flex-direction: column;
           align-items: flex-start;
-          gap: 12px;
-          padding: 0 16px;
+          gap: 15px;
         }
 
         .filter-group {
@@ -529,101 +506,169 @@
           max-width: none;
         }
 
-        .search-group input {
-          width: 100%;
+        .order-header {
+          padding: 12px 16px;
         }
 
-        .data-list ul {
+        .order-number {
+          width: 40%;
+        }
+
+        .order-date {
+          width: 30%;
+        }
+
+        .order-actions {
+          width: 30%;
+        }
+
+        .download-link span {
+          display: none;
+        }
+
+        .download-link {
+          padding: 8px;
+        }
+
+        .order-product {
           padding: 16px;
           gap: 12px;
         }
 
-        .data-list ul li .order-head {
-          padding: 0 16px;
-          min-height: 50px;
-        }
-
-        .data-list ul li .order-head p {
-          font-size: 14px;
-        }
-
-        .data-list ul li .order-item {
-          padding: 16px;
-          flex-wrap: wrap;
-          gap: 16px;
-        }
-
-        .data-list ul li .order-item .rows-wrap {
-          width: 100%;
-          padding-right: 0;
-        }
-
-        .data-list ul li .order-item .img-wrap {
+        .product-image {
           width: 60px;
           height: 60px;
         }
 
-        .data-list ul li .order-item .name {
-          padding-left: 16px;
+        .product-name {
+          padding-left: 15px;
         }
 
-        .data-list ul li .order-item .name p {
+        .product-name p {
           font-size: 15px;
         }
 
-        .data-list ul li .order-item .order-details {
-          width: 100%;
-          justify-content: space-between;
+        .order-details {
+          flex-wrap: wrap;
+          gap: 10px;
         }
 
-        .data-list ul li .order-item .item-quantity,
-        .data-list ul li .order-item .item-price,
-        .data-list ul li .order-item .status {
-          padding: 8px 0;
-        }
-
-        .data-list ul li .view-details.d-mobile {
-          display: block;
-        }
-
-        .data-list ul li .order-head .number {
-          width: 35%;
-        }
-
-        .data-list ul li .order-head .date {
+        .order-quantity {
           width: 50%;
-          padding: 0 10px;
         }
 
-        .data-list ul li .order-head .more {
-          width: 40%;
-        }
-
-        .data-list ul li .order-head .more .download-link span {
-          display: none;
-        }
-
-        .data-list ul li .order-item .order-details {
-          width: 100%;
-          justify-content: space-between;
-          gap: 12px;
-        }
-
-        .data-list ul li .order-item .status {
-          width: 100%;
+        .order-price {
+          width: 50%;
           text-align: right;
+        }
+
+        .order-status {
+          width: 100%;
+          display: flex;
+          justify-content: flex-end;
+        }
+      }
+
+      @media (max-width: 480px) {
+        .order-header {
+          flex-wrap: wrap;
+          gap: 5px;
+        }
+
+        .order-number, .order-date {
+          width: 50%;
+        }
+
+        .order-date {
+          text-align: right;
+        }
+
+        .order-actions {
+          width: 100%;
+          text-align: left;
+          margin-top: 8px;
+        }
+
+        .download-link {
+          padding: 6px 12px;
+        }
+
+        .download-link span {
+          display: inline;
         }
       }
     </style>
   {% else %}
-    <div class="data-content">
-      <div class="empty-content">
-        <div class="empty-text">
-          <p>
-            <span class="icon-smile"></span>You haven't placed any orders yet.</p>
-          <a href="{{ section.settings.ord_btnlink }}" class="main-btn blank">SHOP NOW</a>
+    <div class="panel-body">
+      <div class="empty-state">
+        <div class="empty-state-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M8 14s1.5 2 4 2 4-2 4-2"></path><line x1="9" y1="9" x2="9.01" y2="9"></line><line x1="15" y1="9" x2="15.01" y2="9"></line></svg>
         </div>
+        <h3 class="empty-state-title">No Orders Yet</h3>
+        <p class="empty-state-text">You haven't placed any orders yet.</p>
+        <a href="/collections/all" class="primary-button empty-state-button">Shop Now</a>
       </div>
     </div>
+
+    <style>
+      .empty-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 60px 30px;
+        text-align: center;
+      }
+
+      .empty-state-icon {
+        color: var(--gray);
+        margin-bottom: 20px;
+      }
+
+      .empty-state-title {
+        font-size: 24px;
+        font-weight: 700;
+        color: var(--dark);
+        margin: 0 0 10px;
+      }
+
+      .empty-state-text {
+        font-size: 16px;
+        color: var(--gray);
+        margin: 0 0 25px;
+      }
+
+      .empty-state-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background-color: var(--blue);
+        color: white;
+        padding: 12px 25px;
+        border-radius: 8px;
+        font-weight: 600;
+        text-decoration: none;
+        transition: all 0.3s ease;
+      }
+
+      .empty-state-button:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 5px 15px rgba(var(--blue-rgb), 0.3);
+      }
+
+      @media (max-width: 768px) {
+        .empty-state {
+          padding: 40px 20px;
+        }
+
+        .empty-state-title {
+          font-size: 20px;
+        }
+
+        .empty-state-text {
+          font-size: 15px;
+        }
+      }
+    </style>
   {% endif %}
 </div>
