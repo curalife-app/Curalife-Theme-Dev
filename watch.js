@@ -133,8 +133,11 @@ const ensureDirectoryExists = dirPath => {
 
 /**
  * Get the destination path for a file
+ * Combines the functionality of the old getDestinationPath and getDestinationFolder
+ * @param {string} sourcePath - The source file path
+ * @returns {Object} - Object containing destPath and destFolder
  */
-const getDestinationPath = sourcePath => {
+const getDestination = sourcePath => {
 	const isDebugMode = process.argv.includes("--debug");
 
 	// Normalize the path to handle Windows backslashes
@@ -142,46 +145,64 @@ const getDestinationPath = sourcePath => {
 
 	// Calculate the relative path from the source directory
 	const relativePath = path.relative(SRC_DIR, sourcePath);
+	const fileName = path.basename(sourcePath);
 
 	if (isDebugMode) {
 		log(`Processing relative path: ${relativePath}`, "info");
 	}
 
-	// Handle files in the root directory
-	if (!relativePath.includes(path.sep)) {
-		// For root files, place them in the assets folder
-		return path.join(BUILD_DIR, "assets", path.basename(sourcePath));
-	}
+	// Find which source directory this file belongs to
+	let destDir = null;
 
-	// For nested files, find the matching prefix
-	const parts = relativePath.split(path.sep);
-	const firstDir = parts[0];
+	// First try to find an exact match with a directory mapping
+	// Convert paths to forward slashes for consistent comparison
+	const normalizedRelativePath = relativePath.replace(/\\/g, "/");
 
-	// Check if the first directory is in our mappings
-	if (dirMappings[firstDir]) {
-		const destDir = dirMappings[firstDir];
-		// Just use the filename for a flattened structure
-		const fileName = path.basename(sourcePath);
-		return path.join(BUILD_DIR, destDir, fileName);
-	}
+	for (const srcDir of Object.keys(dirMappings)) {
+		const normalizedSrcDir = srcDir.replace(/\\/g, "/");
 
-	// For directories with subdirectories in the mapping
-	for (const [srcPattern, destDir] of Object.entries(dirMappings)) {
-		const patternParts = srcPattern.split("/");
-		const matchParts = parts.slice(0, patternParts.length);
-
-		if (patternParts.join("/") === matchParts.join("/")) {
-			// Just use the filename for a flattened structure
-			const fileName = path.basename(sourcePath);
-			return path.join(BUILD_DIR, destDir, fileName);
+		if (normalizedRelativePath.startsWith(normalizedSrcDir)) {
+			destDir = dirMappings[srcDir];
+			if (isDebugMode) {
+				log(`Found mapping: ${srcDir} -> ${destDir}`, "info");
+			}
+			break;
 		}
 	}
 
-	// Default to assets folder for any unmatched files
-	if (isDebugMode) {
-		log(`No mapping found for ${relativePath}, defaulting to assets folder`, "warning");
+	// If no mapping found, determine by file extension
+	if (!destDir) {
+		// Special handling for liquid files
+		if (fileName.endsWith(".liquid")) {
+			// Check if it's a section, snippet, layout, or block
+			if (normalizedRelativePath.includes("sections")) {
+				destDir = "sections";
+			} else if (normalizedRelativePath.includes("snippets") || normalizedRelativePath.includes("blocks")) {
+				destDir = "snippets";
+			} else if (normalizedRelativePath.includes("layout")) {
+				destDir = "layout";
+			} else {
+				// Default to snippets for other liquid files
+				destDir = "snippets";
+			}
+
+			if (isDebugMode) {
+				log(`Liquid file detected: ${fileName}, using folder: ${destDir}`, "info");
+			}
+		} else {
+			// Default to assets for any unmatched files
+			destDir = "assets";
+
+			if (isDebugMode) {
+				log(`No mapping found for ${relativePath}, defaulting to assets folder`, "warning");
+			}
+		}
 	}
-	return path.join(BUILD_DIR, "assets", path.basename(sourcePath));
+
+	const destFolder = path.join(BUILD_DIR, destDir);
+	const destPath = path.join(destFolder, fileName);
+
+	return { destPath, destFolder, destDir };
 };
 
 /**
@@ -217,7 +238,7 @@ const copyFile = async filePath => {
 		}
 
 		// Get the destination folder using the helper function
-		const destFolder = getDestinationFolder(filePath);
+		const { destPath, destFolder, destDir } = getDestination(filePath);
 
 		if (!destFolder) {
 			log(`Could not determine destination folder for: ${fileName}`, "error");
@@ -226,9 +247,6 @@ const copyFile = async filePath => {
 
 		// Create the destination folder if it doesn't exist
 		await fs.promises.mkdir(destFolder, { recursive: true });
-
-		// IMPORTANT: Use just the filename to flatten the structure
-		const destPath = path.join(destFolder, fileName);
 
 		// Log message about the file being copied
 		if (isDebugMode) {
@@ -473,66 +491,6 @@ const processFileChange = async filePath => {
 };
 
 /**
- * Get destination folder for a file path
- * @param {string} filePath - The source file path
- * @returns {string|null} - The destination folder or null if not found
- */
-const getDestinationFolder = filePath => {
-	const isDebugMode = process.argv.includes("--debug");
-
-	// Get the relative path from the source directory
-	const relativePath = path.relative(SRC_DIR, filePath);
-	const fileName = path.basename(filePath);
-
-	// Find which source directory this file belongs to
-	let destFolder = null;
-	let destDir = null;
-
-	// First try to find an exact match with a directory mapping
-	for (const srcDir of Object.keys(dirMappings)) {
-		// Convert both to forward slashes for consistent comparison
-		const normalizedRelativePath = relativePath.replace(/\\/g, "/");
-		const normalizedSrcDir = srcDir.replace(/\\/g, "/");
-
-		if (normalizedRelativePath.startsWith(normalizedSrcDir)) {
-			destDir = dirMappings[srcDir];
-			destFolder = path.join(BUILD_DIR, destDir);
-			if (isDebugMode) {
-				log(`Found mapping: ${srcDir} -> ${destDir}`, "info");
-			}
-			break;
-		}
-	}
-
-	// If no mapping found, determine by file extension
-	if (!destFolder) {
-		// Special handling for liquid files
-		if (fileName.endsWith(".liquid")) {
-			// Check if it's a section, snippet, layout, or block
-			if (relativePath.includes("sections")) {
-				destFolder = path.join(BUILD_DIR, "sections");
-			} else if (relativePath.includes("snippets") || relativePath.includes("blocks")) {
-				destFolder = path.join(BUILD_DIR, "snippets");
-			} else if (relativePath.includes("layout")) {
-				destFolder = path.join(BUILD_DIR, "layout");
-			} else {
-				// Default to snippets for other liquid files
-				destFolder = path.join(BUILD_DIR, "snippets");
-			}
-
-			if (isDebugMode) {
-				log(`Liquid file detected: ${fileName}, using folder: ${path.relative(BUILD_DIR, destFolder)}`, "info");
-			}
-		} else {
-			// Default to assets for any unmatched files
-			destFolder = path.join(BUILD_DIR, "assets");
-		}
-	}
-
-	return destFolder;
-};
-
-/**
  * Initialize file watchers with enhanced Windows support
  */
 const initializeWatchers = () => {
@@ -605,19 +563,16 @@ const initializeWatchers = () => {
 			const fileName = path.basename(filePath);
 			log(`File deleted: ${fileName}`, "warning");
 
-			// Use the same logic to determine the destination folder
-			const destFolder = getDestinationFolder(filePath);
+			// Use the combined getDestination function to determine the destination path
+			const { destPath } = getDestination(filePath);
 
-			if (destFolder) {
-				const destPath = path.join(destFolder, fileName);
-				// Delete the corresponding file in the build directory
-				if (fs.existsSync(destPath)) {
-					try {
-						fs.unlinkSync(destPath);
-						log(`Deleted ${fileName} from build directory`, "file");
-					} catch (err) {
-						log(`Error deleting ${fileName}: ${err.message}`, "error");
-					}
+			// Delete the corresponding file in the build directory
+			if (destPath && fs.existsSync(destPath)) {
+				try {
+					fs.unlinkSync(destPath);
+					log(`Deleted ${fileName} from build directory`, "file");
+				} catch (err) {
+					log(`Error deleting ${fileName}: ${err.message}`, "error");
 				}
 			}
 
@@ -776,12 +731,7 @@ const cleanup = () => {
  */
 const main = async () => {
 	let watcher = null;
-	let tailwindWatcher = null;
-
-	// Track the last Tailwind log to avoid duplicates
-	let lastTailwindLog = "";
-	let tailwindDoneCounter = 0;
-	let shouldSuppressTailwindLogs = false;
+	let shopifyProcess = null;
 
 	try {
 		// Set environment variables
@@ -807,16 +757,27 @@ const main = async () => {
 		// Initialize file watchers - this is the main watcher for src directory
 		watcher = initializeWatchers();
 
-		// DO NOT set up Tailwind CSS watcher as a standalone process
-		// Instead, we'll trigger Tailwind builds only when CSS files change
-
 		// If in combined mode, also start the Shopify hot reload
 		if (mode === "combined") {
-			// Give the file watcher a head start
+			// Wait for watcher to be fully initialized
+			log("Waiting for file watcher to stabilize before starting Shopify...", "info");
 			await new Promise(resolve => setTimeout(resolve, 2000));
 
-			// Start Shopify hot reload
-			const shopifyHotReloadPromise = runScriptAsProcess(path.join(__dirname, "shopify-hot-reload-simple.js"), "Shopify Hot Reload", "shopify");
+			// Start Shopify hot reload and properly handle the promise
+			log("Starting Shopify hot reload process...", "shopify");
+			try {
+				shopifyProcess = await runScriptAsProcess(path.join(__dirname, "shopify-hot-reload-simple.js"), "Shopify Hot Reload", "shopify");
+
+				// Add to child processes for proper cleanup
+				if (shopifyProcess) {
+					childProcesses.push(shopifyProcess);
+				}
+
+				log("Shopify hot reload process started successfully", "success");
+			} catch (error) {
+				log(`Failed to start Shopify hot reload: ${error.message}`, "error");
+				log("Continuing in watch-only mode", "warning");
+			}
 		}
 
 		// Keep the process running

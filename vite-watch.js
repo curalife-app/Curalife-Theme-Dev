@@ -71,40 +71,43 @@ const ensureDirectoryExists = dirPath => {
 const getDestinationPath = sourcePath => {
 	const isDebugMode = process.env.DEBUG_MODE === "true";
 
+	// Normalize the path to handle Windows backslashes
+	sourcePath = path.normalize(sourcePath);
+
 	// Calculate the relative path from the source directory
 	const relativePath = path.relative(SRC_DIR, sourcePath);
+	const fileName = path.basename(sourcePath);
 
 	if (isDebugMode) {
 		log(`Relative path: ${relativePath}`, "info");
 	}
 
-	// Handle files in the root directory
-	if (!relativePath.includes(path.sep)) {
-		// For root files, place them in the assets folder
-		return path.join(BUILD_DIR, "assets", path.basename(sourcePath));
-	}
+	// Convert paths to forward slashes for consistent comparison
+	const normalizedRelativePath = relativePath.replace(/\\/g, "/");
 
-	// For nested files, find the matching prefix
-	const parts = relativePath.split(path.sep);
-	const firstDir = parts[0];
+	// First try to find an exact match with a directory mapping
+	for (const srcDir of Object.keys(dirMappings)) {
+		const normalizedSrcDir = srcDir.replace(/\\/g, "/");
 
-	// Check if the first directory is in our mappings
-	if (dirMappings[firstDir]) {
-		const destDir = dirMappings[firstDir];
-		// Just use the filename for a flattened structure
-		const fileName = path.basename(sourcePath);
-		return path.join(BUILD_DIR, destDir, fileName);
-	}
-
-	// For directories with subdirectories in the mapping
-	for (const [srcPattern, destDir] of Object.entries(dirMappings)) {
-		const patternParts = srcPattern.split("/");
-		const matchParts = parts.slice(0, patternParts.length);
-
-		if (patternParts.join("/") === matchParts.join("/")) {
+		if (normalizedRelativePath.startsWith(normalizedSrcDir)) {
+			const destDir = dirMappings[srcDir];
 			// Just use the filename for a flattened structure
-			const fileName = path.basename(sourcePath);
 			return path.join(BUILD_DIR, destDir, fileName);
+		}
+	}
+
+	// Special handling for liquid files
+	if (fileName.endsWith(".liquid")) {
+		// Check if it's a section, snippet, layout, or block
+		if (normalizedRelativePath.includes("sections")) {
+			return path.join(BUILD_DIR, "sections", fileName);
+		} else if (normalizedRelativePath.includes("snippets") || normalizedRelativePath.includes("blocks")) {
+			return path.join(BUILD_DIR, "snippets", fileName);
+		} else if (normalizedRelativePath.includes("layout")) {
+			return path.join(BUILD_DIR, "layout", fileName);
+		} else {
+			// Default to snippets for other liquid files
+			return path.join(BUILD_DIR, "snippets", fileName);
 		}
 	}
 
@@ -112,7 +115,7 @@ const getDestinationPath = sourcePath => {
 	if (isDebugMode) {
 		log(`No mapping found for ${relativePath}, defaulting to assets folder`, "warning");
 	}
-	return path.join(BUILD_DIR, "assets", path.basename(sourcePath));
+	return path.join(BUILD_DIR, "assets", fileName);
 };
 
 // Copy a file from source to destination
@@ -360,19 +363,12 @@ const initializeWatchers = () => {
 	log("Setting up file watcher...", "watch");
 	const isDebugMode = process.env.DEBUG_MODE === "true";
 
-	// Watch the entire src directory instead of specific patterns
-	const watchPatterns = [path.join(SRC_DIR, "**", "*")];
+	// Watch the entire src directory for better consistency
+	const watchDir = SRC_DIR.replace(/\\/g, "/");
+	log(`Setting up watcher for directory: ${watchDir}`, "watch");
 
-	// Log each pattern being watched only in debug mode
-	if (isDebugMode) {
-		log(`Watch patterns:`, "watch");
-		watchPatterns.forEach(pattern => {
-			log(`  ${pattern}`, "watch");
-		});
-	}
-
-	// Create watcher with optimized settings for better detection
-	const watcher = chokidar.watch(watchPatterns, {
+	// Create watcher with optimized settings
+	const watcher = chokidar.watch(watchDir, {
 		ignored: [
 			/(^|[\/\\])\../, // ignore dotfiles
 			"**/node_modules/**", // ignore node_modules
@@ -380,16 +376,15 @@ const initializeWatchers = () => {
 		],
 		persistent: true,
 		ignoreInitial: true, // Don't process existing files on startup
-		awaitWriteFinish: {
-			stabilityThreshold: 1000, // Amount of time in milliseconds for a file size to remain constant
-			pollInterval: 500 // How often to poll for file size changes
-		},
-		usePolling: true, // Always use polling for better compatibility
-		interval: 500, // Check every half second
-		binaryInterval: 1500, // Check binary files less frequently
-		depth: 99, // Handle deep directories
+
+		// Better detection settings for consistency with main watch.js
+		usePolling: true, // Always use polling for better reliability
+		interval: 100, // Poll more frequently - check every 100ms
+		binaryInterval: 1000, // Poll interval for binary files
+		awaitWriteFinish: false, // Don't wait for write to finish for better response time
 		ignorePermissionErrors: true, // Ignore permission issues
-		alwaysStat: true // Always stat files for better change detection
+		alwaysStat: true, // Always stat files for better change detection
+		depth: 99 // Handle deep directories
 	});
 
 	// Use a flag to ensure we only log the ready message once
@@ -399,34 +394,37 @@ const initializeWatchers = () => {
 	watcher.on("ready", () => {
 		if (!hasLoggedReadyMessage) {
 			log("Initial scan complete. File watcher active and ready", "success");
+			log(`Actively watching ${watchDir} for changes...`, "watch");
 			hasLoggedReadyMessage = true;
 		}
 	});
 
-	// Simple event handlers for file changes
+	// Direct event handlers for file changes
 	watcher
-		.on("add", path => {
-			if (isDebugMode) {
-				log(`New file detected: ${path.split(/[\\/]/).pop()}`, "info");
-			}
-			copyFile(path);
+		.on("add", filePath => {
+			// Normalize path for logging
+			const fileName = path.basename(filePath);
+			log(`New file detected: ${fileName}`, "info");
+			copyFile(filePath);
 		})
-		.on("change", path => {
-			if (isDebugMode) {
-				log(`File changed: ${path.split(/[\\/]/).pop()}`, "info");
-			}
-			copyFile(path);
+		.on("change", filePath => {
+			// Normalize path for logging
+			const fileName = path.basename(filePath);
+			log(`File changed: ${fileName}`, "info");
+			copyFile(filePath);
 		})
-		.on("unlink", path => {
-			log(`File deleted: ${path.split(/[\\/]/).pop()}`, "warning");
-			const destPath = getDestinationPath(path);
+		.on("unlink", filePath => {
+			// Normalize path for logging
+			const fileName = path.basename(filePath);
+			log(`File deleted: ${fileName}`, "warning");
+			const destPath = getDestinationPath(filePath);
 			// Delete the corresponding file in the build directory
 			if (destPath && fs.existsSync(destPath)) {
 				try {
 					fs.unlinkSync(destPath);
-					log(`Deleted ${path.basename(destPath)} from build directory`, "info");
+					log(`Deleted ${fileName} from build directory`, "info");
 				} catch (err) {
-					log(`Error deleting ${path.basename(destPath)}: ${err.message}`, "error");
+					log(`Error deleting ${fileName}: ${err.message}`, "error");
 				}
 			}
 		})

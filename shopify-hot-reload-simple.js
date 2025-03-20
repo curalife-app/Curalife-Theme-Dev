@@ -44,7 +44,7 @@ const dirMappings = {
 	"liquid/layout": "layout",
 	"liquid/sections": "sections",
 	"liquid/snippets": "snippets",
-	"liquid/blocks": "blocks"
+	"liquid/blocks": "snippets"
 };
 
 // Cache for directory lookups and existence checks
@@ -85,14 +85,43 @@ const ensureDirectoryExists = dir => {
 	dirExistsCache.set(dir, true);
 };
 
-// Find source directory with caching
+// Find source directory with improved caching
 const findSourceDir = relPath => {
+	// Normalize input path for consistent comparison
+	relPath = relPath.replace(/\\/g, "/");
+
+	// Check cache first for better performance
 	const cacheKey = relPath;
 	if (dirCache.has(cacheKey)) {
 		return dirCache.get(cacheKey);
 	}
 
-	const sourceDir = Object.keys(dirMappings).find(dir => relPath.startsWith(dir));
+	// First try exact matches, then try prefix matches
+	const sourceDir = Object.keys(dirMappings).find(dir => {
+		// Normalize the directory path as well
+		const normalizedDir = dir.replace(/\\/g, "/");
+		return relPath.startsWith(normalizedDir);
+	});
+
+	// Special handling for liquid files
+	if (!sourceDir && relPath.endsWith(".liquid")) {
+		// Determine category based on path components
+		if (relPath.includes("/sections/")) {
+			dirCache.set(cacheKey, "liquid/sections");
+			return "liquid/sections";
+		} else if (relPath.includes("/snippets/")) {
+			dirCache.set(cacheKey, "liquid/snippets");
+			return "liquid/snippets";
+		} else if (relPath.includes("/blocks/")) {
+			dirCache.set(cacheKey, "liquid/blocks");
+			return "liquid/blocks";
+		} else if (relPath.includes("/layout/")) {
+			dirCache.set(cacheKey, "liquid/layout");
+			return "liquid/layout";
+		}
+	}
+
+	// Cache and return the result
 	dirCache.set(cacheKey, sourceDir);
 	return sourceDir;
 };
@@ -100,13 +129,38 @@ const findSourceDir = relPath => {
 // Copy a file from source to destination
 const copyFile = sourcePath => {
 	try {
+		// Normalize the path to handle Windows backslashes
+		sourcePath = path.normalize(sourcePath);
+
 		// Get relative path from src directory
 		const relPath = path.relative(SRC_DIR, sourcePath);
+
+		// Skip if the file doesn't exist
+		if (!fs.existsSync(sourcePath)) {
+			error(`Source file does not exist: ${sourcePath}`);
+			return;
+		}
+
+		// Skip directories
+		if (fs.statSync(sourcePath).isDirectory()) {
+			return;
+		}
 
 		// Determine destination directory
 		const sourceDir = findSourceDir(relPath);
 
 		if (!sourceDir) {
+			// Default to assets if no mapping found
+			const fileName = path.basename(sourcePath);
+			const destDir = path.join(BUILD_DIR, "assets");
+			const destPath = path.join(destDir, fileName);
+
+			// Ensure destination directory exists
+			ensureDirectoryExists(destDir);
+
+			// Copy the file
+			fs.copyFileSync(sourcePath, destPath);
+			log(`Copied: ${fileName} → assets (default)`, colors.green);
 			return;
 		}
 
@@ -121,24 +175,39 @@ const copyFile = sourcePath => {
 		fs.copyFileSync(sourcePath, destPath);
 		log(`Copied: ${fileName} → ${dirMappings[sourceDir]}`, colors.green);
 	} catch (err) {
-		error(`Failed to copy ${sourcePath}: ${err.message}`);
+		error(`Failed to copy ${path.basename(sourcePath)}: ${err.message}`);
 	}
 };
 
 // Delete a file from destination when source is deleted
 const deleteFile = sourcePath => {
 	try {
+		// Normalize the path to handle Windows backslashes
+		sourcePath = path.normalize(sourcePath);
+
 		// Get relative path from src directory
 		const relPath = path.relative(SRC_DIR, sourcePath);
 
 		// Determine destination directory
 		const sourceDir = findSourceDir(relPath);
+		const fileName = path.basename(sourcePath);
 
+		// If no mapping found, check all possible destinations
 		if (!sourceDir) {
+			// Try common destinations for the file
+			const possibleDirs = ["assets", "snippets", "sections", "layout"];
+
+			for (const dir of possibleDirs) {
+				const destPath = path.join(BUILD_DIR, dir, fileName);
+				if (fs.existsSync(destPath)) {
+					fs.unlinkSync(destPath);
+					log(`Deleted: ${fileName} from ${dir}`, colors.yellow);
+					return;
+				}
+			}
 			return;
 		}
 
-		const fileName = path.basename(sourcePath);
 		const destPath = path.join(BUILD_DIR, dirMappings[sourceDir], fileName);
 
 		// Delete the file if it exists
@@ -147,7 +216,7 @@ const deleteFile = sourcePath => {
 			log(`Deleted: ${fileName}`, colors.yellow);
 		}
 	} catch (err) {
-		error(`Failed to delete ${sourcePath}: ${err.message}`);
+		error(`Failed to delete ${path.basename(sourcePath)}: ${err.message}`);
 	}
 };
 
@@ -155,21 +224,33 @@ const deleteFile = sourcePath => {
 const setupWatcher = () => {
 	log("Setting up file watcher...", colors.magenta);
 
-	// Create glob patterns for files to watch - precompute this once
-	const watchPatterns = Object.keys(dirMappings).map(dir => path.join(SRC_DIR, dir, "**", "*.*"));
+	// Convert SRC_DIR to forward slashes for consistency
+	const watchDir = SRC_DIR.replace(/\\/g, "/");
+	log(`Setting up watcher for directory: ${watchDir}`, colors.cyan);
 
 	// Set up watcher with chokidar - optimized settings
-	const watcher = chokidar.watch(watchPatterns, {
-		ignored: /(^|[\/\\])\../, // Ignore dotfiles
+	const watcher = chokidar.watch(watchDir, {
+		ignored: [
+			/(^|[\/\\])\../, // Ignore dotfiles
+			"**/node_modules/**", // Ignore node_modules
+			"**/Curalife-Theme-Build/**" // Ignore build directory
+		],
 		persistent: true,
 		ignoreInitial: true,
-		awaitWriteFinish: {
-			stabilityThreshold: 300,
-			pollInterval: 100
-		},
-		usePolling: false, // Use native filesystem events when possible
-		disableGlobbing: false,
-		alwaysStat: false // Reduce stat calls
+		// Consistent settings with main watch.js
+		usePolling: true, // Use polling for better reliability
+		interval: 100, // Check every 100ms
+		binaryInterval: 1000, // Binary files check interval
+		awaitWriteFinish: false, // Don't wait for write to finish for faster response
+		ignorePermissionErrors: true, // Ignore permission issues
+		alwaysStat: true, // Always stat files for better change detection
+		depth: 99 // Deep directory scanning
+	});
+
+	// Log when the watcher is ready
+	watcher.on("ready", () => {
+		log("File watcher initialized and ready", colors.green);
+		log(`Actively watching ${watchDir} for changes...`, colors.magenta);
 	});
 
 	// Watch events using optimized batch handling for high-volume changes
@@ -210,7 +291,10 @@ const setupWatcher = () => {
 	watcher
 		.on("add", path => scheduleBatch(path))
 		.on("change", path => scheduleBatch(path))
-		.on("unlink", path => scheduleBatch(path, true));
+		.on("unlink", path => scheduleBatch(path, true))
+		.on("error", err => {
+			error(`Watcher error: ${err.message}`);
+		});
 
 	log("File watcher started", colors.green);
 
@@ -416,51 +500,76 @@ const main = async () => {
 
 	const cleanup = () => {
 		log("Shutting down...", colors.yellow);
+
+		// Kill the Shopify theme dev process if running
 		if (themeDev) {
-			themeDev.kill();
+			log("Terminating Shopify theme dev process...", colors.yellow);
+			try {
+				themeDev.kill();
+			} catch (err) {
+				// Ignore errors when killing the process
+			}
 			themeDev = null;
 		}
+
+		// Close the file watcher if active
 		if (watcher) {
-			watcher.close();
+			log("Closing file watcher...", colors.yellow);
+			try {
+				watcher.close();
+			} catch (err) {
+				// Ignore errors when closing the watcher
+			}
 			watcher = null;
 		}
+
 		// Clear caches to free memory
 		dirCache.clear();
 		dirExistsCache.clear();
 
-		process.exit(0);
+		log("Cleanup complete", colors.green);
 	};
 
 	// Set up signal handlers early
-	process.on("SIGINT", cleanup);
-	process.on("SIGTERM", cleanup);
-
-	// Helper function to handle fatal errors
-	const handleFatalError = message => {
-		error(message);
+	process.on("SIGINT", () => {
+		log("Received SIGINT signal, shutting down...", colors.yellow);
 		cleanup();
-		process.exit(1);
-	};
+		process.exit(0);
+	});
+
+	process.on("SIGTERM", () => {
+		log("Received SIGTERM signal, shutting down...", colors.yellow);
+		cleanup();
+		process.exit(0);
+	});
 
 	try {
 		// Create build directory if it doesn't exist
 		ensureDirectoryExists(BUILD_DIR);
+		log(`Build directory ready: ${BUILD_DIR}`, colors.green);
 
 		// Build the theme
+		log("Building theme...", colors.magenta);
 		await runBuild().catch(err => {
 			throw new Error(`Build failed: ${err.message}`);
 		});
+		log("Theme build completed successfully", colors.green);
 
 		// Set up file watcher
+		log("Setting up file watcher...", colors.cyan);
 		watcher = setupWatcher();
+		log("File watcher activated", colors.green);
 
 		// Determine which stores to try
 		const storesToTry = process.env.SHOPIFY_STORE
 			? [process.env.SHOPIFY_STORE] // If specified via env var, only try that one
 			: STORE_SEQUENCE; // Otherwise try the fallback sequence
 
+		log(`Using store sequence: ${storesToTry.join(" → ")}`, colors.cyan);
+
 		// Start Shopify theme dev with store fallback
 		try {
+			log("Starting Shopify theme dev process...", colors.cyan);
 			themeDev = await tryStoreSequence(storesToTry);
 			log(`Successfully connected to store!`, colors.green);
 		} catch (err) {
@@ -473,14 +582,32 @@ const main = async () => {
 			log("5. For TLS debugging: set DEBUG_TLS=1 before running", colors.cyan);
 			log("6. Try again in a few minutes", colors.cyan);
 
-			// Clean up resources before exiting
-			if (watcher) {
-				watcher.close();
+			// Perform cleanup but don't exit to allow file watching to continue
+			if (themeDev) {
+				try {
+					themeDev.kill();
+				} catch (e) {
+					// Ignore errors when killing the process
+				}
+				themeDev = null;
 			}
-			process.exit(1);
+
+			log("Continuing with file watching only (no Shopify preview)", colors.yellow);
 		}
+
+		// Log success message
+		log(`\n✨ SHOPIFY DEVELOPMENT ENVIRONMENT READY ✨`, colors.green);
+		log(`File watching active - changes will be synced to the build directory`, colors.cyan);
+		if (themeDev) {
+			log(`Shopify preview active - changes are visible in the browser`, colors.cyan);
+		} else {
+			log(`Shopify preview inactive - only file syncing is running`, colors.yellow);
+		}
+		log(`\nPress Ctrl+C to stop`, colors.red);
 	} catch (err) {
-		handleFatalError(`Development process failed: ${err.message}`);
+		error(`Fatal error: ${err.message}`);
+		cleanup();
+		process.exit(1);
 	}
 };
 
