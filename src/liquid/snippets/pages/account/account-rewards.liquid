@@ -1,149 +1,340 @@
 <div class="rewards-container">
-  <script>
-    document.addEventListener("swell:setup", function() {
-      try {
-        const customerDetails = swellAPI.getCustomerDetails();
-        if (!customerDetails) {
-          console.error('Failed to retrieve customer details');
-          return;
-        }
+  <!-- Add loading state -->
+  <div class="rewards-loading" id="rewards-loading">
+    <div class="loading-spinner"></div>
+    <p>Loading your rewards information...</p>
+  </div>
 
-        // Update point balance
-        const pointBalanceElement = document.getElementById("custom-point-balance-ui");
-        if (pointBalanceElement) {
-          pointBalanceElement.textContent = customerDetails.pointsBalance || 0;
-        }
-
-        // Update referral link
-        const referralLinkElement = document.getElementById("custom-referral-link-ui");
-        if (referralLinkElement) {
-          referralLinkElement.textContent = customerDetails.referralLink || '';
-        }
-
-        // Copy referral link functionality
-        const copyBtn = document.getElementById("copy-referral-btn");
-        if (copyBtn) {
-          copyBtn.addEventListener("click", function() {
-            const referralLink = customerDetails.referralLink || '';
-            navigator.clipboard.writeText(referralLink).then(() => {
-              copyBtn.classList.add("copied");
-              copyBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg> Copied!';
-              setTimeout(() => {
-                copyBtn.classList.remove("copied");
-                copyBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path></svg> Copy Link';
-              }, 2000);
-            });
-          });
-        }
-
-        // Populate action history with document fragment for better performance
-        const historyContainer = document.getElementById("custom-history-container");
-        if (historyContainer && customerDetails.actionHistoryItems && customerDetails.actionHistoryItems.length) {
-          const fragment = document.createDocumentFragment();
-          customerDetails.actionHistoryItems.forEach(function(item) {
-            const row = document.createElement("tr");
-
-            // Determine status class for styling
-            let statusClass = '';
-            let statusIcon = '';
-            if (item.status && item.status.toLowerCase) {
-              const status = item.status.toLowerCase();
-              if (status.includes('refund') || status === 'refunded') {
-                statusClass = 'status-refunded';
-                statusIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 7l-10 10"></path><path d="M7 7l10 10"></path></svg>';
-              } else if (status === 'approved') {
-                statusClass = 'status-approved';
-                statusIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg>';
-              } else if (status.includes('pending')) {
-                statusClass = 'status-pending';
-                statusIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>';
-              }
-            }
-
-            // Determine point class for styling (positive/negative)
-            const pointsValue = item.points || 0;
-            const pointClass = pointsValue < 0 ? 'points-negative' : 'points-positive';
-            const pointSign = pointsValue < 0 ? '' : '+';
-
-            row.innerHTML = `
-              <td><span class="date-cell">${item.date || ''}</span></td>
-              <td><span class="action-cell">${item.action || ''}</span></td>
-              <td><span class="points-cell ${pointClass}">${pointSign}${pointsValue}</span></td>
-              <td><span class="status-cell ${statusClass}">${statusIcon} ${item.status || ''}</span></td>
-            `;
-            fragment.appendChild(row);
-          });
-          historyContainer.appendChild(fragment);
-        } else if (historyContainer) {
-          const row = document.createElement("tr");
-          row.innerHTML = '<td colspan="4" class="no-history">No reward history available</td>';
-          historyContainer.appendChild(row);
-        }
-      } catch (error) {
-        console.error('Error in rewards component:', error);
-      }
-    });
-  </script>
-
-  <div class="rewards-cards">
-    <div class="reward-card balance-card">
-      <div class="card-icon">
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M16 12h-6.5"></path><path d="M13.5 8.5L16 12l-2.5 3.5"></path><path d="M8 8v8"></path></svg>
-      </div>
-      <div class="card-content">
-        <h3>Your Points Balance</h3>
-        <div class="points-display">
-          <span id="custom-point-balance-ui">0</span>
-          <span class="points-label">points</span>
+  <div class="rewards-content" id="rewards-content" style="display: none;">
+    <div class="rewards-cards">
+      <div class="reward-card balance-card">
+        <div class="card-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M16 12h-6.5"></path><path d="M13.5 8.5L16 12l-2.5 3.5"></path><path d="M8 8v8"></path></svg>
         </div>
+        <div class="card-content">
+          <h3>Your Points Balance</h3>
+          <div class="points-display">
+            <span id="custom-point-balance-ui">0</span>
+            <span class="points-label">points</span>
+          </div>
+        </div>
+        <div class="card-decoration"></div>
       </div>
-      <div class="card-decoration"></div>
+
+      <div class="reward-card referral-card">
+        <div class="card-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+        </div>
+        <div class="card-content">
+          <h3>Your Referral Link</h3>
+          <div class="referral-link-container">
+            <div class="referral-link-display">
+              <span id="custom-referral-link-ui"></span>
+              <button id="copy-referral-btn" class="copy-btn" aria-label="Copy referral link">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="card-decoration"></div>
+      </div>
     </div>
 
-    <div class="reward-card referral-card">
-      <div class="card-icon">
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+    <div class="rewards-history-section">
+      <div class="history-header">
+        <h3>Rewards History</h3>
+        <div class="history-info">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>
+          <span>View your points activity over time</span>
+        </div>
       </div>
-      <div class="card-content">
-        <h3>Your Referral Link</h3>
-        <div class="referral-link-container">
-          <div class="referral-link-display">
-            <span id="custom-referral-link-ui"></span>
-          </div>
-          <button id="copy-referral-btn" class="copy-btn">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path></svg>
-            Copy Link
+
+      <div class="rewards-table-wrapper">
+        <table class="rewards-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Action</th>
+              <th>Points</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="custom-history-container"></tbody>
+        </table>
+
+        <!-- Add pagination UI -->
+        <div class="rewards-pagination" id="rewards-pagination" style="display: none;">
+          <button class="pagination-btn" id="prev-page" disabled>
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+            Previous
+          </button>
+          <span class="pagination-info" id="pagination-info">Page 1 of 1</span>
+          <button class="pagination-btn" id="next-page" disabled>
+            Next
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
           </button>
         </div>
       </div>
-      <div class="card-decoration"></div>
-    </div>
-  </div>
-
-  <div class="rewards-history-section">
-    <div class="history-header">
-      <h3>Rewards History</h3>
-      <div class="history-info">
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>
-        <span>View your points activity over time</span>
-      </div>
-    </div>
-
-    <div class="rewards-table-wrapper">
-      <table class="rewards-table">
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th>Action</th>
-            <th>Points</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody id="custom-history-container"></tbody>
-      </table>
     </div>
   </div>
 </div>
+
+<script>
+  // Initialize pagination variables
+  let currentPage = 1;
+  let totalPages = 1;
+  const itemsPerPage = 10;
+  let allHistoryItems = [];
+
+  // Show loading state on page load
+  document.addEventListener('DOMContentLoaded', function() {
+    // Loading is shown by default
+    const loadingElement = document.getElementById('rewards-loading');
+    const contentElement = document.getElementById('rewards-content');
+
+    if (loadingElement && contentElement) {
+      loadingElement.style.display = 'flex';
+      contentElement.style.display = 'none';
+    }
+  });
+
+  document.addEventListener("swell:setup", function() {
+    try {
+      // Cache DOM elements for better performance
+      const pointBalanceElement = document.getElementById("custom-point-balance-ui");
+      const referralLinkElement = document.getElementById("custom-referral-link-ui");
+      const copyBtn = document.getElementById("copy-referral-btn");
+      const historyContainer = document.getElementById("custom-history-container");
+      const loadingElement = document.getElementById('rewards-loading');
+      const contentElement = document.getElementById('rewards-content');
+      const paginationElement = document.getElementById('rewards-pagination');
+
+      // Hide loading after minimum 300ms to prevent flash
+      setTimeout(() => {
+        if (loadingElement && contentElement) {
+          loadingElement.style.display = 'none';
+          contentElement.style.display = 'block';
+        }
+      }, 300);
+
+      // Fetch customer details once
+      const customerDetails = swellAPI.getCustomerDetails();
+      if (!customerDetails) {
+        console.error('Failed to retrieve customer details');
+        showError('We\'re having trouble retrieving your rewards information. Please refresh the page or try again later.');
+        return;
+      }
+
+      // Use optional chaining and nullish coalescing for cleaner code
+      if (pointBalanceElement) {
+        pointBalanceElement.textContent = customerDetails.pointsBalance ?? 0;
+      }
+
+      if (referralLinkElement) {
+        referralLinkElement.textContent = customerDetails.referralLink ?? '';
+      }
+
+      // Implement clipboard copy with better error handling
+      if (copyBtn) {
+        copyBtn.addEventListener("click", function() {
+          const referralLink = customerDetails.referralLink ?? '';
+          navigator.clipboard.writeText(referralLink)
+            .then(() => {
+              copyBtn.classList.add("copied");
+              copyBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg>';
+              setTimeout(() => {
+                copyBtn.classList.remove("copied");
+                copyBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path></svg>';
+              }, 2000);
+            })
+            .catch(err => {
+              console.error('Failed to copy referral link:', err);
+              // Provide user feedback for copy failure
+              alert('Unable to copy link. Please try selecting and copying manually.');
+            });
+        });
+      }
+
+      // Check if we need pagination
+      if (historyContainer && customerDetails.actionHistoryItems) {
+        if (customerDetails.actionHistoryItems.length > itemsPerPage) {
+          // Enable pagination for large datasets
+          allHistoryItems = customerDetails.actionHistoryItems;
+          totalPages = Math.ceil(allHistoryItems.length / itemsPerPage);
+
+          // Show pagination controls
+          if (paginationElement) {
+            paginationElement.style.display = 'flex';
+          }
+
+          updatePaginationInfo();
+          renderCurrentPage(historyContainer);
+
+          // Add event listeners for pagination
+          const prevButton = document.getElementById('prev-page');
+          const nextButton = document.getElementById('next-page');
+
+          if (prevButton) {
+            prevButton.addEventListener('click', () => {
+              if (currentPage > 1) {
+                currentPage--;
+                renderCurrentPage(historyContainer);
+              }
+            });
+          }
+
+          if (nextButton) {
+            nextButton.addEventListener('click', () => {
+              if (currentPage < totalPages) {
+                currentPage++;
+                renderCurrentPage(historyContainer);
+              }
+            });
+          }
+        } else {
+          // Regular rendering for small data sets
+          renderActionHistory(historyContainer, customerDetails.actionHistoryItems);
+        }
+      } else if (historyContainer) {
+        // No history available
+        const row = document.createElement("tr");
+        row.innerHTML = '<td colspan="4" class="no-history">No reward history available</td>';
+        historyContainer.appendChild(row);
+      }
+    } catch (error) {
+      console.error('Error in rewards component:', error);
+      showError('We\'re having trouble loading your rewards. Please refresh the page or try again later.');
+    }
+  });
+
+  // Helper Functions
+
+  function updatePaginationInfo() {
+    const paginationInfo = document.getElementById('pagination-info');
+    if (paginationInfo) {
+      paginationInfo.textContent = `Page ${currentPage} of ${totalPages}`;
+    }
+
+    const prevButton = document.getElementById('prev-page');
+    const nextButton = document.getElementById('next-page');
+
+    if (prevButton) {
+      prevButton.disabled = currentPage === 1;
+    }
+
+    if (nextButton) {
+      nextButton.disabled = currentPage === totalPages;
+    }
+  }
+
+  function renderCurrentPage(container) {
+    if (!container || !allHistoryItems.length) return;
+
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = Math.min(startIndex + itemsPerPage, allHistoryItems.length);
+    const currentItems = allHistoryItems.slice(startIndex, endIndex);
+
+    // Clear current items
+    container.innerHTML = '';
+
+    // Render current page
+    renderActionHistory(container, currentItems);
+
+    // Update pagination controls
+    updatePaginationInfo();
+  }
+
+  function renderActionHistory(container, historyItems) {
+    if (!container) return;
+
+    if (!historyItems || !historyItems.length) {
+      const row = document.createElement("tr");
+      row.innerHTML = '<td colspan="4" class="no-history">No reward history available</td>';
+      container.appendChild(row);
+      return;
+    }
+
+    // Use DocumentFragment for better performance
+    const fragment = document.createDocumentFragment();
+
+    // Define status config map for cleaner code
+    const statusConfigs = {
+      refunded: {
+        class: 'status-refunded',
+        icon: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 7l-10 10"></path><path d="M7 7l10 10"></path></svg>'
+      },
+      approved: {
+        class: 'status-approved',
+        icon: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg>'
+      },
+      pending: {
+        class: 'status-pending',
+        icon: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>'
+      }
+    };
+
+    historyItems.forEach(function(item) {
+      const row = document.createElement("tr");
+
+      // Determine status styling
+      let statusClass = '';
+      let statusIcon = '';
+
+      if (item.status && item.status.toLowerCase) {
+        const status = item.status.toLowerCase();
+        if (status.includes('refund') || status === 'refunded') {
+          statusClass = statusConfigs.refunded.class;
+          statusIcon = statusConfigs.refunded.icon;
+        } else if (status === 'approved') {
+          statusClass = statusConfigs.approved.class;
+          statusIcon = statusConfigs.approved.icon;
+        } else if (status.includes('pending')) {
+          statusClass = statusConfigs.pending.class;
+          statusIcon = statusConfigs.pending.icon;
+        }
+      }
+
+      // Determine point class for styling (positive/negative)
+      const pointsValue = item.points || 0;
+      const pointClass = pointsValue < 0 ? 'points-negative' : 'points-positive';
+      const pointSign = pointsValue < 0 ? '' : '+';
+
+      row.innerHTML = `
+        <td data-label="Date"><span class="date-cell">${item.date || ''}</span></td>
+        <td data-label="Action"><span class="action-cell">${item.action || ''}</span></td>
+        <td data-label="Points"><span class="points-cell ${pointClass}">${pointSign}${pointsValue}</span></td>
+        <td data-label="Status"><span class="status-cell ${statusClass}">${statusIcon} ${item.status || ''}</span></td>
+      `;
+      fragment.appendChild(row);
+    });
+
+    container.appendChild(fragment);
+  }
+
+  function showError(message) {
+    // Hide loading
+    const loadingElement = document.getElementById('rewards-loading');
+    if (loadingElement) {
+      loadingElement.style.display = 'none';
+    }
+
+    // Show content
+    const contentElement = document.getElementById('rewards-content');
+    if (contentElement) {
+      contentElement.style.display = 'block';
+    }
+
+    // Create and display error message
+    const errorContainer = document.createElement('div');
+    errorContainer.className = 'rewards-error';
+    errorContainer.innerHTML = `<p>${message}</p>`;
+
+    const rewardsContainer = document.querySelector('.rewards-container');
+    if (rewardsContainer) {
+      rewardsContainer.insertBefore(errorContainer, rewardsContainer.firstChild);
+    }
+  }
+</script>
 
 <style>
   .rewards-container {
@@ -153,6 +344,46 @@
     background-image: radial-gradient(rgba(50, 100, 111, 0.03) 1px, transparent 1px);
     background-size: 20px 20px;
     padding: 20px 0;
+  }
+
+  /* Loading State */
+  .rewards-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 0;
+    color: #6b7280;
+    text-align: center;
+  }
+
+  .loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(50, 100, 111, 0.1);
+    border-radius: 50%;
+    border-top-color: var(--curalin);
+    animation: spin 1s ease-in-out infinite;
+    margin-bottom: 16px;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  /* Error Message */
+  .rewards-error {
+    background: rgba(239, 68, 68, 0.1);
+    border-left: 3px solid #ef4444;
+    padding: 16px 20px;
+    margin: 24px 0;
+    border-radius: 8px;
+  }
+
+  .rewards-error p {
+    margin: 0;
+    color: #b91c1c;
+    font-weight: 500;
   }
 
   .rewards-cards {
@@ -165,7 +396,7 @@
   .reward-card {
     background: white;
     border-radius: 20px;
-    box-shadow: 0 10px 30px -10px rgba(50, 100, 111, 0.15);
+    box-shadow: 0 4px 20px -10px rgba(50, 100, 111, 0.15);
     padding: 30px;
     display: flex;
     align-items: flex-start;
@@ -248,89 +479,132 @@
     display: flex;
     align-items: baseline;
     font-size: 42px;
-    font-weight: 700;
     color: #10b981;
+    font-weight: 700;
     line-height: 1;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.025em;
   }
 
   .points-label {
     font-size: 16px;
-    font-weight: 500;
     color: #6b7280;
     margin-left: 8px;
-    letter-spacing: -0.01em;
+    font-weight: 500;
   }
 
   .referral-link-container {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
+    position: relative;
   }
 
   .referral-link-display {
     background: #f9fafb;
-    border: 1px solid rgba(229, 231, 235, 0.7);
-    border-radius: 12px;
-    padding: 14px;
+    border-radius: 8px;
+    padding-left: 10px;
     font-size: 14px;
     color: #4b5563;
-    word-break: break-all;
-    max-width: 100%;
-    cursor: text;
-    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.02);
+    border: 1px solid #e5e7eb;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .referral-link-display #custom-referral-link-ui {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding-right: 8px;
   }
 
   .copy-btn {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
-    background: linear-gradient(to right, #4f46e5, #6366f1);
-    color: white;
+    flex-shrink: 0;
+    background: rgba(50, 100, 111, 0.08);
+    color: var(--curalin);
     border: none;
-    border-radius: 12px;
-    padding: 12px 16px;
-    font-size: 14px;
-    font-weight: 500;
+    border-radius: 6px;
+    min-width: 38px;
+    height: 38px;
     cursor: pointer;
     transition: all 0.2s ease;
-    align-self: flex-start;
-    box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.2);
+    position: relative;
+    overflow: hidden;
+		  padding: unset;
+    /* Add will-change for smoother animations */
+    will-change: transform, background-color;
+  }
+
+  .copy-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.1);
+    transform: scale(0);
+    border-radius: 50%;
+    transition: transform 0.3s ease;
   }
 
   .copy-btn:hover {
-    box-shadow: 0 4px 12px -1px rgba(79, 70, 229, 0.3);
+    background: rgba(50, 100, 111, 0.15);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.06);
+  }
+
+  .copy-btn:hover::before {
+    transform: scale(1.5);
+  }
+
+  .copy-btn:active {
+    transform: translateY(0);
   }
 
   .copy-btn.copied {
-    background: linear-gradient(to right, #10b981, #34d399);
-    box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.2);
+    background: #10b981;
+    color: white;
+    box-shadow: 0 2px 5px rgba(16, 185, 129, 0.3);
+  }
+
+  .copy-btn svg {
+    transition: transform 0.2s ease;
+    position: relative;
+    z-index: 1;
+  }
+
+  .copy-btn:active svg {
+    transform: scale(0.9);
   }
 
   .rewards-history-section {
     background: white;
     border-radius: 20px;
-    box-shadow: 0 10px 30px -10px rgba(50, 100, 111, 0.15);
+    box-shadow: 0 4px 20px -10px rgba(50, 100, 111, 0.15);
     overflow: hidden;
     border: 1px solid rgba(229, 231, 235, 0.7);
-    position: relative;
   }
 
   .history-header {
     padding: 24px 30px;
-    border-bottom: 1px solid rgba(229, 231, 235, 0.7);
+    border-bottom: 1px solid #e5e7eb;
     display: flex;
-    justify-content: space-between;
     align-items: center;
+    justify-content: space-between;
     background: linear-gradient(to right, #f9fafb, white);
   }
 
   .history-header h3 {
     font-size: 20px;
-    font-weight: 600;
-    margin: 0;
     color: #1f2937;
+    margin: 0;
+    font-weight: 600;
     letter-spacing: -0.01em;
   }
 
@@ -344,144 +618,314 @@
 
   .rewards-table-wrapper {
     overflow-x: auto;
-    padding: 0 0 10px;
-    scrollbar-width: thin;
-    scrollbar-color: #e5e7eb transparent;
-  }
-
-  .rewards-table-wrapper::-webkit-scrollbar {
-    height: 6px;
-  }
-
-  .rewards-table-wrapper::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  .rewards-table-wrapper::-webkit-scrollbar-thumb {
-    background-color: #e5e7eb;
-    border-radius: 6px;
   }
 
   .rewards-table {
     width: 100%;
-    border-collapse: separate;
-    border-spacing: 0;
+    border-collapse: collapse;
+  }
+
+  .rewards-table th,
+  .rewards-table td {
+    text-align: left;
+    padding: 16px 24px 16px 0;
+    border-bottom: 1px solid #f3f4f6;
     font-size: 14px;
   }
 
+  .rewards-table th:last-child,
+  .rewards-table td:last-child {
+    padding-right: 0;
+    text-align: right;
+  }
+
   .rewards-table th {
-    text-align: left;
-    padding: 16px 24px;
-    color: #4b5563;
-    font-weight: 600;
-    border-bottom: 1px solid rgba(229, 231, 235, 0.7);
+    color: #6b7280;
+    font-weight: 500;
+    padding-top: 24px;
     position: sticky;
     top: 0;
     background: white;
-    letter-spacing: 0.01em;
-  }
-
-  .rewards-table tbody tr {
-    transition: background-color 0.2s ease;
-  }
-
-  .rewards-table tbody tr:hover {
-    background-color: rgba(50, 100, 111, 0.02);
-  }
-
-  .rewards-table tbody tr:not(:last-child) {
-    border-bottom: 1px solid rgba(243, 244, 246, 0.7);
+    z-index: 10;
   }
 
   .rewards-table td {
-    padding: 16px 24px;
-    color: #1f2937;
-    vertical-align: middle;
-  }
-
-  .date-cell {
-    color: #4b5563;
-    font-weight: 500;
-  }
-
-  .action-cell {
-    font-weight: 500;
     color: #1f2937;
   }
 
-  .points-cell {
-    font-weight: 700;
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-feature-settings: "tnum";
-    font-variant-numeric: tabular-nums;
+  .rewards-table tr:last-child td {
+    border-bottom: none;
   }
 
-  .points-cell.points-positive {
+  /* Add content-visibility for better rendering performance */
+  .rewards-table tbody tr {
+    content-visibility: auto;
+  }
+
+  .points-positive {
     color: #10b981;
-  }
-
-  .points-cell.points-negative {
-    color: #ef4444;
-  }
-
-  .status-cell {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 14px;
-    border-radius: 40px;
-    font-size: 12px;
     font-weight: 600;
-    text-transform: capitalize;
-    height: 26px;
+  }
+
+  .points-negative {
+    color: #ef4444;
+    font-weight: 600;
   }
 
   .status-approved {
-    background-color: rgba(16, 185, 129, 0.1);
     color: #10b981;
-    box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
   }
 
   .status-pending {
-    background-color: rgba(245, 158, 11, 0.1);
     color: #f59e0b;
-    box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
   }
 
   .status-refunded {
-    background-color: rgba(239, 68, 68, 0.1);
     color: #ef4444;
-    box-shadow: inset 0 0 0 1px rgba(239, 68, 68, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
   }
 
   .no-history {
     text-align: center;
     color: #6b7280;
-    padding: 32px;
-    font-style: italic;
-    background: rgba(229, 231, 235, 0.1);
+    padding: 32px 0;
   }
 
-  @media (max-width: 768px) {
+  /* Pagination Styles */
+  .rewards-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    margin-top: 24px;
+    padding: 16px 0;
+  }
+
+  .pagination-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: white;
+    border: 1px solid #e5e7eb;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-weight: 500;
+    color: #6b7280;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    will-change: background-color, border-color;
+  }
+
+  .pagination-btn:hover:not(:disabled) {
+    background: #f9fafb;
+    border-color: #d1d5db;
+  }
+
+  .pagination-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .pagination-info {
+    font-size: 14px;
+    color: #6b7280;
+  }
+
+  /* Mobile responsiveness */
+  @media (max-width: 767px) {
     .rewards-cards {
       grid-template-columns: 1fr;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .reward-card {
+      padding: 20px;
+      gap: 16px;
+    }
+
+    .card-icon {
+      width: 48px;
+      height: 48px;
+    }
+
+    .points-display {
+      font-size: 32px;
+    }
+
+    .points-label {
+      font-size: 14px;
+    }
+
+    .referral-link-display {
+      margin-right: 0;
+      margin-bottom: 0;
+      white-space: normal;
+      word-break: break-all;
+      font-size: 13px;
+    }
+
+    .copy-btn {
+      min-width: 36px;
+      height: 36px;
     }
 
     .history-header {
+      padding: 16px 20px;
       flex-direction: column;
       align-items: flex-start;
       gap: 8px;
     }
 
-    .rewards-table th,
-    .rewards-table td {
-      padding: 14px 16px;
+    .rewards-table-wrapper {
+      padding: 0 20px 20px;
     }
 
-    .status-cell {
-      padding: 4px 10px;
+    .rewards-table th {
+      display: none;
+    }
+
+    .rewards-table,
+    .rewards-table tbody,
+    .rewards-table tr,
+    .rewards-table td {
+      display: block;
+      width: 100%;
+    }
+
+    .rewards-table tr {
+      margin-bottom: 16px;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      overflow: hidden;
+      padding: 16px;
+      position: relative;
+      background: #f9fafb;
+    }
+
+    .rewards-table td {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      text-align: right;
+      padding: 10px 0;
+      position: relative;
+      border-bottom: 1px dashed rgba(229, 231, 235, 0.8);
+    }
+
+    .rewards-table td:last-child {
+      border-bottom: none;
+    }
+
+    .rewards-table td::before {
+      content: attr(data-label);
+      font-weight: 600;
+      color: #6b7280;
+      text-align: left;
+    }
+
+    .rewards-table .status-approved,
+    .rewards-table .status-pending,
+    .rewards-table .status-refunded {
+      justify-content: flex-end;
+    }
+
+    .rewards-history-section {
+      margin-top: 8px;
+    }
+
+    .rewards-pagination {
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .pagination-btn {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .reward-card {
+      padding: 16px;
+      gap: 12px;
+    }
+
+    .card-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+    }
+
+    .card-icon svg {
+      width: 20px;
+      height: 20px;
+    }
+
+    .card-content h3 {
+      font-size: 16px;
+      margin-bottom: 8px;
+    }
+
+    .points-display {
+      font-size: 28px;
+    }
+
+    .history-info {
+      font-size: 12px;
+    }
+
+    .rewards-table td {
+      padding: 8px 0;
+      font-size: 13px;
+    }
+
+    .rewards-table td::before {
+      font-size: 13px;
+    }
+
+    .no-history {
+      font-size: 14px;
+      padding: 24px 0;
+    }
+
+    .referral-link-display {
+      padding: 10px 12px;
+    }
+
+    .copy-btn {
+      min-width: 32px;
+      height: 32px;
+    }
+
+    .copy-btn svg {
+      width: 16px;
+      height: 16px;
+    }
+  }
+
+  /* Accessibility */
+  @media (prefers-reduced-motion: reduce) {
+    .copy-btn,
+    .reward-card,
+    .copy-btn::before,
+    .copy-btn svg,
+    .loading-spinner,
+    .pagination-btn {
+      transition: none !important;
+      animation: none !important;
+      transform: none !important;
     }
   }
 </style>
