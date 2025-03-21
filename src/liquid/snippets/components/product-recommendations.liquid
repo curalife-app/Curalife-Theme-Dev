@@ -1,12 +1,9 @@
 {% if article.metafields.custom.product_recommendations.value.size > 0 %}
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css"/>
-  <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
-
   <div class="product-recommendations section">
     <h5>Take Control of Your Wellness</h5>
 
     <div class="swiper-container">
-      <div class="swiper product-slider">
+      <div class="swiper product-slider swiper-loading" data-swiper-section="product-recs">
         <div class="swiper-wrapper">
           {% for product in article.metafields.custom.product_recommendations.value %}
             <div class="swiper-slide product-item">
@@ -19,6 +16,14 @@
             </div>
           {% endfor %}
         </div>
+
+        <div class="swiper-loader">
+          <div class="swiper-loader-spinner">
+            <div class="swiper-loader-bounce1"></div>
+            <div class="swiper-loader-bounce2"></div>
+            <div class="swiper-loader-bounce3"></div>
+          </div>
+        </div>
       </div>
 
       <div class="swiper-nav swiper-button-prev"></div>
@@ -28,9 +33,15 @@
     <a href="/collections/all"><button class="font-bold">Explore Our Supplements</button></a>
   </div>
 
+  {% render 'layout.head.swiper-dynamic', selector: '.product-slider' %}
+
   <script>
     document.addEventListener('DOMContentLoaded', function() {
-      new Swiper('.product-slider', {
+      const swiperEl = document.querySelector('.product-slider');
+      if (!swiperEl) return;
+
+      // Add data attributes for the Swiper options
+      swiperEl.dataset.swiperOptions = JSON.stringify({
         slidesPerView: 1,
         spaceBetween: 10,
         centeredSlides: true,
@@ -42,8 +53,20 @@
           768: {
             slidesPerView: 3
           },
-        },
+        }
       });
+
+      // Let the observer handle initialization if element is not in viewport
+      if (window.swiperObserver && !swiperEl.dataset.swiperObserved) {
+        window.swiperObserver.observe(swiperEl);
+        swiperEl.dataset.swiperObserved = 'pending';
+      } else {
+        // Fallback to manual initialization
+        loadSwiper(() => {
+          window.initializeSwiper('.product-slider',
+            JSON.parse(swiperEl.dataset.swiperOptions));
+        });
+      }
     });
   </script>
 

@@ -1,8 +1,7 @@
-
 <div class="container">
   <div class="reviews">
     <div class="quote-slider review-page">
-      <div class="swiper">
+      <div class="swiper swiper-loading" data-swiper-section="product-reviews">
         <div class="swiper-wrapper">
           {% for review in reviews %}
             <div class="swiper-slide">
@@ -25,6 +24,14 @@
         <div class="slider-control">
           <div class="prev-slide2"><span class="icon-arrow"></span></div>
           <div class="next-slide2"><span class="icon-arrow"></span></div>
+        </div>
+
+        <div class="swiper-loader">
+          <div class="swiper-loader-spinner">
+            <div class="swiper-loader-bounce1"></div>
+            <div class="swiper-loader-bounce2"></div>
+            <div class="swiper-loader-bounce3"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -130,33 +137,53 @@
 }
 </style>
 
+{% render 'layout.head.swiper-dynamic', selector: '.quote-slider.review-page .swiper' %}
+
 <script>
-  quoteSlider = new Swiper(".quote-slider.review-page .swiper", {
-    slidesPerView: 'auto',
-    spaceBetween: 0,
-    grabCursor: true,
-    loop: true,
-    autoplay: {
-      delay: 2500
-    },
-    navigation: {
-      nextEl: ".next-slide2",
-      prevEl: ".prev-slide2",
-      disabledClass: 'disabled'
-    },
-    breakpoints: {
-      0: {
-        slidesPerView: 1
+  document.addEventListener('DOMContentLoaded', function() {
+    const swiperEl = document.querySelector(".quote-slider.review-page .swiper");
+    if (!swiperEl) return;
+
+    // Add data attributes for the Swiper options
+    swiperEl.dataset.swiperOptions = JSON.stringify({
+      slidesPerView: 'auto',
+      spaceBetween: 0,
+      grabCursor: true,
+      loop: true,
+      autoplay: {
+        delay: 2500
       },
-      630: {
-        slidesPerView: 1,
-        centeredSlides: true
+      navigation: {
+        nextEl: ".next-slide2",
+        prevEl: ".prev-slide2",
+        disabledClass: 'disabled'
       },
-      1131: {
-        autoplay: {enabled: false},
-        slidesPerView: 1,
-        centeredSlides: true
+      breakpoints: {
+        0: {
+          slidesPerView: 1
+        },
+        630: {
+          slidesPerView: 1,
+          centeredSlides: true
+        },
+        1131: {
+          autoplay: {enabled: false},
+          slidesPerView: 1,
+          centeredSlides: true
+        }
       }
+    });
+
+    // Let the observer handle initialization if element is not in viewport
+    if (window.swiperObserver && !swiperEl.dataset.swiperObserved) {
+      window.swiperObserver.observe(swiperEl);
+      swiperEl.dataset.swiperObserved = 'pending';
+    } else {
+      // Fallback to manual initialization
+      loadSwiper(() => {
+        window.initializeSwiper(".quote-slider.review-page .swiper",
+          JSON.parse(swiperEl.dataset.swiperOptions));
+      });
     }
   });
 </script>

@@ -1,0 +1,106 @@
+{% comment %}
+  Include this snippet in sections that use Swiper
+  Usage: {% render 'layout.head.swiper-dynamic', selector: '.my-slider-class' %}
+{% endcomment %}
+
+{% assign selector = selector | default: '.swiper' %}
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // Ensure selector is properly interpolated in Liquid before sending to JS
+    {% assign clean_selector = selector | replace: "{", "" | replace: "}", "" %}
+    const selectorString = '{{ clean_selector | escape }}';
+
+    // Find all elements matching the selector
+    const swiperElements = document.querySelectorAll(selectorString);
+    if (swiperElements.length === 0) return;
+
+    // Check if any element is in viewport or close to it
+    let needsImmediateLoading = false;
+
+    swiperElements.forEach(function(element) {
+      if (element.dataset.swiperObserved === 'true' || element.dataset.swiperInitialized === 'true') {
+        return; // Skip already observed or initialized elements
+      }
+
+      // Mark as loading - will be used for styling
+      element.classList.add('swiper-loading');
+
+      // Add loader indicator
+      if (!element.querySelector('.swiper-loader')) {
+        const loader = document.createElement('div');
+        loader.className = 'swiper-loader';
+        loader.innerHTML = `
+          <div class="swiper-loader-spinner">
+            <div class="swiper-loader-bounce1"></div>
+            <div class="swiper-loader-bounce2"></div>
+            <div class="swiper-loader-bounce3"></div>
+          </div>
+        `;
+        element.appendChild(loader);
+      }
+
+      // Check if element is in viewport or close to it
+      const rect = element.getBoundingClientRect();
+      const inViewport = (
+        rect.top <= (window.innerHeight || document.documentElement.clientHeight) + 500 &&
+        rect.bottom >= -500
+      );
+
+      if (inViewport) {
+        needsImmediateLoading = true;
+      } else if (window.swiperObserver) {
+        // Add to intersection observer if not in viewport
+        window.swiperObserver.observe(element);
+        element.dataset.swiperObserved = 'pending';
+      }
+    });
+
+    // If any element needs immediate loading, load Swiper now
+    if (needsImmediateLoading) {
+      // If the global loadSwiper function is available, use it
+      if (window.loadSwiper) {
+        window.loadSwiper(function() {
+          // Initialize visible swipers after loading
+          swiperElements.forEach(function(element) {
+            // Only initialize swipers that are in viewport and not already initialized
+            if (!element.dataset.swiperInitialized) {
+              const rect = element.getBoundingClientRect();
+              const inViewport = (
+                rect.top <= (window.innerHeight || document.documentElement.clientHeight) + 500 &&
+                rect.bottom >= -500
+              );
+
+              if (inViewport) {
+                // Get a unique identifier for this swiper
+                const id = element.id || `swiper-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+
+                // If element doesn't have an ID, assign one
+                if (!element.id) {
+                  element.id = id;
+                }
+
+                // Check for options in data attributes
+                let options = {};
+                try {
+                  if (element.dataset.swiperOptions) {
+                    options = JSON.parse(element.dataset.swiperOptions);
+                  }
+                } catch (error) {
+                  console.error(`[Swiper Dynamic] Error parsing swiper options:`, error);
+                }
+
+                // Initialize this swiper
+                window.initializeSwiper(`#${element.id}`, options);
+              }
+            }
+          });
+        });
+      } else {
+        // Fallback if the global function is not available
+        // This shouldn't happen if swiper-observer is included
+        console.error('[Swiper Dynamic] Global loadSwiper function not available');
+      }
+    }
+  });
+</script>

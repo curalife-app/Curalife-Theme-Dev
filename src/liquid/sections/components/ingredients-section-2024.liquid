@@ -1,6 +1,6 @@
 <section class='ingredients-section bg-light-blue pb-[50px]'>
 	<div class='container relative'>
-		<div class='ingredients swiper overflow-visible'>
+		<div class='ingredients swiper swiper-loading' data-swiper-section="{{ section.id }}-ingredients">
 			<div class='swiper-wrapper'>
 				{% for ingredient in section.blocks %}
 					<div class='ingredient swiper-slide {% unless ingredient.settings.image %}no-image{% endunless %}'>
@@ -22,11 +22,56 @@
 		<div class='swiper-nav swiper-button-prev desktop'></div>
 		<div class='swiper-nav swiper-button-next desktop'></div>
 		<div class='swiper-pagination mobile'></div>
+
+		<div class="swiper-loader">
+			<div class="swiper-loader-spinner">
+				<div class="swiper-loader-bounce1"></div>
+				<div class="swiper-loader-bounce2"></div>
+				<div class="swiper-loader-bounce3"></div>
+			</div>
+		</div>
 	</div>
 </section>
 
-<link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/swiper@9/swiper-bundle.min.css'>
-<script src='https://cdn.jsdelivr.net/npm/swiper@9/swiper-bundle.min.js'></script>
+{% render 'layout.head.swiper-dynamic', selector: '.ingredients-section .swiper' %}
+
+<script>
+	document.addEventListener('DOMContentLoaded', () => {
+		const swiperEl = document.querySelector('.ingredients-section .swiper');
+		if (!swiperEl) return;
+
+		// Add data attributes for the Swiper options
+		swiperEl.dataset.swiperOptions = JSON.stringify({
+			slidesPerView: 3,
+			spaceBetween: 20,
+			pagination: {
+				el: '.ingredients-section .swiper-pagination',
+				clickable: true
+			},
+			navigation: {
+				nextEl: '.ingredients-section .swiper-button-next',
+				prevEl: '.ingredients-section .swiper-button-prev'
+			},
+			breakpoints: {
+				320: { slidesPerView: 1 },
+				768: { slidesPerView: 2 },
+				1024: { slidesPerView: 3 }
+			}
+		});
+
+		// Let the observer handle initialization if element is not in viewport
+		if (window.swiperObserver && !swiperEl.dataset.swiperObserved) {
+			window.swiperObserver.observe(swiperEl);
+			swiperEl.dataset.swiperObserved = 'pending';
+		} else {
+			// Fallback to manual initialization
+			loadSwiper(() => {
+				window.initializeSwiper('.ingredients-section .swiper',
+					JSON.parse(swiperEl.dataset.swiperOptions));
+			});
+		}
+	});
+</script>
 
 <style>
 	:root {
@@ -63,31 +108,6 @@
 		}
 	}
 </style>
-
-<script>
-	document.addEventListener('DOMContentLoaded', () => {
-		const swiper = new Swiper('.ingredients-section .swiper', {
-			grabCursor: true,
-			slidesPerView: 3,
-			loop: true,
-			spaceBetween: 30,
-			autoplay: { delay: 5000 },
-			navigation: {
-				nextEl: '.ingredients-section .swiper-button-next',
-				prevEl: '.ingredients-section .swiper-button-prev'
-			},
-			// pagination: {
-			//   el: '.ingredients-section .swiper-pagination',
-			//   clickable: true
-			// },
-			breakpoints: {
-				320: { slidesPerView: 1, spaceBetween: 10, autoHeight: true },
-				501: { slidesPerView: 2, spaceBetween: 20 },
-				725: { slidesPerView: 3, spaceBetween: 30 }
-			}
-		});
-	});
-</script>
 
 {% schema %}
 	{

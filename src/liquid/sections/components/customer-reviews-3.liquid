@@ -1,32 +1,40 @@
 <section id="customer-reviews-{{ section.id }}" class="customer-reviews">
 	<div class="container relative">
+		<!-- Add loading indicator -->
+		<div class="swiper-loader" id="customer-reviews-{{ section.id }}-loader">
+			<div class="swiper-loader-spinner">
+				<div class="swiper-loader-bounce1"></div>
+				<div class="swiper-loader-bounce2"></div>
+				<div class="swiper-loader-bounce3"></div>
+			</div>
+		</div>
+
 		<div class="reviews swiper overflow-visible">
 			<div class="swiper-wrapper">
 				{% for review in section.blocks %}
 					<div class="review swiper-slide {% unless review.settings.image %}no-image{% endunless %}">
-						<div class="review-wrapper flex flex-col items-center text-center p-6 bg-light-blue !h-[600px] mbl:!h-[160vw] rounded-xl md:m-auto md:w-[90%]">
+						<div class="review-wrapper flex flex-col items-center text-center p-6 bg-light-blue rounded-xl md:m-auto md:w-[90%]" style="height: auto; min-height: 400px;">
 							{% if review.settings.image %}
 								<img class="my-4" src="{{ review.settings.image | img_url: 'master' }}" alt="{{ review.settings.name }}">
 							{% endif %}
 
 							<div class="name text-[26px] text-[#3A7684] mb-4">{{ review.settings.name }}</div>
 							<div class="title font-italic mb-4 font-bold text-black">{{ review.settings.title }}</div>
+							<blockquote class="quote p-0 text-black border-0">{{ review.settings.quote }}</blockquote>
 
 							{% if section.settings.is_show_stars %}
-								<div class="stars w-fill absolute bottom-0 pb-6 text-center">
+								<div class="stars w-fill pt-4 pb-2 mt-auto text-center">
 									{% render 'rating-stars', rating: '5' %}
 								</div>
 							{%- endif %}
-
-							<blockquote class="quote p-0 text-black border-0">{{ review.settings.quote }}</blockquote>
 						</div>
 					</div>
 				{% endfor %}
 			</div>
 		</div>
 
-		<div class="swiper-nav swiper-button-prev desktop"></div>
-		<div class="swiper-nav swiper-button-next desktop"></div>
+		<div class="swiper-nav swiper-button-prev"></div>
+		<div class="swiper-nav swiper-button-next"></div>
 	</div>
 </section>
 
@@ -41,21 +49,34 @@
 	  --swiper-nav-size-mobile: 10vw;
 	}
 
+	#customer-reviews-{{ section.id }} {
+		position: relative;
+		margin: 2rem 0;
+	}
+
+	#customer-reviews-{{ section.id }} .container {
+		overflow: visible;
+	}
+
+	#customer-reviews-{{ section.id }} .review-wrapper {
+		height: auto;
+		min-height: 400px;
+		display: flex;
+		flex-direction: column;
+	}
+
 	#customer-reviews-{{ section.id }} .review.no-image .name {
 	  margin-top: 60px;
 	  font-size: 26px;
 	}
 
-
 	#customer-reviews-{{ section.id }} .review.no-image .quote {
 	  font-size: 24px;
 	}
 
-	#customer-reviews-{{ section.id }} .review:not(.no-image) .stars {
-	  position: absolute;
-	  bottom: 0;
-	  left: 0;
-	  width: -webkit-fill-available;
+	#customer-reviews-{{ section.id }} .stars {
+		margin-top: auto;
+		padding-bottom: 1rem;
 	}
 
 	#customer-reviews-{{ section.id }} .swiper-nav::after {
@@ -71,6 +92,29 @@
 	  justify-content: center;
 	}
 
+	/* Basic fallback styles for no-js environments */
+	.no-js #customer-reviews-{{ section.id }} .swiper-wrapper {
+		display: flex;
+		overflow-x: auto;
+	}
+
+	.no-js #customer-reviews-{{ section.id }} .swiper-slide {
+		flex: 0 0 300px;
+		margin-right: 20px;
+	}
+
+	/* Loading indicator positioning */
+	#customer-reviews-{{ section.id }}-loader {
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		transform: translate(-50%, -50%);
+		z-index: 10;
+		display: flex;
+		justify-content: center;
+		align-items: center;
+	}
+
 	@media screen and (max-width: 768px) {
 	  :root {
 	    --swiper-navigation-sides-offset: var(--swiper-navigation-sides-offset-mobile);
@@ -81,26 +125,53 @@
 	    height: var(--swiper-nav-size-mobile);
 	    font-size: 20px;
 	  }
+
+	  .no-js #customer-reviews-{{ section.id }} .swiper-slide {
+		flex: 0 0 90%;
+	  }
 	}
 </style>
 
 <script>
-	loadSwiper();
+	document.addEventListener('DOMContentLoaded', function() {
+		const sectionId = '{{ section.id }}';
+		const swiperSelector = '#customer-reviews-' + sectionId + ' .swiper';
+		const loaderElement = document.getElementById('customer-reviews-' + sectionId + '-loader');
 
-	document.addEventListener('DOMContentLoaded', () => {
+		// Hide loader when Swiper is initialized or after timeout
+		function hideLoader() {
+			if (loaderElement) {
+				loaderElement.style.display = 'none';
+			}
+		}
+
+		// Set a timeout to hide loader even if Swiper fails to initialize
+		setTimeout(hideLoader, 3000);
+
+		// Use the simple callback pattern for Swiper initialization
 		loadSwiper(() => {
-			let swiper = initializeSwiper('#customer-reviews-{{ section.id }} .swiper', {
+			console.log('Initializing customer reviews swiper');
+
+			// Initialize the Swiper with the appropriate configuration
+			const swiper = initializeSwiper(swiperSelector, {
 				grabCursor: true,
 				slidesPerView: 3,
 				spaceBetween: 30,
 				navigation: {
-					nextEl: '#customer-reviews-{{ section.id }} .swiper-button-next',
-					prevEl: '#customer-reviews-{{ section.id }} .swiper-button-prev'
+					nextEl: '#customer-reviews-' + sectionId + ' .swiper-button-next',
+					prevEl: '#customer-reviews-' + sectionId + ' .swiper-button-prev'
 				},
 				breakpoints: {
-					320: { slidesPerView: 1, spaceBetween: 10, autoHeight: true },
-					501: { slidesPerView: 2, spaceBetween: 20 },
-					768: { slidesPerView: 3, spaceBetween: 30 }
+					768: { slidesPerView: 1, spaceBetween: 30 },
+					1024: { slidesPerView: 2, spaceBetween: 30 },
+					1200: { slidesPerView: 3, spaceBetween: 30 }
+				},
+				on: {
+					init: function() {
+						// Hide loader after initialization
+						hideLoader();
+						console.log('Customer reviews Swiper initialized successfully');
+					}
 				}
 			});
 		});

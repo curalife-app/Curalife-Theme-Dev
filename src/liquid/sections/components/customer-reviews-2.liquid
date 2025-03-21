@@ -4,7 +4,7 @@
 
 		{% comment %} <img class="pb-6 m-auto" src="https://cdn.shopify.com/s/files/1/0452/2459/1511/files/Group_1597877255.png?v=1695042350" alt="customers avatars" loading="lazy"> {% endcomment %}
 
-		<div class="reviews swiper overflow-visible max-w-[80%]">
+		<div class="reviews swiper swiper-loading" data-swiper-section="{{ section.id }}-reviews">
 			<div class="swiper-wrapper">
 				{% for review in section.blocks %}
 					<div class="review swiper-slide p-6 bg-[#E7F8EC] md:min-h-[90vw] border-cyan-700 border shadow-xl rounded-xl min-h-[250px]">
@@ -21,6 +21,14 @@
 			<div class="swiper-nav swiper-button-prev"></div>
 			<div class="swiper-nav swiper-button-next"></div>
 			<div class="swiper-pagination"></div>
+
+			<div class="swiper-loader">
+				<div class="swiper-loader-spinner">
+					<div class="swiper-loader-bounce1"></div>
+					<div class="swiper-loader-bounce2"></div>
+					<div class="swiper-loader-bounce3"></div>
+				</div>
+			</div>
 		</div>
 	</div>
 </section>
@@ -78,42 +86,61 @@
 	}
 </style>
 
+{% render 'layout.head.swiper-dynamic', selector: '#customer-reviews-' | append: section.id | append: ' .swiper' %}
+
 <script>
-	loadSwiper();
+	document.addEventListener('DOMContentLoaded', () => {
+		const sectionId = '{{ section.id }}';
+		const swiperEl = document.querySelector('#customer-reviews-' + sectionId + ' .swiper');
+		if (!swiperEl) return;
 
-	const swiper = new Swiper('#customer-reviews-{{ section.id }} .swiper', {
-		grabCursor: true,
-		centeredSlides: true,
-		slidesPerView: 1,
-		reverseDirection: true,
-		loop: true,
-		spaceBetween: 30,
-		effect: 'coverflow',
-		coverflowEffect: {
-			rotate: 0,
-			depth: 400,
-			slideShadows: true
-		},
-		navigation: {
-			nextEl: '#customer-reviews-{{ section.id }} .swiper-button-next',
-			prevEl: '#customer-reviews-{{ section.id }} .swiper-button-prev'
-		},
-		pagination: {
-			el: '#customer-reviews-{{ section.id }} .swiper-pagination',
-			clickable: true
-		},
-		autoplay: { delay: 5000 }
+		// Add data attributes for the Swiper options
+		swiperEl.dataset.swiperOptions = JSON.stringify({
+			grabCursor: true,
+			centeredSlides: true,
+			slidesPerView: 1,
+			reverseDirection: true,
+			loop: true,
+			spaceBetween: 30,
+			effect: 'coverflow',
+			coverflowEffect: {
+				rotate: 0,
+				depth: 400,
+				slideShadows: true
+			},
+			navigation: {
+				nextEl: '#customer-reviews-' + sectionId + ' .swiper-button-next',
+				prevEl: '#customer-reviews-' + sectionId + ' .swiper-button-prev'
+			},
+			pagination: {
+				el: '#customer-reviews-' + sectionId + ' .swiper-pagination',
+				clickable: true
+			},
+			autoplay: { delay: 5000 },
+			breakpoints: {
+				320: { slidesPerView: 1 },
+				501: { slidesPerView: 2 },
+				724: { slidesPerView: 2.3 }
+			}
+		});
+
+		// Let the observer handle initialization if element is not in viewport
+		if (window.swiperObserver && !swiperEl.dataset.swiperObserved) {
+			window.swiperObserver.observe(swiperEl);
+			swiperEl.dataset.swiperObserved = 'pending';
+		} else {
+			// Fallback to manual initialization
+			loadSwiper(() => {
+				const swiper = window.initializeSwiper('#customer-reviews-' + sectionId + ' .swiper',
+					JSON.parse(swiperEl.dataset.swiperOptions));
+
+				// Update on window resize
+				window.addEventListener('resize', () => {
+					swiper && swiper.update();
+				});
+			});
+		}
 	});
-
-	window.onresize = queryResizer;
-	queryResizer();
-	function queryResizer() {
-		if (window.innerWidth < 724) swiper.params.slidesPerView = 2;
-		if (window.innerWidth > 501) swiper.params.slidesPerView = 2;
-		if (window.innerWidth > 724) swiper.params.slidesPerView = 2.3;
-		if (window.innerWidth < 501) swiper.params.slidesPerView = 1;
-		swiper.update();
-	}
 </script>
 
 {% schema %}

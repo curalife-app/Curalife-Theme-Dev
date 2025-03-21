@@ -9,7 +9,7 @@
 				<div class="thumbs-slider absolute" style="top: 30px;">
 					<div id="product-thumbs-slider-nav-prev-{{ section.id }}" class="swiper-nav swiper-button-prev"></div>
 
-					<div id="thumbs-slider-{{ section.id }}" class="swiper">
+					<div id="thumbs-slider-{{ section.id }}" class="swiper swiper-loading" data-swiper-section="{{ section.id }}-thumbs">
 						<div class="swiper-wrapper">
 							{% comment %} Render Product Images on Thumbs Slider {% endcomment %}
 							{% if isProductThumbs %}
@@ -52,11 +52,18 @@
 					</div>
 
 					<div id="product-thumbs-slider-nav-next-{{ section.id }}" class="swiper-nav swiper-button-next"></div>
+					<div class="swiper-loader">
+						<div class="swiper-loader-spinner">
+							<div class="swiper-loader-bounce1"></div>
+							<div class="swiper-loader-bounce2"></div>
+							<div class="swiper-loader-bounce3"></div>
+						</div>
+					</div>
 				</div>
 			{% endunless %}
 
 			<div class="main-slider {% unless isHideThumbs %} dsk:ml-[160px] {% endunless %}">
-				<div id="product-main-slider-sc-{{ section.id }}" class="swiper">
+				<div id="product-main-slider-sc-{{ section.id }}" class="swiper swiper-loading" data-swiper-section="{{ section.id }}-main">
 					<div class="swiper-wrapper">
 						{% if thumbnailImage %}
 							<div class="swiper-slide product-image-slide">
@@ -124,7 +131,6 @@
 								</div>
 							{%- endif -%}
 
-
 							{% comment %} Render Vaiants on Main Slider {% endcomment %}
 							{% comment %} {% if product.variants.size > 1 %}
 								{% for var in product.variants %}
@@ -155,6 +161,13 @@
 
 				<div id="product-main-slider-nav-prev-{{ section.id }}" class="swiper-button-prev product-main-slider-nav-prev swiper-nav"></div>
 				<div id="product-main-slider-nav-next-{{ section.id }}" class="swiper-button-next product-main-slider-nav-next swiper-nav"></div>
+				<div class="swiper-loader">
+					<div class="swiper-loader-spinner">
+						<div class="swiper-loader-bounce1"></div>
+						<div class="swiper-loader-bounce2"></div>
+						<div class="swiper-loader-bounce3"></div>
+					</div>
+				</div>
 			</div>
 		</div>
 	</div>
@@ -162,84 +175,165 @@
 
 <script>
 	document.addEventListener('DOMContentLoaded', function() {
-	  {% unless isHideThumbs %}
-	    loadSwiper(() => {
-	      window.productThumbsSlider{{ SID }} = initializeSwiper('#thumbs-slider-{{ section.id }}', {
-	        direction: 'vertical',
-	        spaceBetween: 10,
-	        watchSlidesVisibility: true,
-	        grabCursor: true,
-	        slideToClickedSlide: true,
-	        slidesPerView: 3,
-	        watchSlidesProgress: true,
-	        navigation: {
-	          nextEl: '#product-thumbs-slider-nav-next-{{ section.id }}',
-	          prevEl: '#product-thumbs-slider-nav-prev-{{ section.id }}',
-	          disabledClass: 'disabled'
-	        },
-	        on: {
-	          slideChange: function() {
-	            if (window.productSliderAllInOne{{ SID }}) {
-	              window.productSliderAllInOne{{ SID }}.slideTo(this.activeIndex);
-	            }
-	          }
-	        }
-	      });
-	    });
-	  {% endunless %}
+		// Get actual DOM elements instead of just selectors
+		const thumbsEl = document.querySelector('#thumbs-slider-{{ section.id }}');
+		const mainEl = document.querySelector('#product-main-slider-sc-{{ section.id }}');
 
-	  loadSwiper(() => {
-	    window.productSliderAllInOne{{ SID }} = initializeSwiper('#product-main-slider-sc-{{ section.id }}', {
-	      {% unless isHideThumbs %}
-	      thumbs: {
-	        swiper: window.productThumbsSlider{{ SID }},
-	        multipleActiveThumbs: false
-	      },
-	      {% endunless %}
-	      slidesPerView: 1,
-	      spaceBetween: 15,
-	      watchSlidesVisibility: true,
-	      grabCursor: false,
-	      slideToClickedSlide: true,
-	      breakpoints: {
-	        0: {
-	          navigation: {
-	            nextEl: '#product-main-slider-nav-next-{{ section.id }}',
-	            prevEl: '#product-main-slider-nav-prev-{{ section.id }}',
-	            disabledClass: 'disabled'
-	          }
-	        },
-	        760: {
-	          grabCursor: true,
-	          navigation: {}
-	        }
-	      },
-	      on: {
-	        slideChange: function () {
-	          {% unless isHideThumbs %}
-	          try {
-	            if (!this.thumbs || !this.thumbs.swiper) return;
+		// Early exit if elements don't exist
+		if (!mainEl) {
+			console.warn(`[Swiper Gallery] Main slider element not found: #product-main-slider-sc-{{ section.id }}`);
+			return;
+		}
 
-	            const thumbsSwiper = this.thumbs.swiper;
-	            if (!thumbsSwiper.slides || thumbsSwiper.slides.length === 0) return;
+		{% unless isHideThumbs %}
+			// Only proceed with thumbs if the element exists
+			if (thumbsEl) {
+				thumbsEl.dataset.swiperOptions = JSON.stringify({
+					direction: 'vertical',
+					spaceBetween: 10,
+					watchSlidesVisibility: true,
+					grabCursor: true,
+					slideToClickedSlide: true,
+					slidesPerView: 3,
+					watchSlidesProgress: true,
+					navigation: {
+						nextEl: '#product-thumbs-slider-nav-next-{{ section.id }}',
+						prevEl: '#product-thumbs-slider-nav-prev-{{ section.id }}',
+						disabledClass: 'disabled'
+					}
+				});
+			} else {
+				console.warn(`[Swiper Gallery] Thumbs slider element not found: #thumbs-slider-{{ section.id }}`);
+			}
+		{% endunless %}
 
-	            const activeIndex = this.activeIndex;
-	            const visibleSlidesStart = thumbsSwiper.activeIndex;
-	            const visibleSlidesEnd = visibleSlidesStart + thumbsSwiper.params.slidesPerView;
+		// Store main slider configuration in data attribute for observer
+		if (mainEl) {
+			const mainOptions = {
+				{% unless isHideThumbs %}
+				{% if thumbsEl %}
+				thumbs: {
+					// Use a callback to get the thumbs instance after it's initialized
+					swiper: function() {
+						// Try to get the thumbs instance from the global map
+						const thumbsSelector = '#thumbs-slider-{{ section.id }}';
+						return window.swiperInstances ? window.swiperInstances.get(thumbsSelector) : null;
+					},
+					multipleActiveThumbs: false
+				},
+				{% endif %}
+				{% endunless %}
+				slidesPerView: 1,
+				spaceBetween: 15,
+				watchSlidesVisibility: true,
+				grabCursor: false,
+				slideToClickedSlide: true,
+				breakpoints: {
+					0: {
+						navigation: {
+							nextEl: '#product-main-slider-nav-next-{{ section.id }}',
+							prevEl: '#product-main-slider-nav-prev-{{ section.id }}',
+							disabledClass: 'disabled'
+						}
+					},
+					760: {
+						grabCursor: true,
+						navigation: {}
+					}
+				}
+			};
 
-	            if (activeIndex + 1 >= visibleSlidesEnd) {
-	              thumbsSwiper.slideNext();
-	            } else if (activeIndex < visibleSlidesStart) {
-	              thumbsSwiper.slidePrev();
-	            }
-	          } catch (error) {
-	            console.warn('Thumb navigation error:', error);
-	          }
-	          {% endunless %}
-	        }
-	      }
-	    });
-	  });
+			mainEl.dataset.swiperOptions = JSON.stringify(mainOptions);
+		}
+
+		// Check if elements are in viewport
+		const isInViewport = (element) => {
+			const rect = element.getBoundingClientRect();
+			return (
+				rect.top <= (window.innerHeight || document.documentElement.clientHeight) + 500 &&
+				rect.bottom >= -500
+			);
+		};
+
+		// Initialize function - makes actual Swiper instances
+		const initGallery = () => {
+			{% unless isHideThumbs %}
+			// Initialize thumbs first if it exists
+			if (thumbsEl && !thumbsEl.dataset.swiperInitialized && document.body.contains(thumbsEl)) {
+				loadSwiper(() => {
+					// Use the element's actual ID to avoid template prefix issues
+					const thumbsId = thumbsEl.id;
+					window.productThumbsSlider{{ section.id }} = initializeSwiper('#' + thumbsId);
+				});
+			}
+			{% endunless %}
+
+			// Initialize main slider if it exists
+			if (mainEl && !mainEl.dataset.swiperInitialized && document.body.contains(mainEl)) {
+				loadSwiper(() => {
+					// Use the element's actual ID to avoid template prefix issues
+					const mainId = mainEl.id;
+					window.productSliderAllInOne{{ section.id }} = initializeSwiper('#' + mainId);
+
+					// Add event listeners after initialization if the instance was created
+					if (window.productSliderAllInOne{{ section.id }}) {
+						window.productSliderAllInOne{{ section.id }}.on('slideChange', function() {
+							{% unless isHideThumbs %}
+							try {
+								if (!this.thumbs || !this.thumbs.swiper) return;
+
+								const thumbsSwiper = this.thumbs.swiper;
+								if (!thumbsSwiper.slides || thumbsSwiper.slides.length === 0) return;
+
+								const activeIndex = this.activeIndex;
+								const visibleSlidesStart = thumbsSwiper.activeIndex;
+								const visibleSlidesEnd = visibleSlidesStart + thumbsSwiper.params.slidesPerView;
+
+								if (activeIndex + 1 >= visibleSlidesEnd) {
+									thumbsSwiper.slideNext();
+								} else if (activeIndex < visibleSlidesStart) {
+									thumbsSwiper.slidePrev();
+								}
+							} catch (error) {
+								console.warn('Thumb navigation error:', error);
+							}
+							{% endunless %}
+						});
+					}
+				});
+			}
+		};
+
+		// Check if we need to load immediately
+		let needsImmediateLoading = false;
+		if (mainEl && isInViewport(mainEl)) {
+			needsImmediateLoading = true;
+		}
+		{% unless isHideThumbs %}
+		if (thumbsEl && isInViewport(thumbsEl)) {
+			needsImmediateLoading = true;
+		}
+		{% endunless %}
+
+		// Use observer if available, otherwise initialize immediately
+		let useObserver = window.swiperObserver && typeof IntersectionObserver !== 'undefined' && !needsImmediateLoading;
+
+		if (useObserver) {
+			{% unless isHideThumbs %}
+			if (thumbsEl && !thumbsEl.dataset.swiperObserved && document.body.contains(thumbsEl)) {
+				window.swiperObserver.observe(thumbsEl);
+				thumbsEl.dataset.swiperObserved = 'pending';
+			}
+			{% endunless %}
+
+			if (mainEl && !mainEl.dataset.swiperObserved && document.body.contains(mainEl)) {
+				window.swiperObserver.observe(mainEl);
+				mainEl.dataset.swiperObserved = 'pending';
+			}
+		} else {
+			// Fallback to immediate initialization
+			initGallery();
+		}
 	});
 </script>
 

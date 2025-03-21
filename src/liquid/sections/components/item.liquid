@@ -1,0 +1,57 @@
+{% if shop.name contains 'Global' %}
+  {% assign imageLink = image_global | default: image %}
+  {% assign imageMobileLink = image_mobile_global | default: image_mobile %}
+  {% assign linkUrl = link_url_global | default: link_url %}
+{% else %}
+  {% assign imageLink = image %}
+  {% assign imageMobileLink = image_mobile %}
+  {% assign linkUrl = link_url %}
+{% endif %}
+
+{% if linkUrl and link_style == 'item' %}<a class="contents" href="{{ linkUrl }}">{% endif %}
+{% assign itemID = 'item-' | append: section_id | append: index %}
+
+<div class="{% if is_slider %}swiper-slide{% endif %} item relative !h-auto" id="{{ itemID }}">
+  <div class="item-content flex flex-col items-center justify-{% if item_layout_mobile == 'row' %}start{% else %}center{% endif %} text-center gap-4 m-auto">
+    {% unless is_image_background %}
+      <div class="img-wrapper flex items-center">
+        {% if imageLink != blank or imageMobileLink != blank %}
+					{% render 'image-test',
+						image: imageLink,
+						mobile_image: imageMobileLink,
+						lazy: lazyLoad,
+						alt: imageLink.alt,
+						max_width: 271,
+						class: 'max-h-350px object-contain m-0'
+					%}
+					{% endif %}
+        {% elsif icon != blank %}
+          <i class="{{ icon }}"></i>
+        {% endif %}
+      </div>
+      {% if title != blank or description != blank or link_title != blank %}
+        <div class="text-wrapper flex flex-col gap-2 {% if item_layout_mobile == 'row' %}md:items-start md:w-[70vw]{% endif %}">
+          {% if title != blank %}<h3 class="title-tag text-wrap flex gap-1 w-fit justify-center items-center {% if description != blank %}m-auto{% else %}!m-0{% endif %} {{ title_tag }}">{{ title }}</h3>{% endif %}
+          {% if description != blank %}<div class="description">{{ description }}</div>{% endif %}
+          {% if link_style == 'a' %}
+            <a class="underline" href="{{ linkUrl }}">{{ link_title }}</a>
+          {% elsif link_style == 'button' %}
+            <a class="w-max m-auto" href="{{ linkUrl }}"><button>{{ link_title }}</button></a>
+          {% endif %}
+        </div>
+      {% endif %}
+    {% endunless %}
+  </div>
+</div>
+
+{% if linkUrl and link_style == 'item' %}</a>{% endif %}
+
+{% if is_image_background %}
+  <style>
+    #{{ itemID }} {
+      background-image: url("{{ imageLink | image_url }}") !important;
+      background-size: cover;
+      background-position: center;
+    }
+  </style>
+{% endif %}

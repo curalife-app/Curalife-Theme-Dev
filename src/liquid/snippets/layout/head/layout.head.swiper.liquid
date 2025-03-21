@@ -407,6 +407,72 @@
       }
     }, 50);
   })();
+
+  // Only proceed if Swiper isn't already being handled
+  if (typeof window.isSwiperLoaded === 'undefined') {
+    // Initialize global variables for swiper loading management
+    window.isSwiperLoaded = false;
+    window.isSwiperLoading = false;
+    window.swiperInstances = new Map();
+    window.pendingSwiperInitializations = [];
+
+    console.log('Loading Swiper library directly (slider visible on page load)');
+    window.isSwiperLoading = true;
+
+    // Create a promise for script loading
+    const loadScriptsPromise = new Promise((resolve, reject) => {
+      // Load CSS first
+      const link = document.createElement("link");
+      link.rel = "stylesheet";
+      link.href = "https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css";
+      document.head.appendChild(link);
+
+      // Then load JS
+      const script = document.createElement("script");
+      script.src = "https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js";
+
+      // Set loading timeout
+      const timeout = setTimeout(() => {
+        reject(new Error("Swiper script loading timed out"));
+      }, 10000);
+
+      script.onload = () => {
+        clearTimeout(timeout);
+        resolve();
+      };
+
+      script.onerror = () => {
+        clearTimeout(timeout);
+        reject(new Error("Failed to load Swiper script"));
+      };
+
+      document.body.appendChild(script);
+    });
+
+    // Handle the promise results
+    loadScriptsPromise.then(() => {
+      window.isSwiperLoaded = true;
+      window.isSwiperLoading = false;
+      console.log('Swiper loaded successfully');
+
+      // Execute any pending callbacks
+      while (window.pendingSwiperInitializations.length > 0) {
+        const callback = window.pendingSwiperInitializations.shift();
+        try {
+          callback();
+        } catch (error) {
+          console.error("Error during swiper initialization:", error);
+        }
+      }
+    }).catch(error => {
+      console.error("Swiper loading error:", error);
+      window.isSwiperLoading = false;
+      window.pendingSwiperInitializations = [];
+    });
+  }
+
+  // Export the function for external use
+  window.initializeSwiper = initializeSwiper;
 </script>
 
 <style>

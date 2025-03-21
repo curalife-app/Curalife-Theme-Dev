@@ -33,7 +33,7 @@
 			{% endif %}
 
 			{% if section.settings.is_slider %}
-				<div class="swiper items !overflow-{{ section.settings.overflow }} z-10 {% if section.settings.is_dots or section.settings.is_scrollbar %}!pb-12{% endif %}" id="items-container-{{ section.id }}" {% if section.settings.animation %}data-aos="{{ section.settings.animation }}"{% endif %}>
+				<div class="swiper items !overflow-{{ section.settings.overflow }} z-10 {% if section.settings.is_dots or section.settings.is_scrollbar %}!pb-12{% endif %} swiper-loading" id="items-container-{{ section.id }}" data-swiper-section="{{ section.id }}-items" {% if section.settings.animation %}data-aos="{{ section.settings.animation }}"{% endif %}>
 					<div class="swiper-wrapper justify-between">
 			{% else %}
 				<div class="items !overflow-{{ section.settings.overflow }} z-10 flex flex-wrap {% if section.settings.items_align == 'center' %}items-center{% else %}items-start{% endif %} {% if section.settings.collection_align == 'center' %}m-auto{% endif %} justify-center overflow-visible" id="items-container-{{ section.id }}" {% if section.settings.animation %}data-aos="{{ section.settings.animation }}"{% endif %}>
@@ -159,6 +159,14 @@
 						<div class="swiper-scrollbar"></div>
 					{% endif %}
 				</div>
+
+				<div class="swiper-loader">
+					<div class="swiper-loader-spinner">
+						<div class="swiper-loader-bounce1"></div>
+						<div class="swiper-loader-bounce2"></div>
+						<div class="swiper-loader-bounce3"></div>
+					</div>
+				</div>
 			{% endif %}
 
 			{% if section.settings.is_slider %}</div>{% endif %}
@@ -187,254 +195,124 @@
 	</section>
 
 	{% if section.settings.is_slider %}
-		<script>
-			document.addEventListener('DOMContentLoaded', function() {
-				function getMaxHeightOfElements(selector) {
-					let maxHeight = 0;
-					document.querySelectorAll(selector).forEach(function(element) {
-						element.style.height = '';
-						maxHeight = Math.max(maxHeight, element.offsetHeight);
-					});
-					return maxHeight;
-				}
-
-				function setHeightOfElements(selector, height) {
-					document.querySelectorAll(selector).forEach(function(element) {
-						element.style.height = height + 'px';
-					});
-				}
-
-				function adjustTitleHeight() {
-					const titleMaxHeight = getMaxHeightOfElements("#section-{{ section.id }} .title-tag");
-					setHeightOfElements("#section-{{ section.id }} .title-tag", titleMaxHeight);
-				}
-
-				function adjustHeights() {
-					adjustTitleHeight();
-				}
-
-				function initSwiper(itemsContainer) {
-					itemsContainer.classList.add('swiper');
-					itemsContainer.classList.remove('items', 'flex', 'flex-wrap');
-					const items = itemsContainer.querySelectorAll('.item');
-					items.forEach(item => item.classList.add('swiper-slide'));
-
-					loadSwiper(() => {
-						let swiper = initializeSwiper('#items-container-{{ section.id }}', {
-							spaceBetween: 15,
-							grabCursor: true,
-							watchSlidesVisibility: true,
-							slidesPerView: 'auto',
-							autoHeight: {{ section.settings.is_auto_height }},
-							{% if section.settings.is_arrows %}
-							navigation: {
-								nextEl: '#items-container-{{ section.id }} .swiper-button-next',
-								prevEl: '#items-container-{{ section.id }} .swiper-button-prev',
-							},
-							{% endif %}
-							{% if section.settings.is_dots %}
-							pagination: {
-								el: '#items-container-{{ section.id }} .swiper-pagination',
-								clickable: true
-							},
-							{% endif %}
-							{% if section.settings.is_scrollbar %}
-							scrollbar: {
-								el: '#items-container-{{ section.id }} .swiper-scrollbar'
-							},
-							{% endif %}
-							{% if section.settings.is_ticker %}
-							loop: true,
-							speed: 1500,
-							autoplay: {
-								delay: 0,
-								disableOnInteraction: false
-							},
-							{% elsif section.settings.slider_autoplay_speed > 0 %}
-							loop: true,
-							speed: {{ section.settings.slider_autoplay_speed }},
-							autoplay: {
-								delay: {{ section.settings.slider_autoplay_speed }},
-							},
-							{% endif %}
-							lazy: true,
-							breakpoints: {
-								768: {
-									slidesPerView: {{ section.settings.items_in_row_mobile }},
-								},
-								1200: {
-									slidesPerView: {% if section.settings.items_in_row != 'all' %}{{ section.settings.items_in_row }}{% else %}'auto'{% endif %}
-								}
-							}
-						});
-					});
-				}
-
-				function deactivateSwiper(itemsContainer) {
-					itemsContainer.classList.remove('swiper');
-					itemsContainer.classList.add('items', 'flex', 'flex-wrap');
-					const items = itemsContainer.querySelectorAll('.item');
-					items.forEach(item => item.classList.remove('swiper-slide'));
-				}
-
-				function hideArrows(arrows) {
-					arrows.forEach(arrow => arrow.style.display = 'none');
-				}
-
-				function showArrows(arrows) {
-					arrows.forEach(arrow => arrow.style.display = '');
-				}
-
-				const displayOnUrlParameter = '{{ section.settings.display_on_utm_parmeters }}';
-
-				if (displayOnUrlParameter) {
-					const section = document.getElementById('section-{{ section.id }}');
-
-					if (window.location.href.includes(displayOnUrlParameter)) {
-						section.classList.remove('!hidden');
-					} else {
-						document.querySelectorAll('.shopify-section').forEach(shopifySection => {
-							shopifySection.style.marginTop = '0';
-						});
-					}
-				}
-
-				const itemsContainer = document.getElementById('items-container-{{ section.id }}');
-				if (itemsContainer) {
-					let isMobile = window.innerWidth <= 768;
-					const arrows = document.querySelectorAll('#section-{{ section.id }} .swiper-button-next, #section-{{ section.id }} .swiper-button-prev');
-
-					{% if section.settings.items_in_row == 'all' %}
-						if (isMobile) {
-							initSwiper(itemsContainer);
-							showArrows(arrows);
-						} else {
-							deactivateSwiper(itemsContainer);
-							hideArrows(arrows);
-						}
-					{% else %}
-						initSwiper(itemsContainer);
-						showArrows(arrows);
-					{% endif %}
-
-					window.addEventListener('resize', function() {
-						const newIsMobile = window.innerWidth <= 768;
-						if (isMobile !== newIsMobile) {
-							isMobile = newIsMobile;
-							{% if section.settings.items_in_row == 'all' %}
-								if (isMobile) {
-									initSwiper(itemsContainer);
-									showArrows(arrows);
-								} else {
-									deactivateSwiper(itemsContainer);
-									hideArrows(arrows);
-								}
-							{% endif %}
-						}
-					});
-				}
-
-				window.addEventListener('load', adjustHeights);
-				window.addEventListener('resize', adjustHeights);
-			});
-		</script>
-
-		<style>
-			{% if section.settings.is_arrows_bottom %}
-				#section-{{ section.id }} {
-					--swiper-navigation-top-offset: 98% !important;
-					--swiper-navigation-sides-offset: 370px;
-
-					.swiper {
-						padding-bottom: 50px !important;
-					}
-
-					@media (width < 768px) {
-						--swiper-navigation-sides-offset: 15vw !important;
-						--swiper-navigation-top-offset: 105vw !important;
-
-						.swiper {
-							padding-bottom: 13vw !important;
-						}
-					}
-				}
-			{% elsif request.path contains 'lp-wl-curaslim-360' or request.path contains 'curaslim-b2b' or request.path contains 'quiz-results-v2' %}
-				#section-{{ section.id }} {
-					.swiper {
-						padding-bottom: 50px !important;
-					}
-
-					@media (width > 768px) {
-						--swiper-navigation-top-offset: -50px !important;
-
-						.swiper-button-next {
-							right: 0;
-						}
-
-						.swiper-button-prev {
-							right: 60px;
-							left: unset;
-						}
-					}
-
-
-					@media (width <= 768px) {
-						--swiper-navigation-top-offset: 95% !important;
-						--swiper-navigation-sides-offset: 20vw !important;
-
-						.swiper {
-							padding-bottom: 20vw !important;
-						}
-					}
-				}
-			{% endif %}
-
-			#section-{{ section.id }} .swiper-slide {
-				opacity: 0;
-				transition: opacity 1s ease;
-			}
-
-			#section-{{ section.id }} .swiper-slide-active {
-				opacity: 1;
-			}
-
-			@media (max-width: 768px) {
-				#section-{{ section.id }} .swiper-slide-next {
-					opacity: 0 !important;
-				}
-			}
-
-			{% if section.settings.items_in_row == 'all' %}
-				{% assign items_in_row = itemsCounter %}
-			{% else %}
-				{% assign items_in_row = section.settings.items_in_row | minus: 1 %}
-			{% endif %}
-
-			{% for i in (1..items_in_row) %}
-				#section-{{ section.id }} .swiper-slide-active{% for j in (1..i) %} + .swiper-slide{% endfor %} {
-					opacity: 1;
-				}
-			{% endfor %}
-
-			@media (max-width: 768px) {
-				#section-{{ section.id }} .swiper-slide-active {
-					opacity: 1;
-				}
-
-				{% if section.settings.items_in_row_mobile == 'all' %}
-					{% assign items_in_row_mobile = itemsCounter %}
-				{% else %}
-					{% assign items_in_row_mobile = section.settings.items_in_row_mobile | minus: 1 %}
-				{% endif %}
-
-				{% for i in (1..items_in_row_mobile) %}
-					#section-{{ section.id }} .swiper-slide-active{% for j in (1..i) %} + .swiper-slide{% endfor %} {
-						opacity: 1;
-					}
-				{% endfor %}
-			}
-		</style>
+		{% render 'layout.head.swiper-dynamic', selector: '#items-container-' | append: section.id %}
 	{% endif %}
+
+	<script>
+		document.addEventListener('DOMContentLoaded', function() {
+			function getMaxHeightOfElements(selector) {
+				let maxHeight = 0;
+				document.querySelectorAll(selector).forEach(function(element) {
+					element.style.height = '';
+					maxHeight = Math.max(maxHeight, element.offsetHeight);
+				});
+				return maxHeight;
+			}
+
+			function setHeightOfElements(selector, height) {
+				document.querySelectorAll(selector).forEach(function(element) {
+					element.style.height = height + 'px';
+				});
+			}
+
+			function adjustTitleHeight() {
+				const titleMaxHeight = getMaxHeightOfElements("#section-{{ section.id }} .title-tag");
+				setHeightOfElements("#section-{{ section.id }} .title-tag", titleMaxHeight);
+			}
+
+			function adjustHeights() {
+				adjustTitleHeight();
+			}
+
+			const swiperEl = document.querySelector('#items-container-{{ section.id }}');
+			if (swiperEl && '{{ section.settings.is_slider }}' === 'true') {
+				swiperEl.classList.add('swiper');
+				swiperEl.classList.remove('items', 'flex', 'flex-wrap');
+				const items = swiperEl.querySelectorAll('.item');
+				items.forEach(item => item.classList.add('swiper-slide'));
+
+				// Add data attributes for the Swiper options
+				swiperEl.dataset.swiperOptions = JSON.stringify({
+					spaceBetween: 15,
+					grabCursor: true,
+					watchSlidesVisibility: true,
+					slidesPerView: 'auto',
+					autoHeight: {{ section.settings.is_auto_height | default: false }},
+					{% if section.settings.is_arrows %}
+					navigation: {
+						nextEl: '#items-container-{{ section.id }} .swiper-button-next',
+						prevEl: '#items-container-{{ section.id }} .swiper-button-prev',
+					},
+					{% endif %}
+					{% if section.settings.is_dots %}
+					pagination: {
+						el: '#items-container-{{ section.id }} .swiper-pagination',
+						clickable: true
+					},
+					{% endif %}
+					{% if section.settings.is_scrollbar %}
+					scrollbar: {
+						el: '#items-container-{{ section.id }} .swiper-scrollbar'
+					},
+					{% endif %}
+					{% if section.settings.is_ticker %}
+					loop: true,
+					loopAdditionalSlides: 5,
+					speed: {{ section.settings.ticker_speed | default: 1000 }},
+					autoplay: {
+						delay: 1,
+						disableOnInteraction: false
+					},
+					{% endif %}
+					breakpoints: {
+						320: {
+							slidesPerView: {{ section.settings.items_per_view_mobile | default: 1 }},
+							spaceBetween: 8
+						},
+						420: {
+							slidesPerView: {{ section.settings.items_per_view_mobile | default: 1 }},
+							spaceBetween: 10
+						},
+						768: {
+							slidesPerView: {{ section.settings.items_per_view | default: 1 }},
+							spaceBetween: 15
+						},
+						1024: {
+							slidesPerView: {{ section.settings.items_per_view | default: 2 }},
+							spaceBetween: 30
+						},
+						1200: {
+							slidesPerView: {{ section.settings.items_per_view | default: 3 }},
+							spaceBetween: 30
+						}
+					},
+					on: {
+						init: function () {
+							setTimeout(adjustHeights, 100);
+						},
+						resize: function () {
+							setTimeout(adjustHeights, 100);
+						}
+					}
+				});
+
+				// Let the observer handle initialization if element is not in viewport
+				if (window.swiperObserver && !swiperEl.dataset.swiperObserved) {
+					window.swiperObserver.observe(swiperEl);
+					swiperEl.dataset.swiperObserved = 'pending';
+				} else {
+					// Fallback to manual initialization
+					loadSwiper(() => {
+						const swiper = window.initializeSwiper('#items-container-{{ section.id }}',
+							JSON.parse(swiperEl.dataset.swiperOptions));
+
+						// Additional event listeners if needed
+						window.addEventListener('resize', adjustHeights);
+					});
+				}
+			}
+		});
+	</script>
 
 	<style>
 		{% if section.settings.is_ticker %}

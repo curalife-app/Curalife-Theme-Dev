@@ -2,7 +2,7 @@
   <div class="container">
     <h2>{{ section.settings.title }}</h2>
 
-    <div class="video-reviews swiper">
+    <div class="video-reviews swiper swiper-loading" data-swiper-section="{{ section.id }}-videos">
       <div class="swiper-button-prev"></div>
       <div class="swiper-wrapper">
         {% for block in section.blocks %}
@@ -21,6 +21,14 @@
         {% endfor %}
       </div>
       <div class="swiper-button-next"></div>
+
+      <div class="swiper-loader">
+        <div class="swiper-loader-spinner">
+          <div class="swiper-loader-bounce1"></div>
+          <div class="swiper-loader-bounce2"></div>
+          <div class="swiper-loader-bounce3"></div>
+        </div>
+      </div>
     </div>
   </div>
 </section>
@@ -116,8 +124,18 @@
   }
 </style>
 
+{% comment %}
+  Add lazy loading support
+{% endcomment %}
+{% render 'layout.head.swiper-dynamic', selector: '.video-reviews-section .swiper' %}
+
 <script>
-  videoReviewsSliderAllInOne = new Swiper('.video-reviews-section .swiper', {
+  document.addEventListener('DOMContentLoaded', () => {
+    const swiperEl = document.querySelector('.video-reviews-section .swiper');
+    if (!swiperEl) return;
+
+    // Add data attributes for the Swiper options
+    swiperEl.dataset.swiperOptions = JSON.stringify({
       slidesPerView: 'auto',
       spaceBetween: 8,
       centeredSlides: true,
@@ -125,10 +143,23 @@
       slideToClickedSlide: true,
       loop: false,
       navigation: {
-          nextEl: '.video-reviews-section .swiper-button-next',
-          prevEl: '.video-reviews-section .swiper-button-prev',
-          disabledClass: 'disabled'
+        nextEl: '.video-reviews-section .swiper-button-next',
+        prevEl: '.video-reviews-section .swiper-button-prev',
+        disabledClass: 'disabled'
       }
+    });
+
+    // Let the observer handle initialization if element is not in viewport
+    if (window.swiperObserver && !swiperEl.dataset.swiperObserved) {
+      window.swiperObserver.observe(swiperEl);
+      swiperEl.dataset.swiperObserved = 'pending';
+    } else {
+      // Fallback to manual initialization
+      loadSwiper(() => {
+        window.initializeSwiper('.video-reviews-section .swiper',
+          JSON.parse(swiperEl.dataset.swiperOptions));
+      });
+    }
   });
 </script>
 

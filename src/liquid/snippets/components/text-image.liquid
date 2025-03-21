@@ -43,7 +43,7 @@
       <div class="image-wrapper z-[1] h-auto w-auto md:mb-0 max-w-full {% if mainMobileImage and mainImage == blank %}mobile{% endif %} {% if itemsDirection == 'vertical' %}place-self-center{% endif %} {% if is_image_bottom %}self-end md:self-auto{% endif %}">
         {% assign videoCounter = section_blocks | where: 'type', 'video' | size %}
         {% if videoCounter > 0 %}
-          <div class="video-carousel swiper">
+          <div class="video-carousel swiper swiper-loading" data-swiper-section="{{ section_id }}-video">
             <div class="swiper-wrapper">
               {% for block in section_blocks %}
                 {% case block.type %}
@@ -57,30 +57,53 @@
 
             <div class="swiper-nav swiper-button-prev" name="track:Video Slider Arrow - Preview"></div>
             <div class="swiper-nav swiper-button-next" name="track:Video Slider Arrow - Next"></div>
+            <div class="swiper-pagination"></div>
+
+            <div class="swiper-loader">
+              <div class="swiper-loader-spinner">
+                <div class="swiper-loader-bounce1"></div>
+                <div class="swiper-loader-bounce2"></div>
+                <div class="swiper-loader-bounce3"></div>
+              </div>
+            </div>
           </div>
 
           <script>
             document.addEventListener('DOMContentLoaded', function() {
-              loadSwiper(() => {
-                let swiper = initializeSwiper('#section-{{ section_id }} .image-wrapper .swiper', {
-                  slidesPerView: 1,
-                  spaceBetween: 10,
-                  grabCursor: true,
-                  navigation: {
-                    nextEl: '#section-{{ section_id }} .swiper-button-next',
-                    prevEl: '#section-{{ section_id }} .swiper-button-prev',
-                  },
-                  pagination: {
-                    el: '#section-{{ section_id }} .swiper-pagination',
-                    clickable: true,
-                  },
-                  breakpoints: {
-                    768: {
-                      slidesPerView: 3,
-                    }
-                  },
-                });
+              const swiperEl = document.querySelector('#section-{{ section_id }} .video-carousel');
+              if (!swiperEl) return;
+
+              // Add data attributes for the Swiper options
+              swiperEl.dataset.swiperOptions = JSON.stringify({
+                slidesPerView: 1,
+                spaceBetween: 10,
+                grabCursor: true,
+                navigation: {
+                  nextEl: '#section-{{ section_id }} .video-carousel .swiper-button-next',
+                  prevEl: '#section-{{ section_id }} .video-carousel .swiper-button-prev',
+                },
+                pagination: {
+                  el: '#section-{{ section_id }} .video-carousel .swiper-pagination',
+                  clickable: true,
+                },
+                breakpoints: {
+                  768: {
+                    slidesPerView: 3,
+                  }
+                },
               });
+
+              // Let the observer handle initialization if element is not in viewport
+              if (window.swiperObserver && !swiperEl.dataset.swiperObserved) {
+                window.swiperObserver.observe(swiperEl);
+                swiperEl.dataset.swiperObserved = 'pending';
+              } else {
+                // Fallback to manual initialization
+                loadSwiper(() => {
+                  window.initializeSwiper('#section-{{ section_id }} .video-carousel',
+                    JSON.parse(swiperEl.dataset.swiperOptions));
+                });
+              }
             });
           </script>
 				{% elsif embedCode != blank %}
@@ -91,10 +114,6 @@
           {% if is_dont_lazyload == false %}
 						{% assign lazyLoad = true %}
 					{% endif %}
-
-					<script>
-						console.log('image_width: {{ image_width }}');
-					</script>
 
 					{% render 'image-test',
 						image: mainImage,
@@ -241,11 +260,12 @@
   {% if itemsCounter > 0 %}
     <div id="collection-container-{{ section.id }}" class="collection-container mt-4 {% if items_hidden_title == blank %}open{% endif %}">
       <div class="collection-content">
-        <div class="swiper items !overflow-visible {{ sliderClass }}">
+        <div class="swiper items swiper-loading !overflow-visible {{ sliderClass }}" data-swiper-section="{{ section.id }}-items">
           <div class="swiper-wrapper flex-nowrap flex justify-between">
             {% for block in section_blocks %}
               {% case block.type %}
               {% when 'item' %}
+
                   {% render 'item',
                     image: block.settings.image,
                     image_global: block.settings.image_global,
@@ -271,247 +291,52 @@
             <div class="swiper-nav swiper-button-prev" name="track:Slider Arrow - Preview"></div>
             <div class="swiper-nav swiper-button-next" name="track:Slider Arrow - Next"></div>
           {% endunless %}
+
+          <div class="swiper-loader">
+            <div class="swiper-loader-spinner">
+              <div class="swiper-loader-bounce1"></div>
+              <div class="swiper-loader-bounce2"></div>
+              <div class="swiper-loader-bounce3"></div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
 
     <script>
       document.addEventListener('DOMContentLoaded', function() {
-        var collectionLink = document.querySelector('#section-{{ section_id }} .collection-link');
-        var itemsContainer = document.querySelector('#section-{{ section_id }} .collection-container');
-        var contentContainer = document.querySelector('#section-{{ section_id }} .collection-content');
+        const swiperEl = document.querySelector('#collection-container-{{ section.id }} .swiper');
+        if (!swiperEl) return;
 
-        if (collectionLink && itemsContainer && contentContainer) {
-          collectionLink.addEventListener('click', function(e) {
-            e.preventDefault();
-
-            if (itemsContainer.classList.contains('open')) {
-              contentContainer.style.opacity = '0';
-              collectionLink.style.opacity = '1';
-              collectionLink.style.pointerEvents = 'auto';
-              collectionLink.style.maxHeight = collectionLink.scrollHeight + 'px';
-              setTimeout(function() {
-                itemsContainer.style.height = '0px';
-                itemsContainer.classList.remove('open');
-                collectionLink.classList.remove('open');
-                collectionLink.style.maxHeight = collectionLink.scrollHeight + 'px';
-              }, 300);
-            } else {
-              itemsContainer.style.height = contentContainer.scrollHeight + 'px';
-              itemsContainer.classList.add('open');
-              collectionLink.classList.add('open');
-              collectionLink.style.opacity = '0';
-              collectionLink.style.pointerEvents = 'none';
-              collectionLink.style.maxHeight = '0px';
-              setTimeout(function() {
-                contentContainer.style.opacity = '1';
-              }, 50);
-            }
-          });
-        }
-
-        var sliderOn = '{{ items_slider_on | escape }}';
-        var isMobile = window.innerWidth <= 768;
-
-        var shouldInitializeSwiper = false;
-        if (sliderOn === 'both') {
-          shouldInitializeSwiper = true;
-        } else if (sliderOn === 'desktop' && !isMobile) {
-          shouldInitializeSwiper = true;
-        } else if (sliderOn === 'mobile' && isMobile) {
-          shouldInitializeSwiper = true;
-        } else if (sliderOn === 'none') {
-          shouldInitializeSwiper = false;
-        }
-
-        if (shouldInitializeSwiper) {
-          loadSwiper(() => {
-            let swiper = initializeSwiper('#collection-container-{{ section.id }} .swiper', {
-              slidesPerView: 1,
-							spaceBetween: 10,
-              grabCursor: true,
-              navigation: {
-                nextEl: '#section-{{ section_id }} .swiper-button-next',
-                prevEl: '#section-{{ section_id }} .swiper-button-prev',
-              },
-              breakpoints: {
-                768: {
-                  slidesPerView: 3,
-                }
-              },
-            });
-          });
-        } else {
-          var swiperContainer = document.querySelector('#section-{{ section_id }} .swiper.items');
-          if (swiperContainer) {
-            swiperContainer.classList.remove('swiper');
-            var swiperWrapper = swiperContainer.querySelector('.swiper-wrapper');
-            if (swiperWrapper) {
-              swiperWrapper.classList.remove('swiper-wrapper');
-              swiperWrapper.classList.add('non-swiper-wrapper');
-            }
-            var swiperSlides = swiperWrapper.querySelectorAll('.swiper-slide');
-            swiperSlides.forEach(function(slide) {
-              slide.classList.remove('swiper-slide');
-              slide.classList.add('non-swiper-slide');
-            });
+        // Add data attributes for the Swiper options
+        swiperEl.dataset.swiperOptions = JSON.stringify({
+          slidesPerView: 'auto',
+          spaceBetween: 20,
+          grabCursor: true,
+          navigation: {
+            nextEl: '#collection-container-{{ section.id }} .swiper-button-next',
+            prevEl: '#collection-container-{{ section.id }} .swiper-button-prev'
+          },
+          breakpoints: {
+            768: { slidesPerView: 1, spaceBetween: 20 },
+            1024: { slidesPerView: 2, spaceBetween: 20 },
+            1200: { slidesPerView: 3, spaceBetween: 20 }
           }
+        });
+
+        // Let the observer handle initialization if element is not in viewport
+        if (window.swiperObserver && !swiperEl.dataset.swiperObserved) {
+          window.swiperObserver.observe(swiperEl);
+          swiperEl.dataset.swiperObserved = 'pending';
+        } else {
+          // Fallback to manual initialization
+          loadSwiper(() => {
+            window.initializeSwiper('#collection-container-{{ section.id }} .swiper',
+              JSON.parse(swiperEl.dataset.swiperOptions));
+          });
         }
       });
     </script>
-
-    <style>
-      #section-{{ section_id }} .collection-container {
-        height: 0;
-        transition: height 0.3s ease-out;
-        overflow: hidden;
-
-        .collection-content {
-          opacity: 0;
-          transition: opacity 0.3s ease-out;
-        }
-
-        &.open {
-          overflow: visible;
-          height: auto !important;
-
-          .collection-content {
-            opacity: 1;
-          }
-        }
-
-        &.open {
-          &:has(.non-swiper-wrapper) {
-            padding-bottom: 0 !important;
-          }
-
-          @media (max-width: 768px) {
-            overflow-y: hidden;
-            padding-bottom: 20vw;
-            scrollbar-width: none !important;
-          }
-        }
-
-        @media (width < 768px) {
-          .non-swiper-wrapper {
-            flex-direction: column;
-            gap: 1rem;
-          }
-        }
-
-				@media (width > 768px) {
-					.non-swiper-wrapper {
-						.item {
-							width: calc((100% / 3) - (2 * (1rem / 3))) !important;
-						}
-					}
-				}
-
-        .items {
-          justify-content: space-between;
-
-          @media (width > 768px) {
-            gap: 1rem;
-          }
-
-          .item {
-            background-color: var(--bg-color);
-            border-radius: 15px;
-            padding: 1rem;
-
-            .item-content {
-              text-align: start;
-              align-items: start;
-
-              .img-wrapper {
-                align-items: start;
-              }
-
-              .title-tag {
-                margin: unset;
-                text-wrap: wrap;
-                font-size: 18px;
-								color: var(--primary-color);
-
-								@media (width < 768px) {
-									font-size: 5vw !important;
-								}
-              }
-            }
-          }
-        }
-
-
-        .swiper-nav {
-          --swiper-navigation-sides-offset: -26px;
-
-          @media (width < 768px) {
-            --swiper-navigation-sides-offset: 30%;
-            --swiper-navigation-top-offset: 110%
-          }
-        }
-      }
-
-      @media (width > 768px) {
-        #section-{{ section_id }}.container-fades .text-image-wrapper:after,
-        #section-{{ section_id }}.container-fades .text-image-wrapper:before {
-          content: " ";
-          width: calc((1200px - {{ max_width }}px) / 2);
-          height: 100%;
-          position: absolute;
-          top: 0;
-          z-index: 10;
-        }
-
-        #section-{{ section_id }}.container-fades .text-image-wrapper:after {
-          background: linear-gradient(270deg, {{ contentBG }} 0%, {{ contentBG }} 10%, rgba(255, 255, 255, 0) 100%);
-          right: 0;
-        }
-
-        #section-{{ section_id }}.container-fades .text-image-wrapper:before {
-          background: linear-gradient(90deg, {{ contentBG }} 0%, {{ contentBG }} 10%, rgba(255, 255, 255, 0) 100%);
-          left: 0;
-        }
-      }
-
-      {% if items_hidden_title != blank %}
-        #section-{{ section_id }} .collection-link {
-          display: inline-flex;
-          align-items: center;
-          transition: opacity 0.3s ease, transform 0.3s ease, margin 0.3s ease, max-height 0.3s ease;
-          cursor: pointer;
-          margin-bottom: 1rem;
-          overflow: hidden;
-          max-height: 50px;
-        }
-
-        #section-{{ section_id }} .collection-link svg {
-          transition: transform 0.3s ease;
-          margin-left: 0.5rem;
-        }
-
-        #section-{{ section_id }} .collection-link.open {
-          opacity: 0;
-          pointer-events: none;
-          transform: translateY(-10px);
-          margin-bottom: 0;
-          max-height: 0;
-        }
-
-        #section-{{ section_id }} .collection-link.open svg {
-          transform: rotate(180deg);
-        }
-
-        @media screen and (max-width: 768px) {
-          #section-{{ section_id }} .collection-link {
-            margin: auto;
-            flex-direction: column;
-            gap: 0.5rem;
-            max-height: 70px;
-          }
-        }
-      {% endif %}
-    </style>
   {% endif %}
 </div>
 

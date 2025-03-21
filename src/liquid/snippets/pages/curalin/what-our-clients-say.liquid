@@ -39,7 +39,7 @@ background: linear-gradient(
             <h2 class="d-mobile">Life Changing Experiences</h2>
           </div>
           <div class="quote-slider">
-            <div class="swiper">
+            <div class="swiper swiper-loading" data-swiper-section="client-quotes">
               <div class="swiper-wrapper">
                 {% for client in clients %}
                     <div class="swiper-slide">
@@ -71,6 +71,14 @@ background: linear-gradient(
               <div class="slide-control">
                 <div class="nav prev-slide"><span><</span></div>
                 <div class="nav next-slide"><span>></span></div>
+              </div>
+
+              <div class="swiper-loader">
+                <div class="swiper-loader-spinner">
+                  <div class="swiper-loader-bounce1"></div>
+                  <div class="swiper-loader-bounce2"></div>
+                  <div class="swiper-loader-bounce3"></div>
+                </div>
               </div>
             </div>
           </div>
@@ -124,7 +132,7 @@ background: linear-gradient(
               <div class="intro-text">
                 <div class="sub-title">
                   <h2>Maintain Healthy<br> Glucose levels</h2>
-                  <p>Curalin is designed specifically for people looking for an effective and natural way to maintain healthy glucose levels so they can enjoy life’s events to the fullest</p>
+                  <p>Curalin is designed specifically for people looking for an effective and natural way to maintain healthy glucose levels so they can enjoy life's events to the fullest</p>
                 </div>
                 <div class="btn">
                   <a href="/collections?cat=glucose-support"><button>Shop Now</button></a>
@@ -458,26 +466,37 @@ background: linear-gradient(
 </style>
 
 <script>
-  quoteSlider = new Swiper(".quote-slider .swiper", {
-    spaceBetween: 30,
-    grabCursor: true,
-    autoHeight: true,
-    loop: true,
-    navigation: {
-      nextEl: ".next-slide",
-      prevEl: ".prev-slide",
-      disabledClass: 'disabled'
-    },
-    breakpoints: {
-      0: {
-        slidesPerView: 1
+  document.addEventListener('DOMContentLoaded', function() {
+    const swiperEl = document.querySelector(".quote-slider .swiper");
+    if (!swiperEl) return;
+
+    // Add data attributes for the Swiper options
+    swiperEl.dataset.swiperOptions = JSON.stringify({
+      slidesPerView: 1,
+      spaceBetween: 30,
+      grabCursor: true,
+      loop: true,
+      centeredSlides: true,
+      navigation: {
+        nextEl: ".quote-slider .next-slide",
+        prevEl: ".quote-slider .prev-slide",
+        disabledClass: 'disabled'
       },
-      768: {
-        slidesPerView: 2
-      },
-      1200: {
-        slidesPerView: 3
+      autoplay: {
+        delay: 4000
       }
+    });
+
+    // Let the observer handle initialization if element is not in viewport
+    if (window.swiperObserver && !swiperEl.dataset.swiperObserved) {
+      window.swiperObserver.observe(swiperEl);
+      swiperEl.dataset.swiperObserved = 'pending';
+    } else {
+      // Fallback to manual initialization
+      loadSwiper(() => {
+        window.initializeSwiper(".quote-slider .swiper",
+          JSON.parse(swiperEl.dataset.swiperOptions));
+      });
     }
   });
 </script>
