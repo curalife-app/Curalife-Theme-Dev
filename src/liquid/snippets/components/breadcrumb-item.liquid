@@ -1,20 +1,37 @@
-<span class="breadcrumb-separator px-2">&gt;</span>
-<span itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+{% comment %}
+  Breadcrumb item component - used in breadcrumbs section
+  Parameters:
+  - title: The text to display
+  - link: (optional) The URL to link to
+  - is_current: (optional) Whether this is the current page
+  - position: The position in the breadcrumb list
+  - max_length: (optional) Maximum length of title before truncation
+{% endcomment %}
+
+{% assign title_to_display = title %}
+{% if max_length and title.size > max_length %}
+  {% assign title_to_display = title | slice: 0, max_length | append: '...' %}
+{% endif %}
+
+<span itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem" class="breadcrumb-item">
 	{% if link %}
-		<a href="{{ link }}" itemprop="item">
+		<a
+      href="{{ link }}"
+      itemprop="item"
+      class="hover:opacity-80 transition-opacity duration-200"
+      {% if is_current %}aria-current="page"{% endif %}
+    >
 			<span itemprop="name">
-				{% assign words_array = title | split: ' ' %}
-				{% for word in words_array %}
-					{{ word | capitalize }}
-				{% endfor %}
+				{{ title_to_display }}
 			</span>
 		</a>
 	{% else %}
-		<span itemprop="name" class="{% if is_current %}current-page text-primary{% endif %}">
-			{% assign words_array = title | split: ' ' %}
-			{% for word in words_array %}
-				{{ word | capitalize }}
-			{% endfor %}
+		<span
+      itemprop="name"
+      class="{% if is_current %}current-page text-[{{ section.settings.current_color }}]{% endif %}"
+      {% if is_current %}aria-current="page"{% endif %}
+    >
+			{{ title_to_display }}
 		</span>
 	{% endif %}
 
