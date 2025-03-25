@@ -21,47 +21,138 @@ if [ ! -f "$HISTORY_DIR/historical-data.json" ]; then
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lighthouse Performance Trends</title>
+    <title>Lighthouse Performance Trends | Curalife</title>
+    <link rel="icon" href="https://cdn.shopify.com/s/files/1/0016/8633/0243/files/favicon-32x32.png?v=1618828796" type="image/png">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <style>
         :root {
-            --primary-color: #4285f4;
-            --secondary-color: #34a853;
-            --accent-color: #ea4335;
-            --warning-color: #fbbc05;
-            --light-gray: #f8f9fa;
-            --dark-gray: #343a40;
+            --primary-color: #00837b;
+            --primary-light: #e6f7f5;
+            --secondary-color: #f26b3c;
+            --dark-color: #2c3e50;
+            --background: #f8f9fa;
+            --card-bg: #ffffff;
+            --text-color: #333333;
+            --border-radius: 10px;
+            --shadow: 0 4px 12px rgba(0,0,0,0.1);
+            --good: #0CCE6B;
+            --average: #FFA400;
+            --poor: #FF4E42;
         }
         body {
             font-family: "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
             line-height: 1.6;
-            color: #333;
-            background-color: var(--light-gray);
+            color: var(--text-color);
+            background-color: var(--background);
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
         }
         .dashboard-header {
             background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
             color: white;
             padding: 2rem;
-            border-radius: 10px;
+            border-radius: var(--border-radius);
             margin-bottom: 2rem;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            box-shadow: var(--shadow);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .dashboard-title {
+            margin: 0;
+            font-weight: 600;
+        }
+        .card {
+            background-color: var(--card-bg);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            border: none;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-bottom: 1.5rem;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
         }
         .empty-state {
             text-align: center;
-            padding: 4rem 2rem;
-            background-color: white;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            padding: 3rem 2rem;
+            background-color: var(--card-bg);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
         }
         .empty-state-icon {
-            font-size: 3rem;
-            color: var(--warning-color);
+            font-size: 4rem;
+            color: var(--secondary-color);
             margin-bottom: 1.5rem;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 0.8; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.05); }
+            100% { opacity: 0.8; transform: scale(1); }
+        }
+        .empty-state-title {
+            color: var(--dark-color);
+            font-weight: 600;
+            margin-bottom: 1rem;
         }
         .btn-primary {
             background-color: var(--primary-color);
             border-color: var(--primary-color);
+            padding: 0.5rem 1.5rem;
+            border-radius: 30px;
+            transition: all 0.2s;
+        }
+        .btn-primary:hover {
+            background-color: #006d66;
+            border-color: #006d66;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .trend-info-card {
+            border-left: 4px solid var(--primary-color);
+            background-color: var(--primary-light);
+            padding: 1.5rem;
+            border-radius: 6px;
+            margin-bottom: 1.5rem;
+        }
+        .trend-info-title {
+            color: var(--primary-color);
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 2rem;
+        }
+        .info-card {
+            background-color: var(--card-bg);
+            border-radius: var(--border-radius);
+            padding: 1.5rem;
+            box-shadow: var(--shadow);
+        }
+        .info-card .icon {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            color: var(--primary-color);
+        }
+        .info-card h4 {
+            color: var(--dark-color);
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+        }
+        .next-run {
+            background-color: rgba(255, 255, 255, 0.9);
+            border-radius: var(--border-radius);
+            padding: 1rem 1.5rem;
+            box-shadow: var(--shadow);
+            margin-top: 2rem;
+            display: inline-block;
         }
         .footer {
             margin-top: 3rem;
@@ -69,35 +160,82 @@ if [ ! -f "$HISTORY_DIR/historical-data.json" ]; then
             text-align: center;
             color: #6c757d;
             font-size: 0.9rem;
+            border-top: 1px solid #dee2e6;
+        }
+        @media (max-width: 768px) {
+            .dashboard-header {
+                flex-direction: column;
+                text-align: center;
+            }
+            .dashboard-header .btn {
+                margin-top: 1rem;
+            }
+            .info-grid {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="container py-4">
-        <div class="dashboard-header d-flex align-items-center">
-            <i class="bi bi-graph-up-arrow fs-1 me-3"></i>
-            <div>
-                <h1 class="mb-0">Performance Trends Dashboard</h1>
-                <p class="mb-0 mt-2">Historical performance tracking for Curalife.com</p>
-            </div>
+    <div class="dashboard-header">
+        <div>
+            <h1 class="dashboard-title"><i class="bi bi-graph-up-arrow me-3"></i>Performance Trends Dashboard</h1>
+            <p class="mb-0 mt-2">Historical performance tracking for Curalife.com</p>
         </div>
-
-        <div class="empty-state">
-            <div class="empty-state-icon">
-                <i class="bi bi-hourglass-split"></i>
-            </div>
-            <h2 class="mb-3">No Historical Data Available Yet</h2>
-            <p class="lead mb-4">Performance trends will appear here after multiple test runs have been completed.</p>
-            <p class="mb-4">The Lighthouse CI workflow runs twice daily and builds up historical data over time to help identify performance trends.</p>
-            <a href="index.html" class="btn btn-primary">
+        <div>
+            <a href="index.html" class="btn btn-outline-light">
                 <i class="bi bi-speedometer2 me-2"></i>Back to Dashboard
             </a>
         </div>
     </div>
 
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="empty-state">
+                <div class="empty-state-icon">
+                    <i class="bi bi-clock-history"></i>
+                </div>
+                <h2 class="empty-state-title">Building Performance History</h2>
+                <p class="lead mb-4">The performance trends dashboard is currently collecting data and will be available after multiple test runs have been completed.</p>
+                <div class="next-run">
+                    <i class="bi bi-calendar-check me-2"></i>Next scheduled run: <strong>Daily at 8:00 AM and 6:00 PM</strong>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="trend-info-card">
+        <h3 class="trend-info-title"><i class="bi bi-info-circle me-2"></i>About Performance Trends</h3>
+        <p>The trends dashboard provides valuable insights about your website's performance over time, helping you:</p>
+        <ul>
+            <li>Track improvements and regressions</li>
+            <li>Identify patterns in performance metrics</li>
+            <li>Monitor the impact of website changes</li>
+            <li>Ensure consistent user experience across key pages</li>
+        </ul>
+    </div>
+
+    <div class="info-grid">
+        <div class="info-card">
+            <div class="icon"><i class="bi bi-speedometer2"></i></div>
+            <h4>Core Web Vitals Tracking</h4>
+            <p>Once data is collected, this dashboard will display trends for LCP, CLS, and TBT/FID metrics over time, helping you understand how changes affect real user experiences.</p>
+        </div>
+        <div class="info-card">
+            <div class="icon"><i class="bi bi-bar-chart-line"></i></div>
+            <h4>Performance Score Analysis</h4>
+            <p>Track overall Lighthouse performance scores to understand how your site compares to Google's performance standards and benchmarks.</p>
+        </div>
+        <div class="info-card">
+            <div class="icon"><i class="bi bi-phone"></i></div>
+            <h4>Device Comparison</h4>
+            <p>Compare mobile vs. desktop performance trends to identify device-specific issues and optimization opportunities.</p>
+        </div>
+    </div>
+
     <footer class="footer">
         <div class="container">
-            <p>Generated by Lighthouse CI GitHub Action</p>
+            <p>Generated by Lighthouse CI GitHub Action on ${CURRENT_DATE}</p>
         </div>
     </footer>
 </body>

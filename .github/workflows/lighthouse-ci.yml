@@ -188,78 +188,429 @@ jobs:
 
           mkdir -p performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}
 
-          # Create simple desktop.html template with minimal content
-          echo '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Lighthouse Desktop Report</title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"></head><body>' > performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/desktop.html
+          # Create the desktop report directories
+          DESKTOP_REPORT_DIR="performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}"
 
-          # Append content
-          echo "<div class=\"container\"><h1>${{ matrix.page.name }} - Desktop</h1><p>Generated on ${{ steps.scores.outputs.report_date }}</p>" >> performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/desktop.html
+          # Create desktop.html template in a YAML-friendly way
+          echo "Creating desktop.html report"
+          DESKTOP_HTML="${DESKTOP_REPORT_DIR}/desktop.html"
+
+          # Create HTML file structure piece by piece to avoid YAML syntax issues
+          echo "<!DOCTYPE html>" > "$DESKTOP_HTML"
+          echo "<html lang=\"en\">" >> "$DESKTOP_HTML"
+          echo "<head>" >> "$DESKTOP_HTML"
+          echo "  <meta charset=\"UTF-8\">" >> "$DESKTOP_HTML"
+          echo "  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">" >> "$DESKTOP_HTML"
+          echo "  <title>${{ matrix.page.name }} - Desktop Performance Report | Curalife</title>" >> "$DESKTOP_HTML"
+          echo "  <link rel=\"icon\" href=\"https://cdn.shopify.com/s/files/1/0016/8633/0243/files/favicon-32x32.png?v=1618828796\" type=\"image/png\">" >> "$DESKTOP_HTML"
+          echo "  <link href=\"https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css\" rel=\"stylesheet\">" >> "$DESKTOP_HTML"
+          echo "  <link rel=\"stylesheet\" href=\"https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css\">" >> "$DESKTOP_HTML"
+          echo "  <style>" >> "$DESKTOP_HTML"
+          echo "    :root {" >> "$DESKTOP_HTML"
+          echo "      --primary-color: #00837b;" >> "$DESKTOP_HTML"
+          echo "      --primary-light: #e6f7f5;" >> "$DESKTOP_HTML"
+          echo "      --secondary-color: #f26b3c;" >> "$DESKTOP_HTML"
+          echo "      --dark-color: #2c3e50;" >> "$DESKTOP_HTML"
+          echo "      --good: #0CCE6B;" >> "$DESKTOP_HTML"
+          echo "      --average: #FFA400;" >> "$DESKTOP_HTML"
+          echo "      --poor: #FF4E42;" >> "$DESKTOP_HTML"
+          echo "      --background: #f8f9fa;" >> "$DESKTOP_HTML"
+          echo "    }" >> "$DESKTOP_HTML"
+          echo "    body {" >> "$DESKTOP_HTML"
+          echo "      font-family: 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;" >> "$DESKTOP_HTML"
+          echo "      line-height: 1.6;" >> "$DESKTOP_HTML"
+          echo "      background-color: var(--background);" >> "$DESKTOP_HTML"
+          echo "      color: #333;" >> "$DESKTOP_HTML"
+          echo "      max-width: 1200px;" >> "$DESKTOP_HTML"
+          echo "      margin: 0 auto;" >> "$DESKTOP_HTML"
+          echo "      padding: 20px;" >> "$DESKTOP_HTML"
+          echo "    }" >> "$DESKTOP_HTML"
+          echo "    .header {" >> "$DESKTOP_HTML"
+          echo "      background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));" >> "$DESKTOP_HTML"
+          echo "      color: white;" >> "$DESKTOP_HTML"
+          echo "      padding: 1.5rem;" >> "$DESKTOP_HTML"
+          echo "      border-radius: 10px;" >> "$DESKTOP_HTML"
+          echo "      margin-bottom: 2rem;" >> "$DESKTOP_HTML"
+          echo "      box-shadow: 0 4px 12px rgba(0,0,0,0.1);" >> "$DESKTOP_HTML"
+          echo "      display: flex;" >> "$DESKTOP_HTML"
+          echo "      justify-content: space-between;" >> "$DESKTOP_HTML"
+          echo "      align-items: center;" >> "$DESKTOP_HTML"
+          echo "    }" >> "$DESKTOP_HTML"
+          echo "    .card {" >> "$DESKTOP_HTML"
+          echo "      background: white;" >> "$DESKTOP_HTML"
+          echo "      border-radius: 10px;" >> "$DESKTOP_HTML"
+          echo "      padding: 20px;" >> "$DESKTOP_HTML"
+          echo "      margin-bottom: 20px;" >> "$DESKTOP_HTML"
+          echo "      box-shadow: 0 2px 10px rgba(0,0,0,0.05);" >> "$DESKTOP_HTML"
+          echo "      transition: transform 0.3s, box-shadow 0.3s;" >> "$DESKTOP_HTML"
+          echo "      border: none;" >> "$DESKTOP_HTML"
+          echo "    }" >> "$DESKTOP_HTML"
+          echo "    .card:hover {" >> "$DESKTOP_HTML"
+          echo "      transform: translateY(-5px);" >> "$DESKTOP_HTML"
+          echo "      box-shadow: 0 10px 20px rgba(0,0,0,0.1);" >> "$DESKTOP_HTML"
+          echo "    }" >> "$DESKTOP_HTML"
+          echo "    .score-card {" >> "$DESKTOP_HTML"
+          echo "      text-align: center;" >> "$DESKTOP_HTML"
+          echo "      padding: 1.5rem;" >> "$DESKTOP_HTML"
+          echo "    }" >> "$DESKTOP_HTML"
+          echo "    .score-value {" >> "$DESKTOP_HTML"
+          echo "      font-size: 3rem;" >> "$DESKTOP_HTML"
+          echo "      font-weight: bold;" >> "$DESKTOP_HTML"
+          echo "      position: relative;" >> "$DESKTOP_HTML"
+          echo "      display: inline-block;" >> "$DESKTOP_HTML"
+          echo "      width: 100px;" >> "$DESKTOP_HTML"
+          echo "      height: 100px;" >> "$DESKTOP_HTML"
+          echo "      line-height: 100px;" >> "$DESKTOP_HTML"
+          echo "      border-radius: 50%;" >> "$DESKTOP_HTML"
+          echo "      color: white;" >> "$DESKTOP_HTML"
+          echo "      margin-bottom: 15px;" >> "$DESKTOP_HTML"
+          echo "    }" >> "$DESKTOP_HTML"
+          echo "    .score-good { background-color: var(--good); }" >> "$DESKTOP_HTML"
+          echo "    .score-average { background-color: var(--average); }" >> "$DESKTOP_HTML"
+          echo "    .score-poor { background-color: var(--poor); }" >> "$DESKTOP_HTML"
+          echo "    .score-label {" >> "$DESKTOP_HTML"
+          echo "      font-size: 1.2rem;" >> "$DESKTOP_HTML"
+          echo "      font-weight: 600;" >> "$DESKTOP_HTML"
+          echo "      color: var(--dark-color);" >> "$DESKTOP_HTML"
+          echo "    }" >> "$DESKTOP_HTML"
+          echo "    .metric-good { color: var(--good); }" >> "$DESKTOP_HTML"
+          echo "    .metric-average { color: var(--average); }" >> "$DESKTOP_HTML"
+          echo "    .metric-poor { color: var(--poor); }" >> "$DESKTOP_HTML"
+          echo "    .section-title {" >> "$DESKTOP_HTML"
+          echo "      font-weight: 600;" >> "$DESKTOP_HTML"
+          echo "      color: var(--dark-color);" >> "$DESKTOP_HTML"
+          echo "      margin-bottom: 15px;" >> "$DESKTOP_HTML"
+          echo "      border-bottom: 2px solid var(--primary-light);" >> "$DESKTOP_HTML"
+          echo "      padding-bottom: 10px;" >> "$DESKTOP_HTML"
+          echo "    }" >> "$DESKTOP_HTML"
+          echo "  </style>" >> "$DESKTOP_HTML"
+          echo "</head>" >> "$DESKTOP_HTML"
+          echo "<body>" >> "$DESKTOP_HTML"
+
+          # Add header section
+          echo "  <div class=\"header\">" >> "$DESKTOP_HTML"
+          echo "    <div>" >> "$DESKTOP_HTML"
+          echo "      <h1><i class=\"bi bi-laptop me-2\"></i>${{ matrix.page.name }} - Desktop Report</h1>" >> "$DESKTOP_HTML"
+          echo "      <p class=\"mb-0\">Test run on ${{ steps.scores.outputs.report_date }}</p>" >> "$DESKTOP_HTML"
+          echo "    </div>" >> "$DESKTOP_HTML"
+          echo "    <div>" >> "$DESKTOP_HTML"
+          echo "      <a href=\"../../../index.html\" class=\"btn btn-outline-light\"><i class=\"bi bi-arrow-left me-2\"></i>Back to Dashboard</a>" >> "$DESKTOP_HTML"
+          echo "    </div>" >> "$DESKTOP_HTML"
+          echo "  </div>" >> "$DESKTOP_HTML"
+
+          # Add main content container
+          echo "  <div class=\"container-fluid p-0\">" >> "$DESKTOP_HTML"
+
+          # Add scores section
+          echo "    <div class=\"row mb-4\">" >> "$DESKTOP_HTML"
 
           # Add performance score
-          echo "<div class=\"row\"><div class=\"col-md-3\"><div class=\"card\"><div class=\"text-center p-3\"><h3>Performance Score</h3><h1>\${DESKTOP_PERF}</h1></div></div></div>" >> performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/desktop.html
+          echo "      <div class=\"col-md-3\">" >> "$DESKTOP_HTML"
+          echo "        <div class=\"card score-card\">" >> "$DESKTOP_HTML"
+          echo "          <div class=\"score-value \${DESKTOP_PERF >= 90 ? 'score-good' : (DESKTOP_PERF >= 50 ? 'score-average' : 'score-poor')}\">\${DESKTOP_PERF}</div>" >> "$DESKTOP_HTML"
+          echo "          <div class=\"score-label\">Performance</div>" >> "$DESKTOP_HTML"
+          echo "          <div class=\"mt-2\"><small>Target: 90+</small></div>" >> "$DESKTOP_HTML"
+          echo "        </div>" >> "$DESKTOP_HTML"
+          echo "      </div>" >> "$DESKTOP_HTML"
 
           # Add accessibility score
-          echo "<div class=\"col-md-3\"><div class=\"card\"><div class=\"text-center p-3\"><h3>Accessibility</h3><h1>\${DESKTOP_A11Y}</h1></div></div></div>" >> performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/desktop.html
+          echo "      <div class=\"col-md-3\">" >> "$DESKTOP_HTML"
+          echo "        <div class=\"card score-card\">" >> "$DESKTOP_HTML"
+          echo "          <div class=\"score-value \${DESKTOP_A11Y >= 90 ? 'score-good' : (DESKTOP_A11Y >= 70 ? 'score-average' : 'score-poor')}\">\${DESKTOP_A11Y}</div>" >> "$DESKTOP_HTML"
+          echo "          <div class=\"score-label\">Accessibility</div>" >> "$DESKTOP_HTML"
+          echo "          <div class=\"mt-2\"><small>Target: 90+</small></div>" >> "$DESKTOP_HTML"
+          echo "        </div>" >> "$DESKTOP_HTML"
+          echo "      </div>" >> "$DESKTOP_HTML"
 
           # Add best practices score
-          echo "<div class=\"col-md-3\"><div class=\"card\"><div class=\"text-center p-3\"><h3>Best Practices</h3><h1>\${DESKTOP_BP}</h1></div></div></div>" >> performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/desktop.html
+          echo "      <div class=\"col-md-3\">" >> "$DESKTOP_HTML"
+          echo "        <div class=\"card score-card\">" >> "$DESKTOP_HTML"
+          echo "          <div class=\"score-value \${DESKTOP_BP >= 90 ? 'score-good' : (DESKTOP_BP >= 70 ? 'score-average' : 'score-poor')}\">\${DESKTOP_BP}</div>" >> "$DESKTOP_HTML"
+          echo "          <div class=\"score-label\">Best Practices</div>" >> "$DESKTOP_HTML"
+          echo "          <div class=\"mt-2\"><small>Target: 90+</small></div>" >> "$DESKTOP_HTML"
+          echo "        </div>" >> "$DESKTOP_HTML"
+          echo "      </div>" >> "$DESKTOP_HTML"
 
           # Add SEO score
-          echo "<div class=\"col-md-3\"><div class=\"card\"><div class=\"text-center p-3\"><h3>SEO</h3><h1>\${DESKTOP_SEO}</h1></div></div></div></div>" >> performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/desktop.html
+          echo "      <div class=\"col-md-3\">" >> "$DESKTOP_HTML"
+          echo "        <div class=\"card score-card\">" >> "$DESKTOP_HTML"
+          echo "          <div class=\"score-value \${DESKTOP_SEO >= 90 ? 'score-good' : (DESKTOP_SEO >= 70 ? 'score-average' : 'score-poor')}\">\${DESKTOP_SEO}</div>" >> "$DESKTOP_HTML"
+          echo "          <div class=\"score-label\">SEO</div>" >> "$DESKTOP_HTML"
+          echo "          <div class=\"mt-2\"><small>Target: 90+</small></div>" >> "$DESKTOP_HTML"
+          echo "        </div>" >> "$DESKTOP_HTML"
+          echo "      </div>" >> "$DESKTOP_HTML"
+          echo "    </div>" >> "$DESKTOP_HTML"
 
-          # Add Core Web Vitals
-          echo "<div class=\"card mt-4\"><div class=\"card-header\"><h3>Core Web Vitals</h3></div><div class=\"card-body\"><div class=\"row\">" >> performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/desktop.html
+          # Add core web vitals section
+          echo "    <div class=\"card mb-4\">" >> "$DESKTOP_HTML"
+          echo "      <h3 class=\"section-title\"><i class=\"bi bi-speedometer2 me-2\"></i>Core Web Vitals</h3>" >> "$DESKTOP_HTML"
+          echo "      <div class=\"row\">" >> "$DESKTOP_HTML"
 
-          # Add LCP
-          echo "<div class=\"col-md-4\"><div class=\"card\"><div class=\"p-3\"><h4>LCP</h4><p>\${(DESKTOP_LCP / 1000).toFixed(2)}s</p></div></div></div>" >> performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/desktop.html
+          # Add LCP metric
+          echo "        <div class=\"col-md-4\">" >> "$DESKTOP_HTML"
+          echo "          <div class=\"card\">" >> "$DESKTOP_HTML"
+          echo "            <div class=\"card-body text-center\">" >> "$DESKTOP_HTML"
+          echo "              <h5>Largest Contentful Paint</h5>" >> "$DESKTOP_HTML"
+          echo "              <div class=\"fs-2 fw-bold \${DESKTOP_LCP < 2500 ? 'metric-good' : (DESKTOP_LCP < 4000 ? 'metric-average' : 'metric-poor')}\">\${(DESKTOP_LCP/1000).toFixed(2)}s</div>" >> "$DESKTOP_HTML"
+          echo "              <div class=\"mt-2\"><small>Target: < 2.5s</small></div>" >> "$DESKTOP_HTML"
+          echo "            </div>" >> "$DESKTOP_HTML"
+          echo "          </div>" >> "$DESKTOP_HTML"
+          echo "        </div>" >> "$DESKTOP_HTML"
 
-          # Add TBT
-          echo "<div class=\"col-md-4\"><div class=\"card\"><div class=\"p-3\"><h4>TBT</h4><p>\${DESKTOP_TBT}ms</p></div></div></div>" >> performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/desktop.html
+          # Add TBT metric
+          echo "        <div class=\"col-md-4\">" >> "$DESKTOP_HTML"
+          echo "          <div class=\"card\">" >> "$DESKTOP_HTML"
+          echo "            <div class=\"card-body text-center\">" >> "$DESKTOP_HTML"
+          echo "              <h5>Total Blocking Time</h5>" >> "$DESKTOP_HTML"
+          echo "              <div class=\"fs-2 fw-bold \${DESKTOP_TBT < 200 ? 'metric-good' : (DESKTOP_TBT < 600 ? 'metric-average' : 'metric-poor')}\">\${DESKTOP_TBT}ms</div>" >> "$DESKTOP_HTML"
+          echo "              <div class=\"mt-2\"><small>Target: < 200ms</small></div>" >> "$DESKTOP_HTML"
+          echo "            </div>" >> "$DESKTOP_HTML"
+          echo "          </div>" >> "$DESKTOP_HTML"
+          echo "        </div>" >> "$DESKTOP_HTML"
 
-          # Add CLS
-          echo "<div class=\"col-md-4\"><div class=\"card\"><div class=\"p-3\"><h4>CLS</h4><p>\${DESKTOP_CLS}</p></div></div></div>" >> performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/desktop.html
+          # Add CLS metric
+          echo "        <div class=\"col-md-4\">" >> "$DESKTOP_HTML"
+          echo "          <div class=\"card\">" >> "$DESKTOP_HTML"
+          echo "            <div class=\"card-body text-center\">" >> "$DESKTOP_HTML"
+          echo "              <h5>Cumulative Layout Shift</h5>" >> "$DESKTOP_HTML"
+          echo "              <div class=\"fs-2 fw-bold \${DESKTOP_CLS < 0.1 ? 'metric-good' : (DESKTOP_CLS < 0.25 ? 'metric-average' : 'metric-poor')}\">\${DESKTOP_CLS}</div>" >> "$DESKTOP_HTML"
+          echo "              <div class=\"mt-2\"><small>Target: < 0.1</small></div>" >> "$DESKTOP_HTML"
+          echo "            </div>" >> "$DESKTOP_HTML"
+          echo "          </div>" >> "$DESKTOP_HTML"
+          echo "        </div>" >> "$DESKTOP_HTML"
+          echo "      </div>" >> "$DESKTOP_HTML"
+          echo "    </div>" >> "$DESKTOP_HTML"
 
-          # Close divs and add back link
-          echo "</div></div></div><div class=\"text-center mt-4\"><a href=\"../../../index.html\" class=\"btn btn-primary\">Back to Dashboard</a></div></div>" >> performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/desktop.html
+          # Add back link
+          echo "    <div class=\"text-center mt-4 mb-4\">" >> "$DESKTOP_HTML"
+          echo "      <a href=\"../../../index.html\" class=\"btn btn-primary\"><i class=\"bi bi-speedometer2 me-2\"></i>Back to Main Dashboard</a>" >> "$DESKTOP_HTML"
+          echo "    </div>" >> "$DESKTOP_HTML"
+          echo "  </div>" >> "$DESKTOP_HTML"
 
           # Close HTML
-          echo "</body></html>" >> performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/desktop.html
+          echo "  <footer class=\"text-center text-muted mt-4\">" >> "$DESKTOP_HTML"
+          echo "    <p><small>Generated on ${{ steps.scores.outputs.report_date }} by Lighthouse CI GitHub Action</small></p>" >> "$DESKTOP_HTML"
+          echo "  </footer>" >> "$DESKTOP_HTML"
+          echo "</body>" >> "$DESKTOP_HTML"
+          echo "</html>" >> "$DESKTOP_HTML"
 
-          # Create simple mobile.html template with minimal content
-          echo '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Lighthouse Mobile Report</title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"></head><body>' > performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/mobile.html
+          # Now create the mobile.html file in the same way
+          MOBILE_HTML="${DESKTOP_REPORT_DIR}/mobile.html"
 
-          # Append content
-          echo "<div class=\"container\"><h1>${{ matrix.page.name }} - Mobile</h1><p>Generated on ${{ steps.scores.outputs.report_date }}</p>" >> performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/mobile.html
+          # Create basic HTML structure
+          echo "Creating mobile.html report"
+          echo "<!DOCTYPE html>" > "$MOBILE_HTML"
+          echo "<html lang=\"en\">" >> "$MOBILE_HTML"
+          echo "<head>" >> "$MOBILE_HTML"
+          echo "  <meta charset=\"UTF-8\">" >> "$MOBILE_HTML"
+          echo "  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">" >> "$MOBILE_HTML"
+          echo "  <title>${{ matrix.page.name }} - Mobile Performance Report | Curalife</title>" >> "$MOBILE_HTML"
+          echo "  <link rel=\"icon\" href=\"https://cdn.shopify.com/s/files/1/0016/8633/0243/files/favicon-32x32.png?v=1618828796\" type=\"image/png\">" >> "$MOBILE_HTML"
+          echo "  <link href=\"https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css\" rel=\"stylesheet\">" >> "$MOBILE_HTML"
+          echo "  <link rel=\"stylesheet\" href=\"https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css\">" >> "$MOBILE_HTML"
+          echo "  <style>" >> "$MOBILE_HTML"
+          echo "    :root {" >> "$MOBILE_HTML"
+          echo "      --primary-color: #00837b;" >> "$MOBILE_HTML"
+          echo "      --primary-light: #e6f7f5;" >> "$MOBILE_HTML"
+          echo "      --secondary-color: #f26b3c;" >> "$MOBILE_HTML"
+          echo "      --dark-color: #2c3e50;" >> "$MOBILE_HTML"
+          echo "      --good: #0CCE6B;" >> "$MOBILE_HTML"
+          echo "      --average: #FFA400;" >> "$MOBILE_HTML"
+          echo "      --poor: #FF4E42;" >> "$MOBILE_HTML"
+          echo "      --background: #f8f9fa;" >> "$MOBILE_HTML"
+          echo "    }" >> "$MOBILE_HTML"
+          echo "    body {" >> "$MOBILE_HTML"
+          echo "      font-family: 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;" >> "$MOBILE_HTML"
+          echo "      line-height: 1.6;" >> "$MOBILE_HTML"
+          echo "      background-color: var(--background);" >> "$MOBILE_HTML"
+          echo "      color: #333;" >> "$MOBILE_HTML"
+          echo "      max-width: 1200px;" >> "$MOBILE_HTML"
+          echo "      margin: 0 auto;" >> "$MOBILE_HTML"
+          echo "      padding: 20px;" >> "$MOBILE_HTML"
+          echo "    }" >> "$MOBILE_HTML"
+          echo "    .header {" >> "$MOBILE_HTML"
+          echo "      background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));" >> "$MOBILE_HTML"
+          echo "      color: white;" >> "$MOBILE_HTML"
+          echo "      padding: 1.5rem;" >> "$MOBILE_HTML"
+          echo "      border-radius: 10px;" >> "$MOBILE_HTML"
+          echo "      margin-bottom: 2rem;" >> "$MOBILE_HTML"
+          echo "      box-shadow: 0 4px 12px rgba(0,0,0,0.1);" >> "$MOBILE_HTML"
+          echo "      display: flex;" >> "$MOBILE_HTML"
+          echo "      justify-content: space-between;" >> "$MOBILE_HTML"
+          echo "      align-items: center;" >> "$MOBILE_HTML"
+          echo "    }" >> "$MOBILE_HTML"
+          echo "    .card {" >> "$MOBILE_HTML"
+          echo "      background: white;" >> "$MOBILE_HTML"
+          echo "      border-radius: 10px;" >> "$MOBILE_HTML"
+          echo "      padding: 20px;" >> "$MOBILE_HTML"
+          echo "      margin-bottom: 20px;" >> "$MOBILE_HTML"
+          echo "      box-shadow: 0 2px 10px rgba(0,0,0,0.05);" >> "$MOBILE_HTML"
+          echo "      transition: transform 0.3s, box-shadow 0.3s;" >> "$MOBILE_HTML"
+          echo "      border: none;" >> "$MOBILE_HTML"
+          echo "    }" >> "$MOBILE_HTML"
+          echo "    .card:hover {" >> "$MOBILE_HTML"
+          echo "      transform: translateY(-5px);" >> "$MOBILE_HTML"
+          echo "      box-shadow: 0 10px 20px rgba(0,0,0,0.1);" >> "$MOBILE_HTML"
+          echo "    }" >> "$MOBILE_HTML"
+          echo "    .score-card {" >> "$MOBILE_HTML"
+          echo "      text-align: center;" >> "$MOBILE_HTML"
+          echo "      padding: 1.5rem;" >> "$MOBILE_HTML"
+          echo "    }" >> "$MOBILE_HTML"
+          echo "    .score-value {" >> "$MOBILE_HTML"
+          echo "      font-size: 3rem;" >> "$MOBILE_HTML"
+          echo "      font-weight: bold;" >> "$MOBILE_HTML"
+          echo "      position: relative;" >> "$MOBILE_HTML"
+          echo "      display: inline-block;" >> "$MOBILE_HTML"
+          echo "      width: 100px;" >> "$MOBILE_HTML"
+          echo "      height: 100px;" >> "$MOBILE_HTML"
+          echo "      line-height: 100px;" >> "$MOBILE_HTML"
+          echo "      border-radius: 50%;" >> "$MOBILE_HTML"
+          echo "      color: white;" >> "$MOBILE_HTML"
+          echo "      margin-bottom: 15px;" >> "$MOBILE_HTML"
+          echo "    }" >> "$MOBILE_HTML"
+          echo "    .score-good { background-color: var(--good); }" >> "$MOBILE_HTML"
+          echo "    .score-average { background-color: var(--average); }" >> "$MOBILE_HTML"
+          echo "    .score-poor { background-color: var(--poor); }" >> "$MOBILE_HTML"
+          echo "    .score-label {" >> "$MOBILE_HTML"
+          echo "      font-size: 1.2rem;" >> "$MOBILE_HTML"
+          echo "      font-weight: 600;" >> "$MOBILE_HTML"
+          echo "      color: var(--dark-color);" >> "$MOBILE_HTML"
+          echo "    }" >> "$MOBILE_HTML"
+          echo "    .metric-good { color: var(--good); }" >> "$MOBILE_HTML"
+          echo "    .metric-average { color: var(--average); }" >> "$MOBILE_HTML"
+          echo "    .metric-poor { color: var(--poor); }" >> "$MOBILE_HTML"
+          echo "    .section-title {" >> "$MOBILE_HTML"
+          echo "      font-weight: 600;" >> "$MOBILE_HTML"
+          echo "      color: var(--dark-color);" >> "$MOBILE_HTML"
+          echo "      margin-bottom: 15px;" >> "$MOBILE_HTML"
+          echo "      border-bottom: 2px solid var(--primary-light);" >> "$MOBILE_HTML"
+          echo "      padding-bottom: 10px;" >> "$MOBILE_HTML"
+          echo "    }" >> "$MOBILE_HTML"
+          echo "    .mobile-note {" >> "$MOBILE_HTML"
+          echo "      background-color: rgba(242, 107, 60, 0.1);" >> "$MOBILE_HTML"
+          echo "      border-left: 4px solid var(--secondary-color);" >> "$MOBILE_HTML"
+          echo "      padding: 15px;" >> "$MOBILE_HTML"
+          echo "      border-radius: 6px;" >> "$MOBILE_HTML"
+          echo "      margin-bottom: 20px;" >> "$MOBILE_HTML"
+          echo "    }" >> "$MOBILE_HTML"
+          echo "  </style>" >> "$MOBILE_HTML"
+          echo "</head>" >> "$MOBILE_HTML"
+          echo "<body>" >> "$MOBILE_HTML"
+
+          # Add header
+          echo "  <div class=\"header\">" >> "$MOBILE_HTML"
+          echo "    <div>" >> "$MOBILE_HTML"
+          echo "      <h1><i class=\"bi bi-phone me-2\"></i>${{ matrix.page.name }} - Mobile Report</h1>" >> "$MOBILE_HTML"
+          echo "      <p class=\"mb-0\">Test run on ${{ steps.scores.outputs.report_date }}</p>" >> "$MOBILE_HTML"
+          echo "    </div>" >> "$MOBILE_HTML"
+          echo "    <div>" >> "$MOBILE_HTML"
+          echo "      <a href=\"../../../index.html\" class=\"btn btn-outline-light\"><i class=\"bi bi-arrow-left me-2\"></i>Back to Dashboard</a>" >> "$MOBILE_HTML"
+          echo "    </div>" >> "$MOBILE_HTML"
+          echo "  </div>" >> "$MOBILE_HTML"
+
+          # Add main content
+          echo "  <div class=\"container-fluid p-0\">" >> "$MOBILE_HTML"
+
+          # Add mobile note
+          echo "    <div class=\"mobile-note\">" >> "$MOBILE_HTML"
+          echo "      <h5><i class=\"bi bi-info-circle me-2\"></i>Mobile Performance Context</h5>" >> "$MOBILE_HTML"
+          echo "      <p class=\"mb-0\">Mobile scores tend to be lower than desktop due to network constraints, CPU throttling, and smaller viewport dimensions. Google uses mobile-first indexing, so these metrics are crucial for SEO.</p>" >> "$MOBILE_HTML"
+          echo "    </div>" >> "$MOBILE_HTML"
+
+          # Add scores section
+          echo "    <div class=\"row mb-4\">" >> "$MOBILE_HTML"
 
           # Add performance score
-          echo "<div class=\"row\"><div class=\"col-md-3\"><div class=\"card\"><div class=\"text-center p-3\"><h3>Performance Score</h3><h1>\${MOBILE_PERF}</h1></div></div></div>" >> performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/mobile.html
+          echo "      <div class=\"col-md-3\">" >> "$MOBILE_HTML"
+          echo "        <div class=\"card score-card\">" >> "$MOBILE_HTML"
+          echo "          <div class="score-value \${MOBILE_PERF >= 90 ? 'score-good' : (MOBILE_PERF >= 50 ? 'score-average' : 'score-poor')}\">\${MOBILE_PERF}</div>" >> "$MOBILE_HTML"
+          echo "          <div class="score-label">Performance</div>" >> "$MOBILE_HTML"
+          echo "          <div class="mt-2"><small>Target: 90+</small></div>" >> "$MOBILE_HTML"
+          echo "        </div>" >> "$MOBILE_HTML"
+          echo "      </div>" >> "$MOBILE_HTML"
 
           # Add accessibility score
-          echo "<div class=\"col-md-3\"><div class=\"card\"><div class=\"text-center p-3\"><h3>Accessibility</h3><h1>\${MOBILE_A11Y}</h1></div></div></div>" >> performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/mobile.html
+          echo "      <div class=\"col-md-3\">" >> "$MOBILE_HTML"
+          echo "        <div class=\"card score-card\">" >> "$MOBILE_HTML"
+          echo "          <div class="score-value \${MOBILE_A11Y >= 90 ? 'score-good' : (MOBILE_A11Y >= 70 ? 'score-average' : 'score-poor')}\">\${MOBILE_A11Y}</div>" >> "$MOBILE_HTML"
+          echo "          <div class="score-label">Accessibility</div>" >> "$MOBILE_HTML"
+          echo "          <div class="mt-2"><small>Target: 90+</small></div>" >> "$MOBILE_HTML"
+          echo "        </div>" >> "$MOBILE_HTML"
+          echo "      </div>" >> "$MOBILE_HTML"
 
           # Add best practices score
-          echo "<div class=\"col-md-3\"><div class=\"card\"><div class=\"text-center p-3\"><h3>Best Practices</h3><h1>\${MOBILE_BP}</h1></div></div></div>" >> performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/mobile.html
+          echo "      <div class=\"col-md-3\">" >> "$MOBILE_HTML"
+          echo "        <div class=\"card score-card\">" >> "$MOBILE_HTML"
+          echo "          <div class="score-value \${MOBILE_BP >= 90 ? 'score-good' : (MOBILE_BP >= 70 ? 'score-average' : 'score-poor')}\">\${MOBILE_BP}</div>" >> "$MOBILE_HTML"
+          echo "          <div class="score-label">Best Practices</div>" >> "$MOBILE_HTML"
+          echo "          <div class="mt-2"><small>Target: 90+</small></div>" >> "$MOBILE_HTML"
+          echo "        </div>" >> "$MOBILE_HTML"
+          echo "      </div>" >> "$MOBILE_HTML"
 
           # Add SEO score
-          echo "<div class=\"col-md-3\"><div class=\"card\"><div class=\"text-center p-3\"><h3>SEO</h3><h1>\${MOBILE_SEO}</h1></div></div></div></div>" >> performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/mobile.html
+          echo "      <div class=\"col-md-3\">" >> "$MOBILE_HTML"
+          echo "        <div class=\"card score-card\">" >> "$MOBILE_HTML"
+          echo "          <div class="score-value \${MOBILE_SEO >= 90 ? 'score-good' : (MOBILE_SEO >= 70 ? 'score-average' : 'score-poor')}\">\${MOBILE_SEO}</div>" >> "$MOBILE_HTML"
+          echo "          <div class="score-label">SEO</div>" >> "$MOBILE_HTML"
+          echo "          <div class="mt-2"><small>Target: 90+</small></div>" >> "$MOBILE_HTML"
+          echo "        </div>" >> "$MOBILE_HTML"
+          echo "      </div>" >> "$MOBILE_HTML"
+          echo "    </div>" >> "$MOBILE_HTML"
 
-          # Add Core Web Vitals
-          echo "<div class=\"card mt-4\"><div class=\"card-header\"><h3>Core Web Vitals</h3></div><div class=\"card-body\"><div class=\"row\">" >> performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/mobile.html
+          # Add core web vitals section
+          echo "    <div class=\"card mb-4\">" >> "$MOBILE_HTML"
+          echo "      <h3 class="section-title"><i class="bi bi-speedometer2 me-2"></i>Core Web Vitals</h3>" >> "$MOBILE_HTML"
+          echo "      <div class="row\">" >> "$MOBILE_HTML"
 
-          # Add LCP
-          echo "<div class=\"col-md-4\"><div class=\"card\"><div class=\"p-3\"><h4>LCP</h4><p>\${(MOBILE_LCP / 1000).toFixed(2)}s</p></div></div></div>" >> performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/mobile.html
+          # Add LCP metric
+          echo "        <div class="col-md-4">" >> "$MOBILE_HTML"
+          echo "          <div class="card">" >> "$MOBILE_HTML"
+          echo "            <div class="card-body text-center">" >> "$MOBILE_HTML"
+          echo "              <h5>Largest Contentful Paint</h5>" >> "$MOBILE_HTML"
+          echo "              <div class="fs-2 fw-bold \${MOBILE_LCP < 2500 ? 'metric-good' : (MOBILE_LCP < 4000 ? 'metric-average' : 'metric-poor')}\">\${(MOBILE_LCP/1000).toFixed(2)}s</div>" >> "$MOBILE_HTML"
+          echo "              <div class="mt-2"><small>Target: < 2.5s</small></div>" >> "$MOBILE_HTML"
+          echo "            </div>" >> "$MOBILE_HTML"
+          echo "          </div>" >> "$MOBILE_HTML"
+          echo "        </div>" >> "$MOBILE_HTML"
 
-          # Add TBT
-          echo "<div class=\"col-md-4\"><div class=\"card\"><div class=\"p-3\"><h4>TBT</h4><p>\${MOBILE_TBT}ms</p></div></div></div>" >> performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/mobile.html
+          # Add TBT metric
+          echo "        <div class="col-md-4">" >> "$MOBILE_HTML"
+          echo "          <div class="card">" >> "$MOBILE_HTML"
+          echo "            <div class="card-body text-center">" >> "$MOBILE_HTML"
+          echo "              <h5>Total Blocking Time</h5>" >> "$MOBILE_HTML"
+          echo "              <div class="fs-2 fw-bold \${MOBILE_TBT < 200 ? 'metric-good' : (MOBILE_TBT < 600 ? 'metric-average' : 'metric-poor')}\">\${MOBILE_TBT}ms</div>" >> "$MOBILE_HTML"
+          echo "              <div class="mt-2"><small>Target: < 200ms</small></div>" >> "$MOBILE_HTML"
+          echo "            </div>" >> "$MOBILE_HTML"
+          echo "          </div>" >> "$MOBILE_HTML"
+          echo "        </div>" >> "$MOBILE_HTML"
 
-          # Add CLS
-          echo "<div class=\"col-md-4\"><div class=\"card\"><div class=\"p-3\"><h4>CLS</h4><p>\${MOBILE_CLS}</p></div></div></div>" >> performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/mobile.html
+          # Add CLS metric
+          echo "        <div class="col-md-4">" >> "$MOBILE_HTML"
+          echo "          <div class="card">" >> "$MOBILE_HTML"
+          echo "            <div class="card-body text-center">" >> "$MOBILE_HTML"
+          echo "              <h5>Cumulative Layout Shift</h5>" >> "$MOBILE_HTML"
+          echo "              <div class="fs-2 fw-bold \${MOBILE_CLS < 0.1 ? 'metric-good' : (MOBILE_CLS < 0.25 ? 'metric-average' : 'metric-poor')}\">\${MOBILE_CLS}</div>" >> "$MOBILE_HTML"
+          echo "              <div class="mt-2"><small>Target: < 0.1</small></div>" >> "$MOBILE_HTML"
+          echo "            </div>" >> "$MOBILE_HTML"
+          echo "          </div>" >> "$MOBILE_HTML"
+          echo "        </div>" >> "$MOBILE_HTML"
+          echo "      </div>" >> "$MOBILE_HTML"
+          echo "    </div>" >> "$MOBILE_HTML"
 
-          # Close divs and add back link
-          echo "</div></div></div><div class=\"text-center mt-4\"><a href=\"../../../index.html\" class=\"btn btn-primary\">Back to Dashboard</a></div></div>" >> performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/mobile.html
+          # Add back link
+          echo "    <div class="mt-4 mb-4 text-center">" >> "$MOBILE_HTML"
+          echo "      <a href="../../../index.html" class="btn btn-primary"><i class="bi bi-speedometer2 me-2"></i>Back to Main Dashboard</a>" >> "$MOBILE_HTML"
+          echo "    </div>" >> "$MOBILE_HTML"
+          echo "  </div>" >> "$MOBILE_HTML"
 
           # Close HTML
-          echo "</body></html>" >> performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/mobile.html
+          echo "  <footer class="text-muted mt-4 text-center">" >> "$MOBILE_HTML"
+          echo "    <p><small>Generated on ${{ steps.scores.outputs.report_date }} by Lighthouse CI GitHub Action</small></p>" >> "$MOBILE_HTML"
+          echo "  </footer>" >> "$MOBILE_HTML"
+          echo "</body>" >> "$MOBILE_HTML"
+          echo "</html>" >> "$MOBILE_HTML"
 
+          # Verify files were created
           echo "Created HTML report files with metrics:"
           ls -la performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/
 
