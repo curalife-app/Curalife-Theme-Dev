@@ -196,82 +196,106 @@ try {
   require('puppeteer');
   console.log('Puppeteer is already installed');
 } catch (e) {
-  console.log('Puppeteer not found, exiting with error');
-  process.exit(1);
+  console.log('Puppeteer not found in local context, but continuing anyway');
+  // We'll rely on the workflow step that installed it globally
 }
 
-const puppeteer = require('puppeteer');
+// Use a more robust approach for importing puppeteer
+let puppeteer;
+try {
+  puppeteer = require('puppeteer');
+} catch (e) {
+  console.error('Error requiring puppeteer:', e.message);
+  process.exit(1);
+}
 
 async function captureScreenshots() {
   try {
     console.log('Starting screenshot capture...');
     const browser = await puppeteer.launch({
-      args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
+      args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu', '--disable-features=IsolateOrigins'],
       headless: 'new'
+    }).catch(err => {
+      console.error('Failed to launch browser:', err);
+      throw err;
     });
 
     // Desktop screenshots
     console.log('Capturing desktop screenshots...');
-    const desktopPage = await browser.newPage();
-    await desktopPage.setViewport({ width: 1200, height: 800 });
-    await desktopPage.goto('$URL', { waitUntil: 'networkidle0', timeout: 60000 });
+    try {
+      const desktopPage = await browser.newPage();
+      await desktopPage.setViewport({ width: 1200, height: 800 });
+      await desktopPage.goto('$URL', { waitUntil: 'networkidle0', timeout: 30000 });
 
-    // Capture above fold
-    await desktopPage.screenshot({
-      path: './$RESULTS_DIR/screenshots/above-fold.png',
-      type: 'png'
-    });
+      // Capture above fold
+      await desktopPage.screenshot({
+        path: './$RESULTS_DIR/screenshots/above-fold.png',
+        type: 'png'
+      });
 
-    // Capture full page
-    await desktopPage.screenshot({
-      path: './$RESULTS_DIR/screenshots/full-page.png',
-      type: 'png',
-      fullPage: true
-    });
+      // Capture full page
+      await desktopPage.screenshot({
+        path: './$RESULTS_DIR/screenshots/full-page.png',
+        type: 'png',
+        fullPage: true
+      });
 
-    await desktopPage.close();
+      await desktopPage.close();
+      console.log('Desktop screenshots captured successfully');
+    } catch (error) {
+      console.error('Error capturing desktop screenshots:', error);
+      // Continue to mobile screenshots even if desktop fails
+    }
 
     // Mobile screenshots
     console.log('Capturing mobile screenshots...');
-    const mobilePage = await browser.newPage();
-    await mobilePage.setUserAgent('Mozilla/5.0 (Linux; Android 11; Pixel 5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36');
-    await mobilePage.setViewport({
-      width: 360,
-      height: 640,
-      deviceScaleFactor: 2.625,
-      isMobile: true
-    });
+    try {
+      const mobilePage = await browser.newPage();
+      await mobilePage.setUserAgent('Mozilla/5.0 (Linux; Android 11; Pixel 5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36');
+      await mobilePage.setViewport({
+        width: 360,
+        height: 640,
+        deviceScaleFactor: 2.625,
+        isMobile: true
+      });
 
-    await mobilePage.goto('$URL', { waitUntil: 'networkidle0', timeout: 60000 });
+      await mobilePage.goto('$URL', { waitUntil: 'networkidle0', timeout: 30000 });
 
-    // Capture above fold
-    await mobilePage.screenshot({
-      path: './$RESULTS_DIR/mobile/screenshots/above-fold.png',
-      type: 'png'
-    });
+      // Capture above fold
+      await mobilePage.screenshot({
+        path: './$RESULTS_DIR/mobile/screenshots/above-fold.png',
+        type: 'png'
+      });
 
-    // Capture full page
-    await mobilePage.screenshot({
-      path: './$RESULTS_DIR/mobile/screenshots/full-page.png',
-      type: 'png',
-      fullPage: true
-    });
+      // Capture full page
+      await mobilePage.screenshot({
+        path: './$RESULTS_DIR/mobile/screenshots/full-page.png',
+        type: 'png',
+        fullPage: true
+      });
 
-    await mobilePage.close();
+      await mobilePage.close();
+      console.log('Mobile screenshots captured successfully');
+    } catch (error) {
+      console.error('Error capturing mobile screenshots:', error);
+    }
 
-    await browser.close();
+    await browser.close().catch(err => console.error('Error closing browser:', err));
     console.log('Screenshots captured successfully');
   } catch (error) {
-    console.error('Error capturing screenshots:', error);
+    console.error('Error in screenshot capture process:', error);
     process.exit(1);
   }
 }
 
-captureScreenshots();" > $SCREENSHOT_SCRIPT
+captureScreenshots().catch(err => {
+  console.error('Unhandled error in screenshot process:', err);
+  process.exit(1);
+});" > $SCREENSHOT_SCRIPT
 
 # Try to install puppeteer first (will be fast if already installed)
 echo "Ensuring puppeteer is installed..."
-npm install --no-save puppeteer@20.9.0 || echo "Failed to install puppeteer, will use placeholder images"
+npm install --no-save puppeteer@19.11.1 --ignore-scripts || echo "Failed to install puppeteer, will use placeholder images"
 
 # Run the screenshot script or create placeholders if it fails
 echo "Running custom screenshot capture script..."
