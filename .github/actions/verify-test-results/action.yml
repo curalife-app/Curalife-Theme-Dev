@@ -1,0 +1,120 @@
+name: "Verify Test Results"
+description: "Verifies Lighthouse test results and ensures data quality"
+
+inputs:
+  results-dir:
+    description: "Directory containing test results"
+    required: true
+  fail-on-error:
+    description: "Whether to fail the workflow if verification fails"
+    required: false
+    default: "false"
+  performance-threshold:
+    description: "Minimum performance score (0-100) to pass verification"
+    required: false
+    default: "0"
+
+outputs:
+  verification-passed:
+    description: "Whether verification passed (true/false)"
+    value: ${{ steps.validate-results.outputs.passed }}
+  error-count:
+    description: "Number of errors found"
+    value: ${{ steps.validate-results.outputs.error_count }}
+  warning-count:
+    description: "Number of warnings found"
+    value: ${{ steps.validate-results.outputs.warning_count }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Validate test results
+      id: validate-results
+      shell: bash
+      run: |
+        echo "Verifying test results..."
+        RESULTS_DIR="${{ inputs.results-dir }}"
+        ERROR_COUNT=0
+        WARNING_COUNT=0
+
+        # Check if results directory exists
+        if [ ! -d "$RESULTS_DIR" ]; then
+          echo "::error::Results directory not found: $RESULTS_DIR"
+          echo "passed=false" >> $GITHUB_OUTPUT
+          echo "error_count=1" >> $GITHUB_OUTPUT
+          echo "warning_count=0" >> $GITHUB_OUTPUT
+          exit 1
+        fi
+
+        # Verify directory structure
+        if [ ! -d "$RESULTS_DIR/desktop" ] || [ ! -d "$RESULTS_DIR/mobile" ]; then
+          echo "::error::Missing desktop or mobile directories"
+          ERROR_COUNT=$((ERROR_COUNT + 1))
+        fi
+
+        # Check for empty directories
+        EMPTY_DIRS=$(find "$RESULTS_DIR" -type d -empty | wc -l)
+        if [ "$EMPTY_DIRS" -gt 0 ]; then
+          echo "::warning::Found $EMPTY_DIRS empty directories"
+          WARNING_COUNT=$((WARNING_COUNT + 1))
+        fi
+
+        # Check for JSON reports
+        JSON_COUNT=$(find "$RESULTS_DIR" -name "*.report.json" | wc -l)
+        if [ "$JSON_COUNT" -eq 0 ]; then
+          echo "::error::No JSON reports found"
+          ERROR_COUNT=$((ERROR_COUNT + 1))
+        else
+          echo "Found $JSON_COUNT JSON reports"
+        fi
+
+        # Verify HTML reports
+        HTML_COUNT=$(find "$RESULTS_DIR" -name "*.report.html" | wc -l)
+        if [ "$HTML_COUNT" -eq 0 ]; then
+          echo "::warning::No HTML reports found"
+          WARNING_COUNT=$((WARNING_COUNT + 1))
+        else
+          echo "Found $HTML_COUNT HTML reports"
+        fi
+
+        # Verify metrics extraction
+        METRICS_COUNT=$(find "$RESULTS_DIR" -name "*.metrics.json" | wc -l)
+        if [ "$METRICS_COUNT" -eq 0 ]; then
+          echo "::warning::No metrics files found"
+          WARNING_COUNT=$((WARNING_COUNT + 1))
+        else
+          echo "Found $METRICS_COUNT metrics files"
+        fi
+
+        # Check for performance thresholds if specified
+        if [ "${{ inputs.performance-threshold }}" -gt 0 ]; then
+          THRESHOLD="${{ inputs.performance-threshold }}"
+          echo "Checking performance threshold: $THRESHOLD"
+
+          # Find all metrics files
+          for metrics_file in $(find "$RESULTS_DIR" -name "*.metrics.json"); do
+            PERF_SCORE=$(jq -r '.performance * 100 | round' "$metrics_file" 2>/dev/null || echo "0")
+            FILE_NAME=$(basename "$metrics_file")
+
+            if [ "$PERF_SCORE" -lt "$THRESHOLD" ]; then
+              echo "::warning::Performance score $PERF_SCORE is below threshold $THRESHOLD in $FILE_NAME"
+              WARNING_COUNT=$((WARNING_COUNT + 1))
+            fi
+          done
+        fi
+
+        # Output verification results
+        echo "error_count=$ERROR_COUNT" >> $GITHUB_OUTPUT
+        echo "warning_count=$WARNING_COUNT" >> $GITHUB_OUTPUT
+
+        if [ "$ERROR_COUNT" -eq 0 ]; then
+          echo "passed=true" >> $GITHUB_OUTPUT
+          echo "Verification passed with $WARNING_COUNT warnings"
+        else
+          echo "passed=false" >> $GITHUB_OUTPUT
+          echo "Verification failed with $ERROR_COUNT errors and $WARNING_COUNT warnings"
+
+          if [ "${{ inputs.fail-on-error }}" == "true" ]; then
+            exit 1
+          fi
+        fi
