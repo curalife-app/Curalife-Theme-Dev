@@ -363,11 +363,14 @@ jobs:
           mkdir -p ./lighthouse-results
           touch ./lighthouse-results/.gitkeep
           # Create or ensure CNAME file exists for custom domain
-          echo "lighthouse.curalife.com" > ./CNAME
+          echo "speed.curalife.com" > ./CNAME
           # Copy CNAME to results directory to ensure it's deployed
           cp ./CNAME ./lighthouse-results/CNAME
           # Remove old files to prevent stale content, but preserve CNAME and history
           find ./lighthouse-results -type f -not -path "*/history/*" -not -name "CNAME" -delete || echo "No files to delete"
+
+          # Ensure .nojekyll file exists at root to prevent GitHub Pages from using Jekyll
+          touch ./.nojekyll
 
       - name: Try download final dashboards
         id: download_final
@@ -385,6 +388,18 @@ jobs:
         with:
           name: lighthouse-dashboards-complete
           path: ./
+
+      - name: Debug artifact download
+        run: |
+          echo "==== Downloaded Artifacts Debug Information ===="
+          echo "Download final dashboards outcome: ${{ steps.download_final.outcome }}"
+          echo "Download complete results outcome: ${{ steps.download_complete.outcome }}"
+          echo "Current directory structure:"
+          find . -type d -maxdepth 2 | sort
+          echo "Files directly in current directory:"
+          ls -la ./ || echo "No files found in root"
+          echo "Files in performance-reports directory:"
+          ls -la ./performance-reports/ || echo "No performance-reports directory found"
 
       - name: Check downloaded files
         run: |
@@ -449,13 +464,50 @@ jobs:
             cp "./lighthouse-results/dashboards/index.html" "./lighthouse-results/index.html"
           fi
 
+          # Also create an index.html in the repository root for GitHub Pages
+          if [ -f "./lighthouse-results/index.html" ]; then
+            echo "Copying index.html to repository root for GitHub Pages"
+            cp "./lighthouse-results/index.html" "./index.html"
+          else
+            echo "Creating a basic index.html in repository root"
+            echo '<!DOCTYPE html>' > ./index.html
+            echo '<html>' >> ./index.html
+            echo '<head>' >> ./index.html
+            echo '  <meta http-equiv="refresh" content="0;url=./lighthouse-results/">' >> ./index.html
+            echo '  <title>Redirecting to Lighthouse Reports</title>' >> ./index.html
+            echo '</head>' >> ./index.html
+            echo '<body>' >> ./index.html
+            echo '  <p>Redirecting to <a href="./lighthouse-results/">Lighthouse Performance Reports</a>...</p>' >> ./index.html
+            echo '</body>' >> ./index.html
+            echo '</html>' >> ./index.html
+          fi
+
+          # Check if performance-reports directory exists (alternative structure)
+          if [ -d "./performance-reports" ] && [ -f "./performance-reports/index.html" ]; then
+            echo "Found index.html in performance-reports directory"
+            # Copy to root if not already there
+            cp "./performance-reports/index.html" "./index.html"
+            # Also ensure it's in lighthouse-results for consistency
+            mkdir -p "./lighthouse-results"
+            cp "./performance-reports/index.html" "./lighthouse-results/index.html"
+          fi
+
+          # Ensure .nojekyll file exists for GitHub Pages in all relevant directories
+          touch ./.nojekyll
+          touch ./lighthouse-results/.nojekyll
+
+          # Final check for index.html files
+          echo "==== Final check for index.html files ===="
+          find . -name "index.html" -maxdepth 3 | sort
+          ls -la ./index.html || echo "WARNING: No root index.html found!"
+
       - name: Publish results
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email 'github-actions[bot]@users.noreply.github.com'
 
           # Make sure CNAME file exists
-          echo "lighthouse.curalife.com" > CNAME
+          echo "speed.curalife.com" > CNAME
 
           # Make sure git tracks all files, even those in new directories
           git add -A .
