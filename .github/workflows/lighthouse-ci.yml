@@ -25,8 +25,6 @@ jobs:
         page:
           - name: homepage
             url: https://curalife.com/
-          - name: collection
-            url: https://curalife.com/collections/all
           - name: product
             url: https://curalife.com/products/curalin
       fail-fast: false
@@ -773,24 +771,36 @@ jobs:
     if: always() # Always run summary job to generate reports
     permissions:
       contents: write
+      pull-requests: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Fetch all history for proper branch handling
 
       - name: Download all artifacts
+        id: download
+        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           path: downloaded-artifacts
 
-      - name: Debug downloaded artifacts
+      - name: Check artifacts download status
         run: |
+          if [ "${{ steps.download.outcome }}" != "success" ]; then
+            echo "::warning::Failed to download artifacts, but continuing with empty directory"
+            mkdir -p downloaded-artifacts
+          else
+            echo "Artifacts downloaded successfully"
+          fi
+
+          # Debug what was downloaded
           echo "Listing downloaded artifacts:"
-          find downloaded-artifacts -type f | sort
+          find downloaded-artifacts -type f | sort || echo "No files found"
 
       - name: Install dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y jq bc gnuplot
+          sudo apt-get update && sudo apt-get install -y jq bc gnuplot
           npm install -g chartjs-node-canvas markdown-to-html
 
       - name: Process all results
@@ -1081,104 +1091,47 @@ jobs:
             echo "Warning: Downloaded artifacts directory not found"
           fi
 
-          # Create a simple index HTML file
+          # Create a simple index HTML file that doesn't use here-document syntax
           INDEX_HTML="performance-reports/index.html"
           echo "Creating index HTML file at $INDEX_HTML"
 
-          cat > "$INDEX_HTML" << EOL
-          <!DOCTYPE html>
-          <html lang="en">
-          <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Lighthouse Performance Reports</title>
-            <style>
-              body {
-                font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-                line-height: 1.5;
-                color: #333;
-                max-width: 1200px;
-                margin: 0 auto;
-                padding: 20px;
-              }
-              h1, h2, h3 { color: #2c3e50; }
-              table {
-                width: 100%;
-                border-collapse: collapse;
-                margin: 20px 0;
-                box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-              }
-              th, td {
-                padding: 12px 15px;
-                text-align: left;
-                border-bottom: 1px solid #ddd;
-              }
-              th {
-                background-color: #f8f9fa;
-                font-weight: 600;
-              }
-              tbody tr:hover { background-color: #f5f5f5; }
-              .card {
-                background: white;
-                border-radius: 8px;
-                padding: 20px;
-                margin-bottom: 20px;
-                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-              }
-              .score {
-                font-weight: bold;
-                padding: 5px 10px;
-                border-radius: 15px;
-                display: inline-block;
-              }
-              .good { background-color: #e6f7ed; color: #0c6b45; }
-              .average { background-color: #fff2df; color: #b25000; }
-              .poor { background-color: #fce8e6; color: #c53929; }
-              .date { color: #666; font-size: 0.9em; }
-              .button {
-                display: inline-block;
-                padding: 8px 16px;
-                background-color: #4285f4;
-                color: white;
-                text-decoration: none;
-                border-radius: 4px;
-                margin-top: 10px;
-                font-weight: 500;
-              }
-              .button:hover { background-color: #2b579a; }
-              .grid {
-                display: grid;
-                grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-                gap: 20px;
-                margin: 20px 0;
-              }
-            </style>
-          </head>
-          <body>
-            <h1>🚀 Lighthouse Performance Reports</h1>
-            <p>Track website performance metrics over time with automated Lighthouse tests.</p>
-
-            <h2>Latest Results (${CURRENT_DATE})</h2>
-            <div class="grid">
-              <div class="card">
-                <h3>Results Summary</h3>
-                <p>Check the detailed reports for each page using the links below.</p>
-                <p class="date">Generated: ${CURRENT_DATE}</p>
-                <a href="latest.md" class="button">View Summary</a>
-              </div>
-            </div>
-
-            <h2>Available Pages</h2>
-            <table>
-              <thead>
-                <tr>
-                  <th>Page</th>
-                  <th>Desktop Report</th>
-                  <th>Mobile Report</th>
-                </tr>
-              </thead>
-              <tbody>
-          EOL
+          # Create index.html without using here-document (<<EOL)
+          echo "<!DOCTYPE html>" > "$INDEX_HTML"
+          echo "<html lang=\"en\">" >> "$INDEX_HTML"
+          echo "<head>" >> "$INDEX_HTML"
+          echo "  <meta charset=\"UTF-8\">" >> "$INDEX_HTML"
+          echo "  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">" >> "$INDEX_HTML"
+          echo "  <title>Lighthouse Performance Reports</title>" >> "$INDEX_HTML"
+          echo "  <style>" >> "$INDEX_HTML"
+          echo "    body { font-family: system-ui, sans-serif; line-height: 1.5; max-width: 1200px; margin: 0 auto; padding: 20px; }" >> "$INDEX_HTML"
+          echo "    h1, h2, h3 { color: #2c3e50; }" >> "$INDEX_HTML"
+          echo "    table { width: 100%; border-collapse: collapse; margin: 20px 0; }" >> "$INDEX_HTML"
+          echo "    th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #ddd; }" >> "$INDEX_HTML"
+          echo "    th { background-color: #f8f9fa; font-weight: 600; }" >> "$INDEX_HTML"
+          echo "    .card { background: white; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }" >> "$INDEX_HTML"
+          echo "    .button { display: inline-block; padding: 8px 16px; background-color: #4285f4; color: white; text-decoration: none; border-radius: 4px; }" >> "$INDEX_HTML"
+          echo "  </style>" >> "$INDEX_HTML"
+          echo "</head>" >> "$INDEX_HTML"
+          echo "<body>" >> "$INDEX_HTML"
+          echo "  <h1>🚀 Lighthouse Performance Reports</h1>" >> "$INDEX_HTML"
+          echo "  <p>Track website performance metrics over time with automated Lighthouse tests.</p>" >> "$INDEX_HTML"
+          echo "  <h2>Latest Results ($CURRENT_DATE)</h2>" >> "$INDEX_HTML"
+          echo "  <div class=\"card\">" >> "$INDEX_HTML"
+          echo "    <h3>Results Summary</h3>" >> "$INDEX_HTML"
+          echo "    <p>Check the detailed reports for each page using the links below.</p>" >> "$INDEX_HTML"
+          echo "    <p>Generated: $CURRENT_DATE</p>" >> "$INDEX_HTML"
+          echo "    <a href=\"latest.md\" class=\"button\">View Summary</a>" >> "$INDEX_HTML"
+          echo "  </div>" >> "$INDEX_HTML"
+          echo "  <h2>Available Pages</h2>" >> "$INDEX_HTML"
+          echo "  <table>" >> "$INDEX_HTML"
+          echo "    <thead>" >> "$INDEX_HTML"
+          echo "      <tr>" >> "$INDEX_HTML"
+          echo "        <th>Page</th>" >> "$INDEX_HTML"
+          echo "        <th>Desktop Report</th>" >> "$INDEX_HTML"
+          echo "        <th>Mobile Report</th>" >> "$INDEX_HTML"
+          echo "      </tr>" >> "$INDEX_HTML"
+          echo "    </thead>" >> "$INDEX_HTML"
+          echo "    <tbody>" >> "$INDEX_HTML"
 
           # Add rows for each page we processed
           for PAGE_DIR in performance-reports/$CURRENT_DATE/*; do
@@ -1190,49 +1143,31 @@ jobs:
                 continue
               fi
 
-              cat >> "$INDEX_HTML" << EOL
-                <tr>
-                  <td>${PAGE_NAME}</td>
-          EOL
+              echo "      <tr>" >> "$INDEX_HTML"
+              echo "        <td>$PAGE_NAME</td>" >> "$INDEX_HTML"
 
               if [ -f "$PAGE_DIR/desktop.html" ]; then
-                cat >> "$INDEX_HTML" << EOL
-                  <td><a href="${CURRENT_DATE}/${PAGE_NAME}/desktop.html">View Desktop Report</a></td>
-          EOL
+                echo "        <td><a href=\"$CURRENT_DATE/$PAGE_NAME/desktop.html\">View Desktop Report</a></td>" >> "$INDEX_HTML"
               else
-                cat >> "$INDEX_HTML" << EOL
-                  <td>Not available</td>
-          EOL
+                echo "        <td>Not available</td>" >> "$INDEX_HTML"
               fi
 
               if [ -f "$PAGE_DIR/mobile.html" ]; then
-                cat >> "$INDEX_HTML" << EOL
-                  <td><a href="${CURRENT_DATE}/${PAGE_NAME}/mobile.html">View Mobile Report</a></td>
-          EOL
+                echo "        <td><a href=\"$CURRENT_DATE/$PAGE_NAME/mobile.html\">View Mobile Report</a></td>" >> "$INDEX_HTML"
               else
-                cat >> "$INDEX_HTML" << EOL
-                  <td>Not available</td>
-          EOL
+                echo "        <td>Not available</td>" >> "$INDEX_HTML"
               fi
 
-              cat >> "$INDEX_HTML" << EOL
-                </tr>
-          EOL
+              echo "      </tr>" >> "$INDEX_HTML"
             fi
           done
 
-          cat >> "$INDEX_HTML" << EOL
-              </tbody>
-            </table>
-          </body>
-          </html>
-          EOL
+          echo "    </tbody>" >> "$INDEX_HTML"
+          echo "  </table>" >> "$INDEX_HTML"
+          echo "</body>" >> "$INDEX_HTML"
+          echo "</html>" >> "$INDEX_HTML"
 
           echo "Completed index HTML creation"
-
-          # List what was created for debugging
-          echo "Files created in performance-reports directory:"
-          find performance-reports -type f | sort
 
       - name: Commit changes
         if: github.event_name == 'schedule' || github.ref == 'refs/heads/main'
@@ -1240,46 +1175,58 @@ jobs:
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
 
-          # Save generated reports to a temporary location
+          # Ensure we're working on a clean state
+          echo "Creating backup of performance reports..."
           mkdir -p /tmp/performance-reports-backup
           cp -R performance-reports/* /tmp/performance-reports-backup/ 2>/dev/null || true
 
-          # Create a new branch for reports or use existing one
+          # Initialize reports branch - use a simpler, more deterministic approach
           REPORTS_BRANCH="performance-reports-data"
-          git fetch origin $REPORTS_BRANCH || true
+          echo "Checking for $REPORTS_BRANCH branch..."
 
-          if git show-ref --verify --quiet refs/remotes/origin/$REPORTS_BRANCH; then
-            # Clean the working directory to avoid conflicts
-            git clean -fd performance-reports/ || true
-            rm -rf performance-reports/* || true
+          # Fetch the reports branch if it exists
+          git fetch origin $REPORTS_BRANCH || echo "Branch not found, will create new"
 
-            # Branch exists, check it out
-            git checkout $REPORTS_BRANCH
-          else
-            # Create a new orphan branch (no history)
-            git checkout --orphan $REPORTS_BRANCH
-            git rm -rf .
-            # Create a basic README
-            echo "# Lighthouse Performance Reports" > README.md
-            echo "This branch contains automated Lighthouse performance reports for the Curalife website." >> README.md
-            git add README.md
-            git commit -m "Initial commit for performance reports branch"
-          fi
+          # Always create a fresh local branch from main
+          echo "Creating fresh local reports branch..."
+          # First make sure we're on main
+          git checkout main
 
-          # Restore the reports from temp location
+          # Create a fresh branch from current main
+          git branch -D $REPORTS_BRANCH 2>/dev/null || true
+          git checkout -b $REPORTS_BRANCH
+
+          # Clean out any old reports to start fresh
+          echo "Cleaning old reports..."
+          rm -rf performance-reports/* || true
           mkdir -p performance-reports
+
+          # Restore the generated reports
+          echo "Restoring generated reports..."
           cp -R /tmp/performance-reports-backup/* performance-reports/ 2>/dev/null || true
 
-          # Add the performance reports
+          # Stage only the performance-reports directory
+          echo "Adding performance reports to git..."
           git add performance-reports/
-          # Commit only if there are changes
-          git diff --staged --quiet || git commit -m "Add Lighthouse performance reports for $(date +"%Y-%m-%d")"
 
-          # Push to the reports branch
-          git push origin $REPORTS_BRANCH
+          # Only commit if there are changes
+          if ! git diff --staged --quiet; then
+            echo "Committing changes..."
+            git commit -m "Update Lighthouse performance reports ($(date +%Y-%m-%d))"
+            echo "Pushing to remote branch..."
+            git push -f origin $REPORTS_BRANCH
+            echo "Push completed successfully"
+          else
+            echo "No changes to commit"
+          fi
+
+          # Return to main branch
+          git checkout main
 
       - name: Create Pull Request to main
         if: github.event_name == 'schedule' || github.ref == 'refs/heads/main'
+        id: create-pr
+        continue-on-error: true
         uses: peter-evans/create-pull-request@v5
         with:
           token: ${{ github.token }}
@@ -1288,7 +1235,7 @@ jobs:
           author: GitHub Action <action@github.com>
           branch: performance-reports-data
           base: main
-          title: "Update performance reports"
+          title: "Update Lighthouse performance reports - ${{ github.run_id }}"
           body: |
             # 📊 Lighthouse Performance Reports Update
 
@@ -1299,9 +1246,182 @@ jobs:
             - Updated trend analysis and historical data
             - Generated performance insights and recommendations
 
-            *This PR was automatically created by the Lighthouse CI workflow.*
+            *This PR was automatically created by the Lighthouse CI workflow (Run #${{ github.run_id }}).*
           labels: |
             automated-pr
             performance
             reports
           draft: false
+
+      - name: Check PR Creation Status
+        if: github.event_name == 'schedule' || github.ref == 'refs/heads/main'
+        run: |
+          # If PR creation failed, log the error and provide guidance
+          if [ "${{ steps.create-pr.outcome }}" != "success" ]; then
+            echo "::warning::Failed to create PR automatically. This is likely because a PR already exists."
+            echo "PR creation status: ${{ steps.create-pr.outcome }}"
+            echo "You can manually view existing PRs at: ${{ github.server_url }}/${{ github.repository }}/pulls"
+          else
+            echo "PR created successfully: ${{ steps.create-pr.outputs.pull-request-url }}"
+          fi
+
+      - name: List created files
+        run: |
+          echo "Files created in performance-reports directory:"
+          mkdir -p performance-reports
+          find performance-reports -type f | sort || echo "No files found in performance-reports"
+
+          # Create a basic index file even if the main process failed
+          if [ ! -f "performance-reports/index.html" ]; then
+            echo "Creating fallback index.html"
+            mkdir -p performance-reports
+            echo "<!DOCTYPE html>" > performance-reports/index.html
+            echo "<html>" >> performance-reports/index.html
+            echo "  <head><title>Lighthouse Reports</title></head>" >> performance-reports/index.html
+            echo "  <body>" >> performance-reports/index.html
+            echo "    <h1>Lighthouse Performance Reports</h1>" >> performance-reports/index.html
+            echo "    <p>Last run: $(date)</p>" >> performance-reports/index.html
+            echo "    <p>No detailed reports were generated in this run.</p>" >> performance-reports/index.html
+            echo "  </body>" >> performance-reports/index.html
+            echo "</html>" >> performance-reports/index.html
+          fi
+
+          # List what was created for debugging
+          echo "Files created in performance-reports directory:"
+          find performance-reports -type f | sort || echo "No files found in performance-reports directory"
+
+          # Create a performance optimization plan with recommendations
+          echo "Creating performance optimization plan..."
+          PLAN_FILE="performance-reports/performance-optimization-plan.md"
+
+          echo "# Curalife Website Performance Optimization Plan" > "$PLAN_FILE"
+          echo "" >> "$PLAN_FILE"
+          echo "## Overview" >> "$PLAN_FILE"
+          echo "" >> "$PLAN_FILE"
+          echo "This document outlines recommendations for improving the performance of the Curalife website based on Lighthouse performance audits." >> "$PLAN_FILE"
+          echo "The plan is automatically generated from performance testing results." >> "$PLAN_FILE"
+          echo "" >> "$PLAN_FILE"
+          echo "Last updated: $CURRENT_DATE" >> "$PLAN_FILE"
+          echo "" >> "$PLAN_FILE"
+
+          echo "## Current Performance Summary" >> "$PLAN_FILE"
+          echo "" >> "$PLAN_FILE"
+          echo "| Page | Device | Performance | LCP | CLS | TBT |" >> "$PLAN_FILE"
+          echo "|------|--------|-------------|-----|-----|-----|" >> "$PLAN_FILE"
+
+          # Add performance data for each page if available
+          for PAGE_DIR in performance-reports/$CURRENT_DATE/*; do
+            if [ -d "$PAGE_DIR" ]; then
+              PAGE_NAME=$(basename "$PAGE_DIR")
+
+              # Skip non-page directories
+              if [[ "$PAGE_NAME" == "history" || "$PAGE_NAME" == "index.html" || "$PAGE_NAME" == "latest.md" ]]; then
+                continue
+              fi
+
+              SUMMARY_FILE="$PAGE_DIR/summary.json"
+              if [ -f "$SUMMARY_FILE" ]; then
+                # Desktop data
+                if [ "$(jq -r '.desktop.performance' "$SUMMARY_FILE" 2>/dev/null)" != "null" ]; then
+                  PERF=$(jq -r '.desktop.performance' "$SUMMARY_FILE")
+                  LCP=$(jq -r '.desktop.metrics.largestContentfulPaint // 0' "$SUMMARY_FILE")
+                  CLS=$(jq -r '.desktop.metrics.cumulativeLayoutShift // 0' "$SUMMARY_FILE")
+                  TBT=$(jq -r '.desktop.metrics.totalBlockingTime // 0' "$SUMMARY_FILE")
+                  LCP_MS=$(echo "$LCP / 1" | bc)
+                  TBT_MS=$(echo "$TBT / 1" | bc)
+                  echo "| $PAGE_NAME | Desktop | ${PERF}% | ${LCP_MS}ms | $CLS | ${TBT_MS}ms |" >> "$PLAN_FILE"
+                fi
+
+                # Mobile data
+                if [ "$(jq -r '.mobile.performance' "$SUMMARY_FILE" 2>/dev/null)" != "null" ]; then
+                  PERF=$(jq -r '.mobile.performance' "$SUMMARY_FILE")
+                  LCP=$(jq -r '.mobile.metrics.largestContentfulPaint // 0' "$SUMMARY_FILE")
+                  CLS=$(jq -r '.mobile.metrics.cumulativeLayoutShift // 0' "$SUMMARY_FILE")
+                  TBT=$(jq -r '.mobile.metrics.totalBlockingTime // 0' "$SUMMARY_FILE")
+                  LCP_MS=$(echo "$LCP / 1" | bc)
+                  TBT_MS=$(echo "$TBT / 1" | bc)
+                  echo "| $PAGE_NAME | Mobile | ${PERF}% | ${LCP_MS}ms | $CLS | ${TBT_MS}ms |" >> "$PLAN_FILE"
+                fi
+              fi
+            fi
+          done
+
+          echo "" >> "$PLAN_FILE"
+          echo "## Common Improvement Opportunities" >> "$PLAN_FILE"
+          echo "" >> "$PLAN_FILE"
+          echo "Based on the performance audits, these are common areas for improvement:" >> "$PLAN_FILE"
+          echo "" >> "$PLAN_FILE"
+          echo "1. **Reduce JavaScript execution time**" >> "$PLAN_FILE"
+          echo "   - Minimize main-thread work" >> "$PLAN_FILE"
+          echo "   - Defer non-critical JavaScript" >> "$PLAN_FILE"
+          echo "   - Use code-splitting to reduce bundle sizes" >> "$PLAN_FILE"
+          echo "" >> "$PLAN_FILE"
+          echo "2. **Optimize images**" >> "$PLAN_FILE"
+          echo "   - Use WebP format where possible" >> "$PLAN_FILE"
+          echo "   - Implement proper image sizing" >> "$PLAN_FILE"
+          echo "   - Use responsive images with srcset" >> "$PLAN_FILE"
+          echo "   - Lazy load below-the-fold images" >> "$PLAN_FILE"
+          echo "" >> "$PLAN_FILE"
+          echo "3. **Eliminate render-blocking resources**" >> "$PLAN_FILE"
+          echo "   - Load critical CSS inline" >> "$PLAN_FILE"
+          echo "   - Defer non-critical CSS" >> "$PLAN_FILE"
+          echo "   - Use async/defer for scripts where appropriate" >> "$PLAN_FILE"
+          echo "" >> "$PLAN_FILE"
+          echo "4. **Implement effective caching**" >> "$PLAN_FILE"
+          echo "   - Set appropriate cache headers" >> "$PLAN_FILE"
+          echo "   - Use a service worker for offline capabilities" >> "$PLAN_FILE"
+          echo "" >> "$PLAN_FILE"
+          echo "5. **Optimize third-party resources**" >> "$PLAN_FILE"
+          echo "   - Audit and remove unnecessary third-party scripts" >> "$PLAN_FILE"
+          echo "   - Load third-party resources at appropriate times" >> "$PLAN_FILE"
+          echo "" >> "$PLAN_FILE"
+
+          echo "## Page-Specific Recommendations" >> "$PLAN_FILE"
+          echo "" >> "$PLAN_FILE"
+
+          # Add specific recommendations for each page
+          for PAGE_DIR in performance-reports/$CURRENT_DATE/*; do
+            if [ -d "$PAGE_DIR" ]; then
+              PAGE_NAME=$(basename "$PAGE_DIR")
+
+              # Skip non-page directories
+              if [[ "$PAGE_NAME" == "history" || "$PAGE_NAME" == "index.html" || "$PAGE_NAME" == "latest.md" ]]; then
+                continue
+              fi
+
+              echo "### $PAGE_NAME" >> "$PLAN_FILE"
+              echo "" >> "$PLAN_FILE"
+              echo "- Review detailed performance report: [Desktop](${CURRENT_DATE}/${PAGE_NAME}/desktop.html) | [Mobile](${CURRENT_DATE}/${PAGE_NAME}/mobile.html)" >> "$PLAN_FILE"
+              echo "- Focus on improving Largest Contentful Paint (LCP) and Total Blocking Time (TBT)" >> "$PLAN_FILE"
+              echo "- Consider implementing the common recommendations above" >> "$PLAN_FILE"
+              echo "" >> "$PLAN_FILE"
+            fi
+          done
+
+          echo "## Implementation Timeline" >> "$PLAN_FILE"
+          echo "" >> "$PLAN_FILE"
+          echo "1. **Short-term (1-2 weeks)**" >> "$PLAN_FILE"
+          echo "   - Optimize critical images" >> "$PLAN_FILE"
+          echo "   - Implement basic font optimization" >> "$PLAN_FILE"
+          echo "   - Remove unused CSS/JavaScript" >> "$PLAN_FILE"
+          echo "" >> "$PLAN_FILE"
+          echo "2. **Medium-term (2-4 weeks)**" >> "$PLAN_FILE"
+          echo "   - Implement code splitting" >> "$PLAN_FILE"
+          echo "   - Add service worker for asset caching" >> "$PLAN_FILE"
+          echo "   - Optimize third-party scripts" >> "$PLAN_FILE"
+          echo "" >> "$PLAN_FILE"
+          echo "3. **Long-term (1-2 months)**" >> "$PLAN_FILE"
+          echo "   - Implement server-side rendering where beneficial" >> "$PLAN_FILE"
+          echo "   - Review and optimize database queries" >> "$PLAN_FILE"
+          echo "   - Consider CDN improvements" >> "$PLAN_FILE"
+          echo "" >> "$PLAN_FILE"
+
+          echo "## Monitoring Plan" >> "$PLAN_FILE"
+          echo "" >> "$PLAN_FILE"
+          echo "- Continue running Lighthouse CI tests daily" >> "$PLAN_FILE"
+          echo "- Track performance metrics over time" >> "$PLAN_FILE"
+          echo "- Review performance after each major deployment" >> "$PLAN_FILE"
+          echo "- Set performance budgets for critical metrics" >> "$PLAN_FILE"
+          echo "" >> "$PLAN_FILE"
+
+          echo "Performance optimization plan created at $PLAN_FILE"
