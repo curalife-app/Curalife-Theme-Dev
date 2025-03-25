@@ -87,53 +87,90 @@ cp $SUMMARY_FILE "performance-reports/history/$PAGE_NAME/$CURRENT_DATE.json"
 
 # Copy lighthouse reports to performance-reports directory
 if [ -d "$RESULTS_DIR" ]; then
-  # Only copy desktop HTML report if it doesn't already exist
-  if [ ! -f "performance-reports/$CURRENT_DATE/$PAGE_NAME/desktop.html" ]; then
-    # First try to find a real Lighthouse report file
-    REAL_DESKTOP_HTML=$(find $RESULTS_DIR -name "*.report.html" -not -path "*/mobile/*" | sort | tail -n 1)
-    if [ -f "$REAL_DESKTOP_HTML" ]; then
-      echo "Found real Lighthouse report for desktop: $REAL_DESKTOP_HTML"
-      cp "$REAL_DESKTOP_HTML" "performance-reports/$CURRENT_DATE/$PAGE_NAME/desktop.html"
-      echo "Copied real desktop HTML report"
-    else
-      # Try to find any HTML file if no report is found
-      DESKTOP_HTML=$(find $RESULTS_DIR -name "*.html" -not -path "*/mobile/*" | sort | tail -n 1)
-      if [ -f "$DESKTOP_HTML" ]; then
-        cp "$DESKTOP_HTML" "performance-reports/$CURRENT_DATE/$PAGE_NAME/desktop.html"
-        echo "Copied desktop HTML report from Lighthouse"
-      else
-        echo "Desktop HTML report not found in Lighthouse results and no existing file was found"
-      fi
-    fi
-  else
+  # First check for real Lighthouse report files before considering existing files
+  REAL_DESKTOP_HTML=$(find $RESULTS_DIR -name "*.report.html" -not -path "*/mobile/*" | sort | tail -n 1)
+  if [ -f "$REAL_DESKTOP_HTML" ]; then
+    echo "Found real Lighthouse report for desktop: $REAL_DESKTOP_HTML"
+    cp "$REAL_DESKTOP_HTML" "performance-reports/$CURRENT_DATE/$PAGE_NAME/desktop.html"
+    echo "Copied real desktop HTML report"
+  elif [ -f "performance-reports/$CURRENT_DATE/$PAGE_NAME/desktop.html" ]; then
     echo "Desktop HTML file already exists, preserving it"
+  else
+    # Try to find any HTML file if no report is found
+    DESKTOP_HTML=$(find $RESULTS_DIR -name "*.html" -not -path "*/mobile/*" | sort | tail -n 1)
+    if [ -f "$DESKTOP_HTML" ]; then
+      cp "$DESKTOP_HTML" "performance-reports/$CURRENT_DATE/$PAGE_NAME/desktop.html"
+      echo "Copied desktop HTML report from Lighthouse"
+    else
+      echo "Desktop HTML report not found in Lighthouse results and no existing file was found"
+    fi
   fi
 
-  # Only copy mobile HTML report if it doesn't already exist
-  if [ ! -f "performance-reports/$CURRENT_DATE/$PAGE_NAME/mobile.html" ]; then
-    # Check if mobile directory exists first
-    if [ -d "$RESULTS_DIR/mobile" ]; then
-      # First try to find a real Lighthouse report file
-      REAL_MOBILE_HTML=$(find $RESULTS_DIR/mobile -name "*.report.html" | sort | tail -n 1)
-      if [ -f "$REAL_MOBILE_HTML" ]; then
-        echo "Found real Lighthouse report for mobile: $REAL_MOBILE_HTML"
-        cp "$REAL_MOBILE_HTML" "performance-reports/$CURRENT_DATE/$PAGE_NAME/mobile.html"
-        echo "Copied real mobile HTML report"
-      else
-        # Try to find any HTML file if no report is found
-        MOBILE_HTML=$(find $RESULTS_DIR/mobile -name "*.html" | sort | tail -n 1)
-        if [ -f "$MOBILE_HTML" ]; then
-          cp "$MOBILE_HTML" "performance-reports/$CURRENT_DATE/$PAGE_NAME/mobile.html"
-          echo "Copied mobile HTML report from Lighthouse"
-        else
-          echo "Mobile HTML report not found in Lighthouse results and no existing file was found"
-        fi
-      fi
+  # Check if mobile directory exists first
+  if [ -d "$RESULTS_DIR/mobile" ]; then
+    # First try to find a real Lighthouse report file
+    REAL_MOBILE_HTML=$(find $RESULTS_DIR/mobile -name "*.report.html" | sort | tail -n 1)
+    if [ -f "$REAL_MOBILE_HTML" ]; then
+      echo "Found real Lighthouse report for mobile: $REAL_MOBILE_HTML"
+      cp "$REAL_MOBILE_HTML" "performance-reports/$CURRENT_DATE/$PAGE_NAME/mobile.html"
+      echo "Copied real mobile HTML report"
+    elif [ -f "performance-reports/$CURRENT_DATE/$PAGE_NAME/mobile.html" ]; then
+      echo "Mobile HTML file already exists, preserving it"
     else
-      echo "Mobile directory not found in Lighthouse results and no existing file was found"
+      # Try to find any HTML file if no report is found
+      MOBILE_HTML=$(find $RESULTS_DIR/mobile -name "*.html" | sort | tail -n 1)
+      if [ -f "$MOBILE_HTML" ]; then
+        cp "$MOBILE_HTML" "performance-reports/$CURRENT_DATE/$PAGE_NAME/mobile.html"
+        echo "Copied mobile HTML report from Lighthouse"
+      else
+        echo "Mobile HTML report not found in Lighthouse results and no existing file was found"
+      fi
     fi
   else
-    echo "Mobile HTML file already exists, preserving it"
+    echo "Mobile directory not found in Lighthouse results"
+    if [ ! -f "performance-reports/$CURRENT_DATE/$PAGE_NAME/mobile.html" ]; then
+      echo "Creating fallback mobile HTML file"
+      # Create a fallback HTML file with a message
+      echo "<!DOCTYPE html>
+<html>
+<head>
+  <meta charset=\"UTF-8\">
+  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
+  <title>Mobile Lighthouse Report - $PAGE_NAME</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; }
+    h1, h2 { color: #2c3e50; }
+    .card { background: white; border-radius: 8px; padding: 20px; margin: 20px 0; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    .alert { background-color: #ffebee; border-left: 5px solid #f44336; padding: 15px; margin: 15px 0; }
+    .back-link { display: inline-block; margin-top: 20px; padding: 10px 15px; background-color: #4285f4; color: white; text-decoration: none; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <h1>Mobile Lighthouse Report for $PAGE_NAME</h1>
+  <p>Generated on $CURRENT_DATE via GitHub Actions</p>
+
+  <div class=\"alert\">
+    <h2>Report Not Available</h2>
+    <p>The mobile Lighthouse test did not complete successfully. This could be due to:</p>
+    <ul>
+      <li>Network issues or timeouts</li>
+      <li>Site unavailability during testing</li>
+      <li>Problems with the testing environment</li>
+    </ul>
+  </div>
+
+  <div class=\"card\">
+    <h2>Performance Scores (Estimated)</h2>
+    <p>Performance: ${MOBILE_PERF}%</p>
+    <p>Accessibility: ${MOBILE_A11Y}%</p>
+    <p>Best Practices: ${MOBILE_BP}%</p>
+    <p>SEO: ${MOBILE_SEO}%</p>
+  </div>
+
+  <a href=\"../../../index.html\" class=\"back-link\">Back to Dashboard</a>
+</body>
+</html>" > "performance-reports/$CURRENT_DATE/$PAGE_NAME/mobile.html"
+    fi
   fi
 
   # Copy screenshots if they exist

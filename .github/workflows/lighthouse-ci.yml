@@ -88,6 +88,34 @@ jobs:
           .github/workflows/scripts/run-lighthouse.sh "${{ matrix.page.url }}" "${{ matrix.page.name }}" "${{ steps.results-dir.outputs.results_dir }}"
         continue-on-error: true
 
+      - name: Check Lighthouse report files
+        run: |
+          echo "Checking for Lighthouse report files..."
+
+          # Check for desktop HTML reports
+          DESKTOP_REPORT_COUNT=$(find ${{ steps.results-dir.outputs.results_dir }} -name "*.report.html" -not -path "*/mobile/*" | wc -l)
+          echo "Desktop report HTML files found: $DESKTOP_REPORT_COUNT"
+          if [ "$DESKTOP_REPORT_COUNT" -gt 0 ]; then
+            echo "Desktop report files:"
+            find ${{ steps.results-dir.outputs.results_dir }} -name "*.report.html" -not -path "*/mobile/*"
+          else
+            echo "No desktop report files found"
+          fi
+
+          # Check for mobile HTML reports
+          MOBILE_REPORT_COUNT=$(find ${{ steps.results-dir.outputs.results_dir }}/mobile -name "*.report.html" 2>/dev/null | wc -l || echo "0")
+          echo "Mobile report HTML files found: $MOBILE_REPORT_COUNT"
+          if [ "$MOBILE_REPORT_COUNT" -gt 0 ]; then
+            echo "Mobile report files:"
+            find ${{ steps.results-dir.outputs.results_dir }}/mobile -name "*.report.html"
+          else
+            echo "No mobile report files found"
+          fi
+
+          # Create .nojekyll file to prevent GitHub Pages processing
+          touch performance-reports/.nojekyll
+        continue-on-error: true
+
       - name: Process Lighthouse results
         id: scores
         run: |
