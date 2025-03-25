@@ -60,12 +60,13 @@ if [ ! -f "$DESKTOP_JSON" ]; then
       "first-contentful-paint": {"numericValue": 2000},
       "speed-index": {"numericValue": 3500},
       "interactive": {"numericValue": 4000},
-      "render-blocking-resources": {"details": {"items": []}},
-      "unused-css-rules": {"details": {"overallSavingsBytes": 0}},
-      "unused-javascript": {"details": {"overallSavingsBytes": 0}},
-      "offscreen-images": {"details": {"overallSavingsBytes": 0}},
+      "render-blocking-resources": {"details": {"items": [], "overallSavingsMs": 0}},
+      "unused-css-rules": {"details": {"overallSavingsBytes": 0, "items": []}},
+      "unused-javascript": {"details": {"overallSavingsBytes": 0, "items": []}},
+      "offscreen-images": {"details": {"overallSavingsBytes": 0, "items": []}},
       "total-byte-weight": {"numericValue": 1000000},
-      "dom-size": {"numericValue": 500}
+      "dom-size": {"numericValue": 500},
+      "network-requests": {"details": {"items": []}}
     }
   }' > $RESULTS_DIR/lhr-fallback-desktop.json
 
@@ -143,12 +144,13 @@ if [ ! -f "$MOBILE_JSON" ]; then
       "first-contentful-paint": {"numericValue": 2500},
       "speed-index": {"numericValue": 4000},
       "interactive": {"numericValue": 4500},
-      "render-blocking-resources": {"details": {"items": []}},
-      "unused-css-rules": {"details": {"overallSavingsBytes": 0}},
-      "unused-javascript": {"details": {"overallSavingsBytes": 0}},
-      "offscreen-images": {"details": {"overallSavingsBytes": 0}},
+      "render-blocking-resources": {"details": {"items": [], "overallSavingsMs": 0}},
+      "unused-css-rules": {"details": {"overallSavingsBytes": 0, "items": []}},
+      "unused-javascript": {"details": {"overallSavingsBytes": 0, "items": []}},
+      "offscreen-images": {"details": {"overallSavingsBytes": 0, "items": []}},
       "total-byte-weight": {"numericValue": 900000},
-      "dom-size": {"numericValue": 500}
+      "dom-size": {"numericValue": 500},
+      "network-requests": {"details": {"items": []}}
     }
   }' > $RESULTS_DIR/mobile/lhr-fallback-mobile.json
 
@@ -335,3 +337,27 @@ rm -rf $SCREENSHOT_DIR
 echo "Screenshot process completed"
 
 echo "Lighthouse tests completed for $PAGE_NAME"
+
+# Find the latest JSON and HTML reports for copying
+DESKTOP_JSON=$(find $RESULTS_DIR -name "lhr-*.json" -not -path "*/mobile/*" | sort | tail -n 1)
+DESKTOP_HTML=$(find $RESULTS_DIR -name "*.html" -not -path "*/mobile/*" | sort | tail -n 1)
+
+if [ -f "$DESKTOP_JSON" ]; then
+  # Create a timestamp for the copied files
+  TIMESTAMP=$(date +"%Y%m%d%H%M%S")
+
+  # Save the report to the output directory with timestamp
+  echo "Saving Lighthouse report to: $RESULTS_DIR/lhr-$TIMESTAMP.json"
+  cp "$DESKTOP_JSON" "$RESULTS_DIR/lhr-$TIMESTAMP.json"
+
+  if [ -f "$DESKTOP_HTML" ]; then
+    echo "Saving HTML report to: $RESULTS_DIR/lhr-$TIMESTAMP.html"
+    cp "$DESKTOP_HTML" "$RESULTS_DIR/lhr-$TIMESTAMP.html"
+  fi
+
+  # Also copy the report to a processed directory for easier access by dashboard
+  PROCESSED_DIR="$RESULTS_DIR/processed/$(basename $RESULTS_DIR)"
+  mkdir -p "$PROCESSED_DIR"
+  cp "$DESKTOP_JSON" "$PROCESSED_DIR/lhr-latest.json"
+  echo "Also copied JSON report to: $PROCESSED_DIR/lhr-latest.json for dashboard access"
+fi

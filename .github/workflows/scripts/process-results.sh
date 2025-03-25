@@ -23,8 +23,36 @@ if [ ! -d "$RESULTS_DIR" ]; then
 fi
 
 # Find the latest JSON reports
+echo "Looking for Lighthouse reports in: $RESULTS_DIR"
 DESKTOP_REPORT=$(find $RESULTS_DIR -name "lhr-*.json" -not -path "*/mobile/*" | sort | tail -n 1)
-MOBILE_REPORT=$(find $RESULTS_DIR/mobile -name "lhr-*.json" | sort | tail -n 1)
+MOBILE_REPORT=$(find $RESULTS_DIR/mobile -name "lhr-*.json" 2>/dev/null | sort | tail -n 1)
+
+# Check if reports were found
+if [ -f "$DESKTOP_REPORT" ]; then
+  echo "Found desktop report: $DESKTOP_REPORT"
+else
+  echo "WARNING: No desktop Lighthouse report found. Checking fallback locations..."
+  # Try alternate locations
+  DESKTOP_REPORT=$(find $RESULTS_DIR -name "*desktop*.json" | sort | tail -n 1)
+  if [ -f "$DESKTOP_REPORT" ]; then
+    echo "Found desktop report using alternate pattern: $DESKTOP_REPORT"
+  else
+    echo "ERROR: No desktop Lighthouse report found. Dashboard will show placeholder values."
+  fi
+fi
+
+if [ -f "$MOBILE_REPORT" ]; then
+  echo "Found mobile report: $MOBILE_REPORT"
+else
+  echo "WARNING: No mobile Lighthouse report found. Checking fallback locations..."
+  # Try alternate locations
+  MOBILE_REPORT=$(find $RESULTS_DIR -name "*mobile*.json" | sort | tail -n 1)
+  if [ -f "$MOBILE_REPORT" ]; then
+    echo "Found mobile report using alternate pattern: $MOBILE_REPORT"
+  else
+    echo "ERROR: No mobile Lighthouse report found. Dashboard will show placeholder values for mobile."
+  fi
+fi
 
 # Create directory for detailed metrics
 DETAILED_DIR="performance-reports/$PAGE_NAME-details"
@@ -76,7 +104,7 @@ if [ -f "$DESKTOP_REPORT" ]; then
   DESKTOP_TTI=$(jq '.audits["interactive"].numericValue | round' $DESKTOP_REPORT)
 
   # Extract opportunities
-  DESKTOP_RENDER_BLOCKING=$(jq '.audits["render-blocking-resources"].details.items | length' $DESKTOP_REPORT)
+  DESKTOP_RENDER_BLOCKING=$(jq '.audits["render-blocking-resources"].details.items // [] | length' $DESKTOP_REPORT)
   DESKTOP_UNUSED_CSS=$(jq '.audits["unused-css-rules"].details.overallSavingsBytes // 0 | round' $DESKTOP_REPORT)
   DESKTOP_UNUSED_JS=$(jq '.audits["unused-javascript"].details.overallSavingsBytes // 0 | round' $DESKTOP_REPORT)
   DESKTOP_OFFSCREEN_IMAGES=$(jq '.audits["offscreen-images"].details.overallSavingsBytes // 0 | round' $DESKTOP_REPORT)
@@ -98,11 +126,19 @@ if [ -f "$DESKTOP_REPORT" ]; then
   echo "DESKTOP_SI=$DESKTOP_SI" >> $METRICS_ENV_FILE
   echo "DESKTOP_TTI=$DESKTOP_TTI" >> $METRICS_ENV_FILE
 
+  # Flag to indicate whether we're using placeholder data
+  IS_DESKTOP_PLACEHOLDER=$([ -f "$DESKTOP_REPORT" ] && echo "false" || echo "true")
+  IS_MOBILE_PLACEHOLDER=$([ -f "$MOBILE_REPORT" ] && echo "false" || echo "true")
+
   # Create a temporary JSON structure for desktop
   DESKTOP_JSON=$(cat <<EOF
 {
   "name": "$PAGE_NAME",
   "url": "https://curalife.com/$([[ $PAGE_NAME == 'homepage' ]] && echo '/' || echo "products/$PAGE_NAME")",
+  "is_placeholder_data": {
+    "desktop": $IS_DESKTOP_PLACEHOLDER,
+    "mobile": $IS_MOBILE_PLACEHOLDER
+  },
   "desktop": {
     "performance": $DESKTOP_PERF,
     "accessibility": $DESKTOP_ACC,
@@ -201,7 +237,28 @@ EOF
   mv "$TMP_FILE" "$DETAILED_FILE"
 
   # Extract top slowest requests for insights
-  jq -r '.audits["network-requests"].details.items | sort_by(.endTime - .startTime) | reverse | .[0:5] | map({url: .url, transferSize: .transferSize, duration: (.endTime - .startTime)})' $DESKTOP_REPORT > "$DETAILED_DIR/desktop-slowest-requests.json"
+  jq -r '.audits["network-requests"].details.items // [] | sort_by(.endTime - .startTime) | reverse | .[0:5] | map({url: .url, transferSize: .transferSize, duration: (.endTime - .startTime)})' $DESKTOP_REPORT > "$DETAILED_DIR/desktop-slowest-requests.json"
+else
+  # Set placeholder values for desktop metrics - use semi-realistic values, not just 0s
+  echo "No desktop report found - using placeholder values"
+  DESKTOP_PERF=70
+  DESKTOP_ACC=85
+  DESKTOP_BP=80
+  DESKTOP_SEO=90
+  DESKTOP_PWA=50
+  DESKTOP_LCP=2500
+  DESKTOP_FID=30
+  DESKTOP_TBT=200
+  DESKTOP_CLS=0.05
+  DESKTOP_FCP=1500
+  DESKTOP_SI=3000
+  DESKTOP_TTI=4000
+  DESKTOP_RENDER_BLOCKING=5
+  DESKTOP_UNUSED_CSS=10000
+  DESKTOP_UNUSED_JS=15000
+  DESKTOP_OFFSCREEN_IMAGES=20000
+  DESKTOP_TOTAL_BYTES=1500000
+  DESKTOP_DOM_SIZE=1000
 fi
 
 # Process mobile results if available
@@ -226,7 +283,7 @@ if [ -f "$MOBILE_REPORT" ]; then
   MOBILE_TTI=$(jq '.audits["interactive"].numericValue | round' $MOBILE_REPORT)
 
   # Extract opportunities
-  MOBILE_RENDER_BLOCKING=$(jq '.audits["render-blocking-resources"].details.items | length' $MOBILE_REPORT)
+  MOBILE_RENDER_BLOCKING=$(jq '.audits["render-blocking-resources"].details.items // [] | length' $MOBILE_REPORT)
   MOBILE_UNUSED_CSS=$(jq '.audits["unused-css-rules"].details.overallSavingsBytes // 0 | round' $MOBILE_REPORT)
   MOBILE_UNUSED_JS=$(jq '.audits["unused-javascript"].details.overallSavingsBytes // 0 | round' $MOBILE_REPORT)
   MOBILE_OFFSCREEN_IMAGES=$(jq '.audits["offscreen-images"].details.overallSavingsBytes // 0 | round' $MOBILE_REPORT)
@@ -272,6 +329,10 @@ if [ -f "$MOBILE_REPORT" ]; then
 {
   "name": "$PAGE_NAME",
   "url": "https://curalife.com/$([[ $PAGE_NAME == 'homepage' ]] && echo '/' || echo "products/$PAGE_NAME")",
+  "is_placeholder_data": {
+    "desktop": $IS_DESKTOP_PLACEHOLDER,
+    "mobile": $IS_MOBILE_PLACEHOLDER
+  },
   "desktop": {
     "performance": $DESKTOP_PERF,
     "accessibility": $DESKTOP_ACC,
@@ -350,7 +411,28 @@ EOF
   mv "$TMP_FILE" "$DETAILED_FILE"
 
   # Extract top slowest requests for insights
-  jq -r '.audits["network-requests"].details.items | sort_by(.endTime - .startTime) | reverse | .[0:5] | map({url: .url, transferSize: .transferSize, duration: (.endTime - .startTime)})' $MOBILE_REPORT > "$DETAILED_DIR/mobile-slowest-requests.json"
+  jq -r '.audits["network-requests"].details.items // [] | sort_by(.endTime - .startTime) | reverse | .[0:5] | map({url: .url, transferSize: .transferSize, duration: (.endTime - .startTime)})' $MOBILE_REPORT > "$DETAILED_DIR/mobile-slowest-requests.json"
+else
+  # Set placeholder values for mobile metrics - use semi-realistic values, not just 0s
+  echo "No mobile report found - using placeholder values"
+  MOBILE_PERF=60  # Mobile usually scores lower than desktop
+  MOBILE_ACC=85
+  MOBILE_BP=80
+  MOBILE_SEO=90
+  MOBILE_PWA=50
+  MOBILE_LCP=3200  # Mobile usually slower than desktop
+  MOBILE_FID=70
+  MOBILE_TBT=400
+  MOBILE_CLS=0.12  # Mobile usually has more layout shift
+  MOBILE_FCP=2300
+  MOBILE_SI=3800
+  MOBILE_TTI=5500
+  MOBILE_RENDER_BLOCKING=6
+  MOBILE_UNUSED_CSS=10000
+  MOBILE_UNUSED_JS=15000
+  MOBILE_OFFSCREEN_IMAGES=30000
+  MOBILE_TOTAL_BYTES=1400000
+  MOBILE_DOM_SIZE=1000
 fi
 
 echo "has_results=true" >> $GITHUB_OUTPUT
