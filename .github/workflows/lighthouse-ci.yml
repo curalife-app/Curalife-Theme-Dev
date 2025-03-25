@@ -2,763 +2,155 @@ name: Lighthouse CI
 
 on:
   schedule:
-    - cron: "0 8 * * *" # Run every day at 8 AM
-    - cron: "0 18 * * *" # Run every day at 6 PM
-  # Allow manual trigger through GitHub UI
+    - cron: "15 02 * * *" # Runs at 2:15 UTC daily
+    - cron: "15 14 * * *" # Runs at 14:15 UTC daily
   workflow_dispatch:
 
-# Allow cancellation of previous runs in the same PR/branch
+# Allow one concurrent deployment
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: "lighthouse-${{ github.workflow }}-${{ github.ref }}"
   cancel-in-progress: true
 
 permissions:
   contents: write
-  pull-requests: write
-  pages: write
-  id-token: write
 
-# Define environment for GitHub Pages
 env:
-  HISTORY_BRANCH: lighthouse-history
-  # Cache keys for dependencies and tools
-  SYSTEM_DEPS_CACHE_KEY: system-deps-${{ github.run_id }}
-  TOOLS_CACHE_KEY: tools-${{ github.run_id }}
-  NPM_GLOBAL_CACHE_KEY: npm-global-${{ github.run_id }}
-  PUPPETEER_CACHE_KEY: puppeteer-${{ github.run_id }}
-  GH_PAGES_CACHE_KEY: gh-pages-${{ github.run_id }}
+  REPORT_DATE: $(date +'%Y-%m-%d')
+  RESULTS_DIR: ${{ github.workspace }}/lighthouse-results
 
-# Reusable job configurations
 jobs:
-  lighthouse-ci:
+  lighthouse-desktop:
+    name: Desktop Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    strategy:
-      matrix:
-        page:
-          - name: homepage
-            url: https://curalife.com/
-          - name: product
-            url: https://curalife.com/products/curalin
-      fail-fast: false
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-
-      - name: Setup dependencies and environment
-        uses: ./.github/actions/setup-environment
-        with:
-          cache-key-prefix: ${{ env.SYSTEM_DEPS_CACHE_KEY }}
-          npm-cache-key: ${{ env.NPM_GLOBAL_CACHE_KEY }}
-          puppeteer-cache-key: ${{ env.PUPPETEER_CACHE_KEY }}
-
-      - name: Setup results directory
-        id: results-dir
+      - uses: actions/checkout@v4
+      - name: Setup environment
         run: |
-          RESULTS_DIR="${{ matrix.page.name }}-lighthouse-results"
-          echo "results_dir=$RESULTS_DIR" >> $GITHUB_OUTPUT
-          mkdir -p $RESULTS_DIR
-
-      - name: Make scripts executable
-        run: |
-          chmod +x .github/workflows/scripts/make-scripts-executable.sh
-          .github/workflows/scripts/make-scripts-executable.sh
-
-      - name: Ensure Puppeteer is installed
-        run: |
-          echo "Installing Puppeteer for screenshots..."
-          # First remove any existing installation that might be causing issues
-          npm rm puppeteer || true
-          # Install a version compatible with Node.js 18 with explicit path
-          npm install --no-save puppeteer@19.11.1
-          # Make sure the Chrome binary is installed
-          npx puppeteer install chrome
-          # Test that puppeteer can be required
-          node -e "try { require('puppeteer'); console.log('Puppeteer installation verified!'); } catch(e) { console.error('Puppeteer installation failed:', e); process.exit(1); }"
-          echo "Puppeteer installation complete"
-        continue-on-error: true
-
-      - name: Run Lighthouse CI
-        id: lighthouse
-        run: |
-          echo "Running Lighthouse on ${{ matrix.page.url }}..."
-          .github/workflows/scripts/run-lighthouse.sh "${{ matrix.page.url }}" "${{ matrix.page.name }}" "${{ steps.results-dir.outputs.results_dir }}"
-        continue-on-error: true
-
-      - name: Check Lighthouse report files
-        run: |
-          echo "Checking for Lighthouse report files..."
-
-          # Check for desktop HTML reports
-          DESKTOP_REPORT_COUNT=$(find ${{ steps.results-dir.outputs.results_dir }} -name "*.report.html" -not -path "*/mobile/*" | wc -l)
-          echo "Desktop report HTML files found: $DESKTOP_REPORT_COUNT"
-          if [ "$DESKTOP_REPORT_COUNT" -gt 0 ]; then
-            echo "Desktop report files:"
-            find ${{ steps.results-dir.outputs.results_dir }} -name "*.report.html" -not -path "*/mobile/*"
-          else
-            echo "No desktop report files found"
-          fi
-
-          # Check for mobile HTML reports
-          MOBILE_REPORT_COUNT=$(find ${{ steps.results-dir.outputs.results_dir }}/mobile -name "*.report.html" 2>/dev/null | wc -l || echo "0")
-          echo "Mobile report HTML files found: $MOBILE_REPORT_COUNT"
-          if [ "$MOBILE_REPORT_COUNT" -gt 0 ]; then
-            echo "Mobile report files:"
-            find ${{ steps.results-dir.outputs.results_dir }}/mobile -name "*.report.html"
-          else
-            echo "No mobile report files found"
-          fi
-
-          # Create .nojekyll file to prevent GitHub Pages processing
-          touch performance-reports/.nojekyll
-        continue-on-error: true
-
-      - name: Process Lighthouse results
-        id: scores
-        run: |
-          # Set current date for outputs
-          CURRENT_DATE=$(date +"%Y-%m-%d")
-          echo "report_date=$CURRENT_DATE" >> $GITHUB_OUTPUT
-
-          .github/workflows/scripts/process-results.sh "${{ matrix.page.name }}" "${{ steps.results-dir.outputs.results_dir }}" "$CURRENT_DATE"
-
-          # Save the output values to a file that can be sourced in the next step
-          METRICS_FILE="metrics-values.env"
-          echo "DESKTOP_PERF=${desktop_perf:-50}" > $METRICS_FILE
-          echo "DESKTOP_A11Y=${desktop_a11y:-50}" >> $METRICS_FILE
-          echo "DESKTOP_BP=${desktop_bp:-50}" >> $METRICS_FILE
-          echo "DESKTOP_SEO=${desktop_seo:-50}" >> $METRICS_FILE
-          echo "DESKTOP_PWA=${desktop_pwa:-0}" >> $METRICS_FILE
-          echo "DESKTOP_LCP=${desktop_lcp:-3000}" >> $METRICS_FILE
-          echo "DESKTOP_FID=${desktop_fid:-150}" >> $METRICS_FILE
-          echo "DESKTOP_TBT=${desktop_tbt:-250}" >> $METRICS_FILE
-          echo "DESKTOP_CLS=${desktop_cls:-0.15}" >> $METRICS_FILE
-          echo "DESKTOP_FCP=${desktop_fcp:-2000}" >> $METRICS_FILE
-          echo "DESKTOP_SI=${desktop_si:-3500}" >> $METRICS_FILE
-          echo "DESKTOP_TTI=${desktop_tti:-4000}" >> $METRICS_FILE
-          echo "DESKTOP_RENDER_BLOCKING=${desktop_render_blocking:-0}" >> $METRICS_FILE
-          echo "DESKTOP_UNUSED_CSS=${desktop_unused_css:-0}" >> $METRICS_FILE
-          echo "DESKTOP_UNUSED_JS=${desktop_unused_js:-0}" >> $METRICS_FILE
-          echo "DESKTOP_OFFSCREEN_IMAGES=${desktop_offscreen_images:-0}" >> $METRICS_FILE
-          echo "DESKTOP_TOTAL_BYTES=${desktop_total_bytes:-1000000}" >> $METRICS_FILE
-          echo "DESKTOP_DOM_SIZE=${desktop_dom_size:-500}" >> $METRICS_FILE
-          echo "MOBILE_PERF=${mobile_perf:-40}" >> $METRICS_FILE
-          echo "MOBILE_A11Y=${mobile_a11y:-50}" >> $METRICS_FILE
-          echo "MOBILE_BP=${mobile_bp:-50}" >> $METRICS_FILE
-          echo "MOBILE_SEO=${mobile_seo:-50}" >> $METRICS_FILE
-          echo "MOBILE_PWA=${mobile_pwa:-0}" >> $METRICS_FILE
-          echo "MOBILE_LCP=${mobile_lcp:-3500}" >> $METRICS_FILE
-          echo "MOBILE_FID=${mobile_fid:-200}" >> $METRICS_FILE
-          echo "MOBILE_TBT=${mobile_tbt:-300}" >> $METRICS_FILE
-          echo "MOBILE_CLS=${mobile_cls:-0.2}" >> $METRICS_FILE
-          echo "MOBILE_FCP=${mobile_fcp:-2500}" >> $METRICS_FILE
-          echo "MOBILE_SI=${mobile_si:-4000}" >> $METRICS_FILE
-          echo "MOBILE_TTI=${mobile_tti:-4500}" >> $METRICS_FILE
-          echo "MOBILE_RENDER_BLOCKING=${mobile_render_blocking:-0}" >> $METRICS_FILE
-          echo "MOBILE_UNUSED_CSS=${mobile_unused_css:-0}" >> $METRICS_FILE
-          echo "MOBILE_UNUSED_JS=${mobile_unused_js:-0}" >> $METRICS_FILE
-          echo "MOBILE_OFFSCREEN_IMAGES=${mobile_offscreen_images:-0}" >> $METRICS_FILE
-          echo "MOBILE_TOTAL_BYTES=${mobile_total_bytes:-900000}" >> $METRICS_FILE
-          echo "MOBILE_DOM_SIZE=${mobile_dom_size:-500}" >> $METRICS_FILE
-        continue-on-error: true
-
-      - name: Force create HTML report files
-        if: always()
-        run: |
-          # Source the metrics file if it exists
-          if [ -f "metrics-values.env" ]; then
-            echo "Sourcing metrics from file"
-            source metrics-values.env
-            export $(cut -d= -f1 metrics-values.env)
-          else
-            echo "Metrics file not found, using default values"
-            # Set default values
-            export DESKTOP_PERF=50
-            export DESKTOP_A11Y=50
-            export DESKTOP_BP=50
-            export DESKTOP_SEO=50
-            export MOBILE_PERF=40
-            export MOBILE_A11Y=50
-            export MOBILE_BP=50
-            export MOBILE_SEO=50
-          fi
-
-          mkdir -p performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}
-
-          # Create the desktop report directories
-          DESKTOP_REPORT_DIR="performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}"
-
-          # Create desktop.html template in a YAML-friendly way
-          echo "Creating desktop.html report"
-          DESKTOP_HTML="${DESKTOP_REPORT_DIR}/desktop.html"
-
-          # Create HTML file structure piece by piece to avoid YAML syntax issues
-          echo "<!DOCTYPE html>" > "$DESKTOP_HTML"
-          echo "<html lang=\"en\">" >> "$DESKTOP_HTML"
-          echo "<head>" >> "$DESKTOP_HTML"
-          echo "  <meta charset=\"UTF-8\">" >> "$DESKTOP_HTML"
-          echo "  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">" >> "$DESKTOP_HTML"
-          echo "  <title>${{ matrix.page.name }} - Desktop Performance Report | Curalife</title>" >> "$DESKTOP_HTML"
-          echo "  <link rel=\"icon\" href=\"https://cdn.shopify.com/s/files/1/0016/8633/0243/files/favicon-32x32.png?v=1618828796\" type=\"image/png\">" >> "$DESKTOP_HTML"
-          echo "  <link href=\"https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css\" rel=\"stylesheet\">" >> "$DESKTOP_HTML"
-          echo "  <link rel=\"stylesheet\" href=\"https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css\">" >> "$DESKTOP_HTML"
-          echo "  <style>" >> "$DESKTOP_HTML"
-          echo "    :root {" >> "$DESKTOP_HTML"
-          echo "      --primary-color: #00837b;" >> "$DESKTOP_HTML"
-          echo "      --primary-light: #e6f7f5;" >> "$DESKTOP_HTML"
-          echo "      --secondary-color: #f26b3c;" >> "$DESKTOP_HTML"
-          echo "      --dark-color: #2c3e50;" >> "$DESKTOP_HTML"
-          echo "      --good: #0CCE6B;" >> "$DESKTOP_HTML"
-          echo "      --average: #FFA400;" >> "$DESKTOP_HTML"
-          echo "      --poor: #FF4E42;" >> "$DESKTOP_HTML"
-          echo "      --background: #f8f9fa;" >> "$DESKTOP_HTML"
-          echo "    }" >> "$DESKTOP_HTML"
-          echo "    body {" >> "$DESKTOP_HTML"
-          echo "      font-family: 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;" >> "$DESKTOP_HTML"
-          echo "      line-height: 1.6;" >> "$DESKTOP_HTML"
-          echo "      background-color: var(--background);" >> "$DESKTOP_HTML"
-          echo "      color: #333;" >> "$DESKTOP_HTML"
-          echo "      max-width: 1200px;" >> "$DESKTOP_HTML"
-          echo "      margin: 0 auto;" >> "$DESKTOP_HTML"
-          echo "      padding: 20px;" >> "$DESKTOP_HTML"
-          echo "    }" >> "$DESKTOP_HTML"
-          echo "    .header {" >> "$DESKTOP_HTML"
-          echo "      background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));" >> "$DESKTOP_HTML"
-          echo "      color: white;" >> "$DESKTOP_HTML"
-          echo "      padding: 1.5rem;" >> "$DESKTOP_HTML"
-          echo "      border-radius: 10px;" >> "$DESKTOP_HTML"
-          echo "      margin-bottom: 2rem;" >> "$DESKTOP_HTML"
-          echo "      box-shadow: 0 4px 12px rgba(0,0,0,0.1);" >> "$DESKTOP_HTML"
-          echo "      display: flex;" >> "$DESKTOP_HTML"
-          echo "      justify-content: space-between;" >> "$DESKTOP_HTML"
-          echo "      align-items: center;" >> "$DESKTOP_HTML"
-          echo "    }" >> "$DESKTOP_HTML"
-          echo "    .card {" >> "$DESKTOP_HTML"
-          echo "      background: white;" >> "$DESKTOP_HTML"
-          echo "      border-radius: 10px;" >> "$DESKTOP_HTML"
-          echo "      padding: 20px;" >> "$DESKTOP_HTML"
-          echo "      margin-bottom: 20px;" >> "$DESKTOP_HTML"
-          echo "      box-shadow: 0 2px 10px rgba(0,0,0,0.05);" >> "$DESKTOP_HTML"
-          echo "      transition: transform 0.3s, box-shadow 0.3s;" >> "$DESKTOP_HTML"
-          echo "      border: none;" >> "$DESKTOP_HTML"
-          echo "    }" >> "$DESKTOP_HTML"
-          echo "    .card:hover {" >> "$DESKTOP_HTML"
-          echo "      transform: translateY(-5px);" >> "$DESKTOP_HTML"
-          echo "      box-shadow: 0 10px 20px rgba(0,0,0,0.1);" >> "$DESKTOP_HTML"
-          echo "    }" >> "$DESKTOP_HTML"
-          echo "    .score-card {" >> "$DESKTOP_HTML"
-          echo "      text-align: center;" >> "$DESKTOP_HTML"
-          echo "      padding: 1.5rem;" >> "$DESKTOP_HTML"
-          echo "    }" >> "$DESKTOP_HTML"
-          echo "    .score-value {" >> "$DESKTOP_HTML"
-          echo "      font-size: 3rem;" >> "$DESKTOP_HTML"
-          echo "      font-weight: bold;" >> "$DESKTOP_HTML"
-          echo "      position: relative;" >> "$DESKTOP_HTML"
-          echo "      display: inline-block;" >> "$DESKTOP_HTML"
-          echo "      width: 100px;" >> "$DESKTOP_HTML"
-          echo "      height: 100px;" >> "$DESKTOP_HTML"
-          echo "      line-height: 100px;" >> "$DESKTOP_HTML"
-          echo "      border-radius: 50%;" >> "$DESKTOP_HTML"
-          echo "      color: white;" >> "$DESKTOP_HTML"
-          echo "      margin-bottom: 15px;" >> "$DESKTOP_HTML"
-          echo "    }" >> "$DESKTOP_HTML"
-          echo "    .score-good { background-color: var(--good); }" >> "$DESKTOP_HTML"
-          echo "    .score-average { background-color: var(--average); }" >> "$DESKTOP_HTML"
-          echo "    .score-poor { background-color: var(--poor); }" >> "$DESKTOP_HTML"
-          echo "    .score-label {" >> "$DESKTOP_HTML"
-          echo "      font-size: 1.2rem;" >> "$DESKTOP_HTML"
-          echo "      font-weight: 600;" >> "$DESKTOP_HTML"
-          echo "      color: var(--dark-color);" >> "$DESKTOP_HTML"
-          echo "    }" >> "$DESKTOP_HTML"
-          echo "    .metric-good { color: var(--good); }" >> "$DESKTOP_HTML"
-          echo "    .metric-average { color: var(--average); }" >> "$DESKTOP_HTML"
-          echo "    .metric-poor { color: var(--poor); }" >> "$DESKTOP_HTML"
-          echo "    .section-title {" >> "$DESKTOP_HTML"
-          echo "      font-weight: 600;" >> "$DESKTOP_HTML"
-          echo "      color: var(--dark-color);" >> "$DESKTOP_HTML"
-          echo "      margin-bottom: 15px;" >> "$DESKTOP_HTML"
-          echo "      border-bottom: 2px solid var(--primary-light);" >> "$DESKTOP_HTML"
-          echo "      padding-bottom: 10px;" >> "$DESKTOP_HTML"
-          echo "    }" >> "$DESKTOP_HTML"
-          echo "  </style>" >> "$DESKTOP_HTML"
-          echo "</head>" >> "$DESKTOP_HTML"
-          echo "<body>" >> "$DESKTOP_HTML"
-
-          # Add header section
-          echo "  <div class=\"header\">" >> "$DESKTOP_HTML"
-          echo "    <div>" >> "$DESKTOP_HTML"
-          echo "      <h1><i class=\"bi bi-laptop me-2\"></i>${{ matrix.page.name }} - Desktop Report</h1>" >> "$DESKTOP_HTML"
-          echo "      <p class=\"mb-0\">Test run on ${{ steps.scores.outputs.report_date }}</p>" >> "$DESKTOP_HTML"
-          echo "    </div>" >> "$DESKTOP_HTML"
-          echo "    <div>" >> "$DESKTOP_HTML"
-          echo "      <a href=\"../../../index.html\" class=\"btn btn-outline-light\"><i class=\"bi bi-arrow-left me-2\"></i>Back to Dashboard</a>" >> "$DESKTOP_HTML"
-          echo "    </div>" >> "$DESKTOP_HTML"
-          echo "  </div>" >> "$DESKTOP_HTML"
-
-          # Add main content container
-          echo "  <div class=\"container-fluid p-0\">" >> "$DESKTOP_HTML"
-
-          # Add scores section
-          echo "    <div class=\"row mb-4\">" >> "$DESKTOP_HTML"
-
-          # Add performance score
-          echo "      <div class=\"col-md-3\">" >> "$DESKTOP_HTML"
-          echo "        <div class=\"card score-card\">" >> "$DESKTOP_HTML"
-          echo "          <div class=\"score-value \${DESKTOP_PERF >= 90 ? 'score-good' : (DESKTOP_PERF >= 50 ? 'score-average' : 'score-poor')}\">\${DESKTOP_PERF}</div>" >> "$DESKTOP_HTML"
-          echo "          <div class=\"score-label\">Performance</div>" >> "$DESKTOP_HTML"
-          echo "          <div class=\"mt-2\"><small>Target: 90+</small></div>" >> "$DESKTOP_HTML"
-          echo "        </div>" >> "$DESKTOP_HTML"
-          echo "      </div>" >> "$DESKTOP_HTML"
-
-          # Add accessibility score
-          echo "      <div class=\"col-md-3\">" >> "$DESKTOP_HTML"
-          echo "        <div class=\"card score-card\">" >> "$DESKTOP_HTML"
-          echo "          <div class=\"score-value \${DESKTOP_A11Y >= 90 ? 'score-good' : (DESKTOP_A11Y >= 70 ? 'score-average' : 'score-poor')}\">\${DESKTOP_A11Y}</div>" >> "$DESKTOP_HTML"
-          echo "          <div class=\"score-label\">Accessibility</div>" >> "$DESKTOP_HTML"
-          echo "          <div class=\"mt-2\"><small>Target: 90+</small></div>" >> "$DESKTOP_HTML"
-          echo "        </div>" >> "$DESKTOP_HTML"
-          echo "      </div>" >> "$DESKTOP_HTML"
-
-          # Add best practices score
-          echo "      <div class=\"col-md-3\">" >> "$DESKTOP_HTML"
-          echo "        <div class=\"card score-card\">" >> "$DESKTOP_HTML"
-          echo "          <div class=\"score-value \${DESKTOP_BP >= 90 ? 'score-good' : (DESKTOP_BP >= 70 ? 'score-average' : 'score-poor')}\">\${DESKTOP_BP}</div>" >> "$DESKTOP_HTML"
-          echo "          <div class=\"score-label\">Best Practices</div>" >> "$DESKTOP_HTML"
-          echo "          <div class=\"mt-2\"><small>Target: 90+</small></div>" >> "$DESKTOP_HTML"
-          echo "        </div>" >> "$DESKTOP_HTML"
-          echo "      </div>" >> "$DESKTOP_HTML"
-
-          # Add SEO score
-          echo "      <div class=\"col-md-3\">" >> "$DESKTOP_HTML"
-          echo "        <div class=\"card score-card\">" >> "$DESKTOP_HTML"
-          echo "          <div class=\"score-value \${DESKTOP_SEO >= 90 ? 'score-good' : (DESKTOP_SEO >= 70 ? 'score-average' : 'score-poor')}\">\${DESKTOP_SEO}</div>" >> "$DESKTOP_HTML"
-          echo "          <div class=\"score-label\">SEO</div>" >> "$DESKTOP_HTML"
-          echo "          <div class=\"mt-2\"><small>Target: 90+</small></div>" >> "$DESKTOP_HTML"
-          echo "        </div>" >> "$DESKTOP_HTML"
-          echo "      </div>" >> "$DESKTOP_HTML"
-          echo "    </div>" >> "$DESKTOP_HTML"
-
-          # Add core web vitals section
-          echo "    <div class=\"card mb-4\">" >> "$DESKTOP_HTML"
-          echo "      <h3 class=\"section-title\"><i class=\"bi bi-speedometer2 me-2\"></i>Core Web Vitals</h3>" >> "$DESKTOP_HTML"
-          echo "      <div class=\"row\">" >> "$DESKTOP_HTML"
-
-          # Add LCP metric
-          echo "        <div class=\"col-md-4\">" >> "$DESKTOP_HTML"
-          echo "          <div class=\"card\">" >> "$DESKTOP_HTML"
-          echo "            <div class=\"card-body text-center\">" >> "$DESKTOP_HTML"
-          echo "              <h5>Largest Contentful Paint</h5>" >> "$DESKTOP_HTML"
-          echo "              <div class=\"fs-2 fw-bold \${DESKTOP_LCP < 2500 ? 'metric-good' : (DESKTOP_LCP < 4000 ? 'metric-average' : 'metric-poor')}\">\${(DESKTOP_LCP/1000).toFixed(2)}s</div>" >> "$DESKTOP_HTML"
-          echo "              <div class=\"mt-2\"><small>Target: < 2.5s</small></div>" >> "$DESKTOP_HTML"
-          echo "            </div>" >> "$DESKTOP_HTML"
-          echo "          </div>" >> "$DESKTOP_HTML"
-          echo "        </div>" >> "$DESKTOP_HTML"
-
-          # Add TBT metric
-          echo "        <div class=\"col-md-4\">" >> "$DESKTOP_HTML"
-          echo "          <div class=\"card\">" >> "$DESKTOP_HTML"
-          echo "            <div class=\"card-body text-center\">" >> "$DESKTOP_HTML"
-          echo "              <h5>Total Blocking Time</h5>" >> "$DESKTOP_HTML"
-          echo "              <div class=\"fs-2 fw-bold \${DESKTOP_TBT < 200 ? 'metric-good' : (DESKTOP_TBT < 600 ? 'metric-average' : 'metric-poor')}\">\${DESKTOP_TBT}ms</div>" >> "$DESKTOP_HTML"
-          echo "              <div class=\"mt-2\"><small>Target: < 200ms</small></div>" >> "$DESKTOP_HTML"
-          echo "            </div>" >> "$DESKTOP_HTML"
-          echo "          </div>" >> "$DESKTOP_HTML"
-          echo "        </div>" >> "$DESKTOP_HTML"
-
-          # Add CLS metric
-          echo "        <div class=\"col-md-4\">" >> "$DESKTOP_HTML"
-          echo "          <div class=\"card\">" >> "$DESKTOP_HTML"
-          echo "            <div class=\"card-body text-center\">" >> "$DESKTOP_HTML"
-          echo "              <h5>Cumulative Layout Shift</h5>" >> "$DESKTOP_HTML"
-          echo "              <div class=\"fs-2 fw-bold \${DESKTOP_CLS < 0.1 ? 'metric-good' : (DESKTOP_CLS < 0.25 ? 'metric-average' : 'metric-poor')}\">\${DESKTOP_CLS}</div>" >> "$DESKTOP_HTML"
-          echo "              <div class=\"mt-2\"><small>Target: < 0.1</small></div>" >> "$DESKTOP_HTML"
-          echo "            </div>" >> "$DESKTOP_HTML"
-          echo "          </div>" >> "$DESKTOP_HTML"
-          echo "        </div>" >> "$DESKTOP_HTML"
-          echo "      </div>" >> "$DESKTOP_HTML"
-          echo "    </div>" >> "$DESKTOP_HTML"
-
-          # Add back link
-          echo "    <div class=\"text-center mt-4 mb-4\">" >> "$DESKTOP_HTML"
-          echo "      <a href=\"../../../index.html\" class=\"btn btn-primary\"><i class=\"bi bi-speedometer2 me-2\"></i>Back to Main Dashboard</a>" >> "$DESKTOP_HTML"
-          echo "    </div>" >> "$DESKTOP_HTML"
-          echo "  </div>" >> "$DESKTOP_HTML"
-
-          # Close HTML
-          echo "  <footer class=\"text-center text-muted mt-4\">" >> "$DESKTOP_HTML"
-          echo "    <p><small>Generated on ${{ steps.scores.outputs.report_date }} by Lighthouse CI GitHub Action</small></p>" >> "$DESKTOP_HTML"
-          echo "  </footer>" >> "$DESKTOP_HTML"
-          echo "</body>" >> "$DESKTOP_HTML"
-          echo "</html>" >> "$DESKTOP_HTML"
-
-          # Now create the mobile.html file in the same way
-          MOBILE_HTML="${DESKTOP_REPORT_DIR}/mobile.html"
-
-          # Create basic HTML structure
-          echo "Creating mobile.html report"
-          echo "<!DOCTYPE html>" > "$MOBILE_HTML"
-          echo "<html lang=\"en\">" >> "$MOBILE_HTML"
-          echo "<head>" >> "$MOBILE_HTML"
-          echo "  <meta charset=\"UTF-8\">" >> "$MOBILE_HTML"
-          echo "  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">" >> "$MOBILE_HTML"
-          echo "  <title>${{ matrix.page.name }} - Mobile Performance Report | Curalife</title>" >> "$MOBILE_HTML"
-          echo "  <link rel=\"icon\" href=\"https://cdn.shopify.com/s/files/1/0016/8633/0243/files/favicon-32x32.png?v=1618828796\" type=\"image/png\">" >> "$MOBILE_HTML"
-          echo "  <link href=\"https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css\" rel=\"stylesheet\">" >> "$MOBILE_HTML"
-          echo "  <link rel=\"stylesheet\" href=\"https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css\">" >> "$MOBILE_HTML"
-          echo "  <style>" >> "$MOBILE_HTML"
-          echo "    :root {" >> "$MOBILE_HTML"
-          echo "      --primary-color: #00837b;" >> "$MOBILE_HTML"
-          echo "      --primary-light: #e6f7f5;" >> "$MOBILE_HTML"
-          echo "      --secondary-color: #f26b3c;" >> "$MOBILE_HTML"
-          echo "      --dark-color: #2c3e50;" >> "$MOBILE_HTML"
-          echo "      --good: #0CCE6B;" >> "$MOBILE_HTML"
-          echo "      --average: #FFA400;" >> "$MOBILE_HTML"
-          echo "      --poor: #FF4E42;" >> "$MOBILE_HTML"
-          echo "      --background: #f8f9fa;" >> "$MOBILE_HTML"
-          echo "    }" >> "$MOBILE_HTML"
-          echo "    body {" >> "$MOBILE_HTML"
-          echo "      font-family: 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;" >> "$MOBILE_HTML"
-          echo "      line-height: 1.6;" >> "$MOBILE_HTML"
-          echo "      background-color: var(--background);" >> "$MOBILE_HTML"
-          echo "      color: #333;" >> "$MOBILE_HTML"
-          echo "      max-width: 1200px;" >> "$MOBILE_HTML"
-          echo "      margin: 0 auto;" >> "$MOBILE_HTML"
-          echo "      padding: 20px;" >> "$MOBILE_HTML"
-          echo "    }" >> "$MOBILE_HTML"
-          echo "    .header {" >> "$MOBILE_HTML"
-          echo "      background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));" >> "$MOBILE_HTML"
-          echo "      color: white;" >> "$MOBILE_HTML"
-          echo "      padding: 1.5rem;" >> "$MOBILE_HTML"
-          echo "      border-radius: 10px;" >> "$MOBILE_HTML"
-          echo "      margin-bottom: 2rem;" >> "$MOBILE_HTML"
-          echo "      box-shadow: 0 4px 12px rgba(0,0,0,0.1);" >> "$MOBILE_HTML"
-          echo "      display: flex;" >> "$MOBILE_HTML"
-          echo "      justify-content: space-between;" >> "$MOBILE_HTML"
-          echo "      align-items: center;" >> "$MOBILE_HTML"
-          echo "    }" >> "$MOBILE_HTML"
-          echo "    .card {" >> "$MOBILE_HTML"
-          echo "      background: white;" >> "$MOBILE_HTML"
-          echo "      border-radius: 10px;" >> "$MOBILE_HTML"
-          echo "      padding: 20px;" >> "$MOBILE_HTML"
-          echo "      margin-bottom: 20px;" >> "$MOBILE_HTML"
-          echo "      box-shadow: 0 2px 10px rgba(0,0,0,0.05);" >> "$MOBILE_HTML"
-          echo "      transition: transform 0.3s, box-shadow 0.3s;" >> "$MOBILE_HTML"
-          echo "      border: none;" >> "$MOBILE_HTML"
-          echo "    }" >> "$MOBILE_HTML"
-          echo "    .card:hover {" >> "$MOBILE_HTML"
-          echo "      transform: translateY(-5px);" >> "$MOBILE_HTML"
-          echo "      box-shadow: 0 10px 20px rgba(0,0,0,0.1);" >> "$MOBILE_HTML"
-          echo "    }" >> "$MOBILE_HTML"
-          echo "    .score-card {" >> "$MOBILE_HTML"
-          echo "      text-align: center;" >> "$MOBILE_HTML"
-          echo "      padding: 1.5rem;" >> "$MOBILE_HTML"
-          echo "    }" >> "$MOBILE_HTML"
-          echo "    .score-value {" >> "$MOBILE_HTML"
-          echo "      font-size: 3rem;" >> "$MOBILE_HTML"
-          echo "      font-weight: bold;" >> "$MOBILE_HTML"
-          echo "      position: relative;" >> "$MOBILE_HTML"
-          echo "      display: inline-block;" >> "$MOBILE_HTML"
-          echo "      width: 100px;" >> "$MOBILE_HTML"
-          echo "      height: 100px;" >> "$MOBILE_HTML"
-          echo "      line-height: 100px;" >> "$MOBILE_HTML"
-          echo "      border-radius: 50%;" >> "$MOBILE_HTML"
-          echo "      color: white;" >> "$MOBILE_HTML"
-          echo "      margin-bottom: 15px;" >> "$MOBILE_HTML"
-          echo "    }" >> "$MOBILE_HTML"
-          echo "    .score-good { background-color: var(--good); }" >> "$MOBILE_HTML"
-          echo "    .score-average { background-color: var(--average); }" >> "$MOBILE_HTML"
-          echo "    .score-poor { background-color: var(--poor); }" >> "$MOBILE_HTML"
-          echo "    .score-label {" >> "$MOBILE_HTML"
-          echo "      font-size: 1.2rem;" >> "$MOBILE_HTML"
-          echo "      font-weight: 600;" >> "$MOBILE_HTML"
-          echo "      color: var(--dark-color);" >> "$MOBILE_HTML"
-          echo "    }" >> "$MOBILE_HTML"
-          echo "    .metric-good { color: var(--good); }" >> "$MOBILE_HTML"
-          echo "    .metric-average { color: var(--average); }" >> "$MOBILE_HTML"
-          echo "    .metric-poor { color: var(--poor); }" >> "$MOBILE_HTML"
-          echo "    .section-title {" >> "$MOBILE_HTML"
-          echo "      font-weight: 600;" >> "$MOBILE_HTML"
-          echo "      color: var(--dark-color);" >> "$MOBILE_HTML"
-          echo "      margin-bottom: 15px;" >> "$MOBILE_HTML"
-          echo "      border-bottom: 2px solid var(--primary-light);" >> "$MOBILE_HTML"
-          echo "      padding-bottom: 10px;" >> "$MOBILE_HTML"
-          echo "    }" >> "$MOBILE_HTML"
-          echo "    .mobile-note {" >> "$MOBILE_HTML"
-          echo "      background-color: rgba(242, 107, 60, 0.1);" >> "$MOBILE_HTML"
-          echo "      border-left: 4px solid var(--secondary-color);" >> "$MOBILE_HTML"
-          echo "      padding: 15px;" >> "$MOBILE_HTML"
-          echo "      border-radius: 6px;" >> "$MOBILE_HTML"
-          echo "      margin-bottom: 20px;" >> "$MOBILE_HTML"
-          echo "    }" >> "$MOBILE_HTML"
-          echo "  </style>" >> "$MOBILE_HTML"
-          echo "</head>" >> "$MOBILE_HTML"
-          echo "<body>" >> "$MOBILE_HTML"
-
-          # Add header
-          echo "  <div class=\"header\">" >> "$MOBILE_HTML"
-          echo "    <div>" >> "$MOBILE_HTML"
-          echo "      <h1><i class=\"bi bi-phone me-2\"></i>${{ matrix.page.name }} - Mobile Report</h1>" >> "$MOBILE_HTML"
-          echo "      <p class=\"mb-0\">Test run on ${{ steps.scores.outputs.report_date }}</p>" >> "$MOBILE_HTML"
-          echo "    </div>" >> "$MOBILE_HTML"
-          echo "    <div>" >> "$MOBILE_HTML"
-          echo "      <a href=\"../../../index.html\" class=\"btn btn-outline-light\"><i class=\"bi bi-arrow-left me-2\"></i>Back to Dashboard</a>" >> "$MOBILE_HTML"
-          echo "    </div>" >> "$MOBILE_HTML"
-          echo "  </div>" >> "$MOBILE_HTML"
-
-          # Add main content
-          echo "  <div class=\"container-fluid p-0\">" >> "$MOBILE_HTML"
-
-          # Add mobile note
-          echo "    <div class=\"mobile-note\">" >> "$MOBILE_HTML"
-          echo "      <h5><i class=\"bi bi-info-circle me-2\"></i>Mobile Performance Context</h5>" >> "$MOBILE_HTML"
-          echo "      <p class=\"mb-0\">Mobile scores tend to be lower than desktop due to network constraints, CPU throttling, and smaller viewport dimensions. Google uses mobile-first indexing, so these metrics are crucial for SEO.</p>" >> "$MOBILE_HTML"
-          echo "    </div>" >> "$MOBILE_HTML"
-
-          # Add scores section
-          echo "    <div class=\"row mb-4\">" >> "$MOBILE_HTML"
-
-          # Add performance score
-          echo "      <div class=\"col-md-3\">" >> "$MOBILE_HTML"
-          echo "        <div class=\"card score-card\">" >> "$MOBILE_HTML"
-          echo "          <div class="score-value \${MOBILE_PERF >= 90 ? 'score-good' : (MOBILE_PERF >= 50 ? 'score-average' : 'score-poor')}\">\${MOBILE_PERF}</div>" >> "$MOBILE_HTML"
-          echo "          <div class="score-label">Performance</div>" >> "$MOBILE_HTML"
-          echo "          <div class="mt-2"><small>Target: 90+</small></div>" >> "$MOBILE_HTML"
-          echo "        </div>" >> "$MOBILE_HTML"
-          echo "      </div>" >> "$MOBILE_HTML"
-
-          # Add accessibility score
-          echo "      <div class=\"col-md-3\">" >> "$MOBILE_HTML"
-          echo "        <div class=\"card score-card\">" >> "$MOBILE_HTML"
-          echo "          <div class="score-value \${MOBILE_A11Y >= 90 ? 'score-good' : (MOBILE_A11Y >= 70 ? 'score-average' : 'score-poor')}\">\${MOBILE_A11Y}</div>" >> "$MOBILE_HTML"
-          echo "          <div class="score-label">Accessibility</div>" >> "$MOBILE_HTML"
-          echo "          <div class="mt-2"><small>Target: 90+</small></div>" >> "$MOBILE_HTML"
-          echo "        </div>" >> "$MOBILE_HTML"
-          echo "      </div>" >> "$MOBILE_HTML"
-
-          # Add best practices score
-          echo "      <div class=\"col-md-3\">" >> "$MOBILE_HTML"
-          echo "        <div class=\"card score-card\">" >> "$MOBILE_HTML"
-          echo "          <div class="score-value \${MOBILE_BP >= 90 ? 'score-good' : (MOBILE_BP >= 70 ? 'score-average' : 'score-poor')}\">\${MOBILE_BP}</div>" >> "$MOBILE_HTML"
-          echo "          <div class="score-label">Best Practices</div>" >> "$MOBILE_HTML"
-          echo "          <div class="mt-2"><small>Target: 90+</small></div>" >> "$MOBILE_HTML"
-          echo "        </div>" >> "$MOBILE_HTML"
-          echo "      </div>" >> "$MOBILE_HTML"
-
-          # Add SEO score
-          echo "      <div class=\"col-md-3\">" >> "$MOBILE_HTML"
-          echo "        <div class=\"card score-card\">" >> "$MOBILE_HTML"
-          echo "          <div class="score-value \${MOBILE_SEO >= 90 ? 'score-good' : (MOBILE_SEO >= 70 ? 'score-average' : 'score-poor')}\">\${MOBILE_SEO}</div>" >> "$MOBILE_HTML"
-          echo "          <div class="score-label">SEO</div>" >> "$MOBILE_HTML"
-          echo "          <div class="mt-2"><small>Target: 90+</small></div>" >> "$MOBILE_HTML"
-          echo "        </div>" >> "$MOBILE_HTML"
-          echo "      </div>" >> "$MOBILE_HTML"
-          echo "    </div>" >> "$MOBILE_HTML"
-
-          # Add core web vitals section
-          echo "    <div class=\"card mb-4\">" >> "$MOBILE_HTML"
-          echo "      <h3 class="section-title"><i class="bi bi-speedometer2 me-2"></i>Core Web Vitals</h3>" >> "$MOBILE_HTML"
-          echo "      <div class="row\">" >> "$MOBILE_HTML"
-
-          # Add LCP metric
-          echo "        <div class="col-md-4">" >> "$MOBILE_HTML"
-          echo "          <div class="card">" >> "$MOBILE_HTML"
-          echo "            <div class="card-body text-center">" >> "$MOBILE_HTML"
-          echo "              <h5>Largest Contentful Paint</h5>" >> "$MOBILE_HTML"
-          echo "              <div class="fs-2 fw-bold \${MOBILE_LCP < 2500 ? 'metric-good' : (MOBILE_LCP < 4000 ? 'metric-average' : 'metric-poor')}\">\${(MOBILE_LCP/1000).toFixed(2)}s</div>" >> "$MOBILE_HTML"
-          echo "              <div class="mt-2"><small>Target: < 2.5s</small></div>" >> "$MOBILE_HTML"
-          echo "            </div>" >> "$MOBILE_HTML"
-          echo "          </div>" >> "$MOBILE_HTML"
-          echo "        </div>" >> "$MOBILE_HTML"
-
-          # Add TBT metric
-          echo "        <div class="col-md-4">" >> "$MOBILE_HTML"
-          echo "          <div class="card">" >> "$MOBILE_HTML"
-          echo "            <div class="card-body text-center">" >> "$MOBILE_HTML"
-          echo "              <h5>Total Blocking Time</h5>" >> "$MOBILE_HTML"
-          echo "              <div class="fs-2 fw-bold \${MOBILE_TBT < 200 ? 'metric-good' : (MOBILE_TBT < 600 ? 'metric-average' : 'metric-poor')}\">\${MOBILE_TBT}ms</div>" >> "$MOBILE_HTML"
-          echo "              <div class="mt-2"><small>Target: < 200ms</small></div>" >> "$MOBILE_HTML"
-          echo "            </div>" >> "$MOBILE_HTML"
-          echo "          </div>" >> "$MOBILE_HTML"
-          echo "        </div>" >> "$MOBILE_HTML"
-
-          # Add CLS metric
-          echo "        <div class="col-md-4">" >> "$MOBILE_HTML"
-          echo "          <div class="card">" >> "$MOBILE_HTML"
-          echo "            <div class="card-body text-center">" >> "$MOBILE_HTML"
-          echo "              <h5>Cumulative Layout Shift</h5>" >> "$MOBILE_HTML"
-          echo "              <div class="fs-2 fw-bold \${MOBILE_CLS < 0.1 ? 'metric-good' : (MOBILE_CLS < 0.25 ? 'metric-average' : 'metric-poor')}\">\${MOBILE_CLS}</div>" >> "$MOBILE_HTML"
-          echo "              <div class="mt-2"><small>Target: < 0.1</small></div>" >> "$MOBILE_HTML"
-          echo "            </div>" >> "$MOBILE_HTML"
-          echo "          </div>" >> "$MOBILE_HTML"
-          echo "        </div>" >> "$MOBILE_HTML"
-          echo "      </div>" >> "$MOBILE_HTML"
-          echo "    </div>" >> "$MOBILE_HTML"
-
-          # Add back link
-          echo "    <div class="mt-4 mb-4 text-center">" >> "$MOBILE_HTML"
-          echo "      <a href="../../../index.html" class="btn btn-primary"><i class="bi bi-speedometer2 me-2"></i>Back to Main Dashboard</a>" >> "$MOBILE_HTML"
-          echo "    </div>" >> "$MOBILE_HTML"
-          echo "  </div>" >> "$MOBILE_HTML"
-
-          # Close HTML
-          echo "  <footer class="text-muted mt-4 text-center">" >> "$MOBILE_HTML"
-          echo "    <p><small>Generated on ${{ steps.scores.outputs.report_date }} by Lighthouse CI GitHub Action</small></p>" >> "$MOBILE_HTML"
-          echo "  </footer>" >> "$MOBILE_HTML"
-          echo "</body>" >> "$MOBILE_HTML"
-          echo "</html>" >> "$MOBILE_HTML"
-
-          # Verify files were created
-          echo "Created HTML report files with metrics:"
-          ls -la performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/
-
-      - name: Save reports to performance-reports directory
-        if: steps.scores.outputs.has_results == 'true'
-        run: |
-          # Source the metrics file if it exists
-          if [ -f "metrics-values.env" ]; then
-            echo "Sourcing metrics from file"
-            source metrics-values.env
-            export $(cut -d= -f1 metrics-values.env)
-          else
-            echo "Metrics file not found, using default values"
-            # Set default values
-            export DESKTOP_PERF=50
-            export DESKTOP_A11Y=50
-            export DESKTOP_BP=50
-            export DESKTOP_SEO=50
-            export MOBILE_PERF=40
-            export MOBILE_A11Y=50
-            export MOBILE_BP=50
-            export MOBILE_SEO=50
-          fi
-
-          .github/workflows/scripts/save-reports.sh "${{ matrix.page.name }}" "${{ steps.results-dir.outputs.results_dir }}" "${{ steps.scores.outputs.report_date }}"
-        continue-on-error: true
-
-      - name: Format Lighthouse results
-        if: steps.scores.outputs.has_results == 'true'
-        run: |
-          .github/workflows/scripts/format-summary.sh "${{ matrix.page.name }}"
-        continue-on-error: true
-
-      # Upload results for this page as an artifact
-      - name: Upload individual page report
+          chmod +x .github/workflows/scripts/*.sh
+          mkdir -p ${{ env.RESULTS_DIR }}
+          npm ci
+          npm install -g @lhci/cli puppeteer-core
+      - name: Run Lighthouse for desktop
+        run: .github/workflows/scripts/run-lighthouse.sh desktop
+      - name: Upload desktop results
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.page.name }}-lighthouse-report
-          path: performance-reports/
+          name: lighthouse-desktop-results
+          path: ${{ env.RESULTS_DIR }}/desktop
           retention-days: 30
-        continue-on-error: true
 
-    outputs:
-      report_date: ${{ steps.scores.outputs.report_date }}
-
-  create-dashboard:
-    needs: lighthouse-ci
+  lighthouse-mobile:
+    name: Mobile Tests
     runs-on: ubuntu-latest
-    if: always()
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-
-      - name: Setup dependencies and environment
-        uses: ./.github/actions/setup-environment
-        with:
-          cache-key-prefix: ${{ env.SYSTEM_DEPS_CACHE_KEY }}
-          npm-cache-key: ${{ env.NPM_GLOBAL_CACHE_KEY }}
-          tools-cache-key: ${{ env.TOOLS_CACHE_KEY }}
-
-      - name: Make scripts executable
+      - uses: actions/checkout@v4
+      - name: Setup environment
         run: |
-          # Ensure cache directories exist
-          mkdir -p ~/.cache/tools
-
-          chmod +x .github/workflows/scripts/make-scripts-executable.sh
-          .github/workflows/scripts/make-scripts-executable.sh
-
-      - name: Get current date
-        id: date
-        run: echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
-
-      - name: Process reports and generate dashboard
-        uses: ./.github/actions/generate-dashboard
-        with:
-          report-date: ${{ needs.lighthouse-ci.outputs.report_date || steps.date.outputs.date }}
-          history-branch: ${{ env.HISTORY_BRANCH }}
-
-      # Upload the complete combined report
-      - name: Upload performance reports
+          chmod +x .github/workflows/scripts/*.sh
+          mkdir -p ${{ env.RESULTS_DIR }}
+          npm ci
+          npm install -g @lhci/cli puppeteer-core
+      - name: Run Lighthouse for mobile
+        run: .github/workflows/scripts/run-lighthouse.sh mobile
+      - name: Upload mobile results
         uses: actions/upload-artifact@v4
         with:
-          name: lighthouse-complete-report
-          path: performance-reports/
+          name: lighthouse-mobile-results
+          path: ${{ env.RESULTS_DIR }}/mobile
           retention-days: 30
-        continue-on-error: true
 
-  # Deploy to GitHub Pages
-  deploy-pages:
-    needs: create-dashboard
+  process-and-generate:
+    name: Process Results & Generate Dashboard
+    needs: [lighthouse-desktop, lighthouse-mobile]
     runs-on: ubuntu-latest
-    # Only run on main/master branch to avoid duplicate deployments
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    permissions:
-      contents: write
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      # Add caching for GitHub Pages deployment
-      - name: Cache GitHub Pages deployment
-        uses: actions/cache@v4
-        id: cache-gh-pages
-        with:
-          path: |
-            .gh-pages-cache
-          key: ${{ env.GH_PAGES_CACHE_KEY }}
-          restore-keys: |
-            ${{ runner.os }}-gh-pages-
-
-      # Create directory
-      - name: Create performance-reports directory
+      - uses: actions/checkout@v4
+      - name: Setup
         run: |
-          mkdir -p performance-reports .gh-pages-cache
-
-      # Download the performance reports
-      - name: Download performance reports
+          chmod +x .github/workflows/scripts/*.sh
+          mkdir -p ${{ env.RESULTS_DIR }}
+      - name: Download all results
         uses: actions/download-artifact@v4
         with:
-          name: lighthouse-complete-report
-          path: performance-reports
-
-      - name: Prepare GitHub Pages
-        uses: ./.github/actions/prepare-github-pages
-        with:
-          publish-dir: performance-reports
-          repository: ${{ github.repository }}
-
-      # Use a different approach for deployment that doesn't rely on the artifact
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./performance-reports
-          enable_jekyll: false
-          cname: lighthouse.curalife.com # Add your custom domain here
-          force_orphan: true
-
-      # Output deployment URL
-      - name: Output deployment URL
+          pattern: lighthouse-*-results
+          path: ${{ env.RESULTS_DIR }}
+          merge-multiple: true
+      - name: Process results
+        run: .github/workflows/scripts/process-results.sh
+      - name: Store historical data
+        run: .github/workflows/scripts/store-historical-data.sh
+      - name: Generate dashboards
         run: |
-          echo "::notice title=Deployment URL::Lighthouse dashboard deployed to https://${{ github.repository_owner }}.github.io/$(echo '${{ github.repository }}' | cut -d'/' -f2)/"
-          echo "Lighthouse Dashboard URL: https://${{ github.repository_owner }}.github.io/$(echo '${{ github.repository }}' | cut -d'/' -f2)/"
-          echo "Access your performance dashboard at: https://${{ github.repository_owner }}.github.io/$(echo '${{ github.repository }}' | cut -d'/' -f2)/"
-          echo "URL: https://${{ github.repository_owner }}.github.io/$(echo '${{ github.repository }}' | cut -d'/' -f2)/" >> $GITHUB_STEP_SUMMARY
+          .github/workflows/scripts/generate-dashboard.sh ${{ env.REPORT_DATE }}
+          .github/workflows/scripts/generate-trend-dashboard.sh
+      - name: Generate report pages
+        run: |
+          # For each page in the processed results
+          for page_dir in ${{ env.RESULTS_DIR }}/processed/*; do
+            if [ -d "$page_dir" ]; then
+              page_name=$(basename "$page_dir")
+              output_dir="${page_dir}/reports"
+
+              # Create reports directory if it doesn't exist
+              mkdir -p "$output_dir"
+
+              # Source metrics file if it exists
+              metrics_file="${page_dir}/metrics-values.env"
+              if [ -f "$metrics_file" ]; then
+                source "$metrics_file"
+              else
+                # Default values if metrics file doesn't exist
+                DESKTOP_PERF=0
+                DESKTOP_A11Y=0
+                DESKTOP_BP=0
+                DESKTOP_SEO=0
+                DESKTOP_LCP=0
+                DESKTOP_FID=0
+                DESKTOP_CLS=0
+                DESKTOP_TBT=0
+
+                MOBILE_PERF=0
+                MOBILE_A11Y=0
+                MOBILE_BP=0
+                MOBILE_SEO=0
+                MOBILE_LCP=0
+                MOBILE_FID=0
+                MOBILE_CLS=0
+                MOBILE_TBT=0
+              fi
+
+              # Generate HTML report templates
+              .github/workflows/scripts/generate-report-templates.sh "$page_name" "$output_dir" "$REPORT_DATE"
+            fi
+          done
+      - name: Upload processed results
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-final-dashboards
+          path: |
+            ${{ env.RESULTS_DIR }}/dashboards
+            ${{ env.RESULTS_DIR }}/processed
+          retention-days: 30
+
+  publish:
+    name: Publish to GitHub Pages
+    needs: [process-and-generate]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          fetch-depth: 0
+      - name: Download dashboards
+        uses: actions/download-artifact@v4
+        with:
+          name: lighthouse-final-dashboards
+          path: ./lighthouse-results
+      - name: Publish results
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add .
+          git commit -m "Update Lighthouse reports - ${{ env.REPORT_DATE }}" || echo "No changes to commit"
+          git push origin gh-pages
