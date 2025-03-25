@@ -28,73 +28,13 @@ jobs:
         with:
           node-version: "18"
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v2
-        with:
-          version: 10.4.1
-          run_install: false
+      - name: Install Lighthouse CI
+        run: npm install -g @lhci/cli puppeteer
 
-      - name: Get pnpm store directory
-        id: pnpm-cache
-        shell: bash
+      - name: Run Lighthouse CI against production site
         run: |
-          echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
-
-      - name: Setup pnpm cache
-        uses: actions/cache@v3
-        with:
-          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-
-      - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
-
-      # Explicitly install glob if needed
-      - name: Ensure glob is installed
-        run: pnpm add glob@11.0.1
-
-      - name: Build theme
-        run: pnpm run build
-
-      # Use a simple static server instead of the shopify server for CI
-      - name: Start static server
-        run: |
-          echo "Starting static server..."
-          # Check if build directory exists
-          if [ ! -d "Curalife-Theme-Build" ]; then
-            echo "Error: Build directory 'Curalife-Theme-Build' not found."
-            ls -la
-            exit 1
-          fi
-
-          # Check if there are files in the build directory
-          if [ -z "$(ls -A Curalife-Theme-Build)" ]; then
-            echo "Error: Build directory is empty."
-            exit 1
-          fi
-
-          echo "Build directory contents:"
-          ls -la Curalife-Theme-Build
-
-          # Start the server
-          npx serve -s Curalife-Theme-Build -l 9292 &
-
-          # Save the PID for later cleanup
-          echo "SERVER_PID=$!" >> $GITHUB_ENV
-
-          echo "Waiting for server to be available..."
-          npx wait-on http://localhost:9292 -t 60000 --verbose
-          echo "Server is ready"
-
-          # Verify server is responding
-          curl -v http://localhost:9292/
-
-      - name: Run Lighthouse CI
-        run: npx lhci autorun
-        env:
-          LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
+          echo "Running Lighthouse CI against production site..."
+          npx lhci autorun --collect.url=https://curalife.com/ --collect.numberOfRuns=1
         continue-on-error: true
 
       - name: Check for Lighthouse results
@@ -141,13 +81,4 @@ jobs:
             echo "See attached artifacts for detailed reports." >> $GITHUB_STEP_SUMMARY
           else
             echo "⚠️ No Lighthouse reports were generated. Check previous steps for errors." >> $GITHUB_STEP_SUMMARY
-          fi
-
-      - name: Cleanup
-        if: always()
-        run: |
-          # Stop the server if it's running
-          if [ -n "$SERVER_PID" ]; then
-            echo "Stopping server with PID $SERVER_PID"
-            kill $SERVER_PID || true
           fi

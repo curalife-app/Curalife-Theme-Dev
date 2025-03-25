@@ -25,7 +25,7 @@ import tailwind from "@tailwindcss/vite";
 import autoprefixer from "autoprefixer";
 import cssnano from "cssnano";
 import fs from "fs";
-import glob from "glob";
+import * as globModule from "glob";
 
 const isProduction = process.env.NODE_ENV === "production";
 const isWatchMode = process.env.VITE_WATCH_MODE === "true";
@@ -289,7 +289,7 @@ const createMinifiedCss = async () => {
 // Helper function to find files recursively
 const findFiles = (directory, pattern) => {
 	// Using glob.sync with a function that works in ESM
-	return glob.sync(path.join(directory, pattern));
+	return globModule.sync(path.join(directory, pattern));
 };
 
 // Flatten a file path - extract only the filename

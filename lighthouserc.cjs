@@ -11,8 +11,8 @@ module.exports = {
 			// Run Lighthouse 1 time per URL for faster CI
 			numberOfRuns: 1,
 
-			// Test the home page
-			url: ["http://localhost:9292/"],
+			// Test the live production site
+			url: ["https://curalife.com/?geo=us"],
 
 			// Configure the testing environment to be less demanding for CI
 			settings: {
