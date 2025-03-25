@@ -33,7 +33,7 @@ runs:
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: "16"
+        node-version: "18"
 
     - name: Install Lighthouse CI
       shell: bash
@@ -53,7 +53,7 @@ runs:
         # Define default pages if custom pages are not provided
         if [ -z "${{ inputs.custom-pages }}" ]; then
           echo "Using default pages"
-          DEFAULT_PAGES="home,product/curalin"
+          DEFAULT_PAGES="home,products/curalin"
           echo "pages=$DEFAULT_PAGES" >> $GITHUB_OUTPUT
         else
           echo "Using custom pages"
@@ -71,26 +71,36 @@ runs:
         # Remove spaces if present and replace commas with newlines
         PAGES_LIST=$(echo "$PAGES" | tr -d ' ' | tr ',' '\n')
 
-        # Loop through pages and create directories
+        # Create directories and store formatted page names
+        FORMATTED_PAGES=""
         while IFS= read -r page; do
           if [ -n "$page" ]; then
-            # Convert page path to safe directory name
+            # Convert page path to safe directory name (replace slashes with hyphens)
             DIR_NAME=$(echo "$page" | tr '/' '-')
+            PAGE_PATH="$page"
+
             mkdir -p "$LIGHTHOUSE_DIR/desktop/$DIR_NAME"
             mkdir -p "$LIGHTHOUSE_DIR/mobile/$DIR_NAME"
             echo "Prepared directories for page: $page (as $DIR_NAME)"
+
+            # Build formatted pages list
+            if [ -z "$FORMATTED_PAGES" ]; then
+              FORMATTED_PAGES="$PAGE_PATH:$DIR_NAME"
+            else
+              FORMATTED_PAGES="$FORMATTED_PAGES,$PAGE_PATH:$DIR_NAME"
+            fi
           fi
         done <<< "$PAGES_LIST"
 
         # Store parsed pages for future steps
-        echo "pages_list=$PAGES_LIST" >> $GITHUB_OUTPUT
+        echo "formatted_pages=$FORMATTED_PAGES" >> $GITHUB_OUTPUT
 
     - name: Run Desktop Tests
       shell: bash
       run: |
         LIGHTHOUSE_DIR="${{ inputs.lighthouse-dir }}"
         BASE_URL="${{ inputs.base-url }}"
-        PAGES_LIST="${{ steps.parse-pages.outputs.pages_list }}"
+        FORMATTED_PAGES="${{ steps.parse-pages.outputs.formatted_pages }}"
         RETRY_COUNT="${{ inputs.retry-count }}"
 
         # Process budget input if provided
@@ -101,14 +111,19 @@ runs:
 
         echo "Running desktop tests..."
 
-        # Loop through pages and run tests
-        while IFS= read -r page; do
-          if [ -n "$page" ]; then
-            PAGE_URL="$BASE_URL/$page"
-            DIR_NAME=$(echo "$page" | tr '/' '-')
+        # Parse formatted pages (PATH:DIR_NAME format)
+        IFS=',' read -ra PAGE_ARRAY <<< "$FORMATTED_PAGES"
+        for page_entry in "${PAGE_ARRAY[@]}"; do
+          # Split into path and directory name
+          IFS=':' read -ra PARTS <<< "$page_entry"
+          PAGE_PATH="${PARTS[0]}"
+          DIR_NAME="${PARTS[1]}"
+
+          if [ -n "$PAGE_PATH" ] && [ -n "$DIR_NAME" ]; then
+            PAGE_URL="$BASE_URL/$PAGE_PATH"
             OUTPUT_DIR="$LIGHTHOUSE_DIR/desktop/$DIR_NAME"
 
-            echo "Testing desktop: $PAGE_URL"
+            echo "Testing desktop: $PAGE_URL (dir: $DIR_NAME)"
             for i in $(seq 0 $RETRY_COUNT); do
               if [ $i -gt 0 ]; then
                 echo "Retry attempt $i for $PAGE_URL"
@@ -128,7 +143,7 @@ runs:
                 # Verify performance score exists and is not zero/null
                 PERF_SCORE=$(jq -r '.categories.performance.score' "$OUTPUT_DIR/desktop.report.json" 2>/dev/null || echo "-1")
                 if [ "$PERF_SCORE" != "0" ] && [ "$PERF_SCORE" != "null" ] && [ "$PERF_SCORE" != "-1" ]; then
-                  echo "✅ Desktop test for $page completed successfully"
+                  echo "✅ Desktop test for $PAGE_PATH completed successfully"
                   break
                 else
                   echo "⚠️ Test completed but produced invalid results, retrying..."
@@ -141,18 +156,18 @@ runs:
 
               # If this was the last retry and it failed
               if [ $i -eq $RETRY_COUNT ] && [ ! -f "$OUTPUT_DIR/desktop.report.json" ]; then
-                echo "::warning::All retries failed for desktop test of $page"
+                echo "::warning::All retries failed for desktop test of $PAGE_PATH"
               fi
             done
           fi
-        done <<< "$PAGES_LIST"
+        done
 
     - name: Run Mobile Tests
       shell: bash
       run: |
         LIGHTHOUSE_DIR="${{ inputs.lighthouse-dir }}"
         BASE_URL="${{ inputs.base-url }}"
-        PAGES_LIST="${{ steps.parse-pages.outputs.pages_list }}"
+        FORMATTED_PAGES="${{ steps.parse-pages.outputs.formatted_pages }}"
         RETRY_COUNT="${{ inputs.retry-count }}"
 
         # Process budget input if provided
@@ -163,14 +178,19 @@ runs:
 
         echo "Running mobile tests..."
 
-        # Loop through pages and run tests
-        while IFS= read -r page; do
-          if [ -n "$page" ]; then
-            PAGE_URL="$BASE_URL/$page"
-            DIR_NAME=$(echo "$page" | tr '/' '-')
+        # Parse formatted pages (PATH:DIR_NAME format)
+        IFS=',' read -ra PAGE_ARRAY <<< "$FORMATTED_PAGES"
+        for page_entry in "${PAGE_ARRAY[@]}"; do
+          # Split into path and directory name
+          IFS=':' read -ra PARTS <<< "$page_entry"
+          PAGE_PATH="${PARTS[0]}"
+          DIR_NAME="${PARTS[1]}"
+
+          if [ -n "$PAGE_PATH" ] && [ -n "$DIR_NAME" ]; then
+            PAGE_URL="$BASE_URL/$PAGE_PATH"
             OUTPUT_DIR="$LIGHTHOUSE_DIR/mobile/$DIR_NAME"
 
-            echo "Testing mobile: $PAGE_URL"
+            echo "Testing mobile: $PAGE_URL (dir: $DIR_NAME)"
             for i in $(seq 0 $RETRY_COUNT); do
               if [ $i -gt 0 ]; then
                 echo "Retry attempt $i for $PAGE_URL"
@@ -190,7 +210,7 @@ runs:
                 # Verify performance score exists and is not zero/null
                 PERF_SCORE=$(jq -r '.categories.performance.score' "$OUTPUT_DIR/mobile.report.json" 2>/dev/null || echo "-1")
                 if [ "$PERF_SCORE" != "0" ] && [ "$PERF_SCORE" != "null" ] && [ "$PERF_SCORE" != "-1" ]; then
-                  echo "✅ Mobile test for $page completed successfully"
+                  echo "✅ Mobile test for $PAGE_PATH completed successfully"
                   break
                 else
                   echo "⚠️ Test completed but produced invalid results, retrying..."
@@ -203,18 +223,18 @@ runs:
 
               # If this was the last retry and it failed
               if [ $i -eq $RETRY_COUNT ] && [ ! -f "$OUTPUT_DIR/mobile.report.json" ]; then
-                echo "::warning::All retries failed for mobile test of $page"
+                echo "::warning::All retries failed for mobile test of $PAGE_PATH"
               fi
             done
           fi
-        done <<< "$PAGES_LIST"
+        done
 
     - name: Check results
       id: check-results
       shell: bash
       run: |
         LIGHTHOUSE_DIR="${{ inputs.lighthouse-dir }}"
-        PAGES_LIST="${{ steps.parse-pages.outputs.pages_list }}"
+        FORMATTED_PAGES="${{ steps.parse-pages.outputs.formatted_pages }}"
         ALL_PASSED="true"
 
         # Count total tests and successful tests
@@ -223,10 +243,15 @@ runs:
 
         echo "Checking test results..."
 
-        # Check desktop results
-        while IFS= read -r page; do
-          if [ -n "$page" ]; then
-            DIR_NAME=$(echo "$page" | tr '/' '-')
+        # Parse formatted pages (PATH:DIR_NAME format)
+        IFS=',' read -ra PAGE_ARRAY <<< "$FORMATTED_PAGES"
+        for page_entry in "${PAGE_ARRAY[@]}"; do
+          # Split into path and directory name
+          IFS=':' read -ra PARTS <<< "$page_entry"
+          PAGE_PATH="${PARTS[0]}"
+          DIR_NAME="${PARTS[1]}"
+
+          if [ -n "$DIR_NAME" ]; then
             DESKTOP_REPORT="$LIGHTHOUSE_DIR/desktop/$DIR_NAME/desktop.report.json"
             MOBILE_REPORT="$LIGHTHOUSE_DIR/mobile/$DIR_NAME/mobile.report.json"
 
@@ -256,7 +281,7 @@ runs:
               ALL_PASSED="false"
             fi
           fi
-        done <<< "$PAGES_LIST"
+        done
 
         # Report results
         echo "Total tests: $TOTAL_TESTS"
