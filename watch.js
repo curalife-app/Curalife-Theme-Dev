@@ -394,7 +394,7 @@ const runTailwindBuild = async () => {
 		// Use proper npx command based on platform
 		const npxCommand = getNpxCommand();
 
-		// Force development mode and explicitly disable minification
+		// Force development mode and explicitly disable minification for the main file
 		const env = { ...process.env, NODE_ENV: "development" };
 
 		// Run tailwindcss directly with explicit flags to disable minification
@@ -430,8 +430,52 @@ const runTailwindBuild = async () => {
 		// Handle process completion
 		tailwindProcess.on("close", code => {
 			if (code === 0) {
-				log("Tailwind CSS processed successfully", "success");
-				resolve();
+				log("Tailwind CSS (non-minified) processed successfully", "success");
+
+				// Now run the minified version
+				log("Processing minified Tailwind CSS...", "tailwind");
+
+				// Create minified version
+				const minifyProcess = spawn(npxCommand, ["tailwindcss", "-i", "./src/styles/tailwind.css", "-o", "./Curalife-Theme-Build/assets/tailwind.min.css", "--minify"], {
+					stdio: "pipe",
+					env: { ...process.env, NODE_ENV: "production" }, // Use production for minified version
+					shell: true
+				});
+
+				// Add to the list of child processes for cleanup
+				childProcesses.push(minifyProcess);
+
+				// Capture and log stdout for minified process
+				minifyProcess.stdout.on("data", data => {
+					const lines = data.toString().trim().split("\n");
+					lines.forEach(line => {
+						if (line.trim()) {
+							console.log(`${chalk.hex(draculaColors.pink)("[TAILWIND-MIN] ")}${line}`);
+						}
+					});
+				});
+
+				// Capture and log stderr for minified process
+				minifyProcess.stderr.on("data", data => {
+					const lines = data.toString().trim().split("\n");
+					lines.forEach(line => {
+						if (line.trim()) {
+							console.error(`${chalk.hex(draculaColors.pink)("[TAILWIND-MIN] ")}${chalk.hex(draculaColors.red)(line)}`);
+						}
+					});
+				});
+
+				// Handle minified process completion
+				minifyProcess.on("close", minCode => {
+					if (minCode === 0) {
+						log("Tailwind CSS (minified) processed successfully", "success");
+						resolve();
+					} else {
+						log(`Tailwind CSS minified processing failed with code ${minCode}`, "error");
+						// Continue with resolve since at least the non-minified version worked
+						resolve();
+					}
+				});
 			} else {
 				log(`Tailwind CSS processing failed with code ${code}`, "error");
 				reject(new Error(`Tailwind processing exited with code ${code}`));

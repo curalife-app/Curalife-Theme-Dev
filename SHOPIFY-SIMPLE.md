@@ -43,6 +43,20 @@ We've set up several npm scripts to make working with Shopify easier:
 - `npm run shopify:theme:dev` - Run the Shopify theme dev command
 - `npm run shopify:theme:open` - Open your theme in the browser
 
+## Build Process
+
+For building the theme for deployment, we have these options:
+
+- `npm run build` - Standard Vite build process
+- `npm run build:complete` - Enhanced build process that ensures all assets are properly copied and processed
+- `npm run build:complete:debug` - Same as build:complete but with detailed logging
+
+The `build:complete` script is recommended for production builds as it properly:
+
+1. Copies all files from source to build directory with correct directory structure
+2. Processes Tailwind CSS
+3. Follows the same file handling logic as the watch process
+
 ## Getting Your Store Credentials
 
 1. Go to your Shopify admin
@@ -84,7 +98,7 @@ If you have trouble authenticating:
 If theme development doesn't work:
 
 1. Make sure you're authenticated with `shopify auth login`
-2. Check that your theme builds correctly with `npm run build`
+2. Check that your theme builds correctly with `npm run build:complete`
 3. Try listing available themes with `shopify theme list`
 
 ### Other Common Issues
