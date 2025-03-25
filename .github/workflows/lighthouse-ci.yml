@@ -18,74 +18,149 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  BASE_URL: ${{ github.event.inputs.base_url || 'https://curalife.com' }}
-  CUSTOM_PAGES: ${{ github.event.inputs.custom_pages || '' }}
-
 jobs:
   lighthouse:
     name: Run Lighthouse Tests
     runs-on: ubuntu-latest
 
+    env:
+      BASE_URL: ${{ github.event.inputs.base_url || 'https://curalife.com' }}
+      CUSTOM_PAGES: ${{ github.event.inputs.custom_pages || '' }}
+      LIGHTHOUSE_DIR: "./lighthouse-results"
+      DASHBOARD_DIR: "./lighthouse-dashboard"
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup environment
-        uses: ./.github/actions/setup-environment
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: "18"
+          cache: "npm"
 
-      - name: Run Lighthouse tests
+      - name: Install dependencies
+        run: |
+          npm ci
+          npm install -g @lhci/cli@0.12.x
+
+      - name: Run Lighthouse CI
         id: lighthouse
-        uses: ./.github/actions/run-lighthouse
-        with:
-          base-url: ${{ env.BASE_URL }}
-          custom-pages: ${{ env.CUSTOM_PAGES }}
-          lighthouse-dir: "./lighthouse-results"
+        run: |
+          # Create output directory
+          mkdir -p ${{ env.LIGHTHOUSE_DIR }}
 
-      - name: Archive raw results
-        if: always()
+          # Default pages to test
+          PAGES=("/" "/collections" "/products" "/pages/about-us")
+
+          # Add custom pages if specified
+          if [ ! -z "${{ env.CUSTOM_PAGES }}" ]; then
+            IFS=',' read -ra CUSTOM_PAGES_ARRAY <<< "${{ env.CUSTOM_PAGES }}"
+            for page in "${CUSTOM_PAGES_ARRAY[@]}"; do
+              PAGES+=("/${page#/}")
+            done
+          fi
+
+          # Run Lighthouse for each page
+          for page in "${PAGES[@]}"; do
+            url="${{ env.BASE_URL }}${page}"
+            echo "Testing $url"
+
+            # Run Lighthouse with retry logic
+            max_attempts=3
+            attempt=1
+
+            while [ $attempt -le $max_attempts ]; do
+              echo "Attempt $attempt of $max_attempts"
+
+              if lhci collect --url="$url" --output="${{ env.LIGHTHOUSE_DIR }}/${page//\//_}" --settings.chromeFlags="--no-sandbox" --settings.throttling.cpuSlowdownMultiplier=4; then
+                break
+              fi
+
+              attempt=$((attempt+1))
+
+              if [ $attempt -le $max_attempts ]; then
+                echo "Retrying in 5 seconds..."
+                sleep 5
+              fi
+            done
+          done
+
+          echo "::set-output name=status::completed"
+
+      - name: Generate Lighthouse report
+        if: success() || failure()
+        run: |
+          if [ -d "${{ env.LIGHTHOUSE_DIR }}" ] && [ "$(ls -A ${{ env.LIGHTHOUSE_DIR }})" ]; then
+            # Generate HTML report
+            mkdir -p ${{ env.DASHBOARD_DIR }}
+
+            # Create simple HTML dashboard
+            cat > ${{ env.DASHBOARD_DIR }}/index.html << EOF
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Lighthouse Performance Dashboard</title>
+              <style>
+                body { font-family: Arial, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; }
+                h1 { color: #333; }
+                .report-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+                .report-card { border: 1px solid #ddd; border-radius: 8px; padding: 15px; }
+                .report-card h3 { margin-top: 0; }
+              </style>
+            </head>
+            <body>
+              <h1>Lighthouse Performance Dashboard</h1>
+              <p>Base URL: ${{ env.BASE_URL }}</p>
+              <p>Last updated: $(date)</p>
+              <div class="report-list">
+            EOF
+
+            # List all reports
+            for report in ${{ env.LIGHTHOUSE_DIR }}/*.json; do
+              if [ -f "$report" ]; then
+                page_name=$(basename "$report" .json | sed 's/_/\//g')
+                echo "  <div class=\"report-card\">" >> ${{ env.DASHBOARD_DIR }}/index.html
+                echo "    <h3>$page_name</h3>" >> ${{ env.DASHBOARD_DIR }}/index.html
+                echo "    <p><a href=\"${page_name}.html\" target=\"_blank\">View Report</a></p>" >> ${{ env.DASHBOARD_DIR }}/index.html
+                echo "  </div>" >> ${{ env.DASHBOARD_DIR }}/index.html
+
+                # Convert JSON to HTML for this report
+                lhci collect --url="${{ env.BASE_URL }}${page_name}" --output="${{ env.DASHBOARD_DIR }}/${page_name}.html" --settings.chromeFlags="--no-sandbox" || true
+              fi
+            done
+
+            # Close HTML file
+            cat >> ${{ env.DASHBOARD_DIR }}/index.html << EOF
+              </div>
+            </body>
+            </html>
+            EOF
+
+            echo "Report generated successfully"
+          else
+            echo "No Lighthouse results found to generate report"
+            exit 1
+          fi
+
+      - name: Archive results
+        if: success() || failure()
         uses: actions/upload-artifact@v4
         with:
-          name: lighthouse-raw-results
-          path: "./lighthouse-results"
+          name: lighthouse-results
+          path: |
+            ${{ env.LIGHTHOUSE_DIR }}
+            ${{ env.DASHBOARD_DIR }}
           retention-days: 7
 
-      - name: Verify test results
-        id: verify
-        if: success() || failure()
-        uses: ./.github/actions/verify-test-results
-        with:
-          results-dir: "./lighthouse-results"
-          fail-on-error: false
-
-      - name: Create summary report
-        if: success() || failure()
-        id: summary
-        uses: ./.github/actions/create-summary-report
-        with:
-          results-dir: "./lighthouse-results"
-
-      - name: Upload report to GitHub Pages
-        if: (success() || failure()) && steps.verify.outputs.has-data == 'true'
-        uses: ./.github/actions/generate-dashboard
-        with:
-          results-dir: "./lighthouse-results"
-          output-dir: "./lighthouse-dashboard"
-          base-url: ${{ env.BASE_URL }}
-
       - name: Deploy to GitHub Pages
-        if: (success() || failure()) && steps.verify.outputs.has-data == 'true'
-        uses: ./.github/actions/deploy-to-gh-pages
+        if: success() || failure()
+        uses: peaceiris/actions-gh-pages@v3
         with:
-          source-dir: "./lighthouse-dashboard"
-          target-branch: "gh-pages"
-          commit-message: "Update performance dashboard [skip ci]"
-          skip-if-empty: true
-
-      - name: Handle test failures
-        if: failure() && steps.verify.outputs.has-data != 'true'
-        run: |
-          echo "::warning::Lighthouse tests failed without producing valid data"
-          echo "No dashboard will be generated for this run"
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ${{ env.DASHBOARD_DIR }}
+          destination_dir: lighthouse-reports
+          commit_message: "Update performance dashboard [skip ci]"
+          keep_files: true
