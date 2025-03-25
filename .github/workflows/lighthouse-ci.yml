@@ -28,7 +28,30 @@ jobs:
         run: |
           chmod +x .github/workflows/scripts/*.sh
           mkdir -p ${{ env.RESULTS_DIR }}
-          npm ci
+
+          # Check if package.json exists
+          if [ -f "package.json" ]; then
+            # If package-lock.json exists, use npm ci, otherwise use npm install
+            if [ -f "package-lock.json" ]; then
+              echo "Installing dependencies with npm ci..."
+              npm ci
+            else
+              echo "No package-lock.json found. Using npm install instead..."
+              npm install
+            fi
+          else
+            echo "No package.json found. Creating minimal package.json for Lighthouse dependencies..."
+            echo '{
+              "name": "lighthouse-ci-runner",
+              "version": "1.0.0",
+              "private": true,
+              "dependencies": {
+                "puppeteer-core": "^21.0.0"
+              }
+            }' > package.json
+            npm install
+          fi
+
           npm install -g @lhci/cli puppeteer-core
       - name: Run Lighthouse for desktop
         run: .github/workflows/scripts/run-lighthouse.sh desktop
@@ -48,7 +71,30 @@ jobs:
         run: |
           chmod +x .github/workflows/scripts/*.sh
           mkdir -p ${{ env.RESULTS_DIR }}
-          npm ci
+
+          # Check if package.json exists
+          if [ -f "package.json" ]; then
+            # If package-lock.json exists, use npm ci, otherwise use npm install
+            if [ -f "package-lock.json" ]; then
+              echo "Installing dependencies with npm ci..."
+              npm ci
+            else
+              echo "No package-lock.json found. Using npm install instead..."
+              npm install
+            fi
+          else
+            echo "No package.json found. Creating minimal package.json for Lighthouse dependencies..."
+            echo '{
+              "name": "lighthouse-ci-runner",
+              "version": "1.0.0",
+              "private": true,
+              "dependencies": {
+                "puppeteer-core": "^21.0.0"
+              }
+            }' > package.json
+            npm install
+          fi
+
           npm install -g @lhci/cli puppeteer-core
       - name: Run Lighthouse for mobile
         run: .github/workflows/scripts/run-lighthouse.sh mobile
