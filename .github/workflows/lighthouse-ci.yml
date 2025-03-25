@@ -188,721 +188,79 @@ jobs:
 
           mkdir -p performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}
 
-          # Create desktop.html file directly with accurate metrics
-          echo "<!DOCTYPE html>
-<html lang=\"en\">
-<head>
-  <meta charset=\"UTF-8\">
-  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
-  <title>Desktop Lighthouse Report - ${{ matrix.page.name }}</title>
-  <link href=\"https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css\" rel=\"stylesheet\">
-  <link rel=\"stylesheet\" href=\"https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css\">
-  <style>
-    :root {
-      --performance-color: #0CCE6B;
-      --accessibility-color: #0D96F2;
-      --best-practices-color: #928FFF;
-      --seo-color: #FF8C00;
-      --good: #0CCE6B;
-      --average: #FFA400;
-      --poor: #FF4E42;
-    }
-    body {
-      font-family: 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
-      line-height: 1.6;
-      color: #333;
-      background-color: #f8f9fa;
-      padding-bottom: 2rem;
-    }
-    .page-container {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 20px;
-    }
-    .page-header {
-      background: linear-gradient(135deg, #4285f4, #34a853);
-      color: white;
-      padding: 1.5rem;
-      border-radius: 10px;
-      margin-bottom: 2rem;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    }
-    .device-badge {
-      background-color: #333;
-      color: white;
-      padding: 0.4rem 0.7rem;
-      border-radius: 50px;
-      font-size: 0.9rem;
-      margin-bottom: 0.5rem;
-      display: inline-block;
-    }
-    .card {
-      border: none;
-      border-radius: 10px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-      margin-bottom: 1.5rem;
-    }
-    .card-header {
-      background-color: rgba(0,0,0,0.03);
-      border-bottom: none;
-      font-weight: 600;
-    }
-    .score-container {
-      text-align: center;
-      padding: 1rem;
-    }
-    .score-circle {
-      width: 100px;
-      height: 100px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin: 0 auto 1rem;
-      color: white;
-      font-weight: bold;
-      font-size: 2rem;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-    }
-    .score-label {
-      font-weight: 600;
-      margin-bottom: 0.5rem;
-    }
-    .score-circle.good { background-color: var(--good); }
-    .score-circle.average { background-color: var(--average); }
-    .score-circle.poor { background-color: var(--poor); }
+          # Create simple desktop.html template with minimal content
+          echo '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Lighthouse Desktop Report</title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"></head><body>' > performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/desktop.html
 
-    .performance { color: var(--performance-color); }
-    .accessibility { color: var(--accessibility-color); }
-    .best-practices { color: var(--best-practices-color); }
-    .seo { color: var(--seo-color); }
+          # Append content
+          echo "<div class=\"container\"><h1>${{ matrix.page.name }} - Desktop</h1><p>Generated on ${{ steps.scores.outputs.report_date }}</p>" >> performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/desktop.html
 
-    .metric-card {
-      border-left: 4px solid #4285f4;
-      padding: 1rem;
-      margin-bottom: 1rem;
-      background-color: white;
-      border-radius: 5px;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-    }
-    .metric-value {
-      font-size: 1.3rem;
-      font-weight: bold;
-    }
-    .metric-name {
-      color: #666;
-      font-size: 0.9rem;
-      margin-bottom: 0.2rem;
-    }
-    .metric-target {
-      font-size: 0.8rem;
-      color: #888;
-      margin-top: 0.2rem;
-    }
-    .good-text { color: var(--good); }
-    .average-text { color: var(--average); }
-    .poor-text { color: var(--poor); }
+          # Add performance score
+          echo "<div class=\"row\"><div class=\"col-md-3\"><div class=\"card\"><div class=\"text-center p-3\"><h3>Performance Score</h3><h1>\${DESKTOP_PERF}</h1></div></div></div>" >> performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/desktop.html
 
-    .insight-card {
-      border-left: 4px solid #4285f4;
-      padding: 1rem;
-      margin-bottom: 1rem;
-      background-color: white;
-      border-radius: 5px;
-    }
-    .insight-item {
-      margin-bottom: 1rem;
-    }
-    .insight-title {
-      font-weight: 600;
-      margin-bottom: 0.3rem;
-    }
-    .insight-description {
-      color: #555;
-      font-size: 0.95rem;
-    }
-    .back-link {
-      display: inline-block;
-      background-color: #4285f4;
-      color: white;
-      padding: 0.5rem 1rem;
-      border-radius: 5px;
-      text-decoration: none;
-      transition: background-color 0.2s;
-    }
-    .back-link:hover {
-      background-color: #3367d6;
-      color: white;
-    }
-    .tab-content {
-      padding: 1.5rem;
-    }
-    .nav-tabs .nav-link {
-      font-weight: 500;
-    }
-    .nav-tabs .nav-link.active {
-      font-weight: 600;
-      border-bottom: 3px solid #4285f4;
-    }
-  </style>
-</head>
-<body>
-  <div class=\"page-container\">
-    <div class=\"page-header\">
-      <span class=\"device-badge\"><i class=\"bi bi-display\"></i> Desktop</span>
-      <h1 class=\"mb-0\">${{ matrix.page.name }}</h1>
-      <p class=\"mb-0 mt-1\">Generated on ${{ steps.scores.outputs.report_date }} via Lighthouse CI</p>
-    </div>
+          # Add accessibility score
+          echo "<div class=\"col-md-3\"><div class=\"card\"><div class=\"text-center p-3\"><h3>Accessibility</h3><h1>\${DESKTOP_A11Y}</h1></div></div></div>" >> performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/desktop.html
 
-    <div class=\"row mb-4\">
-      <div class=\"col-lg-3 col-md-6 mb-4\">
-        <div class=\"card h-100\">
-          <div class=\"score-container\">
-            <div class=\"score-circle ${DESKTOP_PERF >= 90 ? 'good' : (DESKTOP_PERF >= 50 ? 'average' : 'poor')}\">
-              ${DESKTOP_PERF}
-            </div>
-            <div class=\"score-label performance\">Performance</div>
-          </div>
-        </div>
-      </div>
-      <div class=\"col-lg-3 col-md-6 mb-4\">
-        <div class=\"card h-100\">
-          <div class=\"score-container\">
-            <div class=\"score-circle ${DESKTOP_A11Y >= 90 ? 'good' : (DESKTOP_A11Y >= 70 ? 'average' : 'poor')}\">
-              ${DESKTOP_A11Y}
-            </div>
-            <div class=\"score-label accessibility\">Accessibility</div>
-          </div>
-        </div>
-      </div>
-      <div class=\"col-lg-3 col-md-6 mb-4\">
-        <div class=\"card h-100\">
-          <div class=\"score-container\">
-            <div class=\"score-circle ${DESKTOP_BP >= 90 ? 'good' : (DESKTOP_BP >= 70 ? 'average' : 'poor')}\">
-              ${DESKTOP_BP}
-            </div>
-            <div class=\"score-label best-practices\">Best Practices</div>
-          </div>
-        </div>
-      </div>
-      <div class=\"col-lg-3 col-md-6 mb-4\">
-        <div class=\"card h-100\">
-          <div class=\"score-container\">
-            <div class=\"score-circle ${DESKTOP_SEO >= 90 ? 'good' : (DESKTOP_SEO >= 70 ? 'average' : 'poor')}\">
-              ${DESKTOP_SEO}
-            </div>
-            <div class=\"score-label seo\">SEO</div>
-          </div>
-        </div>
-      </div>
-    </div>
+          # Add best practices score
+          echo "<div class=\"col-md-3\"><div class=\"card\"><div class=\"text-center p-3\"><h3>Best Practices</h3><h1>\${DESKTOP_BP}</h1></div></div></div>" >> performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/desktop.html
 
-    <div class=\"card mb-4\">
-      <div class=\"card-header\">
-        <ul class=\"nav nav-tabs card-header-tabs\" role=\"tablist\">
-          <li class=\"nav-item\">
-            <a class=\"nav-link active\" id=\"core-web-vitals-tab\" data-bs-toggle=\"tab\" href=\"#core-web-vitals\" role=\"tab\">Core Web Vitals</a>
-          </li>
-          <li class=\"nav-item\">
-            <a class=\"nav-link\" id=\"opportunities-tab\" data-bs-toggle=\"tab\" href=\"#opportunities\" role=\"tab\">Opportunities</a>
-          </li>
-          <li class=\"nav-item\">
-            <a class=\"nav-link\" id=\"recommendations-tab\" data-bs-toggle=\"tab\" href=\"#recommendations\" role=\"tab\">Recommendations</a>
-          </li>
-        </ul>
-      </div>
-      <div class=\"tab-content\">
-        <div class=\"tab-pane fade show active\" id=\"core-web-vitals\" role=\"tabpanel\">
-          <h3 class=\"h5 mb-4\">Core Web Vitals</h3>
-          <div class=\"row\">
-            <div class=\"col-md-4 mb-3\">
-              <div class=\"metric-card\">
-                <div class=\"metric-name\">Largest Contentful Paint (LCP)</div>
-                <div class=\"metric-value ${DESKTOP_LCP < 2500 ? 'good-text' : (DESKTOP_LCP < 4000 ? 'average-text' : 'poor-text')}\">
-                  ${(DESKTOP_LCP / 1000).toFixed(2)}s
-                </div>
-                <div class=\"metric-target\">Target: < 2.5s</div>
-              </div>
-            </div>
-            <div class=\"col-md-4 mb-3\">
-              <div class=\"metric-card\">
-                <div class=\"metric-name\">Total Blocking Time (TBT)</div>
-                <div class=\"metric-value ${DESKTOP_TBT < 200 ? 'good-text' : (DESKTOP_TBT < 600 ? 'average-text' : 'poor-text')}\">
-                  ${DESKTOP_TBT}ms
-                </div>
-                <div class=\"metric-target\">Target: < 200ms</div>
-              </div>
-            </div>
-            <div class=\"col-md-4 mb-3\">
-              <div class=\"metric-card\">
-                <div class=\"metric-name\">Cumulative Layout Shift (CLS)</div>
-                <div class=\"metric-value ${DESKTOP_CLS < 0.1 ? 'good-text' : (DESKTOP_CLS < 0.25 ? 'average-text' : 'poor-text')}\">
-                  ${DESKTOP_CLS}
-                </div>
-                <div class=\"metric-target\">Target: < 0.1</div>
-              </div>
-            </div>
-            <div class=\"col-md-4 mb-3\">
-              <div class=\"metric-card\">
-                <div class=\"metric-name\">First Contentful Paint (FCP)</div>
-                <div class=\"metric-value\">${(DESKTOP_FCP / 1000).toFixed(2)}s</div>
-                <div class=\"metric-target\">Target: < 1.8s</div>
-              </div>
-            </div>
-            <div class=\"col-md-4 mb-3\">
-              <div class=\"metric-card\">
-                <div class=\"metric-name\">Speed Index</div>
-                <div class=\"metric-value\">${(DESKTOP_SI / 1000).toFixed(2)}s</div>
-                <div class=\"metric-target\">Target: < 3.4s</div>
-              </div>
-            </div>
-            <div class=\"col-md-4 mb-3\">
-              <div class=\"metric-card\">
-                <div class=\"metric-name\">Time to Interactive (TTI)</div>
-                <div class=\"metric-value\">${(DESKTOP_TTI / 1000).toFixed(2)}s</div>
-                <div class=\"metric-target\">Target: < 3.8s</div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class=\"tab-pane fade\" id=\"opportunities\" role=\"tabpanel\">
-          <h3 class=\"h5 mb-4\">Optimization Opportunities</h3>
-          <div class=\"row\">
-            <div class=\"col-md-6 mb-3\">
-              <div class=\"metric-card\">
-                <div class=\"metric-name\">Render-Blocking Resources</div>
-                <div class=\"metric-value\">${DESKTOP_RENDER_BLOCKING}</div>
-              </div>
-            </div>
-            <div class=\"col-md-6 mb-3\">
-              <div class=\"metric-card\">
-                <div class=\"metric-name\">Unused CSS</div>
-                <div class=\"metric-value\">${Math.round(DESKTOP_UNUSED_CSS / 1024)} KB</div>
-              </div>
-            </div>
-            <div class=\"col-md-6 mb-3\">
-              <div class=\"metric-card\">
-                <div class=\"metric-name\">Unused JavaScript</div>
-                <div class=\"metric-value\">${Math.round(DESKTOP_UNUSED_JS / 1024)} KB</div>
-              </div>
-            </div>
-            <div class=\"col-md-6 mb-3\">
-              <div class=\"metric-card\">
-                <div class=\"metric-name\">Offscreen Images</div>
-                <div class=\"metric-value\">${Math.round(DESKTOP_OFFSCREEN_IMAGES / 1024)} KB</div>
-              </div>
-            </div>
-            <div class=\"col-md-6 mb-3\">
-              <div class=\"metric-card\">
-                <div class=\"metric-name\">Total Page Size</div>
-                <div class=\"metric-value\">${Math.round(DESKTOP_TOTAL_BYTES / 1024)} KB</div>
-              </div>
-            </div>
-            <div class=\"col-md-6 mb-3\">
-              <div class=\"metric-card\">
-                <div class=\"metric-name\">DOM Elements</div>
-                <div class=\"metric-value\">${DESKTOP_DOM_SIZE}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class=\"tab-pane fade\" id=\"recommendations\" role=\"tabpanel\">
-          <h3 class=\"h5 mb-4\">Actionable Recommendations</h3>
-          <div class=\"insight-card\">
-            <div class=\"insight-item\">
-              <div class=\"insight-title\"><i class=\"bi bi-lightning-charge\"></i> Improve LCP</div>
-              <div class=\"insight-description\">Optimize server response time, reduce render-blocking resources, and improve main thread work to enhance Largest Contentful Paint.</div>
-            </div>
-            <div class=\"insight-item\">
-              <div class=\"insight-title\"><i class=\"bi bi-image\"></i> Optimize Images</div>
-              <div class=\"insight-description\">Properly size images, convert to next-gen formats like WebP, and implement lazy loading for offscreen content.</div>
-            </div>
-            <div class=\"insight-item\">
-              <div class=\"insight-title\"><i class=\"bi bi-code-slash\"></i> Minimize JavaScript</div>
-              <div class=\"insight-description\">Reduce unused JavaScript, optimize critical rendering path, and defer non-essential scripts.</div>
-            </div>
-            <div class=\"insight-item\">
-              <div class=\"insight-title\"><i class=\"bi bi-palette\"></i> CSS Optimization</div>
-              <div class=\"insight-description\">Remove unused CSS, inline critical CSS, and defer non-critical styles to improve loading performance.</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+          # Add SEO score
+          echo "<div class=\"col-md-3\"><div class=\"card\"><div class=\"text-center p-3\"><h3>SEO</h3><h1>\${DESKTOP_SEO}</h1></div></div></div></div>" >> performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/desktop.html
 
-    <div class=\"text-center\">
-      <a href=\"../../../index.html\" class=\"back-link\"><i class=\"bi bi-arrow-left me-1\"></i> Back to Dashboard</a>
-    </div>
-  </div>
+          # Add Core Web Vitals
+          echo "<div class=\"card mt-4\"><div class=\"card-header\"><h3>Core Web Vitals</h3></div><div class=\"card-body\"><div class=\"row\">" >> performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/desktop.html
 
-  <script src=\"https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js\"></script>
-</body>
-</html>" > performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/desktop.html
+          # Add LCP
+          echo "<div class=\"col-md-4\"><div class=\"card\"><div class=\"p-3\"><h4>LCP</h4><p>\${(DESKTOP_LCP / 1000).toFixed(2)}s</p></div></div></div>" >> performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/desktop.html
 
-          # Create mobile.html file directly with accurate metrics
-          echo "<!DOCTYPE html>
-<html lang=\"en\">
-<head>
-  <meta charset=\"UTF-8\">
-  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
-  <title>Mobile Lighthouse Report - ${{ matrix.page.name }}</title>
-  <link href=\"https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css\" rel=\"stylesheet\">
-  <link rel=\"stylesheet\" href=\"https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css\">
-  <style>
-    :root {
-      --performance-color: #0CCE6B;
-      --accessibility-color: #0D96F2;
-      --best-practices-color: #928FFF;
-      --seo-color: #FF8C00;
-      --good: #0CCE6B;
-      --average: #FFA400;
-      --poor: #FF4E42;
-    }
-    body {
-      font-family: 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
-      line-height: 1.6;
-      color: #333;
-      background-color: #f8f9fa;
-      padding-bottom: 2rem;
-    }
-    .page-container {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 20px;
-    }
-    .page-header {
-      background: linear-gradient(135deg, #EA4335, #FBBC05);
-      color: white;
-      padding: 1.5rem;
-      border-radius: 10px;
-      margin-bottom: 2rem;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    }
-    .device-badge {
-      background-color: #333;
-      color: white;
-      padding: 0.4rem 0.7rem;
-      border-radius: 50px;
-      font-size: 0.9rem;
-      margin-bottom: 0.5rem;
-      display: inline-block;
-    }
-    .card {
-      border: none;
-      border-radius: 10px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-      margin-bottom: 1.5rem;
-    }
-    .card-header {
-      background-color: rgba(0,0,0,0.03);
-      border-bottom: none;
-      font-weight: 600;
-    }
-    .score-container {
-      text-align: center;
-      padding: 1rem;
-    }
-    .score-circle {
-      width: 100px;
-      height: 100px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin: 0 auto 1rem;
-      color: white;
-      font-weight: bold;
-      font-size: 2rem;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-    }
-    .score-label {
-      font-weight: 600;
-      margin-bottom: 0.5rem;
-    }
-    .score-circle.good { background-color: var(--good); }
-    .score-circle.average { background-color: var(--average); }
-    .score-circle.poor { background-color: var(--poor); }
+          # Add TBT
+          echo "<div class=\"col-md-4\"><div class=\"card\"><div class=\"p-3\"><h4>TBT</h4><p>\${DESKTOP_TBT}ms</p></div></div></div>" >> performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/desktop.html
 
-    .performance { color: var(--performance-color); }
-    .accessibility { color: var(--accessibility-color); }
-    .best-practices { color: var(--best-practices-color); }
-    .seo { color: var(--seo-color); }
+          # Add CLS
+          echo "<div class=\"col-md-4\"><div class=\"card\"><div class=\"p-3\"><h4>CLS</h4><p>\${DESKTOP_CLS}</p></div></div></div>" >> performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/desktop.html
 
-    .metric-card {
-      border-left: 4px solid #EA4335;
-      padding: 1rem;
-      margin-bottom: 1rem;
-      background-color: white;
-      border-radius: 5px;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-    }
-    .metric-value {
-      font-size: 1.3rem;
-      font-weight: bold;
-    }
-    .metric-name {
-      color: #666;
-      font-size: 0.9rem;
-      margin-bottom: 0.2rem;
-    }
-    .metric-target {
-      font-size: 0.8rem;
-      color: #888;
-      margin-top: 0.2rem;
-    }
-    .good-text { color: var(--good); }
-    .average-text { color: var(--average); }
-    .poor-text { color: var(--poor); }
+          # Close divs and add back link
+          echo "</div></div></div><div class=\"text-center mt-4\"><a href=\"../../../index.html\" class=\"btn btn-primary\">Back to Dashboard</a></div></div>" >> performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/desktop.html
 
-    .insight-card {
-      border-left: 4px solid #EA4335;
-      padding: 1rem;
-      margin-bottom: 1rem;
-      background-color: white;
-      border-radius: 5px;
-    }
-    .insight-item {
-      margin-bottom: 1rem;
-    }
-    .insight-title {
-      font-weight: 600;
-      margin-bottom: 0.3rem;
-    }
-    .insight-description {
-      color: #555;
-      font-size: 0.95rem;
-    }
-    .back-link {
-      display: inline-block;
-      background-color: #EA4335;
-      color: white;
-      padding: 0.5rem 1rem;
-      border-radius: 5px;
-      text-decoration: none;
-      transition: background-color 0.2s;
-    }
-    .back-link:hover {
-      background-color: #C5221F;
-      color: white;
-    }
-    .tab-content {
-      padding: 1.5rem;
-    }
-    .nav-tabs .nav-link {
-      font-weight: 500;
-    }
-    .nav-tabs .nav-link.active {
-      font-weight: 600;
-      border-bottom: 3px solid #EA4335;
-    }
-    .mobile-tip {
-      background-color: rgba(234, 67, 53, 0.05);
-      border-radius: 5px;
-      padding: 1rem;
-      margin: 1.5rem 0;
-      border-left: 4px solid #EA4335;
-    }
-  </style>
-</head>
-<body>
-  <div class=\"page-container\">
-    <div class=\"page-header\">
-      <span class=\"device-badge\"><i class=\"bi bi-phone\"></i> Mobile</span>
-      <h1 class=\"mb-0\">${{ matrix.page.name }}</h1>
-      <p class=\"mb-0 mt-1\">Generated on ${{ steps.scores.outputs.report_date }} via Lighthouse CI</p>
-    </div>
+          # Close HTML
+          echo "</body></html>" >> performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/desktop.html
 
-    <div class=\"row mb-4\">
-      <div class=\"col-lg-3 col-md-6 mb-4\">
-        <div class=\"card h-100\">
-          <div class=\"score-container\">
-            <div class=\"score-circle ${MOBILE_PERF >= 90 ? 'good' : (MOBILE_PERF >= 50 ? 'average' : 'poor')}\">
-              ${MOBILE_PERF}
-            </div>
-            <div class=\"score-label performance\">Performance</div>
-          </div>
-        </div>
-      </div>
-      <div class=\"col-lg-3 col-md-6 mb-4\">
-        <div class=\"card h-100\">
-          <div class=\"score-container\">
-            <div class=\"score-circle ${MOBILE_A11Y >= 90 ? 'good' : (MOBILE_A11Y >= 70 ? 'average' : 'poor')}\">
-              ${MOBILE_A11Y}
-            </div>
-            <div class=\"score-label accessibility\">Accessibility</div>
-          </div>
-        </div>
-      </div>
-      <div class=\"col-lg-3 col-md-6 mb-4\">
-        <div class=\"card h-100\">
-          <div class=\"score-container\">
-            <div class=\"score-circle ${MOBILE_BP >= 90 ? 'good' : (MOBILE_BP >= 70 ? 'average' : 'poor')}\">
-              ${MOBILE_BP}
-            </div>
-            <div class=\"score-label best-practices\">Best Practices</div>
-          </div>
-        </div>
-      </div>
-      <div class=\"col-lg-3 col-md-6 mb-4\">
-        <div class=\"card h-100\">
-          <div class=\"score-container\">
-            <div class=\"score-circle ${MOBILE_SEO >= 90 ? 'good' : (MOBILE_SEO >= 70 ? 'average' : 'poor')}\">
-              ${MOBILE_SEO}
-            </div>
-            <div class=\"score-label seo\">SEO</div>
-          </div>
-        </div>
-      </div>
-    </div>
+          # Create simple mobile.html template with minimal content
+          echo '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Lighthouse Mobile Report</title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"></head><body>' > performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/mobile.html
 
-    <div class=\"mobile-tip\">
-      <h4 class=\"h6 mb-2\"><i class=\"bi bi-phone-vibrate me-1\"></i> Mobile Performance Matters</h4>
-      <p class=\"mb-0\">Mobile traffic accounts for more than 50% of web traffic globally. Google prioritizes mobile experience for search indexing and page ranking.</p>
-    </div>
+          # Append content
+          echo "<div class=\"container\"><h1>${{ matrix.page.name }} - Mobile</h1><p>Generated on ${{ steps.scores.outputs.report_date }}</p>" >> performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/mobile.html
 
-    <div class=\"card mb-4\">
-      <div class=\"card-header\">
-        <ul class=\"nav nav-tabs card-header-tabs\" role=\"tablist\">
-          <li class=\"nav-item\">
-            <a class=\"nav-link active\" id=\"core-web-vitals-tab\" data-bs-toggle=\"tab\" href=\"#core-web-vitals\" role=\"tab\">Core Web Vitals</a>
-          </li>
-          <li class=\"nav-item\">
-            <a class=\"nav-link\" id=\"opportunities-tab\" data-bs-toggle=\"tab\" href=\"#opportunities\" role=\"tab\">Opportunities</a>
-          </li>
-          <li class=\"nav-item\">
-            <a class=\"nav-link\" id=\"recommendations-tab\" data-bs-toggle=\"tab\" href=\"#recommendations\" role=\"tab\">Recommendations</a>
-          </li>
-        </ul>
-      </div>
-      <div class=\"tab-content\">
-        <div class=\"tab-pane fade show active\" id=\"core-web-vitals\" role=\"tabpanel\">
-          <h3 class=\"h5 mb-4\">Core Web Vitals</h3>
-          <div class=\"row\">
-            <div class=\"col-md-4 mb-3\">
-              <div class=\"metric-card\">
-                <div class=\"metric-name\">Largest Contentful Paint (LCP)</div>
-                <div class=\"metric-value ${MOBILE_LCP < 2500 ? 'good-text' : (MOBILE_LCP < 4000 ? 'average-text' : 'poor-text')}\">
-                  ${(MOBILE_LCP / 1000).toFixed(2)}s
-                </div>
-                <div class=\"metric-target\">Target: < 2.5s</div>
-              </div>
-            </div>
-            <div class=\"col-md-4 mb-3\">
-              <div class=\"metric-card\">
-                <div class=\"metric-name\">Total Blocking Time (TBT)</div>
-                <div class=\"metric-value ${MOBILE_TBT < 200 ? 'good-text' : (MOBILE_TBT < 600 ? 'average-text' : 'poor-text')}\">
-                  ${MOBILE_TBT}ms
-                </div>
-                <div class=\"metric-target\">Target: < 200ms</div>
-              </div>
-            </div>
-            <div class=\"col-md-4 mb-3\">
-              <div class=\"metric-card\">
-                <div class=\"metric-name\">Cumulative Layout Shift (CLS)</div>
-                <div class=\"metric-value ${MOBILE_CLS < 0.1 ? 'good-text' : (MOBILE_CLS < 0.25 ? 'average-text' : 'poor-text')}\">
-                  ${MOBILE_CLS}
-                </div>
-                <div class=\"metric-target\">Target: < 0.1</div>
-              </div>
-            </div>
-            <div class=\"col-md-4 mb-3\">
-              <div class=\"metric-card\">
-                <div class=\"metric-name\">First Contentful Paint (FCP)</div>
-                <div class=\"metric-value\">${(MOBILE_FCP / 1000).toFixed(2)}s</div>
-                <div class=\"metric-target\">Target: < 1.8s</div>
-              </div>
-            </div>
-            <div class=\"col-md-4 mb-3\">
-              <div class=\"metric-card\">
-                <div class=\"metric-name\">Speed Index</div>
-                <div class=\"metric-value\">${(MOBILE_SI / 1000).toFixed(2)}s</div>
-                <div class=\"metric-target\">Target: < 3.4s</div>
-              </div>
-            </div>
-            <div class=\"col-md-4 mb-3\">
-              <div class=\"metric-card\">
-                <div class=\"metric-name\">Time to Interactive (TTI)</div>
-                <div class=\"metric-value\">${(MOBILE_TTI / 1000).toFixed(2)}s</div>
-                <div class=\"metric-target\">Target: < 3.8s</div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class=\"tab-pane fade\" id=\"opportunities\" role=\"tabpanel\">
-          <h3 class=\"h5 mb-4\">Optimization Opportunities</h3>
-          <div class=\"row\">
-            <div class=\"col-md-6 mb-3\">
-              <div class=\"metric-card\">
-                <div class=\"metric-name\">Render-Blocking Resources</div>
-                <div class=\"metric-value\">${MOBILE_RENDER_BLOCKING}</div>
-              </div>
-            </div>
-            <div class=\"col-md-6 mb-3\">
-              <div class=\"metric-card\">
-                <div class=\"metric-name\">Unused CSS</div>
-                <div class=\"metric-value\">${Math.round(MOBILE_UNUSED_CSS / 1024)} KB</div>
-              </div>
-            </div>
-            <div class=\"col-md-6 mb-3\">
-              <div class=\"metric-card\">
-                <div class=\"metric-name\">Unused JavaScript</div>
-                <div class=\"metric-value\">${Math.round(MOBILE_UNUSED_JS / 1024)} KB</div>
-              </div>
-            </div>
-            <div class=\"col-md-6 mb-3\">
-              <div class=\"metric-card\">
-                <div class=\"metric-name\">Offscreen Images</div>
-                <div class=\"metric-value\">${Math.round(MOBILE_OFFSCREEN_IMAGES / 1024)} KB</div>
-              </div>
-            </div>
-            <div class=\"col-md-6 mb-3\">
-              <div class=\"metric-card\">
-                <div class=\"metric-name\">Total Page Size</div>
-                <div class=\"metric-value\">${Math.round(MOBILE_TOTAL_BYTES / 1024)} KB</div>
-              </div>
-            </div>
-            <div class=\"col-md-6 mb-3\">
-              <div class=\"metric-card\">
-                <div class=\"metric-name\">DOM Elements</div>
-                <div class=\"metric-value\">${MOBILE_DOM_SIZE}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class=\"tab-pane fade\" id=\"recommendations\" role=\"tabpanel\">
-          <h3 class=\"h5 mb-4\">Mobile-Specific Recommendations</h3>
-          <div class=\"insight-card\">
-            <div class=\"insight-item\">
-              <div class=\"insight-title\"><i class=\"bi bi-phone\"></i> Optimize for Mobile Networks</div>
-              <div class=\"insight-description\">Reduce page weight, implement efficient resource loading, and optimize for varying network conditions.</div>
-            </div>
-            <div class=\"insight-item\">
-              <div class=\"insight-title\"><i class=\"bi bi-hand-index-thumb\"></i> Improve Touch Target Sizes</div>
-              <div class=\"insight-description\">Ensure all interactive elements are at least 48x48 pixels and have adequate spacing for touch accuracy.</div>
-            </div>
-            <div class=\"insight-item\">
-              <div class=\"insight-title\"><i class=\"bi bi-aspect-ratio\"></i> Optimize Viewport Configuration</div>
-              <div class=\"insight-description\">Use responsive design patterns and ensure content fits within the viewport without horizontal scrolling.</div>
-            </div>
-            <div class=\"insight-item\">
-              <div class=\"insight-title\"><i class=\"bi bi-cpu\"></i> Reduce JavaScript Burden</div>
-              <div class=\"insight-description\">Mobile devices have limited CPU and memory. Minimize JS execution time and prioritize critical scripts.</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+          # Add performance score
+          echo "<div class=\"row\"><div class=\"col-md-3\"><div class=\"card\"><div class=\"text-center p-3\"><h3>Performance Score</h3><h1>\${MOBILE_PERF}</h1></div></div></div>" >> performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/mobile.html
 
-    <div class=\"text-center\">
-      <a href=\"../../../index.html\" class=\"back-link\"><i class=\"bi bi-arrow-left me-1\"></i> Back to Dashboard</a>
-    </div>
-  </div>
+          # Add accessibility score
+          echo "<div class=\"col-md-3\"><div class=\"card\"><div class=\"text-center p-3\"><h3>Accessibility</h3><h1>\${MOBILE_A11Y}</h1></div></div></div>" >> performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/mobile.html
 
-  <script src=\"https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js\"></script>
-</body>
-</html>" > performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/mobile.html
+          # Add best practices score
+          echo "<div class=\"col-md-3\"><div class=\"card\"><div class=\"text-center p-3\"><h3>Best Practices</h3><h1>\${MOBILE_BP}</h1></div></div></div>" >> performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/mobile.html
 
-          echo "Created static HTML report files with metrics:"
+          # Add SEO score
+          echo "<div class=\"col-md-3\"><div class=\"card\"><div class=\"text-center p-3\"><h3>SEO</h3><h1>\${MOBILE_SEO}</h1></div></div></div></div>" >> performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/mobile.html
+
+          # Add Core Web Vitals
+          echo "<div class=\"card mt-4\"><div class=\"card-header\"><h3>Core Web Vitals</h3></div><div class=\"card-body\"><div class=\"row\">" >> performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/mobile.html
+
+          # Add LCP
+          echo "<div class=\"col-md-4\"><div class=\"card\"><div class=\"p-3\"><h4>LCP</h4><p>\${(MOBILE_LCP / 1000).toFixed(2)}s</p></div></div></div>" >> performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/mobile.html
+
+          # Add TBT
+          echo "<div class=\"col-md-4\"><div class=\"card\"><div class=\"p-3\"><h4>TBT</h4><p>\${MOBILE_TBT}ms</p></div></div></div>" >> performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/mobile.html
+
+          # Add CLS
+          echo "<div class=\"col-md-4\"><div class=\"card\"><div class=\"p-3\"><h4>CLS</h4><p>\${MOBILE_CLS}</p></div></div></div>" >> performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/mobile.html
+
+          # Close divs and add back link
+          echo "</div></div></div><div class=\"text-center mt-4\"><a href=\"../../../index.html\" class=\"btn btn-primary\">Back to Dashboard</a></div></div>" >> performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/mobile.html
+
+          # Close HTML
+          echo "</body></html>" >> performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/mobile.html
+
+          echo "Created HTML report files with metrics:"
           ls -la performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/
 
       - name: Save reports to performance-reports directory
