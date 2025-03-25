@@ -83,6 +83,147 @@ format_lcp() {
 DESKTOP_LCP_SEC=$(format_lcp $DESKTOP_LCP)
 MOBILE_LCP_SEC=$(format_lcp $MOBILE_LCP)
 
+# Pre-calculate CSS classes based on scores for desktop
+if [ "${DESKTOP_PERF:=0}" -ge 90 ]; then
+  DESKTOP_PERF_CLASS="score-good"
+elif [ "${DESKTOP_PERF:=0}" -ge 50 ]; then
+  DESKTOP_PERF_CLASS="score-average"
+else
+  DESKTOP_PERF_CLASS="score-poor"
+fi
+
+if [ "${DESKTOP_A11Y:=0}" -ge 90 ]; then
+  DESKTOP_A11Y_CLASS="score-good"
+elif [ "${DESKTOP_A11Y:=0}" -ge 70 ]; then
+  DESKTOP_A11Y_CLASS="score-average"
+else
+  DESKTOP_A11Y_CLASS="score-poor"
+fi
+
+if [ "${DESKTOP_BP:=0}" -ge 90 ]; then
+  DESKTOP_BP_CLASS="score-good"
+elif [ "${DESKTOP_BP:=0}" -ge 70 ]; then
+  DESKTOP_BP_CLASS="score-average"
+else
+  DESKTOP_BP_CLASS="score-poor"
+fi
+
+if [ "${DESKTOP_SEO:=0}" -ge 90 ]; then
+  DESKTOP_SEO_CLASS="score-good"
+elif [ "${DESKTOP_SEO:=0}" -ge 70 ]; then
+  DESKTOP_SEO_CLASS="score-average"
+else
+  DESKTOP_SEO_CLASS="score-poor"
+fi
+
+# Pre-calculate CWV classes for desktop
+if [ $(echo "${DESKTOP_LCP:=0} < 2500" | bc -l) -eq 1 ]; then
+  DESKTOP_LCP_CLASS="metric-good"
+elif [ $(echo "${DESKTOP_LCP:=0} < 4000" | bc -l) -eq 1 ]; then
+  DESKTOP_LCP_CLASS="metric-average"
+else
+  DESKTOP_LCP_CLASS="metric-poor"
+fi
+
+if [ "${DESKTOP_TBT:=0}" -lt 200 ]; then
+  DESKTOP_TBT_CLASS="metric-good"
+elif [ "${DESKTOP_TBT:=0}" -lt 600 ]; then
+  DESKTOP_TBT_CLASS="metric-average"
+else
+  DESKTOP_TBT_CLASS="metric-poor"
+fi
+
+if [ $(echo "${DESKTOP_CLS:=0} < 0.1" | bc -l) -eq 1 ]; then
+  DESKTOP_CLS_CLASS="metric-good"
+elif [ $(echo "${DESKTOP_CLS:=0} < 0.25" | bc -l) -eq 1 ]; then
+  DESKTOP_CLS_CLASS="metric-average"
+else
+  DESKTOP_CLS_CLASS="metric-poor"
+fi
+
+# Pre-calculate CSS classes based on scores for mobile
+if [ "${MOBILE_PERF:=0}" -ge 90 ]; then
+  MOBILE_PERF_CLASS="score-good"
+elif [ "${MOBILE_PERF:=0}" -ge 50 ]; then
+  MOBILE_PERF_CLASS="score-average"
+else
+  MOBILE_PERF_CLASS="score-poor"
+fi
+
+if [ "${MOBILE_A11Y:=0}" -ge 90 ]; then
+  MOBILE_A11Y_CLASS="score-good"
+elif [ "${MOBILE_A11Y:=0}" -ge 70 ]; then
+  MOBILE_A11Y_CLASS="score-average"
+else
+  MOBILE_A11Y_CLASS="score-poor"
+fi
+
+if [ "${MOBILE_BP:=0}" -ge 90 ]; then
+  MOBILE_BP_CLASS="score-good"
+elif [ "${MOBILE_BP:=0}" -ge 70 ]; then
+  MOBILE_BP_CLASS="score-average"
+else
+  MOBILE_BP_CLASS="score-poor"
+fi
+
+if [ "${MOBILE_SEO:=0}" -ge 90 ]; then
+  MOBILE_SEO_CLASS="score-good"
+elif [ "${MOBILE_SEO:=0}" -ge 70 ]; then
+  MOBILE_SEO_CLASS="score-average"
+else
+  MOBILE_SEO_CLASS="score-poor"
+fi
+
+# Pre-calculate CWV classes for mobile
+if [ $(echo "${MOBILE_LCP:=0} < 2500" | bc -l) -eq 1 ]; then
+  MOBILE_LCP_CLASS="metric-good"
+elif [ $(echo "${MOBILE_LCP:=0} < 4000" | bc -l) -eq 1 ]; then
+  MOBILE_LCP_CLASS="metric-average"
+else
+  MOBILE_LCP_CLASS="metric-poor"
+fi
+
+if [ "${MOBILE_TBT:=0}" -lt 200 ]; then
+  MOBILE_TBT_CLASS="metric-good"
+elif [ "${MOBILE_TBT:=0}" -lt 600 ]; then
+  MOBILE_TBT_CLASS="metric-average"
+else
+  MOBILE_TBT_CLASS="metric-poor"
+fi
+
+if [ $(echo "${MOBILE_CLS:=0} < 0.1" | bc -l) -eq 1 ]; then
+  MOBILE_CLS_CLASS="metric-good"
+elif [ $(echo "${MOBILE_CLS:=0} < 0.25" | bc -l) -eq 1 ]; then
+  MOBILE_CLS_CLASS="metric-average"
+else
+  MOBILE_CLS_CLASS="metric-poor"
+fi
+
+# Prepare placeholder warning HTML
+if [ "$IS_DESKTOP_PLACEHOLDER" = true ]; then
+  DESKTOP_PLACEHOLDER_WARNING='
+    <div class="placeholder-warning mb-4">
+      <h4><i class="bi bi-exclamation-triangle-fill me-2"></i>Placeholder Data Warning</h4>
+      <p>This report contains <strong>placeholder data</strong>, not actual Lighthouse test results. The test either failed to run or the results could not be processed correctly.</p>
+      <p>All values shown here are placeholders and do not represent real performance metrics.</p>
+    </div>
+  '
+else
+  DESKTOP_PLACEHOLDER_WARNING=""
+fi
+
+if [ "$IS_MOBILE_PLACEHOLDER" = true ]; then
+  MOBILE_PLACEHOLDER_WARNING='
+    <div class="placeholder-warning mb-4">
+      <h4><i class="bi bi-exclamation-triangle-fill me-2"></i>Placeholder Data Warning</h4>
+      <p>This report contains <strong>placeholder data</strong>, not actual Lighthouse test results. The test either failed to run or the results could not be processed correctly.</p>
+      <p>All values shown here are placeholders and do not represent real performance metrics.</p>
+    </div>
+  '
+else
+  MOBILE_PLACEHOLDER_WARNING=""
+fi
+
 # Create desktop.html template
 DESKTOP_HTML="${OUTPUT_DIR}/desktop.html"
 echo "Creating desktop.html report at $DESKTOP_HTML"
@@ -176,6 +317,14 @@ cat > "$DESKTOP_HTML" << EOF
       border-bottom: 2px solid var(--primary-light);
       padding-bottom: 10px;
     }
+    .placeholder-warning {
+      background-color: #fff3cd;
+      color: #856404;
+      border-left: 4px solid #ffc107;
+      padding: 1rem;
+      margin: 1rem 0;
+      border-radius: 6px;
+    }
   </style>
 </head>
 <body>
@@ -190,39 +339,33 @@ cat > "$DESKTOP_HTML" << EOF
   </div>
 
   <div class="container-fluid p-0">
-    ${IS_DESKTOP_PLACEHOLDER ? '
-    <div class="placeholder-warning mb-4">
-      <h4><i class="bi bi-exclamation-triangle-fill me-2"></i>Placeholder Data Warning</h4>
-      <p>This report contains <strong>placeholder data</strong>, not actual Lighthouse test results. The test either failed to run or the results could not be processed correctly.</p>
-      <p>All values shown here are placeholders (42) and do not represent real performance metrics.</p>
-    </div>
-    ' : ''}
+    ${DESKTOP_PLACEHOLDER_WARNING}
 
     <div class="row mb-4">
       <div class="col-md-3">
         <div class="card score-card">
-          <div class="score-value ${DESKTOP_PERF:=0 >= 90 ? 'score-good' : (DESKTOP_PERF >= 50 ? 'score-average' : 'score-poor')}">${DESKTOP_PERF:=0}</div>
+          <div class="score-value ${DESKTOP_PERF_CLASS}">${DESKTOP_PERF}</div>
           <div class="score-label">Performance</div>
           <div class="mt-2"><small>Target: 90+</small></div>
         </div>
       </div>
       <div class="col-md-3">
         <div class="card score-card">
-          <div class="score-value ${DESKTOP_A11Y:=0 >= 90 ? 'score-good' : (DESKTOP_A11Y >= 70 ? 'score-average' : 'score-poor')}">${DESKTOP_A11Y:=0}</div>
+          <div class="score-value ${DESKTOP_A11Y_CLASS}">${DESKTOP_A11Y}</div>
           <div class="score-label">Accessibility</div>
           <div class="mt-2"><small>Target: 90+</small></div>
         </div>
       </div>
       <div class="col-md-3">
         <div class="card score-card">
-          <div class="score-value ${DESKTOP_BP:=0 >= 90 ? 'score-good' : (DESKTOP_BP >= 70 ? 'score-average' : 'score-poor')}">${DESKTOP_BP:=0}</div>
+          <div class="score-value ${DESKTOP_BP_CLASS}">${DESKTOP_BP}</div>
           <div class="score-label">Best Practices</div>
           <div class="mt-2"><small>Target: 90+</small></div>
         </div>
       </div>
       <div class="col-md-3">
         <div class="card score-card">
-          <div class="score-value ${DESKTOP_SEO:=0 >= 90 ? 'score-good' : (DESKTOP_SEO >= 70 ? 'score-average' : 'score-poor')}">${DESKTOP_SEO:=0}</div>
+          <div class="score-value ${DESKTOP_SEO_CLASS}">${DESKTOP_SEO}</div>
           <div class="score-label">SEO</div>
           <div class="mt-2"><small>Target: 90+</small></div>
         </div>
@@ -236,7 +379,7 @@ cat > "$DESKTOP_HTML" << EOF
           <div class="card">
             <div class="card-body text-center">
               <h5>Largest Contentful Paint</h5>
-              <div class="fs-2 fw-bold ${DESKTOP_LCP:=0 < 2500 ? 'metric-good' : (DESKTOP_LCP < 4000 ? 'metric-average' : 'metric-poor')}">${DESKTOP_LCP_SEC}s</div>
+              <div class="fs-2 fw-bold ${DESKTOP_LCP_CLASS}">${DESKTOP_LCP_SEC}s</div>
               <div class="mt-2"><small>Target: < 2.5s</small></div>
             </div>
           </div>
@@ -245,7 +388,7 @@ cat > "$DESKTOP_HTML" << EOF
           <div class="card">
             <div class="card-body text-center">
               <h5>Total Blocking Time</h5>
-              <div class="fs-2 fw-bold ${DESKTOP_TBT:=0 < 200 ? 'metric-good' : (DESKTOP_TBT < 600 ? 'metric-average' : 'metric-poor')}">${DESKTOP_TBT:=0}ms</div>
+              <div class="fs-2 fw-bold ${DESKTOP_TBT_CLASS}">${DESKTOP_TBT}ms</div>
               <div class="mt-2"><small>Target: < 200ms</small></div>
             </div>
           </div>
@@ -254,7 +397,7 @@ cat > "$DESKTOP_HTML" << EOF
           <div class="card">
             <div class="card-body text-center">
               <h5>Cumulative Layout Shift</h5>
-              <div class="fs-2 fw-bold ${DESKTOP_CLS:=0 < 0.1 ? 'metric-good' : (DESKTOP_CLS < 0.25 ? 'metric-average' : 'metric-poor')}">${DESKTOP_CLS:=0}</div>
+              <div class="fs-2 fw-bold ${DESKTOP_CLS_CLASS}">${DESKTOP_CLS}</div>
               <div class="mt-2"><small>Target: < 0.1</small></div>
             </div>
           </div>
@@ -367,6 +510,14 @@ cat > "$MOBILE_HTML" << EOF
       border-bottom: 2px solid var(--primary-light);
       padding-bottom: 10px;
     }
+    .placeholder-warning {
+      background-color: #fff3cd;
+      color: #856404;
+      border-left: 4px solid #ffc107;
+      padding: 1rem;
+      margin: 1rem 0;
+      border-radius: 6px;
+    }
   </style>
 </head>
 <body>
@@ -381,39 +532,33 @@ cat > "$MOBILE_HTML" << EOF
   </div>
 
   <div class="container-fluid p-0">
-    ${IS_MOBILE_PLACEHOLDER ? '
-    <div class="placeholder-warning mb-4">
-      <h4><i class="bi bi-exclamation-triangle-fill me-2"></i>Placeholder Data Warning</h4>
-      <p>This report contains <strong>placeholder data</strong>, not actual Lighthouse test results. The test either failed to run or the results could not be processed correctly.</p>
-      <p>All values shown here are placeholders (24) and do not represent real performance metrics.</p>
-    </div>
-    ' : ''}
+    ${MOBILE_PLACEHOLDER_WARNING}
 
     <div class="row mb-4">
       <div class="col-md-3">
         <div class="card score-card">
-          <div class="score-value ${MOBILE_PERF:=0 >= 90 ? 'score-good' : (MOBILE_PERF >= 50 ? 'score-average' : 'score-poor')}">${MOBILE_PERF:=0}</div>
+          <div class="score-value ${MOBILE_PERF_CLASS}">${MOBILE_PERF}</div>
           <div class="score-label">Performance</div>
           <div class="mt-2"><small>Target: 90+</small></div>
         </div>
       </div>
       <div class="col-md-3">
         <div class="card score-card">
-          <div class="score-value ${MOBILE_A11Y:=0 >= 90 ? 'score-good' : (MOBILE_A11Y >= 70 ? 'score-average' : 'score-poor')}">${MOBILE_A11Y:=0}</div>
+          <div class="score-value ${MOBILE_A11Y_CLASS}">${MOBILE_A11Y}</div>
           <div class="score-label">Accessibility</div>
           <div class="mt-2"><small>Target: 90+</small></div>
         </div>
       </div>
       <div class="col-md-3">
         <div class="card score-card">
-          <div class="score-value ${MOBILE_BP:=0 >= 90 ? 'score-good' : (MOBILE_BP >= 70 ? 'score-average' : 'score-poor')}">${MOBILE_BP:=0}</div>
+          <div class="score-value ${MOBILE_BP_CLASS}">${MOBILE_BP}</div>
           <div class="score-label">Best Practices</div>
           <div class="mt-2"><small>Target: 90+</small></div>
         </div>
       </div>
       <div class="col-md-3">
         <div class="card score-card">
-          <div class="score-value ${MOBILE_SEO:=0 >= 90 ? 'score-good' : (MOBILE_SEO >= 70 ? 'score-average' : 'score-poor')}">${MOBILE_SEO:=0}</div>
+          <div class="score-value ${MOBILE_SEO_CLASS}">${MOBILE_SEO}</div>
           <div class="score-label">SEO</div>
           <div class="mt-2"><small>Target: 90+</small></div>
         </div>
@@ -427,7 +572,7 @@ cat > "$MOBILE_HTML" << EOF
           <div class="card">
             <div class="card-body text-center">
               <h5>Largest Contentful Paint</h5>
-              <div class="fs-2 fw-bold ${MOBILE_LCP:=0 < 2500 ? 'metric-good' : (MOBILE_LCP < 4000 ? 'metric-average' : 'metric-poor')}">${MOBILE_LCP_SEC}s</div>
+              <div class="fs-2 fw-bold ${MOBILE_LCP_CLASS}">${MOBILE_LCP_SEC}s</div>
               <div class="mt-2"><small>Target: < 2.5s</small></div>
             </div>
           </div>
@@ -436,7 +581,7 @@ cat > "$MOBILE_HTML" << EOF
           <div class="card">
             <div class="card-body text-center">
               <h5>Total Blocking Time</h5>
-              <div class="fs-2 fw-bold ${MOBILE_TBT:=0 < 200 ? 'metric-good' : (MOBILE_TBT < 600 ? 'metric-average' : 'metric-poor')}">${MOBILE_TBT:=0}ms</div>
+              <div class="fs-2 fw-bold ${MOBILE_TBT_CLASS}">${MOBILE_TBT}ms</div>
               <div class="mt-2"><small>Target: < 200ms</small></div>
             </div>
           </div>
@@ -445,7 +590,7 @@ cat > "$MOBILE_HTML" << EOF
           <div class="card">
             <div class="card-body text-center">
               <h5>Cumulative Layout Shift</h5>
-              <div class="fs-2 fw-bold ${MOBILE_CLS:=0 < 0.1 ? 'metric-good' : (MOBILE_CLS < 0.25 ? 'metric-average' : 'metric-poor')}">${MOBILE_CLS:=0}</div>
+              <div class="fs-2 fw-bold ${MOBILE_CLS_CLASS}">${MOBILE_CLS}</div>
               <div class="mt-2"><small>Target: < 0.1</small></div>
             </div>
           </div>
