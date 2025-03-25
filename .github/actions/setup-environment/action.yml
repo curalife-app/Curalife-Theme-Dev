@@ -14,12 +14,34 @@ inputs:
 runs:
   using: "composite"
   steps:
-    # Setup Node with built-in caching
-    - name: Setup Node.js
+    # Check for dependency lock files first
+    - name: Check for dependency files
+      id: check-deps
+      shell: bash
+      run: |
+        echo "Checking for dependency lock files..."
+        if [ -f "package-lock.json" ] || [ -f "npm-shrinkwrap.json" ] || [ -f "yarn.lock" ]; then
+          echo "Lock file found, will enable caching"
+          echo "has_lockfile=true" >> $GITHUB_OUTPUT
+        else
+          echo "No lock file found, will skip dependency caching"
+          echo "has_lockfile=false" >> $GITHUB_OUTPUT
+        fi
+
+    # Setup Node with caching only if lock file exists
+    - name: Setup Node.js with cache
+      if: inputs.cache-dependencies == 'true' && steps.check-deps.outputs.has_lockfile == 'true'
       uses: actions/setup-node@v4
       with:
         node-version: ${{ inputs.node-version }}
         cache: "npm"
+
+    # Setup Node without caching if no lock file exists
+    - name: Setup Node.js without cache
+      if: inputs.cache-dependencies != 'true' || steps.check-deps.outputs.has_lockfile != 'true'
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
 
     # Install system dependencies with caching
     - name: Cache system dependencies
@@ -82,15 +104,8 @@ runs:
             npm install
           fi
         else
-          echo "No package.json found. Creating minimal package.json for Lighthouse dependencies..."
-          mkdir -p .github/workflows/templates
-          if [ -f ".github/workflows/templates/lighthouse-package.json.template" ]; then
-            cat ".github/workflows/templates/lighthouse-package.json.template" > package.json
-            npm install
-          else
-            echo '{"name":"lighthouse-ci-minimal","version":"1.0.0","dependencies":{"@lhci/cli":"^0.12.0"}}' > package.json
-            npm install
-          fi
+          echo "No package.json found. Skipping local dependency installation."
+          echo "Using global Lighthouse installation for testing."
         fi
 
     # Verify installation
@@ -100,5 +115,5 @@ runs:
         echo "Verifying installation..."
         node --version
         npm --version
-        npx lighthouse --version || echo "Lighthouse not installed correctly"
-        npx lhci --version || echo "LHCI not installed correctly"
+        npx lighthouse --version || lighthouse --version || echo "Lighthouse not installed correctly"
+        npx lhci --version || lhci --version || echo "LHCI not installed correctly"
