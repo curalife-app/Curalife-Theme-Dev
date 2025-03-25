@@ -1,14 +1,20 @@
 name: Lighthouse CI
 
 on:
+  push:
+    branches: [main]
+  pull_request:
   schedule:
-    # Run daily at 3:00 AM instead of weekly
-    - cron: "0 3 * * *"
+    - cron: "0 0 * * 0" # Run every Sunday at midnight
 
 # Allow cancellation of previous runs in the same PR/branch
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
+permissions:
+  contents: write
+  pull-requests: write
 
 jobs:
   lighthouse-ci:
@@ -318,8 +324,14 @@ jobs:
           fi
 
       - name: Save reports to performance-reports directory
-        if: steps.scores.outputs.has_results == 'true' && github.event_name != 'pull_request'
+        # Remove the conditional that prevents report generation
+        # if: steps.scores.outputs.has_results == 'true' && github.event_name != 'pull_request'
+        # Always attempt to save reports when results exist
+        if: steps.scores.outputs.has_results == 'true'
         run: |
+          # Debug output to help troubleshoot
+          echo "Starting report generation for ${{ matrix.page.name }}"
+
           # Create performance-reports directory if it doesn't exist
           mkdir -p performance-reports/${{ steps.scores.outputs.report_date }}
           mkdir -p performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}
@@ -328,6 +340,7 @@ jobs:
 
           # Create a JSON summary file for this page
           SUMMARY_FILE="performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/summary.json"
+          echo "Creating summary file at $SUMMARY_FILE"
 
           # Create report summary JSON with more detailed metrics
           echo "{" > $SUMMARY_FILE
@@ -757,7 +770,7 @@ jobs:
   summary:
     needs: lighthouse-ci
     runs-on: ubuntu-latest
-    if: always() && github.event_name != 'pull_request'
+    if: always() # Always run summary job to generate reports
     permissions:
       contents: write
     steps:
@@ -768,6 +781,11 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: downloaded-artifacts
+
+      - name: Debug downloaded artifacts
+        run: |
+          echo "Listing downloaded artifacts:"
+          find downloaded-artifacts -type f | sort
 
       - name: Install dependencies
         run: |
@@ -781,11 +799,16 @@ jobs:
           echo "Lighthouse performance tests completed for all pages." >> $GITHUB_STEP_SUMMARY
           echo "View individual page reports in the workflow artifacts." >> $GITHUB_STEP_SUMMARY
 
+          # Debug info to understand the file structure
+          echo "Listing downloaded artifacts content:"
+          find downloaded-artifacts -type f | sort
+
           # Create performance-reports directory if it doesn't exist
           mkdir -p performance-reports/history
 
           # Get current date for filenames
           CURRENT_DATE=$(date +"%Y-%m-%d")
+          echo "Current date: $CURRENT_DATE"
 
           # Generate an index file for the latest run
           echo "# Lighthouse Performance Report: $CURRENT_DATE" > performance-reports/latest.md
@@ -797,19 +820,45 @@ jobs:
 
           # Process downloaded artifacts
           if [ -d "downloaded-artifacts" ]; then
+            echo "Downloaded artifacts directory exists"
+
             for PAGE_DIR in downloaded-artifacts/*-lighthouse-results; do
               if [ -d "$PAGE_DIR" ]; then
                 PAGE_NAME=$(basename "$PAGE_DIR" | sed 's/-lighthouse-results//')
+                echo "Processing page: $PAGE_NAME"
 
                 # Create directories for this page
                 mkdir -p "performance-reports/history/$PAGE_NAME"
                 mkdir -p "performance-reports/$CURRENT_DATE/$PAGE_NAME/trend"
+                echo "Created directories for $PAGE_NAME"
 
-                # Copy HTML files if they exist
-                find "$PAGE_DIR" -name "*.html" -not -path "*/mobile/*" -exec cp {} "performance-reports/$CURRENT_DATE/$PAGE_NAME/desktop.html" \; -quit
+                # Find desktop HTML report - use explicit find to debug
+                DESKTOP_HTML=$(find "$PAGE_DIR" -name "*.html" -not -path "*/mobile/*" | sort)
+                echo "Desktop HTML reports found: $DESKTOP_HTML"
+
+                # Copy the latest desktop HTML file if found
+                if [ -n "$DESKTOP_HTML" ]; then
+                  LATEST_DESKTOP_HTML=$(echo "$DESKTOP_HTML" | tail -n 1)
+                  echo "Using desktop HTML: $LATEST_DESKTOP_HTML"
+                  cp "$LATEST_DESKTOP_HTML" "performance-reports/$CURRENT_DATE/$PAGE_NAME/desktop.html"
+                  echo "Copied desktop HTML to performance-reports/$CURRENT_DATE/$PAGE_NAME/desktop.html"
+                else
+                  echo "No desktop HTML found for $PAGE_NAME"
+                fi
+
                 # Check if mobile directory exists before trying to find files in it
                 if [ -d "$PAGE_DIR/mobile" ]; then
-                  find "$PAGE_DIR/mobile" -name "*.html" -exec cp {} "performance-reports/$CURRENT_DATE/$PAGE_NAME/mobile.html" \; -quit
+                  MOBILE_HTML=$(find "$PAGE_DIR/mobile" -name "*.html" | sort)
+                  echo "Mobile HTML reports found: $MOBILE_HTML"
+
+                  if [ -n "$MOBILE_HTML" ]; then
+                    LATEST_MOBILE_HTML=$(echo "$MOBILE_HTML" | tail -n 1)
+                    echo "Using mobile HTML: $LATEST_MOBILE_HTML"
+                    cp "$LATEST_MOBILE_HTML" "performance-reports/$CURRENT_DATE/$PAGE_NAME/mobile.html"
+                    echo "Copied mobile HTML to performance-reports/$CURRENT_DATE/$PAGE_NAME/mobile.html"
+                  else
+                    echo "No mobile HTML found for $PAGE_NAME"
+                  fi
                 else
                   echo "Mobile directory not found for $PAGE_NAME, skipping mobile report copy"
                 fi
@@ -817,290 +866,224 @@ jobs:
                 # Copy screenshots if they exist
                 if [ -d "$PAGE_DIR/screenshots" ]; then
                   mkdir -p "performance-reports/$CURRENT_DATE/$PAGE_NAME/assets"
-                  find "$PAGE_DIR/screenshots" -type f -exec cp {} "performance-reports/$CURRENT_DATE/$PAGE_NAME/assets/" \;
+                  echo "Copying desktop screenshots for $PAGE_NAME"
+                  cp -rv "$PAGE_DIR/screenshots/"* "performance-reports/$CURRENT_DATE/$PAGE_NAME/assets/"
                 else
-                  echo "Desktop screenshots directory not found for $PAGE_NAME, skipping desktop screenshots copy"
+                  echo "Desktop screenshots directory not found for $PAGE_NAME"
                 fi
 
                 if [ -d "$PAGE_DIR/mobile/screenshots" ]; then
                   mkdir -p "performance-reports/$CURRENT_DATE/$PAGE_NAME/assets"
+                  echo "Copying mobile screenshots for $PAGE_NAME"
                   # Add 'mobile-' prefix to the filenames when copying
                   for file in "$PAGE_DIR/mobile/screenshots/"*; do
                     if [ -f "$file" ]; then
                       filename=$(basename "$file")
-                      cp "$file" "performance-reports/$CURRENT_DATE/$PAGE_NAME/assets/mobile-$filename"
+                      cp -v "$file" "performance-reports/$CURRENT_DATE/$PAGE_NAME/assets/mobile-$filename"
                     fi
                   done
                 else
-                  echo "Mobile screenshots directory not found for $PAGE_NAME, skipping mobile screenshots copy"
+                  echo "Mobile screenshots directory not found for $PAGE_NAME"
                 fi
 
-                # Get summary data from JSON if it exists
-                SUMMARY_FILE="performance-reports/$CURRENT_DATE/$PAGE_NAME/summary.json"
-                if [ -f "$SUMMARY_FILE" ]; then
+                # Process JSON reports for summary data
+                echo "Looking for JSON reports for $PAGE_NAME"
+                DESKTOP_JSON=$(find "$PAGE_DIR" -name "lhr-*.json" -not -path "*/mobile/*" | sort | tail -n 1)
+                MOBILE_JSON=$(find "$PAGE_DIR/mobile" -name "lhr-*.json" 2>/dev/null | sort | tail -n 1)
+
+                echo "Desktop JSON: $DESKTOP_JSON"
+                echo "Mobile JSON: $MOBILE_JSON"
+
+                # Create a summary JSON if we have reports
+                if [ -f "$DESKTOP_JSON" ] || [ -f "$MOBILE_JSON" ]; then
+                  echo "Creating summary JSON for $PAGE_NAME"
+                  SUMMARY_FILE="performance-reports/$CURRENT_DATE/$PAGE_NAME/summary.json"
+
+                  # Initialize summary JSON with basic structure
+                  echo "{" > $SUMMARY_FILE
+                  echo "  \"page\": \"$PAGE_NAME\"," >> $SUMMARY_FILE
+
+                  # Get URL from JSON if available
+                  if [ -f "$DESKTOP_JSON" ]; then
+                    PAGE_URL=$(jq -r '.requestedUrl' "$DESKTOP_JSON")
+                  elif [ -f "$MOBILE_JSON" ]; then
+                    PAGE_URL=$(jq -r '.requestedUrl' "$MOBILE_JSON")
+                  else
+                    PAGE_URL="unknown"
+                  fi
+
+                  echo "  \"url\": \"$PAGE_URL\"," >> $SUMMARY_FILE
+                  echo "  \"date\": \"$CURRENT_DATE\"," >> $SUMMARY_FILE
+
+                  # Add desktop metrics if available
+                  echo "  \"desktop\": {" >> $SUMMARY_FILE
+                  if [ -f "$DESKTOP_JSON" ]; then
+                    DESKTOP_PERF=$(jq '.categories.performance.score * 100' "$DESKTOP_JSON")
+                    DESKTOP_A11Y=$(jq '.categories.accessibility.score * 100' "$DESKTOP_JSON")
+                    DESKTOP_BP=$(jq '.categories["best-practices"].score * 100' "$DESKTOP_JSON")
+                    DESKTOP_SEO=$(jq '.categories.seo.score * 100' "$DESKTOP_JSON")
+                    DESKTOP_PWA=$(jq '.categories.pwa.score * 100' "$DESKTOP_JSON" 2>/dev/null || echo "0")
+
+                    echo "    \"performance\": ${DESKTOP_PERF%.*}," >> $SUMMARY_FILE
+                    echo "    \"accessibility\": ${DESKTOP_A11Y%.*}," >> $SUMMARY_FILE
+                    echo "    \"bestPractices\": ${DESKTOP_BP%.*}," >> $SUMMARY_FILE
+                    echo "    \"seo\": ${DESKTOP_SEO%.*}," >> $SUMMARY_FILE
+                    echo "    \"pwa\": ${DESKTOP_PWA%.*}," >> $SUMMARY_FILE
+
+                    # Extract metrics
+                    echo "    \"metrics\": {" >> $SUMMARY_FILE
+                    DESKTOP_LCP=$(jq '.audits["largest-contentful-paint"].numericValue' "$DESKTOP_JSON")
+                    DESKTOP_FCP=$(jq '.audits["first-contentful-paint"].numericValue' "$DESKTOP_JSON")
+                    DESKTOP_SI=$(jq '.audits["speed-index"].numericValue' "$DESKTOP_JSON")
+                    DESKTOP_TTI=$(jq '.audits["interactive"].numericValue' "$DESKTOP_JSON")
+                    DESKTOP_TBT=$(jq '.audits["total-blocking-time"].numericValue' "$DESKTOP_JSON")
+                    DESKTOP_CLS=$(jq '.audits["cumulative-layout-shift"].numericValue' "$DESKTOP_JSON")
+
+                    echo "      \"firstContentfulPaint\": ${DESKTOP_FCP%.*}," >> $SUMMARY_FILE
+                    echo "      \"speedIndex\": ${DESKTOP_SI%.*}," >> $SUMMARY_FILE
+                    echo "      \"largestContentfulPaint\": ${DESKTOP_LCP%.*}," >> $SUMMARY_FILE
+                    echo "      \"timeToInteractive\": ${DESKTOP_TTI%.*}," >> $SUMMARY_FILE
+                    echo "      \"totalBlockingTime\": ${DESKTOP_TBT%.*}," >> $SUMMARY_FILE
+                    echo "      \"cumulativeLayoutShift\": $DESKTOP_CLS" >> $SUMMARY_FILE
+                    echo "    }" >> $SUMMARY_FILE
+                  else
+                    echo "    \"performance\": 0," >> $SUMMARY_FILE
+                    echo "    \"accessibility\": 0," >> $SUMMARY_FILE
+                    echo "    \"bestPractices\": 0," >> $SUMMARY_FILE
+                    echo "    \"seo\": 0," >> $SUMMARY_FILE
+                    echo "    \"pwa\": 0," >> $SUMMARY_FILE
+                    echo "    \"metrics\": {}" >> $SUMMARY_FILE
+                  fi
+                  echo "  }," >> $SUMMARY_FILE
+
+                  # Add mobile metrics if available
+                  echo "  \"mobile\": {" >> $SUMMARY_FILE
+                  if [ -f "$MOBILE_JSON" ]; then
+                    MOBILE_PERF=$(jq '.categories.performance.score * 100' "$MOBILE_JSON")
+                    MOBILE_A11Y=$(jq '.categories.accessibility.score * 100' "$MOBILE_JSON")
+                    MOBILE_BP=$(jq '.categories["best-practices"].score * 100' "$MOBILE_JSON")
+                    MOBILE_SEO=$(jq '.categories.seo.score * 100' "$MOBILE_JSON")
+                    MOBILE_PWA=$(jq '.categories.pwa.score * 100' "$MOBILE_JSON" 2>/dev/null || echo "0")
+
+                    echo "    \"performance\": ${MOBILE_PERF%.*}," >> $SUMMARY_FILE
+                    echo "    \"accessibility\": ${MOBILE_A11Y%.*}," >> $SUMMARY_FILE
+                    echo "    \"bestPractices\": ${MOBILE_BP%.*}," >> $SUMMARY_FILE
+                    echo "    \"seo\": ${MOBILE_SEO%.*}," >> $SUMMARY_FILE
+                    echo "    \"pwa\": ${MOBILE_PWA%.*}," >> $SUMMARY_FILE
+
+                    # Extract metrics
+                    echo "    \"metrics\": {" >> $SUMMARY_FILE
+                    MOBILE_LCP=$(jq '.audits["largest-contentful-paint"].numericValue' "$MOBILE_JSON")
+                    MOBILE_FCP=$(jq '.audits["first-contentful-paint"].numericValue' "$MOBILE_JSON")
+                    MOBILE_SI=$(jq '.audits["speed-index"].numericValue' "$MOBILE_JSON")
+                    MOBILE_TTI=$(jq '.audits["interactive"].numericValue' "$MOBILE_JSON")
+                    MOBILE_TBT=$(jq '.audits["total-blocking-time"].numericValue' "$MOBILE_JSON")
+                    MOBILE_CLS=$(jq '.audits["cumulative-layout-shift"].numericValue' "$MOBILE_JSON")
+
+                    echo "      \"firstContentfulPaint\": ${MOBILE_FCP%.*}," >> $SUMMARY_FILE
+                    echo "      \"speedIndex\": ${MOBILE_SI%.*}," >> $SUMMARY_FILE
+                    echo "      \"largestContentfulPaint\": ${MOBILE_LCP%.*}," >> $SUMMARY_FILE
+                    echo "      \"timeToInteractive\": ${MOBILE_TTI%.*}," >> $SUMMARY_FILE
+                    echo "      \"totalBlockingTime\": ${MOBILE_TBT%.*}," >> $SUMMARY_FILE
+                    echo "      \"cumulativeLayoutShift\": $MOBILE_CLS" >> $SUMMARY_FILE
+                    echo "    }" >> $SUMMARY_FILE
+                  else
+                    echo "    \"performance\": 0," >> $SUMMARY_FILE
+                    echo "    \"accessibility\": 0," >> $SUMMARY_FILE
+                    echo "    \"bestPractices\": 0," >> $SUMMARY_FILE
+                    echo "    \"seo\": 0," >> $SUMMARY_FILE
+                    echo "    \"pwa\": 0," >> $SUMMARY_FILE
+                    echo "    \"metrics\": {}" >> $SUMMARY_FILE
+                  fi
+                  echo "  }" >> $SUMMARY_FILE
+                  echo "}" >> $SUMMARY_FILE
+
                   # Copy to history for trend tracking
                   cp "$SUMMARY_FILE" "performance-reports/history/$PAGE_NAME/$CURRENT_DATE.json"
+                  echo "Saved summary JSON to $SUMMARY_FILE and copied to history"
 
-                  # Extract metrics for the summary table
-                  DESKTOP_PERF=$(jq -r '.desktop.performance' "$SUMMARY_FILE")
-                  DESKTOP_A11Y=$(jq -r '.desktop.accessibility' "$SUMMARY_FILE")
-                  DESKTOP_BP=$(jq -r '.desktop.bestPractices' "$SUMMARY_FILE")
-                  DESKTOP_SEO=$(jq -r '.desktop.seo' "$SUMMARY_FILE")
-
-                  MOBILE_PERF=$(jq -r '.mobile.performance' "$SUMMARY_FILE")
-                  MOBILE_A11Y=$(jq -r '.mobile.accessibility' "$SUMMARY_FILE")
-                  MOBILE_BP=$(jq -r '.mobile.bestPractices' "$SUMMARY_FILE")
-                  MOBILE_SEO=$(jq -r '.mobile.seo' "$SUMMARY_FILE")
-
-                  # Add to the index markdown file
-                  echo "| $PAGE_NAME | Desktop | $DESKTOP_PERF% | $DESKTOP_A11Y% | $DESKTOP_BP% | $DESKTOP_SEO% |" >> performance-reports/latest.md
-                  echo "| $PAGE_NAME | Mobile | $MOBILE_PERF% | $MOBILE_A11Y% | $MOBILE_BP% | $MOBILE_SEO% |" >> performance-reports/latest.md
-
-                  # Generate trend data if we have enough history
-                  TREND_DIR="performance-reports/history/$PAGE_NAME"
-                  TREND_FILE="performance-reports/$CURRENT_DATE/$PAGE_NAME/trend/analysis.md"
-                  TREND_COUNT=$(ls -1 "$TREND_DIR"/*.json 2>/dev/null | wc -l)
-
-                  if [ "$TREND_COUNT" -gt "1" ]; then
-                    mkdir -p "performance-reports/$CURRENT_DATE/$PAGE_NAME/trend"
-
-                    echo "# Performance Trend Analysis: $PAGE_NAME" > "$TREND_FILE"
-                    echo "" >> "$TREND_FILE"
-                    echo "Analysis date: $CURRENT_DATE" >> "$TREND_FILE"
-                    echo "" >> "$TREND_FILE"
-
-                    echo "## Performance Score Trends" >> "$TREND_FILE"
-                    echo "" >> "$TREND_FILE"
-
-                    # Create trend data files for plotting
-                    DESKTOP_DATA="performance-reports/$CURRENT_DATE/$PAGE_NAME/trend/desktop-data.txt"
-                    MOBILE_DATA="performance-reports/$CURRENT_DATE/$PAGE_NAME/trend/mobile-data.txt"
-
-                    echo "Date Performance Accessibility BestPractices SEO" > "$DESKTOP_DATA"
-                    echo "Date Performance Accessibility BestPractices SEO" > "$MOBILE_DATA"
-
-                    # Process each history file (most recent 5)
-                    for HISTORY_FILE in $(ls -1t "$TREND_DIR"/*.json | head -5 | sort); do
-                      HISTORY_DATE=$(basename "$HISTORY_FILE" .json)
-
-                      # Extract metrics
-                      D_PERF=$(jq -r '.desktop.performance' "$HISTORY_FILE")
-                      D_A11Y=$(jq -r '.desktop.accessibility' "$HISTORY_FILE")
-                      D_BP=$(jq -r '.desktop.bestPractices' "$HISTORY_FILE")
-                      D_SEO=$(jq -r '.desktop.seo' "$HISTORY_FILE")
-
-                      M_PERF=$(jq -r '.mobile.performance' "$HISTORY_FILE")
-                      M_A11Y=$(jq -r '.mobile.accessibility' "$HISTORY_FILE")
-                      M_BP=$(jq -r '.mobile.bestPractices' "$HISTORY_FILE")
-                      M_SEO=$(jq -r '.mobile.seo' "$HISTORY_FILE")
-
-                      # Add to data files
-                      echo "$HISTORY_DATE $D_PERF $D_A11Y $D_BP $D_SEO" >> "$DESKTOP_DATA"
-                      echo "$HISTORY_DATE $M_PERF $M_A11Y $M_BP $M_SEO" >> "$MOBILE_DATA"
-                    done
-
-                    # Create history tables
-                    echo "### Desktop Performance History" >> "$TREND_FILE"
-                    echo "" >> "$TREND_FILE"
-                    echo "| Date | Performance | Accessibility | Best Practices | SEO |" >> "$TREND_FILE"
-                    echo "|------|-------------|---------------|----------------|-----|" >> "$TREND_FILE"
-
-                    for HISTORY_FILE in $(ls -1t "$TREND_DIR"/*.json | head -5); do
-                      HISTORY_DATE=$(basename "$HISTORY_FILE" .json)
-                      D_PERF=$(jq -r '.desktop.performance' "$HISTORY_FILE")
-                      D_A11Y=$(jq -r '.desktop.accessibility' "$HISTORY_FILE")
-                      D_BP=$(jq -r '.desktop.bestPractices' "$HISTORY_FILE")
-                      D_SEO=$(jq -r '.desktop.seo' "$HISTORY_FILE")
-
-                      echo "| $HISTORY_DATE | $D_PERF% | $D_A11Y% | $D_BP% | $D_SEO% |" >> "$TREND_FILE"
-                    done
-
-                    echo "" >> "$TREND_FILE"
-                    echo "### Mobile Performance History" >> "$TREND_FILE"
-                    echo "" >> "$TREND_FILE"
-                    echo "| Date | Performance | Accessibility | Best Practices | SEO |" >> "$TREND_FILE"
-                    echo "|------|-------------|---------------|----------------|-----|" >> "$TREND_FILE"
-
-                    for HISTORY_FILE in $(ls -1t "$TREND_DIR"/*.json | head -5); do
-                      HISTORY_DATE=$(basename "$HISTORY_FILE" .json)
-                      M_PERF=$(jq -r '.mobile.performance' "$HISTORY_FILE")
-                      M_A11Y=$(jq -r '.mobile.accessibility' "$HISTORY_FILE")
-                      M_BP=$(jq -r '.mobile.bestPractices' "$HISTORY_FILE")
-                      M_SEO=$(jq -r '.mobile.seo' "$HISTORY_FILE")
-
-                      echo "| $HISTORY_DATE | $M_PERF% | $M_A11Y% | $M_BP% | $M_SEO% |" >> "$TREND_FILE"
-                    done
-
-                    echo "" >> "$TREND_FILE"
-                    echo "## Core Web Vitals Trends" >> "$TREND_FILE"
-                    echo "" >> "$TREND_FILE"
-
-                    # Create data files for Core Web Vitals
-                    CWV_DATA="performance-reports/$CURRENT_DATE/$PAGE_NAME/trend/cwv-data.txt"
-                    echo "Date DLCP DCLS DTBT MLCP MCLS MTBT" > "$CWV_DATA"
-
-                    for HISTORY_FILE in $(ls -1t "$TREND_DIR"/*.json | head -5 | sort); do
-                      HISTORY_DATE=$(basename "$HISTORY_FILE" .json)
-
-                      # Extract Core Web Vitals
-                      D_LCP=$(jq -r '.desktop.metrics.largestContentfulPaint // 0' "$HISTORY_FILE")
-                      D_CLS=$(jq -r '.desktop.metrics.cumulativeLayoutShift // 0' "$HISTORY_FILE")
-                      D_TBT=$(jq -r '.desktop.metrics.totalBlockingTime // 0' "$HISTORY_FILE")
-
-                      M_LCP=$(jq -r '.mobile.metrics.largestContentfulPaint // 0' "$HISTORY_FILE")
-                      M_CLS=$(jq -r '.mobile.metrics.cumulativeLayoutShift // 0' "$HISTORY_FILE")
-                      M_TBT=$(jq -r '.mobile.metrics.totalBlockingTime // 0' "$HISTORY_FILE")
-
-                      # Add to data file
-                      echo "$HISTORY_DATE $D_LCP $D_CLS $D_TBT $M_LCP $M_CLS $M_TBT" >> "$CWV_DATA"
-                    done
-
-                    # Create Core Web Vitals tables
-                    echo "### LCP Trends (lower is better)" >> "$TREND_FILE"
-                    echo "" >> "$TREND_FILE"
-                    echo "| Date | Desktop LCP | Mobile LCP |" >> "$TREND_FILE"
-                    echo "|------|------------|------------|" >> "$TREND_FILE"
-
-                    for HISTORY_FILE in $(ls -1t "$TREND_DIR"/*.json | head -5); do
-                      HISTORY_DATE=$(basename "$HISTORY_FILE" .json)
-                      D_LCP=$(jq -r '.desktop.metrics.largestContentfulPaint // 0' "$HISTORY_FILE")
-                      M_LCP=$(jq -r '.mobile.metrics.largestContentfulPaint // 0' "$HISTORY_FILE")
-
-                      # Convert to milliseconds and format
-                      D_LCP_MS=$(echo "$D_LCP / 1" | bc)
-                      M_LCP_MS=$(echo "$M_LCP / 1" | bc)
-
-                      echo "| $HISTORY_DATE | ${D_LCP_MS}ms | ${M_LCP_MS}ms |" >> "$TREND_FILE"
-                    done
-
-                    echo "" >> "$TREND_FILE"
-                    echo "### CLS Trends (lower is better)" >> "$TREND_FILE"
-                    echo "" >> "$TREND_FILE"
-                    echo "| Date | Desktop CLS | Mobile CLS |" >> "$TREND_FILE"
-                    echo "|------|------------|------------|" >> "$TREND_FILE"
-
-                    for HISTORY_FILE in $(ls -1t "$TREND_DIR"/*.json | head -5); do
-                      HISTORY_DATE=$(basename "$HISTORY_FILE" .json)
-                      D_CLS=$(jq -r '.desktop.metrics.cumulativeLayoutShift // 0' "$HISTORY_FILE")
-                      M_CLS=$(jq -r '.mobile.metrics.cumulativeLayoutShift // 0' "$HISTORY_FILE")
-
-                      echo "| $HISTORY_DATE | $D_CLS | $M_CLS |" >> "$TREND_FILE"
-                    done
-
-                    echo "" >> "$TREND_FILE"
-                    echo "### TBT Trends (lower is better)" >> "$TREND_FILE"
-                    echo "" >> "$TREND_FILE"
-                    echo "| Date | Desktop TBT | Mobile TBT |" >> "$TREND_FILE"
-                    echo "|------|------------|------------|" >> "$TREND_FILE"
-
-                    for HISTORY_FILE in $(ls -1t "$TREND_DIR"/*.json | head -5); do
-                      HISTORY_DATE=$(basename "$HISTORY_FILE" .json)
-                      D_TBT=$(jq -r '.desktop.metrics.totalBlockingTime // 0' "$HISTORY_FILE")
-                      M_TBT=$(jq -r '.mobile.metrics.totalBlockingTime // 0' "$HISTORY_FILE")
-
-                      # Convert to milliseconds
-                      D_TBT_MS=$(echo "$D_TBT / 1" | bc)
-                      M_TBT_MS=$(echo "$M_TBT / 1" | bc)
-
-                      echo "| $HISTORY_DATE | ${D_TBT_MS}ms | ${M_TBT_MS}ms |" >> "$TREND_FILE"
-                    done
-
-                    # Compare with previous report for analysis
-                    echo "" >> "$TREND_FILE"
-                    echo "## Performance Change Analysis" >> "$TREND_FILE"
-                    echo "" >> "$TREND_FILE"
-
-                    LATEST_FILE=$(ls -1t "$TREND_DIR"/*.json | head -1)
-                    PREVIOUS_FILE=$(ls -1t "$TREND_DIR"/*.json | head -2 | tail -1)
-
-                    if [ -f "$PREVIOUS_FILE" ]; then
-                      PREV_DATE=$(basename "$PREVIOUS_FILE" .json)
-
-                      echo "### Changes Since $PREV_DATE" >> "$TREND_FILE"
-                      echo "" >> "$TREND_FILE"
-
-                      # Get metrics for comparison
-                      LATEST_D_PERF=$(jq -r '.desktop.performance' "$LATEST_FILE")
-                      PREV_D_PERF=$(jq -r '.desktop.performance' "$PREVIOUS_FILE")
-                      PERF_CHANGE=$(echo "$LATEST_D_PERF - $PREV_D_PERF" | bc)
-
-                      LATEST_D_LCP=$(jq -r '.desktop.metrics.largestContentfulPaint // 0' "$LATEST_FILE")
-                      PREV_D_LCP=$(jq -r '.desktop.metrics.largestContentfulPaint // 0' "$PREVIOUS_FILE")
-                      LCP_CHANGE=$(echo "($LATEST_D_LCP - $PREV_D_LCP) / 1" | bc)
-
-                      # Format with positive/negative indicators
-                      if (( $(echo "$PERF_CHANGE > 0" | bc -l) )); then
-                        PERF_INDICATOR="✅ Improved"
-                      elif (( $(echo "$PERF_CHANGE < 0" | bc -l) )); then
-                        PERF_INDICATOR="❌ Regressed"
-                      else
-                        PERF_INDICATOR="➖ No change"
-                      fi
-
-                      if (( $(echo "$LCP_CHANGE < 0" | bc -l) )); then
-                        LCP_INDICATOR="✅ Improved"
-                      elif (( $(echo "$LCP_CHANGE > 0" | bc -l) )); then
-                        LCP_INDICATOR="❌ Regressed"
-                      else
-                        LCP_INDICATOR="➖ No change"
-                      fi
-
-                      echo "#### Desktop Performance Changes" >> "$TREND_FILE"
-                      echo "" >> "$TREND_FILE"
-                      echo "| Metric | Previous | Current | Change | Status |" >> "$TREND_FILE"
-                      echo "|--------|----------|---------|--------|--------|" >> "$TREND_FILE"
-                      echo "| Performance Score | ${PREV_D_PERF}% | ${LATEST_D_PERF}% | ${PERF_CHANGE}% | ${PERF_INDICATOR} |" >> "$TREND_FILE"
-                      echo "| LCP | $(echo "$PREV_D_LCP / 1" | bc)ms | $(echo "$LATEST_D_LCP / 1" | bc)ms | ${LCP_CHANGE}ms | ${LCP_INDICATOR} |" >> "$TREND_FILE"
-
-                      # Add mobile comparison
-                      echo "" >> "$TREND_FILE"
-                      echo "#### Mobile Performance Changes" >> "$TREND_FILE"
-                      echo "" >> "$TREND_FILE"
-
-                      LATEST_M_PERF=$(jq -r '.mobile.performance' "$LATEST_FILE")
-                      PREV_M_PERF=$(jq -r '.mobile.performance' "$PREVIOUS_FILE")
-                      M_PERF_CHANGE=$(echo "$LATEST_M_PERF - $PREV_M_PERF" | bc)
-
-                      LATEST_M_LCP=$(jq -r '.mobile.metrics.largestContentfulPaint // 0' "$LATEST_FILE")
-                      PREV_M_LCP=$(jq -r '.mobile.metrics.largestContentfulPaint // 0' "$PREVIOUS_FILE")
-                      M_LCP_CHANGE=$(echo "($LATEST_M_LCP - $PREV_M_LCP) / 1" | bc)
-
-                      # Format with positive/negative indicators
-                      if (( $(echo "$M_PERF_CHANGE > 0" | bc -l) )); then
-                        M_PERF_INDICATOR="✅ Improved"
-                      elif (( $(echo "$M_PERF_CHANGE < 0" | bc -l) )); then
-                        M_PERF_INDICATOR="❌ Regressed"
-                      else
-                        M_PERF_INDICATOR="➖ No change"
-                      fi
-
-                      if (( $(echo "$M_LCP_CHANGE < 0" | bc -l) )); then
-                        M_LCP_INDICATOR="✅ Improved"
-                      elif (( $(echo "$M_LCP_CHANGE > 0" | bc -l) )); then
-                        M_LCP_INDICATOR="❌ Regressed"
-                      else
-                        M_LCP_INDICATOR="➖ No change"
-                      fi
-
-                      echo "| Metric | Previous | Current | Change | Status |" >> "$TREND_FILE"
-                      echo "|--------|----------|---------|--------|--------|" >> "$TREND_FILE"
-                      echo "| Performance Score | ${PREV_M_PERF}% | ${LATEST_M_PERF}% | ${M_PERF_CHANGE}% | ${M_PERF_INDICATOR} |" >> "$TREND_FILE"
-                      echo "| LCP | $(echo "$PREV_M_LCP / 1" | bc)ms | $(echo "$LATEST_M_LCP / 1" | bc)ms | ${M_LCP_CHANGE}ms | ${M_LCP_INDICATOR} |" >> "$TREND_FILE"
-                    fi
-
-                    # Add link to trend analysis in the page report
-                    echo "" >> "performance-reports/$CURRENT_DATE/$PAGE_NAME/report.md"
-                    echo "## Performance Trends" >> "performance-reports/$CURRENT_DATE/$PAGE_NAME/report.md"
-                    echo "" >> "performance-reports/$CURRENT_DATE/$PAGE_NAME/report.md"
-                    echo "See the [detailed trend analysis](./trend/analysis.md) for historical performance data." >> "performance-reports/$CURRENT_DATE/$PAGE_NAME/report.md"
+                  # Add to the index markdown
+                  if [ -f "$DESKTOP_JSON" ]; then
+                    DESKTOP_PERF=$(jq '.categories.performance.score * 100' "$DESKTOP_JSON")
+                    DESKTOP_A11Y=$(jq '.categories.accessibility.score * 100' "$DESKTOP_JSON")
+                    DESKTOP_BP=$(jq '.categories["best-practices"].score * 100' "$DESKTOP_JSON")
+                    DESKTOP_SEO=$(jq '.categories.seo.score * 100' "$DESKTOP_JSON")
+                    echo "| $PAGE_NAME | Desktop | ${DESKTOP_PERF%.*}% | ${DESKTOP_A11Y%.*}% | ${DESKTOP_BP%.*}% | ${DESKTOP_SEO%.*}% |" >> performance-reports/latest.md
                   fi
+
+                  if [ -f "$MOBILE_JSON" ]; then
+                    MOBILE_PERF=$(jq '.categories.performance.score * 100' "$MOBILE_JSON")
+                    MOBILE_A11Y=$(jq '.categories.accessibility.score * 100' "$MOBILE_JSON")
+                    MOBILE_BP=$(jq '.categories["best-practices"].score * 100' "$MOBILE_JSON")
+                    MOBILE_SEO=$(jq '.categories.seo.score * 100' "$MOBILE_JSON")
+                    echo "| $PAGE_NAME | Mobile | ${MOBILE_PERF%.*}% | ${MOBILE_A11Y%.*}% | ${MOBILE_BP%.*}% | ${MOBILE_SEO%.*}% |" >> performance-reports/latest.md
+                  fi
+
+                  # Create a detailed report markdown file
+                  MARKDOWN_REPORT="performance-reports/$CURRENT_DATE/$PAGE_NAME/report.md"
+                  echo "# Performance Report: $PAGE_NAME" > $MARKDOWN_REPORT
+                  echo "**URL:** $PAGE_URL" >> $MARKDOWN_REPORT
+                  echo "**Date:** $CURRENT_DATE" >> $MARKDOWN_REPORT
+                  echo "**Test Environment:** GitHub Actions CI" >> $MARKDOWN_REPORT
+                  echo "" >> $MARKDOWN_REPORT
+
+                  echo "## Overview" >> $MARKDOWN_REPORT
+                  echo "" >> $MARKDOWN_REPORT
+                  echo "| Device | Performance | Accessibility | Best Practices | SEO | PWA |" >> $MARKDOWN_REPORT
+                  echo "|--------|-------------|---------------|----------------|-----|-----|" >> $MARKDOWN_REPORT
+
+                  if [ -f "$DESKTOP_JSON" ]; then
+                    DESKTOP_PERF=$(jq '.categories.performance.score * 100' "$DESKTOP_JSON")
+                    DESKTOP_A11Y=$(jq '.categories.accessibility.score * 100' "$DESKTOP_JSON")
+                    DESKTOP_BP=$(jq '.categories["best-practices"].score * 100' "$DESKTOP_JSON")
+                    DESKTOP_SEO=$(jq '.categories.seo.score * 100' "$DESKTOP_JSON")
+                    DESKTOP_PWA=$(jq '.categories.pwa.score * 100' "$DESKTOP_JSON" 2>/dev/null || echo "0")
+                    echo "| 💻 Desktop | ${DESKTOP_PERF%.*}% | ${DESKTOP_A11Y%.*}% | ${DESKTOP_BP%.*}% | ${DESKTOP_SEO%.*}% | ${DESKTOP_PWA%.*}% |" >> $MARKDOWN_REPORT
+                  else
+                    echo "| 💻 Desktop | N/A | N/A | N/A | N/A | N/A |" >> $MARKDOWN_REPORT
+                  fi
+
+                  if [ -f "$MOBILE_JSON" ]; then
+                    MOBILE_PERF=$(jq '.categories.performance.score * 100' "$MOBILE_JSON")
+                    MOBILE_A11Y=$(jq '.categories.accessibility.score * 100' "$MOBILE_JSON")
+                    MOBILE_BP=$(jq '.categories["best-practices"].score * 100' "$MOBILE_JSON")
+                    MOBILE_SEO=$(jq '.categories.seo.score * 100' "$MOBILE_JSON")
+                    MOBILE_PWA=$(jq '.categories.pwa.score * 100' "$MOBILE_JSON" 2>/dev/null || echo "0")
+                    echo "| 📱 Mobile | ${MOBILE_PERF%.*}% | ${MOBILE_A11Y%.*}% | ${MOBILE_BP%.*}% | ${MOBILE_SEO%.*}% | ${MOBILE_PWA%.*}% |" >> $MARKDOWN_REPORT
+                  else
+                    echo "| 📱 Mobile | N/A | N/A | N/A | N/A | N/A |" >> $MARKDOWN_REPORT
+                  fi
+
+                  echo "" >> $MARKDOWN_REPORT
+                  echo "## Detailed Reports" >> $MARKDOWN_REPORT
+                  echo "" >> $MARKDOWN_REPORT
+
+                  # Add links to HTML reports
+                  if [ -f "performance-reports/$CURRENT_DATE/$PAGE_NAME/desktop.html" ]; then
+                    echo "- [Desktop Lighthouse Report](./desktop.html)" >> $MARKDOWN_REPORT
+                  else
+                    echo "- Desktop Lighthouse Report not available." >> $MARKDOWN_REPORT
+                  fi
+
+                  if [ -f "performance-reports/$CURRENT_DATE/$PAGE_NAME/mobile.html" ]; then
+                    echo "- [Mobile Lighthouse Report](./mobile.html)" >> $MARKDOWN_REPORT
+                  else
+                    echo "- Mobile Lighthouse Report not available." >> $MARKDOWN_REPORT
+                  fi
+
+                  echo "Created markdown report at $MARKDOWN_REPORT"
+                else
+                  echo "No JSON reports found for $PAGE_NAME"
                 fi
               fi
             done
+          else
+            echo "Warning: Downloaded artifacts directory not found"
           fi
 
-          # Create an index HTML file
+          # Create a simple index HTML file
           INDEX_HTML="performance-reports/index.html"
+          echo "Creating index HTML file at $INDEX_HTML"
 
           cat > "$INDEX_HTML" << EOL
           <!DOCTYPE html>
@@ -1177,92 +1160,65 @@ jobs:
 
             <h2>Latest Results (${CURRENT_DATE})</h2>
             <div class="grid">
-          EOL
-
-          # Add cards for latest results
-          for PAGE_NAME in homepage collection product; do
-            SUMMARY_FILE="performance-reports/$CURRENT_DATE/$PAGE_NAME/summary.json"
-
-            if [ -f "$SUMMARY_FILE" ]; then
-              PAGE_URL=$(jq -r '.url' "$SUMMARY_FILE")
-              DESKTOP_PERF=$(jq -r '.desktop.performance' "$SUMMARY_FILE")
-              MOBILE_PERF=$(jq -r '.mobile.performance' "$SUMMARY_FILE")
-
-              # Determine score class
-              DESKTOP_CLASS="average"
-              if (( $(echo "$DESKTOP_PERF >= 90" | bc -l) )); then
-                DESKTOP_CLASS="good"
-              elif (( $(echo "$DESKTOP_PERF < 50" | bc -l) )); then
-                DESKTOP_CLASS="poor"
-              fi
-
-              MOBILE_CLASS="average"
-              if (( $(echo "$MOBILE_PERF >= 90" | bc -l) )); then
-                MOBILE_CLASS="good"
-              elif (( $(echo "$MOBILE_PERF < 50" | bc -l) )); then
-                MOBILE_CLASS="poor"
-              fi
-
-              cat >> "$INDEX_HTML" << EOL
               <div class="card">
-                <h3>${PAGE_NAME}</h3>
-                <p>
-                  Desktop: <span class="score ${DESKTOP_CLASS}">${DESKTOP_PERF}%</span>
-                  Mobile: <span class="score ${MOBILE_CLASS}">${MOBILE_PERF}%</span>
-                </p>
-                <p class="date">Tested: ${CURRENT_DATE}</p>
-                <a href="${CURRENT_DATE}/${PAGE_NAME}/report.md" class="button">View Report</a>
+                <h3>Results Summary</h3>
+                <p>Check the detailed reports for each page using the links below.</p>
+                <p class="date">Generated: ${CURRENT_DATE}</p>
+                <a href="latest.md" class="button">View Summary</a>
               </div>
-          EOL
-            fi
-          done
-
-          cat >> "$INDEX_HTML" << EOL
             </div>
 
-            <h2>Historical Reports</h2>
+            <h2>Available Pages</h2>
             <table>
               <thead>
                 <tr>
-                  <th>Date</th>
-                  <th>Homepage</th>
-                  <th>Collection</th>
-                  <th>Product</th>
+                  <th>Page</th>
+                  <th>Desktop Report</th>
+                  <th>Mobile Report</th>
                 </tr>
               </thead>
               <tbody>
           EOL
 
-          # Add rows for historical reports
-          for DATE_DIR in $(find performance-reports -maxdepth 1 -type d -name "20*" | sort -r); do
-            DATE=$(basename "$DATE_DIR")
+          # Add rows for each page we processed
+          for PAGE_DIR in performance-reports/$CURRENT_DATE/*; do
+            if [ -d "$PAGE_DIR" ]; then
+              PAGE_NAME=$(basename "$PAGE_DIR")
 
-            # Skip if not a valid date format (YYYY-MM-DD)
-            if [[ ! $DATE =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
-              continue
-            fi
+              # Skip non-page directories
+              if [[ "$PAGE_NAME" == "history" || "$PAGE_NAME" == "index.html" || "$PAGE_NAME" == "latest.md" ]]; then
+                continue
+              fi
 
-            cat >> "$INDEX_HTML" << EOL
+              cat >> "$INDEX_HTML" << EOL
                 <tr>
-                  <td>${DATE}</td>
+                  <td>${PAGE_NAME}</td>
           EOL
 
-            for PAGE_NAME in homepage collection product; do
-              REPORT_PATH="${DATE}/${PAGE_NAME}/report.md"
-              if [ -f "performance-reports/$REPORT_PATH" ]; then
+              if [ -f "$PAGE_DIR/desktop.html" ]; then
                 cat >> "$INDEX_HTML" << EOL
-                  <td><a href="${REPORT_PATH}">View Report</a></td>
+                  <td><a href="${CURRENT_DATE}/${PAGE_NAME}/desktop.html">View Desktop Report</a></td>
           EOL
               else
                 cat >> "$INDEX_HTML" << EOL
-                  <td>N/A</td>
+                  <td>Not available</td>
           EOL
               fi
-            done
 
-            cat >> "$INDEX_HTML" << EOL
+              if [ -f "$PAGE_DIR/mobile.html" ]; then
+                cat >> "$INDEX_HTML" << EOL
+                  <td><a href="${CURRENT_DATE}/${PAGE_NAME}/mobile.html">View Mobile Report</a></td>
+          EOL
+              else
+                cat >> "$INDEX_HTML" << EOL
+                  <td>Not available</td>
+          EOL
+              fi
+
+              cat >> "$INDEX_HTML" << EOL
                 </tr>
           EOL
+            fi
           done
 
           cat >> "$INDEX_HTML" << EOL
@@ -1271,6 +1227,12 @@ jobs:
           </body>
           </html>
           EOL
+
+          echo "Completed index HTML creation"
+
+          # List what was created for debugging
+          echo "Files created in performance-reports directory:"
+          find performance-reports -type f | sort
 
       - name: Commit changes
         if: github.event_name == 'schedule' || github.ref == 'refs/heads/main'
@@ -1320,7 +1282,7 @@ jobs:
         if: github.event_name == 'schedule' || github.ref == 'refs/heads/main'
         uses: peter-evans/create-pull-request@v5
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ github.token }}
           commit-message: Add Lighthouse performance reports
           committer: GitHub Action <action@github.com>
           author: GitHub Action <action@github.com>
