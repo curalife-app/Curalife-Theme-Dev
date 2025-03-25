@@ -89,12 +89,21 @@ cp $SUMMARY_FILE "performance-reports/history/$PAGE_NAME/$CURRENT_DATE.json"
 if [ -d "$RESULTS_DIR" ]; then
   # Only copy desktop HTML report if it doesn't already exist
   if [ ! -f "performance-reports/$CURRENT_DATE/$PAGE_NAME/desktop.html" ]; then
-    DESKTOP_HTML=$(find $RESULTS_DIR -name "*.html" -not -path "*/mobile/*" | sort | tail -n 1)
-    if [ -f "$DESKTOP_HTML" ]; then
-      cp "$DESKTOP_HTML" "performance-reports/$CURRENT_DATE/$PAGE_NAME/desktop.html"
-      echo "Copied desktop HTML report from Lighthouse"
+    # First try to find a real Lighthouse report file
+    REAL_DESKTOP_HTML=$(find $RESULTS_DIR -name "*.report.html" -not -path "*/mobile/*" | sort | tail -n 1)
+    if [ -f "$REAL_DESKTOP_HTML" ]; then
+      echo "Found real Lighthouse report for desktop: $REAL_DESKTOP_HTML"
+      cp "$REAL_DESKTOP_HTML" "performance-reports/$CURRENT_DATE/$PAGE_NAME/desktop.html"
+      echo "Copied real desktop HTML report"
     else
-      echo "Desktop HTML report not found in Lighthouse results and no existing file was found"
+      # Try to find any HTML file if no report is found
+      DESKTOP_HTML=$(find $RESULTS_DIR -name "*.html" -not -path "*/mobile/*" | sort | tail -n 1)
+      if [ -f "$DESKTOP_HTML" ]; then
+        cp "$DESKTOP_HTML" "performance-reports/$CURRENT_DATE/$PAGE_NAME/desktop.html"
+        echo "Copied desktop HTML report from Lighthouse"
+      else
+        echo "Desktop HTML report not found in Lighthouse results and no existing file was found"
+      fi
     fi
   else
     echo "Desktop HTML file already exists, preserving it"
@@ -104,12 +113,21 @@ if [ -d "$RESULTS_DIR" ]; then
   if [ ! -f "performance-reports/$CURRENT_DATE/$PAGE_NAME/mobile.html" ]; then
     # Check if mobile directory exists first
     if [ -d "$RESULTS_DIR/mobile" ]; then
-      MOBILE_HTML=$(find $RESULTS_DIR/mobile -name "*.html" | sort | tail -n 1)
-      if [ -f "$MOBILE_HTML" ]; then
-        cp "$MOBILE_HTML" "performance-reports/$CURRENT_DATE/$PAGE_NAME/mobile.html"
-        echo "Copied mobile HTML report from Lighthouse"
+      # First try to find a real Lighthouse report file
+      REAL_MOBILE_HTML=$(find $RESULTS_DIR/mobile -name "*.report.html" | sort | tail -n 1)
+      if [ -f "$REAL_MOBILE_HTML" ]; then
+        echo "Found real Lighthouse report for mobile: $REAL_MOBILE_HTML"
+        cp "$REAL_MOBILE_HTML" "performance-reports/$CURRENT_DATE/$PAGE_NAME/mobile.html"
+        echo "Copied real mobile HTML report"
       else
-        echo "Mobile HTML report not found in Lighthouse results and no existing file was found"
+        # Try to find any HTML file if no report is found
+        MOBILE_HTML=$(find $RESULTS_DIR/mobile -name "*.html" | sort | tail -n 1)
+        if [ -f "$MOBILE_HTML" ]; then
+          cp "$MOBILE_HTML" "performance-reports/$CURRENT_DATE/$PAGE_NAME/mobile.html"
+          echo "Copied mobile HTML report from Lighthouse"
+        else
+          echo "Mobile HTML report not found in Lighthouse results and no existing file was found"
+        fi
       fi
     else
       echo "Mobile directory not found in Lighthouse results and no existing file was found"

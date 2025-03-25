@@ -188,9 +188,19 @@ echo "Capturing screenshots..."
 mkdir -p ./$RESULTS_DIR/screenshots
 mkdir -p ./$RESULTS_DIR/mobile/screenshots
 
-# Create a temporary screenshot script
+# Create a temporary screenshot script with puppeteer installation
 SCREENSHOT_SCRIPT=$(mktemp).js
-echo "const puppeteer = require('puppeteer');
+echo "
+try {
+  // First check if puppeteer is already installed
+  require('puppeteer');
+  console.log('Puppeteer is already installed');
+} catch (e) {
+  console.log('Puppeteer not found, exiting with error');
+  process.exit(1);
+}
+
+const puppeteer = require('puppeteer');
 
 async function captureScreenshots() {
   try {
@@ -259,10 +269,16 @@ async function captureScreenshots() {
 
 captureScreenshots();" > $SCREENSHOT_SCRIPT
 
+# Try to install puppeteer first (will be fast if already installed)
+echo "Ensuring puppeteer is installed..."
+npm install --no-save puppeteer@20.9.0 || echo "Failed to install puppeteer, will use placeholder images"
+
 # Run the screenshot script or create placeholders if it fails
 echo "Running custom screenshot capture script..."
-if ! node $SCREENSHOT_SCRIPT; then
-  echo "Screenshot script failed, creating empty placeholder images"
+if node $SCREENSHOT_SCRIPT; then
+  echo "Screenshots captured successfully"
+else
+  echo "Screenshot script failed, creating placeholder images"
   # Create minimal placeholder images
   echo "<svg width='1200' height='800' xmlns='http://www.w3.org/2000/svg'><rect width='100%' height='100%' fill='#f0f0f0'/><text x='50%' y='50%' font-family='Arial' font-size='24' fill='#666' text-anchor='middle'>Screenshot not available</text></svg>" > ./$RESULTS_DIR/screenshots/placeholder.svg
   cp ./$RESULTS_DIR/screenshots/placeholder.svg ./$RESULTS_DIR/screenshots/full-page.png
