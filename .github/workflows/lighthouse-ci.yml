@@ -135,10 +135,13 @@ jobs:
           mkdir -p ${{ env.RESULTS_DIR }}/processed
           mkdir -p ${{ env.RESULTS_DIR }}/historical
           mkdir -p ${{ env.RESULTS_DIR }}/dashboards
+          mkdir -p performance-reports
+          mkdir -p performance-reports/history
 
           # Print the directory structure to help with debugging
           echo "Directory structure before downloading artifacts:"
           find ${{ env.RESULTS_DIR }} -type d | sort
+          find performance-reports -type d | sort
 
       - name: Download desktop results - homepage
         uses: actions/download-artifact@v4
@@ -227,6 +230,25 @@ jobs:
           # Check dashboards directory
           echo "Files in dashboards directory:"
           find ${{ env.RESULTS_DIR }}/dashboards -type f | sort || echo "No dashboard files found"
+
+          # Verify that the main dashboard was created
+          if [ -f "performance-reports/index.html" ]; then
+            echo "Main dashboard found in performance-reports directory"
+            # Ensure the dashboard is also in the lighthouse-results directory
+            cp performance-reports/index.html ${{ env.RESULTS_DIR }}/index.html
+
+            # If trends dashboard exists, copy it too
+            if [ -f "performance-reports/trends.html" ]; then
+              cp performance-reports/trends.html ${{ env.RESULTS_DIR }}/trends.html
+            fi
+
+            # Copy any other assets needed
+            mkdir -p ${{ env.RESULTS_DIR }}/assets
+            cp -r performance-reports/assets/* ${{ env.RESULTS_DIR }}/assets/ 2>/dev/null || echo "No assets to copy"
+          else
+            echo "WARNING: Main dashboard not found in performance-reports directory!"
+            find performance-reports -type f | sort || echo "No files found in performance-reports"
+          fi
 
       - name: Generate report pages
         if: steps.process_results.outputs.PROCESSED == 'true'
@@ -344,7 +366,7 @@ jobs:
           path: |
             ${{ env.RESULTS_DIR }}/dashboards/**
             ${{ env.RESULTS_DIR }}/processed/**
-            ${{ env.RESULTS_DIR }}/performance-reports/**
+            performance-reports/**
           retention-days: 30
 
   publish:
@@ -409,13 +431,43 @@ jobs:
 
           # More detailed debugging - this will help diagnose path issues
           echo "==== Detailed listing of all files ===="
-          find ./lighthouse-results -type f | sort
+          find . -type f -not -path "*/node_modules/*" -not -path "*/.git/*" | grep -v "/.git/" | head -n 50
+
+          # Check for performance-reports directory (where the dashboard is actually generated)
+          echo "==== Checking for performance-reports directory ===="
+          if [ -d "./performance-reports" ]; then
+            echo "Found performance-reports directory!"
+            find ./performance-reports -type f | sort
+            # Copy the dashboard to the right locations
+            if [ -f "./performance-reports/index.html" ]; then
+              echo "Found the actual dashboard - copying to required locations"
+              # Copy to root
+              cp "./performance-reports/index.html" "./index.html"
+              # Copy to lighthouse-results
+              mkdir -p "./lighthouse-results"
+              cp "./performance-reports/index.html" "./lighthouse-results/index.html"
+              # Copy all other files from performance-reports to lighthouse-results
+              cp -r ./performance-reports/* ./lighthouse-results/ || echo "Error copying some files - continuing anyway"
+              echo "Dashboard files copied successfully"
+            else
+              echo "ERROR: performance-reports directory exists but no index.html found!"
+              ls -la ./performance-reports/
+            fi
+          else
+            echo "No performance-reports directory found. Will check other locations."
+          fi
 
           # Check for dashboards directory specifically
           echo "==== Checking dashboards directory ===="
           if [ -d "./lighthouse-results/dashboards" ]; then
             find ./lighthouse-results/dashboards -type f | sort
             ls -la ./lighthouse-results/dashboards
+
+            # If there's an index.html in dashboards, copy it to the root of lighthouse-results
+            if [ -f "./lighthouse-results/dashboards/index.html" ] && [ ! -f "./lighthouse-results/index.html" ]; then
+              cp "./lighthouse-results/dashboards/index.html" "./lighthouse-results/index.html"
+              echo "Copied dashboard from lighthouse-results/dashboards/ to lighthouse-results/"
+            fi
           else
             echo "No dashboards directory found!"
             # Create dashboards directory if it doesn't exist
@@ -480,16 +532,6 @@ jobs:
             echo '  <p>Redirecting to <a href="./lighthouse-results/">Lighthouse Performance Reports</a>...</p>' >> ./index.html
             echo '</body>' >> ./index.html
             echo '</html>' >> ./index.html
-          fi
-
-          # Check if performance-reports directory exists (alternative structure)
-          if [ -d "./performance-reports" ] && [ -f "./performance-reports/index.html" ]; then
-            echo "Found index.html in performance-reports directory"
-            # Copy to root if not already there
-            cp "./performance-reports/index.html" "./index.html"
-            # Also ensure it's in lighthouse-results for consistency
-            mkdir -p "./lighthouse-results"
-            cp "./performance-reports/index.html" "./lighthouse-results/index.html"
           fi
 
           # Ensure .nojekyll file exists for GitHub Pages in all relevant directories
