@@ -280,28 +280,42 @@ jobs:
 
           echo "Generating dashboard for date: $CURRENT_DATE"
 
+          # Ensure the directory exists
+          mkdir -p performance-reports
+
           # Run with bash -e to exit immediately on error
           bash -e .github/workflows/scripts/generate-dashboard.sh "$CURRENT_DATE" || {
-            echo "Error generating dashboard, checking for issues..."
+            echo "Error generating dashboard, creating fallback..."
             # Create a simple default dashboard if the script fails
-            echo "<!DOCTYPE html><html><head><title>Lighthouse Dashboard</title></head><body><h1>Lighthouse Dashboard</h1><p>No valid reports were found or an error occurred during dashboard generation.</p></body></html>" > performance-reports/index.html
+            echo '<!DOCTYPE html><html><head><title>Lighthouse Dashboard</title><style>body{font-family:Arial,sans-serif;margin:40px}.container{max-width:800px;margin:0 auto}h1{color:#333}.error{color:#d32f2f}</style></head><body><div class="container"><h1>Lighthouse Dashboard</h1><p class="error">No valid reports were found or an error occurred during dashboard generation.</p><p>Please check the workflow logs for more details.</p></div></body></html>' > performance-reports/index.html
             echo "Created fallback dashboard"
           }
 
           echo "Dashboard file generation complete"
 
+          # Verify the files exist and are readable
           if [ -f "performance-reports/index.html" ]; then
             echo "Dashboard file exists at performance-reports/index.html"
             ls -la performance-reports/index.html
+            echo "File contents:"
+            head -n 5 performance-reports/index.html
           else
-            echo "Dashboard file was not created!"
+            echo "Error: Dashboard file was not created!"
+            exit 1
           fi
 
           # Add link to trends dashboard on main dashboard page
           if [ -f "performance-reports/index.html" ] && [ -f "performance-reports/trends.html" ]; then
-            # Add a link to the trends dashboard
+            echo "Adding trends dashboard link..."
             sed -i 's/<\/body>/<div style="text-align: center; margin-top: 30px;"><a href="trends.html" style="display: inline-block; padding: 10px 20px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 4px; font-weight: bold;">View Performance Trends Over Time<\/a><\/div><\/body>/' performance-reports/index.html
+            echo "Trends dashboard link added"
+          else
+            echo "Warning: trends.html not found, skipping link addition"
           fi
+
+          # Final verification
+          echo "Final directory contents:"
+          ls -la performance-reports/
 
       # Generate the GitHub Step Summary separately for better error handling
       - name: Generate GitHub Step Summary
@@ -477,15 +491,38 @@ jobs:
           name: lighthouse-complete-report
           path: performance-reports
 
+      # Verify downloaded files
+      - name: Verify downloaded files
+        run: |
+          echo "Checking contents of performance-reports directory:"
+          ls -la performance-reports || echo "Directory is empty"
+          echo "Checking for index.html:"
+          ls -la performance-reports/index.html || echo "index.html not found"
+          echo "Checking for trends.html:"
+          ls -la performance-reports/trends.html || echo "trends.html not found"
+
       # Setup GitHub Pages
       - name: Setup Pages
         uses: actions/configure-pages@v4
+        with:
+          enablement: true
 
       # Upload pages artifact
       - name: Upload pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: performance-reports
+          retention-days: 1
+
+      # Verify uploaded artifact
+      - name: Verify uploaded artifact
+        run: |
+          echo "Verifying uploaded artifact..."
+          if [ ! -f "performance-reports/index.html" ]; then
+            echo "Error: index.html not found in performance-reports directory"
+            exit 1
+          fi
+          echo "Artifact verification successful"
 
       # Deploy to GitHub Pages
       - name: Deploy to GitHub Pages
