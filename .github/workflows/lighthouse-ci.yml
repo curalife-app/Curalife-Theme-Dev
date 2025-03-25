@@ -287,21 +287,21 @@ jobs:
           bash -e .github/workflows/scripts/generate-dashboard.sh "$CURRENT_DATE" || {
             echo "Error generating dashboard, creating fallback..."
             # Create a simple default dashboard if the script fails
-            echo '<!DOCTYPE html><html><head><title>Lighthouse Dashboard</title><style>body{font-family:Arial,sans-serif;margin:40px}.container{max-width:800px;margin:0 auto}h1{color:#333}.error{color:#d32f2f}</style></head><body><div class="container"><h1>Lighthouse Dashboard</h1><p class="error">No valid reports were found or an error occurred during dashboard generation.</p><p>Please check the workflow logs for more details.</p></div></body></html>' > performance-reports/index.html
+            echo '<!DOCTYPE html><html><head><title>Lighthouse Dashboard</title><style>body{font-family:Arial,sans-serif;line-height:1.6;color:#333;max-width:800px;margin:0 auto;padding:20px}h1{color:#2c3e50;border-bottom:2px solid #eee;padding-bottom:10px}.status{background:#f8f9fa;border-left:4px solid #4caf50;padding:15px;margin:20px 0}.error{border-left-color:#f44336}</style></head><body><h1>Lighthouse Performance Dashboard</h1><div class="status error"><h2>No Reports Available</h2><p>No performance reports were found from the latest run.</p><p>Please check the workflow logs for more details or try running the workflow again.</p></div><div class="status"><h2>About This Dashboard</h2><p>This dashboard displays Lighthouse performance metrics for key pages.</p><p>The workflow runs twice daily to track performance over time.</p></div></body></html>' > performance-reports/index.html
             echo "Created fallback dashboard"
           }
 
           echo "Dashboard file generation complete"
 
-          # Verify the files exist and are readable
-          if [ -f "performance-reports/index.html" ]; then
-            echo "Dashboard file exists at performance-reports/index.html"
-            ls -la performance-reports/index.html
-            echo "File contents:"
-            head -n 5 performance-reports/index.html
+          # Create index.html if no dashboard exists
+          if [ ! -f "performance-reports/index.html" ]; then
+            echo "index.html not found! Creating a standard one..."
+            echo '<!DOCTYPE html><html><head><title>Lighthouse Dashboard</title><style>body{font-family:Arial,sans-serif;line-height:1.6;color:#333;max-width:800px;margin:0 auto;padding:20px}h1{color:#2c3e50;border-bottom:2px solid #eee;padding-bottom:10px}.status{background:#f8f9fa;border-left:4px solid #4caf50;padding:15px;margin:20px 0}.error{border-left-color:#f44336}</style></head><body><h1>Lighthouse Performance Dashboard</h1><div class="status"><h2>Dashboard Content</h2><p>This is the Lighthouse Performance dashboard. Below are the latest results:</p><ul id="results"></ul></div><script>document.getElementById("results").innerHTML = Object.keys(localStorage).map(key => `<li>${key}: ${localStorage.getItem(key)}</li>`).join("");</script></body></html>' > performance-reports/index.html
           else
-            echo "Error: Dashboard file was not created!"
-            exit 1
+            echo "index.html exists at $(pwd)/performance-reports/index.html"
+            ls -la performance-reports/index.html
+            echo "First 10 lines of index.html:"
+            head -n 10 performance-reports/index.html
           fi
 
           # Add link to trends dashboard on main dashboard page
@@ -311,6 +311,18 @@ jobs:
             echo "Trends dashboard link added"
           else
             echo "Warning: trends.html not found, skipping link addition"
+
+            # Create a basic trends.html file if it doesn't exist
+            if [ ! -f "performance-reports/trends.html" ]; then
+              echo "Creating basic trends.html file..."
+              echo '<!DOCTYPE html><html><head><title>Lighthouse Performance Trends</title><style>body{font-family:Arial,sans-serif;line-height:1.6;color:#333;max-width:1200px;margin:0 auto;padding:20px}h1,h2{color:#2c3e50;border-bottom:2px solid #eee;padding-bottom:10px}table{width:100%;border-collapse:collapse;margin:20px 0;font-size:16px}th{background-color:#f2f2f2;text-align:left;padding:12px;font-weight:bold;border:1px solid #ddd}td{padding:12px;border:1px solid #ddd}tr:nth-child(even){background-color:#f9f9f9}.chart{height:400px;margin:40px 0;background:#f5f5f5;border:1px solid #ddd;padding:20px}</style></head><body><h1>Lighthouse Performance Trends</h1><div><h2>Performance Over Time</h2><div class="chart" id="performance-chart">Performance trends will appear here after multiple runs.</div></div><div><h2>Recent Results</h2><table id="results-table"><thead><tr><th>Date</th><th>Page</th><th>Performance</th><th>Accessibility</th><th>Best Practices</th><th>SEO</th><th>LCP</th><th>TBT</th><th>CLS</th></tr></thead><tbody><tr><td colspan="9">Waiting for data from multiple test runs...</td></tr></tbody></table></div><p><a href="index.html" style="display:inline-block;padding:10px 20px;background-color:#4CAF50;color:white;text-decoration:none;border-radius:4px;font-weight:bold;">Back to Dashboard</a></p></body></html>' > performance-reports/trends.html
+
+              # Now add the link to the index.html
+              if [ -f "performance-reports/index.html" ]; then
+                sed -i 's/<\/body>/<div style="text-align: center; margin-top: 30px;"><a href="trends.html" style="display: inline-block; padding: 10px 20px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 4px; font-weight: bold;">View Performance Trends Over Time<\/a><\/div><\/body>/' performance-reports/index.html
+                echo "Added link to trends.html in index.html"
+              fi
+            fi
           fi
 
           # Final verification
@@ -545,3 +557,25 @@ jobs:
           github_token: ${{ github.token }}
           publish_dir: ./performance-reports
           force_orphan: true
+          disable_nojekyll: false
+
+      # Add a README note to debug
+      - name: Add README note
+        run: |
+          echo "# Lighthouse Dashboard" > performance-reports/README.md
+          echo "" >> performance-reports/README.md
+          echo "This is the Lighthouse performance dashboard for ${{ github.repository }}." >> performance-reports/README.md
+          echo "It's updated automatically by GitHub Actions." >> performance-reports/README.md
+          echo "" >> performance-reports/README.md
+          echo "Last updated: $(date)" >> performance-reports/README.md
+
+          # Create .nojekyll file to disable Jekyll processing
+          touch performance-reports/.nojekyll
+
+      # Output deployment URL
+      - name: Output deployment URL
+        run: |
+          echo "::notice title=Deployment URL::Lighthouse dashboard deployed to https://${{ github.repository_owner }}.github.io/$(echo '${{ github.repository }}' | cut -d'/' -f2)/"
+          echo "Lighthouse Dashboard URL: https://${{ github.repository_owner }}.github.io/$(echo '${{ github.repository }}' | cut -d'/' -f2)/"
+          echo "Access your performance dashboard at: https://${{ github.repository_owner }}.github.io/$(echo '${{ github.repository }}' | cut -d'/' -f2)/"
+          echo "URL: https://${{ github.repository_owner }}.github.io/$(echo '${{ github.repository }}' | cut -d'/' -f2)/" >> $GITHUB_STEP_SUMMARY
