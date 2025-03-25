@@ -146,13 +146,15 @@ jobs:
             cp -R performance-reports-downloads/* performance-reports/ || echo "No files to copy"
           else
             echo "No artifacts found to copy"
-            # Create sample data so the dashboard generation doesn't fail
+            # Create sample data with a simple approach instead of heredoc
             mkdir -p performance-reports/$(date +"%Y-%m-%d")/sample
-            cat > performance-reports/$(date +"%Y-%m-%d")/sample/summary.json << EOF
-            {
+            CURRENT_DATE=$(date +"%Y-%m-%d")
+
+            echo "Creating sample data file at performance-reports/$CURRENT_DATE/sample/summary.json"
+            echo '{
               "page": "sample",
               "url": "https://example.com",
-              "date": "$(date +"%Y-%m-%d")",
+              "date": "'$CURRENT_DATE'",
               "desktop": {
                 "performance": 90,
                 "accessibility": 90,
@@ -201,8 +203,7 @@ jobs:
                   "domSize": 1000
                 }
               }
-            }
-            EOF
+            }' > performance-reports/$CURRENT_DATE/sample/summary.json
           fi
 
           # Check if there are any files in the performance-reports directory
