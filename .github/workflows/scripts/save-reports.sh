@@ -23,29 +23,102 @@ mkdir -p performance-reports/history/$PAGE_NAME
 
 echo "Creating report directories for $PAGE_NAME"
 
-# Create a JSON summary file for this page
+# Add raw report copying to the beginning of the script
+if [ -d "$RESULTS_DIR" ]; then
+  # Create raw reports directory
+  mkdir -p "performance-reports/$CURRENT_DATE/$PAGE_NAME/raw"
+
+  # Find and copy raw desktop json
+  DESKTOP_JSON=$(find $RESULTS_DIR -name "lhr-*.json" -not -path "*/mobile/*" | sort | tail -n 1)
+  if [ -f "$DESKTOP_JSON" ]; then
+    echo "Copying raw desktop JSON report: $DESKTOP_JSON"
+    cp "$DESKTOP_JSON" "performance-reports/$CURRENT_DATE/$PAGE_NAME/raw/desktop-raw.json"
+  fi
+
+  # Find and copy raw mobile json
+  MOBILE_JSON=$(find $RESULTS_DIR/mobile -name "lhr-*.json" | sort | tail -n 1)
+  if [ -f "$MOBILE_JSON" ]; then
+    echo "Copying raw mobile JSON report: $MOBILE_JSON"
+    cp "$MOBILE_JSON" "performance-reports/$CURRENT_DATE/$PAGE_NAME/raw/mobile-raw.json"
+  fi
+fi
+
+# Modify the summary creation to load values from raw reports if available
 SUMMARY_FILE="performance-reports/$CURRENT_DATE/$PAGE_NAME/summary.json"
 echo "Creating summary file at $SUMMARY_FILE"
 
-# Create report summary JSON with more detailed metrics
+# If we have raw files, use them as source of truth for metrics
+RAW_DESKTOP_JSON="performance-reports/$CURRENT_DATE/$PAGE_NAME/raw/desktop-raw.json"
+RAW_MOBILE_JSON="performance-reports/$CURRENT_DATE/$PAGE_NAME/raw/mobile-raw.json"
+
+# Function to extract rounded metrics from JSON
+extract_rounded_metric() {
+  local json_file=$1
+  local metric_path=$2
+  local default_value=$3
+
+  if [ -f "$json_file" ]; then
+    jq "$metric_path" "$json_file" 2>/dev/null || echo "$default_value"
+  else
+    echo "$default_value"
+  fi
+}
+
+# Extract desktop metrics from raw report if available
+if [ -f "$RAW_DESKTOP_JSON" ]; then
+  echo "Using raw desktop report as source of truth"
+  DESKTOP_PERF=$(extract_rounded_metric "$RAW_DESKTOP_JSON" '.categories.performance.score * 100 | round' 50)
+  DESKTOP_A11Y=$(extract_rounded_metric "$RAW_DESKTOP_JSON" '.categories.accessibility.score * 100 | round' 50)
+  DESKTOP_BP=$(extract_rounded_metric "$RAW_DESKTOP_JSON" '.categories["best-practices"].score * 100 | round' 50)
+  DESKTOP_SEO=$(extract_rounded_metric "$RAW_DESKTOP_JSON" '.categories.seo.score * 100 | round' 50)
+  DESKTOP_PWA=$(extract_rounded_metric "$RAW_DESKTOP_JSON" '.categories.pwa.score * 100 | round' 0)
+
+  DESKTOP_FCP=$(extract_rounded_metric "$RAW_DESKTOP_JSON" '.audits["first-contentful-paint"].numericValue | round' 2000)
+  DESKTOP_SI=$(extract_rounded_metric "$RAW_DESKTOP_JSON" '.audits["speed-index"].numericValue | round' 3500)
+  DESKTOP_LCP=$(extract_rounded_metric "$RAW_DESKTOP_JSON" '.audits["largest-contentful-paint"].numericValue | round' 3000)
+  DESKTOP_TTI=$(extract_rounded_metric "$RAW_DESKTOP_JSON" '.audits["interactive"].numericValue | round' 4000)
+  DESKTOP_TBT=$(extract_rounded_metric "$RAW_DESKTOP_JSON" '.audits["total-blocking-time"].numericValue | round' 250)
+  DESKTOP_FID=$(extract_rounded_metric "$RAW_DESKTOP_JSON" '.audits["max-potential-fid"].numericValue | round' 150)
+  DESKTOP_CLS=$(extract_rounded_metric "$RAW_DESKTOP_JSON" '.audits["cumulative-layout-shift"].numericValue' 0.15)
+fi
+
+# Extract mobile metrics from raw report if available
+if [ -f "$RAW_MOBILE_JSON" ]; then
+  echo "Using raw mobile report as source of truth"
+  MOBILE_PERF=$(extract_rounded_metric "$RAW_MOBILE_JSON" '.categories.performance.score * 100 | round' 40)
+  MOBILE_A11Y=$(extract_rounded_metric "$RAW_MOBILE_JSON" '.categories.accessibility.score * 100 | round' 50)
+  MOBILE_BP=$(extract_rounded_metric "$RAW_MOBILE_JSON" '.categories["best-practices"].score * 100 | round' 50)
+  MOBILE_SEO=$(extract_rounded_metric "$RAW_MOBILE_JSON" '.categories.seo.score * 100 | round' 50)
+  MOBILE_PWA=$(extract_rounded_metric "$RAW_MOBILE_JSON" '.categories.pwa.score * 100 | round' 0)
+
+  MOBILE_FCP=$(extract_rounded_metric "$RAW_MOBILE_JSON" '.audits["first-contentful-paint"].numericValue | round' 2500)
+  MOBILE_SI=$(extract_rounded_metric "$RAW_MOBILE_JSON" '.audits["speed-index"].numericValue | round' 4000)
+  MOBILE_LCP=$(extract_rounded_metric "$RAW_MOBILE_JSON" '.audits["largest-contentful-paint"].numericValue | round' 3500)
+  MOBILE_TTI=$(extract_rounded_metric "$RAW_MOBILE_JSON" '.audits["interactive"].numericValue | round' 4500)
+  MOBILE_TBT=$(extract_rounded_metric "$RAW_MOBILE_JSON" '.audits["total-blocking-time"].numericValue | round' 300)
+  MOBILE_FID=$(extract_rounded_metric "$RAW_MOBILE_JSON" '.audits["max-potential-fid"].numericValue | round' 200)
+  MOBILE_CLS=$(extract_rounded_metric "$RAW_MOBILE_JSON" '.audits["cumulative-layout-shift"].numericValue' 0.2)
+fi
+
+# Create a JSON summary file for this page
 echo "{" > $SUMMARY_FILE
 echo "  \"page\": \"$PAGE_NAME\"," >> $SUMMARY_FILE
 echo "  \"url\": \"$URL\"," >> $SUMMARY_FILE
 echo "  \"date\": \"$CURRENT_DATE\"," >> $SUMMARY_FILE
 echo "  \"desktop\": {" >> $SUMMARY_FILE
-echo "    \"performance\": ${DESKTOP_PERF:-50}," >> $SUMMARY_FILE
-echo "    \"accessibility\": ${DESKTOP_A11Y:-50}," >> $SUMMARY_FILE
-echo "    \"bestPractices\": ${DESKTOP_BP:-50}," >> $SUMMARY_FILE
-echo "    \"seo\": ${DESKTOP_SEO:-50}," >> $SUMMARY_FILE
-echo "    \"pwa\": ${DESKTOP_PWA:-0}," >> $SUMMARY_FILE
+echo "    \"performance\": $DESKTOP_PERF," >> $SUMMARY_FILE
+echo "    \"accessibility\": $DESKTOP_A11Y," >> $SUMMARY_FILE
+echo "    \"bestPractices\": $DESKTOP_BP," >> $SUMMARY_FILE
+echo "    \"seo\": $DESKTOP_SEO," >> $SUMMARY_FILE
+echo "    \"pwa\": $DESKTOP_PWA," >> $SUMMARY_FILE
 echo "    \"metrics\": {" >> $SUMMARY_FILE
-echo "      \"firstContentfulPaint\": ${DESKTOP_FCP:-2000}," >> $SUMMARY_FILE
-echo "      \"speedIndex\": ${DESKTOP_SI:-3500}," >> $SUMMARY_FILE
-echo "      \"largestContentfulPaint\": ${DESKTOP_LCP:-3000}," >> $SUMMARY_FILE
-echo "      \"timeToInteractive\": ${DESKTOP_TTI:-4000}," >> $SUMMARY_FILE
-echo "      \"totalBlockingTime\": ${DESKTOP_TBT:-250}," >> $SUMMARY_FILE
-echo "      \"maxPotentialFID\": ${DESKTOP_FID:-150}," >> $SUMMARY_FILE
-echo "      \"cumulativeLayoutShift\": ${DESKTOP_CLS:-0.15}" >> $SUMMARY_FILE
+echo "      \"firstContentfulPaint\": $DESKTOP_FCP," >> $SUMMARY_FILE
+echo "      \"speedIndex\": $DESKTOP_SI," >> $SUMMARY_FILE
+echo "      \"largestContentfulPaint\": $DESKTOP_LCP," >> $SUMMARY_FILE
+echo "      \"timeToInteractive\": $DESKTOP_TTI," >> $SUMMARY_FILE
+echo "      \"totalBlockingTime\": $DESKTOP_TBT," >> $SUMMARY_FILE
+echo "      \"maxPotentialFID\": $DESKTOP_FID," >> $SUMMARY_FILE
+echo "      \"cumulativeLayoutShift\": $DESKTOP_CLS" >> $SUMMARY_FILE
 echo "    }," >> $SUMMARY_FILE
 echo "    \"opportunities\": {" >> $SUMMARY_FILE
 echo "      \"renderBlockingResources\": ${DESKTOP_RENDER_BLOCKING:-0}," >> $SUMMARY_FILE
@@ -57,19 +130,19 @@ echo "      \"domSize\": ${DESKTOP_DOM_SIZE:-500}" >> $SUMMARY_FILE
 echo "    }" >> $SUMMARY_FILE
 echo "  }," >> $SUMMARY_FILE
 echo "  \"mobile\": {" >> $SUMMARY_FILE
-echo "    \"performance\": ${MOBILE_PERF:-40}," >> $SUMMARY_FILE
-echo "    \"accessibility\": ${MOBILE_A11Y:-50}," >> $SUMMARY_FILE
-echo "    \"bestPractices\": ${MOBILE_BP:-50}," >> $SUMMARY_FILE
-echo "    \"seo\": ${MOBILE_SEO:-50}," >> $SUMMARY_FILE
-echo "    \"pwa\": ${MOBILE_PWA:-0}," >> $SUMMARY_FILE
+echo "    \"performance\": $MOBILE_PERF," >> $SUMMARY_FILE
+echo "    \"accessibility\": $MOBILE_A11Y," >> $SUMMARY_FILE
+echo "    \"bestPractices\": $MOBILE_BP," >> $SUMMARY_FILE
+echo "    \"seo\": $MOBILE_SEO," >> $SUMMARY_FILE
+echo "    \"pwa\": $MOBILE_PWA," >> $SUMMARY_FILE
 echo "    \"metrics\": {" >> $SUMMARY_FILE
-echo "      \"firstContentfulPaint\": ${MOBILE_FCP:-2500}," >> $SUMMARY_FILE
-echo "      \"speedIndex\": ${MOBILE_SI:-4000}," >> $SUMMARY_FILE
-echo "      \"largestContentfulPaint\": ${MOBILE_LCP:-3500}," >> $SUMMARY_FILE
-echo "      \"timeToInteractive\": ${MOBILE_TTI:-4500}," >> $SUMMARY_FILE
-echo "      \"totalBlockingTime\": ${MOBILE_TBT:-300}," >> $SUMMARY_FILE
-echo "      \"maxPotentialFID\": ${MOBILE_FID:-200}," >> $SUMMARY_FILE
-echo "      \"cumulativeLayoutShift\": ${MOBILE_CLS:-0.2}" >> $SUMMARY_FILE
+echo "      \"firstContentfulPaint\": $MOBILE_FCP," >> $SUMMARY_FILE
+echo "      \"speedIndex\": $MOBILE_SI," >> $SUMMARY_FILE
+echo "      \"largestContentfulPaint\": $MOBILE_LCP," >> $SUMMARY_FILE
+echo "      \"timeToInteractive\": $MOBILE_TTI," >> $SUMMARY_FILE
+echo "      \"totalBlockingTime\": $MOBILE_TBT," >> $SUMMARY_FILE
+echo "      \"maxPotentialFID\": $MOBILE_FID," >> $SUMMARY_FILE
+echo "      \"cumulativeLayoutShift\": $MOBILE_CLS" >> $SUMMARY_FILE
 echo "    }," >> $SUMMARY_FILE
 echo "    \"opportunities\": {" >> $SUMMARY_FILE
 echo "      \"renderBlockingResources\": ${MOBILE_RENDER_BLOCKING:-0}," >> $SUMMARY_FILE

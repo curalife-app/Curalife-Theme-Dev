@@ -2,123 +2,133 @@
 
 ## Overview
 
-The Lighthouse CI workflow automates performance testing for the Curalife website using Google Lighthouse. It runs scheduled tests twice daily and generates comprehensive performance dashboards that are published to GitHub Pages. The workflow has been modularized for better maintainability and reusability.
+The Lighthouse CI workflow automates performance testing for the Curalife website using Google Lighthouse. It runs scheduled tests twice daily and generates comprehensive performance dashboards that are published to GitHub Pages.
 
 ## Workflow Structure
 
-The workflow is structured into three main jobs:
+The workflow is structured into four main jobs:
 
-1. **lighthouse-ci**: Runs Lighthouse tests on specified pages
-2. **create-dashboard**: Processes results and generates dashboards
-3. **deploy-pages**: Publishes results to GitHub Pages
+1. **lighthouse-desktop**: Runs Lighthouse tests on specified pages using desktop configuration
+2. **lighthouse-mobile**: Runs Lighthouse tests on specified pages using mobile configuration
+3. **process-and-generate**: Processes test results and generates dashboards and reports
+4. **publish**: Publishes results to GitHub Pages
 
-Each job uses reusable composite actions to handle specific tasks, making the workflow more modular and maintainable.
+## Schedule and Triggers
 
-## Composite Actions
+The workflow runs on a schedule:
 
-### 1. Setup Environment (`setup-environment`)
+- Daily at 2:15 UTC
+- Daily at 14:15 UTC
 
-This action prepares the testing environment by:
+It can also be manually triggered via the GitHub Actions UI using `workflow_dispatch`.
 
-- Setting up Node.js
-- Installing and caching system dependencies
-- Installing Lighthouse CLI tools
-- Configuring Chrome for headless testing
+## Test Pages
 
-**Inputs:**
-
-- `cache-key-prefix`: Prefix for system dependency cache keys
-- `npm-cache-key`: Cache key for npm global packages
-- `puppeteer-cache-key`: Cache key for Puppeteer (optional)
-- `tools-cache-key`: Cache key for tools like jq and bc (optional)
-
-### 2. Generate Dashboard (`generate-dashboard`)
-
-This action processes Lighthouse results and generates HTML dashboards by:
-
-- Collecting results from all tested pages
-- Processing historical data for trending
-- Generating HTML dashboards with current and historical performance data
-- Creating GitHub step summaries with key metrics
-- Adding PR annotations for performance issues
-- Maintaining historical data in a dedicated branch
-
-**Inputs:**
-
-- `report-date`: Date for the report, used for organizing results
-- `history-branch`: Git branch where historical data is stored
-
-### 3. Prepare GitHub Pages (`prepare-github-pages`)
-
-This action prepares files for GitHub Pages deployment by:
-
-- Creating fallback content if tests fail
-- Setting up .nojekyll file for proper GitHub Pages rendering
-- Creating README and other helper files
-- Ensuring proper navigation between dashboard pages
-
-**Inputs:**
-
-- `publish-dir`: Directory containing files to publish
-- `repository`: Repository name for README generation
-
-## Workflow Configuration
-
-### Scheduled Runs
-
-The workflow runs automatically:
-
-- Daily at 8 AM
-- Daily at 6 PM
-
-It can also be triggered manually via the GitHub UI.
-
-### Test Pages
-
-Currently the workflow tests:
+The workflow currently tests the following pages:
 
 - Homepage: https://curalife.com/
 - Product page: https://curalife.com/products/curalin
 
-### Caching Strategy
+Each page is tested in both desktop and mobile configurations as separate jobs.
 
-The workflow uses GitHub Actions cache for:
+## Scripts Architecture
 
-- System dependencies
-- Node.js packages
-- Puppeteer browser
-- Build tools
+Instead of using composite actions, the workflow relies on a series of bash scripts located in `.github/workflows/scripts/`:
 
-### Historical Data
+1. **run-lighthouse.sh**: Executes Lighthouse tests for a specific URL and device type
+2. **process-results.sh**: Processes raw Lighthouse results into a standardized format
+3. **store-historical-data.sh**: Maintains historical data for tracking performance over time
+4. **generate-dashboard.sh**: Creates the main performance dashboard
+5. **generate-trend-dashboard.sh**: Creates trend visualization dashboards
+6. **generate-report-templates.sh**: Creates detailed HTML report pages for each test
+7. **format-summary.sh**: Formats summary information for GitHub Actions summaries
+8. **save-reports.sh**: Handles saving reports to appropriate locations
 
-Historical performance data is maintained in a dedicated branch (`lighthouse-history`) to track performance trends over time without cluttering the main repository.
+## Directory Structure
+
+The workflow uses a well-defined directory structure:
+
+```
+lighthouse-results/
+├── desktop/
+│   ├── homepage/
+│   └── product/
+├── mobile/
+│   ├── homepage/
+│   └── product/
+├── processed/
+│   ├── homepage/
+│   └── product/
+├── historical/
+└── dashboards/
+```
+
+- `desktop/` and `mobile/`: Store raw Lighthouse results by device type and page
+- `processed/`: Contains processed results with extracted metrics
+- `historical/`: Stores historical data for trend analysis
+- `dashboards/`: Contains the final HTML dashboards published to GitHub Pages
+
+## Fallback Mechanisms
+
+The workflow includes robust fallback mechanisms:
+
+- If Lighthouse tests fail, minimal fallback reports are generated
+- If screenshot generation fails, placeholder images are used
+- If no results are available, a basic dashboard is created indicating tests are in progress
+
+## Results Artifacts
+
+The workflow produces several artifacts that are uploaded to GitHub:
+
+- `lighthouse-desktop-results-*`: Raw results from desktop tests
+- `lighthouse-mobile-results-*`: Raw results from mobile tests
+- `lighthouse-dashboards-complete`: All results, processed data, and dashboards
+- `lighthouse-final-dashboards`: Just the dashboard files for deployment
+
+## GitHub Pages Deployment
+
+The final dashboards are published to GitHub Pages:
+
+1. The workflow checks out the `gh-pages` branch
+2. It downloads the dashboard artifacts
+3. It commits and pushes the results to the `gh-pages` branch
+4. GitHub Pages serves the content from this branch
+
+## Error Handling
+
+The workflow includes comprehensive error handling:
+
+- Tests continue even if individual Lighthouse runs fail
+- Fallback content is generated for any missing results
+- The publish step will still run even if some earlier steps fail partially
 
 ## Dashboard Features
 
-The generated dashboard includes:
+The generated dashboards include:
 
 - Current performance metrics for desktop and mobile
-- Historical trend graphs
-- Core Web Vitals status
+- Historical trend graphs for Core Web Vitals
 - Detailed metrics for each tested page
-- Links to full HTML reports
+- Direct links to full Lighthouse HTML reports
+- Screenshot comparisons between desktop and mobile
 
-## Deployment
-
-The dashboard is deployed to GitHub Pages automatically when tests complete on the main branch. It uses custom domain configuration for accessibility at lighthouse.curalife.com.
-
-## Extensibility
+## Extending the Workflow
 
 To test additional pages:
 
-1. Add new entries to the `page` matrix in the `lighthouse-ci` job
-2. No other changes are needed as the workflow automatically processes all pages
+1. Add new entries to the `page` matrix in both `lighthouse-desktop` and `lighthouse-mobile` jobs
+2. No other changes are required as the processing scripts will automatically handle all pages defined in the matrix
 
-## Troubleshooting
+## Performance Metrics Tracked
 
-If tests fail or produce unexpected results:
+The workflow tracks all standard Lighthouse metrics including:
 
-- Check the workflow logs for specific error messages
-- Verify the Lighthouse CI configuration
-- Ensure the tested pages are accessible
-- Check for JavaScript errors that might affect Lighthouse testing
+- Performance Score
+- Accessibility Score
+- Best Practices Score
+- SEO Score
+- Core Web Vitals (LCP, CLS, FID/TBT)
+- First Contentful Paint
+- Speed Index
+- Time to Interactive
+- Total Blocking Time

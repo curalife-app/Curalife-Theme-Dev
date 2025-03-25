@@ -17,6 +17,44 @@ fi
 # Ensure the output directory exists
 mkdir -p "$OUTPUT_DIR"
 
+# Load metrics from env file if it exists
+METRICS_ENV_FILE="../../../performance-reports/$PAGE_NAME-details/metrics-values.env"
+if [ -f "$METRICS_ENV_FILE" ]; then
+  echo "Loading metrics from $METRICS_ENV_FILE"
+  source "$METRICS_ENV_FILE"
+else
+  echo "Warning: Metrics file not found at $METRICS_ENV_FILE"
+  # Set default values
+  DESKTOP_PERF=0
+  DESKTOP_A11Y=0
+  DESKTOP_BP=0
+  DESKTOP_SEO=0
+  DESKTOP_LCP=0
+  DESKTOP_FID=0
+  DESKTOP_CLS=0
+  DESKTOP_TBT=0
+
+  MOBILE_PERF=0
+  MOBILE_A11Y=0
+  MOBILE_BP=0
+  MOBILE_SEO=0
+  MOBILE_LCP=0
+  MOBILE_FID=0
+  MOBILE_CLS=0
+  MOBILE_TBT=0
+fi
+
+# Function to create LCP value in seconds with proper formatting
+format_lcp() {
+  local lcp_value=$1
+  # Format to 2 decimal places
+  echo "$(echo "scale=2; $lcp_value/1000" | bc -l)"
+}
+
+# Format the desktop LCP value
+DESKTOP_LCP_SEC=$(format_lcp $DESKTOP_LCP)
+MOBILE_LCP_SEC=$(format_lcp $MOBILE_LCP)
+
 # Create desktop.html template
 DESKTOP_HTML="${OUTPUT_DIR}/desktop.html"
 echo "Creating desktop.html report at $DESKTOP_HTML"
@@ -127,28 +165,28 @@ cat > "$DESKTOP_HTML" << EOF
     <div class="row mb-4">
       <div class="col-md-3">
         <div class="card score-card">
-          <div class="score-value \${DESKTOP_PERF >= 90 ? 'score-good' : (DESKTOP_PERF >= 50 ? 'score-average' : 'score-poor')}">\${DESKTOP_PERF}</div>
+          <div class="score-value ${DESKTOP_PERF:=0 >= 90 ? 'score-good' : (DESKTOP_PERF >= 50 ? 'score-average' : 'score-poor')}">${DESKTOP_PERF:=0}</div>
           <div class="score-label">Performance</div>
           <div class="mt-2"><small>Target: 90+</small></div>
         </div>
       </div>
       <div class="col-md-3">
         <div class="card score-card">
-          <div class="score-value \${DESKTOP_A11Y >= 90 ? 'score-good' : (DESKTOP_A11Y >= 70 ? 'score-average' : 'score-poor')}">\${DESKTOP_A11Y}</div>
+          <div class="score-value ${DESKTOP_A11Y:=0 >= 90 ? 'score-good' : (DESKTOP_A11Y >= 70 ? 'score-average' : 'score-poor')}">${DESKTOP_A11Y:=0}</div>
           <div class="score-label">Accessibility</div>
           <div class="mt-2"><small>Target: 90+</small></div>
         </div>
       </div>
       <div class="col-md-3">
         <div class="card score-card">
-          <div class="score-value \${DESKTOP_BP >= 90 ? 'score-good' : (DESKTOP_BP >= 70 ? 'score-average' : 'score-poor')}">\${DESKTOP_BP}</div>
+          <div class="score-value ${DESKTOP_BP:=0 >= 90 ? 'score-good' : (DESKTOP_BP >= 70 ? 'score-average' : 'score-poor')}">${DESKTOP_BP:=0}</div>
           <div class="score-label">Best Practices</div>
           <div class="mt-2"><small>Target: 90+</small></div>
         </div>
       </div>
       <div class="col-md-3">
         <div class="card score-card">
-          <div class="score-value \${DESKTOP_SEO >= 90 ? 'score-good' : (DESKTOP_SEO >= 70 ? 'score-average' : 'score-poor')}">\${DESKTOP_SEO}</div>
+          <div class="score-value ${DESKTOP_SEO:=0 >= 90 ? 'score-good' : (DESKTOP_SEO >= 70 ? 'score-average' : 'score-poor')}">${DESKTOP_SEO:=0}</div>
           <div class="score-label">SEO</div>
           <div class="mt-2"><small>Target: 90+</small></div>
         </div>
@@ -162,7 +200,7 @@ cat > "$DESKTOP_HTML" << EOF
           <div class="card">
             <div class="card-body text-center">
               <h5>Largest Contentful Paint</h5>
-              <div class="fs-2 fw-bold \${DESKTOP_LCP < 2500 ? 'metric-good' : (DESKTOP_LCP < 4000 ? 'metric-average' : 'metric-poor')}">\${(DESKTOP_LCP/1000).toFixed(2)}s</div>
+              <div class="fs-2 fw-bold ${DESKTOP_LCP:=0 < 2500 ? 'metric-good' : (DESKTOP_LCP < 4000 ? 'metric-average' : 'metric-poor')}">${DESKTOP_LCP_SEC}s</div>
               <div class="mt-2"><small>Target: < 2.5s</small></div>
             </div>
           </div>
@@ -171,7 +209,7 @@ cat > "$DESKTOP_HTML" << EOF
           <div class="card">
             <div class="card-body text-center">
               <h5>Total Blocking Time</h5>
-              <div class="fs-2 fw-bold \${DESKTOP_TBT < 200 ? 'metric-good' : (DESKTOP_TBT < 600 ? 'metric-average' : 'metric-poor')}">\${DESKTOP_TBT}ms</div>
+              <div class="fs-2 fw-bold ${DESKTOP_TBT:=0 < 200 ? 'metric-good' : (DESKTOP_TBT < 600 ? 'metric-average' : 'metric-poor')}">${DESKTOP_TBT:=0}ms</div>
               <div class="mt-2"><small>Target: < 200ms</small></div>
             </div>
           </div>
@@ -180,7 +218,7 @@ cat > "$DESKTOP_HTML" << EOF
           <div class="card">
             <div class="card-body text-center">
               <h5>Cumulative Layout Shift</h5>
-              <div class="fs-2 fw-bold \${DESKTOP_CLS < 0.1 ? 'metric-good' : (DESKTOP_CLS < 0.25 ? 'metric-average' : 'metric-poor')}">\${DESKTOP_CLS}</div>
+              <div class="fs-2 fw-bold ${DESKTOP_CLS:=0 < 0.1 ? 'metric-good' : (DESKTOP_CLS < 0.25 ? 'metric-average' : 'metric-poor')}">${DESKTOP_CLS:=0}</div>
               <div class="mt-2"><small>Target: < 0.1</small></div>
             </div>
           </div>
@@ -200,7 +238,7 @@ cat > "$DESKTOP_HTML" << EOF
 </html>
 EOF
 
-# Create mobile.html template
+# Create mobile.html template with similar changes
 MOBILE_HTML="${OUTPUT_DIR}/mobile.html"
 echo "Creating mobile.html report at $MOBILE_HTML"
 
@@ -293,13 +331,6 @@ cat > "$MOBILE_HTML" << EOF
       border-bottom: 2px solid var(--primary-light);
       padding-bottom: 10px;
     }
-    .mobile-note {
-      background-color: rgba(242, 107, 60, 0.1);
-      border-left: 4px solid var(--secondary-color);
-      padding: 15px;
-      border-radius: 6px;
-      margin-bottom: 20px;
-    }
   </style>
 </head>
 <body>
@@ -314,36 +345,31 @@ cat > "$MOBILE_HTML" << EOF
   </div>
 
   <div class="container-fluid p-0">
-    <div class="mobile-note">
-      <h5><i class="bi bi-info-circle me-2"></i>Mobile Performance Context</h5>
-      <p class="mb-0">Mobile scores tend to be lower than desktop due to network constraints, CPU throttling, and smaller viewport dimensions. Google uses mobile-first indexing, so these metrics are crucial for SEO.</p>
-    </div>
-
     <div class="row mb-4">
       <div class="col-md-3">
         <div class="card score-card">
-          <div class="score-value \${MOBILE_PERF >= 90 ? 'score-good' : (MOBILE_PERF >= 50 ? 'score-average' : 'score-poor')}">\${MOBILE_PERF}</div>
+          <div class="score-value ${MOBILE_PERF:=0 >= 90 ? 'score-good' : (MOBILE_PERF >= 50 ? 'score-average' : 'score-poor')}">${MOBILE_PERF:=0}</div>
           <div class="score-label">Performance</div>
           <div class="mt-2"><small>Target: 90+</small></div>
         </div>
       </div>
       <div class="col-md-3">
         <div class="card score-card">
-          <div class="score-value \${MOBILE_A11Y >= 90 ? 'score-good' : (MOBILE_A11Y >= 70 ? 'score-average' : 'score-poor')}">\${MOBILE_A11Y}</div>
+          <div class="score-value ${MOBILE_A11Y:=0 >= 90 ? 'score-good' : (MOBILE_A11Y >= 70 ? 'score-average' : 'score-poor')}">${MOBILE_A11Y:=0}</div>
           <div class="score-label">Accessibility</div>
           <div class="mt-2"><small>Target: 90+</small></div>
         </div>
       </div>
       <div class="col-md-3">
         <div class="card score-card">
-          <div class="score-value \${MOBILE_BP >= 90 ? 'score-good' : (MOBILE_BP >= 70 ? 'score-average' : 'score-poor')}">\${MOBILE_BP}</div>
+          <div class="score-value ${MOBILE_BP:=0 >= 90 ? 'score-good' : (MOBILE_BP >= 70 ? 'score-average' : 'score-poor')}">${MOBILE_BP:=0}</div>
           <div class="score-label">Best Practices</div>
           <div class="mt-2"><small>Target: 90+</small></div>
         </div>
       </div>
       <div class="col-md-3">
         <div class="card score-card">
-          <div class="score-value \${MOBILE_SEO >= 90 ? 'score-good' : (MOBILE_SEO >= 70 ? 'score-average' : 'score-poor')}">\${MOBILE_SEO}</div>
+          <div class="score-value ${MOBILE_SEO:=0 >= 90 ? 'score-good' : (MOBILE_SEO >= 70 ? 'score-average' : 'score-poor')}">${MOBILE_SEO:=0}</div>
           <div class="score-label">SEO</div>
           <div class="mt-2"><small>Target: 90+</small></div>
         </div>
@@ -357,7 +383,7 @@ cat > "$MOBILE_HTML" << EOF
           <div class="card">
             <div class="card-body text-center">
               <h5>Largest Contentful Paint</h5>
-              <div class="fs-2 fw-bold \${MOBILE_LCP < 2500 ? 'metric-good' : (MOBILE_LCP < 4000 ? 'metric-average' : 'metric-poor')}">\${(MOBILE_LCP/1000).toFixed(2)}s</div>
+              <div class="fs-2 fw-bold ${MOBILE_LCP:=0 < 2500 ? 'metric-good' : (MOBILE_LCP < 4000 ? 'metric-average' : 'metric-poor')}">${MOBILE_LCP_SEC}s</div>
               <div class="mt-2"><small>Target: < 2.5s</small></div>
             </div>
           </div>
@@ -366,7 +392,7 @@ cat > "$MOBILE_HTML" << EOF
           <div class="card">
             <div class="card-body text-center">
               <h5>Total Blocking Time</h5>
-              <div class="fs-2 fw-bold \${MOBILE_TBT < 200 ? 'metric-good' : (MOBILE_TBT < 600 ? 'metric-average' : 'metric-poor')}">\${MOBILE_TBT}ms</div>
+              <div class="fs-2 fw-bold ${MOBILE_TBT:=0 < 200 ? 'metric-good' : (MOBILE_TBT < 600 ? 'metric-average' : 'metric-poor')}">${MOBILE_TBT:=0}ms</div>
               <div class="mt-2"><small>Target: < 200ms</small></div>
             </div>
           </div>
@@ -375,7 +401,7 @@ cat > "$MOBILE_HTML" << EOF
           <div class="card">
             <div class="card-body text-center">
               <h5>Cumulative Layout Shift</h5>
-              <div class="fs-2 fw-bold \${MOBILE_CLS < 0.1 ? 'metric-good' : (MOBILE_CLS < 0.25 ? 'metric-average' : 'metric-poor')}">\${MOBILE_CLS}</div>
+              <div class="fs-2 fw-bold ${MOBILE_CLS:=0 < 0.1 ? 'metric-good' : (MOBILE_CLS < 0.25 ? 'metric-average' : 'metric-poor')}">${MOBILE_CLS:=0}</div>
               <div class="mt-2"><small>Target: < 0.1</small></div>
             </div>
           </div>
