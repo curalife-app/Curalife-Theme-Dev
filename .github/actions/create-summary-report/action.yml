@@ -5,30 +5,67 @@ inputs:
   results-dir:
     description: "Directory containing processed test results"
     required: true
+    default: "./lighthouse-results"
+  output-dir:
+    description: "Directory where output files should be stored"
+    required: false
+    default: "./performance-reports"
   deployment-url:
     description: "URL where the full reports are deployed"
     required: false
     default: ""
 
+outputs:
+  has-summary:
+    description: "Whether a summary was successfully generated"
+    value: ${{ steps.generate-summary.outputs.has_summary }}
+
 runs:
   using: "composite"
   steps:
     - name: Generate step summary
+      id: generate-summary
       shell: bash
       run: |
         echo "Generating GitHub step summary..."
         RESULTS_DIR="${{ inputs.results-dir }}"
+        OUTPUT_DIR="${{ inputs.output-dir }}"
+        HAS_SUMMARY="false"
 
-        # Check if results directory exists and contains data
-        if [ ! -d "$RESULTS_DIR/processed" ]; then
-          echo "::warning::Processed results directory not found: $RESULTS_DIR/processed"
+        # Create output directory if it doesn't exist
+        mkdir -p "$OUTPUT_DIR"
+
+        # First check if the results directory exists at all
+        if [ ! -d "$RESULTS_DIR" ]; then
+          echo "::warning::Results directory not found: $RESULTS_DIR"
+          echo "has_summary=false" >> $GITHUB_OUTPUT
           exit 0
         fi
 
+        # Check for processed results in expected location
+        PROCESSED_DIR="$RESULTS_DIR/processed"
+        if [ ! -d "$PROCESSED_DIR" ]; then
+          echo "::warning::Processed results directory not found: $PROCESSED_DIR"
+
+          # Check if alternative structure exists
+          if [ -d "$RESULTS_DIR/desktop" ] && [ -d "$RESULTS_DIR/mobile" ]; then
+            echo "Found desktop and mobile directories directly in results dir, will use these"
+            # Create processed structure
+            mkdir -p "$PROCESSED_DIR"
+
+            # This is a fallback approach assuming the directory structure is different
+            echo "::warning::This is a workaround - your directory structure may need updating"
+          else
+            echo "has_summary=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+        fi
+
         # Check if there are any actual test results
-        PAGE_COUNT=$(find "$RESULTS_DIR/processed" -mindepth 1 -maxdepth 1 -type d | wc -l)
+        PAGE_COUNT=$(find "$PROCESSED_DIR" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l)
         if [ "$PAGE_COUNT" -eq 0 ]; then
           echo "::warning::No processed test results found"
+          echo "has_summary=false" >> $GITHUB_OUTPUT
           exit 0
         fi
 
@@ -52,10 +89,11 @@ runs:
 
         # Process each page's results for desktop
         TOTAL_PAGES=0
-        for page_dir in "$RESULTS_DIR/processed"/*; do
+        for page_dir in "$PROCESSED_DIR"/*; do
           if [ -d "$page_dir" ]; then
             # Check for valid metrics data
             if [ ! -f "$page_dir/metrics-values.env" ]; then
+              echo "::warning::No metrics-values.env found in $page_dir"
               continue
             fi
 
@@ -63,8 +101,13 @@ runs:
             page_name=$(basename "$page_dir")
             PAGE_TITLE=$(echo "$page_name" | tr '-' ' ' | sed -e 's/\b\(.\)/\u\1/g')
 
-            # Source metrics file
-            source "$page_dir/metrics-values.env"
+            # Source metrics file safely
+            if [ -f "$page_dir/metrics-values.env" ]; then
+              source "$page_dir/metrics-values.env"
+            else
+              echo "::warning::Missing metrics file for $page_name"
+              continue
+            fi
 
             # Add desktop row with actual data
             echo "| $PAGE_TITLE | ${DESKTOP_PERF:-0} | ${DESKTOP_A11Y:-0} | ${DESKTOP_BP:-0} | ${DESKTOP_SEO:-0} |" >> $GITHUB_STEP_SUMMARY
@@ -74,7 +117,10 @@ runs:
         # Exit if no valid data was found
         if [ "$TOTAL_PAGES" -eq 0 ]; then
           echo "::warning::No valid metrics data found in any processed results"
+          echo "has_summary=false" >> $GITHUB_OUTPUT
           exit 0
+        else
+          HAS_SUMMARY="true"
         fi
 
         echo "" >> $GITHUB_STEP_SUMMARY
@@ -84,12 +130,12 @@ runs:
         echo "|------|-------------|---------------|----------------|-----|" >> $GITHUB_STEP_SUMMARY
 
         # Process each page's results for mobile
-        for page_dir in "$RESULTS_DIR/processed"/*; do
+        for page_dir in "$PROCESSED_DIR"/*; do
           if [ -d "$page_dir" ] && [ -f "$page_dir/metrics-values.env" ]; then
             page_name=$(basename "$page_dir")
             PAGE_TITLE=$(echo "$page_name" | tr '-' ' ' | sed -e 's/\b\(.\)/\u\1/g')
 
-            # Source metrics file
+            # Source metrics file safely
             source "$page_dir/metrics-values.env"
 
             # Add mobile row with actual data
@@ -104,12 +150,12 @@ runs:
         echo "|------|--------|----------|-----|----------|" >> $GITHUB_STEP_SUMMARY
 
         # Process core web vitals for each page
-        for page_dir in "$RESULTS_DIR/processed"/*; do
+        for page_dir in "$PROCESSED_DIR"/*; do
           if [ -d "$page_dir" ] && [ -f "$page_dir/metrics-values.env" ]; then
             page_name=$(basename "$page_dir")
             PAGE_TITLE=$(echo "$page_name" | tr '-' ' ' | sed -e 's/\b\(.\)/\u\1/g')
 
-            # Source metrics file
+            # Source metrics file safely
             source "$page_dir/metrics-values.env"
 
             # Add desktop and mobile rows for vitals
@@ -125,11 +171,11 @@ runs:
           echo "" >> $GITHUB_STEP_SUMMARY
 
           # Process each page's results for PR annotations
-          for page_dir in "$RESULTS_DIR/processed"/*; do
+          for page_dir in "$PROCESSED_DIR"/*; do
             if [ -d "$page_dir" ] && [ -f "$page_dir/metrics-values.env" ]; then
               page_name=$(basename "$page_dir")
 
-              # Source metrics file
+              # Source metrics file safely
               source "$page_dir/metrics-values.env"
 
               # Add annotations based on performance scores
@@ -145,7 +191,7 @@ runs:
                   echo "  - Total Blocking Time is too high (Desktop: ${DESKTOP_TBT:-0}ms, Mobile: ${MOBILE_TBT:-0}ms)" >> $GITHUB_STEP_SUMMARY
                 fi
 
-                if awk "BEGIN {exit !($DESKTOP_CLS >= 0.15 || $MOBILE_CLS >= 0.25)}"; then
+                if (( $(echo "${DESKTOP_CLS:-0} >= 0.15" | bc -l) )) || (( $(echo "${MOBILE_CLS:-0} >= 0.25" | bc -l) )); then
                   echo "  - Cumulative Layout Shift is too high (Desktop: ${DESKTOP_CLS:-0}, Mobile: ${MOBILE_CLS:-0})" >> $GITHUB_STEP_SUMMARY
                 fi
               elif [ "${DESKTOP_PERF:-0}" -lt 90 ] || [ "${MOBILE_PERF:-0}" -lt 70 ]; then
@@ -156,3 +202,11 @@ runs:
             fi
           done
         fi
+
+        # Save output status
+        echo "has_summary=$HAS_SUMMARY" >> $GITHUB_OUTPUT
+
+        # Save a copy of the summary to the output directory
+        cp $GITHUB_STEP_SUMMARY "$OUTPUT_DIR/summary.md"
+
+        echo "Summary report generated successfully"
