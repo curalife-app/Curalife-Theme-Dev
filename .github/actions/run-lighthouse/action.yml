@@ -189,6 +189,32 @@ runs:
 
         echo "Running mobile tests..."
 
+        # Create mobile configuration file for Lighthouse
+        cat > mobile-config.json << 'EOF'
+        {
+          "extends": "lighthouse:default",
+          "settings": {
+            "formFactor": "mobile",
+            "screenEmulation": {
+              "mobile": true,
+              "width": 375,
+              "height": 667,
+              "deviceScaleFactor": 2,
+              "disabled": false
+            },
+            "throttling": {
+              "rttMs": 150,
+              "throughputKbps": 1638,
+              "cpuSlowdownMultiplier": 4,
+              "requestLatencyMs": 150,
+              "downloadThroughputKbps": 1638,
+              "uploadThroughputKbps": 750
+            },
+            "emulatedUserAgent": "Mozilla/5.0 (Linux; Android 10; SM-G981B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.101 Mobile Safari/537.36"
+          }
+        }
+        EOF
+
         # Parse formatted pages (PATH:DIR_NAME format)
         IFS=',' read -ra PAGE_ARRAY <<< "$FORMATTED_PAGES"
         for page_entry in "${PAGE_ARRAY[@]}"; do
@@ -212,9 +238,9 @@ runs:
                 echo "Retry attempt $i for $PAGE_URL"
               fi
 
-              # Run Lighthouse test
+              # Run Lighthouse test with mobile config
               lighthouse "$PAGE_URL" \
-                --preset=mobile \
+                --config-path=mobile-config.json \
                 --chrome-flags="--headless --no-sandbox --disable-gpu" \
                 --output=html,json \
                 --output-path="$OUTPUT_DIR/mobile" \
