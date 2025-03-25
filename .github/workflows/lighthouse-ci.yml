@@ -4,6 +4,8 @@ on:
   schedule:
     - cron: "0 8 * * *" # Run every day at 8 AM
     - cron: "0 18 * * *" # Run every day at 6 PM
+  # Allow manual trigger through GitHub UI
+  workflow_dispatch:
 
 # Allow cancellation of previous runs in the same PR/branch
 concurrency:
@@ -13,6 +15,12 @@ concurrency:
 permissions:
   contents: write
   pull-requests: write
+  pages: write
+  id-token: write
+
+# Define environment for GitHub Pages
+env:
+  HISTORY_BRANCH: lighthouse-history
 
 jobs:
   lighthouse-ci:
@@ -208,10 +216,64 @@ jobs:
           echo "Contents of performance-reports directory:"
           find performance-reports -type f | sort || echo "No files found in performance-reports"
 
+      # Fetch historical data from the dedicated branch
+      - name: Fetch historical data
+        id: fetch-history
+        run: |
+          CURRENT_DATE="${{ needs.lighthouse-ci.outputs.report_date }}"
+          if [ -z "$CURRENT_DATE" ]; then
+            CURRENT_DATE=$(date +"%Y-%m-%d")
+          fi
+          echo "report_date=$CURRENT_DATE" >> $GITHUB_OUTPUT
+
+          # Check if history branch exists
+          if git fetch --all && git ls-remote --heads origin ${{ env.HISTORY_BRANCH }} | grep ${{ env.HISTORY_BRANCH }}; then
+            echo "History branch exists, fetching data..."
+            git checkout ${{ env.HISTORY_BRANCH }} || git checkout -b ${{ env.HISTORY_BRANCH }}
+            # Create history directory if it doesn't exist
+            mkdir -p performance-reports/history
+
+            # Move back to the original branch to continue workflow
+            git checkout -
+            # Copy history data to the current workspace
+            if [ -d ".git/refs/remotes/origin/${{ env.HISTORY_BRANCH }}" ]; then
+              git checkout ${{ env.HISTORY_BRANCH }} -- performance-reports/history || echo "No history data found"
+              git checkout - || echo "Failed to checkout previous branch"
+            fi
+          else
+            echo "History branch does not exist, creating it..."
+            git checkout -b ${{ env.HISTORY_BRANCH }} || echo "Failed to create history branch"
+            mkdir -p performance-reports/history
+            git checkout - || echo "Failed to checkout previous branch"
+          fi
+
+          # Make sure the history directory exists
+          mkdir -p performance-reports/history
+
+      # Process historical data
+      - name: Process historical data
+        run: |
+          # Make the script executable
+          chmod +x .github/workflows/scripts/store-historical-data.sh
+
+          # Run the script to process data
+          .github/workflows/scripts/store-historical-data.sh "${{ steps.fetch-history.outputs.report_date }}"
+        continue-on-error: true
+
+      # Generate the trend dashboard
+      - name: Generate trend dashboard
+        run: |
+          # Make the script executable
+          chmod +x .github/workflows/scripts/generate-trend-dashboard.sh
+
+          # Run the script to generate the dashboard
+          .github/workflows/scripts/generate-trend-dashboard.sh "${{ steps.fetch-history.outputs.report_date }}"
+        continue-on-error: true
+
       # Generate the HTML dashboard - split into smaller steps for better error tracking
       - name: Generate HTML dashboard
         run: |
-          CURRENT_DATE="${{ needs.lighthouse-ci.outputs.report_date }}"
+          CURRENT_DATE="${{ steps.fetch-history.outputs.report_date }}"
           if [ -z "$CURRENT_DATE" ]; then
             CURRENT_DATE=$(date +"%Y-%m-%d")
           fi
@@ -233,6 +295,12 @@ jobs:
             ls -la performance-reports/index.html
           else
             echo "Dashboard file was not created!"
+          fi
+
+          # Add link to trends dashboard on main dashboard page
+          if [ -f "performance-reports/index.html" ] && [ -f "performance-reports/trends.html" ]; then
+            # Add a link to the trends dashboard
+            sed -i 's/<\/body>/<div style="text-align: center; margin-top: 30px;"><a href="trends.html" style="display: inline-block; padding: 10px 20px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 4px; font-weight: bold;">View Performance Trends Over Time<\/a><\/div><\/body>/' performance-reports/index.html
           fi
 
       # Generate the GitHub Step Summary separately for better error handling
@@ -316,6 +384,13 @@ jobs:
           echo "### 🔍 View Full Reports" >> $GITHUB_STEP_SUMMARY
           echo "Download the full HTML reports from the workflow artifacts section." >> $GITHUB_STEP_SUMMARY
 
+      # Link to the trends dashboard in the GitHub Step Summary
+      - name: Add trends link to summary
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📈 Performance Trends" >> $GITHUB_STEP_SUMMARY
+          echo "Check out the [Performance Trends Dashboard](./trends.html) to see how metrics have changed over time." >> $GITHUB_STEP_SUMMARY
+
       - name: List created files
         run: |
           echo "Files created in performance-reports directory:"
@@ -350,3 +425,69 @@ jobs:
             fi
           done
         continue-on-error: true
+
+      # Save historical data to the dedicated branch
+      - name: Save historical data
+        run: |
+          # Configure Git
+          git config --global user.name "GitHub Action"
+          git config --global user.email "action@github.com"
+
+          # Add and commit changes to history directory
+          mkdir -p performance-reports/history
+          if git checkout ${{ env.HISTORY_BRANCH }}; then
+            # Copy current history to the branch
+            mkdir -p performance-reports/history
+            # Copy only if any history exists
+            if [ -d "performance-reports/history" ] && [ "$(ls -A performance-reports/history 2>/dev/null)" ]; then
+              git add performance-reports/history
+              git commit -m "Update Lighthouse history data - $(date +%Y-%m-%d)" || echo "No changes to commit"
+              git push origin ${{ env.HISTORY_BRANCH }} || echo "Failed to push - possibly no changes"
+            fi
+          else
+            # Create new branch with history
+            git checkout -b ${{ env.HISTORY_BRANCH }}
+            mkdir -p performance-reports/history
+            # Only commit if there are actual files
+            if [ -d "performance-reports/history" ] && [ "$(ls -A performance-reports/history 2>/dev/null)" ]; then
+              git add performance-reports/history
+              git commit -m "Initial Lighthouse history data - $(date +%Y-%m-%d)" || echo "No changes to commit"
+              git push origin ${{ env.HISTORY_BRANCH }} || echo "Failed to push - possibly no changes"
+            fi
+          fi
+        continue-on-error: true
+
+  # New job to deploy to GitHub Pages
+  deploy-pages:
+    needs: create-dashboard
+    runs-on: ubuntu-latest
+    # Only run on main/master branch to avoid duplicate deployments
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Download the performance reports
+      - name: Download performance reports
+        uses: actions/download-artifact@v4
+        with:
+          name: lighthouse-complete-report
+          path: performance-reports
+
+      # Setup GitHub Pages
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      # Upload pages artifact
+      - name: Upload pages artifact
+        uses: actions/upload-pages-artifact@v2
+        with:
+          path: performance-reports
+
+      # Deploy to GitHub Pages
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v3

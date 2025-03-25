@@ -1,13 +1,16 @@
 #!/bin/bash
 
-# This script makes all other scripts in the scripts directory executable
+# This script makes all workflow scripts executable
+# It's run at the beginning of the workflow
 
 set -e  # Exit immediately if a command exits with a non-zero status
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-echo "Making all scripts in $SCRIPT_DIR executable..."
+echo "Making all workflow scripts executable..."
 
-# Make all shell scripts executable
-chmod +x "$SCRIPT_DIR"/*.sh
+find .github/workflows/scripts -type f -name "*.sh" -exec chmod +x {} \;
+
+# Specifically ensure our new scripts are executable
+chmod +x .github/workflows/scripts/store-historical-data.sh || echo "store-historical-data.sh not found"
+chmod +x .github/workflows/scripts/generate-trend-dashboard.sh || echo "generate-trend-dashboard.sh not found"
 
 echo "All scripts are now executable."
