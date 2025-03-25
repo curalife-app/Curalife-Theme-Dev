@@ -420,6 +420,30 @@ jobs:
           retention-days: 30
         continue-on-error: true
 
+      # Verify files before uploading
+      - name: Verify files before upload
+        run: |
+          echo "Verifying files before upload..."
+          echo "Directory structure:"
+          tree performance-reports || echo "tree command not available"
+          echo "File contents:"
+          ls -la performance-reports/
+          echo "Checking index.html:"
+          if [ -f "performance-reports/index.html" ]; then
+            echo "index.html exists"
+            head -n 5 performance-reports/index.html
+          else
+            echo "index.html does not exist!"
+            exit 1
+          fi
+          echo "Checking trends.html:"
+          if [ -f "performance-reports/trends.html" ]; then
+            echo "trends.html exists"
+            head -n 5 performance-reports/trends.html
+          else
+            echo "trends.html does not exist"
+          fi
+
       # Generate visual annotations for PRs
       - name: Add PR annotations
         if: github.event_name == 'pull_request'
@@ -506,6 +530,15 @@ jobs:
         uses: actions/configure-pages@v4
         with:
           enablement: true
+
+      # Create a minimal index.html if it doesn't exist
+      - name: Ensure index.html exists
+        run: |
+          if [ ! -f "performance-reports/index.html" ]; then
+            echo "Creating minimal index.html..."
+            mkdir -p performance-reports
+            echo '<!DOCTYPE html><html><head><title>Lighthouse Dashboard</title><style>body{font-family:Arial,sans-serif;margin:40px}.container{max-width:800px;margin:0 auto}h1{color:#333}.error{color:#d32f2f}</style></head><body><div class="container"><h1>Lighthouse Dashboard</h1><p class="error">No valid reports were found or an error occurred during dashboard generation.</p><p>Please check the workflow logs for more details.</p></div></body></html>' > performance-reports/index.html
+          fi
 
       # Upload pages artifact
       - name: Upload pages artifact
