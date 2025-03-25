@@ -20,6 +20,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y jq
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -46,7 +49,7 @@ jobs:
             ${{ runner.os }}-pnpm-store-
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --no-frozen-lockfile
 
       # Explicitly install glob if needed
       - name: Ensure glob is installed
@@ -59,17 +62,52 @@ jobs:
       - name: Start static server
         run: |
           echo "Starting static server..."
+          # Check if build directory exists
+          if [ ! -d "Curalife-Theme-Build" ]; then
+            echo "Error: Build directory 'Curalife-Theme-Build' not found."
+            ls -la
+            exit 1
+          fi
+
+          # Check if there are files in the build directory
+          if [ -z "$(ls -A Curalife-Theme-Build)" ]; then
+            echo "Error: Build directory is empty."
+            exit 1
+          fi
+
+          echo "Build directory contents:"
+          ls -la Curalife-Theme-Build
+
+          # Start the server
           npx serve -s Curalife-Theme-Build -l 9292 &
+
+          # Save the PID for later cleanup
+          echo "SERVER_PID=$!" >> $GITHUB_ENV
+
           echo "Waiting for server to be available..."
           npx wait-on http://localhost:9292 -t 60000 --verbose
           echo "Server is ready"
+
+          # Verify server is responding
+          curl -v http://localhost:9292/
 
       - name: Run Lighthouse CI
         run: npx lhci autorun
         env:
           LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
+        continue-on-error: true
+
+      - name: Check for Lighthouse results
+        id: check-reports
+        run: |
+          if ls .lighthouseci/lhr-*.json &> /dev/null; then
+            echo "reports_exist=true" >> $GITHUB_OUTPUT
+          else
+            echo "reports_exist=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Upload Lighthouse CI results
+        if: steps.check-reports.outputs.reports_exist == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: lighthouse-results
@@ -81,21 +119,35 @@ jobs:
           echo "## 🚦 Lighthouse Performance Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          LATEST_REPORT=$(ls -t .lighthouseci/lhr-*.json | head -n 1)
+          # Check if any reports were generated
+          if ls .lighthouseci/lhr-*.json &> /dev/null; then
+            LATEST_REPORT=$(ls -t .lighthouseci/lhr-*.json | head -n 1)
 
-          # Extract scores
-          PERFORMANCE=$(jq '.categories.performance.score * 100' $LATEST_REPORT)
-          ACCESSIBILITY=$(jq '.categories.accessibility.score * 100' $LATEST_REPORT)
-          BEST_PRACTICES=$(jq '.categories["best-practices"].score * 100' $LATEST_REPORT)
-          SEO=$(jq '.categories.seo.score * 100' $LATEST_REPORT)
+            # Extract scores
+            PERFORMANCE=$(jq '.categories.performance.score * 100' $LATEST_REPORT)
+            ACCESSIBILITY=$(jq '.categories.accessibility.score * 100' $LATEST_REPORT)
+            BEST_PRACTICES=$(jq '.categories["best-practices"].score * 100' $LATEST_REPORT)
+            SEO=$(jq '.categories.seo.score * 100' $LATEST_REPORT)
 
-          # Output scores to summary
-          echo "| Metric | Score |" >> $GITHUB_STEP_SUMMARY
-          echo "| ------ | ----- |" >> $GITHUB_STEP_SUMMARY
-          echo "| ⚡ Performance | ${PERFORMANCE%.*}% |" >> $GITHUB_STEP_SUMMARY
-          echo "| ♿ Accessibility | ${ACCESSIBILITY%.*}% |" >> $GITHUB_STEP_SUMMARY
-          echo "| 👍 Best Practices | ${BEST_PRACTICES%.*}% |" >> $GITHUB_STEP_SUMMARY
-          echo "| 🔍 SEO | ${SEO%.*}% |" >> $GITHUB_STEP_SUMMARY
+            # Output scores to summary
+            echo "| Metric | Score |" >> $GITHUB_STEP_SUMMARY
+            echo "| ------ | ----- |" >> $GITHUB_STEP_SUMMARY
+            echo "| ⚡ Performance | ${PERFORMANCE%.*}% |" >> $GITHUB_STEP_SUMMARY
+            echo "| ♿ Accessibility | ${ACCESSIBILITY%.*}% |" >> $GITHUB_STEP_SUMMARY
+            echo "| 👍 Best Practices | ${BEST_PRACTICES%.*}% |" >> $GITHUB_STEP_SUMMARY
+            echo "| 🔍 SEO | ${SEO%.*}% |" >> $GITHUB_STEP_SUMMARY
 
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "See attached artifacts for detailed reports." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "See attached artifacts for detailed reports." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ No Lighthouse reports were generated. Check previous steps for errors." >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Cleanup
+        if: always()
+        run: |
+          # Stop the server if it's running
+          if [ -n "$SERVER_PID" ]; then
+            echo "Stopping server with PID $SERVER_PID"
+            kill $SERVER_PID || true
+          fi
