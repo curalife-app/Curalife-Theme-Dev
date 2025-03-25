@@ -685,11 +685,11 @@ echo "        console.log('Looking for actual Lighthouse data...');" >> "$INDEX_
 echo "        " >> "$INDEX_HTML"
 echo "        // Try multiple possible paths to find the data" >> "$INDEX_HTML"
 echo "        const possiblePaths = [" >> "$INDEX_HTML"
-echo "          './%PAGE%-details/metrics-values.json'," >> "$INDEX_HTML"
-echo "          '../processed/%PAGE%/metrics-values.json'," >> "$INDEX_HTML"
-echo "          '../lighthouse-results/processed/%PAGE%/metrics-values.json'," >> "$INDEX_HTML"
-echo "          './processed/%PAGE%/metrics-values.json'" >> "$INDEX_HTML"
-echo "        ];" >> "$INDEX_HTML"
+echo "          '../lighthouse-results/processed/%PAGE%/metrics-values.json',
+          './%PAGE%-details/metrics-values.json',
+          '../processed/%PAGE%/metrics-values.json',
+          './processed/%PAGE%/metrics-values.json'
+        ];" >> "$INDEX_HTML"
 echo "        " >> "$INDEX_HTML"
 echo "        for (let i = 0; i < pageNames.length; i++) {" >> "$INDEX_HTML"
 echo "          const pageName = pageNames[i];" >> "$INDEX_HTML"
