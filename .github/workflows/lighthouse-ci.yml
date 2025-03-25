@@ -43,7 +43,7 @@ jobs:
 
       # Add caching for system dependencies
       - name: Cache system dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         id: cache-sys-deps
         with:
           path: |
@@ -53,7 +53,7 @@ jobs:
 
       # Add caching for jq and other tools that might be needed
       - name: Cache tools
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         id: cache-tools
         with:
           path: |
@@ -64,31 +64,24 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "18"
+          cache: "npm"
 
-      # Add caching for npm packages and Puppeteer
-      - name: Cache dependencies
-        uses: actions/cache@v3
-        id: cache-deps
+      # Create cache directories for Puppeteer
+      - name: Create Puppeteer cache directory
+        run: mkdir -p ~/.cache/puppeteer
+
+      # Cache Puppeteer separately from npm
+      - name: Cache Puppeteer
+        uses: actions/cache@v4
+        id: cache-puppeteer
         with:
-          path: |
-            ~/.npm
-            ~/.cache/puppeteer
-          key: ${{ runner.os }}-node-deps-${{ hashFiles('.github/workflows/lighthouse-ci.yml') }}
-          restore-keys: |
-            ${{ runner.os }}-node-deps-
+          path: ~/.cache/puppeteer
+          key: ${{ runner.os }}-puppeteer-${{ hashFiles('.github/workflows/lighthouse-ci.yml') }}
 
       - name: Install dependencies
-        # Only install dependencies if cache wasn't hit
         run: |
-          # Create cache directories
-          mkdir -p ~/.npm ~/.cache/puppeteer
-
-          if [ "${{ steps.cache-deps.outputs.cache-hit }}" != "true" ]; then
-            echo "Cache miss. Installing dependencies..."
-            npm install -g @lhci/cli puppeteer lighthouse puppeteer-screenshot-cli
-          else
-            echo "Cache hit! Using cached dependencies."
-          fi
+          echo "Installing global dependencies..."
+          npm install -g @lhci/cli puppeteer lighthouse puppeteer-screenshot-cli
 
       - name: Set Chrome flags
         run: |
@@ -174,7 +167,7 @@ jobs:
 
       # Add caching for system dependencies
       - name: Cache system dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         id: cache-sys-deps
         with:
           path: |
@@ -184,7 +177,7 @@ jobs:
 
       # Add caching for jq and other tools that might be needed
       - name: Cache tools
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         id: cache-tools
         with:
           path: |
@@ -196,22 +189,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "18"
-
-      # Cache Node modules
-      - name: Cache Node modules
-        uses: actions/cache@v3
-        id: cache-node-modules
-        with:
-          path: |
-            ~/.npm
-          key: ${{ runner.os }}-dashboard-deps-${{ hashFiles('.github/workflows/lighthouse-ci.yml') }}
-          restore-keys: |
-            ${{ runner.os }}-dashboard-deps-
+          cache: "npm"
 
       - name: Make scripts executable
         run: |
           # Ensure cache directories exist
-          mkdir -p ~/.npm ~/.cache/tools
+          mkdir -p ~/.cache/tools
 
           chmod +x .github/workflows/scripts/make-scripts-executable.sh
           .github/workflows/scripts/make-scripts-executable.sh
@@ -615,7 +598,7 @@ jobs:
 
       # Add caching for GitHub Pages deployment
       - name: Cache GitHub Pages deployment
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         id: cache-gh-pages
         with:
           path: |
