@@ -47,8 +47,8 @@ jobs:
         id: cache-sys-deps
         with:
           path: |
-            /var/cache/apt
-            /var/lib/apt/lists
+            ~/.cache/apt
+            ~/.apt-cache
           key: ${{ runner.os }}-apt-${{ hashFiles('.github/workflows/lighthouse-ci.yml') }}
 
       # Add caching for jq and other tools that might be needed
@@ -57,7 +57,7 @@ jobs:
         id: cache-tools
         with:
           path: |
-            ~/.cache/jq
+            ~/.cache/tools
           key: ${{ runner.os }}-tools-${{ hashFiles('.github/workflows/lighthouse-ci.yml') }}
 
       - name: Setup Node.js
@@ -73,14 +73,16 @@ jobs:
           path: |
             ~/.npm
             ~/.cache/puppeteer
-            node_modules
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json', '**/package.json') }}-${{ hashFiles('.github/workflows/lighthouse-ci.yml') }}
+          key: ${{ runner.os }}-node-deps-${{ hashFiles('.github/workflows/lighthouse-ci.yml') }}
           restore-keys: |
-            ${{ runner.os }}-node-
+            ${{ runner.os }}-node-deps-
 
       - name: Install dependencies
         # Only install dependencies if cache wasn't hit
         run: |
+          # Create cache directories
+          mkdir -p ~/.npm ~/.cache/puppeteer
+
           if [ "${{ steps.cache-deps.outputs.cache-hit }}" != "true" ]; then
             echo "Cache miss. Installing dependencies..."
             npm install -g @lhci/cli puppeteer lighthouse puppeteer-screenshot-cli
@@ -113,9 +115,14 @@ jobs:
 
       - name: Install jq for results processing
         run: |
+          # Create cache directories
+          mkdir -p ~/.cache/apt ~/.apt-cache ~/.cache/tools
+
           if [ "${{ steps.cache-sys-deps.outputs.cache-hit }}" != "true" ]; then
             echo "Cache miss. Installing jq and bc..."
             sudo apt-get update && sudo apt-get install -y jq bc
+            # Copy installed binaries to cache location for future runs
+            which jq bc > ~/.cache/tools/installed_tools.txt
           else
             echo "Cache hit! Using cached apt lists."
             sudo apt-get install -y jq bc --no-update
@@ -171,8 +178,8 @@ jobs:
         id: cache-sys-deps
         with:
           path: |
-            /var/cache/apt
-            /var/lib/apt/lists
+            ~/.cache/apt
+            ~/.apt-cache
           key: ${{ runner.os }}-apt-${{ hashFiles('.github/workflows/lighthouse-ci.yml') }}
 
       # Add caching for jq and other tools that might be needed
@@ -181,7 +188,7 @@ jobs:
         id: cache-tools
         with:
           path: |
-            ~/.cache/jq
+            ~/.cache/tools
           key: ${{ runner.os }}-tools-${{ hashFiles('.github/workflows/lighthouse-ci.yml') }}
 
       # Add Node.js setup for dashboard generation
@@ -197,13 +204,15 @@ jobs:
         with:
           path: |
             ~/.npm
-            node_modules
-          key: ${{ runner.os }}-node-modules-${{ hashFiles('.github/workflows/lighthouse-ci.yml') }}
+          key: ${{ runner.os }}-dashboard-deps-${{ hashFiles('.github/workflows/lighthouse-ci.yml') }}
           restore-keys: |
-            ${{ runner.os }}-node-modules-
+            ${{ runner.os }}-dashboard-deps-
 
       - name: Make scripts executable
         run: |
+          # Ensure cache directories exist
+          mkdir -p ~/.npm ~/.cache/tools
+
           chmod +x .github/workflows/scripts/make-scripts-executable.sh
           .github/workflows/scripts/make-scripts-executable.sh
 
@@ -610,14 +619,15 @@ jobs:
         id: cache-gh-pages
         with:
           path: |
-            performance-reports
+            .gh-pages-cache
           key: ${{ runner.os }}-gh-pages-${{ github.run_id }}
           restore-keys: |
             ${{ runner.os }}-gh-pages-
 
       # Create directory
       - name: Create performance-reports directory
-        run: mkdir -p performance-reports
+        run: |
+          mkdir -p performance-reports .gh-pages-cache
 
       # Download the performance reports
       - name: Download performance reports
