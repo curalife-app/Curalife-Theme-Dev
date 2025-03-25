@@ -84,6 +84,82 @@ jobs:
           .github/workflows/scripts/process-results.sh "${{ matrix.page.name }}" "${{ steps.results-dir.outputs.results_dir }}" "$CURRENT_DATE"
         continue-on-error: true
 
+      - name: Force create HTML report files
+        if: always()
+        run: |
+          mkdir -p performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}
+
+          # Create desktop.html file directly
+          echo "<!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset=\"UTF-8\">
+            <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
+            <title>Desktop Lighthouse Report - ${{ matrix.page.name }}</title>
+            <style>
+              body { font-family: Arial, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; }
+              h1, h2 { color: #2c3e50; }
+              .card { background: white; border-radius: 8px; padding: 20px; margin: 20px 0; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+              .score { display: inline-block; padding: 10px; border-radius: 50%; width: 50px; height: 50px; text-align: center; line-height: 50px; font-weight: bold; color: white; margin-right: 15px; }
+              .good { background-color: #0CCE6B; }
+              .average { background-color: #FFA400; }
+              .poor { background-color: #FF4E42; }
+              .back-link { display: inline-block; margin-top: 20px; padding: 10px 15px; background-color: #4285f4; color: white; text-decoration: none; border-radius: 4px; }
+            </style>
+          </head>
+          <body>
+            <h1>Desktop Lighthouse Report for ${{ matrix.page.name }}</h1>
+            <p>Generated on ${{ steps.scores.outputs.report_date }} via GitHub Actions</p>
+
+            <div class=\"card\">
+              <h2>Performance Scores</h2>
+              <p>Performance: ${{ steps.scores.outputs.desktop_perf || 0 }}%</p>
+              <p>Accessibility: ${{ steps.scores.outputs.desktop_a11y || 0 }}%</p>
+              <p>Best Practices: ${{ steps.scores.outputs.desktop_bp || 0 }}%</p>
+              <p>SEO: ${{ steps.scores.outputs.desktop_seo || 0 }}%</p>
+            </div>
+
+            <a href=\"../../../index.html\" class=\"back-link\">Back to Dashboard</a>
+          </body>
+          </html>" > performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/desktop.html
+
+          # Create mobile.html file directly
+          echo "<!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset=\"UTF-8\">
+            <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
+            <title>Mobile Lighthouse Report - ${{ matrix.page.name }}</title>
+            <style>
+              body { font-family: Arial, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; }
+              h1, h2 { color: #2c3e50; }
+              .card { background: white; border-radius: 8px; padding: 20px; margin: 20px 0; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+              .score { display: inline-block; padding: 10px; border-radius: 50%; width: 50px; height: 50px; text-align: center; line-height: 50px; font-weight: bold; color: white; margin-right: 15px; }
+              .good { background-color: #0CCE6B; }
+              .average { background-color: #FFA400; }
+              .poor { background-color: #FF4E42; }
+              .back-link { display: inline-block; margin-top: 20px; padding: 10px 15px; background-color: #4285f4; color: white; text-decoration: none; border-radius: 4px; }
+            </style>
+          </head>
+          <body>
+            <h1>Mobile Lighthouse Report for ${{ matrix.page.name }}</h1>
+            <p>Generated on ${{ steps.scores.outputs.report_date }} via GitHub Actions</p>
+
+            <div class=\"card\">
+              <h2>Performance Scores</h2>
+              <p>Performance: ${{ steps.scores.outputs.mobile_perf || 0 }}%</p>
+              <p>Accessibility: ${{ steps.scores.outputs.mobile_a11y || 0 }}%</p>
+              <p>Best Practices: ${{ steps.scores.outputs.mobile_bp || 0 }}%</p>
+              <p>SEO: ${{ steps.scores.outputs.mobile_seo || 0 }}%</p>
+            </div>
+
+            <a href=\"../../../index.html\" class=\"back-link\">Back to Dashboard</a>
+          </body>
+          </html>" > performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/mobile.html
+
+          echo "Created static HTML report files:"
+          ls -la performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/
+
       - name: Save reports to performance-reports directory
         if: steps.scores.outputs.has_results == 'true'
         run: |
