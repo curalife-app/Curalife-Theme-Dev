@@ -22,13 +22,7 @@ runs:
         # Create fallback index.html if it doesn't exist
         if [ ! -f "${{ inputs.publish-dir }}/index.html" ]; then
           echo "Creating fallback index.html file..."
-          TEMPLATE_DIR="${{ github.workspace }}/.github/workflows/templates"
-          CURRENT_DATE=$(date)
-
-          cat "$TEMPLATE_DIR/minimal-dashboard.template.html" | \
-            sed -e "s|\${GENERATION_DATE}|$CURRENT_DATE|g" \
-            > "${{ inputs.publish-dir }}/index.html"
-
+          echo '<!DOCTYPE html><html><head><title>Lighthouse Dashboard</title><style>body{font-family:Arial,sans-serif;line-height:1.6;color:#333;max-width:800px;margin:0 auto;padding:20px}h1{color:#2c3e50;border-bottom:2px solid #eee;padding-bottom:10px}.status{background:#f8f9fa;border-left:4px solid #4caf50;padding:15px;margin:20px 0}.error{border-left-color:#f44336}</style></head><body><h1>Lighthouse Performance Dashboard</h1><div class="status error"><h2>No Reports Available</h2><p>No performance reports were found from the latest run.</p><p>Please check the workflow logs for more details or try running the workflow again.</p></div><div class="status"><h2>About This Dashboard</h2><p>This dashboard displays Lighthouse performance metrics for key pages.</p><p>The workflow runs twice daily to track performance over time.</p></div></body></html>' > ${{ inputs.publish-dir }}/index.html
           echo "Created fallback index.html"
         fi
 
@@ -57,11 +51,7 @@ runs:
         echo "Last updated: $(date)" >> ${{ inputs.publish-dir }}/README.md
 
         # Create a simple HTML redirector at the root level
-        TEMPLATE_DIR="${{ github.workspace }}/.github/workflows/templates"
-        cat "$TEMPLATE_DIR/redirect.template.html" | \
-          sed -e "s|\${REDIRECT_URL}|./index.html|g" \
-              -e "s|\${REDIRECT_TITLE}|dashboard|g" \
-          > "${{ inputs.publish-dir }}/_index.html"
+        echo '<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url=./index.html"></head><body><p>Redirecting to <a href="./index.html">dashboard</a>...</p></body></html>' > ${{ inputs.publish-dir }}/_index.html
 
         echo "Files prepared for GitHub Pages:"
         ls -la ${{ inputs.publish-dir }}/

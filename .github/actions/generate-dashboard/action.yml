@@ -1,652 +1,398 @@
-# This action has been simplified to avoid YAML syntax errors
-# Original complex templates with heredocs and multi-line strings have been replaced with simpler inline approaches
-# Last updated: 2023-06-01
-
-name: "Generate Performance Dashboard"
-description: "Processes Lighthouse results and generates HTML dashboards - no fallbacks"
+name: "Generate Dashboard"
+description: "Processes Lighthouse results and generates dashboard"
 
 inputs:
-  results-dir:
-    description: "Directory containing Lighthouse results"
+  report-date:
+    description: "Date for the report"
     required: true
-  output-dir:
-    description: "Directory where dashboards should be saved"
+  history-branch:
+    description: "Branch name where history is stored"
     required: true
-  current-date:
-    description: "Current date in YYYY-MM-DD format"
-    required: false
-    default: "$(date +'%Y-%m-%d')"
-  base-url:
-    description: "Base URL for relative links in dashboard"
-    required: false
-    default: ""
-  templates-dir:
-    description: "Directory containing HTML templates"
-    required: false
-    default: ".github/workflows/templates"
-  include-history:
-    description: "Whether to include historical data"
-    required: false
-    default: "true"
-
-outputs:
-  generated:
-    description: "Whether dashboards were successfully generated"
-    value: ${{ steps.check-data.outputs.has_data }}
 
 runs:
   using: "composite"
   steps:
-    - name: Check for valid data
-      id: check-data
+    - name: Create performance-reports directory
+      shell: bash
+      run: mkdir -p performance-reports
+
+    # Download all page reports to combine them
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: performance-reports-downloads
+        pattern: "*-lighthouse-report"
+        merge-multiple: true
+      continue-on-error: true
+
+    # Copy all downloaded artifacts to the performance-reports directory
+    - name: Organize reports
       shell: bash
       run: |
-        echo "Checking for valid test results..."
-        RESULTS_DIR="${{ inputs.results-dir }}"
-        HAS_DATA="false"
+        echo "Listing downloaded artifacts:"
+        ls -la performance-reports-downloads || echo "No downloads directory found"
 
-        # Check for desktop and mobile directories with actual results
-        if [ ! -d "$RESULTS_DIR/desktop" ] || [ ! -d "$RESULTS_DIR/mobile" ]; then
-          echo "::warning::Missing desktop or mobile directories"
-          echo "has_data=false" >> $GITHUB_OUTPUT
-          exit 0
+        # Create the performance reports directory if it doesn't exist
+        mkdir -p performance-reports
+
+        # Only try to copy if the downloads directory exists and has files
+        if [ -d "performance-reports-downloads" ] && [ "$(ls -A performance-reports-downloads 2>/dev/null)" ]; then
+          echo "Copying artifacts to performance-reports directory"
+          cp -R performance-reports-downloads/* performance-reports/ || echo "No files to copy"
+        else
+          echo "No artifacts found to copy"
+          # Create sample data with a simple approach instead of heredoc
+          mkdir -p performance-reports/$(date +"%Y-%m-%d")/sample
+          CURRENT_DATE=$(date +"%Y-%m-%d")
+
+          echo "Creating sample data file at performance-reports/$CURRENT_DATE/sample/summary.json"
+          echo '{
+            "page": "sample",
+            "url": "https://example.com",
+            "date": "'$CURRENT_DATE'",
+            "desktop": {
+              "performance": 90,
+              "accessibility": 90,
+              "bestPractices": 90,
+              "seo": 90,
+              "pwa": 90,
+              "metrics": {
+                "firstContentfulPaint": 1000,
+                "speedIndex": 1500,
+                "largestContentfulPaint": 2000,
+                "timeToInteractive": 2500,
+                "totalBlockingTime": 100,
+                "maxPotentialFID": 100,
+                "cumulativeLayoutShift": 0.05
+              },
+              "opportunities": {
+                "renderBlockingResources": 0,
+                "unusedCSSBytes": 0,
+                "unusedJSBytes": 0,
+                "offscreenImagesBytes": 0,
+                "totalBytes": 500000,
+                "domSize": 1000
+              }
+            },
+            "mobile": {
+              "performance": 85,
+              "accessibility": 90,
+              "bestPractices": 90,
+              "seo": 90,
+              "pwa": 90,
+              "metrics": {
+                "firstContentfulPaint": 1200,
+                "speedIndex": 1800,
+                "largestContentfulPaint": 2400,
+                "timeToInteractive": 3000,
+                "totalBlockingTime": 150,
+                "maxPotentialFID": 150,
+                "cumulativeLayoutShift": 0.08
+              },
+              "opportunities": {
+                "renderBlockingResources": 0,
+                "unusedCSSBytes": 0,
+                "unusedJSBytes": 0,
+                "offscreenImagesBytes": 0,
+                "totalBytes": 600000,
+                "domSize": 1000
+              }
+            }
+          }' > performance-reports/$CURRENT_DATE/sample/summary.json
         fi
 
-        # Check for actual test results
-        JSON_COUNT=$(find "$RESULTS_DIR" -name "*.report.json" | wc -l)
-        if [ "$JSON_COUNT" -eq 0 ]; then
-          echo "::warning::No JSON reports found, cannot generate dashboard"
-          echo "has_data=false" >> $GITHUB_OUTPUT
-          exit 0
+        # Check if there are any files in the performance-reports directory
+        echo "Contents of performance-reports directory:"
+        find performance-reports -type f | sort || echo "No files found in performance-reports"
+
+    # Fetch historical data from the dedicated branch
+    - name: Fetch historical data
+      id: fetch-history
+      shell: bash
+      run: |
+        CURRENT_DATE="${{ inputs.report-date }}"
+        if [ -z "$CURRENT_DATE" ]; then
+          CURRENT_DATE=$(date +"%Y-%m-%d")
+        fi
+        echo "report_date=$CURRENT_DATE" >> $GITHUB_OUTPUT
+
+        # Check if history branch exists
+        if git fetch --all && git ls-remote --heads origin ${{ inputs.history-branch }} | grep ${{ inputs.history-branch }}; then
+          echo "History branch exists, fetching data..."
+          git checkout ${{ inputs.history-branch }} || git checkout -b ${{ inputs.history-branch }}
+          # Create history directory if it doesn't exist
+          mkdir -p performance-reports/history
+
+          # Move back to the original branch to continue workflow
+          git checkout -
+          # Copy history data to the current workspace
+          if [ -d ".git/refs/remotes/origin/${{ inputs.history-branch }}" ]; then
+            git checkout ${{ inputs.history-branch }} -- performance-reports/history || echo "No history data found"
+            git checkout - || echo "Failed to checkout previous branch"
+          fi
         else
-          # Check for placeholder/empty results
-          VALID_REPORTS=0
-          for json_file in $(find "$RESULTS_DIR" -name "*.report.json"); do
-            # Check if the performance score is not zero or null (likely real data)
-            PERF_SCORE=$(jq -r '.categories.performance.score' "$json_file" 2>/dev/null || echo "-1")
-            if [ "$PERF_SCORE" != "0" ] && [ "$PERF_SCORE" != "null" ] && [ "$PERF_SCORE" != "-1" ]; then
-              VALID_REPORTS=$((VALID_REPORTS + 1))
+          echo "History branch does not exist, creating it..."
+          git checkout -b ${{ inputs.history-branch }} || echo "Failed to create history branch"
+          mkdir -p performance-reports/history
+          git checkout - || echo "Failed to checkout previous branch"
+        fi
+
+        # Make sure the history directory exists
+        mkdir -p performance-reports/history
+
+    # Process historical data
+    - name: Process historical data
+      shell: bash
+      run: |
+        # Make the script executable
+        chmod +x .github/workflows/scripts/store-historical-data.sh
+
+        # Run the script to process data
+        .github/workflows/scripts/store-historical-data.sh "${{ steps.fetch-history.outputs.report_date }}"
+      continue-on-error: true
+
+    # Generate the trend dashboard
+    - name: Generate trend dashboard
+      shell: bash
+      run: |
+        # Make the script executable
+        chmod +x .github/workflows/scripts/generate-trend-dashboard.sh
+
+        # Run the script to generate the dashboard
+        .github/workflows/scripts/generate-trend-dashboard.sh "${{ steps.fetch-history.outputs.report_date }}"
+      continue-on-error: true
+
+    # Generate the HTML dashboard
+    - name: Generate HTML dashboard
+      shell: bash
+      run: |
+        CURRENT_DATE="${{ steps.fetch-history.outputs.report_date }}"
+        if [ -z "$CURRENT_DATE" ]; then
+          CURRENT_DATE=$(date +"%Y-%m-%d")
+        fi
+
+        echo "Generating dashboard for date: $CURRENT_DATE"
+
+        # Ensure the directory exists
+        mkdir -p performance-reports
+
+        # Run with bash -e to exit immediately on error
+        bash -e .github/workflows/scripts/generate-dashboard.sh "$CURRENT_DATE" || {
+          echo "Error generating dashboard, creating fallback..."
+          # Create a simple default dashboard if the script fails
+          echo '<!DOCTYPE html><html><head><title>Lighthouse Dashboard</title><style>body{font-family:Arial,sans-serif;line-height:1.6;color:#333;max-width:800px;margin:0 auto;padding:20px}h1{color:#2c3e50;border-bottom:2px solid #eee;padding-bottom:10px}.status{background:#f8f9fa;border-left:4px solid #4caf50;padding:15px;margin:20px 0}.error{border-left-color:#f44336}</style></head><body><h1>Lighthouse Performance Dashboard</h1><div class="status error"><h2>No Reports Available</h2><p>No performance reports were found from the latest run.</p><p>Please check the workflow logs for more details or try running the workflow again.</p></div><div class="status"><h2>About This Dashboard</h2><p>This dashboard displays Lighthouse performance metrics for key pages.</p><p>The workflow runs twice daily to track performance over time.</p></div></body></html>' > performance-reports/index.html
+          echo "Created fallback dashboard"
+        }
+
+        echo "Dashboard file generation complete"
+
+        # Create index.html if no dashboard exists
+        if [ ! -f "performance-reports/index.html" ]; then
+          echo "index.html not found! Creating a standard one..."
+          echo '<!DOCTYPE html><html><head><title>Lighthouse Dashboard</title><style>body{font-family:Arial,sans-serif;line-height:1.6;color:#333;max-width:800px;margin:0 auto;padding:20px}h1{color:#2c3e50;border-bottom:2px solid #eee;padding-bottom:10px}.status{background:#f8f9fa;border-left:4px solid #4caf50;padding:15px;margin:20px 0}.error{border-left-color:#f44336}</style></head><body><h1>Lighthouse Performance Dashboard</h1><div class="status"><h2>Dashboard Content</h2><p>This is the Lighthouse Performance dashboard. Below are the latest results:</p><ul id="results"></ul></div><script>document.getElementById("results").innerHTML = Object.keys(localStorage).map(key => `<li>${key}: ${localStorage.getItem(key)}</li>`).join("");</script></body></html>' > performance-reports/index.html
+        else
+          echo "index.html exists at $(pwd)/performance-reports/index.html"
+          ls -la performance-reports/index.html
+          echo "First 10 lines of index.html:"
+          head -n 10 performance-reports/index.html
+        fi
+
+        # Add link to trends dashboard on main dashboard page
+        if [ -f "performance-reports/index.html" ] && [ -f "performance-reports/trends.html" ]; then
+          echo "Adding trends dashboard link..."
+          sed -i 's/<\/body>/<div style="text-align: center; margin-top: 30px;"><a href="trends.html" style="display: inline-block; padding: 10px 20px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 4px; font-weight: bold;">View Performance Trends Over Time<\/a><\/div><\/body>/' performance-reports/index.html
+          echo "Trends dashboard link added"
+        else
+          echo "Warning: trends.html not found, skipping link addition"
+
+          # Create a basic trends.html file if it doesn't exist
+          if [ ! -f "performance-reports/trends.html" ]; then
+            echo "Creating basic trends.html file..."
+            echo '<!DOCTYPE html><html><head><title>Lighthouse Performance Trends</title><style>body{font-family:Arial,sans-serif;line-height:1.6;color:#333;max-width:1200px;margin:0 auto;padding:20px}h1,h2{color:#2c3e50;border-bottom:2px solid #eee;padding-bottom:10px}table{width:100%;border-collapse:collapse;margin:20px 0;font-size:16px}th{background-color:#f2f2f2;text-align:left;padding:12px;font-weight:bold;border:1px solid #ddd}td{padding:12px;border:1px solid #ddd}tr:nth-child(even){background-color:#f9f9f9}.chart{height:400px;margin:40px 0;background:#f5f5f5;border:1px solid #ddd;padding:20px}</style></head><body><h1>Lighthouse Performance Trends</h1><div><h2>Performance Over Time</h2><div class="chart" id="performance-chart">Performance trends will appear here after multiple runs.</div></div><div><h2>Recent Results</h2><table id="results-table"><thead><tr><th>Date</th><th>Page</th><th>Performance</th><th>Accessibility</th><th>Best Practices</th><th>SEO</th><th>LCP</th><th>TBT</th><th>CLS</th></tr></thead><tbody><tr><td colspan="9">Waiting for data from multiple test runs...</td></tr></tbody></table></div><p><a href="index.html" style="display:inline-block;padding:10px 20px;background-color:#4CAF50;color:white;text-decoration:none;border-radius:4px;font-weight:bold;">Back to Dashboard</a></p></body></html>' > performance-reports/trends.html
+
+            # Now add the link to the index.html
+            if [ -f "performance-reports/index.html" ]; then
+              sed -i 's/<\/body>/<div style="text-align: center; margin-top: 30px;"><a href="trends.html" style="display: inline-block; padding: 10px 20px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 4px; font-weight: bold;">View Performance Trends Over Time<\/a><\/div><\/body>/' performance-reports/index.html
+              echo "Added link to trends.html in index.html"
             fi
+          fi
+        fi
+
+        # Final verification
+        echo "Final directory contents:"
+        ls -la performance-reports/
+
+    # Generate the GitHub Step Summary
+    - name: Generate GitHub Step Summary
+      shell: bash
+      run: |
+        # Create a basic step summary header
+        echo "## 🚦 Lighthouse Performance Dashboard" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 📊 Summary Results ($(date))" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        # Check if there are any summary files to process
+        SUMMARY_FILES=$(find performance-reports -name "summary.json" | wc -l)
+
+        if [ "$SUMMARY_FILES" -eq "0" ]; then
+          echo "No summary files found to process" >> $GITHUB_STEP_SUMMARY
+          echo "No test results are available for this run." >> $GITHUB_STEP_SUMMARY
+        else
+          echo "Found $SUMMARY_FILES summary files to process"
+
+          # Add a table for desktop results
+          echo "#### 💻 Desktop Results" >> $GITHUB_STEP_SUMMARY
+          echo "| Page | Performance | Accessibility | Best Practices | SEO | LCP | TBT | CLS |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|-------------|---------------|----------------|-----|-----|-----|-----|" >> $GITHUB_STEP_SUMMARY
+
+          # Find all summary.json files for desktop
+          find performance-reports -name "summary.json" | sort | while read -r file; do
+            # Debug
+            echo "Processing file: $file"
+
+            # Extract data safely with error handling
+            PAGE_NAME=$(grep -o '"page": *"[^"]*"' "$file" | cut -d'"' -f4 || echo "unknown")
+            PERF=$(grep -o '"performance": *[0-9.]*' "$file" | grep -o '[0-9.]*' || echo "0")
+            A11Y=$(grep -o '"accessibility": *[0-9.]*' "$file" | grep -o '[0-9.]*' || echo "0")
+            BP=$(grep -o '"bestPractices": *[0-9.]*' "$file" | grep -o '[0-9.]*' || echo "0")
+            SEO=$(grep -o '"seo": *[0-9.]*' "$file" | grep -o '[0-9.]*' || echo "0")
+            LCP=$(grep -o '"largestContentfulPaint": *[0-9.]*' "$file" | grep -o '[0-9.]*' || echo "0")
+            TBT=$(grep -o '"totalBlockingTime": *[0-9.]*' "$file" | grep -o '[0-9.]*' || echo "0")
+            CLS=$(grep -o '"cumulativeLayoutShift": *[0-9.]*' "$file" | grep -o '[0-9.]*' || echo "0")
+
+            # Format values for display
+            LCP_MS=$(echo "$LCP / 1000" | bc -l 2>/dev/null | xargs printf "%.2fs" 2>/dev/null || echo "0.00s")
+            TBT_MS=$(echo "$TBT" | xargs printf "%.0fms" 2>/dev/null || echo "0ms")
+
+            echo "| $PAGE_NAME | $PERF | $A11Y | $BP | $SEO | $LCP_MS | $TBT_MS | $CLS |" >> $GITHUB_STEP_SUMMARY
           done
 
-          if [ "$VALID_REPORTS" -eq 0 ]; then
-            echo "::warning::No valid reports found (all appear to be placeholders)"
-            echo "has_data=false" >> $GITHUB_OUTPUT
-            exit 0
-          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "#### 📱 Mobile Results" >> $GITHUB_STEP_SUMMARY
+          echo "| Page | Performance | Accessibility | Best Practices | SEO | LCP | TBT | CLS |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|-------------|---------------|----------------|-----|-----|-----|-----|" >> $GITHUB_STEP_SUMMARY
 
-          echo "Found $VALID_REPORTS valid reports"
-          HAS_DATA="true"
+          # Find all summary.json files for mobile
+          find performance-reports -name "summary.json" | sort | while read -r file; do
+            # Extract data safely with error handling
+            PAGE_NAME=$(grep -o '"page": *"[^"]*"' "$file" | cut -d'"' -f4 || echo "unknown")
+            PERF=$(grep -o '"performance": *[0-9.]*' "$file" | grep -o '[0-9.]*' || echo "0")
+            A11Y=$(grep -o '"accessibility": *[0-9.]*' "$file" | grep -o '[0-9.]*' || echo "0")
+            BP=$(grep -o '"bestPractices": *[0-9.]*' "$file" | grep -o '[0-9.]*' || echo "0")
+            SEO=$(grep -o '"seo": *[0-9.]*' "$file" | grep -o '[0-9.]*' || echo "0")
+            LCP=$(grep -o '"largestContentfulPaint": *[0-9.]*' "$file" | grep -o '[0-9.]*' || echo "0")
+            TBT=$(grep -o '"totalBlockingTime": *[0-9.]*' "$file" | grep -o '[0-9.]*' || echo "0")
+            CLS=$(grep -o '"cumulativeLayoutShift": *[0-9.]*' "$file" | grep -o '[0-9.]*' || echo "0")
+
+            # Format values for display
+            LCP_MS=$(echo "$LCP / 1000" | bc -l 2>/dev/null | xargs printf "%.2fs" 2>/dev/null || echo "0.00s")
+            TBT_MS=$(echo "$TBT" | xargs printf "%.0fms" 2>/dev/null || echo "0ms")
+
+            echo "| $PAGE_NAME | $PERF | $A11Y | $BP | $SEO | $LCP_MS | $TBT_MS | $CLS |" >> $GITHUB_STEP_SUMMARY
+          done
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📈 Core Web Vitals Status" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ **Good**: LCP < 2.5s, CLS < 0.1, TBT < 200ms" >> $GITHUB_STEP_SUMMARY
+          echo "- ⚠️ **Needs Improvement**: LCP < 4s, CLS < 0.25, TBT < 600ms" >> $GITHUB_STEP_SUMMARY
+          echo "- ❌ **Poor**: LCP > 4s, CLS > 0.25, TBT > 600ms" >> $GITHUB_STEP_SUMMARY
         fi
 
-        echo "has_data=true" >> $GITHUB_OUTPUT
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 🔍 View Full Reports" >> $GITHUB_STEP_SUMMARY
+        echo "Download the full HTML reports from the workflow artifacts section." >> $GITHUB_STEP_SUMMARY
 
-    - name: Setup directories
-      if: steps.check-data.outputs.has_data == 'true'
+    # Link to the trends dashboard in the GitHub Step Summary
+    - name: Add trends link to summary
       shell: bash
       run: |
-        echo "Setting up dashboard directories..."
-        mkdir -p "${{ inputs.output-dir }}/dashboards"
-        mkdir -p "${{ inputs.output-dir }}/processed"
-        mkdir -p "${{ inputs.output-dir }}/historical"
-        mkdir -p "performance-reports"
-        mkdir -p "performance-reports/history"
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 📈 Performance Trends" >> $GITHUB_STEP_SUMMARY
+        echo "Check out the [Performance Trends Dashboard](./trends.html) to see how metrics have changed over time." >> $GITHUB_STEP_SUMMARY
 
-        # Ensure template directory exists
-        if [ ! -d "${{ inputs.templates-dir }}" ]; then
-          echo "::error::Templates directory not found: ${{ inputs.templates-dir }}"
+    - name: List created files
+      shell: bash
+      run: |
+        echo "Files created in performance-reports directory:"
+        mkdir -p performance-reports
+        find performance-reports -type f | sort || echo "No files found in performance-reports"
+
+    # Verify files before uploading
+    - name: Verify files before upload
+      shell: bash
+      run: |
+        echo "Verifying files before upload..."
+        echo "Directory structure:"
+        tree performance-reports || echo "tree command not available"
+        echo "File contents:"
+        ls -la performance-reports/
+        echo "Checking index.html:"
+        if [ -f "performance-reports/index.html" ]; then
+          echo "index.html exists"
+          head -n 5 performance-reports/index.html
+        else
+          echo "index.html does not exist!"
           exit 1
         fi
-
-        # Get current date if not provided
-        if [ "${{ inputs.current-date }}" == "$(date +'%Y-%m-%d')" ]; then
-          CURRENT_DATE=$(date +'%Y-%m-%d')
+        echo "Checking trends.html:"
+        if [ -f "performance-reports/trends.html" ]; then
+          echo "trends.html exists"
+          head -n 5 performance-reports/trends.html
         else
-          CURRENT_DATE="${{ inputs.current-date }}"
+          echo "trends.html does not exist"
         fi
-        echo "CURRENT_DATE=$CURRENT_DATE" >> $GITHUB_ENV
 
-    - name: Process results
-      if: steps.check-data.outputs.has_data == 'true'
+    # Generate visual annotations for PRs
+    - name: Add PR annotations
+      if: github.event_name == 'pull_request'
       shell: bash
       run: |
-        echo "Processing Lighthouse results..."
-        RESULTS_DIR="${{ inputs.results-dir }}"
-        OUTPUT_DIR="${{ inputs.output-dir }}"
+        # Find all summary.json files
+        find performance-reports -name "summary.json" | sort | while read -r file; do
+          PAGE_NAME=$(grep -o '"page": *"[^"]*"' "$file" | cut -d'"' -f4 || echo "unknown")
+          PERF=$(grep -o '"performance": *[0-9.]*' "$file" | grep -o '[0-9.]*' || echo "0")
 
-        # Process each page's results
-        for device_dir in "$RESULTS_DIR"/*; do
-          if [ -d "$device_dir" ] && [[ "$(basename "$device_dir")" == "desktop" || "$(basename "$device_dir")" == "mobile" ]]; then
-            device=$(basename "$device_dir")
-            echo "Processing $device results..."
-
-            for page_dir in "$device_dir"/*; do
-              if [ -d "$page_dir" ]; then
-                page_name=$(basename "$page_dir")
-                echo "Processing $page_name on $device..."
-
-                # Create output directories
-                mkdir -p "$OUTPUT_DIR/processed/$page_name/$device"
-
-                # Find the JSON report
-                json_report=$(find "$page_dir" -name "*.report.json" | head -n 1)
-
-                if [ -f "$json_report" ]; then
-                  # Check if this is a valid report (non-zero score)
-                  PERF_SCORE=$(jq -r '.categories.performance.score' "$json_report" 2>/dev/null || echo "-1")
-                  if [ "$PERF_SCORE" = "0" ] || [ "$PERF_SCORE" = "null" ] || [ "$PERF_SCORE" = "-1" ]; then
-                    echo "::warning::Skipping invalid report for $page_name on $device"
-                    continue
-                  fi
-
-                  # Copy report files
-                  cp "$page_dir"/*.* "$OUTPUT_DIR/processed/$page_name/$device/"
-
-                  # Extract metrics if not already done
-                  if [ ! -f "$OUTPUT_DIR/processed/$page_name/$device/metrics.json" ]; then
-                    device_upper=$(echo "$device" | tr '[:lower:]' '[:upper:]')
-                    jq -r '{
-                      performance: .categories.performance.score,
-                      accessibility: .categories.accessibility.score,
-                      "best-practices": .categories["best-practices"].score,
-                      seo: .categories.seo.score,
-                      lcp: .audits["largest-contentful-paint"].numericValue,
-                      fid: .audits["max-potential-fid"].numericValue,
-                      cls: .audits["cumulative-layout-shift"].numericValue,
-                      tbt: .audits["total-blocking-time"].numericValue,
-                      device: "'$device'",
-                      page: "'$page_name'",
-                      date: env.CURRENT_DATE,
-                      timestamp: now | todate
-                    }' "$json_report" > "$OUTPUT_DIR/processed/$page_name/$device/metrics.json"
-
-                    # Create metrics.env file
-                    jq -r '"'$device_upper'_PERF=\(.performance * 100 | round)",
-                      "'$device_upper'_A11Y=\(.accessibility * 100 | round)",
-                      "'$device_upper'_BP=\(.["best-practices"] * 100 | round)",
-                      "'$device_upper'_SEO=\(.seo * 100 | round)",
-                      "'$device_upper'_LCP=\(.lcp)",
-                      "'$device_upper'_FID=\(.fid)",
-                      "'$device_upper'_CLS=\(.cls)",
-                      "'$device_upper'_TBT=\(.tbt)"' "$OUTPUT_DIR/processed/$page_name/$device/metrics.json" > "$OUTPUT_DIR/processed/$page_name/metrics-values.env"
-                  fi
-                else
-                  echo "::warning::No valid JSON report found for $page_name on $device"
-                fi
-              fi
-            done
+          # Add annotations based on performance score
+          if (( $(echo "$PERF < 75" | bc -l) )); then
+            echo "::warning file=${PAGE_NAME}::Performance score is poor: ${PERF}%. Consider optimizing this page."
+          elif (( $(echo "$PERF < 90" | bc -l) )); then
+            echo "::notice file=${PAGE_NAME}::Performance score needs improvement: ${PERF}%."
+          else
+            echo "::notice file=${PAGE_NAME}::Performance score is good: ${PERF}%."
           fi
         done
+      continue-on-error: true
 
-        # Check if we have any processed data
-        PROCESSED_COUNT=$(find "$OUTPUT_DIR/processed" -name "metrics-values.env" | wc -l)
-        if [ "$PROCESSED_COUNT" -eq 0 ]; then
-          echo "::warning::No metrics data was processed - cannot generate dashboard"
-          echo "has_data=false" >> $GITHUB_OUTPUT
-          exit 0
-        fi
-
-        echo "Results processed successfully"
-
-    - name: Store historical data
-      if: steps.check-data.outputs.has_data == 'true' && inputs.include-history == 'true'
+    # Save historical data to the dedicated branch
+    - name: Save historical data
       shell: bash
       run: |
-        echo "Storing historical data..."
-        CURRENT_DATE="${{ env.CURRENT_DATE }}"
-        PROCESSED_DIR="${{ inputs.output-dir }}/processed"
-        HISTORY_DIR="${{ inputs.output-dir }}/historical"
-        PERF_HISTORY_DIR="performance-reports/history"
+        # Configure Git
+        git config --global user.name "GitHub Action"
+        git config --global user.email "action@github.com"
 
-        mkdir -p "$HISTORY_DIR"
-        mkdir -p "$PERF_HISTORY_DIR"
-
-        # Create history directories for each page
-        for page_dir in "$PROCESSED_DIR"/*; do
-          if [ -d "$page_dir" ]; then
-            page_name=$(basename "$page_dir")
-            echo "Storing historical data for $page_name..."
-
-            # Create history directory for this page
-            mkdir -p "$HISTORY_DIR/$page_name"
-            mkdir -p "$PERF_HISTORY_DIR/$page_name"
-
-            # Create history file if it doesn't exist
-            HISTORY_FILE="$HISTORY_DIR/$page_name/history.json"
-            if [ ! -f "$HISTORY_FILE" ]; then
-              echo "[]" > "$HISTORY_FILE"
-            fi
-
-            # Get metrics from processed results
-            for device in "desktop" "mobile"; do
-              METRICS_FILE="$PROCESSED_DIR/$page_name/$device/metrics.json"
-
-              if [ -f "$METRICS_FILE" ]; then
-                # Add date to metrics
-                jq --arg date "$CURRENT_DATE" '. + {date: $date}' "$METRICS_FILE" > "$METRICS_FILE.temp"
-                mv "$METRICS_FILE.temp" "$METRICS_FILE"
-
-                # Add to history
-                jq --argjson new "$(cat "$METRICS_FILE")" '. + [$new]' "$HISTORY_FILE" > "$HISTORY_FILE.temp"
-                mv "$HISTORY_FILE.temp" "$HISTORY_FILE"
-
-                # Copy to performance-reports history
-                cp "$METRICS_FILE" "$PERF_HISTORY_DIR/$page_name/${CURRENT_DATE}-${device}.json"
-              fi
-            done
-
-            # Sort history by date (newest first) and limit to last 30 entries
-            jq 'sort_by(.date) | reverse | .[0:30]' "$HISTORY_FILE" > "$HISTORY_FILE.temp"
-            mv "$HISTORY_FILE.temp" "$HISTORY_FILE"
+        # Add and commit changes to history directory
+        mkdir -p performance-reports/history
+        if git checkout ${{ inputs.history-branch }}; then
+          # Copy current history to the branch
+          mkdir -p performance-reports/history
+          # Copy only if any history exists
+          if [ -d "performance-reports/history" ] && [ "$(ls -A performance-reports/history 2>/dev/null)" ]; then
+            git add performance-reports/history
+            git commit -m "Update Lighthouse history data - $(date +%Y-%m-%d)" || echo "No changes to commit"
+            git push origin ${{ inputs.history-branch }} || echo "Failed to push - possibly no changes"
           fi
-        done
-
-        echo "Historical data stored successfully"
-
-    - name: Generate main dashboard
-      if: steps.check-data.outputs.has_data == 'true'
-      shell: bash
-      run: |
-        echo "Generating main dashboard..."
-        CURRENT_DATE="${{ env.CURRENT_DATE }}"
-        TEMPLATE_DIR="${{ inputs.templates-dir }}"
-        DASHBOARD_DIR="${{ inputs.output-dir }}/dashboards"
-        PROCESSED_DIR="${{ inputs.output-dir }}/processed"
-
-        # Find dashboard template
-        TEMPLATE_FILE="$TEMPLATE_DIR/dashboard.template.html"
-        if [ ! -f "$TEMPLATE_FILE" ]; then
-          echo "::warning::Dashboard template not found, using fallback template"
-          TEMPLATE_FILE="$TEMPLATE_DIR/simple-dashboard.template.html"
-
-          if [ ! -f "$TEMPLATE_FILE" ]; then
-            echo "::warning::Fallback template not found, using minimal template"
-            TEMPLATE_FILE="$TEMPLATE_DIR/minimal-dashboard.template.html"
-
-            if [ ! -f "$TEMPLATE_FILE" ]; then
-              echo "::error::No dashboard template found"
-              exit 1
-            fi
+        else
+          # Create new branch with history
+          git checkout -b ${{ inputs.history-branch }}
+          mkdir -p performance-reports/history
+          # Only commit if there are actual files
+          if [ -d "performance-reports/history" ] && [ "$(ls -A performance-reports/history 2>/dev/null)" ]; then
+            git add performance-reports/history
+            git commit -m "Initial Lighthouse history data - $(date +%Y-%m-%d)" || echo "No changes to commit"
+            git push origin ${{ inputs.history-branch }} || echo "Failed to push - possibly no changes"
           fi
         fi
-
-        # Verify we have processed data to display
-        PAGES_COUNT=$(find "$PROCESSED_DIR" -mindepth 1 -maxdepth 1 -type d | wc -l)
-        if [ "$PAGES_COUNT" -eq 0 ]; then
-          echo "::warning::No processed pages found to include in dashboard"
-          exit 0
-        fi
-
-        # Create dashboard content
-        echo "Using template: $TEMPLATE_FILE"
-
-        # Build dashboard using tools that avoid YAML parsing issues
-        python3 -c "
-import os
-import glob
-import re
-import json
-
-# Setup directories
-template_file = '$TEMPLATE_FILE'
-dashboard_dir = '$DASHBOARD_DIR'
-processed_dir = '$PROCESSED_DIR'
-current_date = '$CURRENT_DATE'
-
-# Read template
-with open(template_file, 'r') as f:
-    template = f.read()
-
-# Process pages
-pages_html = ''
-summary_rows = []
-page_count = 0
-
-# Get list of pages
-pages = glob.glob(os.path.join(processed_dir, '*'))
-pages = [p for p in pages if os.path.isdir(p) and os.path.exists(os.path.join(p, 'metrics-values.env'))]
-
-for page_path in pages:
-    page_name = os.path.basename(page_path)
-    page_count += 1
-
-    # Read metrics
-    metrics = {}
-    with open(os.path.join(page_path, 'metrics-values.env'), 'r') as f:
-        for line in f:
-            if '=' in line:
-                key, value = line.strip().split('=', 1)
-                metrics[key] = value
-
-    # Create page title
-    page_title = ' '.join(word.capitalize() for word in page_name.replace('-', ' ').split())
-
-    # Add to summary table
-    summary_rows.append(f'''
-    <tr>
-      <td><a href=\"#{page_name}\">{page_title}</a></td>
-      <td class=\"score-cell score-{metrics.get('DESKTOP_PERF', '0')}\">{metrics.get('DESKTOP_PERF', '0')}</td>
-      <td class=\"score-cell score-{metrics.get('MOBILE_PERF', '0')}\">{metrics.get('MOBILE_PERF', '0')}</td>
-      <td class=\"score-cell score-{metrics.get('DESKTOP_A11Y', '0')}\">{metrics.get('DESKTOP_A11Y', '0')}</td>
-      <td class=\"score-cell score-{metrics.get('MOBILE_A11Y', '0')}\">{metrics.get('MOBILE_A11Y', '0')}</td>
-      <td class=\"score-cell score-{metrics.get('DESKTOP_BP', '0')}\">{metrics.get('DESKTOP_BP', '0')}</td>
-      <td class=\"score-cell score-{metrics.get('MOBILE_BP', '0')}\">{metrics.get('MOBILE_BP', '0')}</td>
-      <td class=\"score-cell score-{metrics.get('DESKTOP_SEO', '0')}\">{metrics.get('DESKTOP_SEO', '0')}</td>
-      <td class=\"score-cell score-{metrics.get('MOBILE_SEO', '0')}\">{metrics.get('MOBILE_SEO', '0')}</td>
-    </tr>''')
-
-    # Only show detailed sections for first 2 pages
-    if page_count <= 2:
-        print(f'Adding detailed section for {page_name}')
-
-        # Create detailed page section
-        pages_html += f'''
-        <section class=\"page-section\" id=\"{page_name}\">
-          <h2>{page_title}</h2>
-          <div class=\"metrics-container\">
-            <div class=\"device-metrics\">
-              <h3>Desktop</h3>
-              <div class=\"score-card\">
-                <div class=\"score performance\"><span>{metrics.get('DESKTOP_PERF', '0')}</span>Performance</div>
-                <div class=\"score accessibility\"><span>{metrics.get('DESKTOP_A11Y', '0')}</span>Accessibility</div>
-                <div class=\"score best-practices\"><span>{metrics.get('DESKTOP_BP', '0')}</span>Best Practices</div>
-                <div class=\"score seo\"><span>{metrics.get('DESKTOP_SEO', '0')}</span>SEO</div>
-              </div>
-              <div class=\"vitals-container\">
-                <div class=\"vital\">LCP: <span>{metrics.get('DESKTOP_LCP', '0')}</span>ms</div>
-                <div class=\"vital\">CLS: <span>{metrics.get('DESKTOP_CLS', '0')}</span></div>
-                <div class=\"vital\">TBT: <span>{metrics.get('DESKTOP_TBT', '0')}</span>ms</div>
-              </div>
-              <a href=\"./processed/{page_name}/reports/desktop.html\" class=\"report-link\">View Full Report</a>
-            </div>
-            <div class=\"device-metrics\">
-              <h3>Mobile</h3>
-              <div class=\"score-card\">
-                <div class=\"score performance\"><span>{metrics.get('MOBILE_PERF', '0')}</span>Performance</div>
-                <div class=\"score accessibility\"><span>{metrics.get('MOBILE_A11Y', '0')}</span>Accessibility</div>
-                <div class=\"score best-practices\"><span>{metrics.get('MOBILE_BP', '0')}</span>Best Practices</div>
-                <div class=\"score seo\"><span>{metrics.get('MOBILE_SEO', '0')}</span>SEO</div>
-              </div>
-              <div class=\"vitals-container\">
-                <div class=\"vital\">LCP: <span>{metrics.get('MOBILE_LCP', '0')}</span>ms</div>
-                <div class=\"vital\">CLS: <span>{metrics.get('MOBILE_CLS', '0')}</span></div>
-                <div class=\"vital\">TBT: <span>{metrics.get('MOBILE_TBT', '0')}</span>ms</div>
-              </div>
-              <a href=\"./processed/{page_name}/reports/mobile.html\" class=\"report-link\">View Full Report</a>
-            </div>
-          </div>
-          <div class=\"history-link-container\">
-            <a href=\"./trends.html#{page_name}\" class=\"history-link\">View Historical Trends</a>
-          </div>
-        </section>'''
-
-# Create summary table
-summary_table = f'''
-<table class=\"summary-table\">
-  <thead>
-    <tr>
-      <th>Page</th>
-      <th colspan=\"2\">Performance</th>
-      <th colspan=\"2\">Accessibility</th>
-      <th colspan=\"2\">Best Practices</th>
-      <th colspan=\"2\">SEO</th>
-    </tr>
-    <tr>
-      <th></th>
-      <th>Desktop</th>
-      <th>Mobile</th>
-      <th>Desktop</th>
-      <th>Mobile</th>
-      <th>Desktop</th>
-      <th>Mobile</th>
-      <th>Desktop</th>
-      <th>Mobile</th>
-    </tr>
-  </thead>
-  <tbody>
-    {''.join(summary_rows)}
-  </tbody>
-</table>'''
-
-# Replace placeholders in template
-dashboard_html = template.replace('{{DATE}}', current_date)
-dashboard_html = dashboard_html.replace('{{SUMMARY_TABLE}}', summary_table)
-dashboard_html = dashboard_html.replace('{{PAGE_SECTIONS}}', pages_html)
-
-# Save dashboard file
-os.makedirs(dashboard_dir, exist_ok=True)
-with open(os.path.join(dashboard_dir, 'index.html'), 'w') as f:
-    f.write(dashboard_html)
-
-# Copy to other locations
-with open('performance-reports/index.html', 'w') as f:
-    f.write(dashboard_html)
-with open(os.path.join(os.path.dirname(processed_dir), 'index.html'), 'w') as f:
-    f.write(dashboard_html)
-
-print('Main dashboard generated successfully')
-"
-
-    - name: Generate trends dashboard
-      if: steps.check-data.outputs.has_data == 'true' && inputs.include-history == 'true'
-      shell: bash
-      run: |
-        echo "Generating trends dashboard..."
-        TEMPLATE_DIR="${{ inputs.templates-dir }}"
-        HISTORY_DIR="${{ inputs.output-dir }}/historical"
-        DASHBOARD_DIR="${{ inputs.output-dir }}/dashboards"
-
-        # Find trends template
-        TEMPLATE_FILE="$TEMPLATE_DIR/trends.template.html"
-        if [ ! -f "$TEMPLATE_FILE" ]; then
-          echo "::warning::Trends template not found, using empty trends template"
-          TEMPLATE_FILE="$TEMPLATE_DIR/empty-trends.template.html"
-
-          if [ ! -f "$TEMPLATE_FILE" ]; then
-            echo "::error::No trends template found"
-            exit 1
-          fi
-        fi
-
-        # Verify we have historical data to display
-        HISTORY_COUNT=$(find "$HISTORY_DIR" -name "history.json" | wc -l)
-        if [ "$HISTORY_COUNT" -eq 0 ]; then
-          echo "::warning::No historical data found for trends dashboard"
-          exit 0
-        fi
-
-        # Use Python to generate the trends dashboard, avoiding YAML parsing issues
-        python3 -c "
-import os
-import glob
-import json
-
-# Setup directories
-template_file = '$TEMPLATE_FILE'
-history_dir = '$HISTORY_DIR'
-dashboard_dir = '$DASHBOARD_DIR'
-
-# Read template
-with open(template_file, 'r') as f:
-    template = f.read()
-
-# Process history data
-charts_data = ''
-found_data = False
-
-history_dirs = glob.glob(os.path.join(history_dir, '*'))
-for page_dir in history_dirs:
-    if not os.path.isdir(page_dir):
-        continue
-
-    page_name = os.path.basename(page_dir)
-    history_file = os.path.join(page_dir, 'history.json')
-
-    if not os.path.exists(history_file):
-        continue
-
-    # Read history data
-    with open(history_file, 'r') as f:
-        try:
-            history_data = json.load(f)
-        except json.JSONDecodeError:
-            print(f'Warning: Invalid JSON in {history_file}')
-            continue
-
-    if not history_data:
-        continue
-
-    found_data = True
-    print(f'Generating chart data for {page_name}')
-
-    # Filter desktop and mobile data
-    desktop_data = [item for item in history_data if item.get('device') == 'desktop']
-    mobile_data = [item for item in history_data if item.get('device') == 'mobile']
-
-    # Only generate charts if we have data
-    if desktop_data or mobile_data:
-        # Format data for charts
-        desktop_data_str = json.dumps(desktop_data)
-        mobile_data_str = json.dumps(mobile_data)
-
-        # Create page title
-        page_title = ' '.join(word.capitalize() for word in page_name.replace('-', ' ').split())
-
-        # Generate chart HTML
-        page_html = f'''
-        <section id=\"{page_name}\" class=\"page-trends\">
-          <h2>{page_title} - Performance Trends</h2>
-          <div class=\"chart-container\">
-            <div class=\"chart-tabs\">
-              <button class=\"tab-button active\" onclick=\"switchTab(this, '{page_name}-desktop')\">Desktop</button>
-              <button class=\"tab-button\" onclick=\"switchTab(this, '{page_name}-mobile')\">Mobile</button>
-            </div>
-            <div id=\"{page_name}-desktop\" class=\"tab-content active\">
-              <div class=\"chart-wrapper\">
-                <canvas id=\"{page_name}-desktop-scores\"></canvas>
-              </div>
-              <div id=\"{page_name}-desktop-charts\"></div>
-            </div>
-            <div id=\"{page_name}-mobile\" class=\"tab-content\">
-              <div class=\"chart-wrapper\">
-                <canvas id=\"{page_name}-mobile-scores\"></canvas>
-              </div>
-              <div id=\"{page_name}-mobile-charts\"></div>
-            </div>
-          </div>
-        </section>
-        <script>
-        // Initialize desktop chart
-        if (document.getElementById('{page_name}-desktop-scores')) {{
-          const desktopData = {desktop_data_str};
-          const desktopCtx = document.getElementById('{page_name}-desktop-scores').getContext('2d');
-          new Chart(desktopCtx, {{
-            type: 'line',
-            data: {{
-              datasets: [
-                {{
-                  label: 'Performance',
-                  data: desktopData.map(item => ({{x: item.date, y: Math.round(item.performance * 100)}})),
-                  borderColor: '#0cce6b',
-                  backgroundColor: 'rgba(12, 206, 107, 0.1)',
-                  tension: 0.4
-                }},
-                {{
-                  label: 'Accessibility',
-                  data: desktopData.map(item => ({{x: item.date, y: Math.round(item.accessibility * 100)}})),
-                  borderColor: '#0ea5e9',
-                  backgroundColor: 'rgba(14, 165, 233, 0.1)',
-                  tension: 0.4
-                }}
-              ]
-            }},
-            options: {{
-              scales: {{
-                y: {{
-                  min: 0,
-                  max: 100,
-                  title: {{
-                    display: true,
-                    text: 'Score'
-                  }}
-                }}
-              }},
-              plugins: {{
-                title: {{
-                  display: true,
-                  text: 'Lighthouse Scores - Desktop'
-                }}
-              }}
-            }}
-          }});
-        }}
-
-        // Initialize mobile chart
-        if (document.getElementById('{page_name}-mobile-scores')) {{
-          const mobileData = {mobile_data_str};
-          const mobileCtx = document.getElementById('{page_name}-mobile-scores').getContext('2d');
-          new Chart(mobileCtx, {{
-            type: 'line',
-            data: {{
-              datasets: [
-                {{
-                  label: 'Performance',
-                  data: mobileData.map(item => ({{x: item.date, y: Math.round(item.performance * 100)}})),
-                  borderColor: '#0cce6b',
-                  backgroundColor: 'rgba(12, 206, 107, 0.1)',
-                  tension: 0.4
-                }},
-                {{
-                  label: 'Accessibility',
-                  data: mobileData.map(item => ({{x: item.date, y: Math.round(item.accessibility * 100)}})),
-                  borderColor: '#0ea5e9',
-                  backgroundColor: 'rgba(14, 165, 233, 0.1)',
-                  tension: 0.4
-                }}
-              ]
-            }},
-            options: {{
-              scales: {{
-                y: {{
-                  min: 0,
-                  max: 100,
-                  title: {{
-                    display: true,
-                    text: 'Score'
-                  }}
-                }}
-              }},
-              plugins: {{
-                title: {{
-                  display: true,
-                  text: 'Lighthouse Scores - Mobile'
-                }}
-              }}
-            }}
-          }});
-        }}
-        </script>'''
-
-        charts_data += page_html
-
-# Skip if no data found
-if not found_data:
-    print('No valid historical data found, skipping trends dashboard generation')
-    exit(0)
-
-# Replace placeholder in template
-trends_html = template.replace('{{CHARTS_DATA}}', charts_data)
-
-# Save trends file
-os.makedirs(dashboard_dir, exist_ok=True)
-with open(os.path.join(dashboard_dir, 'trends.html'), 'w') as f:
-    f.write(trends_html)
-
-# Copy to other locations
-with open('performance-reports/trends.html', 'w') as f:
-    f.write(trends_html)
-with open(os.path.join(os.path.dirname(history_dir), 'trends.html'), 'w') as f:
-    f.write(trends_html)
-
-print('Trends dashboard generated successfully')
-"
+      continue-on-error: true

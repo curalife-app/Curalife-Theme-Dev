@@ -19,38 +19,27 @@ fi
 
 # Process all summary.json files from the current run
 find performance-reports -name "summary.json" | while read -r file; do
-  echo "Processing historical data from $file"
-
-  # Use jq to properly extract values from JSON
-  PAGE_NAME=$(jq -r '.page // "unknown"' "$file")
-  URL=$(jq -r '.url // "unknown"' "$file")
+  # Extract key metrics from the summary file
+  PAGE_NAME=$(grep -o '"page": *"[^"]*"' "$file" | cut -d'"' -f4 || echo "unknown")
+  URL=$(grep -o '"url": *"[^"]*"' "$file" | cut -d'"' -f4 || echo "unknown")
 
   # Desktop metrics
-  DESKTOP_PERF=$(jq -r '.desktop.performance // 0' "$file")
-  DESKTOP_A11Y=$(jq -r '.desktop.accessibility // 0' "$file")
-  DESKTOP_BP=$(jq -r '.desktop.bestPractices // 0' "$file")
-  DESKTOP_SEO=$(jq -r '.desktop.seo // 0' "$file")
-
-  # Desktop Web Vitals - extract from metrics object
-  DESKTOP_LCP=$(jq -r '.desktop.metrics.LCP // 0' "$file")
-  DESKTOP_TBT=$(jq -r '.desktop.metrics.TBT // 0' "$file")
-  DESKTOP_CLS=$(jq -r '.desktop.metrics.CLS // 0' "$file")
+  DESKTOP_PERF=$(grep -o '"desktop":{[^}]*"performance": *[0-9.]*' "$file" | grep -o '[0-9.]*$' || echo "0")
+  DESKTOP_A11Y=$(grep -o '"desktop":{[^}]*"accessibility": *[0-9.]*' "$file" | grep -o '[0-9.]*$' || echo "0")
+  DESKTOP_BP=$(grep -o '"desktop":{[^}]*"bestPractices": *[0-9.]*' "$file" | grep -o '[0-9.]*$' || echo "0")
+  DESKTOP_SEO=$(grep -o '"desktop":{[^}]*"seo": *[0-9.]*' "$file" | grep -o '[0-9.]*$' || echo "0")
+  DESKTOP_LCP=$(grep -o '"desktop":{[^}]*"largestContentfulPaint": *[0-9.]*' "$file" | grep -o '[0-9.]*$' || echo "0")
+  DESKTOP_TBT=$(grep -o '"desktop":{[^}]*"totalBlockingTime": *[0-9.]*' "$file" | grep -o '[0-9.]*$' || echo "0")
+  DESKTOP_CLS=$(grep -o '"desktop":{[^}]*"cumulativeLayoutShift": *[0-9.]*' "$file" | grep -o '[0-9.]*$' || echo "0")
 
   # Mobile metrics
-  MOBILE_PERF=$(jq -r '.mobile.performance // 0' "$file")
-  MOBILE_A11Y=$(jq -r '.mobile.accessibility // 0' "$file")
-  MOBILE_BP=$(jq -r '.mobile.bestPractices // 0' "$file")
-  MOBILE_SEO=$(jq -r '.mobile.seo // 0' "$file")
-
-  # Mobile Web Vitals - extract from metrics object
-  MOBILE_LCP=$(jq -r '.mobile.metrics.LCP // 0' "$file")
-  MOBILE_TBT=$(jq -r '.mobile.metrics.TBT // 0' "$file")
-  MOBILE_CLS=$(jq -r '.mobile.metrics.CLS // 0' "$file")
-
-  # Print values for debugging
-  echo "Page: $PAGE_NAME, URL: $URL"
-  echo "Desktop - Performance: $DESKTOP_PERF, LCP: $DESKTOP_LCP, TBT: $DESKTOP_TBT, CLS: $DESKTOP_CLS"
-  echo "Mobile - Performance: $MOBILE_PERF, LCP: $MOBILE_LCP, TBT: $MOBILE_TBT, CLS: $MOBILE_CLS"
+  MOBILE_PERF=$(grep -o '"mobile":{[^}]*"performance": *[0-9.]*' "$file" | grep -o '[0-9.]*$' || echo "0")
+  MOBILE_A11Y=$(grep -o '"mobile":{[^}]*"accessibility": *[0-9.]*' "$file" | grep -o '[0-9.]*$' || echo "0")
+  MOBILE_BP=$(grep -o '"mobile":{[^}]*"bestPractices": *[0-9.]*' "$file" | grep -o '[0-9.]*$' || echo "0")
+  MOBILE_SEO=$(grep -o '"mobile":{[^}]*"seo": *[0-9.]*' "$file" | grep -o '[0-9.]*$' || echo "0")
+  MOBILE_LCP=$(grep -o '"mobile":{[^}]*"largestContentfulPaint": *[0-9.]*' "$file" | grep -o '[0-9.]*$' || echo "0")
+  MOBILE_TBT=$(grep -o '"mobile":{[^}]*"totalBlockingTime": *[0-9.]*' "$file" | grep -o '[0-9.]*$' || echo "0")
+  MOBILE_CLS=$(grep -o '"mobile":{[^}]*"cumulativeLayoutShift": *[0-9.]*' "$file" | grep -o '[0-9.]*$' || echo "0")
 
   # Create a page-specific history file for easier processing
   PAGE_HISTORY_FILE="$HISTORY_DIR/${PAGE_NAME}-history.json"
