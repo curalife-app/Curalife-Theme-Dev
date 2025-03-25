@@ -44,17 +44,32 @@ else
   MOBILE_TBT=0
 fi
 
-# Check if metrics values indicate placeholder data (specific values of 42 or 24)
+# Check for placeholder values (42 or 50 for desktop, 24 or 40 for mobile)
 IS_DESKTOP_PLACEHOLDER=false
-if [[ "$DESKTOP_PERF" == "42" || "$DESKTOP_LCP" == "4242" ]]; then
+IS_MOBILE_PLACEHOLDER=false
+
+# Check for explicit placeholder values (42)
+if [ "$DESKTOP_PERF" = "42" ] || [ "$DESKTOP_A11Y" = "42" ] || [ "$DESKTOP_BP" = "42" ] || [ "$DESKTOP_SEO" = "42" ]; then
   IS_DESKTOP_PLACEHOLDER=true
-  echo "Warning: Desktop report will display placeholder values"
+  echo "WARNING: Desktop report contains placeholder values (42). It will be marked as placeholder data."
 fi
 
-IS_MOBILE_PLACEHOLDER=false
-if [[ "$MOBILE_PERF" == "24" || "$MOBILE_LCP" == "2424" ]]; then
+# Check for fixed values (all 50s)
+if [ "$DESKTOP_PERF" = "50" ] && [ "$DESKTOP_A11Y" = "50" ] && [ "$DESKTOP_BP" = "50" ] && [ "$DESKTOP_SEO" = "50" ]; then
+  IS_DESKTOP_PLACEHOLDER=true
+  echo "WARNING: Desktop report contains fixed placeholder values (all 50s). It will be marked as placeholder data."
+fi
+
+# Check for explicit placeholder values (24)
+if [ "$MOBILE_PERF" = "24" ] || [ "$MOBILE_A11Y" = "24" ] || [ "$MOBILE_BP" = "24" ] || [ "$MOBILE_SEO" = "24" ]; then
   IS_MOBILE_PLACEHOLDER=true
-  echo "Warning: Mobile report will display placeholder values"
+  echo "WARNING: Mobile report contains placeholder values (24). It will be marked as placeholder data."
+fi
+
+# Check for fixed values (performance=40, others=50)
+if [ "$MOBILE_PERF" = "40" ] && [ "$MOBILE_A11Y" = "50" ] && [ "$MOBILE_BP" = "50" ] && [ "$MOBILE_SEO" = "50" ]; then
+  IS_MOBILE_PLACEHOLDER=true
+  echo "WARNING: Mobile report contains fixed placeholder values (40/50). It will be marked as placeholder data."
 fi
 
 # Function to create LCP value in seconds with proper formatting

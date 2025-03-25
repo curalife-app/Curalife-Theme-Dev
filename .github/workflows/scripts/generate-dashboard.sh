@@ -347,7 +347,13 @@ echo "                <li>The Lighthouse tests failed to run successfully</li>" 
 echo "                <li>The test results couldn't be retrieved or processed</li>" >> "$INDEX_HTML"
 echo "                <li>There was an issue connecting to the test environment</li>" >> "$INDEX_HTML"
 echo "              </ul>" >> "$INDEX_HTML"
-echo "              <p><strong>Any value of 42 (desktop) or 24 (mobile) indicates placeholder data, not real test results.</strong></p>" >> "$INDEX_HTML"
+echo "              <p><strong>The following values indicate placeholder data, not real test results:</strong></p>" >> "$INDEX_HTML"
+echo "              <ul>" >> "$INDEX_HTML"
+echo "                <li>Fixed performance scores of 50 for desktop and 40 for mobile</li>" >> "$INDEX_HTML"
+echo "                <li>Identical scores of 50 for Accessibility, Best Practices, and SEO</li>" >> "$INDEX_HTML"
+echo "                <li>Values of 42 (desktop) or 24 (mobile) for any metric</li>" >> "$INDEX_HTML"
+echo "                <li>Identical LCP, FID, and CLS values across multiple pages</li>" >> "$INDEX_HTML"
+echo "              </ul>" >> "$INDEX_HTML"
 echo "            </div>" >> "$INDEX_HTML"
 echo "          </div>" >> "$INDEX_HTML"
 echo "        </div>" >> "$INDEX_HTML"
@@ -816,10 +822,10 @@ echo "        const dataPathsEl = document.getElementById('data-paths');" >> "$I
 echo "        " >> "$INDEX_HTML"
 echo "        if (dataSourceInfo && dataPathsEl) {" >> "$INDEX_HTML"
 echo "          let sourceInfoHtml = '';" >> "$INDEX_HTML"
-echo "          let pathsInfo = 'Attempted paths:\\n\\n';" >> "$INDEX_HTML"
-echo "          " >> "$INDEX_HTML"
-echo "          // Collect all attempted paths for each page" >> "$INDEX_HTML"
-echo "          const allPaths = {};" >> "$INDEX_HTML"
+echo "          let pathsInfo = 'Attempted paths:\n\n';" >> "$INDEX_HTML"
+echo "
+          // Collect all attempted paths for each page
+          const allPaths = {};" >> "$INDEX_HTML"
 echo "          for (const path of possiblePaths) {" >> "$INDEX_HTML"
 echo "            for (const page of pageNames) {" >> "$INDEX_HTML"
 echo "              const fullPath = path.replace('%PAGE%', page);" >> "$INDEX_HTML"
@@ -827,41 +833,130 @@ echo "              if (!allPaths[page]) allPaths[page] = [];" >> "$INDEX_HTML"
 echo "              allPaths[page].push(fullPath);" >> "$INDEX_HTML"
 echo "            }" >> "$INDEX_HTML"
 echo "          }" >> "$INDEX_HTML"
-echo "          " >> "$INDEX_HTML"
-echo "          // Add paths to the debug info" >> "$INDEX_HTML"
-echo "          for (const page in allPaths) {" >> "$INDEX_HTML"
-echo "            pathsInfo += page + ':\\n';" >> "$INDEX_HTML"
+echo "
+          // Add paths to the debug info
+          for (const page in allPaths) {" >> "$INDEX_HTML"
+echo "            pathsInfo += page + ':\n';" >> "$INDEX_HTML"
 echo "            for (const path of allPaths[page]) {" >> "$INDEX_HTML"
-echo "              pathsInfo += '- ' + path + '\\n';" >> "$INDEX_HTML"
+echo "              pathsInfo += '- ' + path + '\n';" >> "$INDEX_HTML"
 echo "            }" >> "$INDEX_HTML"
-echo "            pathsInfo += '\\n';" >> "$INDEX_HTML"
+echo "            pathsInfo += '\n';" >> "$INDEX_HTML"
 echo "          }" >> "$INDEX_HTML"
-echo "          " >> "$INDEX_HTML"
-echo "          if (loadedActualData) {" >> "$INDEX_HTML"
-echo "            sourceInfoHtml += '<div class=\"alert alert-success\"><strong>Success:</strong> Data loaded from actual Lighthouse CI reports.</div>';" >> "$INDEX_HTML"
-echo "            sourceInfoHtml += '<ul>';" >> "$INDEX_HTML"
-echo "            for (const page of performanceData.pages) {" >> "$INDEX_HTML"
-echo "              // Check if page data is placeholder data" >> "$INDEX_HTML"
-echo "              const isDesktopPlaceholder = page.is_placeholder_data?.desktop === true;" >> "$INDEX_HTML"
-echo "              const isMobilePlaceholder = page.is_placeholder_data?.mobile === true;" >> "$INDEX_HTML"
-echo "              " >> "$INDEX_HTML"
-echo "              if (isDesktopPlaceholder || isMobilePlaceholder) {" >> "$INDEX_HTML"
-echo "                const placeholderTypes = [];" >> "$INDEX_HTML"
-echo "                if (isDesktopPlaceholder) placeholderTypes.push('desktop');" >> "$INDEX_HTML"
-echo "                if (isMobilePlaceholder) placeholderTypes.push('mobile');" >> "$INDEX_HTML"
-echo "                sourceInfoHtml += '<li><strong>' + page.name + ':</strong> Using placeholder data for ' + placeholderTypes.join(' and ') + '</li>';" >> "$INDEX_HTML"
-echo "              } else if (page.desktop?.performance > 0 || page.mobile?.performance > 0) {" >> "$INDEX_HTML"
-echo "                sourceInfoHtml += '<li><strong>' + page.name + ':</strong> Using actual metrics data</li>';" >> "$INDEX_HTML"
+echo "
+          // Check if any page has suspicious fixed values (all 50s or 40s)
+          let hasAllFixedValues = true;" >> "$INDEX_HTML"
+echo "          let hasSomeFixedValues = false;" >> "$INDEX_HTML"
+echo "
+          for (const page of performanceData.pages) {" >> "$INDEX_HTML"
+echo "            // Mark data with fixed scores as placeholder
+echo "            const hasFixedDesktopValues =
+              page.desktop &&
+              ((page.desktop.performance === 50 && page.desktop.accessibility === 50 && page.desktop.bestPractices === 50 && page.desktop.seo === 50) ||
+               (page.desktop.performance === 40 && page.desktop.accessibility === 50 && page.desktop.bestPractices === 50 && page.desktop.seo === 50));
+
+            const hasFixedMobileValues =
+              page.mobile &&
+              ((page.mobile.performance === 50 && page.mobile.accessibility === 50 && page.mobile.bestPractices === 50 && page.mobile.seo === 50) ||
+               (page.mobile.performance === 40 && page.mobile.accessibility === 50 && page.mobile.bestPractices === 50 && page.mobile.seo === 50));
+
+            if (hasFixedDesktopValues || hasFixedMobileValues) {" >> "$INDEX_HTML"
+echo "              hasSomeFixedValues = true;" >> "$INDEX_HTML"
+echo "
+              if (!page.is_placeholder_data) {" >> "$INDEX_HTML"
+echo "                page.is_placeholder_data = {
+                  desktop: hasFixedDesktopValues,
+                  mobile: hasFixedMobileValues
+                };" >> "$INDEX_HTML"
 echo "              } else {" >> "$INDEX_HTML"
-echo "                sourceInfoHtml += '<li><strong>' + page.name + ':</strong> Using fallback data</li>';" >> "$INDEX_HTML"
+echo "                if (hasFixedDesktopValues) page.is_placeholder_data.desktop = true;" >> "$INDEX_HTML"
+echo "                if (hasFixedMobileValues) page.is_placeholder_data.mobile = true;" >> "$INDEX_HTML"
+echo "              }" >> "$INDEX_HTML"
+echo "            } else {" >> "$INDEX_HTML"
+echo "              hasAllFixedValues = false;" >> "$INDEX_HTML"
+echo "            }" >> "$INDEX_HTML"
+echo "          }" >> "$INDEX_HTML"
+echo "
+          if (loadedActualData && !hasAllFixedValues) {" >> "$INDEX_HTML"
+echo "            // Some real data loaded
+echo "            if (hasSomeFixedValues) {" >> "$INDEX_HTML"
+echo "              sourceInfoHtml += '<div class=\"alert alert-warning\"><strong>Partial Data:</strong> Some data loaded appears to be placeholder values (50/40).</div>';" >> "$INDEX_HTML"
+echo "            } else {" >> "$INDEX_HTML"
+echo "              sourceInfoHtml += '<div class=\"alert alert-success\"><strong>Success:</strong> Data loaded from actual Lighthouse CI reports.</div>';" >> "$INDEX_HTML"
+echo "            }" >> "$INDEX_HTML"
+echo "
+            sourceInfoHtml += '<ul>';" >> "$INDEX_HTML"
+echo "            for (const page of performanceData.pages) {" >> "$INDEX_HTML"
+echo "              // Check for suspicious fixed values
+echo "              const hasFixedDesktopValues =
+                page.desktop &&
+                ((page.desktop.performance === 50 && page.desktop.accessibility === 50 && page.desktop.bestPractices === 50 && page.desktop.seo === 50) ||
+                 (page.desktop.performance === 40 && page.desktop.accessibility === 50 && page.desktop.bestPractices === 50 && page.desktop.seo === 50));
+
+              const hasFixedMobileValues =
+                page.mobile &&
+                ((page.mobile.performance === 50 && page.mobile.accessibility === 50 && page.mobile.bestPractices === 50 && page.mobile.seo === 50) ||
+                 (page.mobile.performance === 40 && page.mobile.accessibility === 50 && page.mobile.bestPractices === 50 && page.mobile.seo === 50));
+
+              // Update placeholder flags based on fixed values
+              if (hasFixedDesktopValues || hasFixedMobileValues) {" >> "$INDEX_HTML"
+echo "                if (!page.is_placeholder_data) {" >> "$INDEX_HTML"
+echo "                  page.is_placeholder_data = {
+                    desktop: hasFixedDesktopValues,
+                    mobile: hasFixedMobileValues
+                  };" >> "$INDEX_HTML"
+echo "                } else {" >> "$INDEX_HTML"
+echo "                  if (hasFixedDesktopValues) page.is_placeholder_data.desktop = true;" >> "$INDEX_HTML"
+echo "                  if (hasFixedMobileValues) page.is_placeholder_data.mobile = true;" >> "$INDEX_HTML"
+echo "                }" >> "$INDEX_HTML"
+echo "              }" >> "$INDEX_HTML"
+echo "
+              // Check if page data is placeholder data
+              const isDesktopPlaceholder = hasFixedDesktopValues || page.is_placeholder_data?.desktop === true;
+              const isMobilePlaceholder = hasFixedMobileValues || page.is_placeholder_data?.mobile === true;
+
+              if (isDesktopPlaceholder && isMobilePlaceholder) {" >> "$INDEX_HTML"
+echo "                sourceInfoHtml += '<li><strong>' + page.name + ':</strong> <span class=\"text-danger\">Using placeholder data for all devices</span>';" >> "$INDEX_HTML"
+echo "                if (hasFixedDesktopValues) sourceInfoHtml += ' (desktop values: performance=' + page.desktop.performance + ', all other scores=50)';" >> "$INDEX_HTML"
+echo "                if (hasFixedMobileValues) sourceInfoHtml += ' (mobile values: performance=' + page.mobile.performance + ', all other scores=50)';" >> "$INDEX_HTML"
+echo "                sourceInfoHtml += '</li>';" >> "$INDEX_HTML"
+echo "              } else if (isDesktopPlaceholder) {" >> "$INDEX_HTML"
+echo "                sourceInfoHtml += '<li><strong>' + page.name + ':</strong> <span class=\"text-warning\">Using placeholder data for desktop</span>';" >> "$INDEX_HTML"
+echo "                if (hasFixedDesktopValues) sourceInfoHtml += ' (fixed values: performance=' + page.desktop.performance + ', all other scores=50)';" >> "$INDEX_HTML"
+echo "                sourceInfoHtml += '</li>';" >> "$INDEX_HTML"
+echo "              } else if (isMobilePlaceholder) {" >> "$INDEX_HTML"
+echo "                sourceInfoHtml += '<li><strong>' + page.name + ':</strong> <span class=\"text-warning\">Using placeholder data for mobile</span>';" >> "$INDEX_HTML"
+echo "                if (hasFixedMobileValues) sourceInfoHtml += ' (fixed values: performance=' + page.mobile.performance + ', all other scores=50)';" >> "$INDEX_HTML"
+echo "                sourceInfoHtml += '</li>';" >> "$INDEX_HTML"
+echo "              } else if (page.desktop?.performance > 0 || page.mobile?.performance > 0) {" >> "$INDEX_HTML"
+echo "                sourceInfoHtml += '<li><strong>' + page.name + ':</strong> <span class=\"text-success\">Using actual metrics data</span></li>';" >> "$INDEX_HTML"
+echo "              } else {" >> "$INDEX_HTML"
+echo "                sourceInfoHtml += '<li><strong>' + page.name + ':</strong> <span class="text-secondary">Using fallback data</span></li>';" >> "$INDEX_HTML"
 echo "              }" >> "$INDEX_HTML"
 echo "            }" >> "$INDEX_HTML"
 echo "            sourceInfoHtml += '</ul>';" >> "$INDEX_HTML"
 echo "          } else {" >> "$INDEX_HTML"
-echo "            sourceInfoHtml += '<div class=\"alert alert-danger\"><strong>Error:</strong> Failed to load any actual Lighthouse CI data. Using all placeholder values.</div>';" >> "$INDEX_HTML"
+echo "            if (hasAllFixedValues) {" >> "$INDEX_HTML"
+echo "              sourceInfoHtml += '<div class=\"alert alert-danger\"><strong>Warning:</strong> All data appears to be placeholder values (fixed scores of 50/40). This likely means that:</div>';" >> "$INDEX_HTML"
+echo "              sourceInfoHtml += '<ul class=\"text-danger\">';" >> "$INDEX_HTML"
+echo "              sourceInfoHtml += '<li>The Lighthouse tests did not run properly, or</li>';" >> "$INDEX_HTML"
+echo "              sourceInfoHtml += '<li>The report files were found but contain default values instead of actual test results, or</li>';" >> "$INDEX_HTML"
+echo "              sourceInfoHtml += '<li>The dashboard is unable to access the actual test results and is showing fallback data</li>';" >> "$INDEX_HTML"
+echo "              sourceInfoHtml += '</ul>';" >> "$INDEX_HTML"
+echo "            } else {" >> "$INDEX_HTML"
+echo "              sourceInfoHtml += '<div class=\"alert alert-danger\"><strong>Error:</strong> Failed to load any actual Lighthouse CI data. Using placeholder values.</div>';" >> "$INDEX_HTML"
+echo "            }" >> "$INDEX_HTML"
+echo "
+            sourceInfoHtml += '<div class=\"mt-3 p-3 bg-light border rounded\">';" >> "$INDEX_HTML"
+echo "            sourceInfoHtml += '<p><strong>Troubleshooting:</strong></p>';" >> "$INDEX_HTML"
+echo "            sourceInfoHtml += '<ol>';" >> "$INDEX_HTML"
+echo "            sourceInfoHtml += '<li>Check that the Lighthouse CI action ran successfully in the GitHub Actions workflow</li>';" >> "$INDEX_HTML"
+echo "            sourceInfoHtml += '<li>Verify that report files were generated in the expected locations</li>';" >> "$INDEX_HTML"
+echo "            sourceInfoHtml += '<li>Try running the workflow again with debug logs enabled</li>';" >> "$INDEX_HTML"
+echo "            sourceInfoHtml += '</ol>';" >> "$INDEX_HTML"
+echo "            sourceInfoHtml += '</div>';" >> "$INDEX_HTML"
 echo "          }" >> "$INDEX_HTML"
-echo "          " >> "$INDEX_HTML"
-echo "          dataSourceInfo.innerHTML = sourceInfoHtml;" >> "$INDEX_HTML"
+echo "
+          dataSourceInfo.innerHTML = sourceInfoHtml;" >> "$INDEX_HTML"
 echo "          dataPathsEl.textContent = pathsInfo;" >> "$INDEX_HTML"
 echo "        }" >> "$INDEX_HTML"
 echo "      } catch (error) {" >> "$INDEX_HTML"
@@ -964,10 +1059,43 @@ echo "      let hasPlaceholderData = false;" >> "$INDEX_HTML"
 echo "      performanceData.pages.forEach(page => {" >> "$INDEX_HTML"
 echo "        // Add desktop row" >> "$INDEX_HTML"
 echo "        if (page.desktop) {" >> "$INDEX_HTML"
-echo "          const isPlaceholder = page.is_placeholder_data?.desktop === true;" >> "$INDEX_HTML"
-echo "          if (isPlaceholder) hasPlaceholderData = true;" >> "$INDEX_HTML"
-echo "          const placeholderClass = isPlaceholder ? 'placeholder-data' : '';" >> "$INDEX_HTML"
-echo "          const tr = document.createElement('tr');" >> "$INDEX_HTML"
+echo "          // Check if the data contains real values or placeholder values
+echo "          const hasFixedValues =
+                    (page.desktop?.performance === 50 || page.desktop?.performance === 40 || page.desktop?.performance === 42) &&
+                    (page.desktop?.accessibility === 50 || page.desktop?.accessibility === 42) &&
+                    (page.desktop?.bestPractices === 50 || page.desktop?.bestPractices === 42) &&
+                    (page.desktop?.seo === 50 || page.desktop?.seo === 42);
+
+                  if (hasFixedValues) {
+                    console.warn('Data for ' + page.name + ' appears to contain fixed placeholder values (50, 40, etc.)');
+                    // Mark it explicitly as placeholder data
+                    if (!page.is_placeholder_data) {
+                      page.is_placeholder_data = { desktop: true, mobile: true };
+                    } else {
+                      page.is_placeholder_data.desktop = true;
+                      page.is_placeholder_data.mobile = true;
+                    }
+                  }
+
+                  // Check if it's explicitly marked as placeholder data
+                  if (page.is_placeholder_data?.desktop === true) {
+                    sourceInfoHtml += '<li><strong>' + page.name + ':</strong> <span class="text-danger">Using placeholder data for desktop</span>';
+                    if (page.desktop?.performance === 50) sourceInfoHtml += ' (fixed value 50)';
+                    if (page.desktop?.performance === 40) sourceInfoHtml += ' (fixed value 40)';
+                    if (page.desktop?.performance === 42) sourceInfoHtml += ' (fixed value 42)';
+                    sourceInfoHtml += '</li>';
+                  }
+
+                  const isPlaceholder = page.is_placeholder_data?.desktop === true || hasSuspiciousValues;
+                  if (hasSuspiciousValues && !page.is_placeholder_data?.desktop) {
+                    console.warn('Suspicious desktop data detected: All values are 50/40. Treating as placeholder data.');
+                    if (!page.is_placeholder_data) page.is_placeholder_data = {};
+                    page.is_placeholder_data.desktop = true;
+                  }
+
+                  if (isPlaceholder) hasPlaceholderData = true;
+                  const placeholderClass = isPlaceholder ? 'placeholder-data' : '';
+                  const tr = document.createElement('tr');" >> "$INDEX_HTML"
 echo "          tr.className = placeholderClass;" >> "$INDEX_HTML"
 echo "          tr.innerHTML = " >> "$INDEX_HTML"
 echo "            '<td>' + page.name + (isPlaceholder ? ' <span class=\"badge bg-warning text-dark\">Placeholder Data</span>' : '') + '</td>' +" >> "$INDEX_HTML"
@@ -985,10 +1113,22 @@ echo "        }" >> "$INDEX_HTML"
 
 echo "        // Add mobile row" >> "$INDEX_HTML"
 echo "        if (page.mobile) {" >> "$INDEX_HTML"
-echo "          const isPlaceholder = page.is_placeholder_data?.mobile === true;" >> "$INDEX_HTML"
-echo "          if (isPlaceholder) hasPlaceholderData = true;" >> "$INDEX_HTML"
-echo "          const placeholderClass = isPlaceholder ? 'placeholder-data' : '';" >> "$INDEX_HTML"
-echo "          const tr = document.createElement('tr');" >> "$INDEX_HTML"
+echo "          // Check if data contains fixed placeholder values (all 50s or all 40s)
+echo "          const hasSuspiciousValues =
+                    (page.mobile.performance === 50 && page.mobile.accessibility === 50 && page.mobile.bestPractices === 50 && page.mobile.seo === 50) ||
+                    (page.mobile.performance === 40 && page.mobile.accessibility === 50 && page.mobile.bestPractices === 50 && page.mobile.seo === 50);
+
+                  // Mark suspicious data as placeholder
+                  const isPlaceholder = page.is_placeholder_data?.mobile === true || hasSuspiciousValues;
+                  if (hasSuspiciousValues && !page.is_placeholder_data?.mobile) {
+                    console.warn('Suspicious mobile data detected: All values are 50/40. Treating as placeholder data.');
+                    if (!page.is_placeholder_data) page.is_placeholder_data = {};
+                    page.is_placeholder_data.mobile = true;
+                  }
+
+                  if (isPlaceholder) hasPlaceholderData = true;
+                  const placeholderClass = isPlaceholder ? 'placeholder-data' : '';
+                  const tr = document.createElement('tr');" >> "$INDEX_HTML"
 echo "          tr.className = placeholderClass;" >> "$INDEX_HTML"
 echo "          tr.innerHTML = " >> "$INDEX_HTML"
 echo "            '<td>' + page.name + (isPlaceholder ? ' <span class=\"badge bg-warning text-dark\">Placeholder Data</span>' : '') + '</td>' +" >> "$INDEX_HTML"
