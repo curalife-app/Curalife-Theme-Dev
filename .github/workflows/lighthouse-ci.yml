@@ -41,14 +41,52 @@ jobs:
         with:
           fetch-depth: 1
 
+      # Add caching for system dependencies
+      - name: Cache system dependencies
+        uses: actions/cache@v3
+        id: cache-sys-deps
+        with:
+          path: |
+            /var/cache/apt
+            /var/lib/apt/lists
+          key: ${{ runner.os }}-apt-${{ hashFiles('.github/workflows/lighthouse-ci.yml') }}
+
+      # Add caching for jq and other tools that might be needed
+      - name: Cache tools
+        uses: actions/cache@v3
+        id: cache-tools
+        with:
+          path: |
+            ~/.cache/jq
+          key: ${{ runner.os }}-tools-${{ hashFiles('.github/workflows/lighthouse-ci.yml') }}
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "18"
 
+      # Add caching for npm packages and Puppeteer
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        id: cache-deps
+        with:
+          path: |
+            ~/.npm
+            ~/.cache/puppeteer
+            node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json', '**/package.json') }}-${{ hashFiles('.github/workflows/lighthouse-ci.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
       - name: Install dependencies
+        # Only install dependencies if cache wasn't hit
         run: |
-          npm install -g @lhci/cli puppeteer lighthouse puppeteer-screenshot-cli
+          if [ "${{ steps.cache-deps.outputs.cache-hit }}" != "true" ]; then
+            echo "Cache miss. Installing dependencies..."
+            npm install -g @lhci/cli puppeteer lighthouse puppeteer-screenshot-cli
+          else
+            echo "Cache hit! Using cached dependencies."
+          fi
 
       - name: Set Chrome flags
         run: |
@@ -74,7 +112,14 @@ jobs:
         continue-on-error: true
 
       - name: Install jq for results processing
-        run: sudo apt-get update && sudo apt-get install -y jq bc
+        run: |
+          if [ "${{ steps.cache-sys-deps.outputs.cache-hit }}" != "true" ]; then
+            echo "Cache miss. Installing jq and bc..."
+            sudo apt-get update && sudo apt-get install -y jq bc
+          else
+            echo "Cache hit! Using cached apt lists."
+            sudo apt-get install -y jq bc --no-update
+          fi
 
       - name: Process Lighthouse results
         id: scores
@@ -119,6 +164,43 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
+
+      # Add caching for system dependencies
+      - name: Cache system dependencies
+        uses: actions/cache@v3
+        id: cache-sys-deps
+        with:
+          path: |
+            /var/cache/apt
+            /var/lib/apt/lists
+          key: ${{ runner.os }}-apt-${{ hashFiles('.github/workflows/lighthouse-ci.yml') }}
+
+      # Add caching for jq and other tools that might be needed
+      - name: Cache tools
+        uses: actions/cache@v3
+        id: cache-tools
+        with:
+          path: |
+            ~/.cache/jq
+          key: ${{ runner.os }}-tools-${{ hashFiles('.github/workflows/lighthouse-ci.yml') }}
+
+      # Add Node.js setup for dashboard generation
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+
+      # Cache Node modules
+      - name: Cache Node modules
+        uses: actions/cache@v3
+        id: cache-node-modules
+        with:
+          path: |
+            ~/.npm
+            node_modules
+          key: ${{ runner.os }}-node-modules-${{ hashFiles('.github/workflows/lighthouse-ci.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-node-modules-
 
       - name: Make scripts executable
         run: |
@@ -521,6 +603,17 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      # Add caching for GitHub Pages deployment
+      - name: Cache GitHub Pages deployment
+        uses: actions/cache@v3
+        id: cache-gh-pages
+        with:
+          path: |
+            performance-reports
+          key: ${{ runner.os }}-gh-pages-${{ github.run_id }}
+          restore-keys: |
+            ${{ runner.os }}-gh-pages-
 
       # Create directory
       - name: Create performance-reports directory
