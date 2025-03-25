@@ -46,15 +46,23 @@ jobs:
             ${{ runner.os }}-pnpm-store-
 
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
+
+      # Explicitly install glob if needed
+      - name: Ensure glob is installed
+        run: pnpm add glob@11.0.1
 
       - name: Build theme
         run: pnpm run build
 
-      - name: Start local server
+      # Use a simple static server instead of the shopify server for CI
+      - name: Start static server
         run: |
-          pnpm run shopify &
-          npx wait-on http://localhost:9292 -t 60000
+          echo "Starting static server..."
+          npx serve -s Curalife-Theme-Build -l 9292 &
+          echo "Waiting for server to be available..."
+          npx wait-on http://localhost:9292 -t 60000 --verbose
+          echo "Server is ready"
 
       - name: Run Lighthouse CI
         run: npx lhci autorun
