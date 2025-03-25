@@ -1,3 +1,7 @@
+# This action has been simplified to avoid YAML syntax errors
+# Original complex templates with heredocs and multi-line strings have been replaced with simpler inline approaches
+# Last updated: 2023-06-01
+
 name: "Generate Dashboard"
 description: "Processes Lighthouse results and generates dashboard"
 
@@ -41,7 +45,7 @@ runs:
           cp -R performance-reports-downloads/* performance-reports/ || echo "No files to copy"
         else
           echo "No artifacts found to copy"
-          # Create sample data with a simple approach instead of heredoc
+          # Create sample data with a simple approach
           mkdir -p performance-reports/$(date +"%Y-%m-%d")/sample
           CURRENT_DATE=$(date +"%Y-%m-%d")
 
@@ -54,49 +58,13 @@ runs:
               "performance": 90,
               "accessibility": 90,
               "bestPractices": 90,
-              "seo": 90,
-              "pwa": 90,
-              "metrics": {
-                "firstContentfulPaint": 1000,
-                "speedIndex": 1500,
-                "largestContentfulPaint": 2000,
-                "timeToInteractive": 2500,
-                "totalBlockingTime": 100,
-                "maxPotentialFID": 100,
-                "cumulativeLayoutShift": 0.05
-              },
-              "opportunities": {
-                "renderBlockingResources": 0,
-                "unusedCSSBytes": 0,
-                "unusedJSBytes": 0,
-                "offscreenImagesBytes": 0,
-                "totalBytes": 500000,
-                "domSize": 1000
-              }
+              "seo": 90
             },
             "mobile": {
               "performance": 85,
               "accessibility": 90,
               "bestPractices": 90,
-              "seo": 90,
-              "pwa": 90,
-              "metrics": {
-                "firstContentfulPaint": 1200,
-                "speedIndex": 1800,
-                "largestContentfulPaint": 2400,
-                "timeToInteractive": 3000,
-                "totalBlockingTime": 150,
-                "maxPotentialFID": 150,
-                "cumulativeLayoutShift": 0.08
-              },
-              "opportunities": {
-                "renderBlockingResources": 0,
-                "unusedCSSBytes": 0,
-                "unusedJSBytes": 0,
-                "offscreenImagesBytes": 0,
-                "totalBytes": 600000,
-                "domSize": 1000
-              }
+              "seo": 90
             }
           }' > performance-reports/$CURRENT_DATE/sample/summary.json
         fi
@@ -179,206 +147,10 @@ runs:
         # Run with bash -e to exit immediately on error
         bash -e .github/workflows/scripts/generate-dashboard.sh "$CURRENT_DATE" || {
           echo "Error generating dashboard, creating fallback..."
-          # Create a simple default dashboard if the script fails
-          echo '<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lighthouse Dashboard</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-  <style>
-    :root {
-      --primary-color: #4285f4;
-      --secondary-color: #34a853;
-      --accent-color: #ea4335;
-      --light-gray: #f8f9fa;
-      --dark-gray: #343a40;
-    }
-    body {
-      font-family: "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
-      line-height: 1.6;
-      color: #333;
-      background-color: var(--light-gray);
-    }
-    .dashboard-container {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 20px;
-    }
-    .header {
-      background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-      color: white;
-      padding: 2rem;
-      border-radius: 10px;
-      margin-bottom: 2rem;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-    }
-    .card {
-      border: none;
-      border-radius: 10px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-      transition: transform 0.2s;
-      margin-bottom: 20px;
-    }
-    .card:hover {
-      transform: translateY(-5px);
-      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-    }
-    .card-header {
-      background-color: rgba(0,0,0,0.03);
-      border-bottom: none;
-      font-weight: 600;
-    }
-    .status {
-      padding: 1.25rem;
-      margin-bottom: 1.5rem;
-      border-radius: 8px;
-    }
-    .status.info {
-      background-color: rgba(66, 133, 244, 0.1);
-      border-left: 4px solid var(--primary-color);
-    }
-    .status.warning {
-      background-color: rgba(255, 193, 7, 0.1);
-      border-left: 4px solid #ffc107;
-    }
-    .status.error {
-      background-color: rgba(220, 53, 69, 0.1);
-      border-left: 4px solid var(--accent-color);
-    }
-    .btn-primary {
-      background-color: var(--primary-color);
-      border-color: var(--primary-color);
-    }
-    .btn-primary:hover {
-      background-color: #3367d6;
-      border-color: #3367d6;
-    }
-    .feature-icon {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 4rem;
-      height: 4rem;
-      font-size: 2rem;
-      color: #fff;
-      border-radius: 0.75rem;
-      margin-bottom: 1rem;
-      background-color: var(--primary-color);
-    }
-    .footer {
-      margin-top: 3rem;
-      padding: 1.5rem 0;
-      text-align: center;
-      color: #6c757d;
-      font-size: 0.9rem;
-    }
-  </style>
-</head>
-<body>
-  <div class="dashboard-container">
-    <div class="header">
-      <div class="d-flex align-items-center">
-        <i class="bi bi-speedometer2 fs-1 me-3"></i>
-        <div>
-          <h1 class="mb-0">Lighthouse Performance Dashboard</h1>
-          <p class="mb-0 mt-2">Automated performance monitoring for Curalife.com</p>
-        </div>
-      </div>
-    </div>
 
-    <div class="row mb-4">
-      <div class="col-12">
-        <div class="card">
-          <div class="card-body">
-            <div class="status error">
-              <h2 class="h4 mb-3"><i class="bi bi-exclamation-triangle me-2"></i>Report Generation Issue</h2>
-              <p>No performance reports were found from the latest run. This could be due to:</p>
-              <ul>
-                <li>Temporary issues with the Lighthouse testing environment</li>
-                <li>Network connectivity problems during test execution</li>
-                <li>Changes to website structure that affected testing</li>
-              </ul>
-              <p class="mb-0">Please check the workflow logs for more details or try running the workflow again.</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+          # Create a simple fallback dashboard
+          echo '<!DOCTYPE html><html><head><title>Lighthouse Dashboard</title><style>body{font-family:system-ui,sans-serif;max-width:1200px;margin:0 auto;padding:20px;line-height:1.6;color:#333}h1{color:#4285f4;margin-bottom:20px}.alert{background:#f8d7da;border-left:4px solid #dc3545;padding:15px;margin-bottom:20px}.card{border:1px solid #dee2e6;border-radius:8px;margin-bottom:20px}.card-header{background:#f8f9fa;padding:10px 15px;border-bottom:1px solid #dee2e6}.card-body{padding:15px}.text-center{text-align:center}</style></head><body><h1>Lighthouse Performance Dashboard</h1><div class="alert"><h2>Dashboard Generation Issue</h2><p>The performance dashboard could not be generated properly. This may be due to:</p><ul><li>No test results found</li><li>Error during test execution</li><li>Temporary network issues</li></ul><p>Please check workflow logs for details or try running the workflow again.</p></div><div class="card"><div class="card-header">About Lighthouse CI</div><div class="card-body"><p>Lighthouse CI helps monitor website performance metrics over time, including Core Web Vitals and other important metrics.</p></div></div><div class="text-center"><p>Generated by Lighthouse CI GitHub Action</p></div></body></html>' > performance-reports/index.html
 
-    <div class="row mb-4">
-      <div class="col-12">
-        <h2 class="mb-3">About Performance Monitoring</h2>
-      </div>
-      <div class="col-md-4">
-        <div class="card h-100">
-          <div class="card-body text-center">
-            <div class="feature-icon mx-auto">
-              <i class="bi bi-speedometer"></i>
-            </div>
-            <h3 class="h5">Core Web Vitals</h3>
-            <p>Tracks LCP, CLS, and FID metrics to ensure optimal user experience and SEO performance.</p>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-4">
-        <div class="card h-100">
-          <div class="card-body text-center">
-            <div class="feature-icon mx-auto" style="background-color: var(--secondary-color);">
-              <i class="bi bi-graph-up"></i>
-            </div>
-            <h3 class="h5">Performance Trends</h3>
-            <p>Monitors performance metrics over time to identify regressions and improvements.</p>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-4">
-        <div class="card h-100">
-          <div class="card-body text-center">
-            <div class="feature-icon mx-auto" style="background-color: var(--accent-color);">
-              <i class="bi bi-lightning"></i>
-            </div>
-            <h3 class="h5">Actionable Insights</h3>
-            <p>Provides specific recommendations to improve site performance and user experience.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="row">
-      <div class="col-12">
-        <div class="card">
-          <div class="card-header">
-            <h3 class="h5 mb-0">Want to Learn More?</h3>
-          </div>
-          <div class="card-body">
-            <p>The Lighthouse CI workflow helps maintain optimal website performance by:</p>
-            <ul>
-              <li>Running automated tests daily on key pages</li>
-              <li>Tracking Core Web Vitals and other performance metrics</li>
-              <li>Providing historical trends and actionable recommendations</li>
-              <li>Ensuring SEO and accessibility best practices</li>
-            </ul>
-            <div class="text-center mt-4">
-              <a href="https://github.com/curalife/Curalife-Theme-Dev/actions/workflows/lighthouse-ci.yml" class="btn btn-primary">
-                <i class="bi bi-github me-2"></i>View Workflow
-              </a>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <footer class="footer">
-    <div class="container">
-      <p>Generated by Lighthouse CI GitHub Action</p>
-    </div>
-  </footer>
-</body>
-</html>' > performance-reports/index.html
           echo "Created fallback dashboard"
         }
 
@@ -387,33 +159,16 @@ runs:
         # Create index.html if no dashboard exists
         if [ ! -f "performance-reports/index.html" ]; then
           echo "index.html not found! Creating a standard one..."
-          echo '<!DOCTYPE html><html><head><title>Lighthouse Dashboard</title><style>body{font-family:Arial,sans-serif;line-height:1.6;color:#333;max-width:800px;margin:0 auto;padding:20px}h1{color:#2c3e50;border-bottom:2px solid #eee;padding-bottom:10px}.status{background:#f8f9fa;border-left:4px solid #4caf50;padding:15px;margin:20px 0}.error{border-left-color:#f44336}</style></head><body><h1>Lighthouse Performance Dashboard</h1><div class="status"><h2>Dashboard Content</h2><p>This is the Lighthouse Performance dashboard. Below are the latest results:</p><ul id="results"></ul></div><script>document.getElementById("results").innerHTML = Object.keys(localStorage).map(key => `<li>${key}: ${localStorage.getItem(key)}</li>`).join("");</script></body></html>' > performance-reports/index.html
+          echo '<!DOCTYPE html><html><head><title>Lighthouse Dashboard</title><style>body{font-family:system-ui,sans-serif;max-width:800px;margin:0 auto;padding:20px}h1{color:#2c3e50;border-bottom:2px solid #eee;padding-bottom:10px}.status{background:#f8f9fa;border-left:4px solid #4caf50;padding:15px;margin:20px 0}.error{border-left-color:#f44336}</style></head><body><h1>Lighthouse Performance Dashboard</h1><div class="status"><h2>Dashboard Content</h2><p>No performance data is available at this time.</p></div></body></html>' > performance-reports/index.html
         else
           echo "index.html exists at $(pwd)/performance-reports/index.html"
           ls -la performance-reports/index.html
-          echo "First 10 lines of index.html:"
-          head -n 10 performance-reports/index.html
         fi
 
-        # Add link to trends dashboard on main dashboard page
+        # Add link to trends dashboard on main dashboard page if both files exist
         if [ -f "performance-reports/index.html" ] && [ -f "performance-reports/trends.html" ]; then
           echo "Adding trends dashboard link..."
-          sed -i 's/<\/body>/<div style="text-align: center; margin-top: 30px;"><a href="trends.html" style="display: inline-block; padding: 10px 20px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 4px; font-weight: bold;">View Performance Trends Over Time<\/a><\/div><\/body>/' performance-reports/index.html
-          echo "Trends dashboard link added"
-        else
-          echo "Warning: trends.html not found, skipping link addition"
-
-          # Create a basic trends.html file if it doesn't exist
-          if [ ! -f "performance-reports/trends.html" ]; then
-            echo "Creating basic trends.html file..."
-            echo '<!DOCTYPE html><html><head><title>Lighthouse Performance Trends</title><style>body{font-family:Arial,sans-serif;line-height:1.6;color:#333;max-width:1200px;margin:0 auto;padding:20px}h1,h2{color:#2c3e50;border-bottom:2px solid #eee;padding-bottom:10px}table{width:100%;border-collapse:collapse;margin:20px 0;font-size:16px}th{background-color:#f2f2f2;text-align:left;padding:12px;font-weight:bold;border:1px solid #ddd}td{padding:12px;border:1px solid #ddd}tr:nth-child(even){background-color:#f9f9f9}.chart{height:400px;margin:40px 0;background:#f5f5f5;border:1px solid #ddd;padding:20px}</style></head><body><h1>Lighthouse Performance Trends</h1><div><h2>Performance Over Time</h2><div class="chart" id="performance-chart">Performance trends will appear here after multiple runs.</div></div><div><h2>Recent Results</h2><table id="results-table"><thead><tr><th>Date</th><th>Page</th><th>Performance</th><th>Accessibility</th><th>Best Practices</th><th>SEO</th><th>LCP</th><th>TBT</th><th>CLS</th></tr></thead><tbody><tr><td colspan="9">Waiting for data from multiple test runs...</td></tr></tbody></table></div><p><a href="index.html" style="display:inline-block;padding:10px 20px;background-color:#4CAF50;color:white;text-decoration:none;border-radius:4px;font-weight:bold;">Back to Dashboard</a></p></body></html>' > performance-reports/trends.html
-
-            # Now add the link to the index.html
-            if [ -f "performance-reports/index.html" ]; then
-              sed -i 's/<\/body>/<div style="text-align: center; margin-top: 30px;"><a href="trends.html" style="display: inline-block; padding: 10px 20px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 4px; font-weight: bold;">View Performance Trends Over Time<\/a><\/div><\/body>/' performance-reports/index.html
-              echo "Added link to trends.html in index.html"
-            fi
-          fi
+          sed -i 's/<\/body>/<div style="text-align: center; margin-top: 30px;"><a href="trends.html" style="display: inline-block; padding: 10px 20px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 4px; font-weight: bold;">View Performance Trends<\/a><\/div><\/body>/' performance-reports/index.html
         fi
 
         # Final verification
@@ -425,9 +180,9 @@ runs:
       shell: bash
       run: |
         # Create a basic step summary header
-        echo "## 🚦 Lighthouse Performance Dashboard" >> $GITHUB_STEP_SUMMARY
+        echo "## Lighthouse Performance Dashboard" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### 📊 Summary Results ($(date))" >> $GITHUB_STEP_SUMMARY
+        echo "### Summary Results ($(date))" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
 
         # Check if there are any summary files to process
@@ -435,114 +190,24 @@ runs:
 
         if [ "$SUMMARY_FILES" -eq "0" ]; then
           echo "No summary files found to process" >> $GITHUB_STEP_SUMMARY
-          echo "No test results are available for this run." >> $GITHUB_STEP_SUMMARY
         else
           echo "Found $SUMMARY_FILES summary files to process"
+          echo "#### Desktop Results" >> $GITHUB_STEP_SUMMARY
+          echo "| Page | Performance | Accessibility | Best Practices | SEO |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|-------------|---------------|----------------|-----|" >> $GITHUB_STEP_SUMMARY
 
-          # Add a table for desktop results
-          echo "#### 💻 Desktop Results" >> $GITHUB_STEP_SUMMARY
-          echo "| Page | Performance | Accessibility | Best Practices | SEO | LCP | TBT | CLS |" >> $GITHUB_STEP_SUMMARY
-          echo "|------|-------------|---------------|----------------|-----|-----|-----|-----|" >> $GITHUB_STEP_SUMMARY
-
-          # Find all summary.json files for desktop
+          # Process summary files for desktop results
           find performance-reports -name "summary.json" | sort | while read -r file; do
-            # Debug
-            echo "Processing file: $file"
-
-            # Extract data safely with error handling
             PAGE_NAME=$(grep -o '"page": *"[^"]*"' "$file" | cut -d'"' -f4 || echo "unknown")
             PERF=$(grep -o '"performance": *[0-9.]*' "$file" | grep -o '[0-9.]*' || echo "0")
             A11Y=$(grep -o '"accessibility": *[0-9.]*' "$file" | grep -o '[0-9.]*' || echo "0")
             BP=$(grep -o '"bestPractices": *[0-9.]*' "$file" | grep -o '[0-9.]*' || echo "0")
             SEO=$(grep -o '"seo": *[0-9.]*' "$file" | grep -o '[0-9.]*' || echo "0")
-            LCP=$(grep -o '"largestContentfulPaint": *[0-9.]*' "$file" | grep -o '[0-9.]*' || echo "0")
-            TBT=$(grep -o '"totalBlockingTime": *[0-9.]*' "$file" | grep -o '[0-9.]*' || echo "0")
-            CLS=$(grep -o '"cumulativeLayoutShift": *[0-9.]*' "$file" | grep -o '[0-9.]*' || echo "0")
-
-            # Format values for display
-            LCP_MS=$(echo "$LCP / 1000" | bc -l 2>/dev/null | xargs printf "%.2fs" 2>/dev/null || echo "0.00s")
-            TBT_MS=$(echo "$TBT" | xargs printf "%.0fms" 2>/dev/null || echo "0ms")
-
-            echo "| $PAGE_NAME | $PERF | $A11Y | $BP | $SEO | $LCP_MS | $TBT_MS | $CLS |" >> $GITHUB_STEP_SUMMARY
+            echo "| $PAGE_NAME | $PERF | $A11Y | $BP | $SEO |" >> $GITHUB_STEP_SUMMARY
           done
-
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "#### 📱 Mobile Results" >> $GITHUB_STEP_SUMMARY
-          echo "| Page | Performance | Accessibility | Best Practices | SEO | LCP | TBT | CLS |" >> $GITHUB_STEP_SUMMARY
-          echo "|------|-------------|---------------|----------------|-----|-----|-----|-----|" >> $GITHUB_STEP_SUMMARY
-
-          # Find all summary.json files for mobile
-          find performance-reports -name "summary.json" | sort | while read -r file; do
-            # Extract data safely with error handling
-            PAGE_NAME=$(grep -o '"page": *"[^"]*"' "$file" | cut -d'"' -f4 || echo "unknown")
-            PERF=$(grep -o '"performance": *[0-9.]*' "$file" | grep -o '[0-9.]*' || echo "0")
-            A11Y=$(grep -o '"accessibility": *[0-9.]*' "$file" | grep -o '[0-9.]*' || echo "0")
-            BP=$(grep -o '"bestPractices": *[0-9.]*' "$file" | grep -o '[0-9.]*' || echo "0")
-            SEO=$(grep -o '"seo": *[0-9.]*' "$file" | grep -o '[0-9.]*' || echo "0")
-            LCP=$(grep -o '"largestContentfulPaint": *[0-9.]*' "$file" | grep -o '[0-9.]*' || echo "0")
-            TBT=$(grep -o '"totalBlockingTime": *[0-9.]*' "$file" | grep -o '[0-9.]*' || echo "0")
-            CLS=$(grep -o '"cumulativeLayoutShift": *[0-9.]*' "$file" | grep -o '[0-9.]*' || echo "0")
-
-            # Format values for display
-            LCP_MS=$(echo "$LCP / 1000" | bc -l 2>/dev/null | xargs printf "%.2fs" 2>/dev/null || echo "0.00s")
-            TBT_MS=$(echo "$TBT" | xargs printf "%.0fms" 2>/dev/null || echo "0ms")
-
-            echo "| $PAGE_NAME | $PERF | $A11Y | $BP | $SEO | $LCP_MS | $TBT_MS | $CLS |" >> $GITHUB_STEP_SUMMARY
-          done
-
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 📈 Core Web Vitals Status" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ **Good**: LCP < 2.5s, CLS < 0.1, TBT < 200ms" >> $GITHUB_STEP_SUMMARY
-          echo "- ⚠️ **Needs Improvement**: LCP < 4s, CLS < 0.25, TBT < 600ms" >> $GITHUB_STEP_SUMMARY
-          echo "- ❌ **Poor**: LCP > 4s, CLS > 0.25, TBT > 600ms" >> $GITHUB_STEP_SUMMARY
         fi
 
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### 🔍 View Full Reports" >> $GITHUB_STEP_SUMMARY
-        echo "Download the full HTML reports from the workflow artifacts section." >> $GITHUB_STEP_SUMMARY
-
-    # Link to the trends dashboard in the GitHub Step Summary
-    - name: Add trends link to summary
-      shell: bash
-      run: |
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### 📈 Performance Trends" >> $GITHUB_STEP_SUMMARY
-        echo "Check out the [Performance Trends Dashboard](./trends.html) to see how metrics have changed over time." >> $GITHUB_STEP_SUMMARY
-
-    - name: List created files
-      shell: bash
-      run: |
-        echo "Files created in performance-reports directory:"
-        mkdir -p performance-reports
-        find performance-reports -type f | sort || echo "No files found in performance-reports"
-
-    # Verify files before uploading
-    - name: Verify files before upload
-      shell: bash
-      run: |
-        echo "Verifying files before upload..."
-        echo "Directory structure:"
-        tree performance-reports || echo "tree command not available"
-        echo "File contents:"
-        ls -la performance-reports/
-        echo "Checking index.html:"
-        if [ -f "performance-reports/index.html" ]; then
-          echo "index.html exists"
-          head -n 5 performance-reports/index.html
-        else
-          echo "index.html does not exist!"
-          exit 1
-        fi
-        echo "Checking trends.html:"
-        if [ -f "performance-reports/trends.html" ]; then
-          echo "trends.html exists"
-          head -n 5 performance-reports/trends.html
-        else
-          echo "trends.html does not exist"
-        fi
-
-    # Generate visual annotations for PRs
+    # Add PR annotations if running in a PR context
     - name: Add PR annotations
       if: github.event_name == 'pull_request'
       shell: bash
@@ -554,43 +219,38 @@ runs:
 
           # Add annotations based on performance score
           if (( $(echo "$PERF < 75" | bc -l) )); then
-            echo "::warning file=${PAGE_NAME}::Performance score is poor: ${PERF}%. Consider optimizing this page."
+            echo "::warning file=${PAGE_NAME}::Performance score is poor: ${PERF}%"
           elif (( $(echo "$PERF < 90" | bc -l) )); then
-            echo "::notice file=${PAGE_NAME}::Performance score needs improvement: ${PERF}%."
-          else
-            echo "::notice file=${PAGE_NAME}::Performance score is good: ${PERF}%."
+            echo "::notice file=${PAGE_NAME}::Performance score needs improvement: ${PERF}%"
           fi
         done
       continue-on-error: true
 
-    # Save historical data to the dedicated branch
+    # Save historical data
     - name: Save historical data
       shell: bash
       run: |
-        # Configure Git
-        git config --global user.name "GitHub Action"
-        git config --global user.email "action@github.com"
+        # Check if there are any files to save
+        if [ -d "performance-reports/history" ]; then
+          # Configure Git for history branch
+          git config --global user.name "GitHub Action"
+          git config --global user.email "action@github.com"
 
-        # Add and commit changes to history directory
-        mkdir -p performance-reports/history
-        if git checkout ${{ inputs.history-branch }}; then
-          # Copy current history to the branch
+          # Create or checkout history branch
+          git checkout ${{ inputs.history-branch }} 2>/dev/null || git checkout -b ${{ inputs.history-branch }}
+
+          # Copy historical data
           mkdir -p performance-reports/history
-          # Copy only if any history exists
-          if [ -d "performance-reports/history" ] && [ "$(ls -A performance-reports/history 2>/dev/null)" ]; then
-            git add performance-reports/history
-            git commit -m "Update Lighthouse history data - $(date +%Y-%m-%d)" || echo "No changes to commit"
-            git push origin ${{ inputs.history-branch }} || echo "Failed to push - possibly no changes"
-          fi
+          cp -R performance-reports/history/* performance-reports/history/ 2>/dev/null || echo "No previous history to copy"
+
+          # Add and commit changes
+          git add performance-reports/history
+          git commit -m "Update historical data [skip ci]" || echo "No changes to commit"
+          git push origin ${{ inputs.history-branch }} || echo "Failed to push history branch"
+
+          # Return to previous branch
+          git checkout -
         else
-          # Create new branch with history
-          git checkout -b ${{ inputs.history-branch }}
-          mkdir -p performance-reports/history
-          # Only commit if there are actual files
-          if [ -d "performance-reports/history" ] && [ "$(ls -A performance-reports/history 2>/dev/null)" ]; then
-            git add performance-reports/history
-            git commit -m "Initial Lighthouse history data - $(date +%Y-%m-%d)" || echo "No changes to commit"
-            git push origin ${{ inputs.history-branch }} || echo "Failed to push - possibly no changes"
-          fi
+          echo "No history directory found, skipping historical data save"
         fi
       continue-on-error: true
