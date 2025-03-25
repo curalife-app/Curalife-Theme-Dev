@@ -17,17 +17,25 @@ permissions:
 env:
   REPORT_DATE: $(date +'%Y-%m-%d')
   RESULTS_DIR: ${{ github.workspace }}/lighthouse-results
+  BASE_URL: https://curalife.com
 
 jobs:
   lighthouse-desktop:
     name: Desktop Tests
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        page:
+          - name: homepage
+            url: /
+          - name: product
+            url: /products/curalin
     steps:
       - uses: actions/checkout@v4
       - name: Setup environment
         run: |
           chmod +x .github/workflows/scripts/*.sh
-          mkdir -p ${{ env.RESULTS_DIR }}
+          mkdir -p ${{ env.RESULTS_DIR }}/desktop/${{ matrix.page.name }}
 
           # Check if package.json exists
           if [ -f "package.json" ]; then
@@ -54,23 +62,30 @@ jobs:
 
           npm install -g @lhci/cli puppeteer-core
       - name: Run Lighthouse for desktop
-        run: .github/workflows/scripts/run-lighthouse.sh desktop
+        run: .github/workflows/scripts/run-lighthouse.sh "${{ env.BASE_URL }}${{ matrix.page.url }}" "${{ matrix.page.name }}" "${{ env.RESULTS_DIR }}/desktop/${{ matrix.page.name }}"
       - name: Upload desktop results
         uses: actions/upload-artifact@v4
         with:
-          name: lighthouse-desktop-results
-          path: ${{ env.RESULTS_DIR }}/desktop
+          name: lighthouse-desktop-results-${{ matrix.page.name }}
+          path: ${{ env.RESULTS_DIR }}/desktop/${{ matrix.page.name }}
           retention-days: 30
 
   lighthouse-mobile:
     name: Mobile Tests
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        page:
+          - name: homepage
+            url: /
+          - name: product
+            url: /products/curalin
     steps:
       - uses: actions/checkout@v4
       - name: Setup environment
         run: |
           chmod +x .github/workflows/scripts/*.sh
-          mkdir -p ${{ env.RESULTS_DIR }}
+          mkdir -p ${{ env.RESULTS_DIR }}/mobile/${{ matrix.page.name }}
 
           # Check if package.json exists
           if [ -f "package.json" ]; then
@@ -97,12 +112,12 @@ jobs:
 
           npm install -g @lhci/cli puppeteer-core
       - name: Run Lighthouse for mobile
-        run: .github/workflows/scripts/run-lighthouse.sh mobile
+        run: .github/workflows/scripts/run-lighthouse.sh "${{ env.BASE_URL }}${{ matrix.page.url }}" "${{ matrix.page.name }}" "${{ env.RESULTS_DIR }}/mobile/${{ matrix.page.name }}"
       - name: Upload mobile results
         uses: actions/upload-artifact@v4
         with:
-          name: lighthouse-mobile-results
-          path: ${{ env.RESULTS_DIR }}/mobile
+          name: lighthouse-mobile-results-${{ matrix.page.name }}
+          path: ${{ env.RESULTS_DIR }}/mobile/${{ matrix.page.name }}
           retention-days: 30
 
   process-and-generate:
@@ -118,7 +133,7 @@ jobs:
       - name: Download all results
         uses: actions/download-artifact@v4
         with:
-          pattern: lighthouse-*-results
+          pattern: lighthouse-*-results-*
           path: ${{ env.RESULTS_DIR }}
           merge-multiple: true
       - name: Process results
