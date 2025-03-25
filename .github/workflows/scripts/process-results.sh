@@ -187,16 +187,21 @@ EOF
   ALTERNATE_DIR="../lighthouse-results/processed/$PAGE_NAME"
   mkdir -p "$ALTERNATE_DIR"
 
-  # Save the desktop JSON to all locations to ensure it's findable
+  # Create the desktop JSON to all locations to ensure it's findable
   echo "$DESKTOP_JSON" > "$METRICS_JSON_FILE.tmp"
   echo "$DESKTOP_JSON" > "$PROCESSED_DIR/metrics-values.json.tmp"
   echo "$DESKTOP_JSON" > "$ALTERNATE_DIR/metrics-values.json.tmp"
+
+  # Also create a version directly in the performance-reports directory for easier access by the dashboard
+  mkdir -p "performance-reports/$PAGE_NAME-details"
+  echo "$DESKTOP_JSON" > "performance-reports/$PAGE_NAME-details/metrics-values.json.tmp"
 
   # If no mobile report is available, use the desktop-only JSON as the final file
   if [ ! -f "$MOBILE_REPORT" ]; then
     echo "$DESKTOP_JSON" > "$METRICS_JSON_FILE"
     echo "$DESKTOP_JSON" > "$PROCESSED_DIR/metrics-values.json"
     echo "$DESKTOP_JSON" > "$ALTERNATE_DIR/metrics-values.json"
+    echo "$DESKTOP_JSON" > "performance-reports/$PAGE_NAME-details/metrics-values.json"
     echo "Created desktop-only metrics JSON file in all expected locations"
   fi
 
@@ -394,6 +399,7 @@ EOF
   echo "$MOBILE_JSON" > "$METRICS_JSON_FILE"
   echo "$MOBILE_JSON" > "$PROCESSED_DIR/metrics-values.json"
   echo "$MOBILE_JSON" > "$ALTERNATE_DIR/metrics-values.json"
+  echo "$MOBILE_JSON" > "performance-reports/$PAGE_NAME-details/metrics-values.json"
   echo "Created complete metrics JSON file with desktop and mobile data in all expected locations"
 
   # Update the detailed metrics file with mobile data

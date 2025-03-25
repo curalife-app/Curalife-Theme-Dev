@@ -728,10 +728,14 @@ echo "        console.log('Looking for actual Lighthouse data...');" >> "$INDEX_
 echo "        " >> "$INDEX_HTML"
 echo "        // Try multiple possible paths to find the data" >> "$INDEX_HTML"
 echo "        const possiblePaths = [" >> "$INDEX_HTML"
-echo "          '../lighthouse-results/processed/%PAGE%/metrics-values.json',
+echo "          './performance-reports/%PAGE%-details/metrics-values.json',
           './%PAGE%-details/metrics-values.json',
+          '../lighthouse-results/processed/%PAGE%/metrics-values.json',
+          './processed/%PAGE%/metrics-values.json',
           '../processed/%PAGE%/metrics-values.json',
-          './processed/%PAGE%/metrics-values.json'
+          './lighthouse-results/processed/%PAGE%/metrics-values.json',
+          '../lighthouse-results/%PAGE%-details/metrics-values.json',
+          './lighthouse-reports/processed/%PAGE%/metrics-values.json'
         ];" >> "$INDEX_HTML"
 echo "        " >> "$INDEX_HTML"
 echo "        for (let i = 0; i < pageNames.length; i++) {" >> "$INDEX_HTML"
@@ -862,15 +866,35 @@ echo "          dataPathsEl.textContent = pathsInfo;" >> "$INDEX_HTML"
 echo "        }" >> "$INDEX_HTML"
 echo "      } catch (error) {" >> "$INDEX_HTML"
 echo "        console.error('Error in loadReportData:', error);" >> "$INDEX_HTML"
-echo "      } finally {" >> "$INDEX_HTML"
-echo "        // Always update dashboard even if there were errors" >> "$INDEX_HTML"
-echo "        try {" >> "$INDEX_HTML"
-echo "          updateDashboard();" >> "$INDEX_HTML"
-echo "        } catch (updateError) {" >> "$INDEX_HTML"
-echo "          console.error('Error updating dashboard:', updateError);" >> "$INDEX_HTML"
-echo "        }" >> "$INDEX_HTML"
-echo "      }" >> "$INDEX_HTML"
-echo "    }" >> "$INDEX_HTML"
+echo "
+          // Add emergency fallback data if we couldn't load anything
+          if (performanceData.pages.length === 0) {
+            console.warn('No data loaded at all, using complete fallback data');
+            performanceData.pages = fallbackData.slice();
+
+            // Add a clear error message to the UI
+            const headerEl = document.querySelector('.dashboard-header');
+            if (headerEl) {
+              const errorBanner = document.createElement('div');
+              errorBanner.className = 'alert alert-danger mb-4';
+              errorBanner.innerHTML = '<strong>Error:</strong> Failed to load any performance data. Using fallback values. Check browser console for details.';
+              headerEl.after(errorBanner);
+            }
+          }
+        } finally {
+          // Always update dashboard even if there were errors
+          try {
+            updateDashboard();
+          } catch (updateError) {
+            console.error('Error updating dashboard:', updateError);
+            // Show the detailed error to help debugging
+            const errorDetails = document.createElement('div');
+            errorDetails.className = 'alert alert-danger';
+            errorDetails.innerHTML = '<strong>Dashboard Error:</strong> ' + updateError.message;
+            document.body.prepend(errorDetails);
+          }
+        }
+      }" >> "$INDEX_HTML"
 
 echo "    // Update the dashboard with the loaded data" >> "$INDEX_HTML"
 echo "    function updateDashboard() {" >> "$INDEX_HTML"
@@ -989,7 +1013,8 @@ echo "      }" >> "$INDEX_HTML"
 # Add chart generation functions
 echo "      // Create the device comparison chart" >> "$INDEX_HTML"
 echo "      createDeviceComparisonChart();" >> "$INDEX_HTML"
-echo "      createPageComparisonChart();" >> "$INDEX_HTML"
+echo "      // Pass the hasPlaceholderData variable to the chart creation function" >> "$INDEX_HTML"
+echo "      createPageComparisonChart(hasPlaceholderData);" >> "$INDEX_HTML"
 echo "    }" >> "$INDEX_HTML"
 
 echo "    // Create the device comparison chart" >> "$INDEX_HTML"
@@ -1081,7 +1106,7 @@ echo "      });" >> "$INDEX_HTML"
 echo "    }" >> "$INDEX_HTML"
 
 echo "    // Create the page comparison chart" >> "$INDEX_HTML"
-echo "    function createPageComparisonChart() {" >> "$INDEX_HTML"
+echo "    function createPageComparisonChart(hasPlaceholderData) {" >> "$INDEX_HTML"
 echo "      const ctx = document.getElementById('pageComparisonChart').getContext('2d');" >> "$INDEX_HTML"
 echo "      " >> "$INDEX_HTML"
 echo "      // Prepare data for each page" >> "$INDEX_HTML"
