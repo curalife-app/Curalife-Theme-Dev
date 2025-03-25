@@ -278,7 +278,6 @@ jobs:
           echo "Generated report pages:"
           find ${{ env.RESULTS_DIR }}/processed -name "*.html" | sort || echo "No report HTML files found"
 
-      # Create a dummy index.html file if none exists
       - name: Create fallback index file
         run: |
           DASHBOARDS_DIR="${{ env.RESULTS_DIR }}/dashboards"
@@ -311,6 +310,26 @@ jobs:
             echo '</html>' >> "$DASHBOARDS_DIR/index.html"
           fi
 
+          # Make sure there's also an index.html in the root
+          # This is critical for GitHub Pages to work properly
+          if [ -f "performance-reports/index.html" ] && [ ! -f "${{ env.RESULTS_DIR }}/index.html" ]; then
+            echo "Copying performance-reports/index.html to the root directory"
+            cp "performance-reports/index.html" "${{ env.RESULTS_DIR }}/index.html"
+          fi
+
+          # Also copy to dashboards directory
+          if [ -f "performance-reports/index.html" ] && [ ! -f "$DASHBOARDS_DIR/index.html" ]; then
+            echo "Copying performance-reports/index.html to the dashboards directory"
+            cp "performance-reports/index.html" "$DASHBOARDS_DIR/index.html"
+          fi
+
+          # Create a .nojekyll file to prevent GitHub Pages from using Jekyll
+          touch "${{ env.RESULTS_DIR }}/.nojekyll"
+
+          # List all key files to verify they exist
+          echo "Checking for index.html files:"
+          find ${{ env.RESULTS_DIR }} -name "index.html" | sort
+
       - name: Upload all results
         uses: actions/upload-artifact@v4
         with:
@@ -323,8 +342,9 @@ jobs:
         with:
           name: lighthouse-final-dashboards
           path: |
-            ${{ env.RESULTS_DIR }}/dashboards
-            ${{ env.RESULTS_DIR }}/processed
+            ${{ env.RESULTS_DIR }}/dashboards/**
+            ${{ env.RESULTS_DIR }}/processed/**
+            ${{ env.RESULTS_DIR }}/performance-reports/**
           retention-days: 30
 
   publish:
@@ -342,6 +362,8 @@ jobs:
         run: |
           mkdir -p ./lighthouse-results
           touch ./lighthouse-results/.gitkeep
+          # Remove old files to prevent stale content
+          find ./lighthouse-results -type f -not -path "*/history/*" -delete || echo "No files to delete"
 
       - name: Try download final dashboards
         id: download_final
@@ -349,7 +371,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: lighthouse-final-dashboards
-          path: ./lighthouse-results
+          path: ./
 
       - name: Try download complete results
         if: steps.download_final.outcome != 'success'
@@ -358,13 +380,37 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: lighthouse-dashboards-complete
-          path: ./lighthouse-results
+          path: ./
 
       - name: Check downloaded files
         run: |
           echo "Contents of lighthouse-results directory:"
           find ./lighthouse-results -type f | wc -l
           ls -la ./lighthouse-results || echo "No files found"
+
+          # More detailed debugging - this will help diagnose path issues
+          echo "==== Detailed listing of all files ===="
+          find ./lighthouse-results -type f | sort
+
+          # Check for dashboards directory specifically
+          echo "==== Checking dashboards directory ===="
+          if [ -d "./lighthouse-results/dashboards" ]; then
+            find ./lighthouse-results/dashboards -type f | sort
+            ls -la ./lighthouse-results/dashboards
+          else
+            echo "No dashboards directory found!"
+            # Create dashboards directory if it doesn't exist
+            mkdir -p ./lighthouse-results/dashboards
+          fi
+
+          # Check for processed directory
+          echo "==== Checking processed directory ===="
+          if [ -d "./lighthouse-results/processed" ]; then
+            find ./lighthouse-results/processed -type f | sort
+            ls -la ./lighthouse-results/processed
+          else
+            echo "No processed directory found!"
+          fi
 
           # Create a minimal index.html if none exists
           if [ ! -f "./lighthouse-results/index.html" ] && [ ! -f "./lighthouse-results/dashboards/index.html" ]; then
@@ -393,10 +439,29 @@ jobs:
             echo '</html>' >> ./lighthouse-results/index.html
           fi
 
+          # If dashboards/index.html exists but the root index.html doesn't, copy it to the root
+          if [ -f "./lighthouse-results/dashboards/index.html" ] && [ ! -f "./lighthouse-results/index.html" ]; then
+            echo "Copying dashboards/index.html to root for easier access"
+            cp "./lighthouse-results/dashboards/index.html" "./lighthouse-results/index.html"
+          fi
+
       - name: Publish results
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email 'github-actions[bot]@users.noreply.github.com'
-          git add .
-          git commit -m "Update Lighthouse reports - $(date +'%Y-%m-%d')" || echo "No changes to commit"
-          git push origin gh-pages
+
+          # Make sure git tracks all files, even those in new directories
+          git add -A .
+
+          # Debugging - show what's staged
+          echo "==== Files staged for commit ===="
+          git status
+
+          # Commit with a detailed message
+          git commit -m "Update Lighthouse reports - $(date +'%Y-%m-%d %H:%M:%S')" || echo "No changes to commit"
+
+          # Force push (use with caution) to ensure branch is updated
+          git push --force origin gh-pages
+
+          echo "==== GitHub Pages deployment completed ===="
+          echo "Check status at https://github.com/$GITHUB_REPOSITORY/settings/pages"

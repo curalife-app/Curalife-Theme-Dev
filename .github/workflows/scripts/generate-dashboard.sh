@@ -932,3 +932,28 @@ echo "</body>" >> "$INDEX_HTML"
 echo "</html>" >> "$INDEX_HTML"
 
 echo "Dashboard file generated at $INDEX_HTML"
+
+# After the file is created, copy it to other locations for GitHub Pages
+echo "Copying dashboard to additional locations for GitHub Pages..."
+
+# Create dashboards directory if it doesn't exist
+mkdir -p dashboards
+
+# Copy to dashboards directory
+cp "$INDEX_HTML" "dashboards/index.html"
+echo "Copied to dashboards/index.html"
+
+# Copy to root directory if parent directories exist
+if [ -d "../lighthouse-results" ]; then
+  cp "$INDEX_HTML" "../lighthouse-results/index.html"
+  echo "Copied to ../lighthouse-results/index.html"
+fi
+
+# Create .nojekyll file to prevent GitHub Pages from using Jekyll
+touch performance-reports/.nojekyll
+touch dashboards/.nojekyll
+if [ -d "../lighthouse-results" ]; then
+  touch "../lighthouse-results/.nojekyll"
+fi
+
+echo "Dashboard generation complete with additional copies for GitHub Pages!"
