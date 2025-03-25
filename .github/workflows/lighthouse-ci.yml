@@ -70,10 +70,14 @@ jobs:
       - name: Ensure Puppeteer is installed
         run: |
           echo "Installing Puppeteer for screenshots..."
-          # Use a specific version compatible with Node.js 18
-          npm install --no-save puppeteer@19.11.1 --ignore-scripts
-          # Install browser separately to avoid hanging
-          npx puppeteer browsers install chrome
+          # First remove any existing installation that might be causing issues
+          npm rm puppeteer || true
+          # Install a version compatible with Node.js 18 with explicit path
+          npm install --no-save puppeteer@19.11.1
+          # Make sure the Chrome binary is installed
+          npx puppeteer install chrome
+          # Test that puppeteer can be required
+          node -e "try { require('puppeteer'); console.log('Puppeteer installation verified!'); } catch(e) { console.error('Puppeteer installation failed:', e); process.exit(1); }"
           echo "Puppeteer installation complete"
         continue-on-error: true
 

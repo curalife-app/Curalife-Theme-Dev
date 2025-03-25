@@ -183,41 +183,49 @@ else
   echo "Created fallback HTML file: $RESULTS_DIR/mobile/fallback-mobile.html"
 fi
 
-# Capture additional data for enhanced insights
-echo "Capturing screenshots..."
+# Create screenshot placeholder directories
 mkdir -p ./$RESULTS_DIR/screenshots
 mkdir -p ./$RESULTS_DIR/mobile/screenshots
 
-# Create a temporary screenshot script with puppeteer installation
-SCREENSHOT_SCRIPT=$(mktemp).js
-echo "
-try {
-  // First check if puppeteer is already installed
-  require('puppeteer');
-  console.log('Puppeteer is already installed');
-} catch (e) {
-  console.log('Puppeteer not found in local context, but continuing anyway');
-  // We'll rely on the workflow step that installed it globally
-}
+# Create placeholder images first (will be overwritten if screenshots succeed)
+echo "Creating placeholder images as fallback..."
+echo "<svg width='1200' height='800' xmlns='http://www.w3.org/2000/svg'><rect width='100%' height='100%' fill='#f0f0f0'/><text x='50%' y='50%' font-family='Arial' font-size='24' fill='#666' text-anchor='middle'>Screenshot not available</text></svg>" > ./$RESULTS_DIR/screenshots/placeholder.svg
+cp ./$RESULTS_DIR/screenshots/placeholder.svg ./$RESULTS_DIR/screenshots/full-page.png
+cp ./$RESULTS_DIR/screenshots/placeholder.svg ./$RESULTS_DIR/screenshots/above-fold.png
 
-// Use a more robust approach for importing puppeteer
-let puppeteer;
-try {
-  puppeteer = require('puppeteer');
-} catch (e) {
-  console.error('Error requiring puppeteer:', e.message);
-  process.exit(1);
-}
+# Create minimal placeholder images for mobile
+echo "<svg width='360' height='640' xmlns='http://www.w3.org/2000/svg'><rect width='100%' height='100%' fill='#f0f0f0'/><text x='50%' y='50%' font-family='Arial' font-size='18' fill='#666' text-anchor='middle'>Mobile screenshot not available</text></svg>" > ./$RESULTS_DIR/mobile/screenshots/placeholder.svg
+cp ./$RESULTS_DIR/mobile/screenshots/placeholder.svg ./$RESULTS_DIR/mobile/screenshots/full-page.png
+cp ./$RESULTS_DIR/mobile/screenshots/placeholder.svg ./$RESULTS_DIR/mobile/screenshots/above-fold.png
 
-async function captureScreenshots() {
+# Create a separate package.json just for the screenshot tool
+SCREENSHOT_DIR=$(mktemp -d)
+cd $SCREENSHOT_DIR
+
+# Create a simple package.json
+echo '{
+  "name": "lighthouse-screenshots",
+  "version": "1.0.0",
+  "description": "Temporary package for screenshots",
+  "main": "index.js",
+  "dependencies": {}
+}' > package.json
+
+# Install puppeteer specifically in this directory
+echo "Installing Puppeteer for screenshots in isolated environment..."
+npm install puppeteer@19.11.1 --no-fund --no-audit --loglevel=error
+
+# Create the screenshot script
+cat > index.js << 'EOL'
+const puppeteer = require('puppeteer');
+
+async function captureScreenshots(url, resultsDir) {
+  console.log('Starting screenshot capture for', url);
+  let browser;
   try {
-    console.log('Starting screenshot capture...');
-    const browser = await puppeteer.launch({
+    browser = await puppeteer.launch({
       args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu', '--disable-features=IsolateOrigins'],
       headless: 'new'
-    }).catch(err => {
-      console.error('Failed to launch browser:', err);
-      throw err;
     });
 
     // Desktop screenshots
@@ -225,26 +233,25 @@ async function captureScreenshots() {
     try {
       const desktopPage = await browser.newPage();
       await desktopPage.setViewport({ width: 1200, height: 800 });
-      await desktopPage.goto('$URL', { waitUntil: 'networkidle0', timeout: 30000 });
+      await desktopPage.goto(url, { waitUntil: 'networkidle0', timeout: 30000 });
 
       // Capture above fold
       await desktopPage.screenshot({
-        path: './$RESULTS_DIR/screenshots/above-fold.png',
+        path: `./${resultsDir}/screenshots/above-fold.png`,
         type: 'png'
       });
 
       // Capture full page
       await desktopPage.screenshot({
-        path: './$RESULTS_DIR/screenshots/full-page.png',
+        path: `./${resultsDir}/screenshots/full-page.png`,
         type: 'png',
         fullPage: true
       });
 
       await desktopPage.close();
-      console.log('Desktop screenshots captured successfully');
+      console.log('Desktop screenshots captured');
     } catch (error) {
-      console.error('Error capturing desktop screenshots:', error);
-      // Continue to mobile screenshots even if desktop fails
+      console.error('Error capturing desktop screenshots:', error.message);
     }
 
     // Mobile screenshots
@@ -259,62 +266,72 @@ async function captureScreenshots() {
         isMobile: true
       });
 
-      await mobilePage.goto('$URL', { waitUntil: 'networkidle0', timeout: 30000 });
+      await mobilePage.goto(url, { waitUntil: 'networkidle0', timeout: 30000 });
 
       // Capture above fold
       await mobilePage.screenshot({
-        path: './$RESULTS_DIR/mobile/screenshots/above-fold.png',
+        path: `./${resultsDir}/mobile/screenshots/above-fold.png`,
         type: 'png'
       });
 
       // Capture full page
       await mobilePage.screenshot({
-        path: './$RESULTS_DIR/mobile/screenshots/full-page.png',
+        path: `./${resultsDir}/mobile/screenshots/full-page.png`,
         type: 'png',
         fullPage: true
       });
 
       await mobilePage.close();
-      console.log('Mobile screenshots captured successfully');
+      console.log('Mobile screenshots captured');
     } catch (error) {
-      console.error('Error capturing mobile screenshots:', error);
+      console.error('Error capturing mobile screenshots:', error.message);
     }
-
-    await browser.close().catch(err => console.error('Error closing browser:', err));
-    console.log('Screenshots captured successfully');
   } catch (error) {
-    console.error('Error in screenshot capture process:', error);
-    process.exit(1);
+    console.error('Error launching browser:', error.message);
+    return false;
+  } finally {
+    if (browser) {
+      try {
+        await browser.close();
+      } catch (error) {
+        console.error('Error closing browser:', error.message);
+      }
+    }
   }
+
+  return true;
 }
 
-captureScreenshots().catch(err => {
-  console.error('Unhandled error in screenshot process:', err);
+// Get arguments from command line
+const url = process.argv[2];
+const resultsDir = process.argv[3];
+
+if (!url || !resultsDir) {
+  console.error('Missing required arguments: url and resultsDir');
   process.exit(1);
-});" > $SCREENSHOT_SCRIPT
+}
 
-# Try to install puppeteer first (will be fast if already installed)
-echo "Ensuring puppeteer is installed..."
-npm install --no-save puppeteer@19.11.1 --ignore-scripts || echo "Failed to install puppeteer, will use placeholder images"
+captureScreenshots(url, resultsDir)
+  .then(success => {
+    console.log('Screenshot capture process completed:', success ? 'successfully' : 'with errors');
+    process.exit(success ? 0 : 1);
+  })
+  .catch(error => {
+    console.error('Unhandled error in screenshot process:', error);
+    process.exit(1);
+  });
+EOL
 
-# Run the screenshot script or create placeholders if it fails
-echo "Running custom screenshot capture script..."
-if node $SCREENSHOT_SCRIPT; then
-  echo "Screenshots captured successfully"
-else
-  echo "Screenshot script failed, creating placeholder images"
-  # Create minimal placeholder images
-  echo "<svg width='1200' height='800' xmlns='http://www.w3.org/2000/svg'><rect width='100%' height='100%' fill='#f0f0f0'/><text x='50%' y='50%' font-family='Arial' font-size='24' fill='#666' text-anchor='middle'>Screenshot not available</text></svg>" > ./$RESULTS_DIR/screenshots/placeholder.svg
-  cp ./$RESULTS_DIR/screenshots/placeholder.svg ./$RESULTS_DIR/screenshots/full-page.png
-  cp ./$RESULTS_DIR/screenshots/placeholder.svg ./$RESULTS_DIR/screenshots/above-fold.png
+# Return to original directory
+cd - > /dev/null
 
-  # Create minimal placeholder images for mobile
-  echo "<svg width='360' height='640' xmlns='http://www.w3.org/2000/svg'><rect width='100%' height='100%' fill='#f0f0f0'/><text x='50%' y='50%' font-family='Arial' font-size='18' fill='#666' text-anchor='middle'>Mobile screenshot not available</text></svg>" > ./$RESULTS_DIR/mobile/screenshots/placeholder.svg
-  cp ./$RESULTS_DIR/mobile/screenshots/placeholder.svg ./$RESULTS_DIR/mobile/screenshots/full-page.png
-  cp ./$RESULTS_DIR/mobile/screenshots/placeholder.svg ./$RESULTS_DIR/mobile/screenshots/above-fold.png
-fi
+# Run the screenshot script with Node
+echo "Running screenshot capture script..."
+node $SCREENSHOT_DIR/index.js "$URL" "$RESULTS_DIR" || echo "Screenshot capture failed, using placeholder images"
 
-# Clean up the temporary script
-rm -f $SCREENSHOT_SCRIPT
+# Clean up
+rm -rf $SCREENSHOT_DIR
+
+echo "Screenshot process completed"
 
 echo "Lighthouse tests completed for $PAGE_NAME"
