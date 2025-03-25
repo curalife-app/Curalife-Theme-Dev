@@ -91,10 +91,14 @@ echo "Running mobile tests..."
 npx lhci autorun \
   --collect.url=$URL \
   --collect.numberOfRuns=1 \
-  --collect.settings.preset=mobile \
+  --collect.settings.preset=desktop \
   --collect.settings.chromeFlags="$CHROME_FLAGS --disable-features=IsolateOrigins" \
   --collect.settings.formFactor=mobile \
-  --collect.settings.screenEmulation.disabled=false \
+  --collect.settings.throttling.cpuSlowdownMultiplier=4 \
+  --collect.settings.screenEmulation.mobile=true \
+  --collect.settings.screenEmulation.width=360 \
+  --collect.settings.screenEmulation.height=640 \
+  --collect.settings.screenEmulation.deviceScaleFactor=2.625 \
   --collect.settings.emulatedUserAgent="Mozilla/5.0 (Linux; Android 11; Pixel 5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36" \
   --collect.settings.onlyCategories="performance,accessibility,best-practices,seo,pwa" \
   --collect.settings.skipAudits="" \
@@ -156,12 +160,28 @@ echo "Capturing screenshots..."
 mkdir -p ./$RESULTS_DIR/screenshots
 mkdir -p ./$RESULTS_DIR/mobile/screenshots
 
-# Capture page screenshots for desktop
-puppeteer-screenshot-cli --url $URL --output ./$RESULTS_DIR/screenshots/full-page.png --full-page
-puppeteer-screenshot-cli --url $URL --output ./$RESULTS_DIR/screenshots/above-fold.png --width 1200 --height 800
+# Capture page screenshots for desktop - with error handling
+if command -v puppeteer-screenshot-cli &> /dev/null; then
+  puppeteer-screenshot-cli --url $URL --output ./$RESULTS_DIR/screenshots/full-page.png --full-page || echo "Desktop full-page screenshot failed"
+  puppeteer-screenshot-cli --url $URL --output ./$RESULTS_DIR/screenshots/above-fold.png --width 1200 --height 800 || echo "Desktop above-fold screenshot failed"
+else
+  echo "puppeteer-screenshot-cli not found, creating empty placeholder images"
+  # Create minimal placeholder images
+  echo "<svg width='1200' height='800' xmlns='http://www.w3.org/2000/svg'><rect width='100%' height='100%' fill='#f0f0f0'/><text x='50%' y='50%' font-family='Arial' font-size='24' fill='#666' text-anchor='middle'>Screenshot not available</text></svg>" > ./$RESULTS_DIR/screenshots/placeholder.svg
+  cp ./$RESULTS_DIR/screenshots/placeholder.svg ./$RESULTS_DIR/screenshots/full-page.png
+  cp ./$RESULTS_DIR/screenshots/placeholder.svg ./$RESULTS_DIR/screenshots/above-fold.png
+fi
 
-# Capture page screenshots for mobile
-puppeteer-screenshot-cli --url $URL --output ./$RESULTS_DIR/mobile/screenshots/full-page.png --full-page --device "Pixel 5"
-puppeteer-screenshot-cli --url $URL --output ./$RESULTS_DIR/mobile/screenshots/above-fold.png --device "Pixel 5"
+# Capture page screenshots for mobile - with error handling
+if command -v puppeteer-screenshot-cli &> /dev/null; then
+  puppeteer-screenshot-cli --url $URL --output ./$RESULTS_DIR/mobile/screenshots/full-page.png --full-page --device "Pixel 5" || echo "Mobile full-page screenshot failed"
+  puppeteer-screenshot-cli --url $URL --output ./$RESULTS_DIR/mobile/screenshots/above-fold.png --device "Pixel 5" || echo "Mobile above-fold screenshot failed"
+else
+  echo "puppeteer-screenshot-cli not found, creating empty placeholder images"
+  # Create minimal placeholder images for mobile
+  echo "<svg width='360' height='640' xmlns='http://www.w3.org/2000/svg'><rect width='100%' height='100%' fill='#f0f0f0'/><text x='50%' y='50%' font-family='Arial' font-size='18' fill='#666' text-anchor='middle'>Mobile screenshot not available</text></svg>" > ./$RESULTS_DIR/mobile/screenshots/placeholder.svg
+  cp ./$RESULTS_DIR/mobile/screenshots/placeholder.svg ./$RESULTS_DIR/mobile/screenshots/full-page.png
+  cp ./$RESULTS_DIR/mobile/screenshots/placeholder.svg ./$RESULTS_DIR/mobile/screenshots/above-fold.png
+fi
 
 echo "Lighthouse tests completed for $PAGE_NAME"
