@@ -223,12 +223,13 @@ mkdir -p ./$RESULTS_DIR/mobile/screenshots
 
 # Create placeholder images first (will be overwritten if screenshots succeed)
 echo "Creating placeholder images as fallback..."
-echo "<svg width='1200' height='800' xmlns='http://www.w3.org/2000/svg'><rect width='100%' height='100%' fill='#f0f0f0'/><text x='50%' y='50%' font-family='Arial' font-size='24' fill='#666' text-anchor='middle'>Screenshot not available</text></svg>" > ./$RESULTS_DIR/screenshots/placeholder.svg
+TEMPLATE_DIR="$(dirname "$0")/../templates"
+cat "$TEMPLATE_DIR/desktop-placeholder.svg.template" > ./$RESULTS_DIR/screenshots/placeholder.svg
 cp ./$RESULTS_DIR/screenshots/placeholder.svg ./$RESULTS_DIR/screenshots/full-page.png
 cp ./$RESULTS_DIR/screenshots/placeholder.svg ./$RESULTS_DIR/screenshots/above-fold.png
 
 # Create minimal placeholder images for mobile
-echo "<svg width='360' height='640' xmlns='http://www.w3.org/2000/svg'><rect width='100%' height='100%' fill='#f0f0f0'/><text x='50%' y='50%' font-family='Arial' font-size='18' fill='#666' text-anchor='middle'>Mobile screenshot not available</text></svg>" > ./$RESULTS_DIR/mobile/screenshots/placeholder.svg
+cat "$TEMPLATE_DIR/mobile-placeholder.svg.template" > ./$RESULTS_DIR/mobile/screenshots/placeholder.svg
 cp ./$RESULTS_DIR/mobile/screenshots/placeholder.svg ./$RESULTS_DIR/mobile/screenshots/full-page.png
 cp ./$RESULTS_DIR/mobile/screenshots/placeholder.svg ./$RESULTS_DIR/mobile/screenshots/above-fold.png
 
@@ -236,125 +237,15 @@ cp ./$RESULTS_DIR/mobile/screenshots/placeholder.svg ./$RESULTS_DIR/mobile/scree
 SCREENSHOT_DIR=$(mktemp -d)
 cd $SCREENSHOT_DIR
 
-# Create a simple package.json
-echo '{
-  "name": "lighthouse-screenshots",
-  "version": "1.0.0",
-  "description": "Temporary package for screenshots",
-  "main": "index.js",
-  "dependencies": {}
-}' > package.json
+# Create a simple package.json from template
+cat "$TEMPLATE_DIR/screenshot-package.json.template" > package.json
 
 # Install puppeteer specifically in this directory
 echo "Installing Puppeteer for screenshots in isolated environment..."
 npm install puppeteer@19.11.1 --no-fund --no-audit --loglevel=error
 
-# Create the screenshot script
-cat > index.js << 'EOL'
-const puppeteer = require('puppeteer');
-
-async function captureScreenshots(url, resultsDir) {
-  console.log('Starting screenshot capture for', url);
-  let browser;
-  try {
-    browser = await puppeteer.launch({
-      args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu', '--disable-features=IsolateOrigins'],
-      headless: 'new'
-    });
-
-    // Desktop screenshots
-    console.log('Capturing desktop screenshots...');
-    try {
-      const desktopPage = await browser.newPage();
-      await desktopPage.setViewport({ width: 1200, height: 800 });
-      await desktopPage.goto(url, { waitUntil: 'networkidle0', timeout: 30000 });
-
-      // Capture above fold
-      await desktopPage.screenshot({
-        path: `./${resultsDir}/screenshots/above-fold.png`,
-        type: 'png'
-      });
-
-      // Capture full page
-      await desktopPage.screenshot({
-        path: `./${resultsDir}/screenshots/full-page.png`,
-        type: 'png',
-        fullPage: true
-      });
-
-      await desktopPage.close();
-      console.log('Desktop screenshots captured');
-    } catch (error) {
-      console.error('Error capturing desktop screenshots:', error.message);
-    }
-
-    // Mobile screenshots
-    console.log('Capturing mobile screenshots...');
-    try {
-      const mobilePage = await browser.newPage();
-      await mobilePage.setUserAgent('Mozilla/5.0 (Linux; Android 11; Pixel 5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36');
-      await mobilePage.setViewport({
-        width: 360,
-        height: 640,
-        deviceScaleFactor: 2.625,
-        isMobile: true
-      });
-
-      await mobilePage.goto(url, { waitUntil: 'networkidle0', timeout: 30000 });
-
-      // Capture above fold
-      await mobilePage.screenshot({
-        path: `./${resultsDir}/mobile/screenshots/above-fold.png`,
-        type: 'png'
-      });
-
-      // Capture full page
-      await mobilePage.screenshot({
-        path: `./${resultsDir}/mobile/screenshots/full-page.png`,
-        type: 'png',
-        fullPage: true
-      });
-
-      await mobilePage.close();
-      console.log('Mobile screenshots captured');
-    } catch (error) {
-      console.error('Error capturing mobile screenshots:', error.message);
-    }
-  } catch (error) {
-    console.error('Error launching browser:', error.message);
-    return false;
-  } finally {
-    if (browser) {
-      try {
-        await browser.close();
-      } catch (error) {
-        console.error('Error closing browser:', error.message);
-      }
-    }
-  }
-
-  return true;
-}
-
-// Get arguments from command line
-const url = process.argv[2];
-const resultsDir = process.argv[3];
-
-if (!url || !resultsDir) {
-  console.error('Missing required arguments: url and resultsDir');
-  process.exit(1);
-}
-
-captureScreenshots(url, resultsDir)
-  .then(success => {
-    console.log('Screenshot capture process completed:', success ? 'successfully' : 'with errors');
-    process.exit(success ? 0 : 1);
-  })
-  .catch(error => {
-    console.error('Unhandled error in screenshot process:', error);
-    process.exit(1);
-  });
-EOL
+# Create the screenshot script from template
+cat "$TEMPLATE_DIR/screenshot-script.js.template" > index.js
 
 # Return to original directory
 cd - > /dev/null
