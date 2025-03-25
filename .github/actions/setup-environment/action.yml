@@ -1,101 +1,104 @@
 name: "Setup Environment"
-description: "Sets up Node.js and installs system dependencies"
+description: "Sets up Node.js and installs all dependencies needed for Lighthouse CI"
 
 inputs:
-  cache-key-prefix:
-    description: "Prefix for the system dependencies cache key"
-    required: true
-  npm-cache-key:
-    description: "Cache key for npm global packages"
-    required: true
-  puppeteer-cache-key:
-    description: "Cache key for Puppeteer"
+  node-version:
+    description: "Node.js version to use"
     required: false
-  tools-cache-key:
-    description: "Cache key for tools"
+    default: "18"
+  cache-dependencies:
+    description: "Whether to cache dependencies"
     required: false
+    default: "true"
 
 runs:
   using: "composite"
   steps:
-    # Add caching for system dependencies
+    # Setup Node with built-in caching
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: "npm"
+
+    # Install system dependencies with caching
     - name: Cache system dependencies
-      uses: actions/cache@v4
       id: cache-sys-deps
+      uses: actions/cache@v4
       with:
         path: |
           ~/.cache/apt
           ~/.apt-cache
-        key: ${{ inputs.cache-key-prefix }}
-
-    # Add caching for jq and other tools that might be needed
-    - name: Cache tools
-      if: inputs.tools-cache-key != ''
-      uses: actions/cache@v4
-      id: cache-tools
-      with:
-        path: |
-          ~/.cache/tools
-        key: ${{ inputs.tools-cache-key || 'no-tools-cache' }}
-
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: "18"
-
-    # Manual caching for npm global packages
-    - name: Cache npm global packages
-      uses: actions/cache@v4
-      id: cache-npm-global
-      with:
-        path: ~/.npm
-        key: ${{ inputs.npm-cache-key }}
+        key: ${{ runner.os }}-apt-${{ hashFiles('**/package.json') }}
         restore-keys: |
-          ${{ inputs.npm-cache-key }}-
+          ${{ runner.os }}-apt-
 
-    # Create cache directories for Puppeteer
-    - name: Create Puppeteer cache directory
-      if: inputs.puppeteer-cache-key != ''
+    # Install jq and bc (for data processing)
+    - name: Install system tools
       shell: bash
-      run: mkdir -p ~/.cache/puppeteer
+      run: |
+        echo "Installing system tools..."
+        # Create cache directories if needed
+        mkdir -p ~/.cache/apt ~/.apt-cache
 
-    # Cache Puppeteer separately from npm
-    - name: Cache Puppeteer
-      if: inputs.puppeteer-cache-key != ''
-      uses: actions/cache@v4
+        # Install required tools
+        sudo apt-get update && sudo apt-get install -y jq bc
+
+    # Install Puppeteer with Chrome
+    - name: Cache Puppeteer & Chrome
       id: cache-puppeteer
+      if: inputs.cache-dependencies == 'true'
+      uses: actions/cache@v4
       with:
         path: ~/.cache/puppeteer
-        key: ${{ inputs.puppeteer-cache-key || 'no-puppeteer-cache' }}
+        key: ${{ runner.os }}-puppeteer-${{ hashFiles('**/package.json') }}
 
-    - name: Install dependencies
+    # Create Puppeteer cache directory
+    - name: Setup Puppeteer
+      shell: bash
+      run: |
+        echo "Setting up Puppeteer..."
+        mkdir -p ~/.cache/puppeteer
+        echo "PUPPETEER_CACHE_DIR=~/.cache/puppeteer" >> $GITHUB_ENV
+        echo "CHROME_FLAGS=--no-sandbox --disable-dev-shm-usage --disable-gpu --headless" >> $GITHUB_ENV
+
+    # Install global dependencies
+    - name: Install global dependencies
       shell: bash
       run: |
         echo "Installing global dependencies..."
-        if [ "${{ steps.cache-npm-global.outputs.cache-hit }}" == "true" ]; then
-          echo "Using cached npm global packages"
-        else
-          echo "Cache miss for npm global packages. Installing from scratch..."
-        fi
-        npm install -g @lhci/cli puppeteer lighthouse puppeteer-screenshot-cli
+        npm install -g @lhci/cli lighthouse puppeteer-core
 
-    - name: Set Chrome flags
+    # Check for package.json and install local dependencies if available
+    - name: Install local dependencies
       shell: bash
       run: |
-        echo "CHROME_FLAGS=--no-sandbox --disable-dev-shm-usage --disable-gpu --headless" >> $GITHUB_ENV
+        if [ -f "package.json" ]; then
+          if [ -f "package-lock.json" ]; then
+            echo "Installing dependencies with npm ci..."
+            npm ci
+          else
+            echo "Installing dependencies with npm install..."
+            npm install
+          fi
+        else
+          echo "No package.json found. Creating minimal package.json for Lighthouse dependencies..."
+          mkdir -p .github/workflows/templates
+          if [ -f ".github/workflows/templates/lighthouse-package.json.template" ]; then
+            cat ".github/workflows/templates/lighthouse-package.json.template" > package.json
+            npm install
+          else
+            echo '{"name":"lighthouse-ci-minimal","version":"1.0.0","dependencies":{"@lhci/cli":"^0.12.0"}}' > package.json
+            npm install
+          fi
+        fi
 
-    - name: Install jq and bc
+    # Verify installation
+    - name: Verify installation
       shell: bash
       run: |
-        # Create cache directories
-        mkdir -p ~/.cache/apt ~/.apt-cache ~/.cache/tools
-
-        if [ "${{ steps.cache-sys-deps.outputs.cache-hit }}" != "true" ]; then
-          echo "Cache miss. Installing jq and bc..."
-          sudo apt-get update && sudo apt-get install -y jq bc
-          # Copy installed binaries to cache location for future runs
-          which jq bc > ~/.cache/tools/installed_tools.txt
-        else
-          echo "Cache hit! Using cached apt lists."
-          sudo apt-get install -y jq bc --no-update
-        fi
+        echo "Verifying installation..."
+        node --version
+        npm --version
+        npx lighthouse --version || echo "Lighthouse not installed correctly"
+        npx lhci --version || echo "LHCI not installed correctly"

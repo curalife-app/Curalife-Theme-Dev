@@ -5,6 +5,15 @@ on:
     - cron: "15 02 * * *" # Runs at 2:15 UTC daily
     - cron: "15 14 * * *" # Runs at 14:15 UTC daily
   workflow_dispatch:
+    inputs:
+      base_url:
+        description: "Base URL to test"
+        required: false
+        default: "https://curalife.com"
+      custom_pages:
+        description: "Custom pages to test (JSON array of {name, url} objects)"
+        required: false
+        default: ""
 
 # Allow one concurrent deployment
 concurrency:
@@ -15,330 +24,111 @@ permissions:
   contents: write
 
 env:
-  REPORT_DATE: $(date +'%Y-%m-%d')
   RESULTS_DIR: ${{ github.workspace }}/lighthouse-results
-  BASE_URL: https://curalife.com
+  BASE_URL: ${{ github.event.inputs.base_url || 'https://curalife.com' }}
 
 jobs:
-  lighthouse-desktop:
-    name: Desktop Tests
+  lighthouse-tests:
+    name: Run Lighthouse Tests
     runs-on: ubuntu-latest
     strategy:
       matrix:
+        device: [desktop, mobile]
         page:
           - name: homepage
             url: /
           - name: product
             url: /products/curalin
     steps:
-      - uses: actions/checkout@v4
-      - name: Setup environment
-        run: |
-          chmod +x .github/workflows/scripts/*.sh
-          mkdir -p ${{ env.RESULTS_DIR }}/desktop/${{ matrix.page.name }}
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-          # Check if package.json exists
-          if [ -f "package.json" ]; then
-            # If package-lock.json exists, use npm ci, otherwise use npm install
-            if [ -f "package-lock.json" ]; then
-              echo "Installing dependencies with npm ci..."
-              npm ci
-            else
-              echo "No package-lock.json found. Using npm install instead..."
-              npm install
-            fi
-          else
-            echo "No package.json found. Creating minimal package.json for Lighthouse dependencies..."
-            TEMPLATE_DIR=".github/workflows/templates"
-            cat "$TEMPLATE_DIR/lighthouse-package.json.template" > package.json
-            npm install
-          fi
+      - name: Setup test environment
+        uses: ./.github/actions/setup-environment
+        with:
+          node-version: "18"
+          cache-dependencies: "true"
 
-          npm install -g @lhci/cli puppeteer-core
-      - name: Run Lighthouse for desktop
-        run: .github/workflows/scripts/run-lighthouse.sh "${{ env.BASE_URL }}${{ matrix.page.url }}" "${{ matrix.page.name }}" "${{ env.RESULTS_DIR }}/desktop/${{ matrix.page.name }}"
-      - name: Upload desktop results
+      - name: Setup results directory
+        run: mkdir -p ${{ env.RESULTS_DIR }}/${{ matrix.device }}/${{ matrix.page.name }}
+
+      - name: Run Lighthouse tests
+        uses: ./.github/actions/run-lighthouse
+        with:
+          url: "${{ env.BASE_URL }}${{ matrix.page.url }}"
+          test-name: "${{ matrix.page.name }}"
+          output-dir: "${{ env.RESULTS_DIR }}/${{ matrix.device }}/${{ matrix.page.name }}"
+          device: "${{ matrix.device }}"
+
+      - name: Upload results
         uses: actions/upload-artifact@v4
         with:
-          name: lighthouse-desktop-results-${{ matrix.page.name }}
-          path: ${{ env.RESULTS_DIR }}/desktop/${{ matrix.page.name }}
-          retention-days: 30
-
-  lighthouse-mobile:
-    name: Mobile Tests
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        page:
-          - name: homepage
-            url: /
-          - name: product
-            url: /products/curalin
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup environment
-        run: |
-          chmod +x .github/workflows/scripts/*.sh
-          mkdir -p ${{ env.RESULTS_DIR }}/mobile/${{ matrix.page.name }}
-
-          # Check if package.json exists
-          if [ -f "package.json" ]; then
-            # If package-lock.json exists, use npm ci, otherwise use npm install
-            if [ -f "package-lock.json" ]; then
-              echo "Installing dependencies with npm ci..."
-              npm ci
-            else
-              echo "No package-lock.json found. Using npm install instead..."
-              npm install
-            fi
-          else
-            echo "No package.json found. Creating minimal package.json for Lighthouse dependencies..."
-            TEMPLATE_DIR=".github/workflows/templates"
-            cat "$TEMPLATE_DIR/lighthouse-package.json.template" > package.json
-            npm install
-          fi
-
-          npm install -g @lhci/cli puppeteer-core
-      - name: Run Lighthouse for mobile
-        run: .github/workflows/scripts/run-lighthouse.sh "${{ env.BASE_URL }}${{ matrix.page.url }}" "${{ matrix.page.name }}" "${{ env.RESULTS_DIR }}/mobile/${{ matrix.page.name }}"
-      - name: Upload mobile results
-        uses: actions/upload-artifact@v4
-        with:
-          name: lighthouse-mobile-results-${{ matrix.page.name }}
-          path: ${{ env.RESULTS_DIR }}/mobile/${{ matrix.page.name }}
-          retention-days: 30
+          name: lighthouse-${{ matrix.device }}-${{ matrix.page.name }}
+          path: ${{ env.RESULTS_DIR }}/${{ matrix.device }}/${{ matrix.page.name }}
+          retention-days: 7
 
   process-and-generate:
     name: Process Results & Generate Dashboard
-    needs: [lighthouse-desktop, lighthouse-mobile]
+    needs: [lighthouse-tests]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Setup
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create results directory structure
         run: |
-          chmod +x .github/workflows/scripts/*.sh
-          # Create all necessary directories to avoid errors
-          mkdir -p ${{ env.RESULTS_DIR }}/desktop
-          mkdir -p ${{ env.RESULTS_DIR }}/mobile
-          mkdir -p ${{ env.RESULTS_DIR }}/processed
-          mkdir -p ${{ env.RESULTS_DIR }}/historical
-          mkdir -p ${{ env.RESULTS_DIR }}/dashboards
+          mkdir -p ${{ env.RESULTS_DIR }}
           mkdir -p performance-reports
-          mkdir -p performance-reports/history
 
-          # Print the directory structure to help with debugging
-          echo "Directory structure before downloading artifacts:"
-          find ${{ env.RESULTS_DIR }} -type d | sort
-          find performance-reports -type d | sort
-
-      - name: Download desktop results - homepage
+      - name: Download all test results
         uses: actions/download-artifact@v4
         with:
-          name: lighthouse-desktop-results-homepage
-          path: ${{ env.RESULTS_DIR }}/desktop/homepage
-
-      - name: Download desktop results - product
-        uses: actions/download-artifact@v4
-        with:
-          name: lighthouse-desktop-results-product
-          path: ${{ env.RESULTS_DIR }}/desktop/product
-
-      - name: Download mobile results - homepage
-        uses: actions/download-artifact@v4
-        with:
-          name: lighthouse-mobile-results-homepage
-          path: ${{ env.RESULTS_DIR }}/mobile/homepage
-
-      - name: Download mobile results - product
-        uses: actions/download-artifact@v4
-        with:
-          name: lighthouse-mobile-results-product
-          path: ${{ env.RESULTS_DIR }}/mobile/product
-
-      - name: Check downloaded artifacts
-        run: |
-          echo "Directory structure after downloading artifacts:"
-          find ${{ env.RESULTS_DIR }} -type d | sort
-
-          # Check file contents to help with debugging
-          echo "Files in desktop/homepage:"
-          ls -la ${{ env.RESULTS_DIR }}/desktop/homepage || echo "No files found"
-
-          echo "Files in mobile/homepage:"
-          ls -la ${{ env.RESULTS_DIR }}/mobile/homepage || echo "No files found"
-
-          echo "Files in desktop/product:"
-          ls -la ${{ env.RESULTS_DIR }}/desktop/product || echo "No files found"
-
-          echo "Files in mobile/product:"
-          ls -la ${{ env.RESULTS_DIR }}/mobile/product || echo "No files found"
-
-      - name: Process results
-        id: process_results
-        run: |
-          # Get the current date in YYYY-MM-DD format
-          CURRENT_DATE=$(date +'%Y-%m-%d')
-          echo "Processing results for date: $CURRENT_DATE"
-          echo "CURRENT_DATE=$CURRENT_DATE" >> $GITHUB_OUTPUT
-
-          # Process each page's results
-          for page in homepage product; do
-            echo "Processing results for page: $page"
-
-            # Call the process-results script for this page
-            .github/workflows/scripts/process-results.sh "$page" "${{ env.RESULTS_DIR }}" "$CURRENT_DATE" || { echo "Failed to process results for $page"; exit 1; }
-          done
-
-          # Check processed results directory
-          echo "Files in processed directory:"
-          find ${{ env.RESULTS_DIR }}/processed -type f | sort || echo "No processed files found"
-
-          # Mark processing as successful
-          echo "PROCESSED=true" >> $GITHUB_OUTPUT
-
-      - name: Store historical data
-        if: steps.process_results.outputs.PROCESSED == 'true'
-        run: |
-          echo "Storing historical data..."
-          .github/workflows/scripts/store-historical-data.sh || { echo "Failed to store historical data"; exit 1; }
-
-          # Check historical data directory
-          echo "Files in historical directory:"
-          find ${{ env.RESULTS_DIR }}/historical -type f | sort || echo "No historical files found"
-
-      - name: Generate dashboards
-        if: steps.process_results.outputs.PROCESSED == 'true'
-        run: |
-          echo "Generating main dashboard..."
-          .github/workflows/scripts/generate-dashboard.sh "${{ steps.process_results.outputs.CURRENT_DATE }}" || { echo "Failed to generate main dashboard"; exit 1; }
-
-          echo "Generating trend dashboard..."
-          .github/workflows/scripts/generate-trend-dashboard.sh || { echo "Failed to generate trend dashboard"; exit 1; }
-
-          # Check dashboards directory
-          echo "Files in dashboards directory:"
-          find ${{ env.RESULTS_DIR }}/dashboards -type f | sort || echo "No dashboard files found"
-
-          # Verify that the main dashboard was created
-          if [ -f "performance-reports/index.html" ]; then
-            echo "Main dashboard found in performance-reports directory"
-            # Ensure the dashboard is also in the lighthouse-results directory
-            cp performance-reports/index.html ${{ env.RESULTS_DIR }}/index.html
-
-            # If trends dashboard exists, copy it too
-            if [ -f "performance-reports/trends.html" ]; then
-              cp performance-reports/trends.html ${{ env.RESULTS_DIR }}/trends.html
-            fi
-
-            # Copy any other assets needed
-            mkdir -p ${{ env.RESULTS_DIR }}/assets
-            cp -r performance-reports/assets/* ${{ env.RESULTS_DIR }}/assets/ 2>/dev/null || echo "No assets to copy"
-          else
-            echo "WARNING: Main dashboard not found in performance-reports directory!"
-            find performance-reports -type f | sort || echo "No files found in performance-reports"
-          fi
-
-      - name: Generate report pages
-        if: steps.process_results.outputs.PROCESSED == 'true'
-        run: |
-          echo "Generating report pages..."
-          # For each page in the processed results
-          for page_dir in ${{ env.RESULTS_DIR }}/processed/*; do
-            if [ -d "$page_dir" ]; then
-              page_name=$(basename "$page_dir")
-              output_dir="${page_dir}/reports"
-
-              echo "Generating report for $page_name"
-              # Create reports directory if it doesn't exist
-              mkdir -p "$output_dir"
-
-              # Source metrics file if it exists
-              metrics_file="${page_dir}/metrics-values.env"
-              if [ -f "$metrics_file" ]; then
-                echo "Using metrics from $metrics_file"
-                source "$metrics_file"
-              else
-                echo "Metrics file not found, using default values"
-                # Default values if metrics file doesn't exist
-                DESKTOP_PERF=0
-                DESKTOP_A11Y=0
-                DESKTOP_BP=0
-                DESKTOP_SEO=0
-                DESKTOP_LCP=0
-                DESKTOP_FID=0
-                DESKTOP_CLS=0
-                DESKTOP_TBT=0
-
-                MOBILE_PERF=0
-                MOBILE_A11Y=0
-                MOBILE_BP=0
-                MOBILE_SEO=0
-                MOBILE_LCP=0
-                MOBILE_FID=0
-                MOBILE_CLS=0
-                MOBILE_TBT=0
-              fi
-
-              # Generate HTML report templates
-              .github/workflows/scripts/generate-report-templates.sh "$page_name" "$output_dir" "${{ steps.process_results.outputs.CURRENT_DATE }}" || { echo "Failed to generate report for $page_name"; exit 1; }
-            fi
-          done
-
-          # Check report pages
-          echo "Generated report pages:"
-          find ${{ env.RESULTS_DIR }}/processed -name "*.html" | sort || echo "No report HTML files found"
-
-      - name: Create fallback index file
-        run: |
-          DASHBOARDS_DIR="${{ env.RESULTS_DIR }}/dashboards"
-          if [ ! -f "$DASHBOARDS_DIR/index.html" ]; then
-            echo "Creating fallback index.html file"
-            mkdir -p "$DASHBOARDS_DIR"
-            CURRENT_DATE=$(date +'%Y-%m-%d')
-
-            # Use template file instead of multiple echo statements
-            TEMPLATE_DIR=".github/workflows/templates"
-            cat "$TEMPLATE_DIR/fallback-index.template.html" | \
-              sed -e "s|\${CURRENT_DATE}|$CURRENT_DATE|g" \
-              > "$DASHBOARDS_DIR/index.html"
-          fi
-
-          # Make sure there's also an index.html in the root
-          # This is critical for GitHub Pages to work properly
-          if [ -f "performance-reports/index.html" ] && [ ! -f "${{ env.RESULTS_DIR }}/index.html" ]; then
-            echo "Copying performance-reports/index.html to the root directory"
-            cp "performance-reports/index.html" "${{ env.RESULTS_DIR }}/index.html"
-          fi
-
-          # Also copy to dashboards directory
-          if [ -f "performance-reports/index.html" ] && [ ! -f "$DASHBOARDS_DIR/index.html" ]; then
-            echo "Copying performance-reports/index.html to the dashboards directory"
-            cp "performance-reports/index.html" "$DASHBOARDS_DIR/index.html"
-          fi
-
-          # Create a .nojekyll file to prevent GitHub Pages from using Jekyll
-          touch "${{ env.RESULTS_DIR }}/.nojekyll"
-
-          # List all key files to verify they exist
-          echo "Checking for index.html files:"
-          find ${{ env.RESULTS_DIR }} -name "index.html" | sort
-
-      - name: Upload all results
-        uses: actions/upload-artifact@v4
-        with:
-          name: lighthouse-dashboards-complete
           path: ${{ env.RESULTS_DIR }}
-          retention-days: 30
+          pattern: "lighthouse-*"
+          merge-multiple: true
 
-      - name: Upload just dashboard files
+      - name: Reorganize directory structure
+        run: |
+          # Check downloads and fix structure if needed
+          echo "Directory structure after downloading artifacts:"
+          find ${{ env.RESULTS_DIR }} -maxdepth 3 -type d | sort
+
+          # Create correct structure for devices/pages
+          for device in desktop mobile; do
+            mkdir -p ${{ env.RESULTS_DIR }}/$device
+
+            # Move results to correct locations if needed
+            find ${{ env.RESULTS_DIR }}/lighthouse-$device-* -maxdepth 0 -type d 2>/dev/null | while read -r dir; do
+              page_name=$(basename "$dir" | sed "s/lighthouse-$device-//")
+              mkdir -p ${{ env.RESULTS_DIR }}/$device/$page_name
+              cp -r "$dir"/* ${{ env.RESULTS_DIR }}/$device/$page_name/ 2>/dev/null || echo "No files to copy from $dir"
+            done
+          done
+
+          echo "Final directory structure:"
+          find ${{ env.RESULTS_DIR }} -maxdepth 3 -type d | sort
+
+      - name: Generate performance dashboard
+        uses: ./.github/actions/generate-dashboard
+        with:
+          results-dir: ${{ env.RESULTS_DIR }}
+          output-dir: ${{ env.RESULTS_DIR }}
+          current-date: $(date +'%Y-%m-%d')
+          templates-dir: .github/workflows/templates
+          include-history: "true"
+
+      - name: Upload dashboard artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: lighthouse-final-dashboards
+          name: lighthouse-dashboard
           path: |
             ${{ env.RESULTS_DIR }}/dashboards/**
             ${{ env.RESULTS_DIR }}/processed/**
+            ${{ env.RESULTS_DIR }}/index.html
+            ${{ env.RESULTS_DIR }}/trends.html
+            ${{ env.RESULTS_DIR }}/.nojekyll
             performance-reports/**
-          retention-days: 30
+          retention-days: 7
 
   publish:
     name: Publish to GitHub Pages
@@ -346,175 +136,19 @@ jobs:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: gh-pages
-          fetch-depth: 0
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Setup directory
-        run: |
-          mkdir -p ./lighthouse-results
-          touch ./lighthouse-results/.gitkeep
-          # Create or ensure CNAME file exists for custom domain
-          echo "speed.curalife.com" > ./CNAME
-          # Copy CNAME to results directory to ensure it's deployed
-          cp ./CNAME ./lighthouse-results/CNAME
-          # Remove old files to prevent stale content, but preserve CNAME and history
-          find ./lighthouse-results -type f -not -path "*/history/*" -not -name "CNAME" -delete || echo "No files to delete"
-
-          # Ensure .nojekyll file exists at root to prevent GitHub Pages from using Jekyll
-          touch ./.nojekyll
-
-      - name: Try download final dashboards
-        id: download_final
-        continue-on-error: true
+      - name: Download dashboard artifacts
         uses: actions/download-artifact@v4
         with:
-          name: lighthouse-final-dashboards
-          path: ./
+          name: lighthouse-dashboard
+          path: ./dashboard-output
 
-      - name: Try download complete results
-        if: steps.download_final.outcome != 'success'
-        id: download_complete
-        continue-on-error: true
-        uses: actions/download-artifact@v4
+      - name: Deploy to GitHub Pages
+        uses: ./.github/actions/deploy-to-gh-pages
         with:
-          name: lighthouse-dashboards-complete
-          path: ./
-
-      - name: Debug artifact download
-        run: |
-          echo "==== Downloaded Artifacts Debug Information ===="
-          echo "Download final dashboards outcome: ${{ steps.download_final.outcome }}"
-          echo "Download complete results outcome: ${{ steps.download_complete.outcome }}"
-          echo "Current directory structure:"
-          find . -type d -maxdepth 2 | sort
-          echo "Files directly in current directory:"
-          ls -la ./ || echo "No files found in root"
-          echo "Files in performance-reports directory:"
-          ls -la ./performance-reports/ || echo "No performance-reports directory found"
-
-      - name: Check downloaded files
-        run: |
-          echo "Contents of lighthouse-results directory:"
-          find ./lighthouse-results -type f | wc -l
-          ls -la ./lighthouse-results || echo "No files found"
-
-          # More detailed debugging - this will help diagnose path issues
-          echo "==== Detailed listing of all files ===="
-          find . -type f -not -path "*/node_modules/*" -not -path "*/.git/*" | grep -v "/.git/" | head -n 50
-
-          # Check for performance-reports directory (where the dashboard is actually generated)
-          echo "==== Checking for performance-reports directory ===="
-          if [ -d "./performance-reports" ]; then
-            echo "Found performance-reports directory!"
-            find ./performance-reports -type f | sort
-            # Copy the dashboard to the right locations
-            if [ -f "./performance-reports/index.html" ]; then
-              echo "Found the actual dashboard - copying to required locations"
-              # Copy to root
-              cp "./performance-reports/index.html" "./index.html"
-              # Copy to lighthouse-results
-              mkdir -p "./lighthouse-results"
-              cp "./performance-reports/index.html" "./lighthouse-results/index.html"
-              # Copy all other files from performance-reports to lighthouse-results
-              cp -r ./performance-reports/* ./lighthouse-results/ || echo "Error copying some files - continuing anyway"
-              echo "Dashboard files copied successfully"
-            else
-              echo "ERROR: performance-reports directory exists but no index.html found!"
-              ls -la ./performance-reports/
-            fi
-          else
-            echo "No performance-reports directory found. Will check other locations."
-          fi
-
-          # Check for dashboards directory specifically
-          echo "==== Checking dashboards directory ===="
-          if [ -d "./lighthouse-results/dashboards" ]; then
-            find ./lighthouse-results/dashboards -type f | sort
-            ls -la ./lighthouse-results/dashboards
-
-            # If there's an index.html in dashboards, copy it to the root of lighthouse-results
-            if [ -f "./lighthouse-results/dashboards/index.html" ] && [ ! -f "./lighthouse-results/index.html" ]; then
-              cp "./lighthouse-results/dashboards/index.html" "./lighthouse-results/index.html"
-              echo "Copied dashboard from lighthouse-results/dashboards/ to lighthouse-results/"
-            fi
-          else
-            echo "No dashboards directory found!"
-            # Create dashboards directory if it doesn't exist
-            mkdir -p ./lighthouse-results/dashboards
-          fi
-
-          # Check for processed directory
-          echo "==== Checking processed directory ===="
-          if [ -d "./lighthouse-results/processed" ]; then
-            find ./lighthouse-results/processed -type f | sort
-            ls -la ./lighthouse-results/processed
-          else
-            echo "No processed directory found!"
-          fi
-
-          # Create a minimal index.html if none exists
-          if [ ! -f "./lighthouse-results/index.html" ] && [ ! -f "./lighthouse-results/dashboards/index.html" ]; then
-            echo "Creating minimal index.html"
-            mkdir -p ./lighthouse-results/dashboards
-            CURRENT_DATE=$(date)
-
-            # Use template file instead of multiple echo statements
-            TEMPLATE_DIR=".github/workflows/templates"
-            cat "$TEMPLATE_DIR/fallback-index.template.html" | \
-              sed -e "s|\${CURRENT_DATE}|$CURRENT_DATE|g" \
-              > "./lighthouse-results/index.html"
-          fi
-
-          # If dashboards/index.html exists but the root index.html doesn't, copy it to the root
-          if [ -f "./lighthouse-results/dashboards/index.html" ] && [ ! -f "./lighthouse-results/index.html" ]; then
-            echo "Copying dashboards/index.html to root for easier access"
-            cp "./lighthouse-results/dashboards/index.html" "./lighthouse-results/index.html"
-          fi
-
-          # Also create an index.html in the repository root for GitHub Pages
-          if [ -f "./lighthouse-results/index.html" ]; then
-            echo "Copying index.html to repository root for GitHub Pages"
-            cp "./lighthouse-results/index.html" "./index.html"
-          else
-            echo "Creating a basic index.html in repository root"
-            TEMPLATE_DIR=".github/workflows/templates"
-            cat "$TEMPLATE_DIR/redirect.template.html" | \
-              sed -e "s|\${REDIRECT_URL}|./lighthouse-results/|g" \
-                  -e "s|\${REDIRECT_TITLE}|Lighthouse Performance Reports|g" \
-              > ./index.html
-          fi
-
-          # Ensure .nojekyll file exists for GitHub Pages in all relevant directories
-          touch ./.nojekyll
-          touch ./lighthouse-results/.nojekyll
-
-          # Final check for index.html files
-          echo "==== Final check for index.html files ===="
-          find . -name "index.html" -maxdepth 3 | sort
-          ls -la ./index.html || echo "WARNING: No root index.html found!"
-
-      - name: Publish results
-        run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email 'github-actions[bot]@users.noreply.github.com'
-
-          # Make sure CNAME file exists
-          echo "speed.curalife.com" > CNAME
-
-          # Make sure git tracks all files, even those in new directories
-          git add -A .
-
-          # Debugging - show what's staged
-          echo "==== Files staged for commit ===="
-          git status
-
-          # Commit with a detailed message
-          git commit -m "Update Lighthouse reports - $(date +'%Y-%m-%d %H:%M:%S')" || echo "No changes to commit"
-
-          # Force push (use with caution) to ensure branch is updated
-          git push --force origin gh-pages
-
-          echo "==== GitHub Pages deployment completed ===="
-          echo "Check status at https://github.com/$GITHUB_REPOSITORY/settings/pages"
+          source-dir: ./dashboard-output
+          custom-domain: "speed.curalife.com"
+          target-branch: "gh-pages"
+          commit-message: "Update Lighthouse reports - $(date +'%Y-%m-%d %H:%M:%S')"

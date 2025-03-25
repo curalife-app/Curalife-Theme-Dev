@@ -1,0 +1,172 @@
+name: "Run Lighthouse Tests"
+description: "Runs Lighthouse performance tests on the specified URL with configurable options"
+
+inputs:
+  url:
+    description: "The URL to test"
+    required: true
+  test-name:
+    description: "Name of the test for identification and file naming"
+    required: true
+  output-dir:
+    description: "Directory where results should be saved"
+    required: true
+  device:
+    description: "Device to emulate (desktop or mobile)"
+    required: false
+    default: "desktop"
+  extra-headers:
+    description: "Extra HTTP headers to send with requests (JSON format)"
+    required: false
+    default: "{}"
+  extra-chrome-flags:
+    description: "Additional Chrome flags"
+    required: false
+    default: ""
+  max-retries:
+    description: "Maximum number of retries for failed tests"
+    required: false
+    default: "3"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Setup test directory
+      shell: bash
+      run: |
+        echo "Setting up test directory for ${{ inputs.test-name }} on ${{ inputs.device }}..."
+        mkdir -p "${{ inputs.output-dir }}"
+
+    - name: Run Lighthouse test
+      id: run_lighthouse
+      shell: bash
+      run: |
+        echo "Running Lighthouse test for ${{ inputs.url }} on ${{ inputs.device }}..."
+
+        # Setup device configuration
+        if [ "${{ inputs.device }}" == "mobile" ]; then
+          FORM_FACTOR="mobile"
+          DEVICE_EMULATION="Moto G4"
+          THROTTLING="--throttling.cpuSlowdownMultiplier=4 --throttling.downloadThroughputKbps=1638.4 --throttling.uploadThroughputKbps=675 --throttling.rttMs=150"
+        else
+          FORM_FACTOR="desktop"
+          DEVICE_EMULATION="none"
+          THROTTLING="--throttling.cpuSlowdownMultiplier=1 --throttling.downloadThroughputKbps=5120 --throttling.uploadThroughputKbps=2560 --throttling.rttMs=40"
+        fi
+
+        # Set up Chrome flags
+        CHROME_FLAGS="--no-sandbox --disable-dev-shm-usage --disable-gpu --headless ${{ inputs.extra-chrome-flags }}"
+
+        # Set up headers if provided
+        HEADERS=""
+        if [ "${{ inputs.extra-headers }}" != "{}" ]; then
+          HEADERS="--extra-headers='${{ inputs.extra-headers }}'"
+        fi
+
+        # Function to run lighthouse with retries
+        run_with_retry() {
+          local max_attempts=${{ inputs.max-retries }}
+          local attempt=1
+          local exit_code=0
+
+          while [ $attempt -le $max_attempts ]; do
+            echo "Attempt $attempt of $max_attempts..."
+
+            npx lighthouse "${{ inputs.url }}" \
+              --chrome-flags="$CHROME_FLAGS" \
+              --output=html,json \
+              --output-path="${{ inputs.output-dir }}/${{ inputs.test-name }}" \
+              --form-factor=$FORM_FACTOR \
+              --emulated-form-factor=$FORM_FACTOR \
+              $HEADERS \
+              $THROTTLING
+
+            exit_code=$?
+
+            if [ $exit_code -eq 0 ]; then
+              echo "Lighthouse test succeeded!"
+              break
+            else
+              echo "Lighthouse test failed with exit code $exit_code"
+
+              if [ $attempt -lt $max_attempts ]; then
+                echo "Retrying in 5 seconds..."
+                sleep 5
+              else
+                echo "All retry attempts failed"
+                return $exit_code
+              fi
+            fi
+
+            attempt=$((attempt + 1))
+          done
+
+          return 0
+        }
+
+        # Run lighthouse with retries
+        run_with_retry
+
+        # Check if the test was successful
+        if [ $? -ne 0 ]; then
+          echo "::error::Failed to run Lighthouse test after ${{ inputs.max-retries }} attempts"
+          exit 1
+        fi
+
+        # Validate output files
+        if [ ! -f "${{ inputs.output-dir }}/${{ inputs.test-name }}.report.html" ] || [ ! -f "${{ inputs.output-dir }}/${{ inputs.test-name }}.report.json" ]; then
+          echo "::error::Lighthouse test did not produce expected output files"
+          exit 1
+        fi
+
+        echo "Lighthouse test completed successfully"
+
+    - name: Extract key metrics
+      shell: bash
+      run: |
+        echo "Extracting key metrics from Lighthouse results..."
+
+        JSON_FILE="${{ inputs.output-dir }}/${{ inputs.test-name }}.report.json"
+        METRICS_FILE="${{ inputs.output-dir }}/${{ inputs.test-name }}.metrics.json"
+        ENV_FILE="${{ inputs.output-dir }}/${{ inputs.test-name }}.metrics.env"
+
+        # Extract key metrics from the JSON report
+        if [ -f "$JSON_FILE" ]; then
+          # Create metrics.json with jq
+          jq '{
+            performance: .categories.performance.score,
+            accessibility: .categories.accessibility.score,
+            "best-practices": .categories["best-practices"].score,
+            seo: .categories.seo.score,
+            lcp: .audits["largest-contentful-paint"].numericValue,
+            fid: .audits["max-potential-fid"].numericValue,
+            cls: .audits["cumulative-layout-shift"].numericValue,
+            tbt: .audits["total-blocking-time"].numericValue,
+            fcp: .audits["first-contentful-paint"].numericValue,
+            tti: .audits["interactive"].numericValue,
+            si: .audits["speed-index"].numericValue,
+            device: "${{ inputs.device }}",
+            url: "${{ inputs.url }}",
+            timestamp: now | todate
+          }' "$JSON_FILE" > "$METRICS_FILE"
+
+          # Create metrics.env for GitHub Actions environment
+          DEVICE_PREFIX=$(echo "${{ inputs.device }}" | tr '[:lower:]' '[:upper:]')
+
+          jq -r '"'$DEVICE_PREFIX'_PERF=\(.performance * 100 | round)",
+            "'$DEVICE_PREFIX'_A11Y=\(.accessibility * 100 | round)",
+            "'$DEVICE_PREFIX'_BP=\(.["best-practices"] * 100 | round)",
+            "'$DEVICE_PREFIX'_SEO=\(.seo * 100 | round)",
+            "'$DEVICE_PREFIX'_LCP=\(.lcp)",
+            "'$DEVICE_PREFIX'_FID=\(.fid)",
+            "'$DEVICE_PREFIX'_CLS=\(.cls)",
+            "'$DEVICE_PREFIX'_TBT=\(.tbt)"' "$METRICS_FILE" > "$ENV_FILE"
+
+          # Export key metrics to GitHub environment
+          cat "$ENV_FILE" >> $GITHUB_ENV
+
+          echo "Metrics extracted and saved to $METRICS_FILE and $ENV_FILE"
+        else
+          echo "::error::JSON report not found at $JSON_FILE"
+          exit 1
+        fi

@@ -1,0 +1,173 @@
+name: "Deploy to GitHub Pages"
+description: "Deploys Lighthouse dashboard results to GitHub Pages"
+
+inputs:
+  source-dir:
+    description: "Source directory containing files to deploy"
+    required: true
+  custom-domain:
+    description: "Custom domain for GitHub Pages"
+    required: false
+    default: ""
+  target-branch:
+    description: "Branch to deploy to"
+    required: false
+    default: "gh-pages"
+  commit-message:
+    description: "Commit message for deploy"
+    required: false
+    default: "Update Lighthouse reports - $(date +'%Y-%m-%d %H:%M:%S')"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Checkout target branch
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ inputs.target-branch }}
+        fetch-depth: 0
+
+    - name: Setup deploy directory
+      shell: bash
+      run: |
+        echo "Setting up deploy directory..."
+
+        # Create directory structure to ensure we don't lose history
+        mkdir -p ./lighthouse-results
+        touch ./lighthouse-results/.gitkeep
+
+        # Create or ensure CNAME file exists for custom domain
+        if [ -n "${{ inputs.custom-domain }}" ]; then
+          echo "${{ inputs.custom-domain }}" > ./CNAME
+          # Copy CNAME to results directory to ensure it's deployed
+          cp ./CNAME ./lighthouse-results/CNAME
+        fi
+
+        # Remove old files to prevent stale content, but preserve CNAME and history
+        find ./lighthouse-results -type f -not -path "*/history/*" -not -name "CNAME" -delete 2>/dev/null || echo "No files to delete"
+
+        # Ensure .nojekyll file exists at root to prevent GitHub Pages from using Jekyll
+        touch ./.nojekyll
+        touch ./lighthouse-results/.nojekyll
+
+    - name: Copy files to deploy directory
+      shell: bash
+      run: |
+        echo "Copying files to deploy directory..."
+        SOURCE_DIR="${{ inputs.source-dir }}"
+
+        # Check if source directory exists
+        if [ ! -d "$SOURCE_DIR" ]; then
+          echo "::error::Source directory not found: $SOURCE_DIR"
+          exit 1
+        fi
+
+        # Copy all files from source directory
+        cp -R "$SOURCE_DIR"/* ./lighthouse-results/ 2>/dev/null || echo "No files to copy from $SOURCE_DIR"
+
+        # Ensure index.html exists in lighthouse-results
+        if [ ! -f "./lighthouse-results/index.html" ]; then
+          echo "::warning::No index.html found in source directory"
+
+          # Create a minimal index.html
+          echo "<!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset=\"UTF-8\">
+            <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
+            <title>Lighthouse Reports</title>
+            <style>
+              body { font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif; line-height: 1.6; max-width: 800px; margin: 0 auto; padding: 20px; }
+              h1 { color: #333; }
+              p { color: #666; }
+            </style>
+          </head>
+          <body>
+            <h1>Lighthouse Performance Reports</h1>
+            <p>Report generated on $(date)</p>
+            <p>No reports found. Please check back later.</p>
+          </body>
+          </html>" > ./lighthouse-results/index.html
+        fi
+
+        # Also create an index.html in the repository root for GitHub Pages
+        if [ ! -f "./index.html" ]; then
+          echo "<!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset=\"UTF-8\">
+            <meta http-equiv=\"refresh\" content=\"0; url=./lighthouse-results/\">
+            <title>Lighthouse Performance Reports</title>
+          </head>
+          <body>
+            <p>Redirecting to <a href=\"./lighthouse-results/\">Lighthouse Results</a>...</p>
+          </body>
+          </html>" > ./index.html
+        fi
+
+        # Ensure .nojekyll file exists
+        touch ./.nojekyll
+        touch ./lighthouse-results/.nojekyll
+
+    - name: Verify files before commit
+      shell: bash
+      run: |
+        echo "Verifying files before commit..."
+
+        # Check if critical files exist
+        if [ ! -f "./lighthouse-results/index.html" ]; then
+          echo "::error::No index.html found in deploy directory"
+          exit 1
+        fi
+
+        # Show summary of files to be deployed
+        echo "Files to be deployed:"
+        find ./lighthouse-results -type f | wc -l
+        find ./lighthouse-results -type f -name "*.html" | sort | head -n 5
+
+        # Check for CNAME
+        if [ -n "${{ inputs.custom-domain }}" ] && [ ! -f "./CNAME" ]; then
+          echo "::warning::CNAME file not found"
+          echo "${{ inputs.custom-domain }}" > ./CNAME
+        fi
+
+    - name: Commit and push
+      shell: bash
+      run: |
+        echo "Committing and pushing changes..."
+
+        # Setup git
+        git config user.name 'github-actions[bot]'
+        git config user.email 'github-actions[bot]@users.noreply.github.com'
+
+        # Add all files
+        git add -A .
+
+        # Commit with message
+        MESSAGE="${{ inputs.commit-message }}"
+        if [ "$MESSAGE" == "Update Lighthouse reports - $(date +'%Y-%m-%d %H:%M:%S')" ]; then
+          MESSAGE="Update Lighthouse reports - $(date +'%Y-%m-%d %H:%M:%S')"
+        fi
+
+        git commit -m "$MESSAGE" || echo "No changes to commit"
+
+        # Push to branch
+        git push origin ${{ inputs.target-branch }}
+
+        echo "Deployment completed successfully"
+
+    - name: Output deployment summary
+      shell: bash
+      run: |
+        echo "## Deployment completed" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "Deployed to: https://github.com/$GITHUB_REPOSITORY/settings/pages" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Files deployed" >> $GITHUB_STEP_SUMMARY
+        echo "- Total files: $(find ./lighthouse-results -type f | wc -l)" >> $GITHUB_STEP_SUMMARY
+        echo "- HTML files: $(find ./lighthouse-results -type f -name "*.html" | wc -l)" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        if [ -n "${{ inputs.custom-domain }}" ]; then
+          echo "Custom domain: ${{ inputs.custom-domain }}" >> $GITHUB_STEP_SUMMARY
+        fi
