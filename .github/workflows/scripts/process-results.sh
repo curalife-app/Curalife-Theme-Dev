@@ -98,28 +98,34 @@ if [ -f "$DESKTOP_REPORT" ]; then
   echo "DESKTOP_SI=$DESKTOP_SI" >> $METRICS_ENV_FILE
   echo "DESKTOP_TTI=$DESKTOP_TTI" >> $METRICS_ENV_FILE
 
-  # Also create a JSON file for the dashboard to load
-  METRICS_JSON_FILE="$DETAILED_DIR/metrics-values.json"
-  echo "{" > $METRICS_JSON_FILE
-  echo "  \"name\": \"$PAGE_NAME\"," >> $METRICS_JSON_FILE
-  echo "  \"url\": \"https://curalife.com/$([[ $PAGE_NAME == 'homepage' ]] && echo '/' || echo "products/$PAGE_NAME")\"," >> $METRICS_JSON_FILE
-  echo "  \"desktop\": {" >> $METRICS_JSON_FILE
-  echo "    \"performance\": $DESKTOP_PERF," >> $METRICS_JSON_FILE
-  echo "    \"accessibility\": $DESKTOP_ACC," >> $METRICS_JSON_FILE
-  echo "    \"bestPractices\": $DESKTOP_BP," >> $METRICS_JSON_FILE
-  echo "    \"seo\": $DESKTOP_SEO," >> $METRICS_JSON_FILE
-  echo "    \"metrics\": {" >> $METRICS_JSON_FILE
-  echo "      \"LCP\": $DESKTOP_LCP," >> $METRICS_JSON_FILE
-  echo "      \"FID\": $DESKTOP_FID," >> $METRICS_JSON_FILE
-  echo "      \"CLS\": $DESKTOP_CLS" >> $METRICS_JSON_FILE
-  echo "    }" >> $METRICS_JSON_FILE
-  echo "  }" >> $METRICS_JSON_FILE
+  # Create a temporary JSON structure for desktop
+  DESKTOP_JSON=$(cat <<EOF
+{
+  "name": "$PAGE_NAME",
+  "url": "https://curalife.com/$([[ $PAGE_NAME == 'homepage' ]] && echo '/' || echo "products/$PAGE_NAME")",
+  "desktop": {
+    "performance": $DESKTOP_PERF,
+    "accessibility": $DESKTOP_ACC,
+    "bestPractices": $DESKTOP_BP,
+    "seo": $DESKTOP_SEO,
+    "metrics": {
+      "LCP": $DESKTOP_LCP,
+      "FID": $DESKTOP_FID,
+      "CLS": $DESKTOP_CLS
+    }
+  }
+}
+EOF
+)
 
-  # Add a comma only if mobile data will be added later
-  if [ -f "$MOBILE_REPORT" ]; then
-    echo "," >> $METRICS_JSON_FILE
-  else
-    echo "}" >> $METRICS_JSON_FILE
+  # Save the desktop JSON to a temporary file
+  METRICS_JSON_FILE="$DETAILED_DIR/metrics-values.json"
+  echo "$DESKTOP_JSON" > $METRICS_JSON_FILE.tmp
+
+  # If no mobile report is available, use the desktop-only JSON as the final file
+  if [ ! -f "$MOBILE_REPORT" ]; then
+    echo "$DESKTOP_JSON" > $METRICS_JSON_FILE
+    echo "Created desktop-only metrics JSON file: $METRICS_JSON_FILE"
   fi
 
   # Output to GITHUB_OUTPUT for GitHub Actions
@@ -255,24 +261,40 @@ if [ -f "$MOBILE_REPORT" ]; then
   echo "mobile_total_bytes=$MOBILE_TOTAL_BYTES" >> $GITHUB_OUTPUT
   echo "mobile_dom_size=$MOBILE_DOM_SIZE" >> $GITHUB_OUTPUT
 
-  # Add mobile metrics to the JSON file
-  if [ -f "$METRICS_JSON_FILE" ]; then
-    # Add the mobile data to the JSON file
-    echo "  \"mobile\": {" >> $METRICS_JSON_FILE
-    echo "    \"performance\": $MOBILE_PERF," >> $METRICS_JSON_FILE
-    echo "    \"accessibility\": $MOBILE_ACC," >> $METRICS_JSON_FILE
-    echo "    \"bestPractices\": $MOBILE_BP," >> $METRICS_JSON_FILE
-    echo "    \"seo\": $MOBILE_SEO," >> $METRICS_JSON_FILE
-    echo "    \"metrics\": {" >> $METRICS_JSON_FILE
-    echo "      \"LCP\": $MOBILE_LCP," >> $METRICS_JSON_FILE
-    echo "      \"FID\": $MOBILE_FID," >> $METRICS_JSON_FILE
-    echo "      \"CLS\": $MOBILE_CLS" >> $METRICS_JSON_FILE
-    echo "    }" >> $METRICS_JSON_FILE
-    echo "  }" >> $METRICS_JSON_FILE
-    echo "}" >> $METRICS_JSON_FILE
+  # Create the complete metrics JSON file with both desktop and mobile data
+  MOBILE_JSON=$(cat <<EOF
+{
+  "name": "$PAGE_NAME",
+  "url": "https://curalife.com/$([[ $PAGE_NAME == 'homepage' ]] && echo '/' || echo "products/$PAGE_NAME")",
+  "desktop": {
+    "performance": $DESKTOP_PERF,
+    "accessibility": $DESKTOP_ACC,
+    "bestPractices": $DESKTOP_BP,
+    "seo": $DESKTOP_SEO,
+    "metrics": {
+      "LCP": $DESKTOP_LCP,
+      "FID": $DESKTOP_FID,
+      "CLS": $DESKTOP_CLS
+    }
+  },
+  "mobile": {
+    "performance": $MOBILE_PERF,
+    "accessibility": $MOBILE_ACC,
+    "bestPractices": $MOBILE_BP,
+    "seo": $MOBILE_SEO,
+    "metrics": {
+      "LCP": $MOBILE_LCP,
+      "FID": $MOBILE_FID,
+      "CLS": $MOBILE_CLS
+    }
+  }
+}
+EOF
+)
 
-    echo "Updated metrics JSON file with mobile data: $METRICS_JSON_FILE"
-  fi
+  # Write the final JSON file with both desktop and mobile data
+  echo "$MOBILE_JSON" > $METRICS_JSON_FILE
+  echo "Created complete metrics JSON file with desktop and mobile data: $METRICS_JSON_FILE"
 
   # Update the detailed metrics file with mobile data
   TMP_FILE=$(mktemp)
