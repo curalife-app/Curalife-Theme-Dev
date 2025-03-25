@@ -28,29 +28,52 @@ DESKTOP_REPORT=$(find $RESULTS_DIR -name "lhr-*.json" -not -path "*/mobile/*" | 
 MOBILE_REPORT=$(find $RESULTS_DIR/mobile -name "lhr-*.json" 2>/dev/null | sort | tail -n 1)
 
 # Check if reports were found
+DESKTOP_IS_PLACEHOLDER=false
+MOBILE_IS_PLACEHOLDER=false
+
 if [ -f "$DESKTOP_REPORT" ]; then
   echo "Found desktop report: $DESKTOP_REPORT"
+  # Check if it's a fallback file
+  if [[ "$DESKTOP_REPORT" == *"fallback"* ]]; then
+    echo "WARNING: Using fallback desktop report"
+    DESKTOP_IS_PLACEHOLDER=true
+  fi
 else
   echo "WARNING: No desktop Lighthouse report found. Checking fallback locations..."
   # Try alternate locations
   DESKTOP_REPORT=$(find $RESULTS_DIR -name "*desktop*.json" | sort | tail -n 1)
   if [ -f "$DESKTOP_REPORT" ]; then
     echo "Found desktop report using alternate pattern: $DESKTOP_REPORT"
+    if [[ "$DESKTOP_REPORT" == *"fallback"* ]]; then
+      echo "WARNING: Using fallback desktop report"
+      DESKTOP_IS_PLACEHOLDER=true
+    fi
   else
     echo "ERROR: No desktop Lighthouse report found. Dashboard will show placeholder values."
+    DESKTOP_IS_PLACEHOLDER=true
   fi
 fi
 
 if [ -f "$MOBILE_REPORT" ]; then
   echo "Found mobile report: $MOBILE_REPORT"
+  # Check if it's a fallback file
+  if [[ "$MOBILE_REPORT" == *"fallback"* ]]; then
+    echo "WARNING: Using fallback mobile report"
+    MOBILE_IS_PLACEHOLDER=true
+  fi
 else
   echo "WARNING: No mobile Lighthouse report found. Checking fallback locations..."
   # Try alternate locations
   MOBILE_REPORT=$(find $RESULTS_DIR -name "*mobile*.json" | sort | tail -n 1)
   if [ -f "$MOBILE_REPORT" ]; then
     echo "Found mobile report using alternate pattern: $MOBILE_REPORT"
+    if [[ "$MOBILE_REPORT" == *"fallback"* ]]; then
+      echo "WARNING: Using fallback mobile report"
+      MOBILE_IS_PLACEHOLDER=true
+    fi
   else
     echo "ERROR: No mobile Lighthouse report found. Dashboard will show placeholder values for mobile."
+    MOBILE_IS_PLACEHOLDER=true
   fi
 fi
 
@@ -83,7 +106,7 @@ if [ -f "$MOBILE_REPORT" ]; then
 fi
 
 # Process desktop results if available
-if [ -f "$DESKTOP_REPORT" ]; then
+if [ -f "$DESKTOP_REPORT" ] && [ "$DESKTOP_IS_PLACEHOLDER" = false ]; then
   echo "Processing desktop report: $DESKTOP_REPORT"
 
   # Extract basic metrics - using jq's round function instead of truncating
@@ -136,10 +159,11 @@ if [ -f "$DESKTOP_REPORT" ]; then
   "name": "$PAGE_NAME",
   "url": "https://curalife.com/$([[ $PAGE_NAME == 'homepage' ]] && echo '/' || echo "products/$PAGE_NAME")",
   "is_placeholder_data": {
-    "desktop": $IS_DESKTOP_PLACEHOLDER,
-    "mobile": $IS_MOBILE_PLACEHOLDER
+    "desktop": $DESKTOP_IS_PLACEHOLDER,
+    "mobile": $MOBILE_IS_PLACEHOLDER
   },
   "desktop": {
+    "is_placeholder": $DESKTOP_IS_PLACEHOLDER,
     "performance": $DESKTOP_PERF,
     "accessibility": $DESKTOP_ACC,
     "bestPractices": $DESKTOP_BP,
@@ -245,30 +269,31 @@ EOF
   # Extract top slowest requests for insights
   jq -r '.audits["network-requests"].details.items // [] | sort_by(.endTime - .startTime) | reverse | .[0:5] | map({url: .url, transferSize: .transferSize, duration: (.endTime - .startTime)})' $DESKTOP_REPORT > "$DETAILED_DIR/desktop-slowest-requests.json"
 else
-  # Set placeholder values for desktop metrics - use semi-realistic values, not just 0s
-  echo "No desktop report found - using placeholder values"
-  DESKTOP_PERF=70
-  DESKTOP_ACC=85
-  DESKTOP_BP=80
-  DESKTOP_SEO=90
-  DESKTOP_PWA=50
-  DESKTOP_LCP=2500
-  DESKTOP_FID=30
-  DESKTOP_TBT=200
-  DESKTOP_CLS=0.05
-  DESKTOP_FCP=1500
-  DESKTOP_SI=3000
-  DESKTOP_TTI=4000
-  DESKTOP_RENDER_BLOCKING=5
-  DESKTOP_UNUSED_CSS=10000
-  DESKTOP_UNUSED_JS=15000
-  DESKTOP_OFFSCREEN_IMAGES=20000
-  DESKTOP_TOTAL_BYTES=1500000
-  DESKTOP_DOM_SIZE=1000
+  # Set placeholder values for desktop metrics - use distinctive values to make them obvious
+  echo "No desktop report found or using fallback - using clearly marked placeholder values"
+  DESKTOP_PERF=42
+  DESKTOP_ACC=42
+  DESKTOP_BP=42
+  DESKTOP_SEO=42
+  DESKTOP_PWA=42
+  DESKTOP_LCP=4242
+  DESKTOP_FID=42
+  DESKTOP_TBT=242
+  DESKTOP_CLS=0.42
+  DESKTOP_FCP=4242
+  DESKTOP_SI=4242
+  DESKTOP_TTI=4242
+  DESKTOP_RENDER_BLOCKING=4
+  DESKTOP_UNUSED_CSS=42000
+  DESKTOP_UNUSED_JS=42000
+  DESKTOP_OFFSCREEN_IMAGES=42000
+  DESKTOP_TOTAL_BYTES=420000
+  DESKTOP_DOM_SIZE=420
+  DESKTOP_IS_PLACEHOLDER=true
 fi
 
 # Process mobile results if available
-if [ -f "$MOBILE_REPORT" ]; then
+if [ -f "$MOBILE_REPORT" ] && [ "$MOBILE_IS_PLACEHOLDER" = false ]; then
   echo "Processing mobile report: $MOBILE_REPORT"
 
   # Extract basic metrics - using jq's round function instead of truncating
@@ -336,8 +361,8 @@ if [ -f "$MOBILE_REPORT" ]; then
   "name": "$PAGE_NAME",
   "url": "https://curalife.com/$([[ $PAGE_NAME == 'homepage' ]] && echo '/' || echo "products/$PAGE_NAME")",
   "is_placeholder_data": {
-    "desktop": $IS_DESKTOP_PLACEHOLDER,
-    "mobile": $IS_MOBILE_PLACEHOLDER
+    "desktop": $DESKTOP_IS_PLACEHOLDER,
+    "mobile": $MOBILE_IS_PLACEHOLDER
   },
   "desktop": {
     "performance": $DESKTOP_PERF,
@@ -420,26 +445,27 @@ EOF
   # Extract top slowest requests for insights
   jq -r '.audits["network-requests"].details.items // [] | sort_by(.endTime - .startTime) | reverse | .[0:5] | map({url: .url, transferSize: .transferSize, duration: (.endTime - .startTime)})' $MOBILE_REPORT > "$DETAILED_DIR/mobile-slowest-requests.json"
 else
-  # Set placeholder values for mobile metrics - use semi-realistic values, not just 0s
-  echo "No mobile report found - using placeholder values"
-  MOBILE_PERF=60  # Mobile usually scores lower than desktop
-  MOBILE_ACC=85
-  MOBILE_BP=80
-  MOBILE_SEO=90
-  MOBILE_PWA=50
-  MOBILE_LCP=3200  # Mobile usually slower than desktop
-  MOBILE_FID=70
-  MOBILE_TBT=400
-  MOBILE_CLS=0.12  # Mobile usually has more layout shift
-  MOBILE_FCP=2300
-  MOBILE_SI=3800
-  MOBILE_TTI=5500
-  MOBILE_RENDER_BLOCKING=6
-  MOBILE_UNUSED_CSS=10000
-  MOBILE_UNUSED_JS=15000
-  MOBILE_OFFSCREEN_IMAGES=30000
-  MOBILE_TOTAL_BYTES=1400000
-  MOBILE_DOM_SIZE=1000
+  # Set placeholder values for mobile metrics - use distinctive values
+  echo "No mobile report found or using fallback - using clearly marked placeholder values"
+  MOBILE_PERF=24
+  MOBILE_ACC=24
+  MOBILE_BP=24
+  MOBILE_SEO=24
+  MOBILE_PWA=24
+  MOBILE_LCP=2424
+  MOBILE_FID=24
+  MOBILE_TBT=224
+  MOBILE_CLS=0.24
+  MOBILE_FCP=2424
+  MOBILE_SI=2424
+  MOBILE_TTI=2424
+  MOBILE_RENDER_BLOCKING=2
+  MOBILE_UNUSED_CSS=24000
+  MOBILE_UNUSED_JS=24000
+  MOBILE_OFFSCREEN_IMAGES=24000
+  MOBILE_TOTAL_BYTES=240000
+  MOBILE_DOM_SIZE=240
+  MOBILE_IS_PLACEHOLDER=true
 fi
 
 echo "has_results=true" >> $GITHUB_OUTPUT

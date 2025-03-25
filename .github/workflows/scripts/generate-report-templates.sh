@@ -44,6 +44,19 @@ else
   MOBILE_TBT=0
 fi
 
+# Check if metrics values indicate placeholder data (specific values of 42 or 24)
+IS_DESKTOP_PLACEHOLDER=false
+if [[ "$DESKTOP_PERF" == "42" || "$DESKTOP_LCP" == "4242" ]]; then
+  IS_DESKTOP_PLACEHOLDER=true
+  echo "Warning: Desktop report will display placeholder values"
+fi
+
+IS_MOBILE_PLACEHOLDER=false
+if [[ "$MOBILE_PERF" == "24" || "$MOBILE_LCP" == "2424" ]]; then
+  IS_MOBILE_PLACEHOLDER=true
+  echo "Warning: Mobile report will display placeholder values"
+fi
+
 # Function to create LCP value in seconds with proper formatting
 format_lcp() {
   local lcp_value=$1
@@ -162,6 +175,14 @@ cat > "$DESKTOP_HTML" << EOF
   </div>
 
   <div class="container-fluid p-0">
+    ${IS_DESKTOP_PLACEHOLDER ? '
+    <div class="placeholder-warning mb-4">
+      <h4><i class="bi bi-exclamation-triangle-fill me-2"></i>Placeholder Data Warning</h4>
+      <p>This report contains <strong>placeholder data</strong>, not actual Lighthouse test results. The test either failed to run or the results could not be processed correctly.</p>
+      <p>All values shown here are placeholders (42) and do not represent real performance metrics.</p>
+    </div>
+    ' : ''}
+
     <div class="row mb-4">
       <div class="col-md-3">
         <div class="card score-card">
@@ -345,6 +366,14 @@ cat > "$MOBILE_HTML" << EOF
   </div>
 
   <div class="container-fluid p-0">
+    ${IS_MOBILE_PLACEHOLDER ? '
+    <div class="placeholder-warning mb-4">
+      <h4><i class="bi bi-exclamation-triangle-fill me-2"></i>Placeholder Data Warning</h4>
+      <p>This report contains <strong>placeholder data</strong>, not actual Lighthouse test results. The test either failed to run or the results could not be processed correctly.</p>
+      <p>All values shown here are placeholders (24) and do not represent real performance metrics.</p>
+    </div>
+    ' : ''}
+
     <div class="row mb-4">
       <div class="col-md-3">
         <div class="card score-card">
