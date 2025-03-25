@@ -129,59 +129,126 @@ jobs:
       - name: Setup
         run: |
           chmod +x .github/workflows/scripts/*.sh
-          mkdir -p ${{ env.RESULTS_DIR }}
-      - name: Download all results
+          # Create all necessary directories to avoid errors
+          mkdir -p ${{ env.RESULTS_DIR }}/desktop
+          mkdir -p ${{ env.RESULTS_DIR }}/mobile
+          mkdir -p ${{ env.RESULTS_DIR }}/processed
+          mkdir -p ${{ env.RESULTS_DIR }}/historical
+          mkdir -p ${{ env.RESULTS_DIR }}/dashboards
+
+          # Print the directory structure to help with debugging
+          echo "Directory structure before downloading artifacts:"
+          find ${{ env.RESULTS_DIR }} -type d | sort
+
+      - name: Download desktop results - homepage
         uses: actions/download-artifact@v4
         with:
-          pattern: lighthouse-*-results-*
-          path: ${{ env.RESULTS_DIR }}
-          merge-multiple: true
+          name: lighthouse-desktop-results-homepage
+          path: ${{ env.RESULTS_DIR }}/desktop/homepage
+
+      - name: Download desktop results - product
+        uses: actions/download-artifact@v4
+        with:
+          name: lighthouse-desktop-results-product
+          path: ${{ env.RESULTS_DIR }}/desktop/product
+
+      - name: Download mobile results - homepage
+        uses: actions/download-artifact@v4
+        with:
+          name: lighthouse-mobile-results-homepage
+          path: ${{ env.RESULTS_DIR }}/mobile/homepage
+
+      - name: Download mobile results - product
+        uses: actions/download-artifact@v4
+        with:
+          name: lighthouse-mobile-results-product
+          path: ${{ env.RESULTS_DIR }}/mobile/product
+
+      - name: Check downloaded artifacts
+        run: |
+          echo "Directory structure after downloading artifacts:"
+          find ${{ env.RESULTS_DIR }} -type d | sort
+
+          # Check file contents to help with debugging
+          echo "Files in desktop/homepage:"
+          ls -la ${{ env.RESULTS_DIR }}/desktop/homepage || echo "No files found"
+
+          echo "Files in mobile/homepage:"
+          ls -la ${{ env.RESULTS_DIR }}/mobile/homepage || echo "No files found"
+
+          echo "Files in desktop/product:"
+          ls -la ${{ env.RESULTS_DIR }}/desktop/product || echo "No files found"
+
+          echo "Files in mobile/product:"
+          ls -la ${{ env.RESULTS_DIR }}/mobile/product || echo "No files found"
+
       - name: Process results
+        id: process_results
         run: |
           # Get the current date in YYYY-MM-DD format
           CURRENT_DATE=$(date +'%Y-%m-%d')
           echo "Processing results for date: $CURRENT_DATE"
-
-          # Organize the directory structure
-          mkdir -p ${{ env.RESULTS_DIR }}/processed
+          echo "CURRENT_DATE=$CURRENT_DATE" >> $GITHUB_OUTPUT
 
           # Process each page's results
           for page in homepage product; do
             echo "Processing results for page: $page"
 
-            # Create result directories
-            PAGE_RESULT_DIR="${{ env.RESULTS_DIR }}/$page"
-            mkdir -p "$PAGE_RESULT_DIR"
-
-            # Make sure desktop and mobile directories exist
-            mkdir -p "${{ env.RESULTS_DIR }}/desktop/$page"
-            mkdir -p "${{ env.RESULTS_DIR }}/mobile/$page"
-
             # Call the process-results script for this page
-            .github/workflows/scripts/process-results.sh "$page" "${{ env.RESULTS_DIR }}" "$CURRENT_DATE"
+            .github/workflows/scripts/process-results.sh "$page" "${{ env.RESULTS_DIR }}" "$CURRENT_DATE" || { echo "Failed to process results for $page"; exit 1; }
           done
+
+          # Check processed results directory
+          echo "Files in processed directory:"
+          find ${{ env.RESULTS_DIR }}/processed -type f | sort || echo "No processed files found"
+
+          # Mark processing as successful
+          echo "PROCESSED=true" >> $GITHUB_OUTPUT
+
       - name: Store historical data
-        run: .github/workflows/scripts/store-historical-data.sh
+        if: steps.process_results.outputs.PROCESSED == 'true'
+        run: |
+          echo "Storing historical data..."
+          .github/workflows/scripts/store-historical-data.sh || { echo "Failed to store historical data"; exit 1; }
+
+          # Check historical data directory
+          echo "Files in historical directory:"
+          find ${{ env.RESULTS_DIR }}/historical -type f | sort || echo "No historical files found"
+
       - name: Generate dashboards
+        if: steps.process_results.outputs.PROCESSED == 'true'
         run: |
-          .github/workflows/scripts/generate-dashboard.sh ${{ env.REPORT_DATE }}
-          .github/workflows/scripts/generate-trend-dashboard.sh
+          echo "Generating main dashboard..."
+          .github/workflows/scripts/generate-dashboard.sh "${{ steps.process_results.outputs.CURRENT_DATE }}" || { echo "Failed to generate main dashboard"; exit 1; }
+
+          echo "Generating trend dashboard..."
+          .github/workflows/scripts/generate-trend-dashboard.sh || { echo "Failed to generate trend dashboard"; exit 1; }
+
+          # Check dashboards directory
+          echo "Files in dashboards directory:"
+          find ${{ env.RESULTS_DIR }}/dashboards -type f | sort || echo "No dashboard files found"
+
       - name: Generate report pages
+        if: steps.process_results.outputs.PROCESSED == 'true'
         run: |
+          echo "Generating report pages..."
           # For each page in the processed results
           for page_dir in ${{ env.RESULTS_DIR }}/processed/*; do
             if [ -d "$page_dir" ]; then
               page_name=$(basename "$page_dir")
               output_dir="${page_dir}/reports"
 
+              echo "Generating report for $page_name"
               # Create reports directory if it doesn't exist
               mkdir -p "$output_dir"
 
               # Source metrics file if it exists
               metrics_file="${page_dir}/metrics-values.env"
               if [ -f "$metrics_file" ]; then
+                echo "Using metrics from $metrics_file"
                 source "$metrics_file"
               else
+                echo "Metrics file not found, using default values"
                 # Default values if metrics file doesn't exist
                 DESKTOP_PERF=0
                 DESKTOP_A11Y=0
@@ -203,10 +270,54 @@ jobs:
               fi
 
               # Generate HTML report templates
-              .github/workflows/scripts/generate-report-templates.sh "$page_name" "$output_dir" "$CURRENT_DATE"
+              .github/workflows/scripts/generate-report-templates.sh "$page_name" "$output_dir" "${{ steps.process_results.outputs.CURRENT_DATE }}" || { echo "Failed to generate report for $page_name"; exit 1; }
             fi
           done
-      - name: Upload processed results
+
+          # Check report pages
+          echo "Generated report pages:"
+          find ${{ env.RESULTS_DIR }}/processed -name "*.html" | sort || echo "No report HTML files found"
+
+      # Create a dummy index.html file if none exists
+      - name: Create fallback index file
+        run: |
+          DASHBOARDS_DIR="${{ env.RESULTS_DIR }}/dashboards"
+          if [ ! -f "$DASHBOARDS_DIR/index.html" ]; then
+            echo "Creating fallback index.html file"
+            mkdir -p "$DASHBOARDS_DIR"
+            cat > "$DASHBOARDS_DIR/index.html" << EOF
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Lighthouse Performance Dashboard</title>
+              <style>
+                body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+                h1 { color: #00837b; }
+                .card { border: 1px solid #ddd; border-radius: 8px; padding: 20px; margin-bottom: 20px; }
+              </style>
+            </head>
+            <body>
+              <h1>Lighthouse Performance Dashboard</h1>
+              <div class="card">
+                <h2>Report Generation In Progress</h2>
+                <p>The first Lighthouse report is being generated. Check back soon for performance insights.</p>
+                <p>Date: $(date +'%Y-%m-%d')</p>
+              </div>
+            </body>
+            </html>
+            EOF
+          fi
+
+      - name: Upload all results
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-dashboards-complete
+          path: ${{ env.RESULTS_DIR }}
+          retention-days: 30
+
+      - name: Upload just dashboard files
         uses: actions/upload-artifact@v4
         with:
           name: lighthouse-final-dashboards
@@ -225,15 +336,65 @@ jobs:
         with:
           ref: gh-pages
           fetch-depth: 0
-      - name: Download dashboards
+
+      - name: Setup directory
+        run: |
+          mkdir -p ./lighthouse-results
+          touch ./lighthouse-results/.gitkeep
+
+      - name: Try download final dashboards
+        id: download_final
+        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           name: lighthouse-final-dashboards
           path: ./lighthouse-results
+
+      - name: Try download complete results
+        if: steps.download_final.outcome != 'success'
+        id: download_complete
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: lighthouse-dashboards-complete
+          path: ./lighthouse-results
+
+      - name: Check downloaded files
+        run: |
+          echo "Contents of lighthouse-results directory:"
+          find ./lighthouse-results -type f | wc -l
+          ls -la ./lighthouse-results || echo "No files found"
+
+          # Create a minimal index.html if none exists
+          if [ ! -f "./lighthouse-results/index.html" ] && [ ! -f "./lighthouse-results/dashboards/index.html" ]; then
+            echo "Creating minimal index.html"
+            mkdir -p ./lighthouse-results/dashboards
+            cat > ./lighthouse-results/index.html << EOF
+            <!DOCTYPE html>
+            <html>
+            <head>
+              <title>Lighthouse Reports</title>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1">
+              <style>
+                body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+                h1 { color: #00837b; }
+              </style>
+            </head>
+            <body>
+              <h1>Lighthouse Performance Reports</h1>
+              <p>No reports available yet. The first performance test is still running.</p>
+              <p>This page will update with performance metrics after the first successful run.</p>
+              <p>Generated on: $(date)</p>
+            </body>
+            </html>
+            EOF
+          fi
+
       - name: Publish results
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email 'github-actions[bot]@users.noreply.github.com'
           git add .
-          git commit -m "Update Lighthouse reports - ${{ env.REPORT_DATE }}" || echo "No changes to commit"
+          git commit -m "Update Lighthouse reports - $(date +'%Y-%m-%d')" || echo "No changes to commit"
           git push origin gh-pages
