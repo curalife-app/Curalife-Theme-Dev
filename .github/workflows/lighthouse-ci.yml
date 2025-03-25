@@ -399,19 +399,33 @@ jobs:
               cp "$DESKTOP_HTML" "performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/desktop.html"
             fi
 
-            # Copy mobile HTML report if exists
-            MOBILE_HTML=$(find ${{ steps.results-dir.outputs.results_dir }}/mobile -name "*.html" | sort | tail -n 1)
-            if [ -f "$MOBILE_HTML" ]; then
-              cp "$MOBILE_HTML" "performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/mobile.html"
+            # Check if mobile directory exists first
+            if [ -d "${{ steps.results-dir.outputs.results_dir }}/mobile" ]; then
+              # Copy mobile HTML report if exists
+              MOBILE_HTML=$(find ${{ steps.results-dir.outputs.results_dir }}/mobile -name "*.html" | sort | tail -n 1)
+              if [ -f "$MOBILE_HTML" ]; then
+                cp "$MOBILE_HTML" "performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/mobile.html"
+              fi
+            else
+              echo "Mobile directory not found for ${{ matrix.page.name }}, skipping mobile report copy"
             fi
 
             # Copy screenshots if they exist
             if [ -d "${{ steps.results-dir.outputs.results_dir }}/screenshots" ]; then
               cp -r ${{ steps.results-dir.outputs.results_dir }}/screenshots/* "performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/assets/"
+            else
+              echo "Desktop screenshots directory not found for ${{ matrix.page.name }}, skipping desktop screenshots copy"
             fi
 
             if [ -d "${{ steps.results-dir.outputs.results_dir }}/mobile/screenshots" ]; then
-              cp -r ${{ steps.results-dir.outputs.results_dir }}/mobile/screenshots/* "performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/assets/"
+              # Add 'mobile-' prefix to the filenames when copying
+              mkdir -p "performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/assets"
+              for file in ${{ steps.results-dir.outputs.results_dir }}/mobile/screenshots/*; do
+                filename=$(basename "$file")
+                cp "$file" "performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/assets/mobile-$filename"
+              done
+            else
+              echo "Mobile screenshots directory not found for ${{ matrix.page.name }}, skipping mobile screenshots copy"
             fi
 
             # Copy any detailed metrics files
@@ -573,19 +587,48 @@ jobs:
 
           echo "## Page Screenshots" >> $MARKDOWN_REPORT
           echo "" >> $MARKDOWN_REPORT
-          echo "### Desktop" >> $MARKDOWN_REPORT
-          echo "" >> $MARKDOWN_REPORT
-          echo "![Desktop Screenshot](./assets/above-fold.png)" >> $MARKDOWN_REPORT
-          echo "" >> $MARKDOWN_REPORT
-          echo "### Mobile" >> $MARKDOWN_REPORT
-          echo "" >> $MARKDOWN_REPORT
-          echo "![Mobile Screenshot](./assets/above-fold.png)" >> $MARKDOWN_REPORT
-          echo "" >> $MARKDOWN_REPORT
+
+          # Check if desktop screenshot exists
+          if [ -f "performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/assets/above-fold.png" ]; then
+            echo "### Desktop" >> $MARKDOWN_REPORT
+            echo "" >> $MARKDOWN_REPORT
+            echo "![Desktop Screenshot](./assets/above-fold.png)" >> $MARKDOWN_REPORT
+            echo "" >> $MARKDOWN_REPORT
+          else
+            echo "### Desktop" >> $MARKDOWN_REPORT
+            echo "" >> $MARKDOWN_REPORT
+            echo "Desktop screenshot not available." >> $MARKDOWN_REPORT
+            echo "" >> $MARKDOWN_REPORT
+          fi
+
+          # Check if mobile screenshot exists
+          if [ -f "performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/assets/mobile-above-fold.png" ]; then
+            echo "### Mobile" >> $MARKDOWN_REPORT
+            echo "" >> $MARKDOWN_REPORT
+            echo "![Mobile Screenshot](./assets/mobile-above-fold.png)" >> $MARKDOWN_REPORT
+            echo "" >> $MARKDOWN_REPORT
+          else
+            echo "### Mobile" >> $MARKDOWN_REPORT
+            echo "" >> $MARKDOWN_REPORT
+            echo "Mobile screenshot not available." >> $MARKDOWN_REPORT
+            echo "" >> $MARKDOWN_REPORT
+          fi
 
           echo "## Detailed Reports" >> $MARKDOWN_REPORT
           echo "" >> $MARKDOWN_REPORT
-          echo "- [Desktop Lighthouse Report](./desktop.html)" >> $MARKDOWN_REPORT
-          echo "- [Mobile Lighthouse Report](./mobile.html)" >> $MARKDOWN_REPORT
+
+          # Check if HTML reports exist
+          if [ -f "performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/desktop.html" ]; then
+            echo "- [Desktop Lighthouse Report](./desktop.html)" >> $MARKDOWN_REPORT
+          else
+            echo "- Desktop Lighthouse Report not available." >> $MARKDOWN_REPORT
+          fi
+
+          if [ -f "performance-reports/${{ steps.scores.outputs.report_date }}/${{ matrix.page.name }}/mobile.html" ]; then
+            echo "- [Mobile Lighthouse Report](./mobile.html)" >> $MARKDOWN_REPORT
+          else
+            echo "- Mobile Lighthouse Report not available." >> $MARKDOWN_REPORT
+          fi
 
       - name: Upload Lighthouse results
         if: steps.scores.outputs.has_results == 'true'
@@ -768,17 +811,32 @@ jobs:
 
                 # Copy HTML files if they exist
                 find "$PAGE_DIR" -name "*.html" -not -path "*/mobile/*" -exec cp {} "performance-reports/$CURRENT_DATE/$PAGE_NAME/desktop.html" \; -quit
-                find "$PAGE_DIR/mobile" -name "*.html" -exec cp {} "performance-reports/$CURRENT_DATE/$PAGE_NAME/mobile.html" \; -quit
+                # Check if mobile directory exists before trying to find files in it
+                if [ -d "$PAGE_DIR/mobile" ]; then
+                  find "$PAGE_DIR/mobile" -name "*.html" -exec cp {} "performance-reports/$CURRENT_DATE/$PAGE_NAME/mobile.html" \; -quit
+                else
+                  echo "Mobile directory not found for $PAGE_NAME, skipping mobile report copy"
+                fi
 
                 # Copy screenshots if they exist
                 if [ -d "$PAGE_DIR/screenshots" ]; then
                   mkdir -p "performance-reports/$CURRENT_DATE/$PAGE_NAME/assets"
                   find "$PAGE_DIR/screenshots" -type f -exec cp {} "performance-reports/$CURRENT_DATE/$PAGE_NAME/assets/" \;
+                else
+                  echo "Desktop screenshots directory not found for $PAGE_NAME, skipping desktop screenshots copy"
                 fi
 
                 if [ -d "$PAGE_DIR/mobile/screenshots" ]; then
                   mkdir -p "performance-reports/$CURRENT_DATE/$PAGE_NAME/assets"
-                  find "$PAGE_DIR/mobile/screenshots" -type f -exec cp {} "performance-reports/$CURRENT_DATE/$PAGE_NAME/assets/" \;
+                  # Add 'mobile-' prefix to the filenames when copying
+                  for file in "$PAGE_DIR/mobile/screenshots/"*; do
+                    if [ -f "$file" ]; then
+                      filename=$(basename "$file")
+                      cp "$file" "performance-reports/$CURRENT_DATE/$PAGE_NAME/assets/mobile-$filename"
+                    fi
+                  done
+                else
+                  echo "Mobile screenshots directory not found for $PAGE_NAME, skipping mobile screenshots copy"
                 fi
 
                 # Get summary data from JSON if it exists
