@@ -76,8 +76,22 @@ fi
 DESKTOP_HTML_COUNT=$(find $RESULTS_DIR -name "*.html" -not -path "*/mobile/*" | wc -l)
 echo "Desktop HTML files found: $DESKTOP_HTML_COUNT"
 if [ "$DESKTOP_HTML_COUNT" -gt 0 ]; then
-  echo "Desktop HTML files:"
-  find $RESULTS_DIR -name "*.html" -not -path "*/mobile/*" | sort
+  # Count only actual Lighthouse reports, not our fallback files
+  REAL_REPORTS=$(find $RESULTS_DIR -name "*.report.html" -not -path "*/mobile/*" | wc -l)
+  if [ "$REAL_REPORTS" -gt 0 ]; then
+    echo "Real desktop Lighthouse reports found: $REAL_REPORTS"
+    echo "Desktop HTML files:"
+    find $RESULTS_DIR -name "*.report.html" -not -path "*/mobile/*" | sort
+    # Remove fallback file if it exists
+    if [ -f "$RESULTS_DIR/fallback-desktop.html" ]; then
+      echo "Removing fallback desktop HTML file since we have real reports"
+      rm "$RESULTS_DIR/fallback-desktop.html"
+    fi
+  else
+    echo "No real Lighthouse reports found, using fallback"
+    echo "Desktop HTML files:"
+    find $RESULTS_DIR -name "*.html" -not -path "*/mobile/*" | sort
+  fi
 else
   echo "WARNING: No desktop HTML files were generated!"
   # Create a simple HTML file to ensure something exists
@@ -145,8 +159,22 @@ fi
 MOBILE_HTML_COUNT=$(find $RESULTS_DIR/mobile -name "*.html" | wc -l)
 echo "Mobile HTML files found: $MOBILE_HTML_COUNT"
 if [ "$MOBILE_HTML_COUNT" -gt 0 ]; then
-  echo "Mobile HTML files:"
-  find $RESULTS_DIR/mobile -name "*.html" | sort
+  # Count only actual Lighthouse reports, not our fallback files
+  REAL_REPORTS=$(find $RESULTS_DIR/mobile -name "*.report.html" | wc -l)
+  if [ "$REAL_REPORTS" -gt 0 ]; then
+    echo "Real mobile Lighthouse reports found: $REAL_REPORTS"
+    echo "Mobile HTML files:"
+    find $RESULTS_DIR/mobile -name "*.report.html" | sort
+    # Remove fallback file if it exists
+    if [ -f "$RESULTS_DIR/mobile/fallback-mobile.html" ]; then
+      echo "Removing fallback mobile HTML file since we have real reports"
+      rm "$RESULTS_DIR/mobile/fallback-mobile.html"
+    fi
+  else
+    echo "No real Lighthouse reports found, using fallback"
+    echo "Mobile HTML files:"
+    find $RESULTS_DIR/mobile -name "*.html" | sort
+  fi
 else
   echo "WARNING: No mobile HTML files were generated!"
   # Create a simple HTML file to ensure something exists
@@ -160,28 +188,93 @@ echo "Capturing screenshots..."
 mkdir -p ./$RESULTS_DIR/screenshots
 mkdir -p ./$RESULTS_DIR/mobile/screenshots
 
-# Capture page screenshots for desktop - with error handling
-if command -v puppeteer-screenshot-cli &> /dev/null; then
-  puppeteer-screenshot-cli --url $URL --output ./$RESULTS_DIR/screenshots/full-page.png --full-page || echo "Desktop full-page screenshot failed"
-  puppeteer-screenshot-cli --url $URL --output ./$RESULTS_DIR/screenshots/above-fold.png --width 1200 --height 800 || echo "Desktop above-fold screenshot failed"
-else
-  echo "puppeteer-screenshot-cli not found, creating empty placeholder images"
+# Create a temporary screenshot script
+SCREENSHOT_SCRIPT=$(mktemp).js
+echo "const puppeteer = require('puppeteer');
+
+async function captureScreenshots() {
+  try {
+    console.log('Starting screenshot capture...');
+    const browser = await puppeteer.launch({
+      args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
+      headless: 'new'
+    });
+
+    // Desktop screenshots
+    console.log('Capturing desktop screenshots...');
+    const desktopPage = await browser.newPage();
+    await desktopPage.setViewport({ width: 1200, height: 800 });
+    await desktopPage.goto('$URL', { waitUntil: 'networkidle0', timeout: 60000 });
+
+    // Capture above fold
+    await desktopPage.screenshot({
+      path: './$RESULTS_DIR/screenshots/above-fold.png',
+      type: 'png'
+    });
+
+    // Capture full page
+    await desktopPage.screenshot({
+      path: './$RESULTS_DIR/screenshots/full-page.png',
+      type: 'png',
+      fullPage: true
+    });
+
+    await desktopPage.close();
+
+    // Mobile screenshots
+    console.log('Capturing mobile screenshots...');
+    const mobilePage = await browser.newPage();
+    await mobilePage.setUserAgent('Mozilla/5.0 (Linux; Android 11; Pixel 5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36');
+    await mobilePage.setViewport({
+      width: 360,
+      height: 640,
+      deviceScaleFactor: 2.625,
+      isMobile: true
+    });
+
+    await mobilePage.goto('$URL', { waitUntil: 'networkidle0', timeout: 60000 });
+
+    // Capture above fold
+    await mobilePage.screenshot({
+      path: './$RESULTS_DIR/mobile/screenshots/above-fold.png',
+      type: 'png'
+    });
+
+    // Capture full page
+    await mobilePage.screenshot({
+      path: './$RESULTS_DIR/mobile/screenshots/full-page.png',
+      type: 'png',
+      fullPage: true
+    });
+
+    await mobilePage.close();
+
+    await browser.close();
+    console.log('Screenshots captured successfully');
+  } catch (error) {
+    console.error('Error capturing screenshots:', error);
+    process.exit(1);
+  }
+}
+
+captureScreenshots();" > $SCREENSHOT_SCRIPT
+
+# Run the screenshot script or create placeholders if it fails
+echo "Running custom screenshot capture script..."
+if ! node $SCREENSHOT_SCRIPT; then
+  echo "Screenshot script failed, creating empty placeholder images"
   # Create minimal placeholder images
   echo "<svg width='1200' height='800' xmlns='http://www.w3.org/2000/svg'><rect width='100%' height='100%' fill='#f0f0f0'/><text x='50%' y='50%' font-family='Arial' font-size='24' fill='#666' text-anchor='middle'>Screenshot not available</text></svg>" > ./$RESULTS_DIR/screenshots/placeholder.svg
   cp ./$RESULTS_DIR/screenshots/placeholder.svg ./$RESULTS_DIR/screenshots/full-page.png
   cp ./$RESULTS_DIR/screenshots/placeholder.svg ./$RESULTS_DIR/screenshots/above-fold.png
-fi
 
-# Capture page screenshots for mobile - with error handling
-if command -v puppeteer-screenshot-cli &> /dev/null; then
-  puppeteer-screenshot-cli --url $URL --output ./$RESULTS_DIR/mobile/screenshots/full-page.png --full-page --device "Pixel 5" || echo "Mobile full-page screenshot failed"
-  puppeteer-screenshot-cli --url $URL --output ./$RESULTS_DIR/mobile/screenshots/above-fold.png --device "Pixel 5" || echo "Mobile above-fold screenshot failed"
-else
-  echo "puppeteer-screenshot-cli not found, creating empty placeholder images"
   # Create minimal placeholder images for mobile
   echo "<svg width='360' height='640' xmlns='http://www.w3.org/2000/svg'><rect width='100%' height='100%' fill='#f0f0f0'/><text x='50%' y='50%' font-family='Arial' font-size='18' fill='#666' text-anchor='middle'>Mobile screenshot not available</text></svg>" > ./$RESULTS_DIR/mobile/screenshots/placeholder.svg
   cp ./$RESULTS_DIR/mobile/screenshots/placeholder.svg ./$RESULTS_DIR/mobile/screenshots/full-page.png
   cp ./$RESULTS_DIR/mobile/screenshots/placeholder.svg ./$RESULTS_DIR/mobile/screenshots/above-fold.png
 fi
+
+# Clean up the temporary script
+rm -f $SCREENSHOT_SCRIPT
 
 echo "Lighthouse tests completed for $PAGE_NAME"
