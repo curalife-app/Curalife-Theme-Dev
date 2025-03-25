@@ -170,3 +170,103 @@
 │ Server      │      │ Integration │
 └─────────────┘      └─────────────┘
 ```
+
+# Lighthouse CI Technical Context
+
+## Technologies Used
+
+### Core Technologies
+
+- **GitHub Actions**: Workflow automation platform
+- **Google Lighthouse**: Web performance testing tool
+- **Node.js**: JavaScript runtime for running Lighthouse CLI
+- **Bash Scripting**: Used for result processing and automation
+- **HTML/CSS/JavaScript**: Dashboard generation
+
+### GitHub Actions Components
+
+- **Composite Actions**: Reusable modular workflow components
+- **Scheduled Triggers**: Automated testing at specified intervals
+- **Artifact Storage**: Storing Lighthouse reports between jobs
+- **GitHub Pages**: Hosting performance dashboards
+- **Caching**: Optimizing workflow execution time
+
+### Tools & Utilities
+
+- **Lighthouse CI**: CLI tools for running Lighthouse in CI
+- **puppeteer**: Headless Chrome browser for testing
+- **jq**: Command-line JSON processor for results parsing
+- **bc**: Basic calculator for metric computation
+- **sed/grep**: Text processing for report generation
+
+## Technical Architecture
+
+The workflow consists of three main components that work together:
+
+1. **Test Runner**:
+
+   - Uses Lighthouse CLI to test specified URLs
+   - Captures performance metrics, accessibility, best practices, and SEO scores
+   - Generates raw JSON results for each page
+
+2. **Processor & Dashboard Generator**:
+
+   - Combines results from multiple pages
+   - Processes raw data into meaningful metrics
+   - Generates HTML dashboards with visualizations
+   - Creates historical data storage
+
+3. **Deployment System**:
+   - Prepares files for GitHub Pages
+   - Publishes dashboard to custom domain
+   - Creates versioned historical data
+
+## Data Flow
+
+```
+[Scheduled Trigger] → [Setup Environment] → [Run Lighthouse Tests] → [Process Results]
+                                                                         ↓
+[GitHub Pages Deployment] ← [Prepare Files] ← [Generate Dashboard] ← [Combine Results]
+```
+
+## Development Setup
+
+The workflow is designed to run in GitHub Actions without local development requirements. However, for local testing:
+
+1. Install Node.js 18+
+2. Install Lighthouse CLI: `npm install -g @lhci/cli`
+3. Run tests manually: `lhci collect --url=https://example.com`
+
+## Configuration Options
+
+Configuration is maintained through:
+
+1. **Environment Variables**: Define branch names and cache keys
+2. **Matrix Strategy**: Define pages to test
+3. **Action Inputs**: Configure the reusable actions
+4. **Script Parameters**: Control behavior of processing scripts
+
+## Integration Points
+
+The workflow integrates with several GitHub systems:
+
+1. **GitHub Actions Runner**: Executes the workflow
+2. **GitHub Artifacts**: Stores test results
+3. **GitHub Pages**: Hosts the dashboard
+4. **GitHub Step Summary**: Displays results in workflow UI
+5. **Pull Request Annotations**: Provides feedback on PR changes
+
+## Technical Constraints
+
+- **GitHub Actions Minutes**: Limited by account tier
+- **Artifact Storage**: Limited by repository settings
+- **GitHub Pages Size**: Must keep dashboard size reasonable
+- **External Dependencies**: Relies on Lighthouse and website availability
+
+## Technical Debt & Future Improvements
+
+1. **Parallel Testing**: Improve speed by testing more pages in parallel
+2. **Custom Metrics**: Add support for user-defined performance metrics
+3. **Automated Alerts**: Add notification system for performance regressions
+4. **Integration Tests**: Add tests for the workflow itself
+5. **A/B Testing**: Compare performance between branches or environments

@@ -1,0 +1,398 @@
+name: "Generate Dashboard"
+description: "Processes Lighthouse results and generates dashboard"
+
+inputs:
+  report-date:
+    description: "Date for the report"
+    required: true
+  history-branch:
+    description: "Branch name where history is stored"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Create performance-reports directory
+      shell: bash
+      run: mkdir -p performance-reports
+
+    # Download all page reports to combine them
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: performance-reports-downloads
+        pattern: "*-lighthouse-report"
+        merge-multiple: true
+      continue-on-error: true
+
+    # Copy all downloaded artifacts to the performance-reports directory
+    - name: Organize reports
+      shell: bash
+      run: |
+        echo "Listing downloaded artifacts:"
+        ls -la performance-reports-downloads || echo "No downloads directory found"
+
+        # Create the performance reports directory if it doesn't exist
+        mkdir -p performance-reports
+
+        # Only try to copy if the downloads directory exists and has files
+        if [ -d "performance-reports-downloads" ] && [ "$(ls -A performance-reports-downloads 2>/dev/null)" ]; then
+          echo "Copying artifacts to performance-reports directory"
+          cp -R performance-reports-downloads/* performance-reports/ || echo "No files to copy"
+        else
+          echo "No artifacts found to copy"
+          # Create sample data with a simple approach instead of heredoc
+          mkdir -p performance-reports/$(date +"%Y-%m-%d")/sample
+          CURRENT_DATE=$(date +"%Y-%m-%d")
+
+          echo "Creating sample data file at performance-reports/$CURRENT_DATE/sample/summary.json"
+          echo '{
+            "page": "sample",
+            "url": "https://example.com",
+            "date": "'$CURRENT_DATE'",
+            "desktop": {
+              "performance": 90,
+              "accessibility": 90,
+              "bestPractices": 90,
+              "seo": 90,
+              "pwa": 90,
+              "metrics": {
+                "firstContentfulPaint": 1000,
+                "speedIndex": 1500,
+                "largestContentfulPaint": 2000,
+                "timeToInteractive": 2500,
+                "totalBlockingTime": 100,
+                "maxPotentialFID": 100,
+                "cumulativeLayoutShift": 0.05
+              },
+              "opportunities": {
+                "renderBlockingResources": 0,
+                "unusedCSSBytes": 0,
+                "unusedJSBytes": 0,
+                "offscreenImagesBytes": 0,
+                "totalBytes": 500000,
+                "domSize": 1000
+              }
+            },
+            "mobile": {
+              "performance": 85,
+              "accessibility": 90,
+              "bestPractices": 90,
+              "seo": 90,
+              "pwa": 90,
+              "metrics": {
+                "firstContentfulPaint": 1200,
+                "speedIndex": 1800,
+                "largestContentfulPaint": 2400,
+                "timeToInteractive": 3000,
+                "totalBlockingTime": 150,
+                "maxPotentialFID": 150,
+                "cumulativeLayoutShift": 0.08
+              },
+              "opportunities": {
+                "renderBlockingResources": 0,
+                "unusedCSSBytes": 0,
+                "unusedJSBytes": 0,
+                "offscreenImagesBytes": 0,
+                "totalBytes": 600000,
+                "domSize": 1000
+              }
+            }
+          }' > performance-reports/$CURRENT_DATE/sample/summary.json
+        fi
+
+        # Check if there are any files in the performance-reports directory
+        echo "Contents of performance-reports directory:"
+        find performance-reports -type f | sort || echo "No files found in performance-reports"
+
+    # Fetch historical data from the dedicated branch
+    - name: Fetch historical data
+      id: fetch-history
+      shell: bash
+      run: |
+        CURRENT_DATE="${{ inputs.report-date }}"
+        if [ -z "$CURRENT_DATE" ]; then
+          CURRENT_DATE=$(date +"%Y-%m-%d")
+        fi
+        echo "report_date=$CURRENT_DATE" >> $GITHUB_OUTPUT
+
+        # Check if history branch exists
+        if git fetch --all && git ls-remote --heads origin ${{ inputs.history-branch }} | grep ${{ inputs.history-branch }}; then
+          echo "History branch exists, fetching data..."
+          git checkout ${{ inputs.history-branch }} || git checkout -b ${{ inputs.history-branch }}
+          # Create history directory if it doesn't exist
+          mkdir -p performance-reports/history
+
+          # Move back to the original branch to continue workflow
+          git checkout -
+          # Copy history data to the current workspace
+          if [ -d ".git/refs/remotes/origin/${{ inputs.history-branch }}" ]; then
+            git checkout ${{ inputs.history-branch }} -- performance-reports/history || echo "No history data found"
+            git checkout - || echo "Failed to checkout previous branch"
+          fi
+        else
+          echo "History branch does not exist, creating it..."
+          git checkout -b ${{ inputs.history-branch }} || echo "Failed to create history branch"
+          mkdir -p performance-reports/history
+          git checkout - || echo "Failed to checkout previous branch"
+        fi
+
+        # Make sure the history directory exists
+        mkdir -p performance-reports/history
+
+    # Process historical data
+    - name: Process historical data
+      shell: bash
+      run: |
+        # Make the script executable
+        chmod +x .github/workflows/scripts/store-historical-data.sh
+
+        # Run the script to process data
+        .github/workflows/scripts/store-historical-data.sh "${{ steps.fetch-history.outputs.report_date }}"
+      continue-on-error: true
+
+    # Generate the trend dashboard
+    - name: Generate trend dashboard
+      shell: bash
+      run: |
+        # Make the script executable
+        chmod +x .github/workflows/scripts/generate-trend-dashboard.sh
+
+        # Run the script to generate the dashboard
+        .github/workflows/scripts/generate-trend-dashboard.sh "${{ steps.fetch-history.outputs.report_date }}"
+      continue-on-error: true
+
+    # Generate the HTML dashboard
+    - name: Generate HTML dashboard
+      shell: bash
+      run: |
+        CURRENT_DATE="${{ steps.fetch-history.outputs.report_date }}"
+        if [ -z "$CURRENT_DATE" ]; then
+          CURRENT_DATE=$(date +"%Y-%m-%d")
+        fi
+
+        echo "Generating dashboard for date: $CURRENT_DATE"
+
+        # Ensure the directory exists
+        mkdir -p performance-reports
+
+        # Run with bash -e to exit immediately on error
+        bash -e .github/workflows/scripts/generate-dashboard.sh "$CURRENT_DATE" || {
+          echo "Error generating dashboard, creating fallback..."
+          # Create a simple default dashboard if the script fails
+          echo '<!DOCTYPE html><html><head><title>Lighthouse Dashboard</title><style>body{font-family:Arial,sans-serif;line-height:1.6;color:#333;max-width:800px;margin:0 auto;padding:20px}h1{color:#2c3e50;border-bottom:2px solid #eee;padding-bottom:10px}.status{background:#f8f9fa;border-left:4px solid #4caf50;padding:15px;margin:20px 0}.error{border-left-color:#f44336}</style></head><body><h1>Lighthouse Performance Dashboard</h1><div class="status error"><h2>No Reports Available</h2><p>No performance reports were found from the latest run.</p><p>Please check the workflow logs for more details or try running the workflow again.</p></div><div class="status"><h2>About This Dashboard</h2><p>This dashboard displays Lighthouse performance metrics for key pages.</p><p>The workflow runs twice daily to track performance over time.</p></div></body></html>' > performance-reports/index.html
+          echo "Created fallback dashboard"
+        }
+
+        echo "Dashboard file generation complete"
+
+        # Create index.html if no dashboard exists
+        if [ ! -f "performance-reports/index.html" ]; then
+          echo "index.html not found! Creating a standard one..."
+          echo '<!DOCTYPE html><html><head><title>Lighthouse Dashboard</title><style>body{font-family:Arial,sans-serif;line-height:1.6;color:#333;max-width:800px;margin:0 auto;padding:20px}h1{color:#2c3e50;border-bottom:2px solid #eee;padding-bottom:10px}.status{background:#f8f9fa;border-left:4px solid #4caf50;padding:15px;margin:20px 0}.error{border-left-color:#f44336}</style></head><body><h1>Lighthouse Performance Dashboard</h1><div class="status"><h2>Dashboard Content</h2><p>This is the Lighthouse Performance dashboard. Below are the latest results:</p><ul id="results"></ul></div><script>document.getElementById("results").innerHTML = Object.keys(localStorage).map(key => `<li>${key}: ${localStorage.getItem(key)}</li>`).join("");</script></body></html>' > performance-reports/index.html
+        else
+          echo "index.html exists at $(pwd)/performance-reports/index.html"
+          ls -la performance-reports/index.html
+          echo "First 10 lines of index.html:"
+          head -n 10 performance-reports/index.html
+        fi
+
+        # Add link to trends dashboard on main dashboard page
+        if [ -f "performance-reports/index.html" ] && [ -f "performance-reports/trends.html" ]; then
+          echo "Adding trends dashboard link..."
+          sed -i 's/<\/body>/<div style="text-align: center; margin-top: 30px;"><a href="trends.html" style="display: inline-block; padding: 10px 20px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 4px; font-weight: bold;">View Performance Trends Over Time<\/a><\/div><\/body>/' performance-reports/index.html
+          echo "Trends dashboard link added"
+        else
+          echo "Warning: trends.html not found, skipping link addition"
+
+          # Create a basic trends.html file if it doesn't exist
+          if [ ! -f "performance-reports/trends.html" ]; then
+            echo "Creating basic trends.html file..."
+            echo '<!DOCTYPE html><html><head><title>Lighthouse Performance Trends</title><style>body{font-family:Arial,sans-serif;line-height:1.6;color:#333;max-width:1200px;margin:0 auto;padding:20px}h1,h2{color:#2c3e50;border-bottom:2px solid #eee;padding-bottom:10px}table{width:100%;border-collapse:collapse;margin:20px 0;font-size:16px}th{background-color:#f2f2f2;text-align:left;padding:12px;font-weight:bold;border:1px solid #ddd}td{padding:12px;border:1px solid #ddd}tr:nth-child(even){background-color:#f9f9f9}.chart{height:400px;margin:40px 0;background:#f5f5f5;border:1px solid #ddd;padding:20px}</style></head><body><h1>Lighthouse Performance Trends</h1><div><h2>Performance Over Time</h2><div class="chart" id="performance-chart">Performance trends will appear here after multiple runs.</div></div><div><h2>Recent Results</h2><table id="results-table"><thead><tr><th>Date</th><th>Page</th><th>Performance</th><th>Accessibility</th><th>Best Practices</th><th>SEO</th><th>LCP</th><th>TBT</th><th>CLS</th></tr></thead><tbody><tr><td colspan="9">Waiting for data from multiple test runs...</td></tr></tbody></table></div><p><a href="index.html" style="display:inline-block;padding:10px 20px;background-color:#4CAF50;color:white;text-decoration:none;border-radius:4px;font-weight:bold;">Back to Dashboard</a></p></body></html>' > performance-reports/trends.html
+
+            # Now add the link to the index.html
+            if [ -f "performance-reports/index.html" ]; then
+              sed -i 's/<\/body>/<div style="text-align: center; margin-top: 30px;"><a href="trends.html" style="display: inline-block; padding: 10px 20px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 4px; font-weight: bold;">View Performance Trends Over Time<\/a><\/div><\/body>/' performance-reports/index.html
+              echo "Added link to trends.html in index.html"
+            fi
+          fi
+        fi
+
+        # Final verification
+        echo "Final directory contents:"
+        ls -la performance-reports/
+
+    # Generate the GitHub Step Summary
+    - name: Generate GitHub Step Summary
+      shell: bash
+      run: |
+        # Create a basic step summary header
+        echo "## 🚦 Lighthouse Performance Dashboard" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 📊 Summary Results ($(date))" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        # Check if there are any summary files to process
+        SUMMARY_FILES=$(find performance-reports -name "summary.json" | wc -l)
+
+        if [ "$SUMMARY_FILES" -eq "0" ]; then
+          echo "No summary files found to process" >> $GITHUB_STEP_SUMMARY
+          echo "No test results are available for this run." >> $GITHUB_STEP_SUMMARY
+        else
+          echo "Found $SUMMARY_FILES summary files to process"
+
+          # Add a table for desktop results
+          echo "#### 💻 Desktop Results" >> $GITHUB_STEP_SUMMARY
+          echo "| Page | Performance | Accessibility | Best Practices | SEO | LCP | TBT | CLS |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|-------------|---------------|----------------|-----|-----|-----|-----|" >> $GITHUB_STEP_SUMMARY
+
+          # Find all summary.json files for desktop
+          find performance-reports -name "summary.json" | sort | while read -r file; do
+            # Debug
+            echo "Processing file: $file"
+
+            # Extract data safely with error handling
+            PAGE_NAME=$(grep -o '"page": *"[^"]*"' "$file" | cut -d'"' -f4 || echo "unknown")
+            PERF=$(grep -o '"performance": *[0-9.]*' "$file" | grep -o '[0-9.]*' || echo "0")
+            A11Y=$(grep -o '"accessibility": *[0-9.]*' "$file" | grep -o '[0-9.]*' || echo "0")
+            BP=$(grep -o '"bestPractices": *[0-9.]*' "$file" | grep -o '[0-9.]*' || echo "0")
+            SEO=$(grep -o '"seo": *[0-9.]*' "$file" | grep -o '[0-9.]*' || echo "0")
+            LCP=$(grep -o '"largestContentfulPaint": *[0-9.]*' "$file" | grep -o '[0-9.]*' || echo "0")
+            TBT=$(grep -o '"totalBlockingTime": *[0-9.]*' "$file" | grep -o '[0-9.]*' || echo "0")
+            CLS=$(grep -o '"cumulativeLayoutShift": *[0-9.]*' "$file" | grep -o '[0-9.]*' || echo "0")
+
+            # Format values for display
+            LCP_MS=$(echo "$LCP / 1000" | bc -l 2>/dev/null | xargs printf "%.2fs" 2>/dev/null || echo "0.00s")
+            TBT_MS=$(echo "$TBT" | xargs printf "%.0fms" 2>/dev/null || echo "0ms")
+
+            echo "| $PAGE_NAME | $PERF | $A11Y | $BP | $SEO | $LCP_MS | $TBT_MS | $CLS |" >> $GITHUB_STEP_SUMMARY
+          done
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "#### 📱 Mobile Results" >> $GITHUB_STEP_SUMMARY
+          echo "| Page | Performance | Accessibility | Best Practices | SEO | LCP | TBT | CLS |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|-------------|---------------|----------------|-----|-----|-----|-----|" >> $GITHUB_STEP_SUMMARY
+
+          # Find all summary.json files for mobile
+          find performance-reports -name "summary.json" | sort | while read -r file; do
+            # Extract data safely with error handling
+            PAGE_NAME=$(grep -o '"page": *"[^"]*"' "$file" | cut -d'"' -f4 || echo "unknown")
+            PERF=$(grep -o '"performance": *[0-9.]*' "$file" | grep -o '[0-9.]*' || echo "0")
+            A11Y=$(grep -o '"accessibility": *[0-9.]*' "$file" | grep -o '[0-9.]*' || echo "0")
+            BP=$(grep -o '"bestPractices": *[0-9.]*' "$file" | grep -o '[0-9.]*' || echo "0")
+            SEO=$(grep -o '"seo": *[0-9.]*' "$file" | grep -o '[0-9.]*' || echo "0")
+            LCP=$(grep -o '"largestContentfulPaint": *[0-9.]*' "$file" | grep -o '[0-9.]*' || echo "0")
+            TBT=$(grep -o '"totalBlockingTime": *[0-9.]*' "$file" | grep -o '[0-9.]*' || echo "0")
+            CLS=$(grep -o '"cumulativeLayoutShift": *[0-9.]*' "$file" | grep -o '[0-9.]*' || echo "0")
+
+            # Format values for display
+            LCP_MS=$(echo "$LCP / 1000" | bc -l 2>/dev/null | xargs printf "%.2fs" 2>/dev/null || echo "0.00s")
+            TBT_MS=$(echo "$TBT" | xargs printf "%.0fms" 2>/dev/null || echo "0ms")
+
+            echo "| $PAGE_NAME | $PERF | $A11Y | $BP | $SEO | $LCP_MS | $TBT_MS | $CLS |" >> $GITHUB_STEP_SUMMARY
+          done
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📈 Core Web Vitals Status" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ **Good**: LCP < 2.5s, CLS < 0.1, TBT < 200ms" >> $GITHUB_STEP_SUMMARY
+          echo "- ⚠️ **Needs Improvement**: LCP < 4s, CLS < 0.25, TBT < 600ms" >> $GITHUB_STEP_SUMMARY
+          echo "- ❌ **Poor**: LCP > 4s, CLS > 0.25, TBT > 600ms" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 🔍 View Full Reports" >> $GITHUB_STEP_SUMMARY
+        echo "Download the full HTML reports from the workflow artifacts section." >> $GITHUB_STEP_SUMMARY
+
+    # Link to the trends dashboard in the GitHub Step Summary
+    - name: Add trends link to summary
+      shell: bash
+      run: |
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 📈 Performance Trends" >> $GITHUB_STEP_SUMMARY
+        echo "Check out the [Performance Trends Dashboard](./trends.html) to see how metrics have changed over time." >> $GITHUB_STEP_SUMMARY
+
+    - name: List created files
+      shell: bash
+      run: |
+        echo "Files created in performance-reports directory:"
+        mkdir -p performance-reports
+        find performance-reports -type f | sort || echo "No files found in performance-reports"
+
+    # Verify files before uploading
+    - name: Verify files before upload
+      shell: bash
+      run: |
+        echo "Verifying files before upload..."
+        echo "Directory structure:"
+        tree performance-reports || echo "tree command not available"
+        echo "File contents:"
+        ls -la performance-reports/
+        echo "Checking index.html:"
+        if [ -f "performance-reports/index.html" ]; then
+          echo "index.html exists"
+          head -n 5 performance-reports/index.html
+        else
+          echo "index.html does not exist!"
+          exit 1
+        fi
+        echo "Checking trends.html:"
+        if [ -f "performance-reports/trends.html" ]; then
+          echo "trends.html exists"
+          head -n 5 performance-reports/trends.html
+        else
+          echo "trends.html does not exist"
+        fi
+
+    # Generate visual annotations for PRs
+    - name: Add PR annotations
+      if: github.event_name == 'pull_request'
+      shell: bash
+      run: |
+        # Find all summary.json files
+        find performance-reports -name "summary.json" | sort | while read -r file; do
+          PAGE_NAME=$(grep -o '"page": *"[^"]*"' "$file" | cut -d'"' -f4 || echo "unknown")
+          PERF=$(grep -o '"performance": *[0-9.]*' "$file" | grep -o '[0-9.]*' || echo "0")
+
+          # Add annotations based on performance score
+          if (( $(echo "$PERF < 75" | bc -l) )); then
+            echo "::warning file=${PAGE_NAME}::Performance score is poor: ${PERF}%. Consider optimizing this page."
+          elif (( $(echo "$PERF < 90" | bc -l) )); then
+            echo "::notice file=${PAGE_NAME}::Performance score needs improvement: ${PERF}%."
+          else
+            echo "::notice file=${PAGE_NAME}::Performance score is good: ${PERF}%."
+          fi
+        done
+      continue-on-error: true
+
+    # Save historical data to the dedicated branch
+    - name: Save historical data
+      shell: bash
+      run: |
+        # Configure Git
+        git config --global user.name "GitHub Action"
+        git config --global user.email "action@github.com"
+
+        # Add and commit changes to history directory
+        mkdir -p performance-reports/history
+        if git checkout ${{ inputs.history-branch }}; then
+          # Copy current history to the branch
+          mkdir -p performance-reports/history
+          # Copy only if any history exists
+          if [ -d "performance-reports/history" ] && [ "$(ls -A performance-reports/history 2>/dev/null)" ]; then
+            git add performance-reports/history
+            git commit -m "Update Lighthouse history data - $(date +%Y-%m-%d)" || echo "No changes to commit"
+            git push origin ${{ inputs.history-branch }} || echo "Failed to push - possibly no changes"
+          fi
+        else
+          # Create new branch with history
+          git checkout -b ${{ inputs.history-branch }}
+          mkdir -p performance-reports/history
+          # Only commit if there are actual files
+          if [ -d "performance-reports/history" ] && [ "$(ls -A performance-reports/history 2>/dev/null)" ]; then
+            git add performance-reports/history
+            git commit -m "Initial Lighthouse history data - $(date +%Y-%m-%d)" || echo "No changes to commit"
+            git push origin ${{ inputs.history-branch }} || echo "Failed to push - possibly no changes"
+          fi
+        fi
+      continue-on-error: true

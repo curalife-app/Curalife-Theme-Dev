@@ -1,0 +1,101 @@
+name: "Setup Environment"
+description: "Sets up Node.js and installs system dependencies"
+
+inputs:
+  cache-key-prefix:
+    description: "Prefix for the system dependencies cache key"
+    required: true
+  npm-cache-key:
+    description: "Cache key for npm global packages"
+    required: true
+  puppeteer-cache-key:
+    description: "Cache key for Puppeteer"
+    required: false
+  tools-cache-key:
+    description: "Cache key for tools"
+    required: false
+
+runs:
+  using: "composite"
+  steps:
+    # Add caching for system dependencies
+    - name: Cache system dependencies
+      uses: actions/cache@v4
+      id: cache-sys-deps
+      with:
+        path: |
+          ~/.cache/apt
+          ~/.apt-cache
+        key: ${{ inputs.cache-key-prefix }}
+
+    # Add caching for jq and other tools that might be needed
+    - name: Cache tools
+      if: inputs.tools-cache-key != ''
+      uses: actions/cache@v4
+      id: cache-tools
+      with:
+        path: |
+          ~/.cache/tools
+        key: ${{ inputs.tools-cache-key || 'no-tools-cache' }}
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: "18"
+
+    # Manual caching for npm global packages
+    - name: Cache npm global packages
+      uses: actions/cache@v4
+      id: cache-npm-global
+      with:
+        path: ~/.npm
+        key: ${{ inputs.npm-cache-key }}
+        restore-keys: |
+          ${{ inputs.npm-cache-key }}-
+
+    # Create cache directories for Puppeteer
+    - name: Create Puppeteer cache directory
+      if: inputs.puppeteer-cache-key != ''
+      shell: bash
+      run: mkdir -p ~/.cache/puppeteer
+
+    # Cache Puppeteer separately from npm
+    - name: Cache Puppeteer
+      if: inputs.puppeteer-cache-key != ''
+      uses: actions/cache@v4
+      id: cache-puppeteer
+      with:
+        path: ~/.cache/puppeteer
+        key: ${{ inputs.puppeteer-cache-key || 'no-puppeteer-cache' }}
+
+    - name: Install dependencies
+      shell: bash
+      run: |
+        echo "Installing global dependencies..."
+        if [ "${{ steps.cache-npm-global.outputs.cache-hit }}" == "true" ]; then
+          echo "Using cached npm global packages"
+        else
+          echo "Cache miss for npm global packages. Installing from scratch..."
+        fi
+        npm install -g @lhci/cli puppeteer lighthouse puppeteer-screenshot-cli
+
+    - name: Set Chrome flags
+      shell: bash
+      run: |
+        echo "CHROME_FLAGS=--no-sandbox --disable-dev-shm-usage --disable-gpu --headless" >> $GITHUB_ENV
+
+    - name: Install jq and bc
+      shell: bash
+      run: |
+        # Create cache directories
+        mkdir -p ~/.cache/apt ~/.apt-cache ~/.cache/tools
+
+        if [ "${{ steps.cache-sys-deps.outputs.cache-hit }}" != "true" ]; then
+          echo "Cache miss. Installing jq and bc..."
+          sudo apt-get update && sudo apt-get install -y jq bc
+          # Copy installed binaries to cache location for future runs
+          which jq bc > ~/.cache/tools/installed_tools.txt
+        else
+          echo "Cache hit! Using cached apt lists."
+          sudo apt-get install -y jq bc --no-update
+        fi

@@ -1,64 +1,54 @@
-# Curalife Theme Development Project Brief
+# Project Brief: Lighthouse CI Workflow
 
-## Project Overview
+## Purpose
 
-The Curalife Theme Development project is focused on building and maintaining a custom Shopify theme for Curalife, a health and wellness brand. The theme is designed to showcase Curalife's products, blog content, and customer testimonials with a modern, responsive design that aligns with the brand's identity.
+The Lighthouse CI workflow provides automated performance monitoring for the Curalife e-commerce website. It uses Google Lighthouse to regularly test key pages and track performance metrics over time, ensuring that the website maintains optimal loading speeds and user experience.
 
 ## Core Requirements
 
-### Technical Requirements
+1. **Automated Testing**: Schedule regular performance tests on key website pages
+2. **Comprehensive Metrics**: Measure Core Web Vitals and other performance indicators
+3. **Historical Tracking**: Maintain performance history to identify trends and regressions
+4. **Visual Dashboard**: Present results in an easily accessible dashboard
+5. **GitHub Integration**: Annotate PRs with performance changes
+6. **Modular Structure**: Maintain a modular, maintainable workflow structure
 
-- Create a fully responsive Shopify theme optimized for all devices
-- Implement a modern development workflow using Vite, Tailwind CSS, and JavaScript
-- Ensure fast page load times and optimal performance
-- Establish a reliable hot-reloading development environment for efficient theme editing
-- Support multiple Shopify store environments (production, staging, development)
+## Goals
 
-### Design Requirements
+- **Performance Monitoring**: Continuously track website performance changes
+- **Early Detection**: Identify performance regressions before they impact customers
+- **Documentation**: Provide clear visualization of performance trends
+- **Accountability**: Make performance metrics accessible to all stakeholders
+- **Best Practices**: Enforce web performance best practices
 
-- Create a clean, modern UI that emphasizes Curalife's brand identity
-- Implement consistent typography, spacing, and color schemes across all pages
-- Ensure accessibility compliance
-- Support rich media content including images, videos, and animations
-- Create a seamless shopping experience with intuitive navigation
+## Scope
 
-### Functional Requirements
+The workflow is focused on monitoring the production Curalife website, with emphasis on the most critical customer journey pages. It tracks desktop and mobile performance separately and maintains historical records for trend analysis.
 
-- Build customizable sections and blocks using Shopify's section architecture
-- Implement a responsive cart drawer functionality
-- Create product detail pages with comprehensive product information
-- Integrate blog functionality with proper categorization and filtering
-- Support user account management and order history
-- Implement proper SEO best practices
+The current implementation includes:
 
-## Project Goals
+- Automated testing of homepage and product detail pages
+- Dashboard generation with current and historical metrics
+- GitHub Pages deployment for easy stakeholder access
+- Modular architecture for maintainability and extensibility
 
-1. Increase conversion rates through improved UX/UI design
-2. Reduce page load times by at least 20% compared to previous theme
-3. Improve mobile shopping experience
-4. Enable marketing team to easily create and modify landing pages without developer assistance
-5. Support international markets with multilingual capabilities
-6. Provide a development environment that allows for rapid iteration
+Future expansion may include:
 
-## Timeline and Milestones
-
-- **Phase 1:** Setup development environment and build core theme structure
-- **Phase 2:** Implement product pages, collection pages, and cart functionality
-- **Phase 3:** Build blog, about us, and other informational pages
-- **Phase 4:** Testing, optimization, and refinement
-- **Phase 5:** Launch and post-launch support
+- Testing of additional customer journey pages
+- Integration with alert systems for performance regressions
+- Budget enforcement to prevent deployment of performance-degrading changes
 
 ## Success Criteria
 
-- Theme passes all Shopify Theme Store requirements
-- Page load speed scores of 80+ on Google PageSpeed Insights
-- Successful integration with third-party apps and services
-- Positive feedback from user testing
-- Increased conversion rates after launch
+1. Reliable execution of twice-daily performance tests
+2. Accurate tracking of performance metrics over time
+3. Clear visualization of performance trends
+4. Easy dashboard access for all stakeholders
+5. Early detection of performance regressions
+6. Maintainable workflow structure
 
-## Constraints
+## Out of Scope
 
-- Must maintain compatibility with Shopify's platform requirements
-- Must work within Shopify's Liquid templating language limitations
-- Performance optimizations must balance visual richness with load times
-- Must support legacy browsers according to Curalife's user demographics
+- Real user monitoring (RUM) - this is handled by separate analytics tools
+- Performance optimization implementation - the workflow only identifies issues
+- Load testing or stress testing - the workflow focuses on page performance only

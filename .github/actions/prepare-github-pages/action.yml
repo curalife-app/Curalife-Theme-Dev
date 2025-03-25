@@ -1,0 +1,57 @@
+name: "Prepare GitHub Pages"
+description: "Prepares files for GitHub Pages deployment"
+
+inputs:
+  publish-dir:
+    description: "Directory to publish to GitHub Pages"
+    required: true
+  repository:
+    description: "Repository name for README"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    # Check if download was successful and create a fallback if not
+    - name: Check download and create fallback if needed
+      shell: bash
+      run: |
+        echo "Checking contents of ${{ inputs.publish-dir }} directory:"
+        ls -la ${{ inputs.publish-dir }} || echo "Directory is empty"
+
+        # Create fallback index.html if it doesn't exist
+        if [ ! -f "${{ inputs.publish-dir }}/index.html" ]; then
+          echo "Creating fallback index.html file..."
+          echo '<!DOCTYPE html><html><head><title>Lighthouse Dashboard</title><style>body{font-family:Arial,sans-serif;line-height:1.6;color:#333;max-width:800px;margin:0 auto;padding:20px}h1{color:#2c3e50;border-bottom:2px solid #eee;padding-bottom:10px}.status{background:#f8f9fa;border-left:4px solid #4caf50;padding:15px;margin:20px 0}.error{border-left-color:#f44336}</style></head><body><h1>Lighthouse Performance Dashboard</h1><div class="status error"><h2>No Reports Available</h2><p>No performance reports were found from the latest run.</p><p>Please check the workflow logs for more details or try running the workflow again.</p></div><div class="status"><h2>About This Dashboard</h2><p>This dashboard displays Lighthouse performance metrics for key pages.</p><p>The workflow runs twice daily to track performance over time.</p></div></body></html>' > ${{ inputs.publish-dir }}/index.html
+          echo "Created fallback index.html"
+        fi
+
+        echo "Contents of ${{ inputs.publish-dir }} directory:"
+        find ${{ inputs.publish-dir }} -type f | sort || echo "No files found"
+
+    # Make sure we have a proper .nojekyll file BEFORE deploying
+    - name: Prepare GitHub Pages files
+      shell: bash
+      run: |
+        # Create .nojekyll file to disable Jekyll processing
+        touch ${{ inputs.publish-dir }}/.nojekyll
+        echo "Created .nojekyll file"
+
+        # Force index.html to be the default file
+        cp ${{ inputs.publish-dir }}/index.html ${{ inputs.publish-dir }}/default.html || echo "No index.html to copy"
+
+        # Create a README that points to index.html
+        echo "# Lighthouse Dashboard" > ${{ inputs.publish-dir }}/README.md
+        echo "" >> ${{ inputs.publish-dir }}/README.md
+        echo "This is the Lighthouse performance dashboard for ${{ inputs.repository }}." >> ${{ inputs.publish-dir }}/README.md
+        echo "It's updated automatically by GitHub Actions." >> ${{ inputs.publish-dir }}/README.md
+        echo "" >> ${{ inputs.publish-dir }}/README.md
+        echo "**[View Dashboard](./index.html)**" >> ${{ inputs.publish-dir }}/README.md
+        echo "" >> ${{ inputs.publish-dir }}/README.md
+        echo "Last updated: $(date)" >> ${{ inputs.publish-dir }}/README.md
+
+        # Create a simple HTML redirector at the root level
+        echo '<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url=./index.html"></head><body><p>Redirecting to <a href="./index.html">dashboard</a>...</p></body></html>' > ${{ inputs.publish-dir }}/_index.html
+
+        echo "Files prepared for GitHub Pages:"
+        ls -la ${{ inputs.publish-dir }}/
