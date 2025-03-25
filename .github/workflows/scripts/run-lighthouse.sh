@@ -70,7 +70,14 @@ if [ ! -f "$DESKTOP_JSON" ]; then
     }
   }' > $RESULTS_DIR/lhr-fallback-desktop.json
 
-  echo "<!DOCTYPE html><html><head><title>Desktop Lighthouse Report</title></head><body><h1>Desktop Report</h1><p>This is a fallback report with estimates. The actual test could not be completed.</p></body></html>" > $RESULTS_DIR/fallback-desktop.html
+  # Use template for HTML fallback
+  TEMPLATE_DIR="$(dirname "$0")/../templates"
+  cat "$TEMPLATE_DIR/fallback-report.template.html" | \
+    sed -e "s|\${REPORT_TITLE}|Desktop Lighthouse Report|g" \
+        -e "s|\${HEADING}|Desktop Report|g" \
+        -e "s|\${MESSAGE}|This is a fallback report with estimates. The actual test could not be completed.|g" \
+        -e "s|\${GENERATION_DATE}|$(date)|g" \
+    > $RESULTS_DIR/fallback-desktop.html
 fi
 
 # Check if desktop HTML was generated
@@ -97,7 +104,16 @@ else
   echo "WARNING: No desktop HTML files were generated!"
   # Create a simple HTML file to ensure something exists
   mkdir -p $RESULTS_DIR
-  echo "<!DOCTYPE html><html><head><title>Fallback Report</title></head><body><h1>Fallback Desktop Report</h1><p>The Lighthouse test did not generate an HTML report.</p></body></html>" > $RESULTS_DIR/fallback-desktop.html
+
+  # Use template instead of inline HTML
+  TEMPLATE_DIR="$(dirname "$0")/../templates"
+  cat "$TEMPLATE_DIR/fallback-report.template.html" | \
+    sed -e "s|\${REPORT_TITLE}|Fallback Report|g" \
+        -e "s|\${HEADING}|Fallback Desktop Report|g" \
+        -e "s|\${MESSAGE}|The Lighthouse test did not generate an HTML report.|g" \
+        -e "s|\${GENERATION_DATE}|$(date)|g" \
+    > $RESULTS_DIR/fallback-desktop.html
+
   echo "Created fallback HTML file: $RESULTS_DIR/fallback-desktop.html"
 fi
 
@@ -154,7 +170,14 @@ if [ ! -f "$MOBILE_JSON" ]; then
     }
   }' > $RESULTS_DIR/mobile/lhr-fallback-mobile.json
 
-  echo "<!DOCTYPE html><html><head><title>Mobile Lighthouse Report</title></head><body><h1>Mobile Report</h1><p>This is a fallback report with estimates. The actual test could not be completed.</p></body></html>" > $RESULTS_DIR/mobile/fallback-mobile.html
+  # Use template for HTML fallback
+  TEMPLATE_DIR="$(dirname "$0")/../templates"
+  cat "$TEMPLATE_DIR/fallback-report.template.html" | \
+    sed -e "s|\${REPORT_TITLE}|Mobile Lighthouse Report|g" \
+        -e "s|\${HEADING}|Mobile Report|g" \
+        -e "s|\${MESSAGE}|This is a fallback report with estimates. The actual test could not be completed.|g" \
+        -e "s|\${GENERATION_DATE}|$(date)|g" \
+    > $RESULTS_DIR/mobile/fallback-mobile.html
 fi
 
 # Check if mobile HTML was generated
@@ -181,7 +204,16 @@ else
   echo "WARNING: No mobile HTML files were generated!"
   # Create a simple HTML file to ensure something exists
   mkdir -p $RESULTS_DIR/mobile
-  echo "<!DOCTYPE html><html><head><title>Fallback Report</title></head><body><h1>Fallback Mobile Report</h1><p>The Lighthouse test did not generate an HTML report.</p></body></html>" > $RESULTS_DIR/mobile/fallback-mobile.html
+
+  # Use template instead of inline HTML
+  TEMPLATE_DIR="$(dirname "$0")/../templates"
+  cat "$TEMPLATE_DIR/fallback-report.template.html" | \
+    sed -e "s|\${REPORT_TITLE}|Fallback Report|g" \
+        -e "s|\${HEADING}|Fallback Mobile Report|g" \
+        -e "s|\${MESSAGE}|The Lighthouse test did not generate an HTML report.|g" \
+        -e "s|\${GENERATION_DATE}|$(date)|g" \
+    > $RESULTS_DIR/mobile/fallback-mobile.html
+
   echo "Created fallback HTML file: $RESULTS_DIR/mobile/fallback-mobile.html"
 fi
 

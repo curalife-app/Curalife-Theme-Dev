@@ -308,28 +308,11 @@ jobs:
             mkdir -p "$DASHBOARDS_DIR"
             CURRENT_DATE=$(date +'%Y-%m-%d')
 
-            # Create index.html file using multiple echo statements
-            echo '<!DOCTYPE html>' > "$DASHBOARDS_DIR/index.html"
-            echo '<html lang="en">' >> "$DASHBOARDS_DIR/index.html"
-            echo '<head>' >> "$DASHBOARDS_DIR/index.html"
-            echo '  <meta charset="UTF-8">' >> "$DASHBOARDS_DIR/index.html"
-            echo '  <meta name="viewport" content="width=device-width, initial-scale=1.0">' >> "$DASHBOARDS_DIR/index.html"
-            echo '  <title>Lighthouse Performance Dashboard</title>' >> "$DASHBOARDS_DIR/index.html"
-            echo '  <style>' >> "$DASHBOARDS_DIR/index.html"
-            echo '    body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }' >> "$DASHBOARDS_DIR/index.html"
-            echo '    h1 { color: #00837b; }' >> "$DASHBOARDS_DIR/index.html"
-            echo '    .card { border: 1px solid #ddd; border-radius: 8px; padding: 20px; margin-bottom: 20px; }' >> "$DASHBOARDS_DIR/index.html"
-            echo '  </style>' >> "$DASHBOARDS_DIR/index.html"
-            echo '</head>' >> "$DASHBOARDS_DIR/index.html"
-            echo '<body>' >> "$DASHBOARDS_DIR/index.html"
-            echo '  <h1>Lighthouse Performance Dashboard</h1>' >> "$DASHBOARDS_DIR/index.html"
-            echo '  <div class="card">' >> "$DASHBOARDS_DIR/index.html"
-            echo '    <h2>Report Generation In Progress</h2>' >> "$DASHBOARDS_DIR/index.html"
-            echo '    <p>The first Lighthouse report is being generated. Check back soon for performance insights.</p>' >> "$DASHBOARDS_DIR/index.html"
-            echo "    <p>Date: $CURRENT_DATE</p>" >> "$DASHBOARDS_DIR/index.html"
-            echo '  </div>' >> "$DASHBOARDS_DIR/index.html"
-            echo '</body>' >> "$DASHBOARDS_DIR/index.html"
-            echo '</html>' >> "$DASHBOARDS_DIR/index.html"
+            # Use template file instead of multiple echo statements
+            TEMPLATE_DIR=".github/workflows/templates"
+            cat "$TEMPLATE_DIR/fallback-index.template.html" | \
+              sed -e "s|\${CURRENT_DATE}|$CURRENT_DATE|g" \
+              > "$DASHBOARDS_DIR/index.html"
           fi
 
           # Make sure there's also an index.html in the root
@@ -489,25 +472,11 @@ jobs:
             mkdir -p ./lighthouse-results/dashboards
             CURRENT_DATE=$(date)
 
-            # Create index.html file using multiple echo statements
-            echo '<!DOCTYPE html>' > ./lighthouse-results/index.html
-            echo '<html>' >> ./lighthouse-results/index.html
-            echo '<head>' >> ./lighthouse-results/index.html
-            echo '  <title>Lighthouse Reports</title>' >> ./lighthouse-results/index.html
-            echo '  <meta charset="UTF-8">' >> ./lighthouse-results/index.html
-            echo '  <meta name="viewport" content="width=device-width, initial-scale=1">' >> ./lighthouse-results/index.html
-            echo '  <style>' >> ./lighthouse-results/index.html
-            echo '    body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }' >> ./lighthouse-results/index.html
-            echo '    h1 { color: #00837b; }' >> ./lighthouse-results/index.html
-            echo '  </style>' >> ./lighthouse-results/index.html
-            echo '</head>' >> ./lighthouse-results/index.html
-            echo '<body>' >> ./lighthouse-results/index.html
-            echo '  <h1>Lighthouse Performance Reports</h1>' >> ./lighthouse-results/index.html
-            echo '  <p>No reports available yet. The first performance test is still running.</p>' >> ./lighthouse-results/index.html
-            echo '  <p>This page will update with performance metrics after the first successful run.</p>' >> ./lighthouse-results/index.html
-            echo "  <p>Generated on: $CURRENT_DATE</p>" >> ./lighthouse-results/index.html
-            echo '</body>' >> ./lighthouse-results/index.html
-            echo '</html>' >> ./lighthouse-results/index.html
+            # Use template file instead of multiple echo statements
+            TEMPLATE_DIR=".github/workflows/templates"
+            cat "$TEMPLATE_DIR/fallback-index.template.html" | \
+              sed -e "s|\${CURRENT_DATE}|$CURRENT_DATE|g" \
+              > "./lighthouse-results/index.html"
           fi
 
           # If dashboards/index.html exists but the root index.html doesn't, copy it to the root
@@ -522,16 +491,11 @@ jobs:
             cp "./lighthouse-results/index.html" "./index.html"
           else
             echo "Creating a basic index.html in repository root"
-            echo '<!DOCTYPE html>' > ./index.html
-            echo '<html>' >> ./index.html
-            echo '<head>' >> ./index.html
-            echo '  <meta http-equiv="refresh" content="0;url=./lighthouse-results/">' >> ./index.html
-            echo '  <title>Redirecting to Lighthouse Reports</title>' >> ./index.html
-            echo '</head>' >> ./index.html
-            echo '<body>' >> ./index.html
-            echo '  <p>Redirecting to <a href="./lighthouse-results/">Lighthouse Performance Reports</a>...</p>' >> ./index.html
-            echo '</body>' >> ./index.html
-            echo '</html>' >> ./index.html
+            TEMPLATE_DIR=".github/workflows/templates"
+            cat "$TEMPLATE_DIR/redirect.template.html" | \
+              sed -e "s|\${REDIRECT_URL}|./lighthouse-results/|g" \
+                  -e "s|\${REDIRECT_TITLE}|Lighthouse Performance Reports|g" \
+              > ./index.html
           fi
 
           # Ensure .nojekyll file exists for GitHub Pages in all relevant directories

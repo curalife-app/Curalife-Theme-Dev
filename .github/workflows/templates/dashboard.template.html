@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Lighthouse Performance Dashboard | Curalife</title>
+		<link rel="icon" href="https://cdn.shopify.com/s/files/1/0016/8633/0243/files/favicon-32x32.png?v=1618828796" type="image/png" />
+		<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+		<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" />
+		<script data-cfasync="false" src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+		<style>
+			:root {
+				--primary-color: #00837b;
+				--primary-light: #e6f7f5;
+				--secondary-color: #f26b3c;
+				--dark-color: #2c3e50;
+				--good: #0cce6b;
+				--average: #ffa400;
+				--poor: #ff4e42;
+				--background: #f8f9fa;
+				--card-bg: #ffffff;
+				--text-color: #333333;
+				--border-radius: 10px;
+				--shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+			}
+			body {
+				font-family: "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+				line-height: 1.6;
+				max-width: 1400px;
+				margin: 0 auto;
+				padding: 20px;
+				background-color: var(--background);
+				color: var(--text-color);
+			}
+			.dashboard-header {
+				background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+				color: white;
+				padding: 2rem;
+				border-radius: var(--border-radius);
+				margin-bottom: 2rem;
+				box-shadow: var(--shadow);
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+			}
+			h1,
+			h2,
+			h3 {
+				color: var(--dark-color);
+				margin-top: 1.5rem;
+			}
+			.card {
+				background: var(--card-bg);
+				border-radius: var(--border-radius);
+				padding: 20px;
+				margin-bottom: 20px;
+				box-shadow: var(--shadow);
+				transition:
+					transform 0.3s,
+					box-shadow 0.3s;
+				border: none;
+			}
+			.card:hover {
+				transform: translateY(-5px);
+				box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+			}
+			.card-header {
+				background-color: rgba(0, 0, 0, 0.03);
+				border-bottom: none;
+				font-weight: 600;
+			}
+			.target-line {
+				background-color: rgba(234, 67, 53, 0.1);
+				padding: 0.5rem;
+				border-radius: 5px;
+				margin-bottom: 1rem;
+				text-align: center;
+				font-weight: 500;
+			}
+			.metric-card {
+				text-align: center;
+				padding: 1.5rem;
+			}
+			.metric-value {
+				font-size: 2.5rem;
+				font-weight: bold;
+				margin-bottom: 5px;
+			}
+			.metric-label {
+				font-size: 0.9rem;
+				color: #6c757d;
+				text-transform: uppercase;
+				letter-spacing: 1px;
+			}
+			.pill {
+				display: inline-block;
+				padding: 0.25rem 0.75rem;
+				border-radius: 50px;
+				font-size: 0.8rem;
+				font-weight: 500;
+				margin-right: 5px;
+			}
+			.good {
+				background-color: rgba(12, 206, 107, 0.2);
+				color: var(--good);
+			}
+			.average {
+				background-color: rgba(255, 164, 0, 0.2);
+				color: var(--average);
+			}
+			.poor {
+				background-color: rgba(255, 78, 66, 0.2);
+				color: var(--poor);
+			}
+			.chart-container {
+				position: relative;
+				height: 300px;
+				margin-bottom: 2rem;
+			}
+			.table {
+				margin-top: 1.5rem;
+			}
+			.table th {
+				background-color: #f8f9fa;
+				font-weight: 600;
+			}
+			.badge-score {
+				font-size: 1rem;
+				padding: 0.3rem 0.6rem;
+				border-radius: 50px;
+			}
+			.badge-90plus {
+				background-color: var(--good);
+				color: white;
+			}
+			.badge-75to89 {
+				background-color: var(--average);
+				color: #212529;
+			}
+			.badge-below75 {
+				background-color: var(--poor);
+				color: white;
+			}
+			.recommendation {
+				padding: 1.2rem;
+				margin-bottom: 1.2rem;
+				border-left: 4px solid var(--primary-color);
+				background-color: var(--primary-light);
+				border-radius: 6px;
+			}
+			.recommendation h4 {
+				color: var(--primary-color);
+			}
+			.btn-detail,
+			.btn-primary {
+				background-color: var(--primary-color);
+				color: white;
+				border: none;
+				padding: 0.5rem 1.2rem;
+				border-radius: 4px;
+				text-decoration: none;
+				display: inline-block;
+				transition: background-color 0.2s;
+			}
+			.btn-detail:hover,
+			.btn-primary:hover {
+				background-color: #006d66;
+				color: white;
+				text-decoration: none;
+			}
+			.btn-secondary {
+				background-color: var(--secondary-color);
+				color: white;
+				border: none;
+				padding: 0.5rem 1.2rem;
+				border-radius: 4px;
+				text-decoration: none;
+				display: inline-block;
+				transition: background-color 0.2s;
+			}
+			.btn-secondary:hover {
+				background-color: #e05a2d;
+				color: white;
+				text-decoration: none;
+			}
+			.metrics-grid {
+				display: grid;
+				grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+				gap: 20px;
+			}
+		</style>
+	</head>
+	<body>
+		<div class="dashboard-header">
+			<div>
+				<h1 class="mb-0">Lighthouse Performance Dashboard</h1>
+				<p class="mb-0">Last updated: ${CURRENT_DATE}</p>
+			</div>
+			<div>
+				<img src="https://cdn.shopify.com/s/files/1/0016/8633/0243/files/curalife-logo-white_120x.png?v=1688996576" alt="Curalife Logo" height="40" />
+			</div>
+		</div>
+
+		<!-- Content will be injected by script -->
+		${DASHBOARD_CONTENT}
+
+		<footer class="text-muted mt-5 text-center">
+			<p>© Curalife ${CURRENT_YEAR} • Generated by GitHub Actions</p>
+		</footer>
+	</body>
+</html>
