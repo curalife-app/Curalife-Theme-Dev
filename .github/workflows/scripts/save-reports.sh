@@ -91,6 +91,114 @@ if [ -d "$RESULTS_DIR" ]; then
   DESKTOP_HTML=$(find $RESULTS_DIR -name "*.html" -not -path "*/mobile/*" | sort | tail -n 1)
   if [ -f "$DESKTOP_HTML" ]; then
     cp "$DESKTOP_HTML" "performance-reports/$CURRENT_DATE/$PAGE_NAME/desktop.html"
+  else
+    echo "Desktop HTML report not found for $PAGE_NAME, creating a fallback file"
+    # Create a fallback desktop.html file if it doesn't exist
+    echo "<!DOCTYPE html>
+<html>
+<head>
+  <meta charset=\"UTF-8\">
+  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
+  <title>Desktop Lighthouse Report - $PAGE_NAME</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; }
+    h1, h2 { color: #2c3e50; }
+    .card { background: white; border-radius: 8px; padding: 20px; margin: 20px 0; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    .score { display: inline-block; padding: 10px; border-radius: 50%; width: 50px; height: 50px; text-align: center; line-height: 50px; font-weight: bold; color: white; margin-right: 15px; }
+    .good { background-color: #0CCE6B; }
+    .average { background-color: #FFA400; }
+    .poor { background-color: #FF4E42; }
+    .metrics-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+    .metrics-table th, .metrics-table td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+    .metrics-table th { background-color: #f2f2f2; }
+    .back-link { display: inline-block; margin-top: 20px; padding: 10px 15px; background-color: #4285f4; color: white; text-decoration: none; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <h1>Desktop Lighthouse Report for $PAGE_NAME</h1>
+  <p>Generated on $CURRENT_DATE via GitHub Actions</p>
+
+  <div class=\"card\">
+    <h2>Performance Scores</h2>
+    <div>
+      <span class=\"score $([ \"$DESKTOP_PERF\" -ge 90 ] && echo 'good' || [ \"$DESKTOP_PERF\" -ge 50 ] && echo 'average' || echo 'poor')\">$DESKTOP_PERF</span>
+      <strong>Performance</strong>
+    </div>
+    <div>
+      <span class=\"score $([ \"$DESKTOP_ACC\" -ge 90 ] && echo 'good' || [ \"$DESKTOP_ACC\" -ge 50 ] && echo 'average' || echo 'poor')\">$DESKTOP_ACC</span>
+      <strong>Accessibility</strong>
+    </div>
+    <div>
+      <span class=\"score $([ \"$DESKTOP_BP\" -ge 90 ] && echo 'good' || [ \"$DESKTOP_BP\" -ge 50 ] && echo 'average' || echo 'poor')\">$DESKTOP_BP</span>
+      <strong>Best Practices</strong>
+    </div>
+    <div>
+      <span class=\"score $([ \"$DESKTOP_SEO\" -ge 90 ] && echo 'good' || [ \"$DESKTOP_SEO\" -ge 50 ] && echo 'average' || echo 'poor')\">$DESKTOP_SEO</span>
+      <strong>SEO</strong>
+    </div>
+  </div>
+
+  <div class=\"card\">
+    <h2>Core Web Vitals</h2>
+    <table class=\"metrics-table\">
+      <tr>
+        <th>Metric</th>
+        <th>Value</th>
+        <th>Assessment</th>
+      </tr>
+      <tr>
+        <td>Largest Contentful Paint (LCP)</td>
+        <td>$(echo \"$DESKTOP_LCP / 1000\" | bc -l | xargs printf \"%.2f\")s</td>
+        <td class=\"$([ \"$DESKTOP_LCP\" -lt 2500 ] && echo 'good' || [ \"$DESKTOP_LCP\" -lt 4000 ] && echo 'average' || echo 'poor')\">
+          $([ \"$DESKTOP_LCP\" -lt 2500 ] && echo 'Good' || [ \"$DESKTOP_LCP\" -lt 4000 ] && echo 'Needs Improvement' || echo 'Poor')
+        </td>
+      </tr>
+      <tr>
+        <td>Total Blocking Time (TBT)</td>
+        <td>$DESKTOP_TBT ms</td>
+        <td class=\"$([ \"$DESKTOP_TBT\" -lt 200 ] && echo 'good' || [ \"$DESKTOP_TBT\" -lt 600 ] && echo 'average' || echo 'poor')\">
+          $([ \"$DESKTOP_TBT\" -lt 200 ] && echo 'Good' || [ \"$DESKTOP_TBT\" -lt 600 ] && echo 'Needs Improvement' || echo 'Poor')
+        </td>
+      </tr>
+      <tr>
+        <td>Cumulative Layout Shift (CLS)</td>
+        <td>$DESKTOP_CLS</td>
+        <td class=\"$(awk \"BEGIN {exit !($DESKTOP_CLS < 0.1)}\" && echo 'good' || awk \"BEGIN {exit !($DESKTOP_CLS < 0.25)}\" && echo 'average' || echo 'poor')\">
+          $(awk \"BEGIN {exit !($DESKTOP_CLS < 0.1)}\" && echo 'Good' || awk \"BEGIN {exit !($DESKTOP_CLS < 0.25)}\" && echo 'Needs Improvement' || echo 'Poor')
+        </td>
+      </tr>
+    </table>
+  </div>
+
+  <div class=\"card\">
+    <h2>Additional Metrics</h2>
+    <table class=\"metrics-table\">
+      <tr>
+        <th>Metric</th>
+        <th>Value</th>
+      </tr>
+      <tr>
+        <td>First Contentful Paint</td>
+        <td>$(echo \"$DESKTOP_FCP / 1000\" | bc -l | xargs printf \"%.2f\")s</td>
+      </tr>
+      <tr>
+        <td>Speed Index</td>
+        <td>$(echo \"$DESKTOP_SI / 1000\" | bc -l | xargs printf \"%.2f\")s</td>
+      </tr>
+      <tr>
+        <td>Time to Interactive</td>
+        <td>$(echo \"$DESKTOP_TTI / 1000\" | bc -l | xargs printf \"%.2f\")s</td>
+      </tr>
+      <tr>
+        <td>Total Page Size</td>
+        <td>$(echo \"$DESKTOP_TOTAL_BYTES / 1024 / 1024\" | bc -l | xargs printf \"%.2f\") MB</td>
+      </tr>
+    </table>
+  </div>
+
+  <a href=\"../../../index.html\" class=\"back-link\">Back to Dashboard</a>
+</body>
+</html>" > "performance-reports/$CURRENT_DATE/$PAGE_NAME/desktop.html"
   fi
 
   # Check if mobile directory exists first
@@ -457,6 +565,71 @@ fi
 # Add links to HTML reports
 echo "## Detailed Reports" >> $MARKDOWN_REPORT
 echo "" >> $MARKDOWN_REPORT
+
+# Final check to ensure HTML files exist - create if they don't
+if [ ! -f "performance-reports/$CURRENT_DATE/$PAGE_NAME/desktop.html" ]; then
+  echo "Final check: desktop.html still missing, creating simplified version"
+  echo "<!DOCTYPE html>
+<html>
+<head>
+  <meta charset=\"UTF-8\">
+  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
+  <title>Desktop Lighthouse Report - $PAGE_NAME</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; }
+    h1, h2 { color: #2c3e50; }
+    .card { background: white; border-radius: 8px; padding: 20px; margin: 20px 0; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    .back-link { display: inline-block; margin-top: 20px; padding: 10px 15px; background-color: #4285f4; color: white; text-decoration: none; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <h1>Desktop Lighthouse Report for $PAGE_NAME</h1>
+  <p>Generated on $CURRENT_DATE via GitHub Actions</p>
+
+  <div class=\"card\">
+    <h2>Performance Scores</h2>
+    <p>Performance: ${{ steps.scores.outputs.desktop_perf || 0 }}%</p>
+    <p>Accessibility: ${{ steps.scores.outputs.desktop_a11y || 0 }}%</p>
+    <p>Best Practices: ${{ steps.scores.outputs.desktop_bp || 0 }}%</p>
+    <p>SEO: ${{ steps.scores.outputs.desktop_seo || 0 }}%</p>
+  </div>
+
+  <a href=\"../../../index.html\" class=\"back-link\">Back to Dashboard</a>
+</body>
+</html>" > "performance-reports/$CURRENT_DATE/$PAGE_NAME/desktop.html"
+fi
+
+if [ ! -f "performance-reports/$CURRENT_DATE/$PAGE_NAME/mobile.html" ]; then
+  echo "Final check: mobile.html still missing, creating simplified version"
+  echo "<!DOCTYPE html>
+<html>
+<head>
+  <meta charset=\"UTF-8\">
+  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
+  <title>Mobile Lighthouse Report - $PAGE_NAME</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; }
+    h1, h2 { color: #2c3e50; }
+    .card { background: white; border-radius: 8px; padding: 20px; margin: 20px 0; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    .back-link { display: inline-block; margin-top: 20px; padding: 10px 15px; background-color: #4285f4; color: white; text-decoration: none; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <h1>Mobile Lighthouse Report for $PAGE_NAME</h1>
+  <p>Generated on $CURRENT_DATE via GitHub Actions</p>
+
+  <div class=\"card\">
+    <h2>Performance Scores</h2>
+    <p>Performance: ${{ steps.scores.outputs.mobile_perf || 0 }}%</p>
+    <p>Accessibility: ${{ steps.scores.outputs.mobile_a11y || 0 }}%</p>
+    <p>Best Practices: ${{ steps.scores.outputs.mobile_bp || 0 }}%</p>
+    <p>SEO: ${{ steps.scores.outputs.mobile_seo || 0 }}%</p>
+  </div>
+
+  <a href=\"../../../index.html\" class=\"back-link\">Back to Dashboard</a>
+</body>
+</html>" > "performance-reports/$CURRENT_DATE/$PAGE_NAME/mobile.html"
+fi
 
 # Check if HTML reports exist
 if [ -f "performance-reports/$CURRENT_DATE/$PAGE_NAME/desktop.html" ]; then

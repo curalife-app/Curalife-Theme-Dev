@@ -39,6 +39,20 @@ npx lhci autorun \
   --upload.target=filesystem \
   --upload.outputDir=./$RESULTS_DIR
 
+# Check if desktop HTML was generated
+DESKTOP_HTML_COUNT=$(find $RESULTS_DIR -name "*.html" -not -path "*/mobile/*" | wc -l)
+echo "Desktop HTML files found: $DESKTOP_HTML_COUNT"
+if [ "$DESKTOP_HTML_COUNT" -gt 0 ]; then
+  echo "Desktop HTML files:"
+  find $RESULTS_DIR -name "*.html" -not -path "*/mobile/*" | sort
+else
+  echo "WARNING: No desktop HTML files were generated!"
+  # Create a simple HTML file to ensure something exists
+  mkdir -p $RESULTS_DIR
+  echo "<!DOCTYPE html><html><head><title>Fallback Report</title></head><body><h1>Fallback Desktop Report</h1><p>The Lighthouse test did not generate an HTML report.</p></body></html>" > $RESULTS_DIR/fallback-desktop.html
+  echo "Created fallback HTML file: $RESULTS_DIR/fallback-desktop.html"
+fi
+
 # Run mobile Lighthouse test
 echo "Running mobile tests..."
 npx lhci autorun \
@@ -56,6 +70,20 @@ npx lhci autorun \
   --collect.settings.maxWaitForLoad=60000 \
   --upload.target=filesystem \
   --upload.outputDir=./$RESULTS_DIR/mobile
+
+# Check if mobile HTML was generated
+MOBILE_HTML_COUNT=$(find $RESULTS_DIR/mobile -name "*.html" | wc -l)
+echo "Mobile HTML files found: $MOBILE_HTML_COUNT"
+if [ "$MOBILE_HTML_COUNT" -gt 0 ]; then
+  echo "Mobile HTML files:"
+  find $RESULTS_DIR/mobile -name "*.html" | sort
+else
+  echo "WARNING: No mobile HTML files were generated!"
+  # Create a simple HTML file to ensure something exists
+  mkdir -p $RESULTS_DIR/mobile
+  echo "<!DOCTYPE html><html><head><title>Fallback Report</title></head><body><h1>Fallback Mobile Report</h1><p>The Lighthouse test did not generate an HTML report.</p></body></html>" > $RESULTS_DIR/mobile/fallback-mobile.html
+  echo "Created fallback HTML file: $RESULTS_DIR/mobile/fallback-mobile.html"
+fi
 
 # Capture additional data for enhanced insights
 echo "Capturing screenshots..."
