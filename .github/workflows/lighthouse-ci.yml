@@ -1,0 +1,74 @@
+name: Lighthouse CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Allow cancellation of previous runs in the same PR/branch
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lighthouse-ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build theme
+        run: npm run build
+
+      - name: Start local server
+        run: |
+          npm run shopify &
+          npx wait-on http://localhost:9292 -t 60000
+
+      - name: Run Lighthouse CI
+        run: npx lhci autorun
+        env:
+          LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
+
+      - name: Upload Lighthouse CI results
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-results
+          path: .lighthouseci/
+          retention-days: 7
+
+      - name: Format lighthouse results
+        run: |
+          echo "## 🚦 Lighthouse Performance Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          LATEST_REPORT=$(ls -t .lighthouseci/lhr-*.json | head -n 1)
+
+          # Extract scores
+          PERFORMANCE=$(jq '.categories.performance.score * 100' $LATEST_REPORT)
+          ACCESSIBILITY=$(jq '.categories.accessibility.score * 100' $LATEST_REPORT)
+          BEST_PRACTICES=$(jq '.categories["best-practices"].score * 100' $LATEST_REPORT)
+          SEO=$(jq '.categories.seo.score * 100' $LATEST_REPORT)
+
+          # Output scores to summary
+          echo "| Metric | Score |" >> $GITHUB_STEP_SUMMARY
+          echo "| ------ | ----- |" >> $GITHUB_STEP_SUMMARY
+          echo "| ⚡ Performance | ${PERFORMANCE%.*}% |" >> $GITHUB_STEP_SUMMARY
+          echo "| ♿ Accessibility | ${ACCESSIBILITY%.*}% |" >> $GITHUB_STEP_SUMMARY
+          echo "| 👍 Best Practices | ${BEST_PRACTICES%.*}% |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🔍 SEO | ${SEO%.*}% |" >> $GITHUB_STEP_SUMMARY
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "See attached artifacts for detailed reports." >> $GITHUB_STEP_SUMMARY

@@ -48,13 +48,39 @@
 						{% assign imageLink = block.settings.image_global | default: block.settings.image %}
 						{% assign imageMobileLink = block.settings.image_mobile_global | default: block.settings.image_mobile %}
 						{% assign linkUrl = block.settings.link_url_global | default: block.settings.link_url %}
+						{% assign variantId = block.settings.variant_id_global | default: block.settings.variant_id %}
+						{% assign sellingPlanId = block.settings.selling_plan_id_global | default: block.settings.selling_plan_id %}
+						{% assign giftVariantId = block.settings.gift_variant_id_global | default: block.settings.gift_variant_id %}
 					{% else %}
 						{% assign imageLink = block.settings.image %}
 						{% assign imageMobileLink = block.settings.image_mobile %}
 						{% assign linkUrl = block.settings.link_url %}
+						{% assign variantId = block.settings.variant_id %}
+						{% assign sellingPlanId = block.settings.selling_plan_id %}
+						{% assign giftVariantId = block.settings.gift_variant_id %}
 					{% endif %}
 
-					{% if linkUrl and section.settings.link_style == 'item' %}<a class="contents">{% endif %}
+					{% if variantId != blank %}
+						{% assign baseUrl = "#" %}
+						{% assign cartAddFunction = "addToCartAndRedirect('" | append: variantId | append: "'" %}
+
+						{% if sellingPlanId != blank %}
+							{% assign cartAddFunction = cartAddFunction | append: ", '" | append: sellingPlanId | append: "'" %}
+						{% else %}
+							{% assign cartAddFunction = cartAddFunction | append: ", null" %}
+						{% endif %}
+
+						{% if giftVariantId != blank %}
+							{% assign cartAddFunction = cartAddFunction | append: ", '" | append: giftVariantId | append: "'" %}
+						{% else %}
+							{% assign cartAddFunction = cartAddFunction | append: ", null" %}
+						{% endif %}
+
+						{% assign cartAddFunction = cartAddFunction | append: "); return false;" %}
+						{% assign linkUrl = baseUrl %}
+					{% endif %}
+
+					{% if linkUrl and section.settings.link_style == 'item' %}<a class="contents" {% if variantId != blank %}onclick="{{ cartAddFunction }}"{% else %}href="{{ linkUrl }}"{% endif %}>{% endif %}
 					{% assign itemID = 'item-' | append: section.id | append: forloop.index %}
 
 					<div class="{% if section.settings.is_slider %}swiper-slide{% endif %} item relative !h-auto" id="{{ itemID }}">
@@ -112,9 +138,9 @@
 										{% if section.settings.is_reviews %}{% render 'rating-stars', rating: '5' %}{% endif %}
 										{% if block.settings.description != blank %}<div class="description">{{ block.settings.description }}</div>{% endif %}
 										{% if section.settings.link_style == 'a' %}
-											<a class="underline" href="{{ linkUrl }}">{{ block.settings.link_title }}</a>
+											<a class="underline" {% if variantId != blank %}onclick="{{ cartAddFunction }}"{% else %}href="{{ linkUrl }}"{% endif %}>{{ block.settings.link_title }}</a>
 										{% elsif section.settings.link_style == 'button' %}
-											<a class="w-max m-auto" href="{{ linkUrl }}"><button>{{ block.settings.link_title }}</button></a>
+											<a class="w-max m-auto" {% if variantId != blank %}onclick="{{ cartAddFunction }}"{% else %}href="{{ linkUrl }}"{% endif %}><button>{{ block.settings.link_title }}</button></a>
 										{% endif %}
 									</div>
 								{% endif %}
@@ -186,110 +212,183 @@
 		</div>
 	</section>
 
+	<script defer>
+		function addToCartAndRedirect(variantId, sellingPlanId, giftVariantId) {
+			let items = [{ id: variantId, quantity: 1 }];
+
+			if (sellingPlanId) {
+				items[0].selling_plan = sellingPlanId;
+			}
+
+			if (giftVariantId) {
+				items.push({ id: giftVariantId, quantity: 1 });
+			}
+
+			fetch('/cart/clear.js', { method: 'POST' })
+				.then(() => {
+					return fetch('/cart/add.js', {
+						method: 'POST',
+						headers: {
+							'Content-Type': 'application/json'
+						},
+						body: JSON.stringify({ items: items })
+					});
+				})
+				.then(response => response.json())
+				.then(data => {
+					if (typeof window.dataLayer !== 'undefined') {
+						window.dataLayer.push({
+							'event': 'add_to_cart',
+							'ecommerce': {
+								'items': items.map(item => ({
+									'item_id': item.id,
+									'quantity': item.quantity
+								}))
+							}
+						});
+					}
+
+					setTimeout(() => {
+						window.location.href = '/checkout';
+					}, 300);
+				})
+				.catch(error => {
+					console.error('Error adding items to cart:', error);
+					window.location.href = "/checkout";
+				});
+
+			return false;
+		}
+	</script>
+
 	{% if section.settings.is_slider %}
-		<script>
-			document.addEventListener('DOMContentLoaded', function() {
-				function getMaxHeightOfElements(selector) {
+		<script defer>
+			// Define functions outside of DOMContentLoaded to avoid duplicate function creation
+			const swiperFunctions = {
+				getMaxHeightOfElements: function(selector) {
 					let maxHeight = 0;
 					document.querySelectorAll(selector).forEach(function(element) {
 						element.style.height = '';
 						maxHeight = Math.max(maxHeight, element.offsetHeight);
 					});
 					return maxHeight;
-				}
+				},
 
-				function setHeightOfElements(selector, height) {
-					document.querySelectorAll(selector).forEach(function(element) {
-						element.style.height = height + 'px';
-					});
-				}
-
-				function adjustTitleHeight() {
-					const titleMaxHeight = getMaxHeightOfElements("#section-{{ section.id }} .title-tag");
-					setHeightOfElements("#section-{{ section.id }} .title-tag", titleMaxHeight);
-				}
-
-				function adjustHeights() {
-					adjustTitleHeight();
-				}
-
-				function initSwiper(itemsContainer) {
-					itemsContainer.classList.add('swiper');
-					itemsContainer.classList.remove('items', 'flex', 'flex-wrap');
-					const items = itemsContainer.querySelectorAll('.item');
-					items.forEach(item => item.classList.add('swiper-slide'));
-
-					loadSwiper(() => {
-						let swiper = initializeSwiper('#items-container-{{ section.id }}', {
-							spaceBetween: 15,
-							grabCursor: true,
-							watchSlidesVisibility: true,
-							slidesPerView: 'auto',
-							autoHeight: {{ section.settings.is_auto_height }},
-							{% if section.settings.is_arrows %}
-							navigation: {
-								nextEl: '#items-container-{{ section.id }} .swiper-button-next',
-								prevEl: '#items-container-{{ section.id }} .swiper-button-prev',
-							},
-							{% endif %}
-							{% if section.settings.is_dots %}
-							pagination: {
-								el: '#items-container-{{ section.id }} .swiper-pagination',
-								clickable: true
-							},
-							{% endif %}
-							{% if section.settings.is_scrollbar %}
-							scrollbar: {
-								el: '#items-container-{{ section.id }} .swiper-scrollbar'
-							},
-							{% endif %}
-							{% if section.settings.is_ticker %}
-							loop: true,
-							speed: 1500,
-							autoplay: {
-								delay: 0,
-								disableOnInteraction: false
-							},
-							{% elsif section.settings.slider_autoplay_speed > 0 %}
-							loop: true,
-							speed: {{ section.settings.slider_autoplay_speed }},
-							autoplay: {
-								delay: {{ section.settings.slider_autoplay_speed }},
-							},
-							{% endif %}
-							lazy: true,
-							breakpoints: {
-								768: {
-									slidesPerView: {{ section.settings.items_in_row_mobile }},
-								},
-								1200: {
-									slidesPerView: {% if section.settings.items_in_row != 'all' %}{{ section.settings.items_in_row }}{% else %}'auto'{% endif %}
-								}
-							}
+				setHeightOfElements: function(selector, height) {
+					// Use requestAnimationFrame to batch DOM manipulations
+					requestAnimationFrame(() => {
+						document.querySelectorAll(selector).forEach(function(element) {
+							element.style.height = height + 'px';
 						});
 					});
-				}
+				},
 
-				function deactivateSwiper(itemsContainer) {
-					itemsContainer.classList.remove('swiper');
-					itemsContainer.classList.add('items', 'flex', 'flex-wrap');
-					const items = itemsContainer.querySelectorAll('.item');
-					items.forEach(item => item.classList.remove('swiper-slide'));
-				}
+				adjustTitleHeight: function() {
+					const titleMaxHeight = this.getMaxHeightOfElements("#section-{{ section.id }} .title-tag");
+					this.setHeightOfElements("#section-{{ section.id }} .title-tag", titleMaxHeight);
+				},
 
-				function hideArrows(arrows) {
-					arrows.forEach(arrow => arrow.style.display = 'none');
-				}
+				initSwiper: function(itemsContainer) {
+					// Use requestAnimationFrame to avoid layout thrashing
+					requestAnimationFrame(() => {
+						itemsContainer.classList.add('swiper');
+						itemsContainer.classList.remove('items', 'flex', 'flex-wrap');
+						const items = itemsContainer.querySelectorAll('.item');
+						items.forEach(item => item.classList.add('swiper-slide'));
 
-				function showArrows(arrows) {
-					arrows.forEach(arrow => arrow.style.display = '');
-				}
+						// Load Swiper after content is visible
+						loadSwiper(() => {
+							let swiper = initializeSwiper('#items-container-{{ section.id }}', {
+								spaceBetween: 15,
+								grabCursor: true,
+								watchSlidesVisibility: true,
+								slidesPerView: 'auto',
+								autoHeight: {{ section.settings.is_auto_height }},
+								{% if section.settings.is_arrows %}
+								navigation: {
+									nextEl: '#items-container-{{ section.id }} .swiper-button-next',
+									prevEl: '#items-container-{{ section.id }} .swiper-button-prev',
+								},
+								{% endif %}
+								{% if section.settings.is_dots %}
+								pagination: {
+									el: '#items-container-{{ section.id }} .swiper-pagination',
+									clickable: true
+								},
+								{% endif %}
+								{% if section.settings.is_scrollbar %}
+								scrollbar: {
+									el: '#items-container-{{ section.id }} .swiper-scrollbar'
+								},
+								{% endif %}
+								{% if section.settings.is_ticker %}
+								loop: true,
+								speed: 1500,
+								autoplay: {
+									delay: 0,
+									disableOnInteraction: false
+								},
+								{% elsif section.settings.slider_autoplay_speed > 0 %}
+								loop: true,
+								speed: {{ section.settings.slider_autoplay_speed }},
+								autoplay: {
+									delay: {{ section.settings.slider_autoplay_speed }},
+								},
+								{% endif %}
+								lazy: true,
+								breakpoints: {
+									768: {
+										slidesPerView: {{ section.settings.items_in_row_mobile }},
+									},
+									1200: {
+										slidesPerView: {% if section.settings.items_in_row != 'all' %}{{ section.settings.items_in_row }}{% else %}'auto'{% endif %}
+									}
+								}
+							});
+						});
+					});
+				},
 
+				deactivateSwiper: function(itemsContainer) {
+					requestAnimationFrame(() => {
+						itemsContainer.classList.remove('swiper');
+						itemsContainer.classList.add('items', 'flex', 'flex-wrap');
+						const items = itemsContainer.querySelectorAll('.item');
+						items.forEach(item => item.classList.remove('swiper-slide'));
+					});
+				},
+
+				hideArrows: function(arrows) {
+					requestAnimationFrame(() => {
+						arrows.forEach(arrow => arrow.style.display = 'none');
+					});
+				},
+
+				showArrows: function(arrows) {
+					requestAnimationFrame(() => {
+						arrows.forEach(arrow => arrow.style.display = '');
+					});
+				}
+			};
+
+			// Create a debounce function for resize events
+			const debounce = (func, delay) => {
+				let timeout;
+				return function(...args) {
+					clearTimeout(timeout);
+					timeout = setTimeout(() => func.apply(this, args), delay);
+				};
+			};
+
+			// Use "load" event to initialize UI after content is fully loaded
+			window.addEventListener('load', function() {
+				const itemsContainer = document.getElementById('items-container-{{ section.id }}');
+				if (!itemsContainer) return;
+
+				// Handle UTM parameter visibility
 				const displayOnUrlParameter = '{{ section.settings.display_on_utm_parmeters }}';
-
 				if (displayOnUrlParameter) {
 					const section = document.getElementById('section-{{ section.id }}');
-
 					if (window.location.href.includes(displayOnUrlParameter)) {
 						section.classList.remove('!hidden');
 					} else {
@@ -299,43 +398,43 @@
 					}
 				}
 
-				const itemsContainer = document.getElementById('items-container-{{ section.id }}');
-				if (itemsContainer) {
-					let isMobile = window.innerWidth <= 768;
-					const arrows = document.querySelectorAll('#section-{{ section.id }} .swiper-button-next, #section-{{ section.id }} .swiper-button-prev');
+				let isMobile = window.innerWidth <= 768;
+				const arrows = document.querySelectorAll('#section-{{ section.id }} .swiper-button-next, #section-{{ section.id }} .swiper-button-prev');
 
-					{% if section.settings.items_in_row == 'all' %}
-						if (isMobile) {
-							initSwiper(itemsContainer);
-							showArrows(arrows);
-						} else {
-							deactivateSwiper(itemsContainer);
-							hideArrows(arrows);
-						}
-					{% else %}
-						initSwiper(itemsContainer);
-						showArrows(arrows);
-					{% endif %}
+				{% if section.settings.items_in_row == 'all' %}
+					if (isMobile) {
+						swiperFunctions.initSwiper(itemsContainer);
+						swiperFunctions.showArrows(arrows);
+					} else {
+						swiperFunctions.deactivateSwiper(itemsContainer);
+						swiperFunctions.hideArrows(arrows);
+					}
+				{% else %}
+					swiperFunctions.initSwiper(itemsContainer);
+					swiperFunctions.showArrows(arrows);
+				{% endif %}
 
-					window.addEventListener('resize', function() {
-						const newIsMobile = window.innerWidth <= 768;
-						if (isMobile !== newIsMobile) {
-							isMobile = newIsMobile;
-							{% if section.settings.items_in_row == 'all' %}
-								if (isMobile) {
-									initSwiper(itemsContainer);
-									showArrows(arrows);
-								} else {
-									deactivateSwiper(itemsContainer);
-									hideArrows(arrows);
-								}
-							{% endif %}
-						}
-					});
-				}
+				// Use passive event listener for better scroll performance
+				window.addEventListener('resize', debounce(function() {
+					const newIsMobile = window.innerWidth <= 768;
+					if (isMobile !== newIsMobile) {
+						isMobile = newIsMobile;
+						{% if section.settings.items_in_row == 'all' %}
+							if (isMobile) {
+								swiperFunctions.initSwiper(itemsContainer);
+								swiperFunctions.showArrows(arrows);
+							} else {
+								swiperFunctions.deactivateSwiper(itemsContainer);
+								swiperFunctions.hideArrows(arrows);
+							}
+						{% endif %}
+					}
 
-				window.addEventListener('load', adjustHeights);
-				window.addEventListener('resize', adjustHeights);
+					swiperFunctions.adjustTitleHeight.call(swiperFunctions);
+				}, 250), { passive: true });
+
+				// Initial adjustment after content is loaded
+				swiperFunctions.adjustTitleHeight.call(swiperFunctions);
 			});
 		</script>
 
@@ -1319,6 +1418,26 @@
 				},
 				{
 					"type": "header",
+					"content": "Cart URL Builder"
+				},
+				{
+					"type": "text",
+					"id": "variant_id",
+					"label": "Variant ID",
+					"info": "Enter variant ID to generate a cart URL automatically (overrides Link URL)"
+				},
+				{
+					"type": "text",
+					"id": "selling_plan_id",
+					"label": "Selling Plan ID (optional)"
+				},
+				{
+					"type": "text",
+					"id": "gift_variant_id",
+					"label": "Gift Variant ID (optional)"
+				},
+				{
+					"type": "header",
 					"content": "Global Store Settings"
 				},
 				{
@@ -1337,6 +1456,22 @@
 					"type": "url",
 					"id": "link_url_global",
 					"label": "Link URL - Global"
+				},
+				{
+					"type": "text",
+					"id": "variant_id_global",
+					"label": "Variant ID - Global",
+					"info": "Enter variant ID to generate a cart URL automatically for global stores (overrides Link URL Global)"
+				},
+				{
+					"type": "text",
+					"id": "selling_plan_id_global",
+					"label": "Selling Plan ID - Global (optional)"
+				},
+				{
+					"type": "text",
+					"id": "gift_variant_id_global",
+					"label": "Gift Variant ID - Global (optional)"
 				}
 			]
 		},

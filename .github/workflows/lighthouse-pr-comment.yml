@@ -1,0 +1,104 @@
+name: Lighthouse PR Comment
+
+on:
+  workflow_run:
+    workflows: ["Lighthouse CI"]
+    types:
+      - completed
+
+jobs:
+  comment:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'pull_request' }}
+    steps:
+      - name: Download artifacts
+        uses: dawidd6/action-download-artifact@v2
+        with:
+          workflow: lighthouse-ci.yml
+          run_id: ${{ github.event.workflow_run.id }}
+          name: lighthouse-results
+          path: lighthouse-results
+
+      - name: Extract PR number
+        id: extract-pr
+        run: |
+          PR_NUMBER=$(echo "${{ github.event.workflow_run.head_branch }}" | sed -n 's/^refs\/pull\/\([0-9]*\)\/merge$/\1/p')
+          echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+
+      - name: Create PR comment
+        if: ${{ steps.extract-pr.outputs.pr_number != '' }}
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const reportFiles = fs.readdirSync('./lighthouse-results').filter(file => file.endsWith('.json'));
+
+            if (reportFiles.length === 0) {
+              console.log('No Lighthouse report files found');
+              return;
+            }
+
+            const reportFile = reportFiles[0]; // Get first report
+            const report = JSON.parse(fs.readFileSync(`./lighthouse-results/${reportFile}`, 'utf8'));
+
+            const scores = {
+              performance: Math.round(report.categories.performance.score * 100),
+              accessibility: Math.round(report.categories.accessibility.score * 100),
+              bestPractices: Math.round(report.categories['best-practices'].score * 100),
+              seo: Math.round(report.categories.seo.score * 100)
+            };
+
+            const getScoreEmoji = (score) => {
+              if (score >= 90) return '🟢';
+              if (score >= 50) return '🟠';
+              return '🔴';
+            };
+
+            const comment = `## 🚦 Lighthouse Performance Report
+
+            | Metric | Score |
+            |--------|-------|
+            | ${getScoreEmoji(scores.performance)} Performance | ${scores.performance}% |
+            | ${getScoreEmoji(scores.accessibility)} Accessibility | ${scores.accessibility}% |
+            | ${getScoreEmoji(scores.bestPractices)} Best Practices | ${scores.bestPractices}% |
+            | ${getScoreEmoji(scores.seo)} SEO | ${scores.seo}% |
+
+            [View full Lighthouse report](${report.finalUrl})
+            `;
+
+            const prNumber = parseInt(${{ steps.extract-pr.outputs.pr_number }});
+
+            if (isNaN(prNumber)) {
+              console.log('Could not determine PR number');
+              return;
+            }
+
+            // Check if we've already commented
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber
+            });
+
+            const botComment = comments.find(comment => {
+              return comment.user.type === 'Bot' && comment.body.includes('Lighthouse Performance Report');
+            });
+
+            if (botComment) {
+              // Update existing comment
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: comment
+              });
+            } else {
+              // Create new comment
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body: comment
+              });
+            }

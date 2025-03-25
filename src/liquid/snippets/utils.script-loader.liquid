@@ -1,0 +1,159 @@
+{% comment %}
+  Smart Script Loader Component
+
+  Provides optimized script loading strategies based on script priority.
+
+  Parameters:
+  - src: Script URL (required)
+  - priority: 'critical', 'high', 'medium', 'low' (default: 'medium')
+  - type: Script type (default: 'text/javascript')
+  - attributes: Additional attributes as key-value pairs (optional)
+  - id: Script ID (optional)
+  - onload: Onload JavaScript code (optional)
+  - crossorigin: Cross-origin setting (optional)
+  - preload: Whether to preload the script (default: false)
+  - preconnect: Whether to preconnect to the domain (default: false)
+  - module: Whether the script is a module (default: false)
+
+  Usage:
+  {% render 'utils.script-loader',
+    src: 'https://example.com/script.js',
+    priority: 'high',
+    id: 'my-script',
+    onload: 'console.log("Script loaded")',
+    preload: true
+  %}
+{% endcomment %}
+
+{% comment %} Set defaults {% endcomment %}
+{%- assign priority = priority | default: 'medium' -%}
+{%- assign type = type | default: 'text/javascript' -%}
+{%- assign preload = preload | default: false -%}
+{%- assign preconnect = preconnect | default: false -%}
+{%- assign module = module | default: false -%}
+
+{% comment %} Extract domain for preloading/preconnecting {% endcomment %}
+{%- assign src_parts = src | split: '//' -%}
+{%- if src_parts.size > 1 -%}
+  {%- assign domain_parts = src_parts[1] | split: '/' -%}
+  {%- assign domain = domain_parts[0] -%}
+{%- else -%}
+  {%- assign domain = '' -%}
+{%- endif -%}
+
+{% comment %} Determine loading attribute based on priority {% endcomment %}
+{%- case priority -%}
+  {%- when 'critical' -%}
+    {%- assign loading_strategy = '' -%}
+  {%- when 'high' -%}
+    {%- assign loading_strategy = 'defer' -%}
+  {%- when 'medium' -%}
+    {%- assign loading_strategy = 'async' -%}
+  {%- when 'low' -%}
+    {%- assign loading_strategy = 'data-src' -%}
+{%- endcase -%}
+
+{% comment %} Set module type if needed {% endcomment %}
+{%- if module -%}
+  {%- assign type = 'module' -%}
+{%- endif -%}
+
+{% comment %} Add preload link if requested {% endcomment %}
+{%- if preload and priority != 'low' -%}
+  <link rel="preload" href="{{ src }}" as="script"{% if crossorigin %} crossorigin="{{ crossorigin }}"{% endif %}>
+{%- endif -%}
+
+{% comment %} Add preconnect link if requested {% endcomment %}
+{%- if preconnect and domain != '' -%}
+  <link rel="preconnect" href="https://{{ domain }}"{% if crossorigin %} crossorigin="{{ crossorigin }}"{% endif %}>
+{%- endif -%}
+
+{% comment %} Output script tag based on loading strategy {% endcomment %}
+{%- if priority == 'low' -%}
+  {%- comment %} Low priority scripts will be loaded via JavaScript {% endcomment -%}
+  <script data-src="{{ src }}"
+          data-priority="{{ priority }}"
+          type="lazy-script"
+          {% if id %}id="{{ id }}"{% endif %}
+          {% if onload %}data-onload="{{ onload }}"{% endif %}
+          {% if module %}data-module="true"{% endif %}
+          {% if crossorigin %}data-crossorigin="{{ crossorigin }}"{% endif %}
+          {% for attr in attributes %}{{ attr[0] }}="{{ attr[1] }}" {% endfor %}>
+  </script>
+{%- else -%}
+  <script src="{{ src }}"
+          {% if loading_strategy != '' %}{{ loading_strategy }}{% endif %}
+          type="{{ type }}"
+          {% if id %}id="{{ id }}"{% endif %}
+          {% if onload %}onload="{{ onload }}"{% endif %}
+          {% if crossorigin %}crossorigin="{{ crossorigin }}"{% endif %}
+          {% for attr in attributes %}{{ attr[0] }}="{{ attr[1] }}" {% endfor %}>
+  </script>
+{%- endif -%}
+
+{% comment %} Add script to initialize lazy-loaded scripts if this is the first lazy script {% endcomment %}
+{%- if priority == 'low' -%}
+  {%- unless lazy_loader_added -%}
+    {%- assign lazy_loader_added = true -%}
+    <script>
+      // Lazy Script Loader
+      document.addEventListener('DOMContentLoaded', function() {
+        const lazyScripts = document.querySelectorAll('script[type="lazy-script"]');
+        if (lazyScripts.length === 0) return;
+
+        // Function to load a script
+        const loadScript = (script) => {
+          const src = script.getAttribute('data-src');
+          const newScript = document.createElement('script');
+
+          // Copy attributes
+          if (script.getAttribute('data-module') === 'true') {
+            newScript.type = 'module';
+          } else {
+            newScript.type = 'text/javascript';
+          }
+
+          newScript.src = src;
+
+          // Handle onload
+          const onloadCode = script.getAttribute('data-onload');
+          if (onloadCode) {
+            newScript.onload = function() {
+              eval(onloadCode);
+            };
+          }
+
+          // Copy other attributes
+          const crossorigin = script.getAttribute('data-crossorigin');
+          if (crossorigin) newScript.crossorigin = crossorigin;
+
+          // Add to document
+          document.body.appendChild(newScript);
+        };
+
+        // Option 1: Load all lazy scripts after page load
+        // window.addEventListener('load', () => {
+        //   setTimeout(() => {
+        //     lazyScripts.forEach(loadScript);
+        //   }, 1000); // Delay loading by 1 second
+        // });
+
+        // Option 2: Use Intersection Observer for better performance
+        const observer = new IntersectionObserver((entries) => {
+          entries.forEach(entry => {
+            if (entry.isIntersecting) {
+              loadScript(entry.target);
+              observer.unobserve(entry.target);
+            }
+          });
+        }, {
+          rootMargin: '200px' // Load when within 200px of viewport
+        });
+
+        lazyScripts.forEach(script => {
+          observer.observe(script);
+        });
+      });
+    </script>
+  {%- endunless -%}
+{%- endif -%}

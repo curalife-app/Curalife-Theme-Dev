@@ -1,0 +1,130 @@
+{% comment %}
+  Third-Party Script Loading Example
+
+  This snippet demonstrates optimized loading of third-party scripts
+  using the script loader component.
+
+  Scripts are categorized by priority:
+  - critical: Loaded immediately, blocking
+  - high: Loaded with defer (non-blocking, executes in order after HTML parsing)
+  - medium: Loaded with async (non-blocking, executes as soon as downloaded)
+  - low: Lazy-loaded when visible or on user interaction
+{% endcomment %}
+
+{% comment %} Critical scripts - load immediately {% endcomment %}
+{% comment %} These scripts are essential for core functionality {% endcomment %}
+{% render 'utils.script-loader',
+  src: 'https://cdn.shopify.com/s/files/core-functionality.js',
+  priority: 'critical',
+  crossorigin: 'anonymous',
+  preload: true
+%}
+
+{% comment %} High priority scripts - load with defer {% endcomment %}
+{% comment %} These scripts are important but don't need to block rendering {% endcomment %}
+{% render 'utils.script-loader',
+  src: 'https://cdn.shopify.com/s/files/enhanced-functionality.js',
+  priority: 'high',
+  preconnect: true,
+  crossorigin: 'anonymous'
+%}
+
+{% comment %} Medium priority scripts - load with async {% endcomment %}
+{% comment %} These scripts are for non-critical features {% endcomment %}
+{% render 'utils.script-loader',
+  src: 'https://cdn.shopify.com/s/files/feature-enhancements.js',
+  priority: 'medium'
+%}
+
+{% comment %} Low priority scripts - lazy load {% endcomment %}
+{% comment %} These scripts are loaded only when they come into view {% endcomment %}
+{% render 'utils.script-loader',
+  src: 'https://cdn.example.com/analytics.js',
+  priority: 'low'
+%}
+
+{% comment %} Marketing tools - low priority {% endcomment %}
+{% render 'utils.script-loader',
+  src: 'https://cdn.example.com/marketing-tools.js',
+  priority: 'low'
+%}
+
+{% comment %} Social sharing - low priority {% endcomment %}
+{% render 'utils.script-loader',
+  src: 'https://cdn.example.com/social-share.js',
+  priority: 'low'
+%}
+
+{% comment %} Customer reviews - load when review section is visible {% endcomment %}
+{% render 'utils.script-loader',
+  src: 'https://cdn.example.com/customer-reviews.js',
+  priority: 'low'
+%}
+
+{% comment %}
+  Example of conditional script loading based on page type
+  This loads different scripts based on template
+{% endcomment %}
+{% case template.name %}
+  {% when 'product' %}
+    {% comment %} Product-specific scripts {% endcomment %}
+    {% render 'utils.script-loader',
+      src: 'https://cdn.shopify.com/s/files/product-zoom.js',
+      priority: 'high',
+      preconnect: true
+    %}
+
+    {% render 'utils.script-loader',
+      src: 'https://cdn.example.com/product-recommendations.js',
+      priority: 'medium'
+    %}
+
+  {% when 'collection' %}
+    {% comment %} Collection-specific scripts {% endcomment %}
+    {% render 'utils.script-loader',
+      src: 'https://cdn.shopify.com/s/files/collection-filtering.js',
+      priority: 'high'
+    %}
+
+  {% when 'cart' %}
+    {% comment %} Cart-specific scripts {% endcomment %}
+    {% render 'utils.script-loader',
+      src: 'https://cdn.shopify.com/s/files/shipping-calculator.js',
+      priority: 'high'
+    %}
+
+    {% render 'utils.script-loader',
+      src: 'https://cdn.example.com/abandoned-cart-tools.js',
+      priority: 'low'
+    %}
+
+  {% when 'blog' or 'article' %}
+    {% comment %} Blog-specific scripts {% endcomment %}
+    {% render 'utils.script-loader',
+      src: 'https://cdn.example.com/comment-system.js',
+      priority: 'medium'
+    %}
+
+    {% render 'utils.script-loader',
+      src: 'https://cdn.example.com/social-sharing-enhanced.js',
+      priority: 'low'
+    %}
+{% endcase %}
+
+{% comment %}
+  Example of loading a script only if a specific element exists
+  This approach prevents loading unnecessary scripts
+{% endcomment %}
+{% if section.settings.show_video %}
+  {% render 'utils.script-loader',
+    src: 'https://cdn.example.com/video-player.js',
+    priority: 'medium'
+  %}
+{% endif %}
+
+{% if section.settings.enable_chat %}
+  {% render 'utils.script-loader',
+    src: 'https://cdn.example.com/chat-widget.js',
+    priority: 'low'
+  %}
+{% endif %}
