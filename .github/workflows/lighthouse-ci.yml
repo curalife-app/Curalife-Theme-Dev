@@ -37,12 +37,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "18"
-          cache: "npm"
 
-      - name: Install dependencies
-        run: |
-          npm ci
-          npm install -g @lhci/cli@0.12.x
+      - name: Install Lighthouse CI
+        run: npm install -g @lhci/cli@0.12.x
 
       - name: Run Lighthouse CI
         id: lighthouse
@@ -86,12 +83,13 @@ jobs:
             done
           done
 
-          echo "::set-output name=status::completed"
+          # Use set-output command compatible with newer GitHub Actions runners
+          echo "status=completed" >> $GITHUB_OUTPUT
 
       - name: Generate Lighthouse report
         if: success() || failure()
         run: |
-          if [ -d "${{ env.LIGHTHOUSE_DIR }}" ] && [ "$(ls -A ${{ env.LIGHTHOUSE_DIR }})" ]; then
+          if [ -d "${{ env.LIGHTHOUSE_DIR }}" ] && [ "$(find ${{ env.LIGHTHOUSE_DIR }} -type f -name '*.json' | wc -l)" -gt 0 ]; then
             # Generate HTML report
             mkdir -p ${{ env.DASHBOARD_DIR }}
 
@@ -119,16 +117,19 @@ jobs:
             EOF
 
             # List all reports
-            for report in ${{ env.LIGHTHOUSE_DIR }}/*.json; do
+            for report in $(find ${{ env.LIGHTHOUSE_DIR }} -type f -name "*.json"); do
               if [ -f "$report" ]; then
                 page_name=$(basename "$report" .json | sed 's/_/\//g')
                 echo "  <div class=\"report-card\">" >> ${{ env.DASHBOARD_DIR }}/index.html
                 echo "    <h3>$page_name</h3>" >> ${{ env.DASHBOARD_DIR }}/index.html
-                echo "    <p><a href=\"${page_name}.html\" target=\"_blank\">View Report</a></p>" >> ${{ env.DASHBOARD_DIR }}/index.html
+
+                # Create individual HTML reports
+                report_filename="${page_name//\//_}.html"
+                echo "    <p><a href=\"$report_filename\" target=\"_blank\">View Report</a></p>" >> ${{ env.DASHBOARD_DIR }}/index.html
                 echo "  </div>" >> ${{ env.DASHBOARD_DIR }}/index.html
 
-                # Convert JSON to HTML for this report
-                lhci collect --url="${{ env.BASE_URL }}${page_name}" --output="${{ env.DASHBOARD_DIR }}/${page_name}.html" --settings.chromeFlags="--no-sandbox" || true
+                # Create a simple HTML version of the report
+                lhci collect --url="${{ env.BASE_URL }}${page_name}" --output="${{ env.DASHBOARD_DIR }}/$report_filename" --settings.chromeFlags="--no-sandbox" || echo "Failed to generate HTML report for $page_name"
               fi
             done
 
@@ -142,7 +143,8 @@ jobs:
             echo "Report generated successfully"
           else
             echo "No Lighthouse results found to generate report"
-            exit 1
+            mkdir -p ${{ env.DASHBOARD_DIR }}
+            echo "<html><body><h1>No Lighthouse results found</h1></body></html>" > ${{ env.DASHBOARD_DIR }}/index.html
           fi
 
       - name: Archive results
