@@ -549,6 +549,32 @@ jobs:
           echo "Contents of performance-reports directory:"
           find performance-reports -type f | sort || echo "No files found"
 
+      # Make sure we have a proper .nojekyll file BEFORE deploying
+      - name: Prepare GitHub Pages files
+        run: |
+          # Create .nojekyll file to disable Jekyll processing
+          touch performance-reports/.nojekyll
+          echo "Created .nojekyll file"
+
+          # Force index.html to be the default file
+          cp performance-reports/index.html performance-reports/default.html || echo "No index.html to copy"
+
+          # Create a README that points to index.html
+          echo "# Lighthouse Dashboard" > performance-reports/README.md
+          echo "" >> performance-reports/README.md
+          echo "This is the Lighthouse performance dashboard for ${{ github.repository }}." >> performance-reports/README.md
+          echo "It's updated automatically by GitHub Actions." >> performance-reports/README.md
+          echo "" >> performance-reports/README.md
+          echo "**[View Dashboard](./index.html)**" >> performance-reports/README.md
+          echo "" >> performance-reports/README.md
+          echo "Last updated: $(date)" >> performance-reports/README.md
+
+          # Create a simple HTML redirector at the root level
+          echo '<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url=./index.html"></head><body><p>Redirecting to <a href="./index.html">dashboard</a>...</p></body></html>' > performance-reports/_index.html
+
+          echo "Files prepared for GitHub Pages:"
+          ls -la performance-reports/
+
       # Use a different approach for deployment that doesn't rely on the artifact
       - name: Deploy to GitHub Pages
         id: deployment
@@ -557,20 +583,8 @@ jobs:
           github_token: ${{ github.token }}
           publish_dir: ./performance-reports
           force_orphan: true
-          disable_nojekyll: false
-
-      # Add a README note to debug
-      - name: Add README note
-        run: |
-          echo "# Lighthouse Dashboard" > performance-reports/README.md
-          echo "" >> performance-reports/README.md
-          echo "This is the Lighthouse performance dashboard for ${{ github.repository }}." >> performance-reports/README.md
-          echo "It's updated automatically by GitHub Actions." >> performance-reports/README.md
-          echo "" >> performance-reports/README.md
-          echo "Last updated: $(date)" >> performance-reports/README.md
-
-          # Create .nojekyll file to disable Jekyll processing
-          touch performance-reports/.nojekyll
+          enable_jekyll: false
+          keep_files: false
 
       # Output deployment URL
       - name: Output deployment URL
