@@ -117,9 +117,8 @@ if [ -f "$DESKTOP_REPORT" ]; then
 
   # Add a comma only if mobile data will be added later
   if [ -f "$MOBILE_REPORT" ]; then
-    echo "  }," >> $METRICS_JSON_FILE
+    echo "," >> $METRICS_JSON_FILE
   else
-    echo "  }" >> $METRICS_JSON_FILE
     echo "}" >> $METRICS_JSON_FILE
   fi
 
