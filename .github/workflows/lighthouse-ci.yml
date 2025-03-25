@@ -4,15 +4,17 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
   schedule:
-    # Run weekly on Monday at 3:00 AM
-    - cron: "0 3 * * 1"
+    - cron: "0 0 * * 0" # Run every Sunday at midnight
 
 # Allow cancellation of previous runs in the same PR/branch
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
+permissions:
+  contents: write
+  pull-requests: write
 
 jobs:
   lighthouse-ci:
@@ -1324,7 +1326,7 @@ jobs:
         if: github.event_name == 'schedule' || github.ref == 'refs/heads/main'
         uses: peter-evans/create-pull-request@v5
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ github.token }}
           commit-message: Add Lighthouse performance reports
           committer: GitHub Action <action@github.com>
           author: GitHub Action <action@github.com>
