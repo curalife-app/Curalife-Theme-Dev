@@ -400,6 +400,12 @@ document.addEventListener('DOMContentLoaded', () => {
 		updateSelectedBox(boxElement) {
 			if (!boxElement) return;
 
+			console.log('Updating selected box:', {
+				variantId: boxElement.dataset.variant,
+				purchaseType: boxElement.dataset.purchaseType,
+				sellingPlanId: boxElement.dataset.subscriptionSellingPlanId
+			});
+
 			// Extract data from the box
 			const isSub = boxElement.dataset.purchaseType === 'subscribe';
 			const bottleQuantity = parseInt(boxElement.dataset.bottleQuantity || '1', 10);
@@ -435,7 +441,7 @@ document.addEventListener('DOMContentLoaded', () => {
 			// Update price display
 			updatePriceDisplay(boxElement);
 
-			// Update frequency selector
+			// Update frequency selector - ensure this happens even during initialization
 			populateFrequencySelector(boxElement);
 
 			{% if isSlideVariant %}
@@ -445,6 +451,14 @@ document.addEventListener('DOMContentLoaded', () => {
 					window.hasInitialImageUpdateHappened = true;
 				}
 			{% endif %}
+
+			// Add extra debug info
+			console.log('Selected box updated successfully:', {
+				variantId: variantId,
+				purchaseType: boxElement.dataset.purchaseType,
+				bottleQuantity: bottleQuantity,
+				planId: planId
+			});
 		},
 
 		// Update frequency UI based on state
@@ -513,20 +527,30 @@ document.addEventListener('DOMContentLoaded', () => {
 			// Use the data attribute to determine default selection index
 			const defaultIdx = parseInt(productActions.dataset.defaultVariantIndex, 10) || 0;
 
-			// Try to find a subscription box first (if exists)
+			// FIXED: Use the default index first, only fall back to subscription if no defaultIdx specified
 			let defaultBox = null;
 
-			// First try to find a subscription box
-			for (const box of purchaseOptionBoxes) {
-				if (box.dataset.purchaseType === 'subscribe') {
-					defaultBox = box;
-					break;
+			// First try to use the specified default index if it exists
+			if (defaultIdx > 0 && purchaseOptionBoxes.length >= defaultIdx) {
+				defaultBox = purchaseOptionBoxes[defaultIdx - 1]; // 1-indexed to 0-indexed conversion
+				console.log('Using specified default variant index:', defaultIdx);
+			}
+
+			// If no default index specified or invalid, then try to find a subscription box
+			if (!defaultBox) {
+				for (const box of purchaseOptionBoxes) {
+					if (box.dataset.purchaseType === 'subscribe') {
+						defaultBox = box;
+						console.log('Falling back to first subscription box');
+						break;
+					}
 				}
 			}
 
-			// If no subscription box found, fall back to the default or first box
-			if (!defaultBox) {
-				defaultBox = purchaseOptionBoxes[defaultIdx - 1] || purchaseOptionBoxes[0];
+			// Last resort: fall back to the first box
+			if (!defaultBox && purchaseOptionBoxes.length > 0) {
+				defaultBox = purchaseOptionBoxes[0];
+				console.log('Falling back to first available box');
 			}
 
 			// Store original button text for later restoration
@@ -544,13 +568,12 @@ document.addEventListener('DOMContentLoaded', () => {
 				});
 
 				// Make sure the UI is updated to reflect this selection
-				if (defaultBox.dataset.purchaseType === 'subscribe') {
-					console.log('Default selecting subscription option');
-					// Also update UI to reflect subscription is selected
-					defaultBox.classList.add('selected');
-					const radio = defaultBox.querySelector('input[type="radio"]');
-					if (radio) radio.checked = true;
-				}
+				defaultBox.classList.add('selected');
+				const radio = defaultBox.querySelector('input[type="radio"]');
+				if (radio) radio.checked = true;
+
+				// Ensure variant is fully selected and UI updated
+				this.updateSelectedBox(defaultBox);
 			}
 
 			// Mark initialization as complete
@@ -1264,12 +1287,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	}
 
 	function initPurchaseOptions() {
-		const defIdx   = parseInt(productActions.dataset.defaultVariantIndex, 10) || 0;
-		const defBox   = purchaseOptionBoxes[defIdx - 1] || purchaseOptionBoxes[0];
-		if (defBox) {
-			togglePurchaseBox(defBox);
-			updateBuyButton(defBox);
-		}
+		// Only set up event listeners in this function, remove default selection logic
 		productActions.addEventListener('click', e => {
 			const radio = e.target.closest('input[type="radio"]');
 			const box   = e.target.closest('.variant-boxes .variant-box');
@@ -1283,6 +1301,8 @@ document.addEventListener('DOMContentLoaded', () => {
 			}
 		});
 	}
+	// Initialize event handlers right after defining the function
+	initPurchaseOptions();
 
 	function selectFrequencyOption(optionEl) {
 		const frequencyOptions = document.getElementById('frequency-options-{{ SID }}');
@@ -1916,7 +1936,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	//      Initialize
 	// ~~~~~~~~~~~~~~~~~~~~~
 	function init() {
-		initPurchaseOptions();
+		// IMPORTANT: Remove initPurchaseOptions() call since BuyBoxState.init() handles variant selection
+		// initPurchaseOptions();
 
 		BuyBoxState.init();
 		initSubmitButton();
