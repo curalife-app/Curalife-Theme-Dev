@@ -89,10 +89,18 @@ jobs:
         run: |
           .github/workflows/scripts/format-summary.sh "${{ matrix.page.name }}"
 
+      # Upload results for this page as an artifact
+      - name: Upload individual page report
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.page.name }}-lighthouse-report
+          path: performance-reports/
+          retention-days: 30
+
     outputs:
       report_date: ${{ steps.scores.outputs.report_date }}
 
-  create-summary:
+  create-dashboard:
     needs: lighthouse-ci
     runs-on: ubuntu-latest
     if: always()
@@ -110,6 +118,20 @@ jobs:
       - name: Create performance-reports directory
         run: mkdir -p performance-reports
 
+      # Download all page reports to combine them
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: performance-reports-downloads
+          pattern: "*-lighthouse-report"
+          merge-multiple: true
+
+      # Copy all downloaded artifacts to the performance-reports directory
+      - name: Organize reports
+        run: |
+          ls -la performance-reports-downloads
+          cp -R performance-reports-downloads/* performance-reports/ || true
+
       - name: Generate dashboard
         run: |
           CURRENT_DATE="${{ needs.lighthouse-ci.outputs.report_date }}"
@@ -120,103 +142,68 @@ jobs:
           echo "Generating dashboard for date: $CURRENT_DATE"
           .github/workflows/scripts/generate-dashboard.sh "$CURRENT_DATE"
 
-          echo "Dashboard file generated at performance-reports/index.html"
+          # Generate GitHub-friendly summary markdown
+          echo "## 🚦 Lighthouse Performance Dashboard" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📊 Summary Results ($(date))" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
 
-      - name: Commit changes
-        if: github.event_name == 'schedule' || github.ref == 'refs/heads/main'
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
+          # Add a table for desktop results
+          echo "#### 💻 Desktop Results" >> $GITHUB_STEP_SUMMARY
+          echo "| Page | Performance | Accessibility | Best Practices | SEO | LCP | TBT | CLS |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|-------------|---------------|----------------|-----|-----|-----|-----|" >> $GITHUB_STEP_SUMMARY
 
-          # Ensure we're working on a clean state
-          echo "Creating backup of performance reports..."
-          mkdir -p /tmp/performance-reports-backup
-          cp -R performance-reports/* /tmp/performance-reports-backup/ 2>/dev/null || true
+          # Find all summary.json files for desktop
+          find performance-reports -name "summary.json" | sort | while read -r file; do
+            PAGE_NAME=$(grep -o '"page": *"[^"]*"' "$file" | cut -d'"' -f4)
+            PERF=$(grep -o '"performance": *[0-9.]*' "$file" | grep -o '[0-9.]*')
+            A11Y=$(grep -o '"accessibility": *[0-9.]*' "$file" | grep -o '[0-9.]*')
+            BP=$(grep -o '"bestPractices": *[0-9.]*' "$file" | grep -o '[0-9.]*')
+            SEO=$(grep -o '"seo": *[0-9.]*' "$file" | grep -o '[0-9.]*')
+            LCP=$(grep -o '"largestContentfulPaint": *[0-9.]*' "$file" | grep -o '[0-9.]*')
+            TBT=$(grep -o '"totalBlockingTime": *[0-9.]*' "$file" | grep -o '[0-9.]*')
+            CLS=$(grep -o '"cumulativeLayoutShift": *[0-9.]*' "$file" | grep -o '[0-9.]*')
 
-          # Initialize reports branch - use a simpler, more deterministic approach
-          REPORTS_BRANCH="performance-reports-data"
-          echo "Checking for $REPORTS_BRANCH branch..."
+            # Format values for display
+            LCP_MS=$(echo "$LCP / 1000" | bc -l | xargs printf "%.2fs")
+            TBT_MS=$(echo "$TBT" | xargs printf "%.0fms")
 
-          # Fetch the reports branch if it exists
-          git fetch origin $REPORTS_BRANCH || echo "Branch not found, will create new"
+            echo "| $PAGE_NAME | $PERF | $A11Y | $BP | $SEO | $LCP_MS | $TBT_MS | $CLS |" >> $GITHUB_STEP_SUMMARY
+          done
 
-          # Always create a fresh local branch from main
-          echo "Creating fresh local reports branch..."
-          # First make sure we're on main
-          git checkout main
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "#### 📱 Mobile Results" >> $GITHUB_STEP_SUMMARY
+          echo "| Page | Performance | Accessibility | Best Practices | SEO | LCP | TBT | CLS |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|-------------|---------------|----------------|-----|-----|-----|-----|" >> $GITHUB_STEP_SUMMARY
 
-          # Create a fresh branch from current main
-          git branch -D $REPORTS_BRANCH 2>/dev/null || true
-          git checkout -b $REPORTS_BRANCH
+          # Find all summary.json files for mobile
+          find performance-reports -name "summary.json" | sort | while read -r file; do
+            PAGE_NAME=$(grep -o '"page": *"[^"]*"' "$file" | cut -d'"' -f4)
+            PERF=$(grep -o '"performance": *[0-9.]*' "$file" | grep -o '[0-9.]*')
+            A11Y=$(grep -o '"accessibility": *[0-9.]*' "$file" | grep -o '[0-9.]*')
+            BP=$(grep -o '"bestPractices": *[0-9.]*' "$file" | grep -o '[0-9.]*')
+            SEO=$(grep -o '"seo": *[0-9.]*' "$file" | grep -o '[0-9.]*')
+            LCP=$(grep -o '"largestContentfulPaint": *[0-9.]*' "$file" | grep -o '[0-9.]*')
+            TBT=$(grep -o '"totalBlockingTime": *[0-9.]*' "$file" | grep -o '[0-9.]*')
+            CLS=$(grep -o '"cumulativeLayoutShift": *[0-9.]*' "$file" | grep -o '[0-9.]*')
 
-          # Clean out any old reports to start fresh
-          echo "Cleaning old reports..."
-          rm -rf performance-reports/* || true
-          mkdir -p performance-reports
+            # Format values for display
+            LCP_MS=$(echo "$LCP / 1000" | bc -l | xargs printf "%.2fs")
+            TBT_MS=$(echo "$TBT" | xargs printf "%.0fms")
 
-          # Restore the generated reports
-          echo "Restoring generated reports..."
-          cp -R /tmp/performance-reports-backup/* performance-reports/ 2>/dev/null || true
+            echo "| $PAGE_NAME | $PERF | $A11Y | $BP | $SEO | $LCP_MS | $TBT_MS | $CLS |" >> $GITHUB_STEP_SUMMARY
+          done
 
-          # Stage only the performance-reports directory
-          echo "Adding performance reports to git..."
-          git add performance-reports/
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📈 Core Web Vitals Status" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ **Good**: LCP < 2.5s, CLS < 0.1, TBT < 200ms" >> $GITHUB_STEP_SUMMARY
+          echo "- ⚠️ **Needs Improvement**: LCP < 4s, CLS < 0.25, TBT < 600ms" >> $GITHUB_STEP_SUMMARY
+          echo "- ❌ **Poor**: LCP > 4s, CLS > 0.25, TBT > 600ms" >> $GITHUB_STEP_SUMMARY
 
-          # Only commit if there are changes
-          if ! git diff --staged --quiet; then
-            echo "Committing changes..."
-            git commit -m "Update Lighthouse performance reports ($(date +%Y-%m-%d))"
-            echo "Pushing to remote branch..."
-            git push -f origin $REPORTS_BRANCH
-            echo "Push completed successfully"
-          else
-            echo "No changes to commit"
-          fi
-
-          # Return to main branch
-          git checkout main
-
-      - name: Create Pull Request to main
-        if: github.event_name == 'schedule' || github.ref == 'refs/heads/main'
-        id: create-pr
-        continue-on-error: true
-        uses: peter-evans/create-pull-request@v5
-        with:
-          token: ${{ github.token }}
-          commit-message: Add Lighthouse performance reports
-          committer: GitHub Action <action@github.com>
-          author: GitHub Action <action@github.com>
-          branch: performance-reports-data
-          base: main
-          title: "Update Lighthouse performance reports - ${{ github.run_id }}"
-          body: |
-            # 📊 Lighthouse Performance Reports Update
-
-            This automated PR updates the performance reports with the latest Lighthouse test results.
-
-            ## Changes included:
-            - New performance reports for homepage, collection, and product pages
-            - Updated trend analysis and historical data
-            - Generated performance insights and recommendations
-
-            *This PR was automatically created by the Lighthouse CI workflow (Run #${{ github.run_id }}).*
-          labels: |
-            automated-pr
-            performance
-            reports
-          draft: false
-
-      - name: Check PR Creation Status
-        if: github.event_name == 'schedule' || github.ref == 'refs/heads/main'
-        run: |
-          # If PR creation failed, log the error and provide guidance
-          if [ "${{ steps.create-pr.outcome }}" != "success" ]; then
-            echo "::warning::Failed to create PR automatically. This is likely because a PR already exists."
-            echo "PR creation status: ${{ steps.create-pr.outcome }}"
-            echo "You can manually view existing PRs at: ${{ github.server_url }}/${{ github.repository }}/pulls"
-          else
-            echo "PR created successfully: ${{ steps.create-pr.outputs.pull-request-url }}"
-          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔍 View Full Reports" >> $GITHUB_STEP_SUMMARY
+          echo "Download the full HTML reports from the workflow artifacts section." >> $GITHUB_STEP_SUMMARY
 
       - name: List created files
         run: |
@@ -224,10 +211,29 @@ jobs:
           mkdir -p performance-reports
           find performance-reports -type f | sort || echo "No files found in performance-reports"
 
-      # Upload the generated HTML and performance reports as artifacts
+      # Upload the complete combined report
       - name: Upload performance reports
         uses: actions/upload-artifact@v4
         with:
-          name: lighthouse-reports
+          name: lighthouse-complete-report
           path: performance-reports/
           retention-days: 30
+
+      # Generate visual annotations for PRs
+      - name: Add PR annotations
+        if: github.event_name == 'pull_request'
+        run: |
+          # Find all summary.json files
+          find performance-reports -name "summary.json" | sort | while read -r file; do
+            PAGE_NAME=$(grep -o '"page": *"[^"]*"' "$file" | cut -d'"' -f4)
+            PERF=$(grep -o '"performance": *[0-9.]*' "$file" | grep -o '[0-9.]*')
+
+            # Add annotations based on performance score
+            if (( $(echo "$PERF < 75" | bc -l) )); then
+              echo "::warning file=${PAGE_NAME}::Performance score is poor: ${PERF}%. Consider optimizing this page."
+            elif (( $(echo "$PERF < 90" | bc -l) )); then
+              echo "::notice file=${PAGE_NAME}::Performance score needs improvement: ${PERF}%."
+            else
+              echo "::notice file=${PAGE_NAME}::Performance score is good: ${PERF}%."
+            fi
+          done
