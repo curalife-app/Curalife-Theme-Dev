@@ -1,251 +1,91 @@
-name: Lighthouse CI
+name: Lighthouse Performance Tests
 
 on:
   schedule:
-    - cron: "15 02 * * *" # Runs at 2:15 UTC daily
-    - cron: "15 14 * * *" # Runs at 14:15 UTC daily
+    - cron: "0 4 * * *" # Run daily at 4 AM UTC
   workflow_dispatch:
     inputs:
       base_url:
         description: "Base URL to test"
-        required: false
+        required: true
         default: "https://curalife.com"
       custom_pages:
-        description: "Custom pages to test (JSON array of {name, url} objects)"
+        description: "Custom pages to test (comma-separated, no leading slashes)"
         required: false
         default: ""
-      performance_threshold:
-        description: "Minimum performance score (0-100) to pass verification"
-        type: number
-        required: false
-        default: 0
-      fail_on_threshold:
-        description: "Fail the workflow if performance is below threshold"
-        type: boolean
-        required: false
-        default: false
 
-# Allow one concurrent deployment
 concurrency:
-  group: "lighthouse-${{ github.workflow }}-${{ github.ref }}"
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-permissions:
-  contents: write
-
 env:
-  RESULTS_DIR: ${{ github.workspace }}/lighthouse-results
   BASE_URL: ${{ github.event.inputs.base_url || 'https://curalife.com' }}
-  DEPLOYMENT_URL: https://speed.curalife.com
+  CUSTOM_PAGES: ${{ github.event.inputs.custom_pages || '' }}
 
 jobs:
-  prepare:
-    name: Prepare Test Matrix
-    runs-on: ubuntu-latest
-    outputs:
-      page-matrix: ${{ steps.parse-pages.outputs.matrix-json }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y jq
-
-      - name: Parse custom pages input
-        id: parse-pages
-        uses: ./.github/actions/parse-custom-pages
-        with:
-          custom-pages-json: ${{ github.event.inputs.custom_pages }}
-          default-pages-json: '[{"name":"homepage","url":"/"},{"name":"product","url":"/products/curalin"}]'
-
-  lighthouse-tests:
+  lighthouse:
     name: Run Lighthouse Tests
-    needs: [prepare]
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        device: [desktop, mobile]
-        page: ${{ fromJson(needs.prepare.outputs.page-matrix) }}
-      # Allow tests to continue even if one fails
-      fail-fast: false
+
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
-      - name: Setup test environment
-        id: setup
+      - name: Setup environment
         uses: ./.github/actions/setup-environment
         with:
-          node-version: "18"
-          cache-dependencies: "true"
-
-      - name: Setup results directory
-        run: mkdir -p ${{ env.RESULTS_DIR }}/${{ matrix.device }}/${{ matrix.page.name }}
+          node-version: "16"
 
       - name: Run Lighthouse tests
         id: lighthouse
         uses: ./.github/actions/run-lighthouse
         with:
-          url: "${{ env.BASE_URL }}${{ matrix.page.url }}"
-          test-name: "${{ matrix.page.name }}"
-          output-dir: "${{ env.RESULTS_DIR }}/${{ matrix.device }}/${{ matrix.page.name }}"
-          device: "${{ matrix.device }}"
-          max-retries: "3"
-        continue-on-error: true
+          base-url: ${{ env.BASE_URL }}
+          custom-pages: ${{ env.CUSTOM_PAGES }}
+          lighthouse-dir: "./lighthouse-results"
 
-      - name: Check for test failures
-        if: steps.lighthouse.outcome != 'success'
-        run: |
-          echo "::error::Lighthouse test failed for ${{ matrix.page.name }} on ${{ matrix.device }}"
-          # Create a minimal result file to avoid downstream failures
-          echo '{
-            "categories": {
-              "performance": {"score": 0},
-              "accessibility": {"score": 0},
-              "best-practices": {"score": 0},
-              "seo": {"score": 0}
-            },
-            "audits": {
-              "largest-contentful-paint": {"numericValue": 0},
-              "max-potential-fid": {"numericValue": 0},
-              "cumulative-layout-shift": {"numericValue": 0},
-              "total-blocking-time": {"numericValue": 0},
-              "first-contentful-paint": {"numericValue": 0},
-              "interactive": {"numericValue": 0},
-              "speed-index": {"numericValue": 0}
-            }
-          }' > ${{ env.RESULTS_DIR }}/${{ matrix.device }}/${{ matrix.page.name }}/${{ matrix.page.name }}.report.json
-
-      - name: Upload results
-        uses: actions/upload-artifact@v4
+      - name: Archive raw results
+        if: always()
+        uses: actions/upload-artifact@v3
         with:
-          name: lighthouse-${{ matrix.device }}-${{ matrix.page.name }}
-          path: ${{ env.RESULTS_DIR }}/${{ matrix.device }}/${{ matrix.page.name }}
+          name: lighthouse-raw-results
+          path: "./lighthouse-results"
           retention-days: 7
-
-  process-and-generate:
-    name: Process Results & Generate Dashboard
-    needs: [lighthouse-tests]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Create results directory structure
-        run: |
-          mkdir -p ${{ env.RESULTS_DIR }}
-          mkdir -p performance-reports
-
-      - name: Download all test results
-        id: download
-        uses: actions/download-artifact@v4
-        with:
-          path: ${{ env.RESULTS_DIR }}
-          pattern: "lighthouse-*"
-          merge-multiple: true
-        continue-on-error: true
-
-      - name: Check download status
-        if: steps.download.outcome != 'success'
-        run: |
-          echo "::warning::Failed to download all test results"
-          mkdir -p ${{ env.RESULTS_DIR }}/desktop
-          mkdir -p ${{ env.RESULTS_DIR }}/mobile
-
-      - name: Reorganize directory structure
-        run: |
-          # Check downloads and fix structure if needed
-          echo "Directory structure after downloading artifacts:"
-          find ${{ env.RESULTS_DIR }} -maxdepth 3 -type d | sort
-
-          # Create correct structure for devices/pages
-          for device in desktop mobile; do
-            mkdir -p ${{ env.RESULTS_DIR }}/$device
-
-            # Move results to correct locations if needed
-            find ${{ env.RESULTS_DIR }}/lighthouse-$device-* -maxdepth 0 -type d 2>/dev/null | while read -r dir; do
-              page_name=$(basename "$dir" | sed "s/lighthouse-$device-//")
-              mkdir -p ${{ env.RESULTS_DIR }}/$device/$page_name
-              cp -r "$dir"/* ${{ env.RESULTS_DIR }}/$device/$page_name/ 2>/dev/null || echo "No files to copy from $dir"
-            done
-          done
-
-          echo "Final directory structure:"
-          find ${{ env.RESULTS_DIR }} -maxdepth 3 -type d | sort
 
       - name: Verify test results
         id: verify
+        if: success() || failure()
         uses: ./.github/actions/verify-test-results
         with:
-          results-dir: ${{ env.RESULTS_DIR }}
-          fail-on-error: "false"
-          performance-threshold: ${{ github.event.inputs.performance_threshold || '0' }}
-
-      - name: Generate performance dashboard
-        uses: ./.github/actions/generate-dashboard
-        with:
-          results-dir: ${{ env.RESULTS_DIR }}
-          output-dir: ${{ env.RESULTS_DIR }}
-          current-date: $(date +'%Y-%m-%d')
-          templates-dir: .github/workflows/templates
-          include-history: "true"
+          results-dir: "./lighthouse-results"
+          fail-on-error: false
 
       - name: Create summary report
+        if: success() || failure()
+        id: summary
         uses: ./.github/actions/create-summary-report
         with:
-          results-dir: ${{ env.RESULTS_DIR }}
-          deployment-url: ${{ env.DEPLOYMENT_URL }}
+          results-dir: "./lighthouse-results"
 
-      - name: Upload dashboard artifacts
-        uses: actions/upload-artifact@v4
+      - name: Upload report to GitHub Pages
+        if: (success() || failure()) && steps.verify.outputs.has-data == 'true'
+        uses: ./.github/actions/generate-dashboard
         with:
-          name: lighthouse-dashboard
-          path: |
-            ${{ env.RESULTS_DIR }}/dashboards/**
-            ${{ env.RESULTS_DIR }}/processed/**
-            ${{ env.RESULTS_DIR }}/historical/**
-            ${{ env.RESULTS_DIR }}/index.html
-            ${{ env.RESULTS_DIR }}/trends.html
-            ${{ env.RESULTS_DIR }}/.nojekyll
-            performance-reports/**
-          retention-days: 7
-
-      - name: Check performance threshold
-        if: github.event.inputs.fail_on_threshold == 'true' && github.event.inputs.performance_threshold > 0
-        run: |
-          if [ "${{ steps.verify.outputs.verification-passed }}" != "true" ]; then
-            echo "::error::Performance verification failed with ${{ steps.verify.outputs.error-count }} errors and ${{ steps.verify.outputs.warning-count }} warnings"
-            exit 1
-          fi
-
-  publish:
-    name: Publish to GitHub Pages
-    needs: [process-and-generate]
-    if: github.ref == 'refs/heads/main' && success()
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Download dashboard artifacts
-        id: download
-        uses: actions/download-artifact@v4
-        with:
-          name: lighthouse-dashboard
-          path: ./dashboard-output
-        continue-on-error: true
-
-      - name: Check downloaded artifacts
-        if: steps.download.outcome != 'success'
-        run: |
-          echo "::warning::Failed to download dashboard artifacts"
-          mkdir -p ./dashboard-output
-          echo '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Lighthouse Reports</title></head><body><h1>Lighthouse Reports</h1><p>No reports available. GitHub Actions may have encountered an error generating the reports.</p></body></html>' > ./dashboard-output/index.html
+          results-dir: "./lighthouse-results"
+          output-dir: "./lighthouse-dashboard"
+          base-url: ${{ env.BASE_URL }}
 
       - name: Deploy to GitHub Pages
+        if: (success() || failure()) && steps.verify.outputs.has-data == 'true'
         uses: ./.github/actions/deploy-to-gh-pages
         with:
-          source-dir: ./dashboard-output
-          custom-domain: "speed.curalife.com"
+          source-dir: "./lighthouse-dashboard"
           target-branch: "gh-pages"
-          commit-message: "Update Lighthouse reports - $(date +'%Y-%m-%d %H:%M:%S')"
+          commit-message: "Update performance dashboard [skip ci]"
+          skip-if-empty: true
+
+      - name: Handle test failures
+        if: failure() && steps.verify.outputs.has-data != 'true'
+        run: |
+          echo "::warning::Lighthouse tests failed without producing valid data"
+          echo "No dashboard will be generated for this run"

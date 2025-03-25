@@ -1,14 +1,14 @@
 name: "Verify Test Results"
-description: "Verifies Lighthouse test results and ensures data quality"
+description: "Verifies Lighthouse test results and ensures data quality without fallbacks"
 
 inputs:
   results-dir:
-    description: "Directory containing test results"
+    description: "Directory containing Lighthouse results"
     required: true
   fail-on-error:
-    description: "Whether to fail the workflow if verification fails"
+    description: "Whether to fail the action if verification fails"
     required: false
-    default: "false"
+    default: "true"
   performance-threshold:
     description: "Minimum performance score (0-100) to pass verification"
     required: false
@@ -16,105 +16,108 @@ inputs:
 
 outputs:
   verification-passed:
-    description: "Whether verification passed (true/false)"
-    value: ${{ steps.validate-results.outputs.passed }}
+    description: "Whether all verification checks passed"
+    value: ${{ steps.check.outputs.passed }}
   error-count:
-    description: "Number of errors found"
-    value: ${{ steps.validate-results.outputs.error_count }}
+    description: "Number of errors found during verification"
+    value: ${{ steps.check.outputs.error_count }}
   warning-count:
-    description: "Number of warnings found"
-    value: ${{ steps.validate-results.outputs.warning_count }}
+    description: "Number of warnings found during verification"
+    value: ${{ steps.check.outputs.warning_count }}
+  has-data:
+    description: "Whether any valid data was found during verification"
+    value: ${{ steps.check.outputs.has_data }}
 
 runs:
   using: "composite"
   steps:
-    - name: Validate test results
-      id: validate-results
+    - name: Run verification checks
+      id: check
       shell: bash
       run: |
-        echo "Verifying test results..."
+        echo "Verifying Lighthouse test results..."
+
         RESULTS_DIR="${{ inputs.results-dir }}"
-        ERROR_COUNT=0
-        WARNING_COUNT=0
+        ERRORS=0
+        WARNINGS=0
+        HAS_DATA="false"
 
         # Check if results directory exists
         if [ ! -d "$RESULTS_DIR" ]; then
           echo "::error::Results directory not found: $RESULTS_DIR"
-          echo "passed=false" >> $GITHUB_OUTPUT
-          echo "error_count=1" >> $GITHUB_OUTPUT
-          echo "warning_count=0" >> $GITHUB_OUTPUT
-          exit 1
-        fi
-
-        # Verify directory structure
-        if [ ! -d "$RESULTS_DIR/desktop" ] || [ ! -d "$RESULTS_DIR/mobile" ]; then
-          echo "::error::Missing desktop or mobile directories"
-          ERROR_COUNT=$((ERROR_COUNT + 1))
-        fi
-
-        # Check for empty directories
-        EMPTY_DIRS=$(find "$RESULTS_DIR" -type d -empty | wc -l)
-        if [ "$EMPTY_DIRS" -gt 0 ]; then
-          echo "::warning::Found $EMPTY_DIRS empty directories"
-          WARNING_COUNT=$((WARNING_COUNT + 1))
-        fi
-
-        # Check for JSON reports
-        JSON_COUNT=$(find "$RESULTS_DIR" -name "*.report.json" | wc -l)
-        if [ "$JSON_COUNT" -eq 0 ]; then
-          echo "::error::No JSON reports found"
-          ERROR_COUNT=$((ERROR_COUNT + 1))
+          ERRORS=$((ERRORS + 1))
         else
-          echo "Found $JSON_COUNT JSON reports"
-        fi
+          # Check if device directories exist
+          for device in "desktop" "mobile"; do
+            if [ ! -d "$RESULTS_DIR/$device" ]; then
+              echo "::warning::$device directory not found in $RESULTS_DIR"
+              WARNINGS=$((WARNINGS + 1))
+            else
+              # Count how many valid results exist
+              VALID_REPORTS=0
 
-        # Verify HTML reports
-        HTML_COUNT=$(find "$RESULTS_DIR" -name "*.report.html" | wc -l)
-        if [ "$HTML_COUNT" -eq 0 ]; then
-          echo "::warning::No HTML reports found"
-          WARNING_COUNT=$((WARNING_COUNT + 1))
-        else
-          echo "Found $HTML_COUNT HTML reports"
-        fi
+              # Check each page result
+              for page_dir in "$RESULTS_DIR/$device"/*; do
+                if [ -d "$page_dir" ]; then
+                  PAGE_NAME=$(basename "$page_dir")
 
-        # Verify metrics extraction
-        METRICS_COUNT=$(find "$RESULTS_DIR" -name "*.metrics.json" | wc -l)
-        if [ "$METRICS_COUNT" -eq 0 ]; then
-          echo "::warning::No metrics files found"
-          WARNING_COUNT=$((WARNING_COUNT + 1))
-        else
-          echo "Found $METRICS_COUNT metrics files"
-        fi
+                  # Check for JSON report
+                  REPORT_FILE=""
+                  for file in "$page_dir"/*.report.json "$page_dir"/*/*.report.json; do
+                    if [ -f "$file" ]; then
+                      REPORT_FILE="$file"
+                      break
+                    fi
+                  done
 
-        # Check for performance thresholds if specified
-        if [ "${{ inputs.performance-threshold }}" -gt 0 ]; then
-          THRESHOLD="${{ inputs.performance-threshold }}"
-          echo "Checking performance threshold: $THRESHOLD"
+                  if [ -n "$REPORT_FILE" ]; then
+                    # Verify the report contains actual data (not placeholder/error result)
+                    PERF_SCORE=$(jq -r '.categories.performance.score' "$REPORT_FILE" 2>/dev/null || echo "null")
 
-          # Find all metrics files
-          for metrics_file in $(find "$RESULTS_DIR" -name "*.metrics.json"); do
-            PERF_SCORE=$(jq -r '.performance * 100 | round' "$metrics_file" 2>/dev/null || echo "0")
-            FILE_NAME=$(basename "$metrics_file")
+                    if [ "$PERF_SCORE" = "null" ] || [ "$PERF_SCORE" = "0" ]; then
+                      echo "::warning::Invalid performance score in $REPORT_FILE"
+                      WARNINGS=$((WARNINGS + 1))
+                    else
+                      # A valid report was found
+                      VALID_REPORTS=$((VALID_REPORTS + 1))
+                      HAS_DATA="true"
 
-            if [ "$PERF_SCORE" -lt "$THRESHOLD" ]; then
-              echo "::warning::Performance score $PERF_SCORE is below threshold $THRESHOLD in $FILE_NAME"
-              WARNING_COUNT=$((WARNING_COUNT + 1))
+                      # Check performance threshold if specified
+                      if [ "${{ inputs.performance-threshold }}" != "0" ]; then
+                        PERF_SCALED=$(echo "$PERF_SCORE * 100" | bc -l | xargs printf "%.0f")
+
+                        if [ "$PERF_SCALED" -lt "${{ inputs.performance-threshold }}" ]; then
+                          echo "::error::Performance score for $PAGE_NAME on $device is below threshold: $PERF_SCALED < ${{ inputs.performance-threshold }}"
+                          ERRORS=$((ERRORS + 1))
+                        fi
+                      fi
+                    fi
+                  else
+                    echo "::warning::No JSON report found for $PAGE_NAME on $device"
+                    WARNINGS=$((WARNINGS + 1))
+                  fi
+                fi
+              done
+
+              echo "$device tests: found $VALID_REPORTS valid reports"
             fi
           done
         fi
 
         # Output verification results
-        echo "error_count=$ERROR_COUNT" >> $GITHUB_OUTPUT
-        echo "warning_count=$WARNING_COUNT" >> $GITHUB_OUTPUT
+        echo "error_count=$ERRORS" >> $GITHUB_OUTPUT
+        echo "warning_count=$WARNINGS" >> $GITHUB_OUTPUT
+        echo "has_data=$HAS_DATA" >> $GITHUB_OUTPUT
 
-        if [ "$ERROR_COUNT" -eq 0 ]; then
+        # Determine if verification passed
+        if [ "$ERRORS" -eq 0 ]; then
+          echo "✅ Verification passed with $WARNINGS warnings"
           echo "passed=true" >> $GITHUB_OUTPUT
-          echo "Verification passed with $WARNING_COUNT warnings"
         else
+          echo "❌ Verification failed with $ERRORS errors and $WARNINGS warnings"
           echo "passed=false" >> $GITHUB_OUTPUT
-          echo "Verification failed with $ERROR_COUNT errors and $WARNING_COUNT warnings"
 
-          if [ "${{ inputs.fail-on-error }}" == "true" ]; then
+          if [ "${{ inputs.fail-on-error }}" = "true" ]; then
             exit 1
           fi
         fi

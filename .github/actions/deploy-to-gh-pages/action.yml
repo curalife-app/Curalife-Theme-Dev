@@ -1,9 +1,9 @@
 name: "Deploy to GitHub Pages"
-description: "Deploys Lighthouse dashboard results to GitHub Pages"
+description: "Deploys content to GitHub Pages branch with flexible options"
 
 inputs:
   source-dir:
-    description: "Source directory containing files to deploy"
+    description: "Source directory containing the content to deploy"
     required: true
   custom-domain:
     description: "Custom domain for GitHub Pages"
@@ -14,160 +14,187 @@ inputs:
     required: false
     default: "gh-pages"
   commit-message:
-    description: "Commit message for deploy"
+    description: "Commit message for the deployment"
     required: false
-    default: "Update Lighthouse reports - $(date +'%Y-%m-%d %H:%M:%S')"
+    default: "Update GitHub Pages content"
+  skip-if-empty:
+    description: "Skip deployment if source directory is empty or missing critical files"
+    required: false
+    default: "true"
+
+outputs:
+  deployed:
+    description: "Whether files were successfully deployed"
+    value: ${{ steps.deploy.outputs.files_deployed }}
 
 runs:
   using: "composite"
   steps:
+    - name: Verify source directory
+      id: verify-source
+      shell: bash
+      run: |
+        echo "Verifying source directory: ${{ inputs.source-dir }}"
+        HAS_FILES="false"
+
+        # Check if source directory exists
+        if [ ! -d "${{ inputs.source-dir }}" ]; then
+          echo "::warning::Source directory does not exist: ${{ inputs.source-dir }}"
+
+          if [ "${{ inputs.skip-if-empty }}" = "true" ]; then
+            echo "skip_deployment=true" >> $GITHUB_OUTPUT
+            exit 0
+          else
+            echo "::error::Source directory does not exist and skip-if-empty is false"
+            exit 1
+          fi
+        fi
+
+        # Check for required files
+        if [ -f "${{ inputs.source-dir }}/index.html" ] || [ -d "${{ inputs.source-dir }}/dashboards" ]; then
+          echo "Found critical files in source directory"
+          HAS_FILES="true"
+        else
+          echo "::warning::No critical files found in source directory"
+
+          if [ "${{ inputs.skip-if-empty }}" = "true" ]; then
+            echo "skip_deployment=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+        fi
+
+        # If we got here, proceed with deployment
+        echo "skip_deployment=false" >> $GITHUB_OUTPUT
+
+    - name: Configure Git
+      if: steps.verify-source.outputs.skip_deployment != 'true'
+      shell: bash
+      run: |
+        echo "Configuring Git for deployment..."
+        git config --global user.name "GitHub Actions"
+        git config --global user.email "actions@github.com"
+
     - name: Checkout target branch
-      uses: actions/checkout@v4
-      with:
-        ref: ${{ inputs.target-branch }}
-        fetch-depth: 0
+      if: steps.verify-source.outputs.skip_deployment != 'true'
+      shell: bash
+      run: |
+        echo "Checking out target branch: ${{ inputs.target-branch }}"
+
+        # Check if branch exists
+        if git ls-remote --heads origin ${{ inputs.target-branch }} | grep -q ${{ inputs.target-branch }}; then
+          echo "Target branch exists, checking out..."
+          git fetch origin ${{ inputs.target-branch }}
+          git checkout ${{ inputs.target-branch }}
+        else
+          echo "Target branch doesn't exist, creating orphan branch..."
+          git checkout --orphan ${{ inputs.target-branch }}
+          git rm -rf .
+        fi
 
     - name: Setup deploy directory
+      if: steps.verify-source.outputs.skip_deployment != 'true'
       shell: bash
       run: |
         echo "Setting up deploy directory..."
 
-        # Create directory structure to ensure we don't lose history
-        mkdir -p ./lighthouse-results
-        touch ./lighthouse-results/.gitkeep
+        # Create .nojekyll file
+        touch .nojekyll
 
-        # Create or ensure CNAME file exists for custom domain
+        # Create CNAME file if custom domain is specified
         if [ -n "${{ inputs.custom-domain }}" ]; then
-          echo "${{ inputs.custom-domain }}" > ./CNAME
-          # Copy CNAME to results directory to ensure it's deployed
-          cp ./CNAME ./lighthouse-results/CNAME
+          echo "${{ inputs.custom-domain }}" > CNAME
+          echo "Created CNAME file for ${{ inputs.custom-domain }}"
         fi
 
-        # Remove old files to prevent stale content, but preserve CNAME and history
-        find ./lighthouse-results -type f -not -path "*/history/*" -not -name "CNAME" -delete 2>/dev/null || echo "No files to delete"
-
-        # Ensure .nojekyll file exists at root to prevent GitHub Pages from using Jekyll
-        touch ./.nojekyll
-        touch ./lighthouse-results/.nojekyll
+        # Clean existing files but preserve .git directory and any existing CNAME/nojekyll
+        find . -mindepth 1 -maxdepth 1 -not -path "./.git" -not -name "CNAME" -not -name ".nojekyll" -exec rm -rf {} \;
 
     - name: Copy files to deploy directory
+      if: steps.verify-source.outputs.skip_deployment != 'true'
+      id: copy-files
       shell: bash
       run: |
-        echo "Copying files to deploy directory..."
-        SOURCE_DIR="${{ inputs.source-dir }}"
+        echo "Copying files from ${{ inputs.source-dir }} to deploy directory..."
 
-        # Check if source directory exists
-        if [ ! -d "$SOURCE_DIR" ]; then
-          echo "::error::Source directory not found: $SOURCE_DIR"
-          exit 1
+        # Check if source directory has content
+        FILE_COUNT=$(find "${{ inputs.source-dir }}" -type f | wc -l)
+
+        if [ "$FILE_COUNT" -eq 0 ]; then
+          echo "::warning::Source directory is empty"
+          if [ "${{ inputs.skip-if-empty }}" = "true" ]; then
+            echo "files_copied=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
         fi
 
         # Copy all files from source directory
-        cp -R "$SOURCE_DIR"/* ./lighthouse-results/ 2>/dev/null || echo "No files to copy from $SOURCE_DIR"
+        cp -r "${{ inputs.source-dir }}"/* . 2>/dev/null || true
 
-        # Ensure index.html exists in lighthouse-results
-        if [ ! -f "./lighthouse-results/index.html" ]; then
-          echo "::warning::No index.html found in source directory"
-
-          # Create a minimal index.html
-          echo "<!DOCTYPE html>
-          <html>
-          <head>
-            <meta charset=\"UTF-8\">
-            <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
-            <title>Lighthouse Reports</title>
-            <style>
-              body { font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif; line-height: 1.6; max-width: 800px; margin: 0 auto; padding: 20px; }
-              h1 { color: #333; }
-              p { color: #666; }
-            </style>
-          </head>
-          <body>
-            <h1>Lighthouse Performance Reports</h1>
-            <p>Report generated on $(date)</p>
-            <p>No reports found. Please check back later.</p>
-          </body>
-          </html>" > ./lighthouse-results/index.html
+        # Check if any files were copied
+        FILES_COPIED=0
+        if [ -f "index.html" ] || [ -d "dashboards" ]; then
+          FILES_COPIED=1
+        else
+          FILES_COPIED=$(find . -mindepth 1 -maxdepth 1 -not -path "./.git" -not -name "CNAME" -not -name ".nojekyll" | wc -l)
         fi
 
-        # Also create an index.html in the repository root for GitHub Pages
-        if [ ! -f "./index.html" ]; then
-          echo "<!DOCTYPE html>
-          <html>
-          <head>
-            <meta charset=\"UTF-8\">
-            <meta http-equiv=\"refresh\" content=\"0; url=./lighthouse-results/\">
-            <title>Lighthouse Performance Reports</title>
-          </head>
-          <body>
-            <p>Redirecting to <a href=\"./lighthouse-results/\">Lighthouse Results</a>...</p>
-          </body>
-          </html>" > ./index.html
+        if [ "$FILES_COPIED" -eq 0 ]; then
+          echo "::warning::No files were copied from source directory"
+          echo "files_copied=false" >> $GITHUB_OUTPUT
+
+          if [ "${{ inputs.skip-if-empty }}" = "true" ]; then
+            exit 0
+          fi
+        else
+          echo "Copied $FILES_COPIED files/directories"
+          echo "files_copied=true" >> $GITHUB_OUTPUT
         fi
 
-        # Ensure .nojekyll file exists
-        touch ./.nojekyll
-        touch ./lighthouse-results/.nojekyll
+        # Create redirect if we have a dashboard but no index.html
+        if [ ! -f "index.html" ] && [ -d "dashboards" ]; then
+          echo '<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url=./dashboards/index.html"></head><body><p>Redirecting to dashboard...</p></body></html>' > index.html
+          echo "Created redirect to dashboard"
+        fi
 
-    - name: Verify files before commit
+    - name: Verify files before committing
+      if: steps.verify-source.outputs.skip_deployment != 'true' && steps.copy-files.outputs.files_copied == 'true'
       shell: bash
       run: |
         echo "Verifying files before commit..."
 
-        # Check if critical files exist
-        if [ ! -f "./lighthouse-results/index.html" ]; then
-          echo "::error::No index.html found in deploy directory"
-          exit 1
-        fi
+        # List files to be committed
+        echo "Files to be committed:"
+        find . -mindepth 1 -maxdepth 1 -not -path "./.git" | sort
 
-        # Show summary of files to be deployed
-        echo "Files to be deployed:"
-        find ./lighthouse-results -type f | wc -l
-        find ./lighthouse-results -type f -name "*.html" | sort | head -n 5
-
-        # Check for CNAME
-        if [ -n "${{ inputs.custom-domain }}" ] && [ ! -f "./CNAME" ]; then
-          echo "::warning::CNAME file not found"
-          echo "${{ inputs.custom-domain }}" > ./CNAME
-        fi
-
-    - name: Commit and push
+    - name: Commit and push changes
+      if: steps.verify-source.outputs.skip_deployment != 'true' && steps.copy-files.outputs.files_copied == 'true'
+      id: deploy
       shell: bash
       run: |
         echo "Committing and pushing changes..."
 
-        # Setup git
-        git config user.name 'github-actions[bot]'
-        git config user.email 'github-actions[bot]@users.noreply.github.com'
+        # Check if there are changes to commit
+        if git diff --quiet && git diff --staged --quiet; then
+          echo "No changes to commit"
+          echo "files_deployed=false" >> $GITHUB_OUTPUT
+          exit 0
+        fi
 
         # Add all files
-        git add -A .
+        git add -A
 
-        # Commit with message
-        MESSAGE="${{ inputs.commit-message }}"
-        if [ "$MESSAGE" == "Update Lighthouse reports - $(date +'%Y-%m-%d %H:%M:%S')" ]; then
-          MESSAGE="Update Lighthouse reports - $(date +'%Y-%m-%d %H:%M:%S')"
-        fi
+        # Commit changes
+        git commit -m "${{ inputs.commit-message }}"
 
-        git commit -m "$MESSAGE" || echo "No changes to commit"
+        # Push changes
+        git push -f origin ${{ inputs.target-branch }}
 
-        # Push to branch
-        git push origin ${{ inputs.target-branch }}
+        echo "Changes pushed to ${{ inputs.target-branch }}"
+        echo "files_deployed=true" >> $GITHUB_OUTPUT
 
-        echo "Deployment completed successfully"
-
-    - name: Output deployment summary
+    - name: Skip deployment notification
+      if: steps.verify-source.outputs.skip_deployment == 'true'
       shell: bash
       run: |
-        echo "## Deployment completed" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "Deployed to: https://github.com/$GITHUB_REPOSITORY/settings/pages" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### Files deployed" >> $GITHUB_STEP_SUMMARY
-        echo "- Total files: $(find ./lighthouse-results -type f | wc -l)" >> $GITHUB_STEP_SUMMARY
-        echo "- HTML files: $(find ./lighthouse-results -type f -name "*.html" | wc -l)" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-
-        if [ -n "${{ inputs.custom-domain }}" ]; then
-          echo "Custom domain: ${{ inputs.custom-domain }}" >> $GITHUB_STEP_SUMMARY
-        fi
+        echo "::notice::Deployment skipped - no valid content found in ${{ inputs.source-dir }}"
+        echo "files_deployed=false" >> $GITHUB_OUTPUT

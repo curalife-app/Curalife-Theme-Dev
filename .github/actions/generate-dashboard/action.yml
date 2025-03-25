@@ -3,7 +3,7 @@
 # Last updated: 2023-06-01
 
 name: "Generate Performance Dashboard"
-description: "Processes Lighthouse results and generates HTML dashboards"
+description: "Processes Lighthouse results and generates HTML dashboards - no fallbacks"
 
 inputs:
   results-dir:
@@ -29,10 +29,60 @@ inputs:
     required: false
     default: "true"
 
+outputs:
+  generated:
+    description: "Whether dashboards were successfully generated"
+    value: ${{ steps.check-data.outputs.has_data }}
+
 runs:
   using: "composite"
   steps:
+    - name: Check for valid data
+      id: check-data
+      shell: bash
+      run: |
+        echo "Checking for valid test results..."
+        RESULTS_DIR="${{ inputs.results-dir }}"
+        HAS_DATA="false"
+
+        # Check for desktop and mobile directories with actual results
+        if [ ! -d "$RESULTS_DIR/desktop" ] || [ ! -d "$RESULTS_DIR/mobile" ]; then
+          echo "::warning::Missing desktop or mobile directories"
+          echo "has_data=false" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+
+        # Check for actual test results
+        JSON_COUNT=$(find "$RESULTS_DIR" -name "*.report.json" | wc -l)
+        if [ "$JSON_COUNT" -eq 0 ]; then
+          echo "::warning::No JSON reports found, cannot generate dashboard"
+          echo "has_data=false" >> $GITHUB_OUTPUT
+          exit 0
+        else
+          # Check for placeholder/empty results
+          VALID_REPORTS=0
+          for json_file in $(find "$RESULTS_DIR" -name "*.report.json"); do
+            # Check if the performance score is not zero or null (likely real data)
+            PERF_SCORE=$(jq -r '.categories.performance.score' "$json_file" 2>/dev/null || echo "-1")
+            if [ "$PERF_SCORE" != "0" ] && [ "$PERF_SCORE" != "null" ] && [ "$PERF_SCORE" != "-1" ]; then
+              VALID_REPORTS=$((VALID_REPORTS + 1))
+            fi
+          done
+
+          if [ "$VALID_REPORTS" -eq 0 ]; then
+            echo "::warning::No valid reports found (all appear to be placeholders)"
+            echo "has_data=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "Found $VALID_REPORTS valid reports"
+          HAS_DATA="true"
+        fi
+
+        echo "has_data=true" >> $GITHUB_OUTPUT
+
     - name: Setup directories
+      if: steps.check-data.outputs.has_data == 'true'
       shell: bash
       run: |
         echo "Setting up dashboard directories..."
@@ -57,17 +107,12 @@ runs:
         echo "CURRENT_DATE=$CURRENT_DATE" >> $GITHUB_ENV
 
     - name: Process results
+      if: steps.check-data.outputs.has_data == 'true'
       shell: bash
       run: |
         echo "Processing Lighthouse results..."
         RESULTS_DIR="${{ inputs.results-dir }}"
         OUTPUT_DIR="${{ inputs.output-dir }}"
-
-        # Check if there are any results to process
-        if [ ! -d "$RESULTS_DIR/desktop" ] || [ ! -d "$RESULTS_DIR/mobile" ]; then
-          echo "::error::Missing desktop or mobile result directories"
-          exit 1
-        fi
 
         # Process each page's results
         for device_dir in "$RESULTS_DIR"/*; do
@@ -87,6 +132,13 @@ runs:
                 json_report=$(find "$page_dir" -name "*.report.json" | head -n 1)
 
                 if [ -f "$json_report" ]; then
+                  # Check if this is a valid report (non-zero score)
+                  PERF_SCORE=$(jq -r '.categories.performance.score' "$json_report" 2>/dev/null || echo "-1")
+                  if [ "$PERF_SCORE" = "0" ] || [ "$PERF_SCORE" = "null" ] || [ "$PERF_SCORE" = "-1" ]; then
+                    echo "::warning::Skipping invalid report for $page_name on $device"
+                    continue
+                  fi
+
                   # Copy report files
                   cp "$page_dir"/*.* "$OUTPUT_DIR/processed/$page_name/$device/"
 
@@ -119,17 +171,25 @@ runs:
                       "'$device_upper'_TBT=\(.tbt)"' "$OUTPUT_DIR/processed/$page_name/$device/metrics.json" > "$OUTPUT_DIR/processed/$page_name/metrics-values.env"
                   fi
                 else
-                  echo "::warning::No JSON report found for $page_name on $device"
+                  echo "::warning::No valid JSON report found for $page_name on $device"
                 fi
               fi
             done
           fi
         done
 
+        # Check if we have any processed data
+        PROCESSED_COUNT=$(find "$OUTPUT_DIR/processed" -name "metrics-values.env" | wc -l)
+        if [ "$PROCESSED_COUNT" -eq 0 ]; then
+          echo "::warning::No metrics data was processed - cannot generate dashboard"
+          echo "has_data=false" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+
         echo "Results processed successfully"
 
     - name: Store historical data
-      if: inputs.include-history == 'true'
+      if: steps.check-data.outputs.has_data == 'true' && inputs.include-history == 'true'
       shell: bash
       run: |
         echo "Storing historical data..."
@@ -184,6 +244,7 @@ runs:
         echo "Historical data stored successfully"
 
     - name: Generate main dashboard
+      if: steps.check-data.outputs.has_data == 'true'
       shell: bash
       run: |
         echo "Generating main dashboard..."
@@ -209,6 +270,13 @@ runs:
           fi
         fi
 
+        # Verify we have processed data to display
+        PAGES_COUNT=$(find "$PROCESSED_DIR" -mindepth 1 -maxdepth 1 -type d | wc -l)
+        if [ "$PAGES_COUNT" -eq 0 ]; then
+          echo "::warning::No processed pages found to include in dashboard"
+          exit 0
+        fi
+
         # Create dashboard content
         echo "Using template: $TEMPLATE_FILE"
 
@@ -217,7 +285,7 @@ runs:
         PAGES_COUNT=0
 
         for page_dir in "$PROCESSED_DIR"/*; do
-          if [ -d "$page_dir" ]; then
+          if [ -d "$page_dir" ] && [ -f "$page_dir/metrics-values.env" ]; then
             page_name=$(basename "$page_dir")
             PAGES_COUNT=$((PAGES_COUNT + 1))
 
@@ -226,9 +294,7 @@ runs:
               echo "Adding detailed section for $page_name"
 
               # Source metrics data
-              if [ -f "$page_dir/metrics-values.env" ]; then
-                source "$page_dir/metrics-values.env"
-              fi
+              source "$page_dir/metrics-values.env"
 
               # Add page section
               PAGE_TITLE=$(echo "$page_name" | tr '-' ' ' | sed 's/\b\(.\)/\u\1/g')
@@ -301,25 +367,15 @@ runs:
           </thead>
           <tbody>"
 
+        FOUND_DATA=false
         for page_dir in "$PROCESSED_DIR"/*; do
-          if [ -d "$page_dir" ]; then
+          if [ -d "$page_dir" ] && [ -f "$page_dir/metrics-values.env" ]; then
+            FOUND_DATA=true
             page_name=$(basename "$page_dir")
             PAGE_TITLE=$(echo "$page_name" | tr '-' ' ' | sed 's/\b\(.\)/\u\1/g')
 
             # Source metrics data
-            if [ -f "$page_dir/metrics-values.env" ]; then
-              source "$page_dir/metrics-values.env"
-            else
-              # Default values if metrics file doesn't exist
-              DESKTOP_PERF=0
-              DESKTOP_A11Y=0
-              DESKTOP_BP=0
-              DESKTOP_SEO=0
-              MOBILE_PERF=0
-              MOBILE_A11Y=0
-              MOBILE_BP=0
-              MOBILE_SEO=0
-            fi
+            source "$page_dir/metrics-values.env"
 
             # Add row to summary table
             SUMMARY_HTML="${SUMMARY_HTML}
@@ -336,6 +392,12 @@ runs:
             </tr>"
           fi
         done
+
+        # Don't generate an empty dashboard
+        if [ "$FOUND_DATA" = "false" ]; then
+          echo "::warning::No data found for summary table, cannot generate dashboard"
+          exit 0
+        fi
 
         SUMMARY_HTML="${SUMMARY_HTML}
           </tbody>
@@ -354,7 +416,7 @@ runs:
         echo "Main dashboard generated successfully"
 
     - name: Generate trends dashboard
-      if: inputs.include-history == 'true'
+      if: steps.check-data.outputs.has_data == 'true' && inputs.include-history == 'true'
       shell: bash
       run: |
         echo "Generating trends dashboard..."
@@ -374,15 +436,24 @@ runs:
           fi
         fi
 
+        # Verify we have historical data to display
+        HISTORY_COUNT=$(find "$HISTORY_DIR" -name "history.json" | wc -l)
+        if [ "$HISTORY_COUNT" -eq 0 ]; then
+          echo "::warning::No historical data found for trends dashboard"
+          exit 0
+        fi
+
         # Generate charts data
         CHARTS_DATA=""
+        FOUND_DATA=false
 
         for history_dir in "$HISTORY_DIR"/*; do
           if [ -d "$history_dir" ]; then
             page_name=$(basename "$history_dir")
             HISTORY_FILE="$history_dir/history.json"
 
-            if [ -f "$HISTORY_FILE" ]; then
+            if [ -f "$HISTORY_FILE" ] && [ "$(jq 'length' "$HISTORY_FILE")" != "0" ]; then
+              FOUND_DATA=true
               # Generate JSON data for charts
               echo "Generating chart data for $page_name"
 
@@ -392,9 +463,99 @@ runs:
               # Create mobile data
               MOBILE_DATA=$(jq '[.[] | select(.device == "mobile") | {date: .date, performance: (.performance * 100 | round), accessibility: (.accessibility * 100 | round), "best-practices": (.["best-practices"] * 100 | round), seo: (.seo * 100 | round), lcp: .lcp, cls: .cls, tbt: .tbt}] | sort_by(.date)' "$HISTORY_FILE")
 
-              # Add chart data
-              PAGE_TITLE=$(echo "$page_name" | tr '-' ' ' | sed 's/\b\(.\)/\u\1/g')
+              # Only add charts if we have data
+              if [ "$(echo "$DESKTOP_DATA" | jq 'length')" != "0" ] || [ "$(echo "$MOBILE_DATA" | jq 'length')" != "0" ]; then
+                # Add chart data
+                PAGE_TITLE=$(echo "$page_name" | tr '-' ' ' | sed 's/\b\(.\)/\u\1/g')
 
+                CHARTS_DATA="${CHARTS_DATA}
+                <section id=\"$page_name\" class=\"page-trends\">
+                  <h2>$PAGE_TITLE - Performance Trends</h2>
+                  <div class=\"chart-container\">
+                    <div class=\"chart-tabs\">
+                      <button class=\"tab-button active\" onclick=\"switchTab(this, '$page_name-desktop')\">Desktop</button>
+                      <button class=\"tab-button\" onclick=\"switchTab(this, '$page_name-mobile')\">Mobile</button>
+                    </div>
+                    <div id=\"$page_name-desktop\" class=\"tab-content active\">
+                      <div class=\"chart-wrapper\">
+                        <canvas id=\"$page_name-desktop-scores\"></canvas>
+                      </div>
+                      <div class=\"chart-wrapper\">
+                        <canvas id=\"$page_name-desktop-vitals\"></canvas>
+                      </div>
+                      <script>
+                        // Desktop scores chart
+                        new Chart(document.getElementById('$page_name-desktop-scores').getContext('2d'), {
+                          type: 'line',
+                          data: {
+                            datasets: [
+                              {
+                                label: 'Performance',
+                                data: $DESKTOP_DATA.map(item => ({x: item.date, y: item.performance})),
+                                borderColor: '#0cce6b',
+                                backgroundColor: 'rgba(12, 206, 107, 0.1)',
+                                tension: 0.4
+                              },
+                              {
+                                label: 'Accessibility',
+                                data: $DESKTOP_DATA.map(item => ({x: item.date, y: item.accessibility})),
+                                borderColor: '#0ea5e9',
+                                backgroundColor: 'rgba(14, 165, 233, 0.1)',
+                                tension: 0.4
+                              },
+                              {
+                                label: 'Best Practices',
+                                data: $DESKTOP_DATA.map(item => ({x: item.date, y: item['best-practices']})),
+                                borderColor: '#7c3aed',
+                                backgroundColor: 'rgba(124, 58, 237, 0.1)',
+                                tension: 0.4
+                              },
+                              {
+                                label: 'SEO',
+                                data: $DESKTOP_DATA.map(item => ({x: item.date, y: item.seo})),
+                                borderColor: '#f59e0b',
+                                backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                                tension: 0.4
+                              }
+                            ]
+                          },
+                          options: {
+                            scales: {
+                              y: {
+                                min: 0,
+                                max: 100,
+                                title: {
+                                  display: true,
+                                  text: 'Score'
+                                }
+                              }
+                            },
+                            plugins: {
+                              title: {
+                                display: true,
+                                text: 'Lighthouse Scores - Desktop'
+                              }
+                            }
+                          }
+                        });
+
+                        // Desktop vitals chart
+                        new Chart(document.getElementById('$page_name-desktop-vitals').getContext('2d'), {
+                          type: 'line',
+                          data: {
+                            datasets: [
+                              {
+                                label: 'LCP (ms)',
+                                data: $DESKTOP_DATA.map(item => ({x: item.date, y: Math.round(item.lcp)})),
+                                borderColor: '#ef4444',
+                                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                tension: 0.4,
+                                yAxisID: 'y'
+                              },
+                              {
+                                label: 'TBT (ms)',
+                                data: $DESKTOP_DATA.map(item => ({x: item.date, y: Math.round(item.tbt)})),
+                                borderColor: '#f59e0b',
               CHARTS_DATA="${CHARTS_DATA}
               <section id=\"$page_name\" class=\"page-trends\">
                 <h2>$PAGE_TITLE - Performance Trends</h2>
