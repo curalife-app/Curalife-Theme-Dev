@@ -53,7 +53,7 @@ runs:
         # Define default pages if custom pages are not provided
         if [ -z "${{ inputs.custom-pages }}" ]; then
           echo "Using default pages"
-          DEFAULT_PAGES="home,products/curalin"
+          DEFAULT_PAGES="/,products/curalin"
           echo "pages=$DEFAULT_PAGES" >> $GITHUB_OUTPUT
         else
           echo "Using custom pages"
@@ -75,13 +75,19 @@ runs:
         FORMATTED_PAGES=""
         while IFS= read -r page; do
           if [ -n "$page" ]; then
-            # Convert page path to safe directory name (replace slashes with hyphens)
-            DIR_NAME=$(echo "$page" | tr '/' '-')
-            PAGE_PATH="$page"
+            # Special handling for homepage
+            if [ "$page" = "/" ]; then
+              DIR_NAME="homepage"
+              PAGE_PATH=""
+            else
+              # Convert page path to safe directory name (replace slashes with hyphens)
+              DIR_NAME=$(echo "$page" | tr '/' '-')
+              PAGE_PATH="$page"
+            fi
 
             mkdir -p "$LIGHTHOUSE_DIR/desktop/$DIR_NAME"
             mkdir -p "$LIGHTHOUSE_DIR/mobile/$DIR_NAME"
-            echo "Prepared directories for page: $page (as $DIR_NAME)"
+            echo "Prepared directories for page: ${page:-/} (as $DIR_NAME)"
 
             # Build formatted pages list
             if [ -z "$FORMATTED_PAGES" ]; then
@@ -119,8 +125,13 @@ runs:
           PAGE_PATH="${PARTS[0]}"
           DIR_NAME="${PARTS[1]}"
 
-          if [ -n "$PAGE_PATH" ] && [ -n "$DIR_NAME" ]; then
-            PAGE_URL="$BASE_URL/$PAGE_PATH"
+          if [ -n "$DIR_NAME" ]; then
+            # Handle homepage (empty path)
+            if [ -z "$PAGE_PATH" ]; then
+              PAGE_URL="$BASE_URL"
+            else
+              PAGE_URL="$BASE_URL/$PAGE_PATH"
+            fi
             OUTPUT_DIR="$LIGHTHOUSE_DIR/desktop/$DIR_NAME"
 
             echo "Testing desktop: $PAGE_URL (dir: $DIR_NAME)"
@@ -143,7 +154,7 @@ runs:
                 # Verify performance score exists and is not zero/null
                 PERF_SCORE=$(jq -r '.categories.performance.score' "$OUTPUT_DIR/desktop.report.json" 2>/dev/null || echo "-1")
                 if [ "$PERF_SCORE" != "0" ] && [ "$PERF_SCORE" != "null" ] && [ "$PERF_SCORE" != "-1" ]; then
-                  echo "✅ Desktop test for $PAGE_PATH completed successfully"
+                  echo "✅ Desktop test for ${PAGE_PATH:-homepage} completed successfully"
                   break
                 else
                   echo "⚠️ Test completed but produced invalid results, retrying..."
@@ -156,7 +167,7 @@ runs:
 
               # If this was the last retry and it failed
               if [ $i -eq $RETRY_COUNT ] && [ ! -f "$OUTPUT_DIR/desktop.report.json" ]; then
-                echo "::warning::All retries failed for desktop test of $PAGE_PATH"
+                echo "::warning::All retries failed for desktop test of ${PAGE_PATH:-homepage}"
               fi
             done
           fi
@@ -186,8 +197,13 @@ runs:
           PAGE_PATH="${PARTS[0]}"
           DIR_NAME="${PARTS[1]}"
 
-          if [ -n "$PAGE_PATH" ] && [ -n "$DIR_NAME" ]; then
-            PAGE_URL="$BASE_URL/$PAGE_PATH"
+          if [ -n "$DIR_NAME" ]; then
+            # Handle homepage (empty path)
+            if [ -z "$PAGE_PATH" ]; then
+              PAGE_URL="$BASE_URL"
+            else
+              PAGE_URL="$BASE_URL/$PAGE_PATH"
+            fi
             OUTPUT_DIR="$LIGHTHOUSE_DIR/mobile/$DIR_NAME"
 
             echo "Testing mobile: $PAGE_URL (dir: $DIR_NAME)"
@@ -210,7 +226,7 @@ runs:
                 # Verify performance score exists and is not zero/null
                 PERF_SCORE=$(jq -r '.categories.performance.score' "$OUTPUT_DIR/mobile.report.json" 2>/dev/null || echo "-1")
                 if [ "$PERF_SCORE" != "0" ] && [ "$PERF_SCORE" != "null" ] && [ "$PERF_SCORE" != "-1" ]; then
-                  echo "✅ Mobile test for $PAGE_PATH completed successfully"
+                  echo "✅ Mobile test for ${PAGE_PATH:-homepage} completed successfully"
                   break
                 else
                   echo "⚠️ Test completed but produced invalid results, retrying..."
@@ -223,7 +239,7 @@ runs:
 
               # If this was the last retry and it failed
               if [ $i -eq $RETRY_COUNT ] && [ ! -f "$OUTPUT_DIR/mobile.report.json" ]; then
-                echo "::warning::All retries failed for mobile test of $PAGE_PATH"
+                echo "::warning::All retries failed for mobile test of ${PAGE_PATH:-homepage}"
               fi
             done
           fi
