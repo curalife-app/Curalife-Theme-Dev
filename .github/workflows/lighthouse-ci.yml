@@ -61,7 +61,7 @@ jobs:
           echo "Running Lighthouse on ${{ matrix.page.url }}..."
           npx lhci autorun \
             --collect.url=${{ matrix.page.url }} \
-            --collect.numberOfRuns=3 \
+            --collect.numberOfRuns=1 \
             --collect.settings.preset=desktop \
             --collect.settings.chromeFlags="$CHROME_FLAGS" \
             --collect.settings.formFactor=desktop \
@@ -1281,6 +1281,29 @@ jobs:
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
+
+          # Create a new branch for reports or use existing one
+          REPORTS_BRANCH="performance-reports-data"
+          git fetch origin $REPORTS_BRANCH || true
+
+          if git show-ref --verify --quiet refs/remotes/origin/$REPORTS_BRANCH; then
+            # Branch exists, check it out
+            git checkout $REPORTS_BRANCH
+          else
+            # Create a new orphan branch (no history)
+            git checkout --orphan $REPORTS_BRANCH
+            git rm -rf .
+            # Create a basic README
+            echo "# Lighthouse Performance Reports" > README.md
+            echo "This branch contains automated Lighthouse performance reports for the Curalife website." >> README.md
+            git add README.md
+            git commit -m "Initial commit for performance reports branch"
+          fi
+
+          # Add the performance reports
           git add performance-reports/
-          git commit -m "Add Lighthouse performance reports for $(date +"%Y-%m-%d")" || echo "No changes to commit"
-          git push
+          # Commit only if there are changes
+          git diff --staged --quiet || git commit -m "Add Lighthouse performance reports for $(date +"%Y-%m-%d")"
+
+          # Push to the reports branch
+          git push origin $REPORTS_BRANCH
