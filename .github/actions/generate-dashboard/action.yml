@@ -280,161 +280,152 @@ runs:
         # Create dashboard content
         echo "Using template: $TEMPLATE_FILE"
 
-        # Build page sections from processed results
-        PAGES_HTML=""
-        PAGES_COUNT=0
+        # Build dashboard using tools that avoid YAML parsing issues
+        python3 -c "
+import os
+import glob
+import re
+import json
 
-        for page_dir in "$PROCESSED_DIR"/*; do
-          if [ -d "$page_dir" ] && [ -f "$page_dir/metrics-values.env" ]; then
-            page_name=$(basename "$page_dir")
-            PAGES_COUNT=$((PAGES_COUNT + 1))
+# Setup directories
+template_file = '$TEMPLATE_FILE'
+dashboard_dir = '$DASHBOARD_DIR'
+processed_dir = '$PROCESSED_DIR'
+current_date = '$CURRENT_DATE'
 
-            # Only show first 2 pages in detail, the rest go into summary
-            if [ $PAGES_COUNT -le 2 ]; then
-              echo "Adding detailed section for $page_name"
+# Read template
+with open(template_file, 'r') as f:
+    template = f.read()
 
-              # Source metrics data
-              source "$page_dir/metrics-values.env"
+# Process pages
+pages_html = ''
+summary_rows = []
+page_count = 0
 
-              # Add page section
-              PAGE_TITLE=$(echo "$page_name" | tr '-' ' ' | sed 's/\b\(.\)/\u\1/g')
+# Get list of pages
+pages = glob.glob(os.path.join(processed_dir, '*'))
+pages = [p for p in pages if os.path.isdir(p) and os.path.exists(os.path.join(p, 'metrics-values.env'))]
 
-              # Build HTML for this page and save to a temp file
-              cat > "page_section_$page_name.html" << EOF
-              <section class="page-section" id="$page_name">
-                <h2>$PAGE_TITLE</h2>
-                <div class="metrics-container">
-                  <div class="device-metrics">
-                    <h3>Desktop</h3>
-                    <div class="score-card">
-                      <div class="score performance"><span>${DESKTOP_PERF:-0}</span>Performance</div>
-                      <div class="score accessibility"><span>${DESKTOP_A11Y:-0}</span>Accessibility</div>
-                      <div class="score best-practices"><span>${DESKTOP_BP:-0}</span>Best Practices</div>
-                      <div class="score seo"><span>${DESKTOP_SEO:-0}</span>SEO</div>
-                    </div>
-                    <div class="vitals-container">
-                      <div class="vital">LCP: <span>${DESKTOP_LCP:-0}</span>ms</div>
-                      <div class="vital">CLS: <span>${DESKTOP_CLS:-0}</span></div>
-                      <div class="vital">TBT: <span>${DESKTOP_TBT:-0}</span>ms</div>
-                    </div>
-                    <a href="./processed/$page_name/reports/desktop.html" class="report-link">View Full Report</a>
-                  </div>
-                  <div class="device-metrics">
-                    <h3>Mobile</h3>
-                    <div class="score-card">
-                      <div class="score performance"><span>${MOBILE_PERF:-0}</span>Performance</div>
-                      <div class="score accessibility"><span>${MOBILE_A11Y:-0}</span>Accessibility</div>
-                      <div class="score best-practices"><span>${MOBILE_BP:-0}</span>Best Practices</div>
-                      <div class="score seo"><span>${MOBILE_SEO:-0}</span>SEO</div>
-                    </div>
-                    <div class="vitals-container">
-                      <div class="vital">LCP: <span>${MOBILE_LCP:-0}</span>ms</div>
-                      <div class="vital">CLS: <span>${MOBILE_CLS:-0}</span></div>
-                      <div class="vital">TBT: <span>${MOBILE_TBT:-0}</span>ms</div>
-                    </div>
-                    <a href="./processed/$page_name/reports/mobile.html" class="report-link">View Full Report</a>
-                  </div>
-                </div>
-                <div class="history-link-container">
-                  <a href="./trends.html#$page_name" class="history-link">View Historical Trends</a>
-                </div>
-              </section>
-EOF
-              # Append to pages HTML
-              PAGES_HTML="$PAGES_HTML$(cat "page_section_$page_name.html")"
-            fi
-          fi
-        done
+for page_path in pages:
+    page_name = os.path.basename(page_path)
+    page_count += 1
 
-        # Generate summary table for all pages and save to a file
-        cat > "summary_table.html" << EOF
-        <table class="summary-table">
-          <thead>
-            <tr>
-              <th>Page</th>
-              <th colspan="2">Performance</th>
-              <th colspan="2">Accessibility</th>
-              <th colspan="2">Best Practices</th>
-              <th colspan="2">SEO</th>
-            </tr>
-            <tr>
-              <th></th>
-              <th>Desktop</th>
-              <th>Mobile</th>
-              <th>Desktop</th>
-              <th>Mobile</th>
-              <th>Desktop</th>
-              <th>Mobile</th>
-              <th>Desktop</th>
-              <th>Mobile</th>
-            </tr>
-          </thead>
-          <tbody>
-EOF
+    # Read metrics
+    metrics = {}
+    with open(os.path.join(page_path, 'metrics-values.env'), 'r') as f:
+        for line in f:
+            if '=' in line:
+                key, value = line.strip().split('=', 1)
+                metrics[key] = value
 
-        FOUND_DATA=false
-        for page_dir in "$PROCESSED_DIR"/*; do
-          if [ -d "$page_dir" ] && [ -f "$page_dir/metrics-values.env" ]; then
-            FOUND_DATA=true
-            page_name=$(basename "$page_dir")
-            PAGE_TITLE=$(echo "$page_name" | tr '-' ' ' | sed 's/\b\(.\)/\u\1/g')
+    # Create page title
+    page_title = ' '.join(word.capitalize() for word in page_name.replace('-', ' ').split())
 
-            # Source metrics data
-            source "$page_dir/metrics-values.env"
+    # Add to summary table
+    summary_rows.append(f'''
+    <tr>
+      <td><a href=\"#{page_name}\">{page_title}</a></td>
+      <td class=\"score-cell score-{metrics.get('DESKTOP_PERF', '0')}\">{metrics.get('DESKTOP_PERF', '0')}</td>
+      <td class=\"score-cell score-{metrics.get('MOBILE_PERF', '0')}\">{metrics.get('MOBILE_PERF', '0')}</td>
+      <td class=\"score-cell score-{metrics.get('DESKTOP_A11Y', '0')}\">{metrics.get('DESKTOP_A11Y', '0')}</td>
+      <td class=\"score-cell score-{metrics.get('MOBILE_A11Y', '0')}\">{metrics.get('MOBILE_A11Y', '0')}</td>
+      <td class=\"score-cell score-{metrics.get('DESKTOP_BP', '0')}\">{metrics.get('DESKTOP_BP', '0')}</td>
+      <td class=\"score-cell score-{metrics.get('MOBILE_BP', '0')}\">{metrics.get('MOBILE_BP', '0')}</td>
+      <td class=\"score-cell score-{metrics.get('DESKTOP_SEO', '0')}\">{metrics.get('DESKTOP_SEO', '0')}</td>
+      <td class=\"score-cell score-{metrics.get('MOBILE_SEO', '0')}\">{metrics.get('MOBILE_SEO', '0')}</td>
+    </tr>''')
 
-            # Add row to summary table
-            cat >> "summary_table.html" << EOF
-            <tr>
-              <td><a href="#$page_name">$PAGE_TITLE</a></td>
-              <td class="score-cell score-${DESKTOP_PERF:-0}">${DESKTOP_PERF:-0}</td>
-              <td class="score-cell score-${MOBILE_PERF:-0}">${MOBILE_PERF:-0}</td>
-              <td class="score-cell score-${DESKTOP_A11Y:-0}">${DESKTOP_A11Y:-0}</td>
-              <td class="score-cell score-${MOBILE_A11Y:-0}">${MOBILE_A11Y:-0}</td>
-              <td class="score-cell score-${DESKTOP_BP:-0}">${DESKTOP_BP:-0}</td>
-              <td class="score-cell score-${MOBILE_BP:-0}">${MOBILE_BP:-0}</td>
-              <td class="score-cell score-${DESKTOP_SEO:-0}">${DESKTOP_SEO:-0}</td>
-              <td class="score-cell score-${MOBILE_SEO:-0}">${MOBILE_SEO:-0}</td>
-            </tr>
-EOF
-          fi
-        done
+    # Only show detailed sections for first 2 pages
+    if page_count <= 2:
+        print(f'Adding detailed section for {page_name}')
 
-        # Don't generate an empty dashboard
-        if [ "$FOUND_DATA" = "false" ]; then
-          echo "::warning::No data found for summary table, cannot generate dashboard"
-          exit 0
-        fi
+        # Create detailed page section
+        pages_html += f'''
+        <section class=\"page-section\" id=\"{page_name}\">
+          <h2>{page_title}</h2>
+          <div class=\"metrics-container\">
+            <div class=\"device-metrics\">
+              <h3>Desktop</h3>
+              <div class=\"score-card\">
+                <div class=\"score performance\"><span>{metrics.get('DESKTOP_PERF', '0')}</span>Performance</div>
+                <div class=\"score accessibility\"><span>{metrics.get('DESKTOP_A11Y', '0')}</span>Accessibility</div>
+                <div class=\"score best-practices\"><span>{metrics.get('DESKTOP_BP', '0')}</span>Best Practices</div>
+                <div class=\"score seo\"><span>{metrics.get('DESKTOP_SEO', '0')}</span>SEO</div>
+              </div>
+              <div class=\"vitals-container\">
+                <div class=\"vital\">LCP: <span>{metrics.get('DESKTOP_LCP', '0')}</span>ms</div>
+                <div class=\"vital\">CLS: <span>{metrics.get('DESKTOP_CLS', '0')}</span></div>
+                <div class=\"vital\">TBT: <span>{metrics.get('DESKTOP_TBT', '0')}</span>ms</div>
+              </div>
+              <a href=\"./processed/{page_name}/reports/desktop.html\" class=\"report-link\">View Full Report</a>
+            </div>
+            <div class=\"device-metrics\">
+              <h3>Mobile</h3>
+              <div class=\"score-card\">
+                <div class=\"score performance\"><span>{metrics.get('MOBILE_PERF', '0')}</span>Performance</div>
+                <div class=\"score accessibility\"><span>{metrics.get('MOBILE_A11Y', '0')}</span>Accessibility</div>
+                <div class=\"score best-practices\"><span>{metrics.get('MOBILE_BP', '0')}</span>Best Practices</div>
+                <div class=\"score seo\"><span>{metrics.get('MOBILE_SEO', '0')}</span>SEO</div>
+              </div>
+              <div class=\"vitals-container\">
+                <div class=\"vital\">LCP: <span>{metrics.get('MOBILE_LCP', '0')}</span>ms</div>
+                <div class=\"vital\">CLS: <span>{metrics.get('MOBILE_CLS', '0')}</span></div>
+                <div class=\"vital\">TBT: <span>{metrics.get('MOBILE_TBT', '0')}</span>ms</div>
+              </div>
+              <a href=\"./processed/{page_name}/reports/mobile.html\" class=\"report-link\">View Full Report</a>
+            </div>
+          </div>
+          <div class=\"history-link-container\">
+            <a href=\"./trends.html#{page_name}\" class=\"history-link\">View Historical Trends</a>
+          </div>
+        </section>'''
 
-        # Close the table
-        cat >> "summary_table.html" << EOF
-          </tbody>
-        </table>
-EOF
+# Create summary table
+summary_table = f'''
+<table class=\"summary-table\">
+  <thead>
+    <tr>
+      <th>Page</th>
+      <th colspan=\"2\">Performance</th>
+      <th colspan=\"2\">Accessibility</th>
+      <th colspan=\"2\">Best Practices</th>
+      <th colspan=\"2\">SEO</th>
+    </tr>
+    <tr>
+      <th></th>
+      <th>Desktop</th>
+      <th>Mobile</th>
+      <th>Desktop</th>
+      <th>Mobile</th>
+      <th>Desktop</th>
+      <th>Mobile</th>
+      <th>Desktop</th>
+      <th>Mobile</th>
+    </tr>
+  </thead>
+  <tbody>
+    {''.join(summary_rows)}
+  </tbody>
+</table>'''
 
-        # Generate final dashboard HTML
-        cp "$TEMPLATE_FILE" "$DASHBOARD_DIR/index.html.template"
+# Replace placeholders in template
+dashboard_html = template.replace('{{DATE}}', current_date)
+dashboard_html = dashboard_html.replace('{{SUMMARY_TABLE}}', summary_table)
+dashboard_html = dashboard_html.replace('{{PAGE_SECTIONS}}', pages_html)
 
-        # Replace placeholders one by one
-        sed -i "s|{{DATE}}|$CURRENT_DATE|g" "$DASHBOARD_DIR/index.html.template"
+# Save dashboard file
+os.makedirs(dashboard_dir, exist_ok=True)
+with open(os.path.join(dashboard_dir, 'index.html'), 'w') as f:
+    f.write(dashboard_html)
 
-        # Replace the more complex parts using safer methods
-        awk '{gsub(/{{SUMMARY_TABLE}}/, "TO_BE_REPLACED_SUMMARY")} 1' "$DASHBOARD_DIR/index.html.template" > "$DASHBOARD_DIR/index.html.temp1"
-        awk '{gsub(/{{PAGE_SECTIONS}}/, "TO_BE_REPLACED_SECTIONS")} 1' "$DASHBOARD_DIR/index.html.temp1" > "$DASHBOARD_DIR/index.html.temp2"
+# Copy to other locations
+with open('performance-reports/index.html', 'w') as f:
+    f.write(dashboard_html)
+with open(os.path.join(os.path.dirname(processed_dir), 'index.html'), 'w') as f:
+    f.write(dashboard_html)
 
-        # Now use safer file-based approach to insert the HTML content
-        SUMMARY_CONTENT=$(cat "summary_table.html")
-        sed "s|TO_BE_REPLACED_SUMMARY|$SUMMARY_CONTENT|" "$DASHBOARD_DIR/index.html.temp2" > "$DASHBOARD_DIR/index.html.temp3"
-
-        sed "s|TO_BE_REPLACED_SECTIONS|$PAGES_HTML|" "$DASHBOARD_DIR/index.html.temp3" > "$DASHBOARD_DIR/index.html"
-
-        # Clean up temporary files
-        rm -f "$DASHBOARD_DIR/index.html.temp"* "summary_table.html" "page_section_"*.html
-
-        # Copy to performance-reports and root directory
-        cp "$DASHBOARD_DIR/index.html" "performance-reports/index.html"
-        cp "$DASHBOARD_DIR/index.html" "${{ inputs.output-dir }}/index.html"
-
-        echo "Main dashboard generated successfully"
+print('Main dashboard generated successfully')
+"
 
     - name: Generate trends dashboard
       if: steps.check-data.outputs.has_data == 'true' && inputs.include-history == 'true'
@@ -464,319 +455,198 @@ EOF
           exit 0
         fi
 
-        # Generate charts data
-        CHARTS_DATA=""
-        FOUND_DATA=false
+        # Use Python to generate the trends dashboard, avoiding YAML parsing issues
+        python3 -c "
+import os
+import glob
+import json
 
-        for history_dir in "$HISTORY_DIR"/*; do
-          if [ -d "$history_dir" ]; then
-            page_name=$(basename "$history_dir")
-            HISTORY_FILE="$history_dir/history.json"
+# Setup directories
+template_file = '$TEMPLATE_FILE'
+history_dir = '$HISTORY_DIR'
+dashboard_dir = '$DASHBOARD_DIR'
 
-            if [ -f "$HISTORY_FILE" ] && [ "$(jq 'length' "$HISTORY_FILE")" != "0" ]; then
-              FOUND_DATA=true
-              # Generate JSON data for charts
-              echo "Generating chart data for $page_name"
+# Read template
+with open(template_file, 'r') as f:
+    template = f.read()
 
-              # Create desktop data
-              DESKTOP_DATA=$(jq '[.[] | select(.device == "desktop") | {date: .date, performance: (.performance * 100 | round), accessibility: (.accessibility * 100 | round), "best-practices": (.["best-practices"] * 100 | round), seo: (.seo * 100 | round), lcp: .lcp, cls: .cls, tbt: .tbt}] | sort_by(.date)' "$HISTORY_FILE")
+# Process history data
+charts_data = ''
+found_data = False
 
-              # Create mobile data
-              MOBILE_DATA=$(jq '[.[] | select(.device == "mobile") | {date: .date, performance: (.performance * 100 | round), accessibility: (.accessibility * 100 | round), "best-practices": (.["best-practices"] * 100 | round), seo: (.seo * 100 | round), lcp: .lcp, cls: .cls, tbt: .tbt}] | sort_by(.date)' "$HISTORY_FILE")
+history_dirs = glob.glob(os.path.join(history_dir, '*'))
+for page_dir in history_dirs:
+    if not os.path.isdir(page_dir):
+        continue
 
-              # Only add charts if we have data
-              if [ "$(echo "$DESKTOP_DATA" | jq 'length')" != "0" ] || [ "$(echo "$MOBILE_DATA" | jq 'length')" != "0" ]; then
-                # Add chart data to a temp file
-                CHART_FILE="chart_data_$page_name.html"
-                PAGE_TITLE=$(echo "$page_name" | tr '-' ' ' | sed 's/\b\(.\)/\u\1/g')
+    page_name = os.path.basename(page_dir)
+    history_file = os.path.join(page_dir, 'history.json')
 
-                cat > "$CHART_FILE" << EOF
-                <section id="$page_name" class="page-trends">
-                  <h2>$PAGE_TITLE - Performance Trends</h2>
-                  <div class="chart-container">
-                    <div class="chart-tabs">
-                      <button class="tab-button active" onclick="switchTab(this, '$page_name-desktop')">Desktop</button>
-                      <button class="tab-button" onclick="switchTab(this, '$page_name-mobile')">Mobile</button>
-                    </div>
-                    <div id="$page_name-desktop" class="tab-content active">
-                      <div class="chart-wrapper">
-                        <canvas id="$page_name-desktop-scores"></canvas>
-                      </div>
-                      <div class="chart-wrapper">
-                        <canvas id="$page_name-desktop-vitals"></canvas>
-                      </div>
-                      <script>
-                        // Desktop scores chart
-                        new Chart(document.getElementById('$page_name-desktop-scores').getContext('2d'), {
-                          type: 'line',
-                          data: {
-                            datasets: [
-                              {
-                                label: 'Performance',
-                                data: $DESKTOP_DATA.map(item => ({x: item.date, y: item.performance})),
-                                borderColor: '#0cce6b',
-                                backgroundColor: 'rgba(12, 206, 107, 0.1)',
-                                tension: 0.4
-                              },
-                              {
-                                label: 'Accessibility',
-                                data: $DESKTOP_DATA.map(item => ({x: item.date, y: item.accessibility})),
-                                borderColor: '#0ea5e9',
-                                backgroundColor: 'rgba(14, 165, 233, 0.1)',
-                                tension: 0.4
-                              },
-                              {
-                                label: 'Best Practices',
-                                data: $DESKTOP_DATA.map(item => ({x: item.date, y: item['best-practices']})),
-                                borderColor: '#7c3aed',
-                                backgroundColor: 'rgba(124, 58, 237, 0.1)',
-                                tension: 0.4
-                              },
-                              {
-                                label: 'SEO',
-                                data: $DESKTOP_DATA.map(item => ({x: item.date, y: item.seo})),
-                                borderColor: '#f59e0b',
-                                backgroundColor: 'rgba(245, 158, 11, 0.1)',
-                                tension: 0.4
-                              }
-                            ]
-                          },
-                          options: {
-                            scales: {
-                              y: {
-                                min: 0,
-                                max: 100,
-                                title: {
-                                  display: true,
-                                  text: 'Score'
-                                }
-                              }
-                            },
-                            plugins: {
-                              title: {
-                                display: true,
-                                text: 'Lighthouse Scores - Desktop'
-                              }
-                            }
-                          }
-                        });
+    if not os.path.exists(history_file):
+        continue
 
-                        // Desktop vitals chart
-                        new Chart(document.getElementById('$page_name-desktop-vitals').getContext('2d'), {
-                          type: 'line',
-                          data: {
-                            datasets: [
-                              {
-                                label: 'LCP (ms)',
-                                data: $DESKTOP_DATA.map(item => ({x: item.date, y: Math.round(item.lcp)})),
-                                borderColor: '#ef4444',
-                                backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                                tension: 0.4,
-                                yAxisID: 'y'
-                              },
-                              {
-                                label: 'TBT (ms)',
-                                data: $DESKTOP_DATA.map(item => ({x: item.date, y: Math.round(item.tbt)})),
-                                borderColor: '#f59e0b',
-                                backgroundColor: 'rgba(245, 158, 11, 0.1)',
-                                tension: 0.4,
-                                yAxisID: 'y'
-                              },
-                              {
-                                label: 'CLS',
-                                data: $DESKTOP_DATA.map(item => ({x: item.date, y: item.cls})),
-                                borderColor: '#0ea5e9',
-                                backgroundColor: 'rgba(14, 165, 233, 0.1)',
-                                tension: 0.4,
-                                yAxisID: 'y1'
-                              }
-                            ]
-                          },
-                          options: {
-                            scales: {
-                              y: {
-                                title: {
-                                  display: true,
-                                  text: 'Time (ms)'
-                                },
-                                position: 'left'
-                              },
-                              y1: {
-                                position: 'right',
-                                title: {
-                                  display: true,
-                                  text: 'CLS Score'
-                                },
-                                grid: {
-                                  drawOnChartArea: false
-                                }
-                              }
-                            },
-                            plugins: {
-                              title: {
-                                display: true,
-                                text: 'Core Web Vitals - Desktop'
-                              }
-                            }
-                          }
-                        });
-                      </script>
-                    </div>
-                    <div id="$page_name-mobile" class="tab-content">
-                      <div class="chart-wrapper">
-                        <canvas id="$page_name-mobile-scores"></canvas>
-                      </div>
-                      <div class="chart-wrapper">
-                        <canvas id="$page_name-mobile-vitals"></canvas>
-                      </div>
-                      <script>
-                        // Mobile scores chart
-                        new Chart(document.getElementById('$page_name-mobile-scores').getContext('2d'), {
-                          type: 'line',
-                          data: {
-                            datasets: [
-                              {
-                                label: 'Performance',
-                                data: $MOBILE_DATA.map(item => ({x: item.date, y: item.performance})),
-                                borderColor: '#0cce6b',
-                                backgroundColor: 'rgba(12, 206, 107, 0.1)',
-                                tension: 0.4
-                              },
-                              {
-                                label: 'Accessibility',
-                                data: $MOBILE_DATA.map(item => ({x: item.date, y: item.accessibility})),
-                                borderColor: '#0ea5e9',
-                                backgroundColor: 'rgba(14, 165, 233, 0.1)',
-                                tension: 0.4
-                              },
-                              {
-                                label: 'Best Practices',
-                                data: $MOBILE_DATA.map(item => ({x: item.date, y: item['best-practices']})),
-                                borderColor: '#7c3aed',
-                                backgroundColor: 'rgba(124, 58, 237, 0.1)',
-                                tension: 0.4
-                              },
-                              {
-                                label: 'SEO',
-                                data: $MOBILE_DATA.map(item => ({x: item.date, y: item.seo})),
-                                borderColor: '#f59e0b',
-                                backgroundColor: 'rgba(245, 158, 11, 0.1)',
-                                tension: 0.4
-                              }
-                            ]
-                          },
-                          options: {
-                            scales: {
-                              y: {
-                                min: 0,
-                                max: 100,
-                                title: {
-                                  display: true,
-                                  text: 'Score'
-                                }
-                              }
-                            },
-                            plugins: {
-                              title: {
-                                display: true,
-                                text: 'Lighthouse Scores - Mobile'
-                              }
-                            }
-                          }
-                        });
+    # Read history data
+    with open(history_file, 'r') as f:
+        try:
+            history_data = json.load(f)
+        except json.JSONDecodeError:
+            print(f'Warning: Invalid JSON in {history_file}')
+            continue
 
-                        // Mobile vitals chart
-                        new Chart(document.getElementById('$page_name-mobile-vitals').getContext('2d'), {
-                          type: 'line',
-                          data: {
-                            datasets: [
-                              {
-                                label: 'LCP (ms)',
-                                data: $MOBILE_DATA.map(item => ({x: item.date, y: Math.round(item.lcp)})),
-                                borderColor: '#ef4444',
-                                backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                                tension: 0.4,
-                                yAxisID: 'y'
-                              },
-                              {
-                                label: 'TBT (ms)',
-                                data: $MOBILE_DATA.map(item => ({x: item.date, y: Math.round(item.tbt)})),
-                                borderColor: '#f59e0b',
-                                backgroundColor: 'rgba(245, 158, 11, 0.1)',
-                                tension: 0.4,
-                                yAxisID: 'y'
-                              },
-                              {
-                                label: 'CLS',
-                                data: $MOBILE_DATA.map(item => ({x: item.date, y: item.cls})),
-                                borderColor: '#0ea5e9',
-                                backgroundColor: 'rgba(14, 165, 233, 0.1)',
-                                tension: 0.4,
-                                yAxisID: 'y1'
-                              }
-                            ]
-                          },
-                          options: {
-                            scales: {
-                              y: {
-                                title: {
-                                  display: true,
-                                  text: 'Time (ms)'
-                                },
-                                position: 'left'
-                              },
-                              y1: {
-                                position: 'right',
-                                title: {
-                                  display: true,
-                                  text: 'CLS Score'
-                                },
-                                grid: {
-                                  drawOnChartArea: false
-                                }
-                              }
-                            },
-                            plugins: {
-                              title: {
-                                display: true,
-                                text: 'Core Web Vitals - Mobile'
-                              }
-                            }
-                          }
-                        });
-                      </script>
-                    </div>
-                  </div>
-                </section>
-EOF
+    if not history_data:
+        continue
 
-                # Append chart content
-                CHARTS_DATA="$CHARTS_DATA$(cat "$CHART_FILE")"
-              fi
-            fi
-          fi
-        done
+    found_data = True
+    print(f'Generating chart data for {page_name}')
 
-        # Don't generate an empty trends dashboard
-        if [ "$FOUND_DATA" = "false" ]; then
-          echo "::warning::No valid historical data found, skipping trends dashboard generation"
-          exit 0
-        fi
+    # Filter desktop and mobile data
+    desktop_data = [item for item in history_data if item.get('device') == 'desktop']
+    mobile_data = [item for item in history_data if item.get('device') == 'mobile']
 
-        # Generate trends HTML safely using file-based approach
-        cp "$TEMPLATE_FILE" "$DASHBOARD_DIR/trends.html.template"
+    # Only generate charts if we have data
+    if desktop_data or mobile_data:
+        # Format data for charts
+        desktop_data_str = json.dumps(desktop_data)
+        mobile_data_str = json.dumps(mobile_data)
 
-        # Replace placeholders
-        sed "s|{{CHARTS_DATA}}|TO_BE_REPLACED_CHARTS|g" "$DASHBOARD_DIR/trends.html.template" > "$DASHBOARD_DIR/trends.html.temp"
+        # Create page title
+        page_title = ' '.join(word.capitalize() for word in page_name.replace('-', ' ').split())
 
-        # Insert chart data
-        sed "s|TO_BE_REPLACED_CHARTS|$CHARTS_DATA|" "$DASHBOARD_DIR/trends.html.temp" > "$DASHBOARD_DIR/trends.html"
+        # Generate chart HTML
+        page_html = f'''
+        <section id=\"{page_name}\" class=\"page-trends\">
+          <h2>{page_title} - Performance Trends</h2>
+          <div class=\"chart-container\">
+            <div class=\"chart-tabs\">
+              <button class=\"tab-button active\" onclick=\"switchTab(this, '{page_name}-desktop')\">Desktop</button>
+              <button class=\"tab-button\" onclick=\"switchTab(this, '{page_name}-mobile')\">Mobile</button>
+            </div>
+            <div id=\"{page_name}-desktop\" class=\"tab-content active\">
+              <div class=\"chart-wrapper\">
+                <canvas id=\"{page_name}-desktop-scores\"></canvas>
+              </div>
+              <div id=\"{page_name}-desktop-charts\"></div>
+            </div>
+            <div id=\"{page_name}-mobile\" class=\"tab-content\">
+              <div class=\"chart-wrapper\">
+                <canvas id=\"{page_name}-mobile-scores\"></canvas>
+              </div>
+              <div id=\"{page_name}-mobile-charts\"></div>
+            </div>
+          </div>
+        </section>
+        <script>
+        // Initialize desktop chart
+        if (document.getElementById('{page_name}-desktop-scores')) {{
+          const desktopData = {desktop_data_str};
+          const desktopCtx = document.getElementById('{page_name}-desktop-scores').getContext('2d');
+          new Chart(desktopCtx, {{
+            type: 'line',
+            data: {{
+              datasets: [
+                {{
+                  label: 'Performance',
+                  data: desktopData.map(item => ({{x: item.date, y: Math.round(item.performance * 100)}})),
+                  borderColor: '#0cce6b',
+                  backgroundColor: 'rgba(12, 206, 107, 0.1)',
+                  tension: 0.4
+                }},
+                {{
+                  label: 'Accessibility',
+                  data: desktopData.map(item => ({{x: item.date, y: Math.round(item.accessibility * 100)}})),
+                  borderColor: '#0ea5e9',
+                  backgroundColor: 'rgba(14, 165, 233, 0.1)',
+                  tension: 0.4
+                }}
+              ]
+            }},
+            options: {{
+              scales: {{
+                y: {{
+                  min: 0,
+                  max: 100,
+                  title: {{
+                    display: true,
+                    text: 'Score'
+                  }}
+                }}
+              }},
+              plugins: {{
+                title: {{
+                  display: true,
+                  text: 'Lighthouse Scores - Desktop'
+                }}
+              }}
+            }}
+          }});
+        }}
 
-        # Clean up temporary files
-        rm -f "$DASHBOARD_DIR/trends.html.temp" "$DASHBOARD_DIR/trends.html.template" "chart_data_"*.html
+        // Initialize mobile chart
+        if (document.getElementById('{page_name}-mobile-scores')) {{
+          const mobileData = {mobile_data_str};
+          const mobileCtx = document.getElementById('{page_name}-mobile-scores').getContext('2d');
+          new Chart(mobileCtx, {{
+            type: 'line',
+            data: {{
+              datasets: [
+                {{
+                  label: 'Performance',
+                  data: mobileData.map(item => ({{x: item.date, y: Math.round(item.performance * 100)}})),
+                  borderColor: '#0cce6b',
+                  backgroundColor: 'rgba(12, 206, 107, 0.1)',
+                  tension: 0.4
+                }},
+                {{
+                  label: 'Accessibility',
+                  data: mobileData.map(item => ({{x: item.date, y: Math.round(item.accessibility * 100)}})),
+                  borderColor: '#0ea5e9',
+                  backgroundColor: 'rgba(14, 165, 233, 0.1)',
+                  tension: 0.4
+                }}
+              ]
+            }},
+            options: {{
+              scales: {{
+                y: {{
+                  min: 0,
+                  max: 100,
+                  title: {{
+                    display: true,
+                    text: 'Score'
+                  }}
+                }}
+              }},
+              plugins: {{
+                title: {{
+                  display: true,
+                  text: 'Lighthouse Scores - Mobile'
+                }}
+              }}
+            }}
+          }});
+        }}
+        </script>'''
 
-        # Copy to performance-reports and root directory
-        cp "$DASHBOARD_DIR/trends.html" "performance-reports/trends.html"
-        cp "$DASHBOARD_DIR/trends.html" "${{ inputs.output-dir }}/trends.html"
+        charts_data += page_html
 
-        echo "Trends dashboard generated successfully"
+# Skip if no data found
+if not found_data:
+    print('No valid historical data found, skipping trends dashboard generation')
+    exit(0)
+
+# Replace placeholder in template
+trends_html = template.replace('{{CHARTS_DATA}}', charts_data)
+
+# Save trends file
+os.makedirs(dashboard_dir, exist_ok=True)
+with open(os.path.join(dashboard_dir, 'trends.html'), 'w') as f:
+    f.write(trends_html)
+
+# Copy to other locations
+with open('performance-reports/trends.html', 'w') as f:
+    f.write(trends_html)
+with open(os.path.join(os.path.dirname(history_dir), 'trends.html'), 'w') as f:
+    f.write(trends_html)
+
+print('Trends dashboard generated successfully')
+"
