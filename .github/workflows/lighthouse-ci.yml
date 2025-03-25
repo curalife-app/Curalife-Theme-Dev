@@ -5,6 +5,9 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  schedule:
+    # Run weekly on Monday at 3:00 AM
+    - cron: "0 3 * * 1"
 
 # Allow cancellation of previous runs in the same PR/branch
 concurrency:
@@ -15,70 +18,257 @@ jobs:
   lighthouse-ci:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    strategy:
+      matrix:
+        page:
+          - name: homepage
+            url: https://curalife.com/
+          - name: collection
+            url: https://curalife.com/collections/all
+          - name: product
+            url: https://curalife.com/products/glucose-support
+      fail-fast: false
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Install system dependencies
-        run: sudo apt-get update && sudo apt-get install -y jq
+        with:
+          fetch-depth: 1
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "18"
+          cache: "npm"
 
-      - name: Install Lighthouse CI
-        run: npm install -g @lhci/cli puppeteer
-
-      - name: Run Lighthouse CI against production site
+      - name: Install dependencies
         run: |
-          echo "Running Lighthouse CI against production site..."
-          npx lhci autorun --collect.url=https://curalife.com/ --collect.numberOfRuns=1
+          npm install -g @lhci/cli puppeteer lighthouse
+
+      - name: Set Chrome flags
+        run: |
+          echo "CHROME_FLAGS=--no-sandbox --disable-dev-shm-usage --disable-gpu --headless" >> $GITHUB_ENV
+
+      - name: Setup results directory
+        id: results-dir
+        run: |
+          RESULTS_DIR="${{ matrix.page.name }}-lighthouse-results"
+          echo "results_dir=$RESULTS_DIR" >> $GITHUB_OUTPUT
+          mkdir -p $RESULTS_DIR
+
+      - name: Run Lighthouse CI
+        id: lighthouse
+        run: |
+          echo "Running Lighthouse on ${{ matrix.page.url }}..."
+          npx lhci autorun \
+            --collect.url=${{ matrix.page.url }} \
+            --collect.numberOfRuns=3 \
+            --collect.settings.preset=desktop \
+            --collect.settings.chromeFlags="$CHROME_FLAGS" \
+            --collect.settings.formFactor=desktop \
+            --collect.settings.throttling.cpuSlowdownMultiplier=2 \
+            --upload.target=filesystem \
+            --upload.outputDir=./${{ steps.results-dir.outputs.results_dir }}
+
+          # Also run mobile test
+          npx lhci autorun \
+            --collect.url=${{ matrix.page.url }} \
+            --collect.numberOfRuns=1 \
+            --collect.settings.preset=mobile \
+            --collect.settings.chromeFlags="$CHROME_FLAGS" \
+            --collect.settings.formFactor=mobile \
+            --upload.target=filesystem \
+            --upload.outputDir=./${{ steps.results-dir.outputs.results_dir }}/mobile
         continue-on-error: true
 
-      - name: Check for Lighthouse results
-        id: check-reports
+      - name: Install jq for results processing
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Process Lighthouse results
+        id: scores
         run: |
-          if ls .lighthouseci/lhr-*.json &> /dev/null; then
-            echo "reports_exist=true" >> $GITHUB_OUTPUT
+          if [ -d "${{ steps.results-dir.outputs.results_dir }}" ]; then
+            DESKTOP_REPORT=$(find ${{ steps.results-dir.outputs.results_dir }} -name "lhr-*.json" -not -path "*/mobile/*" | sort | tail -n 1)
+            MOBILE_REPORT=$(find ${{ steps.results-dir.outputs.results_dir }}/mobile -name "lhr-*.json" | sort | tail -n 1)
+
+            if [ -f "$DESKTOP_REPORT" ]; then
+              DESKTOP_PERF=$(jq '.categories.performance.score * 100' $DESKTOP_REPORT)
+              DESKTOP_ACC=$(jq '.categories.accessibility.score * 100' $DESKTOP_REPORT)
+              DESKTOP_BP=$(jq '.categories["best-practices"].score * 100' $DESKTOP_REPORT)
+              DESKTOP_SEO=$(jq '.categories.seo.score * 100' $DESKTOP_REPORT)
+              DESKTOP_LCP=$(jq '.audits["largest-contentful-paint"].numericValue' $DESKTOP_REPORT)
+              DESKTOP_FID=$(jq '.audits["max-potential-fid"].numericValue' $DESKTOP_REPORT)
+              DESKTOP_CLS=$(jq '.audits["cumulative-layout-shift"].numericValue' $DESKTOP_REPORT)
+
+              echo "desktop_perf=${DESKTOP_PERF%.*}" >> $GITHUB_OUTPUT
+              echo "desktop_a11y=${DESKTOP_ACC%.*}" >> $GITHUB_OUTPUT
+              echo "desktop_bp=${DESKTOP_BP%.*}" >> $GITHUB_OUTPUT
+              echo "desktop_seo=${DESKTOP_SEO%.*}" >> $GITHUB_OUTPUT
+              echo "desktop_lcp=${DESKTOP_LCP%.*}" >> $GITHUB_OUTPUT
+              echo "desktop_fid=${DESKTOP_FID%.*}" >> $GITHUB_OUTPUT
+              echo "desktop_cls=${DESKTOP_CLS}" >> $GITHUB_OUTPUT
+            fi
+
+            if [ -f "$MOBILE_REPORT" ]; then
+              MOBILE_PERF=$(jq '.categories.performance.score * 100' $MOBILE_REPORT)
+              MOBILE_ACC=$(jq '.categories.accessibility.score * 100' $MOBILE_REPORT)
+              MOBILE_BP=$(jq '.categories["best-practices"].score * 100' $MOBILE_REPORT)
+              MOBILE_SEO=$(jq '.categories.seo.score * 100' $MOBILE_REPORT)
+              MOBILE_LCP=$(jq '.audits["largest-contentful-paint"].numericValue' $MOBILE_REPORT)
+              MOBILE_FID=$(jq '.audits["max-potential-fid"].numericValue' $MOBILE_REPORT)
+              MOBILE_CLS=$(jq '.audits["cumulative-layout-shift"].numericValue' $MOBILE_REPORT)
+
+              echo "mobile_perf=${MOBILE_PERF%.*}" >> $GITHUB_OUTPUT
+              echo "mobile_a11y=${MOBILE_ACC%.*}" >> $GITHUB_OUTPUT
+              echo "mobile_bp=${MOBILE_BP%.*}" >> $GITHUB_OUTPUT
+              echo "mobile_seo=${MOBILE_SEO%.*}" >> $GITHUB_OUTPUT
+              echo "mobile_lcp=${MOBILE_LCP%.*}" >> $GITHUB_OUTPUT
+              echo "mobile_fid=${MOBILE_FID%.*}" >> $GITHUB_OUTPUT
+              echo "mobile_cls=${MOBILE_CLS}" >> $GITHUB_OUTPUT
+            fi
+
+            echo "has_results=true" >> $GITHUB_OUTPUT
           else
-            echo "reports_exist=false" >> $GITHUB_OUTPUT
+            echo "has_results=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Upload Lighthouse CI results
-        if: steps.check-reports.outputs.reports_exist == 'true'
+      - name: Upload Lighthouse results
+        if: steps.scores.outputs.has_results == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: lighthouse-results
-          path: .lighthouseci/
-          retention-days: 7
+          name: ${{ matrix.page.name }}-lighthouse-results
+          path: ${{ steps.results-dir.outputs.results_dir }}
+          retention-days: 30
 
-      - name: Format lighthouse results
+      - name: Format Lighthouse results
+        if: steps.scores.outputs.has_results == 'true'
         run: |
-          echo "## 🚦 Lighthouse Performance Results" >> $GITHUB_STEP_SUMMARY
+          echo "## 🚦 Lighthouse Results for ${{ matrix.page.name }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          # Check if any reports were generated
-          if ls .lighthouseci/lhr-*.json &> /dev/null; then
-            LATEST_REPORT=$(ls -t .lighthouseci/lhr-*.json | head -n 1)
+          function get_emoji() {
+            local score=$1
+            if (( $(echo "$score >= 90" | bc -l) )); then
+              echo "🟢"
+            elif (( $(echo "$score >= 75" | bc -l) )); then
+              echo "🟠"
+            else
+              echo "🔴"
+            fi
+          }
 
-            # Extract scores
-            PERFORMANCE=$(jq '.categories.performance.score * 100' $LATEST_REPORT)
-            ACCESSIBILITY=$(jq '.categories.accessibility.score * 100' $LATEST_REPORT)
-            BEST_PRACTICES=$(jq '.categories["best-practices"].score * 100' $LATEST_REPORT)
-            SEO=$(jq '.categories.seo.score * 100' $LATEST_REPORT)
-
-            # Output scores to summary
-            echo "| Metric | Score |" >> $GITHUB_STEP_SUMMARY
-            echo "| ------ | ----- |" >> $GITHUB_STEP_SUMMARY
-            echo "| ⚡ Performance | ${PERFORMANCE%.*}% |" >> $GITHUB_STEP_SUMMARY
-            echo "| ♿ Accessibility | ${ACCESSIBILITY%.*}% |" >> $GITHUB_STEP_SUMMARY
-            echo "| 👍 Best Practices | ${BEST_PRACTICES%.*}% |" >> $GITHUB_STEP_SUMMARY
-            echo "| 🔍 SEO | ${SEO%.*}% |" >> $GITHUB_STEP_SUMMARY
-
+          # Desktop results
+          if [ -n "${{ steps.scores.outputs.desktop_perf }}" ]; then
+            echo "### 💻 Desktop" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "See attached artifacts for detailed reports." >> $GITHUB_STEP_SUMMARY
-          else
-            echo "⚠️ No Lighthouse reports were generated. Check previous steps for errors." >> $GITHUB_STEP_SUMMARY
+            echo "| Metric | Score | Core Web Vitals |" >> $GITHUB_STEP_SUMMARY
+            echo "| ------ | ----- | --------------- |" >> $GITHUB_STEP_SUMMARY
+
+            PERF_EMOJI=$(get_emoji ${{ steps.scores.outputs.desktop_perf }})
+            A11Y_EMOJI=$(get_emoji ${{ steps.scores.outputs.desktop_a11y }})
+            BP_EMOJI=$(get_emoji ${{ steps.scores.outputs.desktop_bp }})
+            SEO_EMOJI=$(get_emoji ${{ steps.scores.outputs.desktop_seo }})
+
+            LCP_MS=$(echo "${{ steps.scores.outputs.desktop_lcp }} / 1" | bc)
+            FID_MS=$(echo "${{ steps.scores.outputs.desktop_fid }} / 1" | bc)
+            CLS="${{ steps.scores.outputs.desktop_cls }}"
+
+            # LCP status
+            if (( $(echo "$LCP_MS < 2500" | bc -l) )); then
+              LCP_STATUS="🟢"
+            elif (( $(echo "$LCP_MS < 4000" | bc -l) )); then
+              LCP_STATUS="🟠"
+            else
+              LCP_STATUS="🔴"
+            fi
+
+            # FID status
+            if (( $(echo "$FID_MS < 100" | bc -l) )); then
+              FID_STATUS="🟢"
+            elif (( $(echo "$FID_MS < 300" | bc -l) )); then
+              FID_STATUS="🟠"
+            else
+              FID_STATUS="🔴"
+            fi
+
+            # CLS status
+            if (( $(echo "$CLS < 0.1" | bc -l) )); then
+              CLS_STATUS="🟢"
+            elif (( $(echo "$CLS < 0.25" | bc -l) )); then
+              CLS_STATUS="🟠"
+            else
+              CLS_STATUS="🔴"
+            fi
+
+            echo "| ${PERF_EMOJI} Performance | ${{ steps.scores.outputs.desktop_perf }}% | LCP: ${LCP_MS}ms ${LCP_STATUS} |" >> $GITHUB_STEP_SUMMARY
+            echo "| ${A11Y_EMOJI} Accessibility | ${{ steps.scores.outputs.desktop_a11y }}% | FID: ${FID_MS}ms ${FID_STATUS} |" >> $GITHUB_STEP_SUMMARY
+            echo "| ${BP_EMOJI} Best Practices | ${{ steps.scores.outputs.desktop_bp }}% | CLS: ${CLS} ${CLS_STATUS} |" >> $GITHUB_STEP_SUMMARY
+            echo "| ${SEO_EMOJI} SEO | ${{ steps.scores.outputs.desktop_seo }}% | |" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
           fi
+
+          # Mobile results
+          if [ -n "${{ steps.scores.outputs.mobile_perf }}" ]; then
+            echo "### 📱 Mobile" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "| Metric | Score | Core Web Vitals |" >> $GITHUB_STEP_SUMMARY
+            echo "| ------ | ----- | --------------- |" >> $GITHUB_STEP_SUMMARY
+
+            PERF_EMOJI=$(get_emoji ${{ steps.scores.outputs.mobile_perf }})
+            A11Y_EMOJI=$(get_emoji ${{ steps.scores.outputs.mobile_a11y }})
+            BP_EMOJI=$(get_emoji ${{ steps.scores.outputs.mobile_bp }})
+            SEO_EMOJI=$(get_emoji ${{ steps.scores.outputs.mobile_seo }})
+
+            LCP_MS=$(echo "${{ steps.scores.outputs.mobile_lcp }} / 1" | bc)
+            FID_MS=$(echo "${{ steps.scores.outputs.mobile_fid }} / 1" | bc)
+            CLS="${{ steps.scores.outputs.mobile_cls }}"
+
+            # LCP status
+            if (( $(echo "$LCP_MS < 2500" | bc -l) )); then
+              LCP_STATUS="🟢"
+            elif (( $(echo "$LCP_MS < 4000" | bc -l) )); then
+              LCP_STATUS="🟠"
+            else
+              LCP_STATUS="🔴"
+            fi
+
+            # FID status
+            if (( $(echo "$FID_MS < 100" | bc -l) )); then
+              FID_STATUS="🟢"
+            elif (( $(echo "$FID_MS < 300" | bc -l) )); then
+              FID_STATUS="🟠"
+            else
+              FID_STATUS="🔴"
+            fi
+
+            # CLS status
+            if (( $(echo "$CLS < 0.1" | bc -l) )); then
+              CLS_STATUS="🟢"
+            elif (( $(echo "$CLS < 0.25" | bc -l) )); then
+              CLS_STATUS="🟠"
+            else
+              CLS_STATUS="🔴"
+            fi
+
+            echo "| ${PERF_EMOJI} Performance | ${{ steps.scores.outputs.mobile_perf }}% | LCP: ${LCP_MS}ms ${LCP_STATUS} |" >> $GITHUB_STEP_SUMMARY
+            echo "| ${A11Y_EMOJI} Accessibility | ${{ steps.scores.outputs.mobile_a11y }}% | FID: ${FID_MS}ms ${FID_STATUS} |" >> $GITHUB_STEP_SUMMARY
+            echo "| ${BP_EMOJI} Best Practices | ${{ steps.scores.outputs.mobile_bp }}% | CLS: ${CLS} ${CLS_STATUS} |" >> $GITHUB_STEP_SUMMARY
+            echo "| ${SEO_EMOJI} SEO | ${{ steps.scores.outputs.mobile_seo }}% | |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "See attached artifacts for detailed reports." >> $GITHUB_STEP_SUMMARY
+
+  # Job to compile and post summary report from all page results
+  summary:
+    needs: lighthouse-ci
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Create Summary Report
+        run: |
+          echo "# 📊 Lighthouse CI Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Lighthouse performance tests completed for all pages." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "View individual page reports in the workflow artifacts." >> $GITHUB_STEP_SUMMARY
