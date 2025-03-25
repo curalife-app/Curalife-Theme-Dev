@@ -504,9 +504,15 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      contents: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      # Create directory
+      - name: Create performance-reports directory
+        run: mkdir -p performance-reports
 
       # Download the performance reports
       - name: Download performance reports
@@ -515,49 +521,27 @@ jobs:
           name: lighthouse-complete-report
           path: performance-reports
 
-      # Verify downloaded files
-      - name: Verify downloaded files
+      # Check if download was successful and create a fallback if not
+      - name: Check download and create fallback if needed
         run: |
           echo "Checking contents of performance-reports directory:"
           ls -la performance-reports || echo "Directory is empty"
-          echo "Checking for index.html:"
-          ls -la performance-reports/index.html || echo "index.html not found"
-          echo "Checking for trends.html:"
-          ls -la performance-reports/trends.html || echo "trends.html not found"
 
-      # Setup GitHub Pages
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
-        with:
-          enablement: true
-
-      # Create a minimal index.html if it doesn't exist
-      - name: Ensure index.html exists
-        run: |
+          # Create fallback index.html if it doesn't exist
           if [ ! -f "performance-reports/index.html" ]; then
-            echo "Creating minimal index.html..."
-            mkdir -p performance-reports
-            echo '<!DOCTYPE html><html><head><title>Lighthouse Dashboard</title><style>body{font-family:Arial,sans-serif;margin:40px}.container{max-width:800px;margin:0 auto}h1{color:#333}.error{color:#d32f2f}</style></head><body><div class="container"><h1>Lighthouse Dashboard</h1><p class="error">No valid reports were found or an error occurred during dashboard generation.</p><p>Please check the workflow logs for more details.</p></div></body></html>' > performance-reports/index.html
+            echo "Creating fallback index.html file..."
+            echo '<!DOCTYPE html><html><head><title>Lighthouse Dashboard</title><style>body{font-family:Arial,sans-serif;line-height:1.6;color:#333;max-width:800px;margin:0 auto;padding:20px}h1{color:#2c3e50;border-bottom:2px solid #eee;padding-bottom:10px}.status{background:#f8f9fa;border-left:4px solid #4caf50;padding:15px;margin:20px 0}.error{border-left-color:#f44336}</style></head><body><h1>Lighthouse Performance Dashboard</h1><div class="status error"><h2>No Reports Available</h2><p>No performance reports were found from the latest run.</p><p>Please check the workflow logs for more details or try running the workflow again.</p></div><div class="status"><h2>About This Dashboard</h2><p>This dashboard displays Lighthouse performance metrics for key pages.</p><p>The workflow runs twice daily to track performance over time.</p></div></body></html>' > performance-reports/index.html
+            echo "Created fallback index.html"
           fi
 
-      # Upload pages artifact
-      - name: Upload pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: performance-reports
-          retention-days: 1
+          echo "Contents of performance-reports directory:"
+          find performance-reports -type f | sort || echo "No files found"
 
-      # Verify uploaded artifact
-      - name: Verify uploaded artifact
-        run: |
-          echo "Verifying uploaded artifact..."
-          if [ ! -f "performance-reports/index.html" ]; then
-            echo "Error: index.html not found in performance-reports directory"
-            exit 1
-          fi
-          echo "Artifact verification successful"
-
-      # Deploy to GitHub Pages
+      # Use a different approach for deployment that doesn't rely on the artifact
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v3
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ github.token }}
+          publish_dir: ./performance-reports
+          force_orphan: true
