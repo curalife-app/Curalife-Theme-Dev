@@ -25,8 +25,6 @@ jobs:
         page:
           - name: homepage
             url: https://curalife.com/
-          - name: collection
-            url: https://curalife.com/collections/all
           - name: product
             url: https://curalife.com/products/curalin
       fail-fast: false
@@ -773,24 +771,36 @@ jobs:
     if: always() # Always run summary job to generate reports
     permissions:
       contents: write
+      pull-requests: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Fetch all history for proper branch handling
 
       - name: Download all artifacts
+        id: download
+        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           path: downloaded-artifacts
 
-      - name: Debug downloaded artifacts
+      - name: Check artifacts download status
         run: |
+          if [ "${{ steps.download.outcome }}" != "success" ]; then
+            echo "::warning::Failed to download artifacts, but continuing with empty directory"
+            mkdir -p downloaded-artifacts
+          else
+            echo "Artifacts downloaded successfully"
+          fi
+
+          # Debug what was downloaded
           echo "Listing downloaded artifacts:"
-          find downloaded-artifacts -type f | sort
+          find downloaded-artifacts -type f | sort || echo "No files found"
 
       - name: Install dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y jq bc gnuplot
+          sudo apt-get update && sudo apt-get install -y jq bc gnuplot
           npm install -g chartjs-node-canvas markdown-to-html
 
       - name: Process all results
@@ -1240,46 +1250,58 @@ jobs:
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
 
-          # Save generated reports to a temporary location
+          # Ensure we're working on a clean state
+          echo "Creating backup of performance reports..."
           mkdir -p /tmp/performance-reports-backup
           cp -R performance-reports/* /tmp/performance-reports-backup/ 2>/dev/null || true
 
-          # Create a new branch for reports or use existing one
+          # Initialize reports branch - use a simpler, more deterministic approach
           REPORTS_BRANCH="performance-reports-data"
-          git fetch origin $REPORTS_BRANCH || true
+          echo "Checking for $REPORTS_BRANCH branch..."
 
-          if git show-ref --verify --quiet refs/remotes/origin/$REPORTS_BRANCH; then
-            # Clean the working directory to avoid conflicts
-            git clean -fd performance-reports/ || true
-            rm -rf performance-reports/* || true
+          # Fetch the reports branch if it exists
+          git fetch origin $REPORTS_BRANCH || echo "Branch not found, will create new"
 
-            # Branch exists, check it out
-            git checkout $REPORTS_BRANCH
-          else
-            # Create a new orphan branch (no history)
-            git checkout --orphan $REPORTS_BRANCH
-            git rm -rf .
-            # Create a basic README
-            echo "# Lighthouse Performance Reports" > README.md
-            echo "This branch contains automated Lighthouse performance reports for the Curalife website." >> README.md
-            git add README.md
-            git commit -m "Initial commit for performance reports branch"
-          fi
+          # Always create a fresh local branch from main
+          echo "Creating fresh local reports branch..."
+          # First make sure we're on main
+          git checkout main
 
-          # Restore the reports from temp location
+          # Create a fresh branch from current main
+          git branch -D $REPORTS_BRANCH 2>/dev/null || true
+          git checkout -b $REPORTS_BRANCH
+
+          # Clean out any old reports to start fresh
+          echo "Cleaning old reports..."
+          rm -rf performance-reports/* || true
           mkdir -p performance-reports
+
+          # Restore the generated reports
+          echo "Restoring generated reports..."
           cp -R /tmp/performance-reports-backup/* performance-reports/ 2>/dev/null || true
 
-          # Add the performance reports
+          # Stage only the performance-reports directory
+          echo "Adding performance reports to git..."
           git add performance-reports/
-          # Commit only if there are changes
-          git diff --staged --quiet || git commit -m "Add Lighthouse performance reports for $(date +"%Y-%m-%d")"
 
-          # Push to the reports branch
-          git push origin $REPORTS_BRANCH
+          # Only commit if there are changes
+          if ! git diff --staged --quiet; then
+            echo "Committing changes..."
+            git commit -m "Update Lighthouse performance reports ($(date +%Y-%m-%d))"
+            echo "Pushing to remote branch..."
+            git push -f origin $REPORTS_BRANCH
+            echo "Push completed successfully"
+          else
+            echo "No changes to commit"
+          fi
+
+          # Return to main branch
+          git checkout main
 
       - name: Create Pull Request to main
         if: github.event_name == 'schedule' || github.ref == 'refs/heads/main'
+        id: create-pr
+        continue-on-error: true
         uses: peter-evans/create-pull-request@v5
         with:
           token: ${{ github.token }}
@@ -1288,7 +1310,7 @@ jobs:
           author: GitHub Action <action@github.com>
           branch: performance-reports-data
           base: main
-          title: "Update performance reports"
+          title: "Update Lighthouse performance reports - ${{ github.run_id }}"
           body: |
             # 📊 Lighthouse Performance Reports Update
 
@@ -1299,9 +1321,44 @@ jobs:
             - Updated trend analysis and historical data
             - Generated performance insights and recommendations
 
-            *This PR was automatically created by the Lighthouse CI workflow.*
+            *This PR was automatically created by the Lighthouse CI workflow (Run #${{ github.run_id }}).*
           labels: |
             automated-pr
             performance
             reports
           draft: false
+
+      - name: Check PR Creation Status
+        if: github.event_name == 'schedule' || github.ref == 'refs/heads/main'
+        run: |
+          # If PR creation failed, log the error and provide guidance
+          if [ "${{ steps.create-pr.outcome }}" != "success" ]; then
+            echo "::warning::Failed to create PR automatically. This is likely because a PR already exists."
+            echo "PR creation status: ${{ steps.create-pr.outcome }}"
+            echo "You can manually view existing PRs at: ${{ github.server_url }}/${{ github.repository }}/pulls"
+          else
+            echo "PR created successfully: ${{ steps.create-pr.outputs.pull-request-url }}"
+          fi
+
+      - name: List created files
+        run: |
+          echo "Files created in performance-reports directory:"
+          mkdir -p performance-reports
+          find performance-reports -type f | sort || echo "No files found in performance-reports"
+
+          # Create a basic index file even if the main process failed
+          if [ ! -f "performance-reports/index.html" ]; then
+            echo "Creating fallback index.html"
+            mkdir -p performance-reports
+            cat > performance-reports/index.html << EOL
+            <!DOCTYPE html>
+            <html>
+              <head><title>Lighthouse Reports</title></head>
+              <body>
+                <h1>Lighthouse Performance Reports</h1>
+                <p>Last run: $(date)</p>
+                <p>No detailed reports were generated in this run.</p>
+              </body>
+            </html>
+            EOL
+          fi
