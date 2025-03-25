@@ -137,7 +137,29 @@ jobs:
           path: ${{ env.RESULTS_DIR }}
           merge-multiple: true
       - name: Process results
-        run: .github/workflows/scripts/process-results.sh
+        run: |
+          # Get the current date in YYYY-MM-DD format
+          CURRENT_DATE=$(date +'%Y-%m-%d')
+          echo "Processing results for date: $CURRENT_DATE"
+
+          # Organize the directory structure
+          mkdir -p ${{ env.RESULTS_DIR }}/processed
+
+          # Process each page's results
+          for page in homepage product; do
+            echo "Processing results for page: $page"
+
+            # Create result directories
+            PAGE_RESULT_DIR="${{ env.RESULTS_DIR }}/$page"
+            mkdir -p "$PAGE_RESULT_DIR"
+
+            # Make sure desktop and mobile directories exist
+            mkdir -p "${{ env.RESULTS_DIR }}/desktop/$page"
+            mkdir -p "${{ env.RESULTS_DIR }}/mobile/$page"
+
+            # Call the process-results script for this page
+            .github/workflows/scripts/process-results.sh "$page" "${{ env.RESULTS_DIR }}" "$CURRENT_DATE"
+          done
       - name: Store historical data
         run: .github/workflows/scripts/store-historical-data.sh
       - name: Generate dashboards
@@ -181,7 +203,7 @@ jobs:
               fi
 
               # Generate HTML report templates
-              .github/workflows/scripts/generate-report-templates.sh "$page_name" "$output_dir" "$REPORT_DATE"
+              .github/workflows/scripts/generate-report-templates.sh "$page_name" "$output_dir" "$CURRENT_DATE"
             fi
           done
       - name: Upload processed results
