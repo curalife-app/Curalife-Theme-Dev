@@ -64,7 +64,16 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "18"
-          cache: "npm"
+
+      # Manual caching for npm global packages
+      - name: Cache npm global packages
+        uses: actions/cache@v4
+        id: cache-npm-global
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-npm-global-${{ hashFiles('.github/workflows/lighthouse-ci.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-global-
 
       # Create cache directories for Puppeteer
       - name: Create Puppeteer cache directory
@@ -81,6 +90,11 @@ jobs:
       - name: Install dependencies
         run: |
           echo "Installing global dependencies..."
+          if [ "${{ steps.cache-npm-global.outputs.cache-hit }}" == "true" ]; then
+            echo "Using cached npm global packages"
+          else
+            echo "Cache miss for npm global packages. Installing from scratch..."
+          fi
           npm install -g @lhci/cli puppeteer lighthouse puppeteer-screenshot-cli
 
       - name: Set Chrome flags
@@ -189,7 +203,16 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "18"
-          cache: "npm"
+
+      # Manual caching for npm global packages
+      - name: Cache npm global packages
+        uses: actions/cache@v4
+        id: cache-npm-global
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-npm-global-${{ hashFiles('.github/workflows/lighthouse-ci.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-global-
 
       - name: Make scripts executable
         run: |
