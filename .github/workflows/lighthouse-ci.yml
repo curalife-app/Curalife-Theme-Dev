@@ -1282,11 +1282,19 @@ jobs:
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
 
+          # Save generated reports to a temporary location
+          mkdir -p /tmp/performance-reports-backup
+          cp -R performance-reports/* /tmp/performance-reports-backup/ 2>/dev/null || true
+
           # Create a new branch for reports or use existing one
           REPORTS_BRANCH="performance-reports-data"
           git fetch origin $REPORTS_BRANCH || true
 
           if git show-ref --verify --quiet refs/remotes/origin/$REPORTS_BRANCH; then
+            # Clean the working directory to avoid conflicts
+            git clean -fd performance-reports/ || true
+            rm -rf performance-reports/* || true
+
             # Branch exists, check it out
             git checkout $REPORTS_BRANCH
           else
@@ -1299,6 +1307,10 @@ jobs:
             git add README.md
             git commit -m "Initial commit for performance reports branch"
           fi
+
+          # Restore the reports from temp location
+          mkdir -p performance-reports
+          cp -R /tmp/performance-reports-backup/* performance-reports/ 2>/dev/null || true
 
           # Add the performance reports
           git add performance-reports/
