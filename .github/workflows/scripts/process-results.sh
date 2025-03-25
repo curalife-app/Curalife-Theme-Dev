@@ -98,6 +98,31 @@ if [ -f "$DESKTOP_REPORT" ]; then
   echo "DESKTOP_SI=$DESKTOP_SI" >> $METRICS_ENV_FILE
   echo "DESKTOP_TTI=$DESKTOP_TTI" >> $METRICS_ENV_FILE
 
+  # Also create a JSON file for the dashboard to load
+  METRICS_JSON_FILE="$DETAILED_DIR/metrics-values.json"
+  echo "{" > $METRICS_JSON_FILE
+  echo "  \"name\": \"$PAGE_NAME\"," >> $METRICS_JSON_FILE
+  echo "  \"url\": \"https://curalife.com/$([[ $PAGE_NAME == 'homepage' ]] && echo '/' || echo "products/$PAGE_NAME")\"," >> $METRICS_JSON_FILE
+  echo "  \"desktop\": {" >> $METRICS_JSON_FILE
+  echo "    \"performance\": $DESKTOP_PERF," >> $METRICS_JSON_FILE
+  echo "    \"accessibility\": $DESKTOP_ACC," >> $METRICS_JSON_FILE
+  echo "    \"bestPractices\": $DESKTOP_BP," >> $METRICS_JSON_FILE
+  echo "    \"seo\": $DESKTOP_SEO," >> $METRICS_JSON_FILE
+  echo "    \"metrics\": {" >> $METRICS_JSON_FILE
+  echo "      \"LCP\": $DESKTOP_LCP," >> $METRICS_JSON_FILE
+  echo "      \"FID\": $DESKTOP_FID," >> $METRICS_JSON_FILE
+  echo "      \"CLS\": $DESKTOP_CLS" >> $METRICS_JSON_FILE
+  echo "    }" >> $METRICS_JSON_FILE
+  echo "  }" >> $METRICS_JSON_FILE
+
+  # Add a comma only if mobile data will be added later
+  if [ -f "$MOBILE_REPORT" ]; then
+    echo "  }," >> $METRICS_JSON_FILE
+  else
+    echo "  }" >> $METRICS_JSON_FILE
+    echo "}" >> $METRICS_JSON_FILE
+  fi
+
   # Output to GITHUB_OUTPUT for GitHub Actions
   echo "desktop_perf=$DESKTOP_PERF" >> $GITHUB_OUTPUT
   echo "desktop_a11y=$DESKTOP_ACC" >> $GITHUB_OUTPUT
@@ -230,6 +255,25 @@ if [ -f "$MOBILE_REPORT" ]; then
   echo "mobile_offscreen_images=$MOBILE_OFFSCREEN_IMAGES" >> $GITHUB_OUTPUT
   echo "mobile_total_bytes=$MOBILE_TOTAL_BYTES" >> $GITHUB_OUTPUT
   echo "mobile_dom_size=$MOBILE_DOM_SIZE" >> $GITHUB_OUTPUT
+
+  # Add mobile metrics to the JSON file
+  if [ -f "$METRICS_JSON_FILE" ]; then
+    # Add the mobile data to the JSON file
+    echo "  \"mobile\": {" >> $METRICS_JSON_FILE
+    echo "    \"performance\": $MOBILE_PERF," >> $METRICS_JSON_FILE
+    echo "    \"accessibility\": $MOBILE_ACC," >> $METRICS_JSON_FILE
+    echo "    \"bestPractices\": $MOBILE_BP," >> $METRICS_JSON_FILE
+    echo "    \"seo\": $MOBILE_SEO," >> $METRICS_JSON_FILE
+    echo "    \"metrics\": {" >> $METRICS_JSON_FILE
+    echo "      \"LCP\": $MOBILE_LCP," >> $METRICS_JSON_FILE
+    echo "      \"FID\": $MOBILE_FID," >> $METRICS_JSON_FILE
+    echo "      \"CLS\": $MOBILE_CLS" >> $METRICS_JSON_FILE
+    echo "    }" >> $METRICS_JSON_FILE
+    echo "  }" >> $METRICS_JSON_FILE
+    echo "}" >> $METRICS_JSON_FILE
+
+    echo "Updated metrics JSON file with mobile data: $METRICS_JSON_FILE"
+  fi
 
   # Update the detailed metrics file with mobile data
   TMP_FILE=$(mktemp)
