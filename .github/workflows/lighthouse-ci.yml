@@ -362,8 +362,12 @@ jobs:
         run: |
           mkdir -p ./lighthouse-results
           touch ./lighthouse-results/.gitkeep
-          # Remove old files to prevent stale content
-          find ./lighthouse-results -type f -not -path "*/history/*" -delete || echo "No files to delete"
+          # Create or ensure CNAME file exists for custom domain
+          echo "lighthouse.curalife.com" > ./CNAME
+          # Copy CNAME to results directory to ensure it's deployed
+          cp ./CNAME ./lighthouse-results/CNAME
+          # Remove old files to prevent stale content, but preserve CNAME and history
+          find ./lighthouse-results -type f -not -path "*/history/*" -not -name "CNAME" -delete || echo "No files to delete"
 
       - name: Try download final dashboards
         id: download_final
@@ -449,6 +453,9 @@ jobs:
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email 'github-actions[bot]@users.noreply.github.com'
+
+          # Make sure CNAME file exists
+          echo "lighthouse.curalife.com" > CNAME
 
           # Make sure git tracks all files, even those in new directories
           git add -A .

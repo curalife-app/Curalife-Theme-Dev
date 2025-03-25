@@ -112,13 +112,13 @@ echo "    \"bestPractices\": $DESKTOP_BP," >> $SUMMARY_FILE
 echo "    \"seo\": $DESKTOP_SEO," >> $SUMMARY_FILE
 echo "    \"pwa\": $DESKTOP_PWA," >> $SUMMARY_FILE
 echo "    \"metrics\": {" >> $SUMMARY_FILE
-echo "      \"firstContentfulPaint\": $DESKTOP_FCP," >> $SUMMARY_FILE
-echo "      \"speedIndex\": $DESKTOP_SI," >> $SUMMARY_FILE
-echo "      \"largestContentfulPaint\": $DESKTOP_LCP," >> $SUMMARY_FILE
-echo "      \"timeToInteractive\": $DESKTOP_TTI," >> $SUMMARY_FILE
-echo "      \"totalBlockingTime\": $DESKTOP_TBT," >> $SUMMARY_FILE
-echo "      \"maxPotentialFID\": $DESKTOP_FID," >> $SUMMARY_FILE
-echo "      \"cumulativeLayoutShift\": $DESKTOP_CLS" >> $SUMMARY_FILE
+echo "      \"FCP\": $DESKTOP_FCP," >> $SUMMARY_FILE
+echo "      \"SI\": $DESKTOP_SI," >> $SUMMARY_FILE
+echo "      \"LCP\": $DESKTOP_LCP," >> $SUMMARY_FILE
+echo "      \"TTI\": $DESKTOP_TTI," >> $SUMMARY_FILE
+echo "      \"TBT\": $DESKTOP_TBT," >> $SUMMARY_FILE
+echo "      \"FID\": $DESKTOP_FID," >> $SUMMARY_FILE
+echo "      \"CLS\": $DESKTOP_CLS" >> $SUMMARY_FILE
 echo "    }," >> $SUMMARY_FILE
 echo "    \"opportunities\": {" >> $SUMMARY_FILE
 echo "      \"renderBlockingResources\": ${DESKTOP_RENDER_BLOCKING:-0}," >> $SUMMARY_FILE
@@ -136,13 +136,13 @@ echo "    \"bestPractices\": $MOBILE_BP," >> $SUMMARY_FILE
 echo "    \"seo\": $MOBILE_SEO," >> $SUMMARY_FILE
 echo "    \"pwa\": $MOBILE_PWA," >> $SUMMARY_FILE
 echo "    \"metrics\": {" >> $SUMMARY_FILE
-echo "      \"firstContentfulPaint\": $MOBILE_FCP," >> $SUMMARY_FILE
-echo "      \"speedIndex\": $MOBILE_SI," >> $SUMMARY_FILE
-echo "      \"largestContentfulPaint\": $MOBILE_LCP," >> $SUMMARY_FILE
-echo "      \"timeToInteractive\": $MOBILE_TTI," >> $SUMMARY_FILE
-echo "      \"totalBlockingTime\": $MOBILE_TBT," >> $SUMMARY_FILE
-echo "      \"maxPotentialFID\": $MOBILE_FID," >> $SUMMARY_FILE
-echo "      \"cumulativeLayoutShift\": $MOBILE_CLS" >> $SUMMARY_FILE
+echo "      \"FCP\": $MOBILE_FCP," >> $SUMMARY_FILE
+echo "      \"SI\": $MOBILE_SI," >> $SUMMARY_FILE
+echo "      \"LCP\": $MOBILE_LCP," >> $SUMMARY_FILE
+echo "      \"TTI\": $MOBILE_TTI," >> $SUMMARY_FILE
+echo "      \"TBT\": $MOBILE_TBT," >> $SUMMARY_FILE
+echo "      \"FID\": $MOBILE_FID," >> $SUMMARY_FILE
+echo "      \"CLS\": $MOBILE_CLS" >> $SUMMARY_FILE
 echo "    }," >> $SUMMARY_FILE
 echo "    \"opportunities\": {" >> $SUMMARY_FILE
 echo "      \"renderBlockingResources\": ${MOBILE_RENDER_BLOCKING:-0}," >> $SUMMARY_FILE
@@ -322,9 +322,9 @@ else
   TBT_STATUS="🔴 Poor"
 fi
 
-echo "| Largest Contentful Paint (LCP) | $(echo "${DESKTOP_LCP:-3000} / 1" | bc)ms | $LCP_STATUS | < 2.5s |" >> $MARKDOWN_REPORT
-echo "| Cumulative Layout Shift (CLS) | ${DESKTOP_CLS:-0.15} | $CLS_STATUS | < 0.1 |" >> $MARKDOWN_REPORT
-echo "| Total Blocking Time (TBT) | $(echo "${DESKTOP_TBT:-250} / 1" | bc)ms | $TBT_STATUS | < 200ms |" >> $MARKDOWN_REPORT
+echo "| LCP (Largest Contentful Paint) | $(echo "${DESKTOP_LCP:-3000} / 1" | bc)ms | $LCP_STATUS | < 2.5s |" >> $MARKDOWN_REPORT
+echo "| CLS (Cumulative Layout Shift) | ${DESKTOP_CLS:-0.15} | $CLS_STATUS | < 0.1 |" >> $MARKDOWN_REPORT
+echo "| TBT (Total Blocking Time) | $(echo "${DESKTOP_TBT:-250} / 1" | bc)ms | $TBT_STATUS | < 200ms |" >> $MARKDOWN_REPORT
 echo "" >> $MARKDOWN_REPORT
 
 # Add Core Web Vitals section for mobile
@@ -360,9 +360,9 @@ else
   TBT_STATUS="🔴 Poor"
 fi
 
-echo "| Largest Contentful Paint (LCP) | $(echo "${MOBILE_LCP:-3500} / 1" | bc)ms | $LCP_STATUS | < 2.5s |" >> $MARKDOWN_REPORT
-echo "| Cumulative Layout Shift (CLS) | ${MOBILE_CLS:-0.2} | $CLS_STATUS | < 0.1 |" >> $MARKDOWN_REPORT
-echo "| Total Blocking Time (TBT) | $(echo "${MOBILE_TBT:-300} / 1" | bc)ms | $TBT_STATUS | < 200ms |" >> $MARKDOWN_REPORT
+echo "| LCP (Largest Contentful Paint) | $(echo "${MOBILE_LCP:-3500} / 1" | bc)ms | $LCP_STATUS | < 2.5s |" >> $MARKDOWN_REPORT
+echo "| CLS (Cumulative Layout Shift) | ${MOBILE_CLS:-0.2} | $CLS_STATUS | < 0.1 |" >> $MARKDOWN_REPORT
+echo "| TBT (Total Blocking Time) | $(echo "${MOBILE_TBT:-300} / 1" | bc)ms | $TBT_STATUS | < 200ms |" >> $MARKDOWN_REPORT
 echo "" >> $MARKDOWN_REPORT
 
 # Add additional metrics sections for desktop and mobile
