@@ -202,20 +202,7 @@ cp ./$RESULTS_DIR/mobile/screenshots/placeholder.svg ./$RESULTS_DIR/mobile/scree
 SCREENSHOT_DIR=$(mktemp -d)
 cd $SCREENSHOT_DIR
 
-# Create a simple package.json
-echo '{
-  "name": "lighthouse-screenshots",
-  "version": "1.0.0",
-  "description": "Temporary package for screenshots",
-  "main": "index.js",
-  "dependencies": {}
-}' > package.json
-
-# Install puppeteer specifically in this directory
-echo "Installing Puppeteer for screenshots in isolated environment..."
-npm install puppeteer@19.11.1 --no-fund --no-audit --loglevel=error
-
-# Create the screenshot script
+# Create a simple script that uses globally installed Puppeteer
 cat > index.js << 'EOL'
 const puppeteer = require('puppeteer');
 

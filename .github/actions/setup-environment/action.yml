@@ -80,30 +80,66 @@ runs:
         # Only install if not already installed or cache miss
         if [ "${{ steps.cache-all-deps.outputs.cache-hit }}" != "true" ] || ! command -v lighthouse &> /dev/null; then
           npm config set cache /home/runner/.npm --global
-          npm install -g @lhci/cli puppeteer lighthouse puppeteer-screenshot-cli
+          npm install -g @lhci/cli lighthouse puppeteer-screenshot-cli
         else
           echo "Using cached npm global packages"
         fi
 
-        # Comprehensive Puppeteer/Chrome setup
-        echo "Setting up Puppeteer and Chrome..."
-        if [ ! -f /home/runner/.cache/puppeteer/installed ] || ! node -e "try { require('puppeteer'); console.log('Puppeteer working'); process.exit(0); } catch(e) { console.log('Puppeteer not found'); process.exit(1); }" > /dev/null 2>&1; then
-          echo "Installing Puppeteer and Chrome from scratch..."
-          # First remove any existing installation that might be causing issues
-          npm rm -g puppeteer || true
-          # Install a version compatible with Node.js 18 with explicit path
-          npm install -g puppeteer@19.11.1
-          # Make sure the Chrome binary is installed
-          npx puppeteer install chrome
-          # Mark as installed
-          mkdir -p /home/runner/.cache/puppeteer/
-          touch /home/runner/.cache/puppeteer/installed
-          # Verify installation
-          node -e "try { require('puppeteer'); console.log('Puppeteer installation verified!'); } catch(e) { console.error('Puppeteer installation failed:', e); process.exit(1); }"
-        else
-          echo "Using cached Puppeteer/Chrome installation"
-        fi
-        echo "Puppeteer and Chrome setup complete"
+    # Install Puppeteer in a dedicated step with a local approach
+    - name: Setup Puppeteer
+      shell: bash
+      run: |
+        echo "Setting up Puppeteer with reliable local installation..."
+        # Create a temporary directory for Puppeteer setup
+        PUPPETEER_DIR=$(mktemp -d)
+        cd $PUPPETEER_DIR
+
+        # Create a package.json
+        echo '{
+          "name": "puppeteer-setup",
+          "version": "1.0.0",
+          "description": "Puppeteer setup",
+          "main": "index.js",
+          "dependencies": {
+            "puppeteer": "19.11.1"
+          }
+        }' > package.json
+
+        # Install Puppeteer locally in this directory
+        echo "Installing Puppeteer locally..."
+        export PUPPETEER_CACHE_DIR=/home/runner/.cache/puppeteer
+        export PUPPETEER_DOWNLOAD_PATH=/home/runner/.cache/puppeteer
+        npm install --no-fund --no-audit
+
+        # Verify installation works
+        echo "Verifying Puppeteer installation..."
+        node -e "
+        const puppeteer = require('puppeteer');
+        async function testPuppeteer() {
+          console.log('Testing Puppeteer installation...');
+          const browser = await puppeteer.launch({
+            args: ['--no-sandbox', '--disable-dev-shm-usage']
+          });
+          console.log('Successfully launched browser');
+          await browser.close();
+          console.log('Puppeteer verification successful');
+        }
+        testPuppeteer().catch(err => {
+          console.error('Puppeteer test failed:', err);
+          process.exit(1);
+        });"
+
+        # If we get here, Puppeteer works - install it globally for the main workflow
+        echo "Puppeteer local installation verified. Installing globally..."
+        cd -
+        npm install -g puppeteer@19.11.1
+
+        # Mark as installed
+        mkdir -p /home/runner/.cache/puppeteer/
+        touch /home/runner/.cache/puppeteer/installed
+
+        # Clean up
+        rm -rf $PUPPETEER_DIR
 
     - name: Set Chrome flags
       shell: bash
