@@ -228,7 +228,7 @@ jobs:
       - name: Download Artifacts
         uses: actions/download-artifact@v4
         with:
-          pattern: lighthouse-*-${{ github.run_id }}
+          pattern: lighthouse-*
           path: lighthouse-artifacts
           merge-multiple: true
 
@@ -236,6 +236,10 @@ jobs:
         run: |
           # Install required packages
           npm install -g @lhci/utils
+
+          # Debug: Show the downloaded artifacts structure
+          echo "Listing downloaded artifact files:"
+          find lighthouse-artifacts -type f | sort
 
           # Create a more structured dashboard
           mkdir -p performance-reports
@@ -246,7 +250,7 @@ jobs:
           <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Lighthouse Dashboard - Curalife</title>
+            <title>Lighthouse Performance Dashboard - Curalife</title>
             <style>
               body { font-family: system-ui, -apple-system, sans-serif; line-height: 1.5; max-width: 1200px; margin: 0 auto; padding: 20px; }
               h1, h2 { color: #333; }
@@ -261,52 +265,68 @@ jobs:
               a.report-link { display: inline-block; margin-top: 10px; text-decoration: none; padding: 8px 15px; background: #333; color: white; border-radius: 4px; }
               a.report-link:hover { background: #555; }
               .timestamp { color: #666; font-size: 0.9em; margin-bottom: 30px; }
+              .debug-info { background: #f5f5f5; padding: 10px; border-radius: 5px; margin-top: 30px; }
             </style>
           </head>
           <body>
             <h1>Lighthouse Performance Dashboard</h1>
-            <p class="timestamp">Generated on $(date)</p>
+            <p class="timestamp">Generated on $(date -u '+%a %b %d %H:%M:%S UTC %Y')</p>
 
             <h2>Latest Reports</h2>
             <div id="reports"></div>
 
+            <div class="debug-info">
+              <h3>Debug Information</h3>
+              <div id="debug-info"></div>
+            </div>
+
             <script>
               // Simple script to organize report links
               const reportsContainer = document.getElementById('reports');
+              const debugInfo = document.getElementById('debug-info');
 
               // We'll populate this with the found reports
               const reports = [];
+              const fileList = [];
             </script>
           </body>
           </html>
           EOF
 
-          # Find and process report files
-          find lighthouse-artifacts -name "*.report.html" | while read report; do
-            cp "$report" performance-reports/
-            filename=$(basename "$report")
+          # Find all HTML files and log them for debugging
+          echo "Searching for HTML report files..."
+          find lighthouse-artifacts -name "*.html" | sort > report-files.txt
+          cat report-files.txt >> performance-reports/report-files.txt
 
-            # Extract page and device from filename pattern
-            if [[ "$filename" == *"mobile"* ]]; then
-              device="Mobile"
-            elif [[ "$filename" == *"desktop"* ]]; then
+          # Add the file list to the debug section
+          cat report-files.txt | while read file; do
+            echo "<script>fileList.push('$file');</script>" >> performance-reports/index.html
+          done
+
+          # Copy all HTML files to the performance-reports directory
+          echo "Copying HTML files to performance-reports..."
+          find lighthouse-artifacts -name "*.html" | while read report; do
+            # Get just the filename, without path
+            filename=$(basename "$report")
+            echo "Processing file: $filename"
+
+            # Copy the file
+            cp "$report" "performance-reports/$filename"
+
+            # Determine page and device from filename or path
+            device="Unknown"
+            page="Unknown"
+
+            if [[ "$report" == *"desktop"* ]]; then
               device="Desktop"
-            else
-              # Try to detect from directory structure
-              report_path=$(dirname "$report")
-              if [[ "$report_path" == *"mobile"* ]]; then
-                device="Mobile"
-              else
-                device="Desktop"
-              fi
+            elif [[ "$report" == *"mobile"* ]]; then
+              device="Mobile"
             fi
 
-            if [[ "$filename" == *"homepage"* || "$report" == *"homepage"* ]]; then
+            if [[ "$report" == *"homepage"* ]]; then
               page="Homepage"
-            elif [[ "$filename" == *"product"* || "$report" == *"product"* ]]; then
+            elif [[ "$report" == *"product"* ]]; then
               page="Product Page"
-            else
-              page="Unknown Page"
             fi
 
             # Add to the reports list in the HTML
@@ -314,7 +334,8 @@ jobs:
             echo "reports.push({" >> performance-reports/index.html
             echo "  page: '$page'," >> performance-reports/index.html
             echo "  device: '$device'," >> performance-reports/index.html
-            echo "  filename: '$filename'" >> performance-reports/index.html
+            echo "  filename: '$filename'," >> performance-reports/index.html
+            echo "  originalPath: '$report'" >> performance-reports/index.html
             echo "});" >> performance-reports/index.html
             echo "</script>" >> performance-reports/index.html
           done
@@ -322,29 +343,42 @@ jobs:
           # Add the rendering script
           cat << EOF >> performance-reports/index.html
           <script>
+            // Debug info rendering
+            debugInfo.innerHTML = '<p>Files found: ' + fileList.length + '</p>';
+            debugInfo.innerHTML += '<ul>';
+            fileList.forEach(file => {
+              debugInfo.innerHTML += '<li>' + file + '</li>';
+            });
+            debugInfo.innerHTML += '</ul>';
+
             // Sort and render the reports
             reports.sort((a, b) => {
               if (a.page === b.page) return a.device.localeCompare(b.device);
               return a.page.localeCompare(b.page);
             });
 
-            reports.forEach(report => {
-              const card = document.createElement('div');
-              card.className = 'report-card';
-
-              card.innerHTML = \`
-                <h3>\${report.page} (\${report.device})</h3>
-                <a class="report-link" href="./\${report.filename}" target="_blank">View Full Report</a>
-              \`;
-
-              reportsContainer.appendChild(card);
-            });
-
             if (reports.length === 0) {
-              reportsContainer.innerHTML = '<p>No reports available yet.</p>';
+              reportsContainer.innerHTML = '<p>No reports available yet. Check the debug information below.</p>';
+            } else {
+              reports.forEach(report => {
+                const card = document.createElement('div');
+                card.className = 'report-card';
+
+                card.innerHTML = \`
+                  <h3>\${report.page} (\${report.device})</h3>
+                  <a class="report-link" href="./\${report.filename}" target="_blank">View Full Report</a>
+                  <p class="original-path">Original path: \${report.originalPath}</p>
+                \`;
+
+                reportsContainer.appendChild(card);
+              });
             }
           </script>
           EOF
+
+          # List what was generated
+          echo "Files in performance-reports directory:"
+          find performance-reports -type f | sort
 
       - name: Upload Dashboard
         uses: actions/upload-artifact@v4
