@@ -23,8 +23,17 @@ runs:
       uses: actions/setup-node@v4
       with:
         node-version: "18"
-        cache: "npm"
-        cache-dependency-path: "package-lock.json"
+
+    # Ensure cache directories exist
+    - name: Create cache directories
+      shell: bash
+      run: |
+        mkdir -p /home/runner/.cache/apt
+        mkdir -p /home/runner/.apt-cache
+        mkdir -p /home/runner/.cache/tools
+        mkdir -p /home/runner/.cache/puppeteer
+        mkdir -p /home/runner/.cache/logs
+        mkdir -p /home/runner/.npm
 
     # Consolidated cache for all tools and dependencies
     - name: Cache all dependencies
@@ -32,11 +41,11 @@ runs:
       id: cache-all-deps
       with:
         path: |
-          ~/.cache/apt
-          ~/.apt-cache
-          ~/.cache/tools
-          ~/.cache/puppeteer
-          ~/.npm
+          /home/runner/.cache/apt
+          /home/runner/.apt-cache
+          /home/runner/.cache/tools
+          /home/runner/.cache/puppeteer
+          /home/runner/.npm
         key: ${{ inputs.cache-key-prefix }}
         restore-keys: |
           ${{ inputs.cache-key-prefix }}
@@ -45,22 +54,18 @@ runs:
       shell: bash
       run: |
         echo "Cache hit status: ${{ steps.cache-all-deps.outputs.cache-hit }}"
-        mkdir -p ~/.cache/logs
         if [ "${{ steps.cache-all-deps.outputs.cache-hit }}" == "true" ]; then
-          echo "Using cached dependencies from key: ${{ inputs.cache-key-prefix }}" > ~/.cache/logs/cache-status.log
-          echo "Cache hit timestamp: $(date)" >> ~/.cache/logs/cache-status.log
+          echo "Using cached dependencies from key: ${{ inputs.cache-key-prefix }}" > /home/runner/.cache/logs/cache-status.log
+          echo "Cache hit timestamp: $(date)" >> /home/runner/.cache/logs/cache-status.log
         else
-          echo "Cache miss for key: ${{ inputs.cache-key-prefix }}" > ~/.cache/logs/cache-status.log
-          echo "Building new cache at: $(date)" >> ~/.cache/logs/cache-status.log
+          echo "Cache miss for key: ${{ inputs.cache-key-prefix }}" > /home/runner/.cache/logs/cache-status.log
+          echo "Building new cache at: $(date)" >> /home/runner/.cache/logs/cache-status.log
         fi
 
     - name: Install tools and dependencies
       shell: bash
       run: |
         echo "Installing system dependencies and tools..."
-
-        # Create necessary directories
-        mkdir -p ~/.cache/apt ~/.apt-cache ~/.cache/tools ~/.cache/puppeteer
 
         # Install apt packages conditionally
         if [ "${{ steps.cache-all-deps.outputs.cache-hit }}" != "true" ]; then
@@ -74,16 +79,17 @@ runs:
         echo "Installing global npm packages..."
         # Only install if not already installed or cache miss
         if [ "${{ steps.cache-all-deps.outputs.cache-hit }}" != "true" ] || ! command -v lighthouse &> /dev/null; then
+          npm config set cache /home/runner/.npm --global
           npm install -g @lhci/cli puppeteer lighthouse puppeteer-screenshot-cli
         else
           echo "Using cached npm global packages"
         fi
 
         # Set up Chrome if needed
-        if [ ! -f ~/.cache/puppeteer/installed ]; then
+        if [ ! -f /home/runner/.cache/puppeteer/installed ]; then
           echo "Setting up Puppeteer/Chrome..."
           npx puppeteer install chrome
-          touch ~/.cache/puppeteer/installed
+          touch /home/runner/.cache/puppeteer/installed
         else
           echo "Using cached Puppeteer/Chrome installation"
         fi

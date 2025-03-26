@@ -64,6 +64,9 @@ jobs:
 
       - name: Make scripts executable
         run: |
+          # Ensure cache directories exist
+          mkdir -p /home/runner/.cache/tools
+
           chmod +x .github/workflows/scripts/make-scripts-executable.sh
           .github/workflows/scripts/make-scripts-executable.sh
 
@@ -71,7 +74,7 @@ jobs:
         run: |
           echo "Installing Puppeteer for screenshots..."
           # Check if Puppeteer is already installed by the setup-environment action
-          if node -e "try { require('puppeteer'); console.log('Puppeteer already installed'); process.exit(0); } catch(e) { console.log('Puppeteer not found'); process.exit(1); }" > /dev/null 2>&1; then
+          if [ -f /home/runner/.cache/puppeteer/installed ] && node -e "try { require('puppeteer'); console.log('Puppeteer already installed'); process.exit(0); } catch(e) { console.log('Puppeteer not found'); process.exit(1); }" > /dev/null 2>&1; then
             echo "Puppeteer already installed and working - using cached version"
           else
             echo "Puppeteer not found or not working - installing fresh copy"
@@ -81,6 +84,9 @@ jobs:
             npm install --no-save puppeteer@19.11.1
             # Make sure the Chrome binary is installed
             npx puppeteer install chrome
+            # Mark as installed
+            mkdir -p /home/runner/.cache/puppeteer/
+            touch /home/runner/.cache/puppeteer/installed
           fi
           # Test that puppeteer can be required
           node -e "try { require('puppeteer'); console.log('Puppeteer installation verified!'); } catch(e) { console.error('Puppeteer installation failed:', e); process.exit(1); }"
@@ -443,17 +449,17 @@ jobs:
           echo "NPM global cache key: ${{ env.NPM_GLOBAL_CACHE_KEY }}"
           echo "Puppeteer cache key: ${{ env.PUPPETEER_CACHE_KEY }}"
 
-          if [ -f ~/.cache/logs/cache-status.log ]; then
+          if [ -f /home/runner/.cache/logs/cache-status.log ]; then
             echo "Cache status log:"
-            cat ~/.cache/logs/cache-status.log
+            cat /home/runner/.cache/logs/cache-status.log
           else
             echo "No cache status log found - likely first run"
           fi
 
           # Check for cached Chrome installation
-          if [ -f ~/.cache/puppeteer/installed ]; then
+          if [ -f /home/runner/.cache/puppeteer/installed ]; then
             echo "Puppeteer/Chrome installation found in cache"
-            ls -la ~/.cache/puppeteer/
+            ls -la /home/runner/.cache/puppeteer/
           else
             echo "No cached Puppeteer/Chrome installation found"
           fi
@@ -463,10 +469,10 @@ jobs:
           echo "## Cache Performance Summary" >> $GITHUB_STEP_SUMMARY
           echo "System deps cache key: \`${{ env.SYSTEM_DEPS_CACHE_KEY }}\`" >> $GITHUB_STEP_SUMMARY
           echo "NPM global cache key: \`${{ env.NPM_GLOBAL_CACHE_KEY }}\`" >> $GITHUB_STEP_SUMMARY
-          if [ -f ~/.cache/logs/cache-status.log ]; then
+          if [ -f /home/runner/.cache/logs/cache-status.log ]; then
             echo "**Cache Status Log:**" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
-            cat ~/.cache/logs/cache-status.log >> $GITHUB_STEP_SUMMARY
+            cat /home/runner/.cache/logs/cache-status.log >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
           fi
 
@@ -479,7 +485,7 @@ jobs:
           fi
 
           # Report cache efficiency to workflow summary
-          if [ -f ~/.cache/logs/cache-status.log ] && grep -q "Using cached dependencies" ~/.cache/logs/cache-status.log; then
+          if [ -f /home/runner/.cache/logs/cache-status.log ] && grep -q "Using cached dependencies" /home/runner/.cache/logs/cache-status.log; then
             echo "**Result: Cache successfully utilized!** ✅" >> $GITHUB_STEP_SUMMARY
           else
             echo "**Result: Cache miss or first run** ℹ️" >> $GITHUB_STEP_SUMMARY
