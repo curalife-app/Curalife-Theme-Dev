@@ -21,12 +21,12 @@ permissions:
 # Define environment for GitHub Pages
 env:
   HISTORY_BRANCH: lighthouse-history
-  # Cache keys for dependencies and tools
-  SYSTEM_DEPS_CACHE_KEY: system-deps-${{ github.run_id }}
-  TOOLS_CACHE_KEY: tools-${{ github.run_id }}
-  NPM_GLOBAL_CACHE_KEY: npm-global-${{ github.run_id }}
-  PUPPETEER_CACHE_KEY: puppeteer-${{ github.run_id }}
-  GH_PAGES_CACHE_KEY: gh-pages-${{ github.run_id }}
+  # Cache keys with content-based hashing for better retention
+  SYSTEM_DEPS_CACHE_KEY: system-deps-${{ hashFiles('.github/workflows/scripts/*.sh') }}-${{ runner.os }}
+  TOOLS_CACHE_KEY: tools-${{ hashFiles('.github/actions/**/action.yml') }}-${{ runner.os }}
+  NPM_GLOBAL_CACHE_KEY: npm-global-${{ hashFiles('.github/workflows/scripts/run-lighthouse.sh') }}-${{ runner.os }}
+  PUPPETEER_CACHE_KEY: puppeteer-${{ hashFiles('.github/workflows/scripts/run-lighthouse.sh') }}-${{ runner.os }}
+  GH_PAGES_CACHE_KEY: gh-pages-${{ github.repository }}-${{ github.ref_name }}
 
 # Reusable job configurations
 jobs:
@@ -70,12 +70,18 @@ jobs:
       - name: Ensure Puppeteer is installed
         run: |
           echo "Installing Puppeteer for screenshots..."
-          # First remove any existing installation that might be causing issues
-          npm rm puppeteer || true
-          # Install a version compatible with Node.js 18 with explicit path
-          npm install --no-save puppeteer@19.11.1
-          # Make sure the Chrome binary is installed
-          npx puppeteer install chrome
+          # Check if Puppeteer is already installed by the setup-environment action
+          if node -e "try { require('puppeteer'); console.log('Puppeteer already installed'); process.exit(0); } catch(e) { console.log('Puppeteer not found'); process.exit(1); }" > /dev/null 2>&1; then
+            echo "Puppeteer already installed and working - using cached version"
+          else
+            echo "Puppeteer not found or not working - installing fresh copy"
+            # First remove any existing installation that might be causing issues
+            npm rm puppeteer || true
+            # Install a version compatible with Node.js 18 with explicit path
+            npm install --no-save puppeteer@19.11.1
+            # Make sure the Chrome binary is installed
+            npx puppeteer install chrome
+          fi
           # Test that puppeteer can be required
           node -e "try { require('puppeteer'); console.log('Puppeteer installation verified!'); } catch(e) { console.error('Puppeteer installation failed:', e); process.exit(1); }"
           echo "Puppeteer installation complete"
@@ -360,16 +366,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Add caching for GitHub Pages deployment
+      # Add caching for GitHub Pages deployment with improved key
       - name: Cache GitHub Pages deployment
         uses: actions/cache@v4
         id: cache-gh-pages
         with:
           path: |
             .gh-pages-cache
+            performance-reports
           key: ${{ env.GH_PAGES_CACHE_KEY }}
           restore-keys: |
-            ${{ runner.os }}-gh-pages-
+            gh-pages-${{ github.repository }}-
+            gh-pages-
 
       # Create directory
       - name: Create performance-reports directory
@@ -407,3 +415,73 @@ jobs:
           echo "Lighthouse Dashboard URL: https://${{ github.repository_owner }}.github.io/$(echo '${{ github.repository }}' | cut -d'/' -f2)/"
           echo "Access your performance dashboard at: https://${{ github.repository_owner }}.github.io/$(echo '${{ github.repository }}' | cut -d'/' -f2)/"
           echo "URL: https://${{ github.repository_owner }}.github.io/$(echo '${{ github.repository }}' | cut -d'/' -f2)/" >> $GITHUB_STEP_SUMMARY
+
+  # Test job to validate cache functionality
+  test-cache-performance:
+    needs: [deploy-pages]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup dependencies with cache monitoring
+        id: setup-with-cache
+        uses: ./.github/actions/setup-environment
+        with:
+          cache-key-prefix: ${{ env.SYSTEM_DEPS_CACHE_KEY }}
+          npm-cache-key: ${{ env.NPM_GLOBAL_CACHE_KEY }}
+          puppeteer-cache-key: ${{ env.PUPPETEER_CACHE_KEY }}
+
+      # This step will help us analyze cache performance
+      - name: Cache analysis
+        run: |
+          echo "::group::Cache Performance Analysis"
+          echo "Cache key metrics:"
+          echo "System deps cache key: ${{ env.SYSTEM_DEPS_CACHE_KEY }}"
+          echo "NPM global cache key: ${{ env.NPM_GLOBAL_CACHE_KEY }}"
+          echo "Puppeteer cache key: ${{ env.PUPPETEER_CACHE_KEY }}"
+
+          if [ -f ~/.cache/logs/cache-status.log ]; then
+            echo "Cache status log:"
+            cat ~/.cache/logs/cache-status.log
+          else
+            echo "No cache status log found - likely first run"
+          fi
+
+          # Check for cached Chrome installation
+          if [ -f ~/.cache/puppeteer/installed ]; then
+            echo "Puppeteer/Chrome installation found in cache"
+            ls -la ~/.cache/puppeteer/
+          else
+            echo "No cached Puppeteer/Chrome installation found"
+          fi
+          echo "::endgroup::"
+
+          # Summarize for GitHub workflow summary
+          echo "## Cache Performance Summary" >> $GITHUB_STEP_SUMMARY
+          echo "System deps cache key: \`${{ env.SYSTEM_DEPS_CACHE_KEY }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "NPM global cache key: \`${{ env.NPM_GLOBAL_CACHE_KEY }}\`" >> $GITHUB_STEP_SUMMARY
+          if [ -f ~/.cache/logs/cache-status.log ]; then
+            echo "**Cache Status Log:**" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            cat ~/.cache/logs/cache-status.log >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Test npm global packages - they should be installed already from cache
+          echo "### Validating cached packages" >> $GITHUB_STEP_SUMMARY
+          if command -v lighthouse &> /dev/null; then
+            echo "✅ Lighthouse successfully loaded from cache" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Lighthouse not found in cache" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Report cache efficiency to workflow summary
+          if [ -f ~/.cache/logs/cache-status.log ] && grep -q "Using cached dependencies" ~/.cache/logs/cache-status.log; then
+            echo "**Result: Cache successfully utilized!** ✅" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "**Result: Cache miss or first run** ℹ️" >> $GITHUB_STEP_SUMMARY
+          fi
