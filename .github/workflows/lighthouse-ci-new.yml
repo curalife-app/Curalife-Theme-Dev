@@ -46,64 +46,39 @@ jobs:
 
       - name: Generate Lighthouse config
         run: |
-          # Create shared configuration script
-          cat > create-lighthouse-config.sh << 'EOF'
-          #!/bin/bash
-
-          # Common settings for all configurations
-          COMMON_SETTINGS='"numberOfRuns": 1,
-            "settings": {
-              "throttlingMethod": "devtools",
-              "chromeFlags": "--disable-dev-shm-usage --no-sandbox --disable-gpu",
-              "skipAudits": [
-                "uses-http2",
-                "uses-long-cache-ttl",
-                "canonical",
-                "redirects",
-                "uses-text-compression",
-                "third-party-facades"
-              ],
-              "maxWaitForLoad": 60000,
-              "onlyCategories": [
-                "performance",
-                "accessibility",
-                "best-practices",
-                "seo"
-              ]'
-
-          # Function to generate configuration
-          create_config() {
-            local config_file=$1
-            local form_factor=$2
-            local is_mobile=$3
-            local width=$4
-            local height=$5
-            local device_scale=$6
-            local user_agent=$7
-
-            # Build device-specific settings
-            local device_settings='"formFactor": "'$form_factor'",
-              "screenEmulation": {
-                "mobile": '$is_mobile',
-                "width": '$width',
-                "height": '$height',
-                "deviceScaleFactor": '$device_scale',
-                "disabled": false
-              }'
-
-            # Add user agent if provided
-            if [ ! -z "$user_agent" ]; then
-              device_settings="$device_settings,
-              \"emulatedUserAgent\": \"$user_agent\""
-            fi
-
-            # Create the config file
-            cat > $config_file << EOL
+          # Create desktop config file directly
+          cat > lighthouserc-desktop.json << EOL
           {
             "ci": {
               "collect": {
-                $COMMON_SETTINGS,
-                $device_settings
+                "numberOfRuns": 1,
+                "settings": {
+                  "throttlingMethod": "devtools",
+                  "chromeFlags": "--disable-dev-shm-usage --no-sandbox --disable-gpu",
+                  "formFactor": "desktop",
+                  "screenEmulation": {
+                    "mobile": false,
+                    "width": 1350,
+                    "height": 940,
+                    "deviceScaleFactor": 1,
+                    "disabled": false
+                  },
+                  "skipAudits": [
+                    "uses-http2",
+                    "uses-long-cache-ttl",
+                    "canonical",
+                    "redirects",
+                    "uses-text-compression",
+                    "third-party-facades"
+                  ],
+                  "maxWaitForLoad": 60000,
+                  "onlyCategories": [
+                    "performance",
+                    "accessibility",
+                    "best-practices",
+                    "seo"
+                  ]
+                }
               },
               "upload": {
                 "target": "temporary-public-storage"
@@ -111,26 +86,6 @@ jobs:
             }
           }
           EOL
-          }
-
-          # Export the function so it can be used in the workflow
-          export -f create_config
-          EOF
-
-          # Make the script executable
-          chmod +x create-lighthouse-config.sh
-
-          # Source the script to use the function
-          source ./create-lighthouse-config.sh
-
-          # Create desktop config
-          create_config "lighthouserc-desktop.json" \
-            "desktop" \
-            "false" \
-            "1350" \
-            "940" \
-            "1" \
-            ""
 
       - name: Run Lighthouse CI (Desktop)
         id: lighthouse-desktop
@@ -167,64 +122,40 @@ jobs:
 
       - name: Generate Lighthouse config
         run: |
-          # Create shared configuration script
-          cat > create-lighthouse-config.sh << 'EOF'
-          #!/bin/bash
-
-          # Common settings for all configurations
-          COMMON_SETTINGS='"numberOfRuns": 1,
-            "settings": {
-              "throttlingMethod": "devtools",
-              "chromeFlags": "--disable-dev-shm-usage --no-sandbox --disable-gpu",
-              "skipAudits": [
-                "uses-http2",
-                "uses-long-cache-ttl",
-                "canonical",
-                "redirects",
-                "uses-text-compression",
-                "third-party-facades"
-              ],
-              "maxWaitForLoad": 60000,
-              "onlyCategories": [
-                "performance",
-                "accessibility",
-                "best-practices",
-                "seo"
-              ]'
-
-          # Function to generate configuration
-          create_config() {
-            local config_file=$1
-            local form_factor=$2
-            local is_mobile=$3
-            local width=$4
-            local height=$5
-            local device_scale=$6
-            local user_agent=$7
-
-            # Build device-specific settings
-            local device_settings='"formFactor": "'$form_factor'",
-              "screenEmulation": {
-                "mobile": '$is_mobile',
-                "width": '$width',
-                "height": '$height',
-                "deviceScaleFactor": '$device_scale',
-                "disabled": false
-              }'
-
-            # Add user agent if provided
-            if [ ! -z "$user_agent" ]; then
-              device_settings="$device_settings,
-              \"emulatedUserAgent\": \"$user_agent\""
-            fi
-
-            # Create the config file
-            cat > $config_file << EOL
+          # Create mobile config file directly
+          cat > lighthouserc-mobile.json << EOL
           {
             "ci": {
               "collect": {
-                $COMMON_SETTINGS,
-                $device_settings
+                "numberOfRuns": 1,
+                "settings": {
+                  "throttlingMethod": "devtools",
+                  "chromeFlags": "--disable-dev-shm-usage --no-sandbox --disable-gpu",
+                  "formFactor": "mobile",
+                  "screenEmulation": {
+                    "mobile": true,
+                    "width": 360,
+                    "height": 640,
+                    "deviceScaleFactor": 2.625,
+                    "disabled": false
+                  },
+                  "emulatedUserAgent": "Mozilla/5.0 (Linux; Android 11; moto g power (2022)) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Mobile Safari/537.36",
+                  "skipAudits": [
+                    "uses-http2",
+                    "uses-long-cache-ttl",
+                    "canonical",
+                    "redirects",
+                    "uses-text-compression",
+                    "third-party-facades"
+                  ],
+                  "maxWaitForLoad": 60000,
+                  "onlyCategories": [
+                    "performance",
+                    "accessibility",
+                    "best-practices",
+                    "seo"
+                  ]
+                }
               },
               "upload": {
                 "target": "temporary-public-storage"
@@ -232,26 +163,6 @@ jobs:
             }
           }
           EOL
-          }
-
-          # Export the function so it can be used in the workflow
-          export -f create_config
-          EOF
-
-          # Make the script executable
-          chmod +x create-lighthouse-config.sh
-
-          # Source the script to use the function
-          source ./create-lighthouse-config.sh
-
-          # Create mobile config
-          create_config "lighthouserc-mobile.json" \
-            "mobile" \
-            "true" \
-            "360" \
-            "640" \
-            "2.625" \
-            "Mozilla/5.0 (Linux; Android 11; moto g power (2022)) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Mobile Safari/537.36"
 
       - name: Run Lighthouse CI (Mobile)
         id: lighthouse-mobile
