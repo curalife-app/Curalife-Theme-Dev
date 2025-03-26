@@ -252,8 +252,9 @@ jobs:
 
       - name: Generate Dashboard
         run: |
-          # Install required packages
-          npm install -g @lhci/utils ejs
+          # Install required packages locally
+          npm init -y
+          npm install @lhci/utils ejs
 
           # Create artifacts directory if it doesn't exist
           mkdir -p lighthouse-artifacts
@@ -265,18 +266,13 @@ jobs:
           echo "Listing all downloaded artifacts files:"
           find . -type f -name "*.html" | sort
 
-          # Create dashboard generation script
+          # Create dashboard generation script with CommonJS syntax
           cat > generate-dashboard.js << 'EOF'
-          // Use ES module syntax
-          import fs from 'fs';
-          import path from 'path';
-          import ejs from 'ejs';
-          import { execSync } from 'child_process';
-          import { fileURLToPath } from 'url';
-
-          // Get current directory
-          const __filename = fileURLToPath(import.meta.url);
-          const __dirname = path.dirname(__filename);
+          // Use CommonJS syntax instead of ES modules
+          const fs = require('fs');
+          const path = require('path');
+          const ejs = require('ejs');
+          const { execSync } = require('child_process');
 
           try {
             // Create output directory
@@ -288,7 +284,7 @@ jobs:
             // Find all HTML report files
             let reportFiles = [];
             try {
-              const findCmd = "find . -type f -name '*.html'";
+              const findCmd = "find lighthouse-artifacts -type f -name '*.html'";
               const findOutput = execSync(findCmd).toString().trim();
               if (findOutput) {
                 reportFiles = findOutput.split('\n').filter(Boolean);
@@ -410,7 +406,6 @@ jobs:
             `;
 
             // Render and save the dashboard
-            ejs.renderFile = ejs.render; // Make sure renderFile exists
             const html = ejs.render(template, { reports, reportFiles });
             fs.writeFileSync(path.join(outputDir, 'index.html'), html);
 
@@ -437,7 +432,6 @@ jobs:
           EOF
 
           # Make the script executable and run it
-          chmod +x generate-dashboard.js
           node generate-dashboard.js
 
       - name: Upload Dashboard
