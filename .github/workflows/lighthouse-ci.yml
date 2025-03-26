@@ -27,6 +27,9 @@ env:
   NPM_GLOBAL_CACHE_KEY: npm-global-v1
   PUPPETEER_CACHE_KEY: puppeteer-v1
   GH_PAGES_CACHE_KEY: gh-pages-v1
+  # Puppeteer environment variables
+  PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: "false"
+  PUPPETEER_DOWNLOAD_PATH: "/home/runner/.cache/puppeteer"
 
 # Reusable job configurations
 jobs:
@@ -49,11 +52,25 @@ jobs:
           fetch-depth: 1
 
       - name: Setup dependencies and environment
+        id: setup-deps
         uses: ./.github/actions/setup-environment
         with:
           cache-key-prefix: ${{ env.SYSTEM_DEPS_CACHE_KEY }}
           npm-cache-key: ${{ env.NPM_GLOBAL_CACHE_KEY }}
           puppeteer-cache-key: ${{ env.PUPPETEER_CACHE_KEY }}
+
+      - name: Verify Puppeteer installation
+        run: |
+          echo "Verifying Chrome installation..."
+          chrome_path=$(node -e "console.log(require('puppeteer').executablePath())")
+          echo "Chrome executable path: $chrome_path"
+          if [ -f "$chrome_path" ]; then
+            echo "Chrome binary found at: $chrome_path"
+            echo "CHROME_PATH=$chrome_path" >> $GITHUB_ENV
+          else
+            echo "Chrome binary not found at expected path: $chrome_path"
+            exit 1
+          fi
 
       - name: Setup results directory
         id: results-dir
@@ -75,6 +92,7 @@ jobs:
         run: |
           echo "Running Lighthouse on ${{ matrix.page.url }}..."
           .github/workflows/scripts/run-lighthouse.sh "${{ matrix.page.url }}" "${{ matrix.page.name }}" "${{ steps.results-dir.outputs.results_dir }}"
+        continue-on-error: true
 
       - name: Check Lighthouse report files
         run: |

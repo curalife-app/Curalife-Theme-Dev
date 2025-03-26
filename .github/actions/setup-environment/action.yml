@@ -85,63 +85,65 @@ runs:
           echo "Using cached npm global packages"
         fi
 
-    # Install Puppeteer in a dedicated step with a local approach
-    - name: Setup Puppeteer
+    # Direct approach to install Puppeteer with Chromium
+    - name: Install Puppeteer with Chromium
       shell: bash
       run: |
-        echo "Setting up Puppeteer with reliable local installation..."
-        # Create a temporary directory for Puppeteer setup
-        PUPPETEER_DIR=$(mktemp -d)
-        cd $PUPPETEER_DIR
+        echo "Installing Puppeteer with Chromium directly..."
 
-        # Create a package.json
-        echo '{
-          "name": "puppeteer-setup",
-          "version": "1.0.0",
-          "description": "Puppeteer setup",
-          "main": "index.js",
-          "dependencies": {
-            "puppeteer": "19.11.1"
-          }
-        }' > package.json
-
-        # Install Puppeteer locally in this directory
-        echo "Installing Puppeteer locally..."
-        export PUPPETEER_CACHE_DIR=/home/runner/.cache/puppeteer
+        # Set environment variables to ensure Chromium is downloaded
+        export PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=false
         export PUPPETEER_DOWNLOAD_PATH=/home/runner/.cache/puppeteer
-        npm install --no-fund --no-audit
 
-        # Verify installation works
-        echo "Verifying Puppeteer installation..."
-        node -e "
-        const puppeteer = require('puppeteer');
-        async function testPuppeteer() {
-          console.log('Testing Puppeteer installation...');
-          const browser = await puppeteer.launch({
-            args: ['--no-sandbox', '--disable-dev-shm-usage']
-          });
-          console.log('Successfully launched browser');
-          await browser.close();
-          console.log('Puppeteer verification successful');
-        }
-        testPuppeteer().catch(err => {
-          console.error('Puppeteer test failed:', err);
-          process.exit(1);
-        });"
-
-        # If we get here, Puppeteer works - install it globally for the main workflow
-        echo "Puppeteer local installation verified. Installing globally..."
-        cd -
+        # Install Puppeteer globally with Chromium
         npm install -g puppeteer@19.11.1
 
-        # Mark as installed
-        mkdir -p /home/runner/.cache/puppeteer/
+        # Additional direct installation of Chrome binary to ensure it's available
+        mkdir -p /home/runner/.cache/puppeteer
+        cd /home/runner/.cache/puppeteer
+
+        echo "Downloading and verifying Chrome binary..."
+        # Install Chromium directly using puppeteer CLI
+        npx --yes puppeteer browsers install chrome
+
+        # Mark as successfully installed
         touch /home/runner/.cache/puppeteer/installed
 
-        # Clean up
-        rm -rf $PUPPETEER_DIR
+        # Verify Chrome is available
+        chrome_path=$(node -e "console.log(require('puppeteer').executablePath())")
+        echo "Chrome executable path: $chrome_path"
+
+        if [ -f "$chrome_path" ]; then
+          echo "Chrome binary verified at: $chrome_path"
+        else
+          echo "Chrome binary not found at expected path: $chrome_path"
+          exit 1
+        fi
+
+        # Test that puppeteer works
+        echo "Testing Puppeteer with actual browser launch..."
+        node -e "
+        const puppeteer = require('puppeteer');
+        async function test() {
+          console.log('Launching browser...');
+          const browser = await puppeteer.launch({
+            headless: 'new',
+            args: ['--no-sandbox', '--disable-dev-shm-usage']
+          });
+          console.log('Browser launched successfully');
+          const page = await browser.newPage();
+          console.log('Page created');
+          await browser.close();
+          console.log('Test successful');
+        }
+        test().catch(e => {
+          console.error('Puppeteer test failed:', e);
+          process.exit(1);
+        });"
 
     - name: Set Chrome flags
       shell: bash
       run: |
         echo "CHROME_FLAGS=--no-sandbox --disable-dev-shm-usage --disable-gpu --headless --disable-extensions" >> $GITHUB_ENV
+        echo "PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=false" >> $GITHUB_ENV
+        echo "PUPPETEER_DOWNLOAD_PATH=/home/runner/.cache/puppeteer" >> $GITHUB_ENV

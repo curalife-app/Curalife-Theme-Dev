@@ -202,15 +202,21 @@ cp ./$RESULTS_DIR/mobile/screenshots/placeholder.svg ./$RESULTS_DIR/mobile/scree
 SCREENSHOT_DIR=$(mktemp -d)
 cd $SCREENSHOT_DIR
 
-# Create a simple script that uses globally installed Puppeteer
+# Create a script that uses the Chrome binary from the globally installed Puppeteer
 cat > index.js << 'EOL'
 const puppeteer = require('puppeteer');
 
 async function captureScreenshots(url, resultsDir) {
   console.log('Starting screenshot capture for', url);
+
+  // Find Chrome executable path from Puppeteer
+  const executablePath = process.env.CHROME_PATH || puppeteer.executablePath();
+  console.log('Using Chrome at:', executablePath);
+
   let browser;
   try {
     browser = await puppeteer.launch({
+      executablePath: executablePath,
       args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu', '--disable-features=IsolateOrigins', '--disable-extensions'],
       headless: 'new'
     });
@@ -220,15 +226,19 @@ async function captureScreenshots(url, resultsDir) {
     try {
       const desktopPage = await browser.newPage();
       await desktopPage.setViewport({ width: 1200, height: 800 });
+      console.log('Navigating to', url);
       await desktopPage.goto(url, { waitUntil: 'networkidle0', timeout: 30000 });
+      console.log('Page loaded');
 
       // Capture above fold
+      console.log('Capturing above-fold screenshot');
       await desktopPage.screenshot({
         path: `./${resultsDir}/screenshots/above-fold.png`,
         type: 'png'
       });
 
       // Capture full page
+      console.log('Capturing full-page screenshot');
       await desktopPage.screenshot({
         path: `./${resultsDir}/screenshots/full-page.png`,
         type: 'png',
@@ -311,6 +321,11 @@ EOL
 
 # Return to original directory
 cd - > /dev/null
+
+# Get Chrome path from Puppeteer and set it as an environment variable
+echo "Finding Chrome executable path..."
+export CHROME_PATH=$(node -e "console.log(require('puppeteer').executablePath())")
+echo "Using Chrome at: $CHROME_PATH"
 
 # Run the screenshot script with Node
 echo "Running screenshot capture script..."
