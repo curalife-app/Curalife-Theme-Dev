@@ -8,10 +8,12 @@ This project uses Lighthouse CI to continuously monitor and improve performance,
 
 ### Features
 
-- **Automated Testing**: Runs Lighthouse audits on key pages
-- **Performance Monitoring**: Tracks critical metrics over time
-- **PR Comments**: Adds performance results directly to pull requests
-- **GitHub Actions Integration**: Fully automated workflow
+- **Automated Testing**: Runs Lighthouse audits on key pages using the official Lighthouse CI Action
+- **Performance Budgeting**: Sets resource size and count limits to prevent performance regressions
+- **Assertions**: Enforces minimum score thresholds for all Lighthouse categories
+- **Multiple Environments**: Tests both desktop and mobile configurations
+- **GitHub Pages Integration**: Publishes detailed reports to GitHub Pages
+- **PR Integration**: Adds performance results directly to pull requests
 
 ### Running Lighthouse Locally
 
@@ -39,29 +41,38 @@ npm run performance:monitor
 
 The GitHub Actions workflow:
 
-1. Builds the theme
-2. Starts a local development server
-3. Runs Lighthouse CI with configurations from `lighthouserc.cjs`
-4. Posts results as PR comments and summary
-5. Stores reports as artifacts
+1. Runs Lighthouse in both desktop and mobile configurations
+2. Tests against performance budgets defined in `lighthouserc.json`
+3. Publishes detailed results to GitHub Pages
+4. Creates a performance dashboard with historical data
+5. Produces GitHub Action summaries with key metrics
 
-### Performance Budget
+### Performance Thresholds
 
-Performance budgets are configured in `lighthouserc.cjs` to ensure the theme maintains high-quality standards:
+Performance thresholds are configured in `lighthouserc.json`:
 
-- Performance: Minimum score of 80
-- Accessibility: Minimum score of 90
-- Best Practices: Minimum score of 90
-- SEO: Minimum score of 90
+- Performance: Minimum score of 65
+- Accessibility: Minimum score of 80
+- Best Practices: Minimum score of 85
+- SEO: Minimum score of 85
+
+Core Web Vitals thresholds:
+
+- First Contentful Paint: < 2.5s
+- Largest Contentful Paint: < 3s
+- Cumulative Layout Shift: < 0.1
+- Total Blocking Time: < 500ms
+- Time to Interactive: < 4s
 
 ### Configuration
 
-The Lighthouse CI configuration is stored in `lighthouserc.cjs` and can be customized to adjust:
+The Lighthouse CI configuration is stored in `lighthouserc.json` and includes:
 
 - Pages to test
 - Performance thresholds
 - Resource budgets
-- Testing environment
+- Audit configurations
+- Upload destinations
 
 ## Theme Development
 
