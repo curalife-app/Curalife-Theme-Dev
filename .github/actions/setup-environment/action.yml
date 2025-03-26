@@ -85,65 +85,106 @@ runs:
           echo "Using cached npm global packages"
         fi
 
-    # Direct approach to install Puppeteer with Chromium
+    # Complete Puppeteer setup with local installation approach
     - name: Install Puppeteer with Chromium
       shell: bash
       run: |
-        echo "Installing Puppeteer with Chromium directly..."
+        echo "Setting up Puppeteer with comprehensive installation approach..."
 
-        # Set environment variables to ensure Chromium is downloaded
+        # Create a workspace directory for local Puppeteer installation
+        WORKSPACE_DIR="/home/runner/work/puppeteer-setup"
+        mkdir -p $WORKSPACE_DIR
+        cd $WORKSPACE_DIR
+
+        # Create package.json for local installation
+        echo '{
+          "name": "puppeteer-setup",
+          "version": "1.0.0",
+          "description": "Puppeteer setup for workflow",
+          "main": "index.js",
+          "dependencies": {
+            "puppeteer": "19.11.1"
+          }
+        }' > package.json
+
+        # Install Puppeteer locally with explicit cache locations
+        echo "Installing Puppeteer locally..."
         export PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=false
-        export PUPPETEER_DOWNLOAD_PATH=/home/runner/.cache/puppeteer
+        export PUPPETEER_DOWNLOAD_PATH="/home/runner/.cache/puppeteer"
+        npm install
 
-        # Install Puppeteer globally with Chromium
+        # Install Chromium browser
+        echo "Installing Chrome browser..."
+        npx puppeteer browsers install chrome
+
+        # Create a script to verify installation
+        echo "const puppeteer = require('puppeteer');
+        async function verify() {
+          try {
+            console.log('Puppeteer executable path:', puppeteer.executablePath());
+
+            console.log('Launching browser...');
+            const browser = await puppeteer.launch({
+              headless: 'new',
+              args: ['--no-sandbox', '--disable-setuid-sandbox']
+            });
+
+            console.log('Creating page...');
+            const page = await browser.newPage();
+
+            console.log('Closing browser...');
+            await browser.close();
+
+            console.log('Verification successful');
+            return true;
+          } catch (err) {
+            console.error('Verification failed:', err);
+            return false;
+          }
+        }
+
+        verify().then(success => {
+          process.exit(success ? 0 : 1);
+        });" > verify.js
+
+        # Run verification
+        echo "Verifying Puppeteer installation..."
+        node verify.js
+
+        # Create a symlink to ensure it's available in PATH
+        echo "Linking Puppeteer to ensure availability..."
+        sudo npm link puppeteer
+
+        # Install globally as well to ensure it's available in all contexts
         npm install -g puppeteer@19.11.1
 
-        # Additional direct installation of Chrome binary to ensure it's available
-        mkdir -p /home/runner/.cache/puppeteer
-        cd /home/runner/.cache/puppeteer
+        # Create a simple script that exports the Chrome path
+        echo "Creating chrome-path helper..."
+        echo "#!/usr/bin/env node
+        const puppeteer = require('puppeteer');
+        console.log(puppeteer.executablePath());" > /home/runner/.cache/puppeteer/chrome-path.js
+        chmod +x /home/runner/.cache/puppeteer/chrome-path.js
 
-        echo "Downloading and verifying Chrome binary..."
-        # Install Chromium directly using puppeteer CLI
-        npx --yes puppeteer browsers install chrome
-
-        # Mark as successfully installed
+        # Mark as installed
         touch /home/runner/.cache/puppeteer/installed
 
-        # Verify Chrome is available
-        chrome_path=$(node -e "console.log(require('puppeteer').executablePath())")
-        echo "Chrome executable path: $chrome_path"
+        # Save Chrome path for future steps
+        CHROME_PATH=$(node /home/runner/.cache/puppeteer/chrome-path.js || node -e "console.log(require('puppeteer').executablePath())")
+        echo "CHROME_PATH=$CHROME_PATH" > /home/runner/.cache/puppeteer/chrome-path.env
+        echo "Chrome executable path: $CHROME_PATH"
 
-        if [ -f "$chrome_path" ]; then
-          echo "Chrome binary verified at: $chrome_path"
-        else
-          echo "Chrome binary not found at expected path: $chrome_path"
-          exit 1
-        fi
+        # Going back to original directory
+        cd -
 
-        # Test that puppeteer works
-        echo "Testing Puppeteer with actual browser launch..."
-        node -e "
-        const puppeteer = require('puppeteer');
-        async function test() {
-          console.log('Launching browser...');
-          const browser = await puppeteer.launch({
-            headless: 'new',
-            args: ['--no-sandbox', '--disable-dev-shm-usage']
-          });
-          console.log('Browser launched successfully');
-          const page = await browser.newPage();
-          console.log('Page created');
-          await browser.close();
-          console.log('Test successful');
-        }
-        test().catch(e => {
-          console.error('Puppeteer test failed:', e);
-          process.exit(1);
-        });"
-
-    - name: Set Chrome flags
+    - name: Set environment variables
       shell: bash
       run: |
         echo "CHROME_FLAGS=--no-sandbox --disable-dev-shm-usage --disable-gpu --headless --disable-extensions" >> $GITHUB_ENV
         echo "PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=false" >> $GITHUB_ENV
         echo "PUPPETEER_DOWNLOAD_PATH=/home/runner/.cache/puppeteer" >> $GITHUB_ENV
+
+        # Load Chrome path from the saved file
+        if [ -f "/home/runner/.cache/puppeteer/chrome-path.env" ]; then
+          source /home/runner/.cache/puppeteer/chrome-path.env
+          echo "CHROME_PATH=$CHROME_PATH" >> $GITHUB_ENV
+        fi

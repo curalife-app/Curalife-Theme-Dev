@@ -62,15 +62,52 @@ jobs:
       - name: Verify Puppeteer installation
         run: |
           echo "Verifying Chrome installation..."
-          chrome_path=$(node -e "console.log(require('puppeteer').executablePath())")
+          if [ -f "/home/runner/.cache/puppeteer/chrome-path.js" ]; then
+            chrome_path=$(node /home/runner/.cache/puppeteer/chrome-path.js)
+          else
+            chrome_path=$(node -e "console.log(require('puppeteer').executablePath())")
+          fi
+
           echo "Chrome executable path: $chrome_path"
           if [ -f "$chrome_path" ]; then
             echo "Chrome binary found at: $chrome_path"
             echo "CHROME_PATH=$chrome_path" >> $GITHUB_ENV
           else
             echo "Chrome binary not found at expected path: $chrome_path"
-            exit 1
+
+            # Attempt to fix by installing directly
+            echo "Attempting to install Chrome directly..."
+            mkdir -p /home/runner/.cache/puppeteer
+            cd /home/runner/.cache/puppeteer
+            npx --yes puppeteer browsers install chrome
+
+            # Check again
+            if [ -f "/home/runner/.cache/puppeteer/chrome-path.js" ]; then
+              chrome_path=$(node /home/runner/.cache/puppeteer/chrome-path.js)
+            else
+              chrome_path=$(node -e "console.log(require('puppeteer').executablePath())")
+            fi
+
+            echo "Updated Chrome path: $chrome_path"
+            if [ -f "$chrome_path" ]; then
+              echo "Chrome binary now found at: $chrome_path"
+              echo "CHROME_PATH=$chrome_path" >> $GITHUB_ENV
+            else
+              echo "Failed to install Chrome - workflow may fail"
+            fi
           fi
+
+          # Verify Puppeteer can be loaded
+          echo "Verifying Puppeteer module can be loaded..."
+          node -e "
+          try {
+            const puppeteer = require('puppeteer');
+            console.log('Puppeteer successfully loaded, version:', puppeteer.version());
+            process.exit(0);
+          } catch (e) {
+            console.error('Failed to load Puppeteer:', e);
+            process.exit(1);
+          }"
 
       - name: Setup results directory
         id: results-dir

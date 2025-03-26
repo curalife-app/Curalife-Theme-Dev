@@ -324,8 +324,31 @@ cd - > /dev/null
 
 # Get Chrome path from Puppeteer and set it as an environment variable
 echo "Finding Chrome executable path..."
-export CHROME_PATH=$(node -e "console.log(require('puppeteer').executablePath())")
+if [ -f "/home/runner/.cache/puppeteer/chrome-path.js" ]; then
+  export CHROME_PATH=$(node /home/runner/.cache/puppeteer/chrome-path.js)
+else
+  export CHROME_PATH=$(node -e "
+  try {
+    const puppeteer = require('puppeteer');
+    console.log(puppeteer.executablePath());
+  } catch (e) {
+    console.error('Error finding Chrome path:', e);
+    console.log('/usr/bin/google-chrome');
+  }")
+fi
 echo "Using Chrome at: $CHROME_PATH"
+
+# Verify Chrome exists
+if [ ! -f "$CHROME_PATH" ]; then
+  echo "Warning: Chrome not found at $CHROME_PATH"
+  # Try to find Chrome in standard locations
+  if [ -f "/usr/bin/google-chrome" ]; then
+    export CHROME_PATH="/usr/bin/google-chrome"
+    echo "Using system Chrome at $CHROME_PATH"
+  else
+    echo "No Chrome installation found - screenshots may fail"
+  fi
+fi
 
 # Run the screenshot script with Node
 echo "Running screenshot capture script..."
