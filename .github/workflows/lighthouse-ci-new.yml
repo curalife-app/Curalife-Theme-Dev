@@ -40,6 +40,10 @@ jobs:
         with:
           node-version: "18"
 
+      - name: Get current date
+        id: date
+        run: echo "date=$(date +'%m%d%Y')" >> $GITHUB_OUTPUT
+
       - name: Generate Lighthouse config
         run: |
           # Create shared configuration script
@@ -136,7 +140,7 @@ jobs:
           urls: ${{ matrix.page.url }}
           temporaryPublicStorage: true
           uploadArtifacts: true
-          artifactName: lighthouse-desktop-${{ matrix.page.name }}-${{ github.run_id }}
+          artifactName: ${{ matrix.page.name }}-desktop-${{ steps.date.outputs.date }}
 
   lighthouse-mobile:
     name: Lighthouse CI (Mobile)
@@ -156,6 +160,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "18"
+
+      - name: Get current date
+        id: date
+        run: echo "date=$(date +'%m%d%Y')" >> $GITHUB_OUTPUT
 
       - name: Generate Lighthouse config
         run: |
@@ -253,7 +261,7 @@ jobs:
           urls: ${{ matrix.page.url }}
           temporaryPublicStorage: true
           uploadArtifacts: true
-          artifactName: lighthouse-mobile-${{ matrix.page.name }}-${{ github.run_id }}
+          artifactName: ${{ matrix.page.name }}-mobile-${{ steps.date.outputs.date }}
 
   # Compare results between main branch and PR
   compare-lighthouse-results:
@@ -263,6 +271,10 @@ jobs:
     if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
+
+      - name: Get current date
+        id: date
+        run: echo "date=$(date +'%m%d%Y')" >> $GITHUB_OUTPUT
 
       - name: Combine configs for comparison
         run: |
@@ -289,6 +301,20 @@ jobs:
           }
           EOL
 
+      - name: Compare against main branch
+        uses: treosh/lighthouse-ci-action@v12
+        with:
+          urls: |
+            https://curalife.com/
+            https://curalife.com/products/curalin
+          serverBaseUrl: ${{ secrets.LHCI_SERVER_BASE_URL || '' }}
+          serverToken: ${{ secrets.LHCI_SERVER_TOKEN || '' }}
+          uploadArtifacts: true
+          artifactName: comparison-results-${{ steps.date.outputs.date }}
+          temporaryPublicStorage: true
+          configPath: ./lighthouserc-comparison.json
+          compareWithBaseBranch: true
+
   create-dashboard:
     name: Create Lighthouse Dashboard
     needs: [lighthouse-desktop, lighthouse-mobile]
@@ -302,10 +328,14 @@ jobs:
         with:
           node-version: "18"
 
+      - name: Get current date
+        id: date
+        run: echo "date=$(date +'%m%d%Y')" >> $GITHUB_OUTPUT
+
       - name: Download Artifacts
         uses: actions/download-artifact@v4
         with:
-          pattern: lighthouse-*
+          pattern: "*-desktop-*|*-mobile-*"
           path: lighthouse-artifacts
           merge-multiple: true
 
