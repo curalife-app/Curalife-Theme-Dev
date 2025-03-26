@@ -250,6 +250,195 @@ jobs:
           path: lighthouse-artifacts
           merge-multiple: true
 
+      - name: Log Metrics to Google Sheet
+        run: |
+          # Install required packages
+          npm install -y
+          npm install googleapis @actions/core google-auth-library
+
+          # Create the Google Sheets integration script
+          cat > update-google-sheet.js << 'EOF'
+          const { google } = require('googleapis');
+          const fs = require('fs');
+          const path = require('path');
+          const { execSync } = require('child_process');
+          const { OAuth2Client } = require('google-auth-library');
+
+          async function main() {
+            try {
+              // Setup auth with client ID and secret
+              const clientId = process.env.GOOGLE_CLIENT_ID;
+              const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+              const refreshToken = process.env.GOOGLE_REFRESH_TOKEN;
+              const spreadsheetId = process.env.GOOGLE_SHEET_ID;
+
+              if (!clientId || !clientSecret || !refreshToken) {
+                console.error('Missing required Google API credentials');
+                return;
+              }
+
+              // Create OAuth2 client
+              const oauth2Client = new OAuth2Client(
+                clientId,
+                clientSecret,
+                'https://developers.google.com/oauthplayground' // Redirect URI (not used in this context)
+              );
+
+              // Set credentials using refresh token
+              oauth2Client.setCredentials({
+                refresh_token: refreshToken
+              });
+
+              // Initialize sheets API with the auth client
+              const sheets = google.sheets({ version: 'v4', auth: oauth2Client });
+
+              console.log('Finding Lighthouse reports...');
+              const findCmd = "find lighthouse-artifacts -type f -name '*.json'";
+              const jsonFiles = execSync(findCmd).toString().trim().split('\n').filter(Boolean);
+
+              if (jsonFiles.length === 0) {
+                console.log('No JSON result files found');
+                return;
+              }
+
+              console.log(`Found ${jsonFiles.length} JSON files for processing`);
+
+              // Collect metrics from each report
+              const metrics = [];
+              const date = new Date().toISOString().split('T')[0];
+              const timestamp = new Date().toISOString();
+
+              for (const jsonFile of jsonFiles) {
+                try {
+                  console.log(`Processing ${jsonFile}...`);
+                  const data = JSON.parse(fs.readFileSync(jsonFile, 'utf8'));
+
+                  // Skip if not a Lighthouse report
+                  if (!data.audits) continue;
+
+                  // Extract page info from filename
+                  let pageName = "Unknown";
+                  let deviceType = "Unknown";
+
+                  if (jsonFile.includes('homepage')) {
+                    pageName = "Homepage";
+                  } else if (jsonFile.includes('product')) {
+                    pageName = "Product Page";
+                  }
+
+                  if (jsonFile.includes('desktop')) {
+                    deviceType = "Desktop";
+                  } else if (jsonFile.includes('mobile')) {
+                    deviceType = "Mobile";
+                  }
+
+                  // Get performance scores
+                  const categories = data.categories || {};
+                  const performanceScore = categories.performance ? Math.round(categories.performance.score * 100) : null;
+                  const accessibilityScore = categories.accessibility ? Math.round(categories.accessibility.score * 100) : null;
+                  const bestPracticesScore = categories['best-practices'] ? Math.round(categories['best-practices'].score * 100) : null;
+                  const seoScore = categories.seo ? Math.round(categories.seo.score * 100) : null;
+
+                  // Key metrics
+                  const fcp = data.audits?.['first-contentful-paint']?.numericValue;
+                  const lcp = data.audits?.['largest-contentful-paint']?.numericValue;
+                  const tbt = data.audits?.['total-blocking-time']?.numericValue;
+                  const cls = data.audits?.['cumulative-layout-shift']?.numericValue;
+                  const tti = data.audits?.['interactive']?.numericValue;
+
+                  metrics.push([
+                    timestamp,
+                    date,
+                    pageName,
+                    deviceType,
+                    performanceScore,
+                    accessibilityScore,
+                    bestPracticesScore,
+                    seoScore,
+                    fcp ? Math.round(fcp) : null,
+                    lcp ? Math.round(lcp) : null,
+                    tbt ? Math.round(tbt) : null,
+                    cls ? cls.toFixed(3) : null,
+                    tti ? Math.round(tti) : null,
+                    process.env.GITHUB_REF || 'unknown',
+                    process.env.GITHUB_SHA || 'unknown'
+                  ]);
+
+                  console.log(`Processed metrics for ${pageName} on ${deviceType}`);
+                } catch (error) {
+                  console.error(`Error processing ${jsonFile}:`, error);
+                }
+              }
+
+              if (metrics.length === 0) {
+                console.log('No valid metrics extracted from reports');
+                return;
+              }
+
+              // Append data to Google Sheet
+              console.log(`Appending ${metrics.length} rows to Google Sheet...`);
+
+              const response = await sheets.spreadsheets.values.append({
+                spreadsheetId,
+                range: 'Lighthouse!A2:O',  // Assuming headers are in row 1
+                valueInputOption: 'USER_ENTERED',
+                resource: {
+                  values: metrics
+                }
+              });
+
+              console.log(`${response.data.updates.updatedCells} cells updated in Google Sheet`);
+
+              // Create header row if it doesn't exist
+              const headers = [
+                'Timestamp', 'Date', 'Page', 'Device',
+                'Performance', 'Accessibility', 'Best Practices', 'SEO',
+                'FCP (ms)', 'LCP (ms)', 'TBT (ms)', 'CLS', 'TTI (ms)',
+                'Git Ref', 'Commit SHA'
+              ];
+
+              try {
+                const headerCheck = await sheets.spreadsheets.values.get({
+                  spreadsheetId,
+                  range: 'Lighthouse!A1:O1'
+                });
+
+                if (!headerCheck.data.values || headerCheck.data.values[0].length < headers.length) {
+                  await sheets.spreadsheets.values.update({
+                    spreadsheetId,
+                    range: 'Lighthouse!A1:O1',
+                    valueInputOption: 'USER_ENTERED',
+                    resource: {
+                      values: [headers]
+                    }
+                  });
+                  console.log('Added header row to the Google Sheet');
+                }
+              } catch (error) {
+                console.error('Error checking/updating header row:', error);
+              }
+
+            } catch (error) {
+              console.error('Error updating Google Sheet:', error);
+              throw error;
+            }
+          }
+
+          main().catch(console.error);
+          EOF
+
+          # Check if required secrets are available
+          if [ -n "${{ secrets.GOOGLE_CLIENT_ID }}" ] && [ -n "${{ secrets.GOOGLE_CLIENT_SECRET }}" ] && [ -n "${{ secrets.GOOGLE_REFRESH_TOKEN }}" ] && [ -n "${{ secrets.GOOGLE_SHEET_ID }}" ]; then
+            echo "Google Sheets credentials found, logging metrics..."
+            GOOGLE_CLIENT_ID="${{ secrets.GOOGLE_CLIENT_ID }}" \
+            GOOGLE_CLIENT_SECRET="${{ secrets.GOOGLE_CLIENT_SECRET }}" \
+            GOOGLE_REFRESH_TOKEN="${{ secrets.GOOGLE_REFRESH_TOKEN }}" \
+            GOOGLE_SHEET_ID="${{ secrets.GOOGLE_SHEET_ID }}" \
+            node update-google-sheet.js
+          else
+            echo "Google Sheets credentials not found, skipping metrics logging"
+          fi
+
       - name: Generate Dashboard
         run: |
           # Install required packages locally
