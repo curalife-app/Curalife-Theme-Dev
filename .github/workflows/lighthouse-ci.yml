@@ -453,6 +453,12 @@ jobs:
           path: performance-reports
           retention-days: 30
 
+      # This is required for GitHub Pages deployment
+      - name: Upload GitHub Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: performance-reports
+
   # Deploy to GitHub Pages if on main/master branch
   deploy-pages:
     name: Deploy to GitHub Pages
@@ -462,40 +468,12 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      pages: write
+      id-token: write
     steps:
-      - name: Checkout gh-pages branch
-        uses: actions/checkout@v4
-        with:
-          ref: gh-pages
-          fetch-depth: 0
-
-      - name: Download Dashboard
-        uses: actions/download-artifact@v4
-        with:
-          name: lighthouse-dashboard
-          path: ./lighthouse-reports
-
-      - name: Prepare for deployment
-        run: |
-          # Create directories if they don't exist
-          mkdir -p reports
-
-          # Move files to appropriate location
-          cp -r ./lighthouse-reports/* ./
-
-          # Clean up temporary directory
-          rm -rf ./lighthouse-reports
-
-      - name: Configure Git
-        run: |
-          git config user.name "GitHub Actions"
-          git config user.email "actions@github.com"
-
-      - name: Commit and Push
-        run: |
-          git add .
-          git commit -m "Update Lighthouse dashboard [skip ci]" || echo "No changes to commit"
-          git push origin gh-pages
+      # The checkout is not needed anymore, since we use upload-pages-artifact
+      # which uploads to the "github-pages" artifact automatically
 
       - name: Deploy to GitHub Pages
         id: deployment
