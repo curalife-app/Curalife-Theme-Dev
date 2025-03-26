@@ -97,7 +97,6 @@ jobs:
         with:
           urls: ${{ matrix.page.url }}
           uploadArtifacts: true
-          artifactName: lighthouse-desktop-${{ matrix.page.name }}-${{ github.run_id }}
           temporaryPublicStorage: true
           configPath: ./lighthouserc-desktop.json
           runs: 3
@@ -214,7 +213,6 @@ jobs:
         with:
           urls: ${{ matrix.page.url }}
           uploadArtifacts: true
-          artifactName: lighthouse-mobile-${{ matrix.page.name }}-${{ github.run_id }}
           temporaryPublicStorage: true
           configPath: ./lighthouserc-mobile.json
           runs: 3
@@ -306,7 +304,6 @@ jobs:
           serverBaseUrl: ${{ secrets.LHCI_SERVER_BASE_URL || '' }}
           serverToken: ${{ secrets.LHCI_SERVER_TOKEN || '' }}
           uploadArtifacts: true
-          artifactName: lighthouse-comparison-${{ github.run_id }}
           temporaryPublicStorage: true
           runs: 1
           configPath: ./lighthouserc-comparison.json
@@ -328,9 +325,7 @@ jobs:
       - name: Download Artifacts
         uses: actions/download-artifact@v4
         with:
-          pattern: lighthouse-*-${{ github.run_id }}
           path: lighthouse-artifacts
-          merge-multiple: true
 
       - name: Generate Dashboard
         run: |
@@ -389,21 +384,13 @@ jobs:
             # Extract page and device from filename pattern
             if [[ "$filename" == *"mobile"* ]]; then
               device="Mobile"
-            elif [[ "$filename" == *"desktop"* ]]; then
-              device="Desktop"
             else
-              # Try to detect from directory structure
-              report_path=$(dirname "$report")
-              if [[ "$report_path" == *"mobile"* ]]; then
-                device="Mobile"
-              else
-                device="Desktop"
-              fi
+              device="Desktop"
             fi
 
-            if [[ "$filename" == *"homepage"* || "$report" == *"homepage"* ]]; then
+            if [[ "$filename" == *"homepage"* ]]; then
               page="Homepage"
-            elif [[ "$filename" == *"product"* || "$report" == *"product"* ]]; then
+            elif [[ "$filename" == *"product"* ]]; then
               page="Product Page"
             else
               page="Unknown Page"
@@ -473,18 +460,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: lighthouse-dashboard
-          path: ./lighthouse-reports
-
-      - name: Prepare for deployment
-        run: |
-          # Create directories if they don't exist
-          mkdir -p reports
-
-          # Move files to appropriate location
-          cp -r ./lighthouse-reports/* ./
-
-          # Clean up temporary directory
-          rm -rf ./lighthouse-reports
+          path: ./
 
       - name: Configure Git
         run: |
