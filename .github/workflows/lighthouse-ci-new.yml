@@ -424,13 +424,18 @@ jobs:
           echo "Listing all downloaded artifacts files:"
           find . -type f -name "*.html" | sort
 
-          # Create dashboard generation script with CommonJS syntax
+          # Create dashboard generation script with ES module syntax
           cat > generate-dashboard.js << 'EOF'
-          // Use CommonJS syntax instead of ES modules
-          const fs = require('fs');
-          const path = require('path');
-          const ejs = require('ejs');
-          const { execSync } = require('child_process');
+          // Use ES module syntax instead of CommonJS
+          import fs from 'fs';
+          import path from 'path';
+          import ejs from 'ejs';
+          import { execSync } from 'child_process';
+          import { fileURLToPath } from 'url';
+
+          // Get current directory in ES modules
+          const __filename = fileURLToPath(import.meta.url);
+          const __dirname = path.dirname(__filename);
 
           try {
             // Create output directory
@@ -543,7 +548,7 @@ jobs:
                   <% reports.forEach(report => { %>
                     <div class="report-card">
                       <h3><%= report.page %> (<%= report.device %>)</h3>
-                      <a class="report-link" href="./<%= report.filename %>" target="_blank">View Full Report</a>
+                      <a class="report-link" href="<%= report.filename %>" target="_blank">View Full Report</a>
                       <p class="original-path">Original path: <%= report.originalPath %></p>
                     </div>
                   <% }); %>
@@ -586,6 +591,13 @@ jobs:
             }
             fs.writeFileSync(path.join(outputDir, 'error.html'),
               `<html><body><h1>Error generating dashboard</h1><pre>${error.stack}</pre></body></html>`);
+          }
+          EOF
+
+          # Create package.json with type: module for ESM
+          cat > package.json << 'EOF'
+          {
+            "type": "module"
           }
           EOF
 
