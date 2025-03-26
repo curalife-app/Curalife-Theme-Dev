@@ -75,7 +75,6 @@ jobs:
         run: |
           echo "Running Lighthouse on ${{ matrix.page.url }}..."
           .github/workflows/scripts/run-lighthouse.sh "${{ matrix.page.url }}" "${{ matrix.page.name }}" "${{ steps.results-dir.outputs.results_dir }}"
-        continue-on-error: true
 
       - name: Check Lighthouse report files
         run: |
@@ -103,7 +102,6 @@ jobs:
 
           # Create .nojekyll file to prevent GitHub Pages processing
           touch performance-reports/.nojekyll
-        continue-on-error: true
 
       - name: Process Lighthouse results
         id: scores
@@ -152,7 +150,6 @@ jobs:
           echo "MOBILE_OFFSCREEN_IMAGES=${mobile_offscreen_images:-0}" >> $METRICS_FILE
           echo "MOBILE_TOTAL_BYTES=${mobile_total_bytes:-900000}" >> $METRICS_FILE
           echo "MOBILE_DOM_SIZE=${mobile_dom_size:-500}" >> $METRICS_FILE
-        continue-on-error: true
 
       - name: Force create HTML report files
         if: always()
@@ -270,13 +267,11 @@ jobs:
           fi
 
           .github/workflows/scripts/save-reports.sh "${{ matrix.page.name }}" "${{ steps.results-dir.outputs.results_dir }}" "${{ steps.scores.outputs.report_date }}"
-        continue-on-error: true
 
       - name: Format Lighthouse results
         if: steps.scores.outputs.has_results == 'true'
         run: |
           .github/workflows/scripts/format-summary.sh "${{ matrix.page.name }}"
-        continue-on-error: true
 
       # Upload results for this page as an artifact
       - name: Upload individual page report
@@ -285,7 +280,6 @@ jobs:
           name: ${{ matrix.page.name }}-lighthouse-report
           path: performance-reports/
           retention-days: 30
-        continue-on-error: true
 
     outputs:
       report_date: ${{ steps.scores.outputs.report_date }}
@@ -332,7 +326,6 @@ jobs:
           name: lighthouse-complete-report
           path: performance-reports/
           retention-days: 30
-        continue-on-error: true
 
   # Deploy to GitHub Pages
   deploy-pages:
