@@ -40,13 +40,13 @@ jobs:
         with:
           node-version: "18"
 
-      - name: Setup desktop config
+      - name: Generate Lighthouse config
         run: |
           cat > lighthouserc-desktop.json << EOL
           {
             "ci": {
               "collect": {
-                "numberOfRuns": 1,
+                "numberOfRuns": 3,
                 "settings": {
                   "throttlingMethod": "devtools",
                   "chromeFlags": "--disable-dev-shm-usage --no-sandbox --disable-gpu",
@@ -58,7 +58,6 @@ jobs:
                     "deviceScaleFactor": 1,
                     "disabled": false
                   },
-                  "emulatedUserAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
                   "skipAudits": [
                     "uses-http2",
                     "uses-long-cache-ttl",
@@ -95,48 +94,11 @@ jobs:
         id: lighthouse-desktop
         uses: treosh/lighthouse-ci-action@v12
         with:
+          configPath: "./lighthouserc-desktop.json"
           urls: ${{ matrix.page.url }}
+          temporaryPublicStorage: true
           uploadArtifacts: true
           artifactName: lighthouse-desktop-${{ matrix.page.name }}-${{ github.run_id }}
-          temporaryPublicStorage: true
-          configPath: ./lighthouserc-desktop.json
-          runs: 1
-          budgetPath: ./budgets.json
-
-      - name: Create PR Comment
-        if: github.event_name == 'pull_request'
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const { owner, repo, number } = context.issue;
-            const results = ${{ steps.lighthouse-desktop.outputs.manifest }};
-            const links = ${{ steps.lighthouse-desktop.outputs.links }};
-
-            if (!results || !links) return;
-
-            const result = JSON.parse(results)[0];
-            const link = JSON.parse(links)[0];
-
-            const comment = [
-              `## Lighthouse Results for ${{ matrix.page.name }} (Desktop) 🚀`,
-              '',
-              '| Category | Score |',
-              '| --- | --- |',
-              `| Performance | ${Math.round(result.summary.performance * 100)}/100 |`,
-              `| Accessibility | ${Math.round(result.summary.accessibility * 100)}/100 |`,
-              `| Best Practices | ${Math.round(result.summary['best-practices'] * 100)}/100 |`,
-              `| SEO | ${Math.round(result.summary.seo * 100)}/100 |`,
-              '',
-              `[View Detailed Report](${link.url})`
-            ].join('\n');
-
-            github.rest.issues.createComment({
-              owner,
-              repo,
-              issue_number: number,
-              body: comment
-            });
 
   lighthouse-mobile:
     name: Lighthouse CI (Mobile)
@@ -157,13 +119,13 @@ jobs:
         with:
           node-version: "18"
 
-      - name: Setup mobile config
+      - name: Generate Lighthouse config
         run: |
           cat > lighthouserc-mobile.json << EOL
           {
             "ci": {
               "collect": {
-                "numberOfRuns": 1,
+                "numberOfRuns": 3,
                 "settings": {
                   "throttlingMethod": "devtools",
                   "chromeFlags": "--disable-dev-shm-usage --no-sandbox --disable-gpu",
@@ -212,48 +174,11 @@ jobs:
         id: lighthouse-mobile
         uses: treosh/lighthouse-ci-action@v12
         with:
+          configPath: "./lighthouserc-mobile.json"
           urls: ${{ matrix.page.url }}
+          temporaryPublicStorage: true
           uploadArtifacts: true
           artifactName: lighthouse-mobile-${{ matrix.page.name }}-${{ github.run_id }}
-          temporaryPublicStorage: true
-          configPath: ./lighthouserc-mobile.json
-          runs: 1
-          budgetPath: ./budgets.json
-
-      - name: Create PR Comment
-        if: github.event_name == 'pull_request'
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const { owner, repo, number } = context.issue;
-            const results = ${{ steps.lighthouse-mobile.outputs.manifest }};
-            const links = ${{ steps.lighthouse-mobile.outputs.links }};
-
-            if (!results || !links) return;
-
-            const result = JSON.parse(results)[0];
-            const link = JSON.parse(links)[0];
-
-            const comment = [
-              `## Lighthouse Results for ${{ matrix.page.name }} (Mobile) 📱`,
-              '',
-              '| Category | Score |',
-              '| --- | --- |',
-              `| Performance | ${Math.round(result.summary.performance * 100)}/100 |`,
-              `| Accessibility | ${Math.round(result.summary.accessibility * 100)}/100 |`,
-              `| Best Practices | ${Math.round(result.summary['best-practices'] * 100)}/100 |`,
-              `| SEO | ${Math.round(result.summary.seo * 100)}/100 |`,
-              '',
-              `[View Detailed Report](${link.url})`
-            ].join('\n');
-
-            github.rest.issues.createComment({
-              owner,
-              repo,
-              issue_number: number,
-              body: comment
-            });
 
   # Compare results between main branch and PR
   compare-lighthouse-results:
@@ -453,6 +378,12 @@ jobs:
           path: performance-reports
           retention-days: 30
 
+      # This is required for GitHub Pages deployment
+      - name: Upload GitHub Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: performance-reports
+
   # Deploy to GitHub Pages if on main/master branch
   deploy-pages:
     name: Deploy to GitHub Pages
@@ -462,40 +393,12 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      pages: write
+      id-token: write
     steps:
-      - name: Checkout gh-pages branch
-        uses: actions/checkout@v4
-        with:
-          ref: gh-pages
-          fetch-depth: 0
-
-      - name: Download Dashboard
-        uses: actions/download-artifact@v4
-        with:
-          name: lighthouse-dashboard
-          path: ./lighthouse-reports
-
-      - name: Prepare for deployment
-        run: |
-          # Create directories if they don't exist
-          mkdir -p reports
-
-          # Move files to appropriate location
-          cp -r ./lighthouse-reports/* ./
-
-          # Clean up temporary directory
-          rm -rf ./lighthouse-reports
-
-      - name: Configure Git
-        run: |
-          git config user.name "GitHub Actions"
-          git config user.email "actions@github.com"
-
-      - name: Commit and Push
-        run: |
-          git add .
-          git commit -m "Update Lighthouse dashboard [skip ci]" || echo "No changes to commit"
-          git push origin gh-pages
+      # The checkout is not needed anymore, since we use upload-pages-artifact
+      # which uploads to the "github-pages" artifact automatically
 
       - name: Deploy to GitHub Pages
         id: deployment
