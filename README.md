@@ -12,8 +12,9 @@ This project uses Lighthouse CI to continuously monitor and improve performance,
 - **Performance Budgeting**: Sets resource size and count limits to prevent performance regressions
 - **Assertions**: Enforces minimum score thresholds for all Lighthouse categories
 - **Multiple Environments**: Tests both desktop and mobile configurations
-- **GitHub Pages Integration**: Publishes detailed reports to GitHub Pages
-- **PR Integration**: Adds performance results directly to pull requests
+- **PR Comments**: Adds detailed performance feedback directly in pull requests
+- **Visual Comparison**: Shows visual differences between PR and main branch
+- **Attractive Dashboard**: Publishes styled results to GitHub Pages
 
 ### Running Lighthouse Locally
 
@@ -41,11 +42,12 @@ npm run performance:monitor
 
 The GitHub Actions workflow:
 
-1. Runs Lighthouse in both desktop and mobile configurations
-2. Tests against performance budgets defined in `lighthouserc.json`
-3. Publishes detailed results to GitHub Pages
-4. Creates a performance dashboard with historical data
-5. Produces GitHub Action summaries with key metrics
+1. Runs Lighthouse in both desktop and mobile configurations with 3 runs per page
+2. Tests against performance budgets defined in `budgets.json`
+3. Validates scores against thresholds in `lighthouserc.json`
+4. Posts detailed results as PR comments with score comparisons
+5. Creates a visual dashboard with structured report organization
+6. Deploys results to GitHub Pages for historical tracking
 
 ### Performance Thresholds
 
@@ -64,15 +66,22 @@ Core Web Vitals thresholds:
 - Total Blocking Time: < 500ms
 - Time to Interactive: < 4s
 
+### Best Practices Implemented
+
+- Multiple runs (3) to reduce variability in results
+- DevTools throttling for more consistent measurements
+- Proper Chrome flags for CI environment stability
+- Separate budget configuration for easier maintenance
+- Visual PR comments for better developer feedback
+- Branch comparison to catch performance regressions
+- Mobile and desktop testing for comprehensive coverage
+
 ### Configuration
 
-The Lighthouse CI configuration is stored in `lighthouserc.json` and includes:
+The Lighthouse CI setup consists of two main files:
 
-- Pages to test
-- Performance thresholds
-- Resource budgets
-- Audit configurations
-- Upload destinations
+1. `lighthouserc.json` - Controls Lighthouse settings and assertions
+2. `budgets.json` - Defines resource budgets for performance monitoring
 
 ## Theme Development
 
