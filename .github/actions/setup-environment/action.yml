@@ -85,14 +85,25 @@ runs:
           echo "Using cached npm global packages"
         fi
 
-        # Set up Chrome if needed
-        if [ ! -f /home/runner/.cache/puppeteer/installed ]; then
-          echo "Setting up Puppeteer/Chrome..."
+        # Comprehensive Puppeteer/Chrome setup
+        echo "Setting up Puppeteer and Chrome..."
+        if [ ! -f /home/runner/.cache/puppeteer/installed ] || ! node -e "try { require('puppeteer'); console.log('Puppeteer working'); process.exit(0); } catch(e) { console.log('Puppeteer not found'); process.exit(1); }" > /dev/null 2>&1; then
+          echo "Installing Puppeteer and Chrome from scratch..."
+          # First remove any existing installation that might be causing issues
+          npm rm -g puppeteer || true
+          # Install a version compatible with Node.js 18 with explicit path
+          npm install -g puppeteer@19.11.1
+          # Make sure the Chrome binary is installed
           npx puppeteer install chrome
+          # Mark as installed
+          mkdir -p /home/runner/.cache/puppeteer/
           touch /home/runner/.cache/puppeteer/installed
+          # Verify installation
+          node -e "try { require('puppeteer'); console.log('Puppeteer installation verified!'); } catch(e) { console.error('Puppeteer installation failed:', e); process.exit(1); }"
         else
           echo "Using cached Puppeteer/Chrome installation"
         fi
+        echo "Puppeteer and Chrome setup complete"
 
     - name: Set Chrome flags
       shell: bash

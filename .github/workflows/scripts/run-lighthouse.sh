@@ -18,7 +18,7 @@ fi
 echo "Running Lighthouse on $URL..."
 
 # Set Chrome flags
-CHROME_FLAGS="--no-sandbox --disable-dev-shm-usage --disable-gpu --headless"
+CHROME_FLAGS="--no-sandbox --disable-dev-shm-usage --disable-gpu --headless --disable-extensions"
 
 # Run desktop Lighthouse test
 echo "Running desktop tests..."
@@ -35,7 +35,7 @@ npx lhci autorun \
   --collect.settings.skipAudits="" \
   --collect.settings.output="html,json" \
   --collect.settings.disableStorageReset=false \
-  --collect.settings.maxWaitForLoad=120000 \
+  --collect.settings.maxWaitForLoad=60000 \
   --upload.target=filesystem \
   --upload.outputDir=./$RESULTS_DIR || echo "Desktop Lighthouse test failed but continuing..."
 
@@ -118,7 +118,7 @@ npx lhci autorun \
   --collect.settings.skipAudits="" \
   --collect.settings.output="html,json" \
   --collect.settings.disableStorageReset=false \
-  --collect.settings.maxWaitForLoad=120000 \
+  --collect.settings.maxWaitForLoad=60000 \
   --upload.target=filesystem \
   --upload.outputDir=./$RESULTS_DIR/mobile || echo "Mobile Lighthouse test failed but continuing..."
 
@@ -224,7 +224,7 @@ async function captureScreenshots(url, resultsDir) {
   let browser;
   try {
     browser = await puppeteer.launch({
-      args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu', '--disable-features=IsolateOrigins'],
+      args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu', '--disable-features=IsolateOrigins', '--disable-extensions'],
       headless: 'new'
     });
 
