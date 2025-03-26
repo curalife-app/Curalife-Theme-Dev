@@ -3,511 +3,59 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lighthouse Performance Reports</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <title>Lighthouse Dashboard - Curalife</title>
   <style>
-    body { font-family: 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif; line-height: 1.6; max-width: 1400px; margin: 0 auto; padding: 20px; background-color: #f8f9fa; }
-    h1, h2, h3 { color: #2c3e50; margin-top: 1.5rem; }
-    .header { background: linear-gradient(90deg, #4285f4, #34a853); color: white; padding: 2rem; border-radius: 10px; margin-bottom: 2rem; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-    .card { background: white; border-radius: 10px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); transition: transform 0.2s; }
-    .card:hover { transform: translateY(-5px); box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-    .metric-card { text-align: center; padding: 1.5rem; }
-    .metric-value { font-size: 2.5rem; font-weight: bold; margin-bottom: 5px; }
-    .metric-label { font-size: 0.9rem; color: #6c757d; text-transform: uppercase; letter-spacing: 1px; }
-    .pill { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 50px; font-size: 0.8rem; font-weight: 500; margin-right: 5px; }
-    .good { background-color: #d4edda; color: #155724; }
-    .average { background-color: #fff3cd; color: #856404; }
-    .poor { background-color: #f8d7da; color: #721c24; }
-    .chart-container { position: relative; height: 300px; margin-bottom: 2rem; }
-    .table { margin-top: 1.5rem; }
-    .table th { background-color: #f8f9fa; }
-    .badge-score { font-size: 1rem; padding: 0.3rem 0.6rem; border-radius: 50px; }
-    .badge-90plus { background-color: #28a745; color: white; }
-    .badge-75to89 { background-color: #ffc107; color: #212529; }
-    .badge-below75 { background-color: #dc3545; color: white; }
-    .recommendation { padding: 1rem; margin-bottom: 1rem; border-left: 4px solid #4285f4; background-color: #f8f9fa; }
-    .btn-detail { background-color: #4285f4; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; text-decoration: none; display: inline-block; }
-    .btn-detail:hover { background-color: #3367d6; color: white; text-decoration: none; }
-    footer { margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid #dee2e6; color: #6c757d; text-align: center; font-size: 0.9rem; }
+    body { font-family: system-ui, -apple-system, sans-serif; line-height: 1.5; max-width: 1200px; margin: 0 auto; padding: 20px; }
+    h1, h2 { color: #333; }
+    .report-card { border: 1px solid #eee; padding: 15px; margin-bottom: 15px; border-radius: 5px; }
+    .report-card h3 { margin-top: 0; }
+    .scores { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; }
+    .score { padding: 8px 15px; border-radius: 20px; color: white; font-weight: bold; }
+    .perf { background: #0c6; }
+    .a11y { background: #7c5; }
+    .bp { background: #06c; }
+    .seo { background: #c06; }
+    a.report-link { display: inline-block; margin-top: 10px; text-decoration: none; padding: 8px 15px; background: #333; color: white; border-radius: 4px; }
+    a.report-link:hover { background: #555; }
+    .timestamp { color: #666; font-size: 0.9em; margin-bottom: 30px; }
   </style>
 </head>
 <body>
-  <div class="header">
-    <h1><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" class="bi bi-speedometer2" viewBox="0 0 16 16"><path d="M8 4a.5.5 0 0 1 .5.5V6a.5.5 0 0 1-1 0V4.5A.5.5 0 0 1 8 4zM3.732 5.732a.5.5 0 0 1 .707 0l.915.914a.5.5 0 1 1-.708.708l-.914-.915a.5.5 0 0 1 0-.707zM2 10a.5.5 0 0 1 .5-.5h1.586a.5.5 0 0 1 0 1H2.5A.5.5 0 0 1 2 10zm9.5 0a.5.5 0 0 1 .5-.5h1.5a.5.5 0 0 1 0 1H12a.5.5 0 0 1-.5-.5zm.754-4.246a.389.389 0 0 0-.527-.02L7.547 9.31a.91.91 0 1 0 1.302 1.258l3.434-4.297a.389.389 0 0 0-.029-.518z"/><path fill-rule="evenodd" d="M0 10a8 8 0 1 1 15.547 2.661c-.442 1.253-1.845 1.602-2.932 1.25C11.309 13.488 9.475 13 8 13c-1.474 0-3.31.488-4.615.911-1.087.352-2.49.003-2.932-1.25A7.988 7.988 0 0 1 0 10zm8-7a7 7 0 0 0-6.603 9.329c.203.575.923.876 1.68.63C4.397 12.533 6.358 12 8 12s3.604.532 4.923.96c.757.245 1.477-.056 1.68-.631A7 7 0 0 0 8 3z"/></svg> Lighthouse Performance Dashboard</h1>
-    <p>Tracking website performance metrics from automated Lighthouse tests. Last updated: 2025-03-26</p>
-  </div>
-  <div class="container-fluid p-0">
-    <div class="row">
-      <div class="col-md-12 mb-4">
-        <h2>Performance Overview</h2>
-        <div class="row">
-          <div class="col-md-3">
-            <div class="card metric-card">
-              <div class="metric-value" id="avg-perf">Calculating...</div>
-              <div class="metric-label">Average Performance Score</div>
-            </div>
-          </div>
-          <div class="col-md-3">
-            <div class="card metric-card">
-              <div class="metric-value" id="avg-a11y">Calculating...</div>
-              <div class="metric-label">Average Accessibility Score</div>
-            </div>
-          </div>
-          <div class="col-md-3">
-            <div class="card metric-card">
-              <div class="metric-value" id="avg-bp">Calculating...</div>
-              <div class="metric-label">Average Best Practices</div>
-            </div>
-          </div>
-          <div class="col-md-3">
-            <div class="card metric-card">
-              <div class="metric-value" id="avg-seo">Calculating...</div>
-              <div class="metric-label">Average SEO Score</div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-12 mb-4">
-        <h2>Core Web Vitals</h2>
-        <div class="row">
-          <div class="col-md-4">
-            <div class="card metric-card">
-              <div class="metric-value" id="avg-lcp">Calculating...</div>
-              <div class="metric-label">Largest Contentful Paint (LCP)</div>
-              <div class="mt-2"><small>Target: < 2.5s</small></div>
-            </div>
-          </div>
-          <div class="col-md-4">
-            <div class="card metric-card">
-              <div class="metric-value" id="avg-fid">Calculating...</div>
-              <div class="metric-label">First Input Delay (FID)</div>
-              <div class="mt-2"><small>Target: < 100ms</small></div>
-            </div>
-          </div>
-          <div class="col-md-4">
-            <div class="card metric-card">
-              <div class="metric-value" id="avg-cls">Calculating...</div>
-              <div class="metric-label">Cumulative Layout Shift (CLS)</div>
-              <div class="mt-2"><small>Target: < 0.1</small></div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-6 mb-4">
-        <div class="card">
-          <h3>Desktop vs Mobile Performance</h3>
-          <div class="chart-container">
-            <canvas id="deviceComparisonChart"></canvas>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-6 mb-4">
-        <div class="card">
-          <h3>Page Performance Comparison</h3>
-          <div class="chart-container">
-            <canvas id="pageComparisonChart"></canvas>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-12 mb-4">
-        <h2>Detailed Results</h2>
-        <div class="card">
-          <div class="table-responsive">
-            <table class="table table-striped table-hover">
-              <thead class="table-light">
-                <tr>
-                  <th>Page</th>
-                  <th>Device</th>
-                  <th>Performance</th>
-                  <th>Accessibility</th>
-                  <th>Best Practices</th>
-                  <th>SEO</th>
-                  <th>LCP</th>
-                  <th>FID</th>
-                  <th>CLS</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody id="results-table-body">
-                <!-- Table rows will be dynamically populated with JavaScript -->
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-12 mb-4">
-        <h2>Top Improvement Opportunities</h2>
-        <div class="card">
-          <div class="recommendation">
-            <h4>Eliminate render-blocking resources</h4>
-            <p>Resources that block the first paint of your page. Consider delivering critical JS/CSS inline and deferring all non-critical JS/styles.</p>
-          </div>
-          <div class="recommendation">
-            <h4>Properly size images</h4>
-            <p>Serve images that are appropriately-sized to save cellular data and improve load time. Optimize WebP format for all images.</p>
-          </div>
-          <div class="recommendation">
-            <h4>Defer offscreen images</h4>
-            <p>Consider lazy-loading offscreen and hidden images after all critical resources have finished loading.</p>
-          </div>
-          <div class="recommendation">
-            <h4>Reduce JavaScript execution time</h4>
-            <p>Consider reducing the time spent parsing, compiling, and executing JS. You may find delivering smaller JS payloads helps.</p>
-          </div>
-          <div class="text-center mt-3">
-            <a href="performance-optimization-plan.md" class="btn-detail">View Full Optimization Plan</a>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-  <footer>
-    <p>Generated on 2025-03-26 by Lighthouse CI GitHub Action</p>
-  </footer>
+  <h1>Lighthouse Performance Dashboard</h1>
+  <p class="timestamp">Generated on Wed Mar 26 15:57:30 UTC 2025</p>
+
+  <h2>Latest Reports</h2>
+  <div id="reports"></div>
+
   <script>
-    // Performance data from the tests
-    const performanceData = {
-      pages: [],
-      date: '2025-03-26'
-    };
-    // Function to format scores with appropriate styling
-    function formatScore(score) {
-      const numScore = parseInt(score);
-      let badgeClass = 'badge-below75';
-      if (numScore >= 90) {
-        badgeClass = 'badge-90plus';
-      } else if (numScore >= 75) {
-        badgeClass = 'badge-75to89';
-      }
-      return `<span class="badge badge-score ${badgeClass}">${score}</span>`;
-    }
-    // Function to format time values
-    function formatTime(timeMs) {
-      return (timeMs / 1000).toFixed(2) + 's';
-    }
-    // Function to classify CWV metrics
-    function getMetricClass(metric, value) {
-      if (metric === 'LCP') {
-        return value < 2500 ? 'good' : (value < 4000 ? 'average' : 'poor');
-      } else if (metric === 'FID' || metric === 'TBT') {
-        return value < 100 ? 'good' : (value < 300 ? 'average' : 'poor');
-      } else if (metric === 'CLS') {
-        return value < 0.1 ? 'good' : (value < 0.25 ? 'average' : 'poor');
-      }
-      return '';
-    }
-    // Initialize with some placeholder data - will be replaced with actual data
-    performanceData.pages = [
-      {
-        name: 'homepage',
-        url: 'https://curalife.com/',
-        desktop: {
-          performance: 85,
-          accessibility: 92,
-          bestPractices: 88,
-          seo: 95,
-          metrics: {
-            LCP: 2300,
-            FID: 20,
-            CLS: 0.05
-          }
-        },
-        mobile: {
-          performance: 75,
-          accessibility: 90,
-          bestPractices: 85,
-          seo: 93,
-          metrics: {
-            LCP: 3100,
-            FID: 90,
-            CLS: 0.12
-          }
-        }
-      },
-      {
-        name: 'product',
-        url: 'https://curalife.com/products/curalin',
-        desktop: {
-          performance: 82,
-          accessibility: 90,
-          bestPractices: 85,
-          seo: 92,
-          metrics: {
-            LCP: 2500,
-            FID: 25,
-            CLS: 0.08
-          }
-        },
-        mobile: {
-          performance: 70,
-          accessibility: 88,
-          bestPractices: 83,
-          seo: 90,
-          metrics: {
-            LCP: 3300,
-            FID: 110,
-            CLS: 0.15
-          }
-        }
-      }
-    ];
-    // Fetch actual JSON data from report files
-    async function loadReportData() {
-      try {
-        // This would typically fetch data from the JSON files
-        // For now, we'll use the placeholder data and update UI
-        updateDashboard();
-      } catch (error) {
-        console.error('Error loading report data:', error);
-      }
-    }
-    // Update the dashboard with the loaded data
-    function updateDashboard() {
-      // Calculate averages
-      const totals = {
-        performance: 0, accessibility: 0, bestPractices: 0, seo: 0,
-        lcp: 0, fid: 0, cls: 0, count: 0
-      };
-      // Process all data and compute averages
-      performanceData.pages.forEach(page => {
-        // Count desktop metrics
-        if (page.desktop) {
-          totals.performance += page.desktop.performance;
-          totals.accessibility += page.desktop.accessibility;
-          totals.bestPractices += page.desktop.bestPractices;
-          totals.seo += page.desktop.seo;
-          totals.lcp += page.desktop.metrics.LCP;
-          totals.fid += page.desktop.metrics.FID;
-          totals.cls += page.desktop.metrics.CLS;
-          totals.count++;
-        }
-        // Count mobile metrics
-        if (page.mobile) {
-          totals.performance += page.mobile.performance;
-          totals.accessibility += page.mobile.accessibility;
-          totals.bestPractices += page.mobile.bestPractices;
-          totals.seo += page.mobile.seo;
-          totals.lcp += page.mobile.metrics.LCP;
-          totals.fid += page.mobile.metrics.FID;
-          totals.cls += page.mobile.metrics.CLS;
-          totals.count++;
-        }
-      });
-      // Update summary metrics
-      if (totals.count > 0) {
-        document.getElementById('avg-perf').textContent = Math.round(totals.performance / totals.count) + '%';
-        document.getElementById('avg-a11y').textContent = Math.round(totals.accessibility / totals.count) + '%';
-        document.getElementById('avg-bp').textContent = Math.round(totals.bestPractices / totals.count) + '%';
-        document.getElementById('avg-seo').textContent = Math.round(totals.seo / totals.count) + '%';
-        const avgLcp = Math.round(totals.lcp / totals.count);
-        const avgFid = Math.round(totals.fid / totals.count);
-        const avgCls = (totals.cls / totals.count).toFixed(2);
-        const lcpEl = document.getElementById('avg-lcp');
-        lcpEl.textContent = (avgLcp / 1000).toFixed(2) + 's';
-        lcpEl.classList.add(getMetricClass('LCP', avgLcp));
-        const fidEl = document.getElementById('avg-fid');
-        fidEl.textContent = avgFid + 'ms';
-        fidEl.classList.add(getMetricClass('FID', avgFid));
-        const clsEl = document.getElementById('avg-cls');
-        clsEl.textContent = avgCls;
-        clsEl.classList.add(getMetricClass('CLS', avgCls));
-      }
-      // Populate the results table
-      const tableBody = document.getElementById('results-table-body');
-      tableBody.innerHTML = '';
-      performanceData.pages.forEach(page => {
-        // Add desktop row
-        if (page.desktop) {
-          const tr = document.createElement('tr');
-          tr.innerHTML = `
-            <td>${page.name}</td>
-            <td>Desktop</td>
-            <td>${formatScore(page.desktop.performance)}</td>
-            <td>${formatScore(page.desktop.accessibility)}</td>
-            <td>${formatScore(page.desktop.bestPractices)}</td>
-            <td>${formatScore(page.desktop.seo)}</td>
-            <td><span class="pill ${getMetricClass('LCP', page.desktop.metrics.LCP)}">${formatTime(page.desktop.metrics.LCP)}</span></td>
-            <td><span class="pill ${getMetricClass('FID', page.desktop.metrics.FID)}">${page.desktop.metrics.FID}ms</span></td>
-            <td><span class="pill ${getMetricClass('CLS', page.desktop.metrics.CLS)}">${page.desktop.metrics.CLS}</span></td>
-            <td><a href="./${performanceData.date}/${page.name}/desktop.html" class="btn-detail">View Report</a></td>
-          `;
-          tableBody.appendChild(tr);
-        }
-        // Add mobile row
-        if (page.mobile) {
-          const tr = document.createElement('tr');
-          tr.innerHTML = `
-            <td>${page.name}</td>
-            <td>Mobile</td>
-            <td>${formatScore(page.mobile.performance)}</td>
-            <td>${formatScore(page.mobile.accessibility)}</td>
-            <td>${formatScore(page.mobile.bestPractices)}</td>
-            <td>${formatScore(page.mobile.seo)}</td>
-            <td><span class="pill ${getMetricClass('LCP', page.mobile.metrics.LCP)}">${formatTime(page.mobile.metrics.LCP)}</span></td>
-            <td><span class="pill ${getMetricClass('FID', page.mobile.metrics.FID)}">${page.mobile.metrics.FID}ms</span></td>
-            <td><span class="pill ${getMetricClass('CLS', page.mobile.metrics.CLS)}">${page.mobile.metrics.CLS}</span></td>
-            <td><a href="./${performanceData.date}/${page.name}/mobile.html" class="btn-detail">View Report</a></td>
-          `;
-          tableBody.appendChild(tr);
-        }
-      });
-      // Create the device comparison chart
-      createDeviceComparisonChart();
-      createPageComparisonChart();
-    }
-    // Create the device comparison chart
-    function createDeviceComparisonChart() {
-      const ctx = document.getElementById('deviceComparisonChart').getContext('2d');
-      
-      // Calculate average desktop and mobile scores
-      const desktopScores = { perf: 0, a11y: 0, bp: 0, seo: 0, count: 0 };
-      const mobileScores = { perf: 0, a11y: 0, bp: 0, seo: 0, count: 0 };
-      
-      performanceData.pages.forEach(page => {
-        if (page.desktop) {
-          desktopScores.perf += page.desktop.performance;
-          desktopScores.a11y += page.desktop.accessibility;
-          desktopScores.bp += page.desktop.bestPractices;
-          desktopScores.seo += page.desktop.seo;
-          desktopScores.count++;
-        }
-        if (page.mobile) {
-          mobileScores.perf += page.mobile.performance;
-          mobileScores.a11y += page.mobile.accessibility;
-          mobileScores.bp += page.mobile.bestPractices;
-          mobileScores.seo += page.mobile.seo;
-          mobileScores.count++;
-        }
-      });
-      
-      const avgDesktopPerf = desktopScores.count > 0 ? Math.round(desktopScores.perf / desktopScores.count) : 0;
-      const avgDesktopA11y = desktopScores.count > 0 ? Math.round(desktopScores.a11y / desktopScores.count) : 0;
-      const avgDesktopBP = desktopScores.count > 0 ? Math.round(desktopScores.bp / desktopScores.count) : 0;
-      const avgDesktopSEO = desktopScores.count > 0 ? Math.round(desktopScores.seo / desktopScores.count) : 0;
-      
-      const avgMobilePerf = mobileScores.count > 0 ? Math.round(mobileScores.perf / mobileScores.count) : 0;
-      const avgMobileA11y = mobileScores.count > 0 ? Math.round(mobileScores.a11y / mobileScores.count) : 0;
-      const avgMobileBP = mobileScores.count > 0 ? Math.round(mobileScores.bp / mobileScores.count) : 0;
-      const avgMobileSEO = mobileScores.count > 0 ? Math.round(mobileScores.seo / mobileScores.count) : 0;
-      
-      const deviceChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-          labels: ['Performance', 'Accessibility', 'Best Practices', 'SEO'],
-          datasets: [
-            {
-              label: 'Desktop',
-              data: [avgDesktopPerf, avgDesktopA11y, avgDesktopBP, avgDesktopSEO],
-              backgroundColor: 'rgba(54, 162, 235, 0.6)',
-              borderColor: 'rgb(54, 162, 235)',
-              borderWidth: 1
-            },
-            {
-              label: 'Mobile',
-              data: [avgMobilePerf, avgMobileA11y, avgMobileBP, avgMobileSEO],
-              backgroundColor: 'rgba(255, 99, 132, 0.6)',
-              borderColor: 'rgb(255, 99, 132)',
-              borderWidth: 1
-            }
-          ]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          scales: {
-            y: {
-              beginAtZero: true,
-              max: 100,
-              title: {
-                display: true,
-                text: 'Score (%)'
-              }
-            }
-          },
-          plugins: {
-            legend: {
-              position: 'top'
-            },
-            title: {
-              display: false
-            }
-          }
-        }
-      });
-    }
-    // Create the page comparison chart
-    function createPageComparisonChart() {
-      const ctx = document.getElementById('pageComparisonChart').getContext('2d');
-      
-      // Prepare data for each page
-      const pageNames = [];
-      const pagePerformance = [];
-      
-      performanceData.pages.forEach(page => {
-        pageNames.push(page.name);
-        // Average desktop and mobile performance if both exist, otherwise use what's available
-        let score = 0;
-        let count = 0;
-        if (page.desktop) {
-          score += page.desktop.performance;
-          count++;
-        }
-        if (page.mobile) {
-          score += page.mobile.performance;
-          count++;
-        }
-        pagePerformance.push(count > 0 ? Math.round(score / count) : 0);
-      });
-      
-      const pageChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-          labels: pageNames,
-          datasets: [
-            {
-              label: 'Performance Score',
-              data: pagePerformance,
-              backgroundColor: pagePerformance.map(score => {
-                if (score >= 90) return 'rgba(75, 192, 192, 0.6)';
-                if (score >= 75) return 'rgba(255, 206, 86, 0.6)';
-                return 'rgba(255, 99, 132, 0.6)';
-              }),
-              borderColor: pagePerformance.map(score => {
-                if (score >= 90) return 'rgb(75, 192, 192)';
-                if (score >= 75) return 'rgb(255, 206, 86)';
-                return 'rgb(255, 99, 132)';
-              }),
-              borderWidth: 1
-            }
-          ]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          scales: {
-            y: {
-              beginAtZero: true,
-              max: 100,
-              title: {
-                display: true,
-                text: 'Score (%)'
-              }
-            }
-          },
-          plugins: {
-            legend: {
-              display: false
-            },
-            title: {
-              display: false
-            }
-          }
-        }
-      });
-    }
-    // Load data when the page loads
-    document.addEventListener('DOMContentLoaded', loadReportData);
+    // Simple script to organize report links
+    const reportsContainer = document.getElementById('reports');
+
+    // We'll populate this with the found reports
+    const reports = [];
   </script>
-<div style="text-align: center; margin-top: 30px;"><a href="trends.html" style="display: inline-block; padding: 10px 20px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 4px; font-weight: bold;">View Performance Trends Over Time</a></div></body>
+</body>
 </html>
+<script>
+  // Sort and render the reports
+  reports.sort((a, b) => {
+    if (a.page === b.page) return a.device.localeCompare(b.device);
+    return a.page.localeCompare(b.page);
+  });
+
+  reports.forEach(report => {
+    const card = document.createElement('div');
+    card.className = 'report-card';
+
+    card.innerHTML = `
+      <h3>${report.page} (${report.device})</h3>
+      <a class="report-link" href="./${report.filename}" target="_blank">View Full Report</a>
+    `;
+
+    reportsContainer.appendChild(card);
+  });
+
+  if (reports.length === 0) {
+    reportsContainer.innerHTML = '<p>No reports available yet.</p>';
+  }
+</script>
