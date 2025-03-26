@@ -311,7 +311,15 @@ const runTailwindBuild = async () => {
 
 	return new Promise((resolve, reject) => {
 		const npxCommand = getNpxCommand();
-		const buildCommand = spawn(npxCommand, ["tailwindcss", "-i", "./src/styles/tailwind.css", "-o", "./Curalife-Theme-Build/assets/tailwind.css", "--minify"]);
+
+		// Use different approach for Windows
+		let buildCommand;
+		if (process.platform === "win32") {
+			// For Windows, use exec instead of spawn
+			buildCommand = exec(`${npxCommand} tailwindcss -i ./src/styles/tailwind.css -o ./Curalife-Theme-Build/assets/tailwind.css --minify`);
+		} else {
+			buildCommand = spawn(npxCommand, ["tailwindcss", "-i", "./src/styles/tailwind.css", "-o", "./Curalife-Theme-Build/assets/tailwind.css", "--minify"]);
+		}
 
 		buildCommand.stdout.on("data", data => {
 			const output = data.toString().trim();
@@ -351,7 +359,14 @@ const runViteBuild = async () => {
 			VITE_VERBOSE_LOGGING: process.argv.includes("--debug") ? "true" : "false"
 		};
 
-		const viteCommand = spawn("vite", ["build"], { env });
+		// Use different approach for Windows
+		let viteCommand;
+		if (process.platform === "win32") {
+			// For Windows, use exec instead of spawn
+			viteCommand = exec("vite build", { env });
+		} else {
+			viteCommand = spawn("vite", ["build"], { env });
+		}
 
 		viteCommand.stdout.on("data", data => {
 			const output = data.toString().trim();
