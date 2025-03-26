@@ -44,14 +44,14 @@ The GitHub Actions workflow:
 
 1. Runs Lighthouse in both desktop and mobile configurations with 3 runs per page
 2. Tests against performance budgets defined in `budgets.json`
-3. Validates scores against thresholds in `lighthouserc.json`
+3. Uses separate device-specific configuration files to ensure proper emulation
 4. Posts detailed results as PR comments with score comparisons
 5. Creates a visual dashboard with structured report organization
 6. Deploys results to GitHub Pages for historical tracking
 
 ### Performance Thresholds
 
-Performance thresholds are configured in `lighthouserc.json`:
+Performance thresholds are configured in our Lighthouse configurations:
 
 - Performance: Minimum score of 65
 - Accessibility: Minimum score of 80
@@ -71,17 +71,19 @@ Core Web Vitals thresholds:
 - Multiple runs (3) to reduce variability in results
 - DevTools throttling for more consistent measurements
 - Proper Chrome flags for CI environment stability
-- Separate budget configuration for easier maintenance
+- Separate configuration files for desktop and mobile
+- Explicit screen emulation settings to prevent conflicts
 - Visual PR comments for better developer feedback
 - Branch comparison to catch performance regressions
 - Mobile and desktop testing for comprehensive coverage
 
 ### Configuration
 
-The Lighthouse CI setup consists of two main files:
+The Lighthouse CI setup consists of three main files:
 
-1. `lighthouserc.json` - Controls Lighthouse settings and assertions
-2. `budgets.json` - Defines resource budgets for performance monitoring
+1. `lighthouserc-desktop.json` - Controls Lighthouse settings for desktop tests
+2. `lighthouserc-mobile.json` - Controls Lighthouse settings for mobile tests
+3. `budgets.json` - Defines resource budgets for performance monitoring
 
 ## Theme Development
 

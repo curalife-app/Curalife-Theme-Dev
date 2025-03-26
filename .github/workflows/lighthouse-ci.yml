@@ -40,6 +40,57 @@ jobs:
         with:
           node-version: "18"
 
+      - name: Setup desktop config
+        run: |
+          cat > lighthouserc-desktop.json << EOL
+          {
+            "ci": {
+              "collect": {
+                "numberOfRuns": 3,
+                "settings": {
+                  "throttlingMethod": "devtools",
+                  "chromeFlags": "--disable-dev-shm-usage --no-sandbox --disable-gpu",
+                  "formFactor": "desktop",
+                  "screenEmulation": {
+                    "mobile": false,
+                    "width": 1350,
+                    "height": 940,
+                    "deviceScaleFactor": 1,
+                    "disabled": false
+                  },
+                  "emulatedUserAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+                  "skipAudits": [
+                    "uses-http2",
+                    "uses-long-cache-ttl",
+                    "canonical",
+                    "redirects",
+                    "uses-text-compression",
+                    "third-party-facades"
+                  ],
+                  "maxWaitForLoad": 60000,
+                  "onlyCategories": [
+                    "performance",
+                    "accessibility",
+                    "best-practices",
+                    "seo"
+                  ]
+                }
+              },
+              "assert": {
+                "assertions": {
+                  "categories:performance": ["error", { "minScore": 0.65 }],
+                  "categories:accessibility": ["error", { "minScore": 0.8 }],
+                  "categories:best-practices": ["error", { "minScore": 0.85 }],
+                  "categories:seo": ["error", { "minScore": 0.85 }]
+                }
+              },
+              "upload": {
+                "target": "temporary-public-storage"
+              }
+            }
+          }
+          EOL
+
       - name: Run Lighthouse CI (Desktop)
         id: lighthouse-desktop
         uses: treosh/lighthouse-ci-action@v12
@@ -47,11 +98,9 @@ jobs:
           urls: ${{ matrix.page.url }}
           uploadArtifacts: true
           temporaryPublicStorage: true
-          configPath: ./lighthouserc.json
+          configPath: ./lighthouserc-desktop.json
           runs: 3
-          prettyPrintResults: true
           budgetPath: ./budgets.json
-          collect.settings.preset: desktop
 
       - name: Create PR Comment
         if: github.event_name == 'pull_request'
@@ -73,10 +122,10 @@ jobs:
               '',
               '| Category | Score |',
               '| --- | --- |',
-              `| Performance | ${result.summary.performance * 100}/100 |`,
-              `| Accessibility | ${result.summary.accessibility * 100}/100 |`,
-              `| Best Practices | ${result.summary['best-practices'] * 100}/100 |`,
-              `| SEO | ${result.summary.seo * 100}/100 |`,
+              `| Performance | ${Math.round(result.summary.performance * 100)}/100 |`,
+              `| Accessibility | ${Math.round(result.summary.accessibility * 100)}/100 |`,
+              `| Best Practices | ${Math.round(result.summary['best-practices'] * 100)}/100 |`,
+              `| SEO | ${Math.round(result.summary.seo * 100)}/100 |`,
               '',
               `[View Detailed Report](${link.url})`
             ].join('\n');
@@ -107,6 +156,57 @@ jobs:
         with:
           node-version: "18"
 
+      - name: Setup mobile config
+        run: |
+          cat > lighthouserc-mobile.json << EOL
+          {
+            "ci": {
+              "collect": {
+                "numberOfRuns": 3,
+                "settings": {
+                  "throttlingMethod": "devtools",
+                  "chromeFlags": "--disable-dev-shm-usage --no-sandbox --disable-gpu",
+                  "formFactor": "mobile",
+                  "screenEmulation": {
+                    "mobile": true,
+                    "width": 360,
+                    "height": 640,
+                    "deviceScaleFactor": 2.625,
+                    "disabled": false
+                  },
+                  "emulatedUserAgent": "Mozilla/5.0 (Linux; Android 11; moto g power (2022)) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Mobile Safari/537.36",
+                  "skipAudits": [
+                    "uses-http2",
+                    "uses-long-cache-ttl",
+                    "canonical",
+                    "redirects",
+                    "uses-text-compression",
+                    "third-party-facades"
+                  ],
+                  "maxWaitForLoad": 60000,
+                  "onlyCategories": [
+                    "performance",
+                    "accessibility",
+                    "best-practices",
+                    "seo"
+                  ]
+                }
+              },
+              "assert": {
+                "assertions": {
+                  "categories:performance": ["error", { "minScore": 0.65 }],
+                  "categories:accessibility": ["error", { "minScore": 0.8 }],
+                  "categories:best-practices": ["error", { "minScore": 0.85 }],
+                  "categories:seo": ["error", { "minScore": 0.85 }]
+                }
+              },
+              "upload": {
+                "target": "temporary-public-storage"
+              }
+            }
+          }
+          EOL
+
       - name: Run Lighthouse CI (Mobile)
         id: lighthouse-mobile
         uses: treosh/lighthouse-ci-action@v12
@@ -114,11 +214,9 @@ jobs:
           urls: ${{ matrix.page.url }}
           uploadArtifacts: true
           temporaryPublicStorage: true
-          configPath: ./lighthouserc.json
+          configPath: ./lighthouserc-mobile.json
           runs: 3
-          prettyPrintResults: true
           budgetPath: ./budgets.json
-          collect.settings.preset: mobile
 
       - name: Create PR Comment
         if: github.event_name == 'pull_request'
@@ -140,10 +238,10 @@ jobs:
               '',
               '| Category | Score |',
               '| --- | --- |',
-              `| Performance | ${result.summary.performance * 100}/100 |`,
-              `| Accessibility | ${result.summary.accessibility * 100}/100 |`,
-              `| Best Practices | ${result.summary['best-practices'] * 100}/100 |`,
-              `| SEO | ${result.summary.seo * 100}/100 |`,
+              `| Performance | ${Math.round(result.summary.performance * 100)}/100 |`,
+              `| Accessibility | ${Math.round(result.summary.accessibility * 100)}/100 |`,
+              `| Best Practices | ${Math.round(result.summary['best-practices'] * 100)}/100 |`,
+              `| SEO | ${Math.round(result.summary.seo * 100)}/100 |`,
               '',
               `[View Detailed Report](${link.url})`
             ].join('\n');
@@ -164,6 +262,39 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Combine configs for comparison
+        run: |
+          cat > lighthouserc-comparison.json << EOL
+          {
+            "ci": {
+              "collect": {
+                "numberOfRuns": 1,
+                "settings": {
+                  "skipAudits": [
+                    "uses-http2",
+                    "uses-long-cache-ttl",
+                    "canonical",
+                    "redirects",
+                    "uses-text-compression",
+                    "third-party-facades"
+                  ]
+                }
+              },
+              "assert": {
+                "assertions": {
+                  "categories:performance": ["error", { "minScore": 0.65 }],
+                  "categories:accessibility": ["error", { "minScore": 0.8 }],
+                  "categories:best-practices": ["error", { "minScore": 0.85 }],
+                  "categories:seo": ["error", { "minScore": 0.85 }]
+                }
+              },
+              "upload": {
+                "target": "temporary-public-storage"
+              }
+            }
+          }
+          EOL
+
       - name: Compare against main branch
         uses: treosh/lighthouse-ci-action@v12
         with:
@@ -175,7 +306,7 @@ jobs:
           uploadArtifacts: true
           temporaryPublicStorage: true
           runs: 1
-          configPath: ./lighthouserc.json
+          configPath: ./lighthouserc-comparison.json
           compareWithBaseBranch: true
 
   create-dashboard:
