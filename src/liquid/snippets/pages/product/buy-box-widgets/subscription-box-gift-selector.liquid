@@ -1,14 +1,14 @@
+<script>
+	console.log('giftsAmount: ', {{ giftsAmount }});
+</script>
+
 {% if giftsAmount > 0 %}
 	<div class="gift-selector-wrap flex flex-col gap-3">
-		{% unless isHideTitle %}
+		{% if isHideTitle == false %}
 			<div class="gift-selector-title text-[18px] font-medium">
-				{% if giftsAmount == 1 %}
-					Your Free Gift
-				{% else %}
-					Pick your free gift
-				{% endif %}
+				{% if giftsAmount > 1 %}Pick your free gift{% else %}Your Free Gift{% endif %}
 			</div>
-		{% endunless %}
+		{% endif %}
 
 		<div class="gift-options flex flex-col gap-2">
 			{% for block in blocks %}
@@ -27,15 +27,23 @@
 							{% assign giftProd = block.settings.gift_product %}
 							{% assign giftVariant = giftProd.selected_or_first_available_variant %}
 							{% assign giftProdSubscription = block.settings.gift_product_subscription | default: giftProd %}
-							{% assign giftVariantSubscription = giftProdSubscription.selected_or_first_available_variant %}
+							{% assign giftVariantSubscription = giftProdSubscription.selected_or_first_available_variant | default: giftVariant %}
 							{% assign giftThumb = block.settings.gift_thumbnail | default: giftProdSubscription.featured_image | default: giftProd.featured_image %}
 
-							<div class="gift-box clickable block" name="track:gift|variant-sku:{{ giftVariant.sku }}">
+							<div
+								class="gift-box {% if giftsAmount > 1 %}clickable{% endif %} block"
+								{% if giftsAmount > 1 %}
+									name="track:gift|variant-sku:{{ giftVariant.sku }}"
+									tabindex="0"
+								{% else %}
+									aria-disabled="true"
+									tabindex="-1"
+								{% endif %}>
 								<div
 									class="gift-option-border p-2 rounded-lg"
 									data-gift-id="{{ giftVariant.id }}"
 									data-gift-id-subscription="{{ giftVariantSubscription.id | default: giftVariant.id }}">
-									<div class="flex items-center self-end gap-2 {% if giftsAmount > 1 %}ml-auto{% endif %}" style="width:93%">
+									<div class="flex items-center self-end gap-2 {% if giftsAmount > 1 %}ml-auto{% endif %}">
 										<div class="gift-image-container flex-shrink-0">
 											<img
 												src="{{ giftThumb | image_url: width: 160, height: 160 }}"
@@ -44,9 +52,20 @@
 										</div>
 
 										<div class="gift-content flex-grow">
-											<div class="flex items-center gap-2 mb-1">
-												<div class="gift-name text-[16px] font-bold">{{ giftProd.title | replace: 'Free ', '' }} - FREE</div>
-												<span class="text-gray-600 line-through">${{ giftVariantSubscription.compare_at_price | money_without_currency }}</span>
+											<div class="flex items-center justify-between gap-2 mb-1">
+												<div class="gift-name text-[16px] font-bold">
+													{% if giftsAmount == 1 %}
+														<span class="text-bronze inline-block">Free Gift:</span>
+													{% endif %}
+													{{ giftProd.title | replace: 'Free ', '' }}
+												</div>
+
+												<div class="price-wrapper w-min text-end">
+													<span class="font-bold">{{ 0 | money }}</span>
+													<span class="text-sm text-gray-600 line-through">
+														{{ giftVariantSubscription.compare_at_price | default: giftVariantSubscription.price | default: giftVariantSubscription.product.price | money }}
+													</span>
+												</div>
 											</div>
 											<div class="text-gray-600" style="font-size: 14px">{{ block.settings.variant_description | default: giftProd.metafields.custom.short_description }}</div>
 										</div>
@@ -79,7 +98,7 @@
 		      transition: all 0.3s ease;
 
 		      &:hover {
-		        background-color: {% if giftsAmount > 1 %}var(--primary-color-lighter){% else %}white{% endif %};
+		        background-color: var(--primary-color-lighter);
 		      }
 
 		      /* Gift Option Layout */
@@ -221,6 +240,16 @@
 				giftOptionContainers.forEach(c => {
 					c.addEventListener('click', () => updateGiftSelection(c));
 				});
+			} else if (giftOptionContainers.length === 1) {
+				giftOptionContainers[0].addEventListener(
+					'click',
+					e => {
+						e.preventDefault();
+						e.stopPropagation();
+						return false;
+					},
+					true
+				);
 			}
 		});
 	</script>
