@@ -10,6 +10,7 @@
 {% endif %}
 
 {% assign referenced_variant_product = prod %}
+{% assign referenced_variant = null %}
 
 {% assign giftsAmount = 0 %}
 {% assign faqsAmount = value %}
@@ -35,28 +36,53 @@
 {% endfor %}
 
 {% assign defaultSelectionIndex = 0 %}
-{% assign defaultVariant = null %}
+{% assign firstVariantBlock = null %}
+{% assign variant_selling_plan_id = null %}
 
 <!-- Find first variant block to use for properties -->
 {% for block in blocks %}
 	{% if block.type == 'variant' %}
-		{% assign defaultVariant = block %}
+		{% assign firstVariantBlock = block %}
+
+		<!-- Try to find the matching variant in the product -->
+		{% if referenced_variant_product and referenced_variant_product.variants.size > 0 %}
+			{% for var in referenced_variant_product.variants %}
+				{% assign currVarID = var.id | plus: 0 %}
+				{% assign settingsVarID = firstVariantBlock.settings.variant_id | plus: 0 %}
+
+				{% if currVarID == settingsVarID %}
+					{% assign referenced_variant = var %}
+
+					<!-- If variant has subscription metafields, use those -->
+					{% if var.metafields.subscription and var.metafields.subscription.selling_plan_id %}
+						{% assign variant_selling_plan_id = var.metafields.subscription.selling_plan_id %}
+					{% endif %}
+
+					{% break %}
+				{% endif %}
+			{% endfor %}
+		{% endif %}
+
+		<!-- If we still don't have a selling_plan_id, use the one from settings or fallback -->
+		{% unless variant_selling_plan_id %}
+			{% if firstVariantBlock.settings.selling_plan_id %}
+				{% assign variant_selling_plan_id = firstVariantBlock.settings.selling_plan_id %}
+			{% elsif selling_plan_id %}
+				{% assign variant_selling_plan_id = selling_plan_id %}
+			{% endif %}
+		{% endunless %}
+
 		{% break %}
 	{% endif %}
 {% endfor %}
 
 <div class="product-actions" data-default-variant-index="{{ defaultSelectionIndex }}" data-gifts-amount="{{ giftsAmount }}">
 	<div class="purchase-options flex flex-col gap-3 mb-3">
-		<!-- Single non-selectable variant box -->
-		<div class="single-variant-box border-2 border-primary rounded-md p-4"
-			data-variant-id="{{ defaultVariant.settings.variant_id }}"
-			data-selling-plan-id="{{ defaultVariant.settings.selling_plan_id }}"
-			data-bottle-quantity="{{ defaultVariant.settings.bottle_quantity }}"
-			data-save-percentage="{{ defaultVariant.settings.save_percentage }}"
-			data-compare-price="{{ defaultVariant.settings.compare_price }}"
-			data-price="{{ defaultVariant.settings.price }}"
-			{% if defaultVariant.settings.product_title %}data-product-title="{{ defaultVariant.settings.product_title }}"{% endif %}
-			{% if defaultVariant.settings.variant_title %}data-variant-title="{{ defaultVariant.settings.variant_title }}"{% endif %}>
+		<div class="single-variant-box border-primary p-4 border-2 rounded-md"
+			data-variant-id="{{ firstVariantBlock.settings.variant_id }}"
+			data-selling-plan-id="{{ variant_selling_plan_id }}"
+			data-compare-price="{% if referenced_variant %}{{ referenced_variant.compare_at_price }}{% else %}{{ firstVariantBlock.settings.compare_price }}{% endif %}"
+			data-price="{% if referenced_variant %}{{ referenced_variant.price }}{% else %}{{ firstVariantBlock.settings.price }}{% endif %}">
 			<!-- Header -->
 			<div class="variant-header text-primary font-bold text-[22px] mb-3">
 				<svg class="inline-block" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -64,11 +90,11 @@
 			</svg>
 			Subscribe & Save</div>
 
-			<div class="top-wrapper flex justify-between items-center border-b border-bg pb-4 mb-4">
+			<div class="top-wrapper border-bg flex items-center justify-between pb-4 mb-4 border-b">
 				<!-- Variant name and subtitle -->
 				<div class="variant-info">
-					<div class="text-[22px] font-semibold">{{ defaultVariant.settings.product_title | default: '1-Month Supply' }}</div>
-					<div class="text-[15px] text-gray-600">{{ defaultVariant.settings.variant_title | default: '1 bottle delivered monthly' }}</div>
+					<div class="text-[22px] font-semibold">{{ firstVariantBlock.settings.product_title | default: '1-Month Supply' }}</div>
+					<div class="text-[15px] text-gray-600">{{ firstVariantBlock.settings.variant_title | default: '1 bottle delivered monthly' }}</div>
 				</div>
 
 				<!-- Price display -->
@@ -77,16 +103,16 @@
 						<div class="main-price text-primary">
 							<span class="price font-bold mbl:text-[6vw] rounded-full bg-bg text-center block p-1 mb-1">$0 NOW</span>
 						</div>
-						<div class="text-gray-600 text-[14px]">${{ defaultVariant.settings.price | default: '55' }} if you keep it</div>
+						<div class="text-gray-600 text-[14px]">${{ firstVariantBlock.settings.price | default: '55' }} if you keep it</div>
 					</div>
 				</div>
 			</div>
 
 			<!-- Benefits bullet list -->
-			<ul class="benefits-list my-4 no-style">
+			<ul class="benefits-list no-style my-4">
 				<li class="flex items-start gap-2 mb-2">
 					<span class="text-primary font-bold">✓</span>
-					<span>Full 30-day supply of {{ defaultVariant.settings.product_name | default: 'Curalin' }}</span>
+					<span>Full 30-day supply of {{ firstVariantBlock.settings.product_name | default: 'Curalin' }}</span>
 				</li>
 				<li class="flex items-start gap-2 mb-2">
 					<span class="text-primary font-bold">✓</span>
@@ -115,10 +141,10 @@
 			{% endif %}
 		</div>
 
-		<div class="info-box flex items-center justify-between p-4 bg-[#FDF5EA] rounded-md border border-[#FFEACF]">
+		<div class="info-box flex items-center justify-between p-4 bg-[#FDF5EA] rounded-md gap-2 border border-[#FFEACF]">
 			<div class="info-text">
 				<p>Try Curalin for FREE - only pay if you keep it after 14 days.</p>
-				<div class="text-bronze font-medium">How does "Try Before You Buy" work?</div>
+				<div class="text-bronze font-medium underline cursor-pointer">How does "Try Before You Buy" work?</div>
 			</div>
 			<div class="info-icon text-primary text-xl">
 				<svg width="47" height="57" viewBox="0 0 47 57" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -139,6 +165,8 @@
 
 			</div>
 		</div>
+
+	{% render 'try-before-you-buy-popup' %}
 
 	{% render 'subscription-box-faq',
 		SID: SID,
@@ -349,34 +377,78 @@ document.addEventListener('DOMContentLoaded', () => {
 				isRedirectingToCheckout: true
 			});
 
+			console.log('Starting buy now flow with items:', JSON.stringify(items));
+
 			// Remove cart popup if it exists (do this early)
 			const cartPopup = document.getElementById('upCart');
 			if (cartPopup) cartPopup.remove();
 
 			// Perform cart operations in parallel when possible
+			console.log('Clearing cart...');
 			const clearCartPromise = clearCart();
 
 			// Wait for cart clearing to complete
 			await clearCartPromise;
+			console.log('Cart cleared successfully');
+
+			// Validate each item to ensure selling_plan is properly formatted
+			items.forEach(item => {
+				if (item.selling_plan !== undefined) {
+					// Ensure selling_plan is a number
+					item.selling_plan = parseInt(item.selling_plan, 10);
+					if (isNaN(item.selling_plan)) {
+						console.error(`Invalid selling_plan value: ${item.selling_plan}`);
+						delete item.selling_plan;
+					}
+				}
+			});
 
 			// Add items to cart (with improved error handling)
+			const requestBody = JSON.stringify({ items });
+			console.log('Adding items to cart with request body:', requestBody);
+
 			const addRes = await fetch('/cart/add.js', {
 				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ items }),
-				// Add cache control to prevent browser caching
+				headers: {
+					'Content-Type': 'application/json',
+					'Cache-Control': 'no-cache'
+				},
+				body: requestBody,
 				cache: 'no-store'
 			});
 
+			console.log('Cart add response status:', addRes.status);
+			const responseText = await addRes.text();
+			console.log('Cart add response text:', responseText);
+
+			let responseData;
+			try {
+				responseData = JSON.parse(responseText);
+				console.log('Cart add parsed response:', responseData);
+			} catch (e) {
+				console.error('Failed to parse response as JSON:', e);
+			}
+
 			if (!addRes.ok) {
-				const errorData = await addRes.json();
-				console.error('Cart add response:', errorData);
 				throw Object.assign(
 					new Error('Failed to add items'),
-					{ response: errorData }
+					{ response: responseData || responseText }
 				);
 			}
 
+			// Verify items were added with subscription
+			try {
+				const cart = await fetch('/cart.js').then(res => res.json());
+				console.log('Cart contents after adding items:', cart);
+				const hasSubscription = cart.items.some(item => item.selling_plan_allocation);
+				if (!hasSubscription) {
+					console.warn('No subscription items found in cart after adding. Check selling plan ID.');
+				}
+			} catch (e) {
+				console.error('Failed to verify cart contents:', e);
+			}
+
+			console.log('Items added successfully, redirecting to checkout');
 			// Redirect to checkout immediately
 			window.location.href = '/checkout';
 		} catch (err) {
@@ -391,6 +463,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	async function addValidItemsToCart(items) {
 		try {
+			console.log('Adding items to cart:', JSON.stringify(items));
+
 			// Add items to cart
 			const res = await fetch('/cart/add.js', {
 				method: 'POST',
@@ -402,21 +476,35 @@ document.addEventListener('DOMContentLoaded', () => {
 				body: JSON.stringify({ items })
 			});
 
+			console.log('Cart add response status:', res.status);
+			const responseText = await res.text();
+			console.log('Cart add response text:', responseText);
+
+			let responseData;
+			try {
+				responseData = JSON.parse(responseText);
+				console.log('Cart add parsed response:', responseData);
+			} catch (e) {
+				console.error('Failed to parse response as JSON:', e);
+			}
+
 			if (!res.ok) {
-				const errorData = await res.json();
-				console.error('Error adding items to cart:', errorData);
-				throw Object.assign(new Error('Failed to add items to cart'), { response: errorData });
+				throw Object.assign(
+					new Error('Failed to add items to cart'),
+					{ response: responseData || responseText }
+				);
 			}
 
 			// Update cart UI if needed
 			if (typeof window.updateCart === 'function') {
+				console.log('Updating cart UI');
 				window.updateCart();
 			}
 
 			// Show a success message
 			showNotification('Items added to cart!', 'success');
 
-			return res.json();
+			return responseData;
 		} catch (err) {
 			console.error('Error in addValidItemsToCart:', err);
 			throw err;
@@ -429,82 +517,148 @@ document.addEventListener('DOMContentLoaded', () => {
 		// Use a variable to track if a submission is in progress
 		let isSubmitting = false;
 
+		// Add click event for the variant box itself
+		const variantBox = document.querySelector('.single-variant-box');
+		if (variantBox) {
+			// Log the selling plan ID we'll be using
+			const sellingPlanId = variantBox.dataset.sellingPlanId;
+			console.log('Using selling plan ID:', sellingPlanId);
+
+			variantBox.addEventListener('click', function(e) {
+				// Only trigger if the click is on the box itself, not on any buttons inside
+				if (e.target.closest('button') || e.target.closest('.one-time-add-to-cart')) {
+					return;
+				}
+				// Trigger the submit button click
+				submitButton.click();
+			});
+		}
+
+		// First make sure we override the default form submission from buy-buttons-new-4
+		const form = productActions.querySelector('form[data-type="add-to-cart-form"]');
+		if (form) {
+			form.addEventListener('submit', function(e) {
+				e.preventDefault();
+				console.log('Form submit intercepted');
+				// The actual submission logic is handled by the button click handler
+			});
+		}
+
 		submitButton.addEventListener('click', async e => {
 			e.preventDefault();
+			console.log('Submit button clicked');
 
 			// Prevent double-clicks or multiple submissions
 			if (isSubmitting || BuyBoxState.data.isLoading) {
+				console.log('Submission already in progress, ignoring click');
 				return;
 			}
 
 			isSubmitting = true;
 			BuyBoxState.setState({ isLoading: true });
 
+			// Track the event in dataLayer - this is happening but not followed by cart action
+			if (window.dataLayer) {
+				window.dataLayer.push({
+					'event': 'submit-clicked',
+					'buybox_type': BuyBoxState.data.buyType,
+					'buybox_name': 'subscription-try'
+				});
+			}
+
 			try {
 				const isSub = true; // Always subscription in this simplified version
 				const variantBox = document.querySelector('.single-variant-box');
 				const variant = variantBox?.dataset.variantId;
-				const sellingPlanId = variantBox?.dataset.sellingPlanId || '{{ selling_plan_id }}';
+				const sellingPlanId = variantBox?.dataset.sellingPlanId;
 
 				if (!variant) {
 					throw new Error('No valid variant ID found');
 				}
 
+				if (isSub && !sellingPlanId) {
+					throw new Error('No selling plan ID found for subscription purchase');
+				}
+
+				// Ensure selling plan ID is a number (Shopify requires this)
+				const numericSellingPlanId = parseInt(sellingPlanId, 10);
+				if (isNaN(numericSellingPlanId)) {
+					throw new Error(`Invalid selling plan ID: ${sellingPlanId}`);
+				}
+
+				// Set values in the form if it exists
+				const variantIdInput = productActions.querySelector('.submit-variant-id');
+				const sellingPlanIdInput = productActions.querySelector('.submit-selling-plan-id');
+
+				if (variantIdInput) variantIdInput.value = variant;
+				if (sellingPlanIdInput) sellingPlanIdInput.value = numericSellingPlanId;
+
 				let items = [{
 					id: parseInt(variant, 10),
 					quantity: 1,
-					selling_plan: isSub ? sellingPlanId : undefined
+					selling_plan: numericSellingPlanId
 				}];
 
 				// Debug log to check what's being sent to cart
-				console.log('Adding to cart with items:', JSON.stringify(items));
+				console.log('Adding to cart with items:', JSON.stringify(items), 'isSub:', isSub, 'sellingPlanId:', numericSellingPlanId);
 
 				// Add selected gift if available
 				{% if giftsAmount > 0 %}
 				const selectedGiftBox = document.querySelector('.gift-box.selected');
 				if (selectedGiftBox) {
-					const giftIDSub = selectedGiftBox.dataset.giftIdSubscription;
-					const giftID = selectedGiftBox.dataset.giftId;
+					const giftBorder = selectedGiftBox.querySelector('.gift-option-border');
+					if (!giftBorder) {
+						console.error('Gift border element not found in selected gift box');
+					} else {
+						const giftIDSub = giftBorder.dataset.giftIdSubscription;
+						const giftID = giftBorder.dataset.giftId;
 
-					// Use subscription gift ID for subscription purchase, otherwise use regular gift ID
-					const giftIDToUse = isSub && giftIDSub ? giftIDSub : giftID;
-
-					if (giftIDToUse) {
-						items.push({ id: parseInt(giftIDToUse, 10), quantity: 1 });
-						console.log('Adding gift to cart:', giftIDToUse);
-					}
-				}
-				{% else %}
-				// Get first available gift when no gift selection UI is shown
-				{% for block in blocks %}
-					{% if block.type == 'gift' and block.settings.show_on != 'none' %}
-						{% if isGlobal %}
-							{% assign giftID = block.settings.gift_id_global | plus: 0 %}
-							{% assign giftIDSub = block.settings.gift_id_subscription_global | plus: 0 %}
-						{% else %}
-							{% assign giftID = block.settings.gift_id | plus: 0 %}
-							{% assign giftIDSub = block.settings.gift_id_subscription | plus: 0 %}
-						{% endif %}
-
-						{% if giftID > 0 or giftIDSub > 0 %}
-						const giftID = {{ giftID }};
-						const giftIDSub = {{ giftIDSub }};
+						// Use subscription gift ID for subscription purchase, otherwise use regular gift ID
 						const giftIDToUse = isSub && giftIDSub ? giftIDSub : giftID;
 
 						if (giftIDToUse) {
-							items.push({ id: giftIDToUse, quantity: 1 });
-							console.log('Adding default gift to cart:', giftIDToUse);
+							items.push({ id: parseInt(giftIDToUse, 10), quantity: 1 });
+							console.log('Adding gift to cart:', giftIDToUse);
+						} else {
+							console.error('No gift ID found for selection. Sub:', giftIDSub, 'Regular:', giftID);
 						}
-						{% break %}
+					}
+				} else {
+					console.log('No gift selected, looking for default gift');
+					// Get first available gift when no gift selection UI is shown
+					{% for block in blocks %}
+						{% if block.type == 'gift' and block.settings.show_on != 'none' %}
+							{% if isGlobal %}
+								{% assign giftID = block.settings.gift_id_global | plus: 0 %}
+								{% assign giftIDSub = block.settings.gift_id_subscription_global | plus: 0 %}
+							{% else %}
+								{% assign giftID = block.settings.gift_id | plus: 0 %}
+								{% assign giftIDSub = block.settings.gift_id_subscription | plus: 0 %}
+							{% endif %}
+
+							{% if giftID > 0 or giftIDSub > 0 %}
+							const giftID = {{ giftID }};
+							const giftIDSub = {{ giftIDSub }};
+							const giftIDToUse = isSub && giftIDSub ? giftIDSub : giftID;
+
+							if (giftIDToUse) {
+								items.push({ id: giftIDToUse, quantity: 1 });
+								console.log('Adding default gift to cart:', giftIDToUse);
+							}
+							{% break %}
+							{% endif %}
 						{% endif %}
-					{% endif %}
-				{% endfor %}
+					{% endfor %}
+				}
 				{% endif %}
 
-				if (BuyBoxState.data.buyType === 'buy_now') {
-					await handleBuyNowFlow(items);
-					// Don't reset loading state if we're redirecting
-				} else {
+				// For "Try Before You Buy", always use buy_now flow to go directly to checkout
+				console.log("Starting checkout process with buyType:", BuyBoxState.data.buyType);
+				await handleBuyNowFlow(items);
+
+				// The following code won't execute if handleBuyNowFlow is successful since it redirects
+				// But let's keep it as a fallback
+				if (BuyBoxState.data.buyType !== 'buy_now') {
 					await addValidItemsToCart(items);
 					// Only reset loading state if we're not redirecting
 					isSubmitting = false;
@@ -554,13 +708,21 @@ document.addEventListener('DOMContentLoaded', () => {
 				// Add selected gift to one-time purchase
 				const selectedGiftBox = document.querySelector('.gift-box.selected');
 				if (selectedGiftBox) {
-					const giftID = selectedGiftBox.dataset.giftId;
+					const giftBorder = selectedGiftBox.querySelector('.gift-option-border');
+					if (giftBorder) {
+						const giftID = giftBorder.dataset.giftId;
 
-					if (giftID) {
-						toAdd.push({ id: parseInt(giftID, 10), quantity: 1 });
-						console.log('Adding gift to one-time purchase:', giftID);
+						if (giftID) {
+							toAdd.push({ id: parseInt(giftID, 10), quantity: 1 });
+							console.log('Adding gift to one-time purchase:', giftID);
+						} else {
+							console.error('No gift ID found for one-time purchase in selected gift');
+						}
+					} else {
+						console.error('Gift border element not found in selected gift box for one-time');
 					}
 				} else {
+					console.log('No gift selected for one-time, looking for default gift');
 					// Fallback to first available gift
 					{% for block in blocks %}
 						{% if block.type == 'gift' and block.settings.show_on != 'none' %}
@@ -707,11 +869,6 @@ document.addEventListener('DOMContentLoaded', () => {
 <style>
 	/* Core variables - keep these as CSS variables */
 	#cta-section-{{ SID }} {
-			--text-color: #4a5568;
-			--border-color: #cbcbcb;
-			--primary-color: #004B94;
-			--bg-color: #F5F9FF;
-			--orange: #FCAF2A;
 			--transition-speed: 0.2s;
 
 			/* Info box styles */
@@ -722,7 +879,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 			/* Single variant box styles */
 			.single-variant-box {
-					border-color: var(--primary-color);
+					border-color: var(--primary-color-lighter);
 					transition: all 0.3s ease;
 			}
 
@@ -840,29 +997,5 @@ document.addEventListener('DOMContentLoaded', () => {
 		bottom: 0;
 		background-color: rgba(0, 0, 0, 0.15);
 		border-radius: inherit;
-	}
-
-	/* Gift box styles */
-	.gift-box {
-		transition: all 0.2s ease;
-		border-width: 1px;
-	}
-
-	.gift-box.selected {
-		border-color: var(--primary-color);
-		background-color: var(--bg-color);
-		box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
-	}
-
-	.gift-box:hover {
-		border-color: var(--primary-color);
-	}
-
-	.gift-option-border div {
-		transition: opacity 0.2s ease;
-	}
-
-	.gift-image {
-		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 	}
 </style>
