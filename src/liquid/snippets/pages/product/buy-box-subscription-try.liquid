@@ -34,10 +34,29 @@
 	{% endcase %}
 {% endfor %}
 
+{% assign defaultSelectionIndex = 0 %}
+{% assign defaultVariant = null %}
+
+<!-- Find first variant block to use for properties -->
+{% for block in blocks %}
+	{% if block.type == 'variant' %}
+		{% assign defaultVariant = block %}
+		{% break %}
+	{% endif %}
+{% endfor %}
+
 <div class="product-actions" data-default-variant-index="{{ defaultSelectionIndex }}" data-gifts-amount="{{ giftsAmount }}">
 	<div class="purchase-options flex flex-col gap-3 mb-3">
 		<!-- Single non-selectable variant box -->
-		<div class="single-variant-box border-2 border-primary rounded-md p-4">
+		<div class="single-variant-box border-2 border-primary rounded-md p-4"
+			data-variant-id="{{ defaultVariant.settings.variant_id }}"
+			data-selling-plan-id="{{ defaultVariant.settings.selling_plan_id }}"
+			data-bottle-quantity="{{ defaultVariant.settings.bottle_quantity }}"
+			data-save-percentage="{{ defaultVariant.settings.save_percentage }}"
+			data-compare-price="{{ defaultVariant.settings.compare_price }}"
+			data-price="{{ defaultVariant.settings.price }}"
+			{% if defaultVariant.settings.product_title %}data-product-title="{{ defaultVariant.settings.product_title }}"{% endif %}
+			{% if defaultVariant.settings.variant_title %}data-variant-title="{{ defaultVariant.settings.variant_title }}"{% endif %}>
 			<!-- Header -->
 			<div class="variant-header text-primary font-bold text-[22px] mb-3">
 				<svg class="inline-block" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -45,20 +64,20 @@
 			</svg>
 			Subscribe & Save</div>
 
-			<div class="top-wrapper flex justify-between items-center border-b border-bg pb-1 mb-3">
+			<div class="top-wrapper flex justify-between items-center border-b border-bg pb-4 mb-4">
 				<!-- Variant name and subtitle -->
 				<div class="variant-info">
-					<div class="text-[22px] font-semibold">1-Month Supply</div>
-					<div class="text-[15px] text-gray-600">1 bottle delivered monthly</div>
+					<div class="text-[22px] font-semibold">{{ defaultVariant.settings.product_title | default: '1-Month Supply' }}</div>
+					<div class="text-[15px] text-gray-600">{{ defaultVariant.settings.variant_title | default: '1 bottle delivered monthly' }}</div>
 				</div>
 
 				<!-- Price display -->
 				<div class="price-display">
 					<div class="flex flex-col">
 						<div class="main-price text-primary">
-							<span class="price font-bold mbl:text-[6vw] rounded-full bg-bg">$0 NOW</span>
+							<span class="price font-bold mbl:text-[6vw] rounded-full bg-bg text-center block p-1 mb-1">$0 NOW</span>
 						</div>
-						<div class="text-gray-600 text-[14px]">$55 if you keep it</div>
+						<div class="text-gray-600 text-[14px]">${{ defaultVariant.settings.price | default: '55' }} if you keep it</div>
 					</div>
 				</div>
 			</div>
@@ -67,7 +86,7 @@
 			<ul class="benefits-list my-4 no-style">
 				<li class="flex items-start gap-2 mb-2">
 					<span class="text-primary font-bold">✓</span>
-					<span>Full 30-day supply of Curalin</span>
+					<span>Full 30-day supply of {{ defaultVariant.settings.product_name | default: 'Curalin' }}</span>
 				</li>
 				<li class="flex items-start gap-2 mb-2">
 					<span class="text-primary font-bold">✓</span>
@@ -89,6 +108,7 @@
 						SID: SID,
 						giftsAmount: giftsAmount,
 						blocks: blocks,
+						isHideTitle: true,
 						isGlobal: isGlobal
 					%}
 				</div>
@@ -98,7 +118,7 @@
 		<div class="info-box flex items-center justify-between p-4 bg-[#FDF5EA] rounded-md border border-[#FFEACF]">
 			<div class="info-text">
 				<p>Try Curalin for FREE - only pay if you keep it after 14 days.</p>
-				<p class="text-bronze font-medium">How does "Try Before You Buy" work?</p>
+				<div class="text-bronze font-medium">How does "Try Before You Buy" work?</div>
 			</div>
 			<div class="info-icon text-primary text-xl">
 				<svg width="47" height="57" viewBox="0 0 47 57" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -422,9 +442,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
 			try {
 				const isSub = true; // Always subscription in this simplified version
-				const firstVariant = document.querySelector('#one-time-add-to-cart');
-				const variant = firstVariant?.dataset.variantId;
-				const sellingPlanId = '{{ selling_plan_id }}';
+				const variantBox = document.querySelector('.single-variant-box');
+				const variant = variantBox?.dataset.variantId;
+				const sellingPlanId = variantBox?.dataset.sellingPlanId || '{{ selling_plan_id }}';
 
 				if (!variant) {
 					throw new Error('No valid variant ID found');
@@ -521,7 +541,8 @@ document.addEventListener('DOMContentLoaded', () => {
 			oneTimeButton.setAttribute('aria-busy', 'true');
 
 			try {
-				const variant1 = oneTimeButton.dataset.variantId;
+				const variantBox = document.querySelector('.single-variant-box');
+				const variant1 = variantBox?.dataset.variantId || oneTimeButton.dataset.variantId;
 
 				if (!variant1) {
 					throw new Error('Invalid variant ID');
