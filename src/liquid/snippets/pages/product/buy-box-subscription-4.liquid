@@ -1028,12 +1028,17 @@ document.addEventListener('DOMContentLoaded', () => {
 				? (totalOrig - firstMonthSubPrice)
 				: ((origPerItem - firstMonthSubItem) * bottles);
 
+		// Get the currency symbol from window.cart or fall back to shop default symbol
+		const currencySymbol = '{{ shop.currency.symbol }}' || '$';
+
+		console.log('currencySymbol', currencySymbol);
+
 		// Format values for display
-		const newMainPrice = `$${(priceFormat === 'total' ? firstMonthSubPrice : firstMonthSubItem).toFixed(2)}`;
-		const newComparePrice = `$${(priceFormat === 'total' ? totalOrig : origPerItem).toFixed(2)}`;
-		const regularPriceFormatted = `$${regularPrice.toFixed(2)}`;
+		const newMainPrice = `${currencySymbol}${(priceFormat === 'total' ? firstMonthSubPrice : firstMonthSubItem).toFixed(2)}`;
+		const newComparePrice = `${currencySymbol}${(priceFormat === 'total' ? totalOrig : origPerItem).toFixed(2)}`;
+		const regularPriceFormatted = `${currencySymbol}${regularPrice.toFixed(2)}`;
 		const flooredSave = Math.floor(saveAmt);
-		const savingsText = flooredSave > 0 ? `SAVE $${flooredSave}` : '';
+		const savingsText = flooredSave > 0 ? `SAVE ${currencySymbol}${flooredSave}` : '';
 
 		priceEls.forEach(display => {
 			const mainPrice = display.querySelector('.main-price');
@@ -1042,7 +1047,6 @@ document.addEventListener('DOMContentLoaded', () => {
 			const totalLine = display.querySelector('.total-line');
 			const futurePrice = display.querySelector('.future-price-notice');
 
-			// Skip animation if it's the initial load
 			if (state.isInitialLoad) {
 				if (mainPrice) {
 					const pSpan = mainPrice.querySelector('.price');
@@ -1061,7 +1065,7 @@ document.addEventListener('DOMContentLoaded', () => {
 						DOMUtils.updateProperty(
 							totalLine,
 							'innerHTML',
-							`Total $${firstMonthSubPrice.toFixed(2)} <span class="total-price-cap text-gray-500 line-through">$${totalOrig.toFixed(2)}</span>`
+							`Total ${currencySymbol}${firstMonthSubPrice.toFixed(2)} <span class="total-price-cap text-gray-500 line-through">${currencySymbol}${totalOrig.toFixed(2)}</span>`
 						);
 					} else {
 						DOMUtils.updateProperty(totalLine, 'textContent', '');
@@ -1099,7 +1103,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 			if (totalLine && priceFormat === 'per_bottle') {
 				const newTotalLineHTML = flooredSave > 0 && firstMonthSubPrice != firstMonthSubItem
-					? `Total $${firstMonthSubPrice.toFixed(2)} <span class="total-price-cap text-gray-500 line-through">$${totalOrig.toFixed(2)}</span>`
+					? `Total ${currencySymbol}${firstMonthSubPrice.toFixed(2)} <span class="total-price-cap text-gray-500 line-through">${currencySymbol}${totalOrig.toFixed(2)}</span>`
 					: '';
 				hasContentChanged = hasContentChanged || totalLine.innerHTML !== newTotalLineHTML;
 			}
@@ -1140,7 +1144,7 @@ document.addEventListener('DOMContentLoaded', () => {
 								DOMUtils.updateProperty(
 									totalLine,
 									'innerHTML',
-									`Total $${firstMonthSubPrice.toFixed(2)} <span class="total-price-cap text-gray-500 line-through">$${totalOrig.toFixed(2)}</span>`
+									`Total ${currencySymbol}${firstMonthSubPrice.toFixed(2)} <span class="total-price-cap text-gray-500 line-through">${currencySymbol}${totalOrig.toFixed(2)}</span>`
 								);
 							} else {
 								DOMUtils.updateProperty(totalLine, 'textContent', ' ');

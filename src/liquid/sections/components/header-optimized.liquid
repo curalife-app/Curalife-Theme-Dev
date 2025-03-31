@@ -223,8 +223,7 @@
 	  width: 100%;
 	}
 
-	.mobile-menu__details summary {
-	  list-style: none;
+	.mobile-menu__dropdown-trigger {
 	  display: flex;
 	  justify-content: space-between;
 	  align-items: center;
@@ -232,26 +231,17 @@
 	  padding: 1rem 0;
 	  font-weight: 500;
 	  transition: color 0.2s ease;
-	  -webkit-appearance: none;
 	}
 
-	.mobile-menu__details summary::-webkit-details-marker {
-	  display: none;
-	}
-
-	.mobile-menu__details > summary {
-	  list-style: none;
-	}
-
-	.mobile-menu__details summary:hover {
+	.mobile-menu__dropdown-trigger:hover {
 	  color: var(--primary-color);
 	}
 
-	.mobile-menu__details summary svg {
+	.mobile-menu__dropdown-trigger svg {
 	  transition: transform 0.3s ease;
 	}
 
-	.mobile-menu__details[open] summary svg {
+	.mobile-menu__details.is-open .mobile-menu__dropdown-trigger svg {
 	  transform: rotate(180deg);
 	}
 
@@ -261,8 +251,11 @@
 	  padding: 0.5rem 0 0.5rem 1.25rem;
 	  border-left: 2px solid var(--primary-color);
 	  margin-left: 0.5rem;
-	  opacity: 0;
-	  transform: translateY(-10px);
+	  display: none;
+	}
+
+	.mobile-menu__details.is-open .mobile-menu__submenu {
+	  display: block;
 	  animation: slideDown 0.3s ease forwards;
 	}
 
@@ -521,13 +514,13 @@
 			{%- for link in section.settings.menu.links -%}
 				<div class="mobile-menu__item">
 					{%- if link.links != blank -%}
-						<details class="mobile-menu__details">
-							<summary class="mobile-menu__link">
+						<div class="mobile-menu__details">
+							<div class="mobile-menu__dropdown-trigger">
 								{{ link.title | escape }}
 								<svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
 									<path d="M1 1L5 5L9 1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
 								</svg>
-							</summary>
+							</div>
 							<ul class="mobile-menu__submenu">
 								{%- for childlink in link.links -%}
 									<li>
@@ -542,7 +535,7 @@
 									</li>
 								{%- endfor -%}
 							</ul>
-						</details>
+						</div>
 					{%- else -%}
 						<a
 							href="{{ link.url }}"
@@ -594,6 +587,7 @@
 			this.setupMobileMenu();
 			this.setupB2BHandling();
 			this.setupChatbot();
+			this.setupMobileDropdowns();
 		}
 
 		setupScrollHandler() {
@@ -632,13 +626,11 @@
 				document.body.classList.toggle('mobile-menu-open', isOpen);
 
 				if (!isOpen) {
-					// When closing menu, restore scroll position
 					const scrollY = document.body.style.top;
 					document.body.style.position = '';
 					document.body.style.top = '';
 					window.scrollTo(0, parseInt(scrollY || '0') * -1);
 				} else {
-					// When opening menu, store scroll position
 					document.body.style.top = `-${window.scrollY}px`;
 				}
 			};
@@ -652,7 +644,6 @@
 				toggleMenu(false);
 			});
 
-			// Close menu on escape key
 			document.addEventListener('keydown', e => {
 				if (e.key === 'Escape' && this.mobileMenu.classList.contains('is-active')) {
 					toggleMenu(false);
@@ -682,6 +673,29 @@
 			} else {
 				chatButtons.forEach(button => button.remove());
 			}
+		}
+
+		setupMobileDropdowns() {
+			const dropdownTriggers = document.querySelectorAll('.mobile-menu__dropdown-trigger');
+
+			dropdownTriggers.forEach(trigger => {
+				trigger.addEventListener('click', () => {
+					const details = trigger.closest('.mobile-menu__details');
+					const isOpen = details.classList.contains('is-open');
+					const submenu = details.querySelector('.mobile-menu__submenu');
+					const svg = trigger.querySelector('svg');
+
+					if (isOpen) {
+						details.classList.remove('is-open');
+						svg.style.transform = 'rotate(0deg)';
+						submenu.style.display = 'none';
+					} else {
+						details.classList.add('is-open');
+						svg.style.transform = 'rotate(180deg)';
+						submenu.style.display = 'block';
+					}
+				});
+			});
 		}
 	}
 
