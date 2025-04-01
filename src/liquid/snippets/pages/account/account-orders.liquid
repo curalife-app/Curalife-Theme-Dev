@@ -62,7 +62,11 @@
 		<div class="orders-list-wrapper">
 			<ul class="orders-list no-style" id="orders-list">
 				{% for order in customer.orders %}
-					<li class="order-item" data-order-name="{{ order.name }}" data-fulfillment-status="{{ order.fulfillment_status | default: 'unfulfilled' }}">
+					<li
+						class="order-item{% if forloop.index > 1 %} hidden{% endif %}"
+						data-order-name="{{ order.name }}"
+						data-fulfillment-status="{{ order.fulfillment_status | default: 'unfulfilled' }}"
+						data-page="{{ forloop.index }}">
 						<div class="order-header">
 							<div class="order-number">
 								<p>Order {{ order.name }}</p>
@@ -355,6 +359,34 @@
 			<div id="no-orders-message" class="empty-message hidden">
 				<p>No orders match your filter criteria.</p>
 			</div>
+
+			<!-- Pagination Controls -->
+			{% if customer.orders.size > 1 %}
+				<div class="pagination-controls">
+					<button id="prev-page" class="pagination-btn" disabled>
+						<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+							<line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline>
+						</svg>
+						Previous Order
+					</button>
+					<div class="pagination-info">
+						<span id="current-page">1</span>
+						of
+						<span id="total-pages">{{ customer.orders.size }}</span>
+					</div>
+					<button
+						id="next-page"
+						class="pagination-btn"
+						{% if customer.orders.size <= 1 %}
+							disabled
+						{% endif %}>
+						Next Order
+						<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+							<line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline>
+						</svg>
+					</button>
+				</div>
+			{% endif %}
 		</div>
 
 		<script>
@@ -368,6 +400,16 @@
 				const noOrdersMessage = document.getElementById('no-orders-message');
 				const returnsToggleBtn = document.getElementById('returns-toggle-btn');
 				const returnsWidgetContainer = document.getElementById('returns-widget-container');
+
+				// Pagination elements
+				const prevBtn = document.getElementById('prev-page');
+				const nextBtn = document.getElementById('next-page');
+				const currentPageEl = document.getElementById('current-page');
+				const totalPagesEl = document.getElementById('total-pages');
+
+				let currentPage = 1;
+				let filteredItems = [...orderItems];
+				let totalFilteredItems = orderItems.length;
 
 				// Debounce function to limit expensive operations
 				const debounce = (fn, delay) => {
@@ -392,6 +434,36 @@
 					});
 				}
 
+				// Function to update pagination display
+				function updatePagination() {
+					if (prevBtn && nextBtn) {
+						prevBtn.disabled = currentPage <= 1;
+						nextBtn.disabled = currentPage >= totalFilteredItems;
+
+						if (currentPageEl) {
+							currentPageEl.textContent = currentPage;
+						}
+
+						if (totalPagesEl) {
+							totalPagesEl.textContent = totalFilteredItems;
+						}
+					}
+				}
+
+				// Function to go to a specific page
+				function goToPage(page) {
+					filteredItems.forEach(item => item.classList.add('hidden'));
+
+					if (filteredItems[page - 1]) {
+						filteredItems[page - 1].classList.remove('hidden');
+						currentPage = page;
+						updatePagination();
+
+						// Scroll to top of orders list
+						ordersList.scrollIntoView({ behavior: 'smooth', block: 'start' });
+					}
+				}
+
 				// Optimized filter function
 				function filterOrders() {
 					const statusValue = statusFilter.value;
@@ -400,6 +472,8 @@
 
 					// Use requestAnimationFrame for smooth UI updates
 					requestAnimationFrame(() => {
+						filteredItems = [];
+
 						orderItems.forEach(item => {
 							const orderName = item.getAttribute('data-order-name').toLowerCase();
 							const fulfillmentStatus = item.getAttribute('data-fulfillment-status');
@@ -407,17 +481,29 @@
 							const matchesStatus = statusValue === 'all' || fulfillmentStatus === statusValue;
 							const matchesSearch = !searchValue || orderName.includes(searchValue);
 
+							// First hide all items
+							item.classList.add('hidden');
+
 							if (matchesStatus && matchesSearch) {
-								item.style.display = '';
+								filteredItems.push(item);
 								visibleCount++;
-							} else {
-								item.style.display = 'none';
 							}
 						});
 
 						// Only show the no orders message if there are no visible items
 						noOrdersMessage.classList.toggle('hidden', visibleCount > 0);
 						ordersList.classList.toggle('hidden', visibleCount === 0);
+
+						// Update pagination
+						totalFilteredItems = filteredItems.length;
+						currentPage = Math.min(currentPage, totalFilteredItems);
+
+						if (totalFilteredItems > 0) {
+							goToPage(1);
+						}
+
+						// Update pagination display
+						updatePagination();
 					});
 				}
 
@@ -438,6 +524,23 @@
 						filterOrders();
 					}
 				});
+
+				// Pagination event listeners
+				if (prevBtn) {
+					prevBtn.addEventListener('click', function () {
+						if (currentPage > 1) {
+							goToPage(currentPage - 1);
+						}
+					});
+				}
+
+				if (nextBtn) {
+					nextBtn.addEventListener('click', function () {
+						if (currentPage < totalFilteredItems) {
+							goToPage(currentPage + 1);
+						}
+					});
+				}
 			});
 		</script>
 	{% else %}
@@ -873,6 +976,61 @@
 		color: var(--success);
 	}
 
+	/* Pagination Controls */
+	.pagination-controls {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		margin-top: 24px;
+		padding: 16px;
+		background-color: white;
+		border-radius: var(--radius-xl);
+		box-shadow: var(--shadow-sm);
+		border: 1px solid var(--gray-200);
+	}
+
+	.pagination-btn {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		background-color: var(--gray-50);
+		color: var(--gray-800);
+		font-size: 14px;
+		font-weight: 500;
+		padding: 10px 16px;
+		border-radius: var(--radius-md);
+		border: 1px solid var(--gray-300);
+		cursor: pointer;
+		transition: all 0.2s ease;
+	}
+
+	.pagination-btn:hover:not(:disabled) {
+		background-color: var(--gray-100);
+		color: var(--gray-900);
+	}
+
+	.pagination-btn:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+
+	.pagination-info {
+		font-size: 14px;
+		font-weight: 500;
+		color: var(--gray-700);
+	}
+
+	#current-page,
+	#total-pages {
+		font-weight: 700;
+		color: var(--primary);
+	}
+
+	/* Utility Classes */
+	.hidden {
+		display: none !important;
+	}
+
 	/* Responsive Improvements */
 	@media (max-width: 768px) {
 		.order-status-bar {
@@ -895,6 +1053,17 @@
 		.order-items-container,
 		.order-tracking-section {
 			padding: 12px 16px;
+		}
+
+		.pagination-controls {
+			flex-direction: row;
+			gap: 12px;
+			padding: 12px;
+		}
+
+		.pagination-btn {
+			padding: 8px 12px;
+			font-size: 13px;
 		}
 	}
 </style>

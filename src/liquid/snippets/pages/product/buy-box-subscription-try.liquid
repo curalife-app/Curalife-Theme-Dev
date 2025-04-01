@@ -54,7 +54,7 @@
 					{% assign referenced_variant = var %}
 
 					<!-- If variant has subscription metafields, use those -->
-					{% if var.metafields.subscription and var.metafields.subscription.selling_plan_id %}
+					{% if var.metafields.subscription.selling_plan_id %}
 						{% assign variant_selling_plan_id = var.metafields.subscription.selling_plan_id %}
 					{% endif %}
 
@@ -100,7 +100,7 @@
 				<div class="price-display">
 					<div class="flex flex-col">
 						<div class="main-price text-primary">
-							<span class="price font-bold mbl:text-[5vw] rounded-full bg-bg text-center block p-1 mb-1">{{ 0 | money_without_trailing_zeros }} NOW</span>
+							<span class="price bg-bg block p-1 mb-1 font-bold text-center rounded-full">{{ 0 | money_without_trailing_zeros }} NOW</span>
 						</div>
 						<div class="text-gray-600 text-[14px]">{{ referenced_variant.price | money }} if you keep it</div>
 					</div>
@@ -226,7 +226,6 @@ document.addEventListener('DOMContentLoaded', () => {
 	const submitButton = productActions.querySelector('.checkout-button button');
 	const oneTimeButton = productActions.querySelector('.one-time-add-to-cart');
 
-	// Simplified state management for single variant
 	const BuyBoxState = {
 		data: {
 			isLoading: false,
@@ -262,7 +261,6 @@ document.addEventListener('DOMContentLoaded', () => {
 				}
 			}
 
-			// Also update one-time purchase button if it exists
 			if (oneTimeButton) {
 				oneTimeButton.disabled = isLoading;
 				if (isLoading) {
@@ -283,7 +281,6 @@ document.addEventListener('DOMContentLoaded', () => {
 		},
 
 		init() {
-			// Store original button text for later restoration
 			if (submitButton) {
 				submitButton.setAttribute('data-original-text', submitButton.textContent);
 			}
@@ -368,7 +365,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	async function handleBuyNowFlow(items) {
 		try {
-			// Set loading state immediately and prevent multiple clicks
 			BuyBoxState.setState({
 				isLoading: true,
 				isRedirectingToCheckout: true
@@ -376,22 +372,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
 			console.log('Starting buy now flow with items:', JSON.stringify(items));
 
-			// Remove cart popup if it exists (do this early)
 			const cartPopup = document.getElementById('upCart');
 			if (cartPopup) cartPopup.remove();
 
-			// Perform cart operations in parallel when possible
-			console.log('Clearing cart...');
 			const clearCartPromise = clearCart();
 
-			// Wait for cart clearing to complete
 			await clearCartPromise;
-			console.log('Cart cleared successfully');
 
-			// Validate each item to ensure selling_plan is properly formatted
 			items.forEach(item => {
 				if (item.selling_plan !== undefined) {
-					// Ensure selling_plan is a number
 					item.selling_plan = parseInt(item.selling_plan, 10);
 					if (isNaN(item.selling_plan)) {
 						console.error(`Invalid selling_plan value: ${item.selling_plan}`);
@@ -400,10 +389,7 @@ document.addEventListener('DOMContentLoaded', () => {
 				}
 			});
 
-			// Add items to cart (with improved error handling)
 			const requestBody = JSON.stringify({ items });
-			console.log('Adding items to cart with request body:', requestBody);
-
 			const addRes = await fetch('/cart/add.js', {
 				method: 'POST',
 				headers: {
@@ -433,7 +419,6 @@ document.addEventListener('DOMContentLoaded', () => {
 				);
 			}
 
-			// Verify items were added with subscription
 			try {
 				const cart = await fetch('/cart.js').then(res => res.json());
 				console.log('Cart contents after adding items:', cart);
@@ -445,8 +430,7 @@ document.addEventListener('DOMContentLoaded', () => {
 				console.error('Failed to verify cart contents:', e);
 			}
 
-			console.log('Items added successfully, redirecting to checkout');
-			// Redirect to checkout immediately
+
 			window.location.href = '/checkout';
 		} catch (err) {
 			console.error('handleBuyNowFlow error details:', err);
@@ -454,7 +438,7 @@ document.addEventListener('DOMContentLoaded', () => {
 				isRedirectingToCheckout: false,
 				isLoading: false
 			});
-			throw err; // Re-throw to be handled by the caller
+			throw err;
 		}
 	}
 
@@ -462,7 +446,6 @@ document.addEventListener('DOMContentLoaded', () => {
 		try {
 			console.log('Adding items to cart:', JSON.stringify(items));
 
-			// Add items to cart
 			const res = await fetch('/cart/add.js', {
 				method: 'POST',
 				headers: {
@@ -492,13 +475,11 @@ document.addEventListener('DOMContentLoaded', () => {
 				);
 			}
 
-			// Update cart UI if needed
 			if (typeof window.updateCart === 'function') {
 				console.log('Updating cart UI');
 				window.updateCart();
 			}
 
-			// Show a success message
 			showNotification('Items added to cart!', 'success');
 
 			return responseData;
@@ -511,27 +492,13 @@ document.addEventListener('DOMContentLoaded', () => {
 	function initSubmitButton() {
 		if (!submitButton) return;
 
-		// Use a variable to track if a submission is in progress
 		let isSubmitting = false;
 
-		// Add click event for the variant box itself
 		const variantBox = document.querySelector('.single-variant-box');
 		if (variantBox) {
-			// Log the selling plan ID we'll be using
 			const sellingPlanId = variantBox.dataset.sellingPlanId;
-			console.log('Using selling plan ID:', sellingPlanId);
-
-			variantBox.addEventListener('click', function(e) {
-				// Only trigger if the click is on the box itself, not on any buttons inside
-				if (e.target.closest('button') || e.target.closest('.one-time-add-to-cart')) {
-					return;
-				}
-				// Trigger the submit button click
-				submitButton.click();
-			});
 		}
 
-		// First make sure we override the default form submission from buy-buttons-new-4
 		const form = productActions.querySelector('form[data-type="add-to-cart-form"]');
 		if (form) {
 			form.addEventListener('submit', function(e) {
@@ -844,6 +811,10 @@ document.addEventListener('DOMContentLoaded', () => {
 			.cta-text {
 				font-size: 18px !important;
 				margin-block: 0.5rem !important;
+			}
+
+			.gift-description {
+				display: none;
 			}
 
 			/* Single variant box styles */
