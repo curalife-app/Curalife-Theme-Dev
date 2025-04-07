@@ -1,0 +1,557 @@
+{% assign isGlobal = false %}
+{% if shop.name contains 'Global' %}
+	{% assign isGlobal = true %}
+{% endif %}
+
+{% if prod.handle == 'curalin' or prod.handle == 'curaslim' or prod.handle contains '-tm' %}
+	{% if isGlobal %}
+		{% assign shippingPrice = 690 %}
+	{% else %}
+		{% assign shippingPrice = 790 %}
+	{% endif %}
+{% else %}
+	{% assign shippingPrice = 1000 %}
+{% endif %}
+
+{% assign referenced_variant_product = prod %}
+
+{% assign giftsAmount = 0 %}
+{% for block in blocks %}
+	{% case block.type %}
+		{% when 'gift' %}
+			{% assign show_gift = false %}
+			{% if block.settings.show_on == 'both' %}
+				{% assign show_gift = true %}
+			{% elsif block.settings.show_on == 'global' and isGlobal %}
+				{% assign show_gift = true %}
+			{% elsif block.settings.show_on == 'us' and isGlobal == false %}
+				{% assign show_gift = true %}
+			{% endif %}
+
+			{% if show_gift %}
+				{% assign giftsAmount = giftsAmount | plus: 1 %}
+			{% endif %}
+	{% endcase %}
+{% endfor %}
+
+<div
+	class="product-actions"
+	data-default-variant-index="{{ defaultSelectionIndex }}"
+	data-gifts-amount="{{ giftsAmount }}"
+	data-buy-type="{{ buyType }}"
+	{% if isOneTimeGift %}
+		data-one-time-gift="true"
+	{% endif %}>
+	<div class="purchase-options flex flex-col gap-3 mb-3">
+		<div class="font-semibold text-[18px]">{{ variantsTitle }}</div>
+
+		<div class="variant-boxes flex justify-around gap-2">
+			{% for block in blocks %}
+				{% assign varPurchaseType = block.settings.purchase_type %}
+				{% if block.type == 'variant' and varPurchaseType == 'subscribe' %}
+					{% assign referenced_variant = blank %}
+					{% if isGlobal %}
+						{% assign blockVarID = block.settings.variant_id_global | plus: 0 %}
+					{% else %}
+						{% assign blockVarID = block.settings.variant_id | plus: 0 %}
+					{% endif %}
+
+					{% for vari in referenced_variant_product.variants %}
+						{% assign currVarID = vari.id | plus: 0 %}
+
+						{% if currVarID == blockVarID %}
+							{% assign referenced_variant = vari %}
+						{% endif %}
+					{% endfor %}
+
+					{% assign var = referenced_variant %}
+
+					{% comment %} Core Variable Assignments {% endcomment %}
+					{% assign variant_id = var.metafields.custom.reference_variant_id | default: var.id %}
+					{% assign bottle_quantity = var.metafields.my_fields.pack_bottles_quantity %}
+
+					{% comment %} Price Calculations {% endcomment %}
+					{% assign original_item_price = var.metafields.custom.original_item.value.price %}
+					{% assign original_item_cap = var.metafields.custom.original_item.value.compare_at_price | default: original_item_price %}
+					{% assign original_item_cap_total = original_item_cap | times: bottle_quantity %}
+					{% assign item_price = var.price | divided_by: bottle_quantity %}
+
+					{% comment %} Savings Calculations {% endcomment %}
+					{% assign subscription_save_money = original_item_cap | minus: subscription_item_price %}
+					{% assign buy_once_save_money = original_item_cap | minus: item_price %}
+
+					{% comment %} Selling Plan ID Logic {% endcomment %}
+					{% if var.metafields.custom.referenced_variant_product_handle %}
+						{% assign selling_plan_id = referenced_variant.metafields.subscription.selling_plan_id | default: variant.metafields.subscription.selling_plan_id %}
+					{% elsif var.metafields.subscription.selling_plan_id %}
+						{% assign selling_plan_id = var.metafields.subscription.selling_plan_id %}
+					{% elsif var.selling_plan_allocations.size > 0 %}
+						{% assign found_plan = false %}
+						{% for allocation in var.selling_plan_allocations %}
+							{% if allocation.selling_plan.name contains bottle_quantity %}
+								{% assign selling_plan_id = allocation.selling_plan.id %}
+								{% assign found_plan = true %}
+								{% break %}
+							{% endif %}
+						{% endfor %}
+						{% if found_plan == false %}
+							{% assign selling_plan_id = var.selling_plan_allocations.first.selling_plan.id %}
+						{% endif %}
+					{% endif %}
+
+					{% assign subscription_save_percents = 0 %}
+					{% assign subscription_item_price = original_item_cap %}
+
+					{% for allocation in var.selling_plan_allocations %}
+						{% assign selling = selling_plan_id | minus: 0 %}
+						{% if allocation.selling_plan.id == selling %}
+							{% if allocation.compare_at_price %}
+								{% assign original_price = allocation.compare_at_price %}
+								{% assign discounted_price = allocation.price %}
+								{% assign subscription_save_percents = original_price | minus: discounted_price | times: 100 | divided_by: original_price %}
+								{% assign mod_5_remainder = subscription_save_percents | modulo: 5 %}
+								{% if mod_5_remainder < 3 %}
+									{% assign subscription_save_percents = subscription_save_percents | minus: mod_5_remainder %}
+								{% else %}
+									{% assign subscription_save_percents = subscription_save_percents | plus: 5 | minus: mod_5_remainder %}
+								{% endif %}
+								{% assign subscription_item_price = discounted_price | divided_by: bottle_quantity %}
+							{% else %}
+								{% assign subscription_save_percents = 0 %}
+								{% assign subscription_item_price = allocation.price | divided_by: bottle_quantity %}
+							{% endif %}
+						{% endif %}
+					{% endfor %}
+
+					{% assign subscription_total_price = subscription_item_price | times: bottle_quantity %}
+
+					<div
+						id="variant-box-{{ SID }}-{{ forloop.index }}"
+						class="variant-box flex flex-col items-center variant-tab-style text-center w-full {% if forloop.index == 1 %}selected{% endif %} {{ varPurchaseType }}"
+						data-variant="{{ blockVarID }}"
+						data-product="{{ prod.id }}"
+						data-original-variant="{{ var.id }}"
+						data-subscription-selling-plan-id="{{ selling_plan_id }}"
+						data-price="{{ var.price | money_without_currency | replace: ".00", "" }}"
+						data-sku="{{ var.sku }}"
+						data-index="{{ forloop.index }}"
+						data-item-price="{{ item_price }}"
+						data-subscription-price="{{ subscription_total_price }}"
+						data-subscription-item-price="{{ subscription_item_price }}"
+						data-original-item-cap="{{ original_item_cap }}"
+						data-dc="{{ var.metafields.custom.discount_code | base64_encode }}"
+						data-buy-once-discount="{{ var.metafields.custom.save_percents }}"
+						data-subscription-discount="{{ subscription_save_percents }}"
+						data-price-per="{{ pricePer }}"
+						data-bottle-quantity="{{ bottle_quantity }}"
+						data-purchase-type="{{ varPurchaseType }}"
+						data-buy-type="{{ buyType }}"
+						name="track:variant-box|variant-sku:{{ var.sku }}|purchase-type:{{ varPurchaseType }}">
+						{% if product.handle == 'curalin' %}
+							{% assign subscription_save_percents = var.metafields.subscription.save_percents %}
+						{% endif %}
+						{% if subscription_save_percents > 0 %}
+							<div class="discount mbl:text-[3.5vw] text-white bg-primary font-bold w-full text-[13px] p-1">{{ subscription_save_percents }}% OFF</div>
+						{% endif %}
+
+						<!-- prettier-ignore -->
+						<div class="title p-1">
+							<span class="font-bold mbl:text-[4vw]">{{ bottle_quantity }} Bottle{% if bottle_quantity > 1 %}s{% endif %}</span>
+							<span class="block text-[15px] mbl:text-[3.4vw]">every {{ bottle_quantity }} month{% if bottle_quantity > 1 %}s{% endif %}</span>
+						</div>
+					</div>
+				{% endif %}
+			{% endfor %}
+		</div>
+
+		<div class="price-display">
+			<div class="gap-y-2 flex flex-wrap items-end gap-2">
+				<div class="final-price flex items-center gap-2">
+					<div class="main-price text-primary flex items-end">
+						{% if priceFormat == 'total' %}
+							<span class="price font-bold leading-none text-[30px] mbl:text-[6vw]">{{ subscription_total_price | money }}</span>
+						{% else %}
+							<span class="price font-bold leading-none text-[30px] mbl:text-[6vw]">{{ subscription_item_price | money }}</span>
+							<span class="per-text mt-1 text-[20px]">/bottle</span>
+						{% endif %}
+					</div>
+
+					<span class="cap self-end text-gray-500 line-through">{{ original_item_cap | money }}</span>
+
+					{% if priceFormat == 'total' and subscription_total_price != subscription_item_price %}
+						<span class="discount-badge px-4 py-1 text-[16px] font-bold text-white bg-bronze rounded-full">SAVE {{ subscription_save_money | money }}</span>
+					{% endif %}
+				</div>
+			</div>
+
+			{% if priceFormat == 'per_bottle' and subscription_total_price != subscription_item_price %}
+				<div class="total-line mt-1 text-[16px] h-4">
+					Total {{ subscription_total_price | money }}
+					<span class="total-price-cap text-gray-500 line-through">{{ original_item_cap_total | money }}</span>
+				</div>
+			{% endif %}
+		</div>
+	</div>
+
+	{% if variantsNotice != blank %}
+		<div class="notice text-primary flex gap-2 my-4" style="font-size:15px">
+			<span>ⓘ</span>
+			<span>{{ variantsNotice }}</span>
+		</div>
+	{% endif %}
+
+	{% if giftsAmount > 0 %}
+		<div class="gift-selector-wrap flex flex-col gap-3 mb-3">
+			<div class="gift-selector-title text-[18px] font-medium">Pick your free gift</div>
+
+			<div class="gift-options flex flex-col gap-2">
+				{% for block in blocks %}
+					{% case block.type %}
+						{% when 'gift' %}
+							{% assign show_gift = false %}
+							{% if block.settings.show_on == 'both' %}
+								{% assign show_gift = true %}
+							{% elsif block.settings.show_on == 'global' and isGlobal %}
+								{% assign show_gift = true %}
+							{% elsif block.settings.show_on == 'us' and isGlobal == false %}
+								{% assign show_gift = true %}
+							{% endif %}
+
+							{% if show_gift %}
+								{% assign giftProd = block.settings.gift_product %}
+								{% assign giftVariant = giftProd.selected_or_first_available_variant %}
+								{% assign giftProdSubscription = block.settings.gift_product_subscription | default: giftProd %}
+								{% assign giftVariantSubscription = giftProdSubscription.selected_or_first_available_variant %}
+								{% assign giftThumb = block.settings.gift_thumbnail | default: giftProdSubscription.featured_image | default: giftProd.featured_image %}
+
+								<div class="gift-box clickable block" name="track:gift|variant-sku:{{ giftVariant.sku }}">
+									<div
+										class="gift-option-border p-2 rounded-lg"
+										data-gift-id="{{ giftVariant.id }}"
+										data-gift-id-subscription="{{ giftVariantSubscription.id | default: giftVariant.id }}">
+										<div class="flex items-center self-end gap-2 ml-auto" style="width:93%">
+											<div class="gift-image-container flex-shrink-0">
+												<img
+													src="{{ giftThumb | image_url: width: 160, height: 160 }}"
+													alt="{{ giftProd.title }}"
+													class="object-contain w-full h-full">
+											</div>
+
+											<div class="gift-content flex-grow">
+												<div class="flex items-center gap-2 mb-1">
+													<div class="gift-name text-[16px] font-bold">{{ giftProd.title | replace: 'Free ', '' }} - FREE</div>
+													<span class="text-gray-600 line-through">{{ giftVariantSubscription.compare_at_price | money }}</span>
+												</div>
+												<div class="text-gray-600" style="font-size: 14px">{{ block.settings.variant_description | default: giftProd.metafields.custom.short_description }}</div>
+											</div>
+
+											<div class="check-indicator w-8 h-8 rounded-full border-2 border-[--primary-color] flex items-center justify-center">
+												<svg class="check-mark text-primary w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
+													<path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+												</svg>
+											</div>
+										</div>
+									</div>
+								</div>
+							{% endif %}
+					{% endcase %}
+				{% endfor %}
+			</div>
+		</div>
+	{% endif %}
+
+	<div class="submit-wrap flex flex-col w-full">
+		<div class="checkout-button">
+			{% assign buttonSID = SID | append: '-checkout' %}
+			{% if buyType == 'buy_now' %}{% assign ctaButtonTitle = 'Get Started' %}{% else %}{% assign ctaButtonTitle = 'Add To Cart' %}{% endif %}
+
+			{% render 'buy-buttons-new-4',
+				SID: buttonSID,
+				product: prod,
+				variant: '',
+				buttonText: ctaButtonTitle,
+				selling_plan_id: selling_plan_id,
+				product_form_id: product_form_id,
+				buyType: buyType,
+				isBuyWithPrime: isBuyWithPrime,
+				buyboxType: buyboxType,
+				buyboxName: buyboxName
+			%}
+		</div>
+
+		<div class="one-time-purchase-link mt-3 text-center">
+			{% if isOneTimePurchaseLink %}
+				{% assign firstVariant = prod.selected_or_first_available_variant %}
+				<div
+					id="one-time-add-to-cart"
+					class="one-time-add-to-cart variant-box text-primary mb-2 underline cursor-pointer"
+					name="track:link-submit|buybox-type:{{ buyboxType }}|buybox-name:{{ buyboxName }}|variant-sku:{{ firstVariant.sku }}|purchase-type:buyonce"
+					data-variant-id="{{ firstVariant.id }}"
+					data-bottle-quantity="1"
+					data-sku="{{ firstVariant.sku }}"
+					data-purchase-type="buyonce">
+					Buy Once for {{ firstVariant.price | money }} + {{ shippingPrice | money | replace: '.00', '' }} Shipping
+				</div>
+			{% endif %}
+		</div>
+	</div>
+</div>
+
+<style>
+	.buy-box {
+		grid-template-columns: 45% 40% !important;
+		grid-column-gap: 5% !important;
+		justify-content: center;
+	}
+
+	#cta-section-{{ SID }} {
+		/* Core variables */
+		--text-color: #4a5568;
+		--border-color: #cbcbcb;
+		--radio-size: 1em;
+		--radio-size-mobile: 1em;
+		--transition-speed: 0.2s;
+
+		/* Variant Tab Styles */
+		.variant-box.variant-tab-style {
+				border-width: 2px;
+				border-color: var(--primary-color);
+				border-radius: 5px;
+				cursor: pointer;
+				align-content: center;
+				transition: all 0.3s ease;
+
+				&.selected {
+						background-color: var(--primary-color);
+						color: white;
+
+						.discount {
+								background-color: var(--orange);
+								color: var(--primary-color);
+								transition: all 0.3s ease;
+						}
+				}
+		}
+
+		/* Gift Selector Component */
+		.gift-selector-wrap {
+				.gift-box {
+						.gift-option-border {
+								position: relative;
+								cursor: pointer;
+								background-color: white;
+								border: 1px solid var(--primary-color-light);
+								transition: all 0.3s ease;
+
+								&:hover {
+										background-color: var(--primary-color-lighter);
+								}
+
+								/* Gift Option Layout */
+								& > div.flex.items-center.gap-4 {
+										padding-left: 3rem;
+								}
+
+								.gift-image-container {
+										width: 80px;
+										height: 80px;
+										flex-shrink: 0;
+								}
+
+								/* Check Indicator */
+								.check-indicator {
+										position: absolute;
+										left: 3%;
+										top: 50%;
+										transform: translateY(-50%);
+										width: 20px;
+										height: 20px;
+										min-width: 20px;
+										min-height: 20px;
+										border: 1px solid var(--primary-color);
+										border-radius: 9999px;
+										display: flex;
+										align-items: center;
+										justify-content: center;
+										background-color: transparent;
+
+										svg.check-mark {
+												width: 12px;
+												height: 12px;
+												min-width: 12px;
+												min-height: 12px;
+												color: white;
+												stroke: var(--primary-color);
+												stroke-width: 2;
+												fill: none;
+												opacity: 0;
+												transition: opacity 0.3s ease;
+										}
+								}
+
+								.gift-content {
+										flex-grow: 1;
+								}
+						}
+
+						/* Selected State */
+						&.selected {
+								.gift-option-border {
+										background-color: var(--primary-color-lighter) !important;
+
+										.check-indicator {
+												background-color: var(--primary-color);
+
+												svg.check-mark {
+														opacity: 1;
+														stroke: white;
+												}
+										}
+								}
+						}
+
+						&:hover {
+								.gift-option-border {
+										background-color: var(--primary-color-lightest);
+								}
+						}
+				}
+		}
+
+		/* Product Actions */
+		.product-actions {
+				grid-area: {% if isHideInfo %}1{% else %}2{% endif %}/2/3/3;
+		}
+
+		/* One Time Purchase Link */
+		.one-time-purchase-link {
+				a {
+						transition: color 0.3s ease;
+				}
+		}
+
+		/* Radio Input Styles */
+		.radio-input {
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				position: relative;
+
+				input[type='radio'] {
+						&:hover,
+						.variant-box:hover & {
+								transform: scale(1.1);
+								cursor: pointer;
+								transition: 0.1s all;
+						}
+				}
+		}
+
+		/* Responsive Styles */
+		@media (max-width: 1269px) {
+				.variant-box {
+						width: 100%;
+				}
+		}
+
+		@media (max-width: 767px) {
+				.product-actions {
+						grid-area: unset;
+						grid-row: 3;
+						max-width: unset;
+						min-height: unset;
+				}
+
+				.gift-content {
+						font-size: 4vw;
+				}
+
+				.variant-box {
+						font-size: 4vw;
+
+						&::before {
+								font-size: 3vw;
+								width: 23vw;
+								height: 5vw;
+								top: -5vw;
+								padding: 0.75vw;
+								border-radius: 2vw 2vw 0 0;
+						}
+
+						&.selected {
+								max-height: none;
+						}
+
+						.top-wrapper {
+								min-height: 9vw;
+						}
+
+						.left-wrapper {
+								gap: 2vw;
+						}
+
+						.option-title {
+								font-size: 3.9vw;
+						}
+
+						.price-wrapper {
+								min-width: 17.7vw;
+
+								.real-price {
+										font-size: 4.5vw;
+								}
+						}
+
+						.terms {
+								margin-left: 5vw;
+
+								.subtitle,
+								.terms-title {
+										font-size: 3.5vw;
+								}
+						}
+
+						.radio-box {
+								label {
+										width: 3vw;
+										height: 3vw;
+
+										&:after {
+												font-size: 2vw;
+												width: 3vw !important;
+												height: 3vw !important;
+												top: -0.25vw !important;
+												left: -0.25vw !important;
+												display: flex;
+												justify-content: center;
+												align-items: center;
+										}
+								}
+						}
+				}
+
+				.one-time-purchase-link {
+						.one-time-add-to-cart {
+								font-size: 4vw;
+						}
+				}
+		}
+	}
+</style>
+
+<!-- Position the CTA text correctly on mobile if needed -->
+<script>
+	document.addEventListener('DOMContentLoaded', function () {
+		const ctasection = document.querySelector('#cta-section-{{ SID }}');
+		if (!ctasection) return;
+
+		const productActions = ctasection.querySelector('.product-actions');
+		const ctaText = ctasection.querySelector('.cta-text');
+
+		if (!productActions) return;
+
+		if (window.innerWidth < 768 && ctaText) {
+			productActions.insertAdjacentElement('afterbegin', ctaText);
+		}
+	});
+</script>
