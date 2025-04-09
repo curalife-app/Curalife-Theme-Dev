@@ -71,7 +71,6 @@ window.CuralifeBoxes = window.CuralifeBoxes || {
 				return await res.json();
 			} catch (err) {
 				console.error("Error in getCart:", err);
-				throw new Error("Unable to access your cart");
 			}
 		},
 
@@ -222,7 +221,8 @@ window.CuralifeBoxes = window.CuralifeBoxes || {
 				submitVariantId: null,
 				oneTimeButton: null,
 				giftOptionContainers: null,
-				priceDisplay: null
+				priceDisplay: null,
+				buyForm: null
 			},
 
 			/**
@@ -293,9 +293,37 @@ window.CuralifeBoxes = window.CuralifeBoxes || {
 				this.elements.giftOptionContainers = this.elements.productActions.querySelectorAll(".gift-box");
 				this.elements.priceDisplay = this.elements.productActions.querySelector(".price-display");
 
+				// Find the form element if it exists
+				if (this.elements.submitButton) {
+					this.elements.buyForm = this.elements.submitButton.closest("form");
+
+					// Completely disable the default form submission mechanism
+					if (this.elements.buyForm) {
+						// Prevent normal form submission
+						this.elements.buyForm.addEventListener("submit", this.handleFormSubmit.bind(this), true);
+
+						// Mark the form as handled by our custom handler
+						this.elements.buyForm.setAttribute("data-handled-by-buybox-js", "true");
+
+						// Remove any existing event listeners by cloning the form
+						const oldForm = this.elements.buyForm;
+						const newForm = oldForm.cloneNode(true);
+						oldForm.parentNode.replaceChild(newForm, oldForm);
+						this.elements.buyForm = newForm;
+
+						// Re-find the button inside the cloned form
+						this.elements.submitButton = this.elements.buyForm.querySelector("button");
+					}
+				}
+
 				// Save original button text
 				if (this.elements.submitButton) {
 					this.elements.submitButton.setAttribute("data-original-text", this.elements.submitButton.textContent);
+
+					// Remove default form behavior from button
+					if (this.elements.submitButton.type === "submit") {
+						this.elements.submitButton.type = "button";
+					}
 				}
 
 				if (this.elements.oneTimeButton) {
@@ -314,7 +342,24 @@ window.CuralifeBoxes = window.CuralifeBoxes || {
 				this.initSubmitButton();
 				this.initOneTimeButton();
 
-				console.log(`Buy box ${this.SID} initialized`);
+				console.log(`Buy box ${this.SID} initialized with custom checkout handling`);
+			},
+
+			/**
+			 * Handle form submission and prevent default behavior
+			 * @param {Event} e - The form submit event
+			 */
+			handleFormSubmit(e) {
+				console.log("Intercepted form submission, using custom handler");
+				e.preventDefault();
+				e.stopPropagation();
+				e.stopImmediatePropagation();
+
+				// Trigger our custom click handler
+				if (!this.state.isLoading && this.elements.submitButton) {
+					this.elements.submitButton.click();
+				}
+				return false;
 			},
 
 			/**
@@ -428,7 +473,7 @@ window.CuralifeBoxes = window.CuralifeBoxes || {
 				if (!this.elements.priceDisplay || !el) return;
 
 				const priceDisplay = this.elements.priceDisplay;
-				const priceFormat = el.dataset.pricePer || "dont_split";
+				const priceFormat = el.dataset.priceFormat || this.elements.productActions.dataset.priceFormat || "per_bottle";
 
 				const subItem = parseFloat(el.dataset.subscriptionItemPrice) / 100 || 0;
 				const subPrice = parseFloat(el.dataset.subscriptionPrice) / 100 || 0;
@@ -476,6 +521,7 @@ window.CuralifeBoxes = window.CuralifeBoxes || {
 
 				// Animate subsequent updates
 				const animate = () => {
+					// Fade elements out
 					[mainPrice, discount, totalLine].forEach(el => {
 						if (el) {
 							el.style.transition = "opacity 200ms ease-out";
@@ -484,6 +530,7 @@ window.CuralifeBoxes = window.CuralifeBoxes || {
 					});
 
 					setTimeout(() => {
+						// Update element content while they're faded out
 						if (mainPrice) {
 							const pSpan = mainPrice.querySelector(".price");
 							const cSpan = mainPrice.querySelector(".cap");
@@ -503,6 +550,7 @@ window.CuralifeBoxes = window.CuralifeBoxes || {
 							}
 						}
 
+						// Fade elements back in, staggered for visual effect
 						setTimeout(() => mainPrice && (mainPrice.style.opacity = "1"), 50);
 						setTimeout(() => discount && (discount.style.opacity = "1"), 100);
 						setTimeout(() => totalLine && (totalLine.style.opacity = "1"), 150);
@@ -604,6 +652,12 @@ window.CuralifeBoxes = window.CuralifeBoxes || {
 			 */
 			async handleBuyNowFlow(items) {
 				try {
+					// Prevent multiple checkout attempts
+					if (this.state.isRedirectingToCheckout) {
+						console.log("Checkout already in progress, ignoring duplicate request");
+						return;
+					}
+
 					this.setState({
 						isLoading: true,
 						isRedirectingToCheckout: true
@@ -615,12 +669,19 @@ window.CuralifeBoxes = window.CuralifeBoxes || {
 					const cartPopup = document.getElementById("upCart");
 					if (cartPopup) cartPopup.remove();
 
-					// Clear the cart first
+					// Always clear the cart first - this is critical to prevent duplicated items
+					console.log("Clearing cart before checkout...");
 					try {
 						await CuralifeBoxes.utils.clearCart();
+						// Verify cart is empty
+						const emptyCart = await CuralifeBoxes.utils.getCart();
+						if (emptyCart && emptyCart.items && emptyCart.items.length > 0) {
+							console.warn("Cart was not properly cleared! Still has items:", emptyCart.items.length);
+							// Try once more to ensure it's cleared
+							await CuralifeBoxes.utils.clearCart();
+						}
 					} catch (clearErr) {
 						console.error("Error clearing cart:", clearErr);
-						throw new Error("Failed to clear cart");
 					}
 
 					// Process selling plan IDs
@@ -635,12 +696,22 @@ window.CuralifeBoxes = window.CuralifeBoxes || {
 					});
 
 					// Add items to cart
-					const addRes = await CuralifeBoxes.utils.addToCart(items);
+					console.log("Adding items to cleared cart:", JSON.stringify(items));
+					try {
+						const addRes = await CuralifeBoxes.utils.addToCart(items);
+						console.log("Add to cart response:", addRes);
+					} catch (addErr) {
+						console.error("Error adding items to cart:", addErr);
+						throw addErr;
+					}
 
 					// Verify cart contents
 					try {
 						const cart = await CuralifeBoxes.utils.getCart();
 						console.log("Cart contents after adding items:", cart);
+						if (cart.items.length !== items.length) {
+							console.warn(`Expected ${items.length} items in cart, found ${cart.items.length}`);
+						}
 						const hasSubscription = cart.items.some(item => item.selling_plan_allocation);
 						if (!hasSubscription && items.some(i => i.selling_plan)) {
 							console.warn("No subscription items found in cart after adding. Check selling plan ID.");
@@ -650,6 +721,7 @@ window.CuralifeBoxes = window.CuralifeBoxes || {
 					}
 
 					// Redirect to checkout
+					console.log("Redirecting to checkout...");
 					window.location.href = "/checkout";
 				} catch (err) {
 					console.error("Buy now flow error:", err);
@@ -669,9 +741,27 @@ window.CuralifeBoxes = window.CuralifeBoxes || {
 			 */
 			async addValidItemsToCart(items) {
 				try {
+					// Get current cart
 					let cart = await CuralifeBoxes.utils.getCart();
-					const subItem = items.find(i => i.selling_plan);
 
+					// First check if we already have these items in cart
+					const hasExactItems = items.every(newItem => {
+						return cart.items.some(cartItem => {
+							return (
+								cartItem.variant_id === newItem.id &&
+								((!cartItem.selling_plan_allocation && !newItem.selling_plan) || (cartItem.selling_plan_allocation && cartItem.selling_plan_allocation.selling_plan.id == newItem.selling_plan))
+							);
+						});
+					});
+
+					// If we already have the exact items, clear cart to prevent duplication
+					if (hasExactItems) {
+						await CuralifeBoxes.utils.clearCart();
+						cart = { items: [] };
+					}
+
+					// Handle subscription conflicts
+					const subItem = items.find(i => i.selling_plan);
 					if (subItem) {
 						const selectedBox = this.elements.productActions.querySelector(".variant-box.selected");
 						const productId = selectedBox?.dataset?.product;
@@ -710,11 +800,28 @@ window.CuralifeBoxes = window.CuralifeBoxes || {
 
 				let isSubmitting = false;
 
+				// Clear any existing event listeners by replacing with a clone
+				const oldButton = this.elements.submitButton;
+				const newButton = oldButton.cloneNode(true);
+				oldButton.parentNode.replaceChild(newButton, oldButton);
+				this.elements.submitButton = newButton;
+
+				// Make sure the button is not of type=submit
+				if (this.elements.submitButton.type === "submit") {
+					this.elements.submitButton.type = "button";
+				}
+
+				// Add data attribute to mark as using custom handler
+				this.elements.submitButton.setAttribute("data-using-custom-handler", "true");
+
 				this.elements.submitButton.addEventListener("click", async e => {
 					e.preventDefault();
+					e.stopPropagation();
+					e.stopImmediatePropagation();
 
 					// Prevent double-clicks or multiple submissions
-					if (isSubmitting || this.state.isLoading) {
+					if (isSubmitting || this.state.isLoading || this.state.isRedirectingToCheckout) {
+						console.log("Submission already in progress, ignoring duplicate click");
 						return;
 					}
 
@@ -742,7 +849,7 @@ window.CuralifeBoxes = window.CuralifeBoxes || {
 							{
 								id: parseInt(variant, 10),
 								quantity: 1,
-								selling_plan: isSub ? box.dataset.subscriptionSellingPlanId : undefined
+								selling_plan: isSub ? parseInt(box.dataset.subscriptionSellingPlanId, 10) || undefined : undefined
 							}
 						];
 
@@ -759,6 +866,13 @@ window.CuralifeBoxes = window.CuralifeBoxes || {
 							if (!giftID) throw new Error("Invalid gift selection");
 							items.push({ id: parseInt(giftID, 10), quantity: 1 });
 						}
+
+						// Remove any undefined selling_plan values
+						items.forEach(item => {
+							if (item.selling_plan === undefined || isNaN(item.selling_plan)) {
+								delete item.selling_plan;
+							}
+						});
 
 						if (this.state.buyType === "buy_now") {
 							await this.handleBuyNowFlow(items);
@@ -823,13 +937,27 @@ window.CuralifeBoxes = window.CuralifeBoxes || {
 							const cartPopup = document.getElementById("upCart");
 							if (cartPopup) cartPopup.remove();
 
-							// Clear cart
+							// ALWAYS clear cart first for buy now flow
+							console.log("One-time purchase: Clearing cart before checkout...");
 							await CuralifeBoxes.utils.clearCart();
 
-							// Add items
+							// Add items to cleared cart
+							console.log("One-time purchase: Adding items to cleared cart:", JSON.stringify(toAdd));
 							await CuralifeBoxes.utils.addToCart(toAdd);
 
+							// Verify cart contents
+							try {
+								const cart = await CuralifeBoxes.utils.getCart();
+								console.log("One-time purchase: Cart contents after adding items:", cart);
+								if (cart.items.length !== toAdd.length) {
+									console.warn(`Expected ${toAdd.length} items in cart, found ${cart.items.length}`);
+								}
+							} catch (e) {
+								console.error("Failed to verify cart contents:", e);
+							}
+
 							// Go to checkout
+							console.log("One-time purchase: Redirecting to checkout...");
 							window.location.href = "/checkout";
 						} else {
 							// Regular add to cart
