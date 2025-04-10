@@ -88,3 +88,25 @@ The Lighthouse CI setup consists of three main files:
 ## Theme Development
 
 For theme development instructions, see [SHOPIFY-SIMPLE.md](./SHOPIFY-SIMPLE.md).
+
+## Linting Tools
+
+The project includes a simplified and unified linting system for JavaScript and Liquid files, organized in the `linting/` directory. This system automatically detects file types and applies the appropriate linting method.
+
+### Available Scripts
+
+```bash
+# Lint all files
+npm run lint
+
+# Lint with auto-fixing where possible
+npm run lint:fix
+
+# Analyze JavaScript in a specific Liquid file
+npm run analyze:liquid path/to/file.liquid
+
+# Add ESLint disable comments to a Liquid file (for complex templates)
+npm run eslint:add-comments path/to/file.liquid
+```
+
+For detailed documentation on the linting tools and configuration, see [linting/README.md](./linting/README.md).

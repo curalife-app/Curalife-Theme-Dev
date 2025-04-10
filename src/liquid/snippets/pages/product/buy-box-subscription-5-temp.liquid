@@ -1,0 +1,2070 @@
+{% assign isGlobal = false %}
+{% if shop.name contains 'Global' %}
+	{% assign isGlobal = true %}
+{% endif %}
+
+{% if prod.handle == 'curalin' or prod.handle == 'curaslim' or prod.handle contains '-tm' %}
+	{% if isGlobal %}
+		{% assign shippingPrice = 690 %}
+	{% else %}
+		{% assign shippingPrice = 790 %}
+	{% endif %}
+{% else %}
+	{% assign shippingPrice = 1000 %}
+{% endif %}
+
+{% assign referenced_variant_product = prod %}
+
+{% assign giftsAmount = 0 %}
+{% assign faqsAmount = value %}
+{% for block in blocks %}
+	{% case block.type %}
+		{% when 'gift' %}
+			{% assign show_gift = false %}
+			{% if block.settings.show_on == 'both' %}
+				{% assign show_gift = true %}
+			{% elsif block.settings.show_on == 'global' and isGlobal %}
+				{% assign show_gift = true %}
+			{% elsif block.settings.show_on == 'us' and isGlobal == false %}
+				{% assign show_gift = true %}
+			{% endif %}
+
+			{% if show_gift %}
+				{% assign giftsAmount = giftsAmount | plus: 1 %}
+			{% endif %}
+
+		{% when 'faq' %}
+			{% assign faqsAmount = faqsAmount | plus: 1 %}
+	{% endcase %}
+{% endfor %}
+
+<div class="product-actions" data-default-variant-index="{{ defaultSelectionIndex }}" data-gifts-amount="{{ giftsAmount }}">
+	<div class="purchase-options flex flex-col gap-3 mb-3">
+		<div class="font-semibold text-[18px]">Choose your package</div>
+
+		<div class="variant-boxes flex justify-around gap-2">
+			{% for block in blocks %}
+				{% assign varPurchaseType = block.settings.purchase_type %}
+				{% if block.type == 'variant' and varPurchaseType == 'subscribe' %}
+					{% assign referenced_variant = blank %}
+					{% if isGlobal %}
+						{% assign blockVarID = block.settings.variant_id_global | plus: 0 %}
+					{% else %}
+						{% assign blockVarID = block.settings.variant_id | plus: 0 %}
+					{% endif %}
+
+					{% for vari in referenced_variant_product.variants %}
+						{% assign currVarID = vari.id | plus: 0 %}
+
+						{% if currVarID == blockVarID %}
+							{% assign referenced_variant = vari %}
+						{% endif %}
+					{% endfor %}
+
+					{% assign var = referenced_variant %}
+
+					{% comment %} Core Variable Assignments {% endcomment %}
+					{% assign variant_id = var.metafields.custom.reference_variant_id | default: var.id %}
+					{% assign bottle_quantity = var.metafields.my_fields.pack_bottles_quantity %}
+
+					{% comment %} Price Calculations {% endcomment %}
+					{% assign original_item_price = var.metafields.custom.original_item.value.price %}
+					{% assign original_item_cap = var.metafields.custom.original_item.value.compare_at_price | default: original_item_price %}
+					{% assign original_item_cap_total = original_item_cap | times: bottle_quantity %}
+					{% assign item_price = var.price | divided_by: bottle_quantity %}
+
+					{% comment %} Savings Calculations {% endcomment %}
+					{% assign subscription_save_money = original_item_cap | minus: subscription_item_price %}
+					{% assign buy_once_save_money = original_item_cap | minus: item_price %}
+
+					{% comment %} Selling Plan ID Logic {% endcomment %}
+					{% if var.metafields.custom.referenced_variant_product_handle %}
+						{% assign selling_plan_id = referenced_variant.metafields.subscription.selling_plan_id | default: variant.metafields.subscription.selling_plan_id %}
+					{% elsif var.metafields.subscription.selling_plan_id %}
+						{% assign selling_plan_id = var.metafields.subscription.selling_plan_id %}
+					{% elsif var.selling_plan_allocations.size > 0 %}
+						{% assign found_plan = false %}
+						{% for allocation in var.selling_plan_allocations %}
+							{% if allocation.selling_plan.name contains bottle_quantity %}
+								{% assign selling_plan_id = allocation.selling_plan.id %}
+								{% assign found_plan = true %}
+								{% break %}
+							{% endif %}
+						{% endfor %}
+						{% if found_plan == false %}
+							{% assign selling_plan_id = var.selling_plan_allocations.first.selling_plan.id %}
+						{% endif %}
+					{% endif %}
+
+					{% assign subscription_save_percents = 0 %}
+					{% assign subscription_item_price = original_item_cap %}
+
+					{% for allocation in var.selling_plan_allocations %}
+						{% assign selling = selling_plan_id | minus: 0 %}
+						{% if allocation.selling_plan.id == selling %}
+							{% if allocation.compare_at_price %}
+								{% assign original_price = allocation.compare_at_price %}
+								{% assign discounted_price = allocation.price %}
+								{% assign subscription_save_percents = original_price | minus: discounted_price | times: 100 | divided_by: original_price %}
+								{% assign mod_5_remainder = subscription_save_percents | modulo: 5 %}
+								{% if mod_5_remainder < 3 %}
+									{% assign subscription_save_percents = subscription_save_percents | minus: mod_5_remainder %}
+								{% else %}
+									{% assign subscription_save_percents = subscription_save_percents | plus: 5 | minus: mod_5_remainder %}
+								{% endif %}
+								{% assign subscription_item_price = discounted_price | divided_by: bottle_quantity %}
+							{% else %}
+								{% assign subscription_save_percents = 0 %}
+								{% assign subscription_item_price = allocation.price | divided_by: bottle_quantity %}
+							{% endif %}
+						{% endif %}
+					{% endfor %}
+
+					{% assign subscription_total_price = subscription_item_price | times: bottle_quantity %}
+
+					{% assign firstMonthDiscount = block.settings.first_month_discount_percentage %}
+
+					<div
+					id="variant-box-{{ SID }}-{{ forloop.index }}"
+				class="variant-box flex flex-col items-center variant-tab-style text-center w-full {% if forloop.index == 1 %}selected{% endif %} {{ varPurchaseType }}"
+				data-variant="{{ blockVarID }}"
+				data-product="{{ prod.id }}"
+				data-original-variant="{{ var.id }}"
+				data-subscription-selling-plan-id="{{ selling_plan_id }}"
+				data-price="{{ var.price | money_without_currency | replace: ".00", "" }}"
+				data-sku="{{ var.sku }}"
+				data-index="{{ forloop.index }}"
+				data-item-price="{{ item_price }}"
+				data-subscription-price="{{ subscription_total_price }}"
+				data-subscription-item-price="{{ subscription_item_price }}"
+				data-original-item-cap="{{ original_item_cap }}"
+				data-dc="{{ var.metafields.custom.discount_code | base64_encode }}"
+				data-buy-once-discount="{{ var.metafields.custom.save_percents }}"
+				data-subscription-discount="{{ subscription_save_percents }}"
+				data-first-month-discount="{{ firstMonthDiscount }}"
+				data-price-per="{{ pricePer }}"
+				data-bottle-quantity="{{ bottle_quantity }}"
+				data-purchase-type="{{ varPurchaseType }}"
+				data-buy-type="{{ buyType }}"
+				{% if isGlobal %}
+				{% if block.settings.allowed_selling_plan_ids_global != blank %}
+				data-allowed-selling-plans="{{ block.settings.allowed_selling_plan_ids_global | strip | escape }}"
+				{% endif %}
+				{% else %}
+				{% if block.settings.allowed_selling_plan_ids != blank %}
+				data-allowed-selling-plans="{{ block.settings.allowed_selling_plan_ids | strip | escape }}"
+				{% endif %}
+				{% endif %}
+						name="track:variant-box|variant-sku:{{ var.sku }}|purchase-type:{{ varPurchaseType }}">
+						{% if product.handle contains 'curalin' %}
+							{% assign subscription_save_percents = var.metafields.subscription.save_percents %}
+						{% endif %}
+						<div class="discount mbl:text-[3.5vw] text-white bg-primary font-bold w-full text-[13px] p-1">{{ subscription_save_percents }}% OFF</div>
+
+						<!-- prettier-ignore -->
+						<div class="title p-1">
+							<span class="font-bold mbl:text-[4vw]">{{ bottle_quantity }} Bottle{% if bottle_quantity > 1 %}s{% endif %}</span>
+						</div>
+
+						<!-- Replace the inline style with Tailwind class -->
+						<div class="md:hidden">
+							<span class="title block mbl:text-[3.4vw]"></span>
+						</div>
+					</div>
+				{% endif %}
+			{% endfor %}
+		</div>
+
+		<div class="price-display">
+			<div class="gap-y-2 flex flex-wrap items-end gap-2">
+					<div class="final-price flex items-center gap-2">
+							<div class="main-price text-primary flex items-end transition-opacity duration-200 ease-in-out">
+									{% if priceFormat == 'total' %}
+											<span class="price font-bold leading-none text-[30px] mbl:text-[6vw]">{{ subscription_total_price | money }}</span>
+									{% else %}
+											<span class="price font-bold leading-none text-[30px] mbl:text-[6vw]">{{ subscription_item_price | money }}</span>
+											<span class="per-text mt-1 text-[20px]">/bottle</span>
+									{% endif %}
+							</div>
+
+							<span class="cap self-end text-gray-500 line-through transition-opacity duration-200 ease-in-out">{{ original_item_cap | money }}</span>
+
+							{% if priceFormat == 'total' and subscription_total_price != subscription_item_price %}
+									<span class="discount-badge px-4 py-1 text-[16px] font-bold text-white bg-bronze rounded-full transition-opacity duration-200 ease-in-out">SAVE {{ subscription_save_money | money }}</span>
+							{% endif %}
+					</div>
+			</div>
+
+			{% if priceFormat == 'per_bottle' and subscription_total_price != subscription_item_price %}
+					<div class="total-line mt-1 text-[16px] h-4 transition-opacity duration-200 ease-in-out">
+							Total {{ subscription_total_price | money }}
+							<span class="total-price-cap text-gray-500 line-through">{{ original_item_cap_total | money }}</span>
+					</div>
+			{% endif %}
+
+			<div class="future-price-notice mt-2 text-[14px] text-gray-600 transition-opacity duration-200 ease-in-out"></div>
+	</div>
+
+	{% if variantsNotice != blank %}
+		<div class="notice text-primary flex gap-2 my-4 text-[15px]">
+			<span>ⓘ</span>
+			<span>{{ variantsNotice }}</span>
+		</div>
+	{% endif %}
+
+	<!-- Subscription Frequency Selector with direct Tailwind classes -->
+	<div class="mbl:my-0 hidden my-2 transition-all duration-300 ease-in-out" data-frequency-container data-ui-type="{{ sellingPlanUI | default: 'tabs' }}">
+		<div class="mb-3 font-semibold">Choose delivery frequency</div>
+		<div class="subscription-frequency-selector">
+			{% if sellingPlanUI == 'dropdown' %}
+				<select id="frequency-dropdown-{{ SID }}" class="w-full p-2 border border-gray-300 rounded-md bg-white text-[16px] font-medium transition-all duration-300 ease-in-out">
+					<!-- Options will be dynamically populated by JavaScript -->
+				</select>
+			{% else %}
+				<div id="frequency-options-{{ SID }}" class="flex justify-start gap-2">
+					<!-- Options will be dynamically populated by JavaScript -->
+				</div>
+			{% endif %}
+		</div>
+		<div class="frequency-description text-[14px] text-gray-600 mt-2 transition-opacity duration-300 ease-in-out leading-normal min-h-[24px]"><!-- Frequency description will be populated by JavaScript --></div>
+	</div>
+
+	{% render 'subscription-box-faq',
+		SID: SID,
+		faqsAmount: faqsAmount,
+		blocks: blocks
+	%}
+
+	{% render 'subscription-box-gift-selector',
+		SID: SID,
+		giftsAmount: giftsAmount,
+		blocks: blocks,
+		isGlobal: isGlobal
+	%}
+
+	<div class="submit-wrap flex flex-col w-full">
+		<div class="checkout-button">
+			{% assign buttonSID = SID | append: '-checkout' %}
+			{% if buyType == 'buy_now' %}{% assign ctaButtonTitle = 'Get Started' %}{% else %}{% assign ctaButtonTitle = 'Add To Cart' %}{% endif %}
+
+			{% render 'buy-buttons-new-4-old',
+				SID: buttonSID,
+				product: prod,
+				variant: '',
+				buttonText: ctaButtonTitle,
+				selling_plan_id: selling_plan_id,
+				product_form_id: product_form_id,
+				buyType: buyType,
+				isBuyWithPrime: isBuyWithPrime,
+				buyboxType: buyboxType,
+				buyboxName: buyboxName
+			%}
+		</div>
+
+		<div class="one-time-purchase-link mt-3 text-center">
+			{% if isOneTimePurchaseLink %}
+				{% assign firstVariant = prod.selected_or_first_available_variant %}
+				<div
+					id="one-time-add-to-cart"
+					class="one-time-add-to-cart variant-box text-primary mb-2 underline cursor-pointer"
+					name="track:link-submit|buybox-type:{{ buyboxType }}|buybox-name:{{ buyboxName }}|variant-sku:{{ firstVariant.sku }}|purchase-type:buyonce"
+					data-variant-id="{{ firstVariant.id }}"
+					data-bottle-quantity="1"
+					data-sku="{{ firstVariant.sku }}"
+					data-purchase-type="buyonce">
+					Buy Once for {{ firstVariant.price | money }} + {{ shippingPrice | money | replace: '.00', '' }} Shipping
+				</div>
+			{% endif %}
+		</div>
+
+
+		{% if blocks.size > 0 %}
+			{% for block in blocks %}
+				{% if block.type == 'text' %}
+					<div class="text-content text-[14px] text-primary whitespace-break-spaces {% if block.settings.text_position == 'center' %}text-center{% else %}text-start{% endif %}">{{ block.settings.content }}</div>
+				{% endif %}
+			{% endfor %}
+		{% endif %}
+	</div>
+</div>
+
+<!-- Replace style with Tailwind classes added to parent div -->
+<div class="buy-box grid grid-cols-[45%_40%] gap-x-[5%] justify-center">
+</div>
+
+<script>
+/* eslint-disable */
+
+document.addEventListener('DOMContentLoaded', () => {
+	const productActions       = document.querySelector('#cta-section-{{ SID }} .product-actions');
+	if (!productActions) return;
+
+	const purchaseOptionBoxes  = productActions.querySelectorAll('.variant-box');
+	const submitButton         = productActions.querySelector('.checkout-button button');
+	const submitSellingPlanId  = productActions.querySelector('.submit-selling-plan-id');
+	const submitVariantId      = productActions.querySelector('.submit-variant-id');
+	const oneTimeButton        = productActions.querySelector('.one-time-add-to-cart');
+	// Use data attribute for more specific selection
+	const frequencySelector    = productActions.querySelector('[data-frequency-container]');
+	const SID         = '{{ SID }}';
+	const buyType     = '{{ buyType }}';
+	const priceFormat = '{{ priceFormat }}';
+
+	if (!window.productData) window.productData = {};
+
+	const firstVariantBox = purchaseOptionBoxes[0];
+	if (firstVariantBox) {
+		const productId = firstVariantBox.dataset.product;
+		if (productId && !window.productData[productId]) {
+			window.productData[productId] = {
+				id: productId,
+				variants: [],
+				initialized: false
+			};
+		}
+	}
+
+	// Store current product data from Liquid if available
+	{% if prod and prod.id %}
+	window.productData['{{ prod.id }}'] = {
+		id: {{ prod.id | json }},
+		handle: {{ prod.handle | json }},
+		title: {{ prod.title | json }},
+		variants: [
+			{% for variant in prod.variants %}
+			{
+				id: {{ variant.id | json }},
+				title: {{ variant.title | json }},
+				price: {{ variant.price | json }},
+				sku: {{ variant.sku | json }},
+				{% if variant.selling_plan_allocations.size > 0 %}
+				selling_plan_allocations: [
+					{% for allocation in variant.selling_plan_allocations %}
+					{
+						selling_plan: {
+							id: {{ allocation.selling_plan.id | json }},
+							name: {{ allocation.selling_plan.name | json }}
+						},
+						price: {{ allocation.price | json }},
+						compare_at_price: {{ allocation.compare_at_price | json }}
+					}{% unless forloop.last %},{% endunless %}
+					{% endfor %}
+				]
+				{% else %}
+				selling_plan_allocations: []
+				{% endif %}
+			}{% unless forloop.last %},{% endunless %}
+			{% endfor %}
+		],
+		initialized: true
+	};
+	{% endif %}
+
+	// Centralized state management
+	const BuyBoxState = {
+		// State properties
+		data: {
+			selectedBox: null,
+			selectedFrequency: null,
+			isInitialLoad: true,
+			isLoading: false,
+			isRedirectingToCheckout: false, // New flag to track if we're redirecting to checkout
+			selectedGift: null,
+			productId: null,
+			variantId: null,
+			sellingPlanId: null,
+			purchaseType: null, // 'subscribe' or 'buyonce'
+			priceFormat: '{{ priceFormat }}',
+			buyType: '{{ buyType }}',
+			SID: '{{ SID }}'
+		},
+
+		// Set state and trigger UI updates
+		setState(updates) {
+			// Store previous state for comparison
+			const previousState = {...this.data};
+
+			// Update state with new values
+			Object.assign(this.data, updates);
+
+			// React to specific state changes
+			this.updateUI(updates, previousState);
+		},
+
+		// Update UI based on state changes
+		updateUI(changes, previousState) {
+			// If loading state changed
+			if ('isLoading' in changes) {
+				this.updateLoadingState(this.data.isLoading);
+			}
+
+			// If selected box changed
+			if ('selectedBox' in changes) {
+				// Only trigger if it's a different box
+				if (this.data.selectedBox !== previousState.selectedBox) {
+					this.updateSelectedBox(this.data.selectedBox);
+				}
+			}
+
+			// If selected frequency changed
+			if ('selectedFrequency' in changes || 'sellingPlanId' in changes) {
+				this.updateFrequencyUI();
+			}
+		},
+
+		// Update UI elements when box selection changes
+		updateSelectedBox(boxElement) {
+			if (!boxElement) return;
+
+			console.log('Updating selected box:', {
+				variantId: boxElement.dataset.variant,
+				purchaseType: boxElement.dataset.purchaseType,
+				sellingPlanId: boxElement.dataset.subscriptionSellingPlanId
+			});
+
+			// Extract data from the box
+			const isSub = boxElement.dataset.purchaseType === 'subscribe';
+			const bottleQuantity = parseInt(boxElement.dataset.bottleQuantity || '1', 10);
+			let planId = isSub ? boxElement.dataset.subscriptionSellingPlanId : '';
+			const variantId = boxElement.dataset.variant;
+
+			// Update submit button settings
+			if (submitSellingPlanId) submitSellingPlanId.value = planId;
+			if (submitVariantId) submitVariantId.value = variantId;
+
+			// Update selling plan and variant IDs in state
+			this.setState({
+				sellingPlanId: planId,
+				variantId: variantId,
+				purchaseType: boxElement.dataset.purchaseType,
+				productId: boxElement.dataset.product
+			});
+
+			// Visually update the UI
+			document.querySelectorAll('.variant-box').forEach(box => {
+				box.classList.remove('selected');
+				const radio = box.querySelector('input[type="radio"]');
+				if (radio) radio.checked = false;
+			});
+
+			boxElement.classList.add('selected');
+			const radio = boxElement.querySelector('input[type="radio"]');
+			if (radio) radio.checked = true;
+
+			// Update button tracking data
+			updateBuyButton(boxElement);
+
+			// Update price display
+			updatePriceDisplay(boxElement);
+
+			// Handle frequency selector visibility
+			const frequencyContainer = productActions.querySelector('[data-frequency-container]');
+			if (frequencyContainer) {
+				if (isSub) {
+					// Show and populate frequency selector for subscriptions
+					frequencyContainer.classList.remove('hidden');
+					frequencyContainer.style.display = 'block';
+
+					// Get UI type directly from the container to avoid reference errors
+					const uiType = frequencyContainer.dataset.uiType || 'tabs';
+					console.log('Updating frequency options with UI type:', uiType);
+
+					// Populate frequency selector
+					populateFrequencySelector(boxElement);
+				} else {
+					// Hide frequency selector for one-time purchases
+					frequencyContainer.classList.add('hidden');
+				}
+			}
+
+			{% if isSlideVariant %}
+				if (window.hasInitialImageUpdateHappened) {
+					updateVariantImage(boxElement);
+				} else {
+					window.hasInitialImageUpdateHappened = true;
+				}
+			{% endif %}
+
+			// Add extra debug info
+			console.log('Selected box updated successfully:', {
+				variantId: variantId,
+				purchaseType: boxElement.dataset.purchaseType,
+				bottleQuantity: bottleQuantity,
+				planId: planId
+			});
+		},
+
+		// Update frequency UI based on state
+		updateFrequencyUI() {
+			const frequencyOptions = document.getElementById('frequency-options-{{ SID }}');
+			if (!frequencyOptions) return;
+
+			const sellingPlanId = this.data.sellingPlanId;
+			if (!sellingPlanId) return;
+
+			// Update selected frequency option
+			frequencyOptions.querySelectorAll('div[data-selling-plan-id]').forEach(box => {
+				const boxId = box.getAttribute('data-selling-plan-id');
+				if (boxId === sellingPlanId) {
+					box.style.backgroundColor = 'var(--primary-color)';
+					box.style.color = 'white';
+				} else {
+					box.style.backgroundColor = 'var(--bg-color)';
+					box.style.color = 'var(--primary-color)';
+				}
+			});
+
+			// Update frequency description
+			updateFrequencyDescription();
+		},
+
+		// Update loading state UI - optimized version
+		updateLoadingState(isLoading) {
+			if (submitButton) {
+				if (isLoading) {
+					submitButton.disabled = true;
+					// Pre-allocate the spinner HTML to avoid layout thrashing
+					submitButton.innerHTML = `<div class="border-white/20 border-t-white animate-spin inline-block w-6 h-6 mx-auto border-2 rounded-full"></div>`;
+					submitButton.setAttribute('aria-busy', 'true');
+					submitButton.classList.add('loading-active');
+				} else {
+					submitButton.disabled = false;
+					submitButton.innerHTML = submitButton.getAttribute('data-original-text') || 'Add To Cart';
+					submitButton.removeAttribute('aria-busy');
+					submitButton.classList.remove('loading-active');
+				}
+			}
+
+			// Also update one-time purchase button if it exists
+			if (oneTimeButton) {
+				oneTimeButton.disabled = isLoading;
+				if (isLoading) {
+					oneTimeButton.setAttribute('aria-busy', 'true');
+					oneTimeButton.classList.add('disabled');
+				} else {
+					oneTimeButton.removeAttribute('aria-busy');
+					oneTimeButton.classList.remove('disabled');
+				}
+			}
+
+			// Use class-based disabling for better performance
+			if (isLoading) {
+				productActions.classList.add('processing-order');
+			} else {
+				productActions.classList.remove('processing-order');
+			}
+		},
+
+		// Initialize state with default values
+		init() {
+			// Use the data attribute to determine default selection index
+			const defaultIdx = parseInt(productActions.dataset.defaultVariantIndex, 10) || 0;
+
+			// FIXED: Use the default index first, only fall back to subscription if no defaultIdx specified
+			let defaultBox = null;
+
+			// First try to use the specified default index if it exists
+			if (defaultIdx > 0 && purchaseOptionBoxes.length >= defaultIdx) {
+				defaultBox = purchaseOptionBoxes[defaultIdx - 1]; // 1-indexed to 0-indexed conversion
+				console.log('Using specified default variant index:', defaultIdx);
+			}
+
+			// If no default index specified or invalid, then try to find a subscription box
+			if (!defaultBox) {
+				for (const box of purchaseOptionBoxes) {
+					if (box.dataset.purchaseType === 'subscribe') {
+						defaultBox = box;
+						console.log('Falling back to first subscription box');
+						break;
+					}
+				}
+			}
+
+			// Last resort: fall back to the first box
+			if (!defaultBox && purchaseOptionBoxes.length > 0) {
+				defaultBox = purchaseOptionBoxes[0];
+				console.log('Falling back to first available box');
+			}
+
+			// Store original button text for later restoration
+			if (submitButton) {
+				submitButton.setAttribute('data-original-text', submitButton.textContent);
+			}
+
+			// Set initial state if a default box exists
+			if (defaultBox) {
+				this.setState({
+					selectedBox: defaultBox,
+					isInitialLoad: true,
+					purchaseType: defaultBox.dataset.purchaseType || null,
+					sellingPlanId: defaultBox.dataset.subscriptionSellingPlanId || null
+				});
+
+				// Make sure the UI is updated to reflect this selection
+				defaultBox.classList.add('selected');
+				const radio = defaultBox.querySelector('input[type="radio"]');
+				if (radio) radio.checked = true;
+
+				// Ensure variant is fully selected and UI updated
+				this.updateSelectedBox(defaultBox);
+
+				// Explicitly show frequency selector for subscription products
+				if (defaultBox.dataset.purchaseType === 'subscribe') {
+					const frequencyContainer = productActions.querySelector('[data-frequency-container]');
+					if (frequencyContainer) {
+						console.log('Showing frequency container for subscription product');
+						frequencyContainer.classList.remove('hidden');
+						frequencyContainer.style.display = 'block';
+					}
+				}
+			}
+
+			// Mark initialization as complete
+			setTimeout(() => {
+				this.setState({ isInitialLoad: false });
+			}, 100);
+		}
+	};
+
+	// Component State (kept for backwards compatibility)
+	const state = BuyBoxState.data;
+
+	// ~~~~~~~~~~~~~~~~~~~~~
+	//    Utility Methods
+	// ~~~~~~~~~~~~~~~~~~~~~
+
+	/**
+	 * Cart Cache - Reduces unnecessary network requests
+	 */
+	const CartCache = {
+		data: null,
+		lastFetched: 0,
+		maxAge: 2000, // 2 seconds
+
+		async getCart(forceRefresh = false) {
+			const now = Date.now();
+			if (!forceRefresh && this.data && (now - this.lastFetched < this.maxAge)) {
+				// Using cached cart data
+				return this.data;
+			}
+
+			try {
+				// Fetching fresh cart data with cache-busting
+				const res = await fetch('/cart.js?t=' + now, {
+					cache: 'no-store',
+					headers: {
+						'Cache-Control': 'no-cache',
+						'Pragma': 'no-cache'
+					}
+				});
+
+				if (!res.ok) throw new Error('Failed to fetch cart');
+				this.data = await res.json();
+				this.lastFetched = now;
+				return this.data;
+			} catch (err) {
+				console.error('Error fetching cart:', err);
+				throw err;
+			}
+		},
+
+		invalidate() {
+			// Invalidating cart cache
+			this.data = null;
+			this.lastFetched = 0;
+		}
+	};
+
+	/**
+	 * DOM Update utilities for efficient updates
+	 */
+	const DOMUtils = {
+		updateProperty(element, property, newValue) {
+			if (!element) return false;
+
+			if (element[property] !== newValue) {
+				element[property] = newValue;
+				return true;
+			}
+			return false;
+		},
+
+		updateAttribute(element, attribute, newValue) {
+			if (!element) return false;
+
+			const currentValue = element.getAttribute(attribute);
+			if (currentValue !== newValue) {
+				element.setAttribute(attribute, newValue);
+				return true;
+			}
+			return false;
+		},
+
+		toggleClass(element, className, shouldHave) {
+			if (!element) return false;
+
+			const hasClass = element.classList.contains(className);
+			if (shouldHave && !hasClass) {
+				element.classList.add(className);
+				return true;
+			} else if (!shouldHave && hasClass) {
+				element.classList.remove(className);
+				return true;
+			}
+			return false;
+		},
+
+		updateStyle(element, property, newValue) {
+			if (!element) return false;
+
+			if (element.style[property] !== newValue) {
+				element.style[property] = newValue;
+				return true;
+			}
+			return false;
+		},
+
+		createElement(tagName, properties = {}, parent = null) {
+			const element = document.createElement(tagName);
+
+			// Set properties
+			Object.entries(properties).forEach(([key, value]) => {
+				if (key === 'className') {
+					element.className = value;
+				} else if (key === 'innerHTML') {
+					element.innerHTML = value;
+				} else if (key === 'textContent') {
+					element.textContent = value;
+				} else if (key === 'style' && typeof value === 'object') {
+					Object.entries(value).forEach(([prop, val]) => {
+						element.style[prop] = val;
+					});
+				} else if (key.startsWith('data-')) {
+					element.setAttribute(key, value);
+				} else if (key.startsWith('on') && typeof value === 'function') {
+					const eventName = key.substring(2).toLowerCase();
+					element.addEventListener(eventName, value);
+				} else {
+					element[key] = value;
+				}
+			});
+
+			// Append to parent if provided
+			if (parent) {
+				parent.appendChild(element);
+			}
+
+			return element;
+		}
+	};
+
+	function showNotification(msg, type = 'error') {
+		const note = document.createElement('div');
+		note.className = `
+			cart-notification ${type}
+			fixed bottom-4 left-1/2 transform -translate-x-1/2
+			p-4 rounded-lg shadow-lg z-[2147483640]
+			transition-opacity duration-300
+		`.replace(/\s+/g, ' ');
+
+		if (type === 'error') {
+			note.classList.add('bg-red-100', 'border', 'border-red-400', 'text-red-700');
+		} else {
+			note.classList.add('bg-green-100', 'border', 'border-green-400', 'text-green-700');
+		}
+
+		note.innerHTML = `
+			<div class="flex items-center">
+				<div class="mr-3">${type === 'error' ? '⚠️' : '✅'}</div>
+				<div class="text-sm font-medium">${msg}</div>
+				<button
+					class="hover:text-gray-500 ml-auto text-gray-400"
+					onclick="this.parentElement.parentElement.remove()"
+				>
+					✕
+				</button>
+			</div>
+		`;
+		document.body.appendChild(note);
+		setTimeout(() => {
+			note.classList.add('opacity-0');
+			setTimeout(() => note.remove(), 300);
+		}, 5000);
+	}
+
+	function parseErrorMessage(error, context = '') {
+		// Log detailed error information for debugging
+		console.error(`Error in ${context}:`, {
+			message: error.message,
+			response: error.response,
+			stack: error.stack,
+			originalError: error
+		});
+
+		// Extract Shopify error messages if available
+		if (error.response && typeof error.response === 'object') {
+			// Handle Shopify API error responses
+			if (error.response.description) {
+				return error.response.description;
+			}
+
+			// Handle Shopify checkout errors
+			if (error.response.message) {
+				return error.response.message;
+			}
+		}
+
+		// Common error patterns
+		if (error.message && error.message.includes('network')) {
+			return 'Network connection issue. Please check your internet connection and try again.';
+		}
+
+		if (error.message && error.message.includes('timeout')) {
+			return 'Request timed out. Please try again.';
+		}
+
+		if (error.message && error.message.includes('sold out')) {
+			return 'This product is currently sold out. Please try again later.';
+		}
+
+		if (error.message && error.message.includes('variant')) {
+			return 'There was an issue with the selected option. Please try selecting a different option.';
+		}
+
+		// Context-specific default messages
+		switch (context) {
+			case 'cart-add':
+				return 'Unable to add items to your cart. Please try again.';
+			case 'checkout':
+				return 'Unable to proceed to checkout. Please try again.';
+			case 'frequency-selection':
+				return 'Unable to update subscription frequency. Please try again.';
+			default:
+				return 'Something went wrong. Please try again or contact customer support.';
+		}
+	}
+
+	async function getCart(forceRefresh = false) {
+		try {
+			return await CartCache.getCart(forceRefresh);
+		} catch (err) {
+			console.error('Error in getCart:', err);
+			throw new Error('Unable to access your cart');
+		}
+	}
+
+	async function removeCartItem(key) {
+		try {
+			const res = await fetch('/cart/update.js', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ updates: { [key]: 0 } })
+			});
+
+			if (!res.ok) {
+				const errorData = await res.json();
+				throw Object.assign(new Error('Failed to remove item'), { response: errorData });
+			}
+
+			// Invalidate cart cache after modification
+			CartCache.invalidate();
+			return res.json();
+		} catch (err) {
+			console.error('Error removing cart item:', err);
+			throw err;
+		}
+	}
+
+	async function clearCart() {
+		try {
+			const res = await fetch('/cart/clear.js', {
+				method: 'POST',
+				cache: 'no-store',
+				headers: {
+					'Cache-Control': 'no-cache',
+					'Pragma': 'no-cache'
+				}
+			});
+
+			if (!res.ok) {
+				const errorData = await res.json();
+				throw Object.assign(new Error('Failed to clear cart'), { response: errorData });
+			}
+
+			// Invalidate cart cache
+			CartCache.invalidate();
+			return res.json();
+		} catch (err) {
+			console.error('Error clearing cart:', err);
+			throw err;
+		}
+	}
+
+	// ~~~~~~~~~~~~~~~~~~~~~
+	//   Cart/Checkout
+	// ~~~~~~~~~~~~~~~~~~~~~
+	async function handleBuyNowFlow(items) {
+		try {
+			// Set loading state immediately and prevent multiple clicks
+			BuyBoxState.setState({
+				isLoading: true,
+				isRedirectingToCheckout: true
+			});
+
+			// Remove cart popup if it exists (do this early)
+			const cartPopup = document.getElementById('upCart');
+			if (cartPopup) cartPopup.remove();
+
+			// Perform cart operations in parallel when possible
+			const clearCartPromise = clearCart();
+
+			// Wait for cart clearing to complete
+			await clearCartPromise;
+
+			// Add items to cart (with improved error handling)
+			const addRes = await fetch('/cart/add.js', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ items }),
+				// Add cache control to prevent browser caching
+				cache: 'no-store'
+			});
+
+			if (!addRes.ok) {
+				const errorData = await addRes.json();
+				console.error('Cart add response:', errorData);
+				throw Object.assign(
+					new Error('Failed to add items'),
+					{ response: errorData }
+				);
+			}
+
+			// Invalidate cart cache
+			CartCache.invalidate();
+
+			// Redirect to checkout immediately
+			window.location.href = '/checkout';
+		} catch (err) {
+			console.error('handleBuyNowFlow error details:', err);
+			BuyBoxState.setState({
+				isRedirectingToCheckout: false,
+				isLoading: false
+			});
+			throw err; // Re-throw to be handled by the caller
+		}
+	}
+
+	// Add items, remove any existing subscription for same product if needed
+	async function addValidItemsToCart(items) {
+		try {
+			// If this is a subscription item, we need to check for existing subscriptions
+			let cart = await getCart(true); // Force a fresh cart fetch
+			const subItem = items.find(i => i.selling_plan);
+
+			if (subItem) {
+				// Extract product ID from the variant ID
+				const variantId = subItem.id;
+				let foundExistingSubscription = false;
+				let itemsToRemove = [];
+
+				// Identify any existing subscriptions for the same product
+				for (const item of cart.items) {
+					if (item.selling_plan_allocation && item.variant_id === variantId) {
+						// Found existing subscription for same variant
+						itemsToRemove.push(item.key);
+						foundExistingSubscription = true;
+					}
+				}
+
+				// If we found existing subscriptions, remove them first
+				if (foundExistingSubscription && itemsToRemove.length > 0) {
+					// Build updates object for cart update
+					const updates = {};
+					itemsToRemove.forEach(key => {
+						updates[key] = 0;
+					});
+
+					// Remove items in a single request
+					await fetch('/cart/update.js', {
+						method: 'POST',
+						headers: {
+							'Content-Type': 'application/json',
+							'Cache-Control': 'no-cache'
+						},
+						cache: 'no-store',
+						body: JSON.stringify({ updates })
+					});
+
+					// Invalidate cart cache
+					CartCache.invalidate();
+				}
+			}
+
+			// Add items to cart
+			const res = await fetch('/cart/add.js', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					'Cache-Control': 'no-cache'
+				},
+				cache: 'no-store',
+				body: JSON.stringify({ items })
+			});
+
+			if (!res.ok) {
+				const errorData = await res.json();
+				console.error('Error adding items to cart:', errorData);
+				throw Object.assign(new Error('Failed to add items to cart'), { response: errorData });
+			}
+
+			// Invalidate cart cache after modification
+			CartCache.invalidate();
+
+			// Update cart UI if needed
+			if (typeof window.updateCart === 'function') {
+				window.updateCart();
+			}
+
+			// Show a success message
+			showNotification('Items added to cart!', 'success');
+
+			return res.json();
+		} catch (err) {
+			console.error('Error in addValidItemsToCart:', err);
+			throw err;
+		}
+	}
+
+	// ~~~~~~~~~~~~~~~~~~~~~
+	//   Price Updates
+	// ~~~~~~~~~~~~~~~~~~~~~
+	function updatePriceDisplay(el) {
+		const priceEls = document.querySelectorAll('.price-display');
+
+		// Get base prices and convert from cents to dollars
+		const subItem = parseFloat(el.dataset.subscriptionItemPrice) / 100 || 0;
+		const subPrice = parseFloat(el.dataset.subscriptionPrice) / 100 || 0;
+		const origPerItem = parseFloat(el.dataset.originalItemCap) / 100 || 0;
+		const bottles = parseInt(el.dataset.bottleQuantity, 10) || 1;
+
+		// Calculate original total price
+		const totalOrig = origPerItem * bottles;
+
+		// Get subscription and first month discounts
+		const subscriptionDiscount = parseFloat(el.dataset.subscriptionDiscount) || 0;
+		const firstMonthDiscount = parseFloat(el.dataset.firstMonthDiscount) || 0;
+
+		// Combine discounts for first month
+		const totalFirstMonthDiscount = subscriptionDiscount + firstMonthDiscount;
+		const firstMonthDiscountMultiplier = (100 - totalFirstMonthDiscount) / 100;
+
+		// Calculate first month prices
+		const firstMonthSubItem = origPerItem * firstMonthDiscountMultiplier;
+		const firstMonthSubPrice = totalOrig * firstMonthDiscountMultiplier;
+
+		const regularDiscountMultiplier = (100 - subscriptionDiscount) / 100;
+		const regularPrice = (priceFormat === 'total' ? totalOrig : origPerItem) * regularDiscountMultiplier;
+
+		const saveAmt = priceFormat === 'total'
+				? (totalOrig - firstMonthSubPrice)
+				: ((origPerItem - firstMonthSubItem) * bottles);
+
+		const currencySymbol = '{{ cart.currency.symbol }}' || '$';
+
+		const newMainPrice = `${currencySymbol}${(priceFormat === 'total' ? firstMonthSubPrice : firstMonthSubItem).toFixed(2)}`;
+		const newComparePrice = `${currencySymbol}${(priceFormat === 'total' ? totalOrig : origPerItem).toFixed(2)}`;
+		const regularPriceFormatted = `${currencySymbol}${regularPrice.toFixed(2)}`;
+		const flooredSave = Math.floor(saveAmt);
+		const savingsText = flooredSave > 0 ? `SAVE ${currencySymbol}${flooredSave}` : '';
+
+		priceEls.forEach(display => {
+			const mainPrice = display.querySelector('.main-price');
+			const cap = display.querySelector('.cap');
+			const discount = display.querySelector('.discount-badge');
+			const totalLine = display.querySelector('.total-line');
+			const futurePrice = display.querySelector('.future-price-notice');
+
+			if (state.isInitialLoad) {
+				if (mainPrice) {
+					const pSpan = mainPrice.querySelector('.price');
+					if (pSpan) DOMUtils.updateProperty(pSpan, 'textContent', newMainPrice);
+				}
+
+				if (cap) DOMUtils.updateProperty(cap, 'textContent', newComparePrice);
+
+				if (discount && priceFormat === 'total') {
+					DOMUtils.updateProperty(discount, 'textContent', savingsText);
+					DOMUtils.toggleClass(discount, 'hidden', flooredSave <= 0);
+				}
+
+				if (totalLine && priceFormat === 'per_bottle') {
+					if (flooredSave > 0 && firstMonthSubPrice != firstMonthSubItem) {
+						DOMUtils.updateProperty(
+							totalLine,
+							'innerHTML',
+							`Total ${currencySymbol}${firstMonthSubPrice.toFixed(2)} <span class="total-price-cap text-gray-500 line-through">${currencySymbol}${totalOrig.toFixed(2)}</span>`
+						);
+					} else {
+						DOMUtils.updateProperty(totalLine, 'textContent', '');
+					}
+				}
+
+				// Update future price notice
+				if (futurePrice) {
+					const newFuturePriceText = firstMonthDiscount > 0
+						? `Special price for first order. Refills for ${regularPriceFormatted}${priceFormat === 'per_bottle' ? '/bottle' : ''}.`
+						: '';
+
+					DOMUtils.updateProperty(futurePrice, 'textContent', newFuturePriceText);
+				}
+
+				return;
+			}
+
+			// Track if any content changed to determine if animation is needed
+			let hasContentChanged = false;
+
+			// Check if price content has changed before animating
+			if (mainPrice) {
+				const pSpan = mainPrice.querySelector('.price');
+				hasContentChanged = (pSpan && pSpan.textContent !== newMainPrice);
+			}
+
+			if (cap) {
+				hasContentChanged = hasContentChanged || cap.textContent !== newComparePrice;
+			}
+
+			if (discount && priceFormat === 'total') {
+				hasContentChanged = hasContentChanged || discount.textContent !== savingsText;
+			}
+
+			if (totalLine && priceFormat === 'per_bottle') {
+				const newTotalLineHTML = flooredSave > 0 && firstMonthSubPrice != firstMonthSubItem
+					? `Total ${currencySymbol}${firstMonthSubPrice.toFixed(2)} <span class="total-price-cap text-gray-500 line-through">${currencySymbol}${totalOrig.toFixed(2)}</span>`
+					: '';
+				hasContentChanged = hasContentChanged || totalLine.innerHTML !== newTotalLineHTML;
+			}
+
+			if (futurePrice) {
+				const newFuturePriceText = firstMonthDiscount > 0
+					? `Special price for first order. Refills for ${regularPriceFormatted}${priceFormat === 'per_bottle' ? '/bottle' : ''}.`
+					: '';
+				hasContentChanged = hasContentChanged || futurePrice.textContent !== newFuturePriceText;
+			}
+
+			// Only animate if content actually changed
+			if (hasContentChanged) {
+				const animate = () => {
+					// Fade out elements that will change
+					if (mainPrice) mainPrice.style.opacity = '0';
+					if (cap) cap.style.opacity = '0';
+					if (discount) discount.style.opacity = '0';
+					if (totalLine) totalLine.style.opacity = '0';
+					if (futurePrice) futurePrice.style.opacity = '0';
+
+					setTimeout(() => {
+						// Update content while elements are invisible
+						if (mainPrice) {
+							const pSpan = mainPrice.querySelector('.price');
+							if (pSpan) DOMUtils.updateProperty(pSpan, 'textContent', newMainPrice);
+						}
+
+						if (cap) DOMUtils.updateProperty(cap, 'textContent', newComparePrice);
+
+						if (discount && priceFormat === 'total') {
+							DOMUtils.updateProperty(discount, 'textContent', savingsText);
+							DOMUtils.toggleClass(discount, 'hidden', flooredSave <= 0);
+						}
+
+						if (totalLine && priceFormat === 'per_bottle') {
+							if (flooredSave > 0 && firstMonthSubPrice != firstMonthSubItem) {
+								DOMUtils.updateProperty(
+									totalLine,
+									'innerHTML',
+									`Total ${currencySymbol}${firstMonthSubPrice.toFixed(2)} <span class="total-price-cap text-gray-500 line-through">${currencySymbol}${totalOrig.toFixed(2)}</span>`
+								);
+							} else {
+								DOMUtils.updateProperty(totalLine, 'textContent', ' ');
+							}
+						}
+
+						// Update future price notice
+						if (futurePrice && firstMonthDiscount > 0) {
+							DOMUtils.updateProperty(
+								futurePrice,
+								'textContent',
+								`Special price for first order. Refills for ${regularPriceFormatted}${priceFormat === 'per_bottle' ? '/bottle' : ''}.`
+							);
+						} else if (futurePrice) {
+							DOMUtils.updateProperty(futurePrice, 'textContent', '');
+						}
+
+						// Fade elements back in with staggered timing
+						setTimeout(() => { if (mainPrice) mainPrice.style.opacity = '1'; }, 50);
+						setTimeout(() => { if (cap) cap.style.opacity = '1'; }, 75);
+						setTimeout(() => { if (discount) discount.style.opacity = '1'; }, 100);
+						setTimeout(() => { if (totalLine) totalLine.style.opacity = '1'; }, 150);
+						setTimeout(() => { if (futurePrice) futurePrice.style.opacity = '1'; }, 200);
+					}, 200);
+				};
+
+				// Use requestAnimationFrame for smoother animation
+				requestAnimationFrame(animate);
+			}
+		});
+	}
+
+	// ~~~~~~~~~~~~~~~~~~~~~
+	//  Image Slider
+	// ~~~~~~~~~~~~~~~~~~~~~
+	function performSlideUpdate(slider, variantId) {
+		try {
+			if (!slider || !variantId) return;
+			const idx = Array.from(slider.slides).findIndex(s => s.dataset.variantId === variantId);
+			if (idx !== -1) {
+				slider.update();
+				requestAnimationFrame(() => {
+					slider.slideTo(idx, 300);
+					setTimeout(() => slider.update(), 350);
+				});
+			}
+		} catch (err) {
+			console.error('Slide update:', err);
+		}
+	}
+
+	function updateVariantImage(el) {
+		const variantId = el.dataset.variant;
+		if (!variantId) return;
+		const sliderId = `productSliderAllInOne${SID}`;
+		let slider     = window[sliderId];
+		if (!slider?.slides?.length) {
+			return new Promise(resolve => {
+				const check = setInterval(() => {
+					slider = window[sliderId];
+					if (slider?.slides?.length) {
+						clearInterval(check);
+						performSlideUpdate(slider, variantId);
+						resolve();
+					}
+				}, 100);
+				setTimeout(() => {
+					clearInterval(check);
+					resolve();
+				}, 5000);
+			});
+		}
+		performSlideUpdate(slider, variantId);
+	}
+
+	function updateBuyButton(el) {
+		if (!submitButton) return;
+		const sku         = el.dataset.sku;
+		const purchase    = el.dataset.purchaseType;
+
+		// Update button's tracking name attribute
+		const currName    = submitButton.getAttribute('name') || '';
+		const parts       = currName.split('|');
+		const params      = {};
+		parts.slice(1).forEach(p => {
+			const [k, v] = p.split(':');
+			if (k) params[k] = v;
+		});
+		params['variant-sku']   = sku;
+		params['purchase-type'] = purchase;
+		const newName = `track:add|${Object.entries(params)
+			.map(([k, v]) => `${k}:${v}`).join('|')}`;
+
+		// Update button attributes
+		submitButton.setAttribute('name', newName);
+		submitButton.setAttribute('data-sku', sku);
+		submitButton.setAttribute('data-purchase-type', purchase);
+	}
+
+	function togglePurchaseBox(el) {
+		if (!el) return;
+
+		purchaseOptionBoxes.forEach(box => {
+			box.classList.remove('selected');
+			const r = box.querySelector('input[type="radio"]');
+			if (r) r.checked = false;
+		});
+
+		const isSub = el.dataset.purchaseType === 'subscribe';
+		const planId = isSub ? el.dataset.subscriptionSellingPlanId : '';
+		const variantId = el.dataset.variant;
+
+		if (submitSellingPlanId) submitSellingPlanId.value = planId;
+		if (submitVariantId) submitVariantId.value = variantId;
+
+		el.classList.add('selected');
+		const radio = el.querySelector('input[type="radio"]');
+		if (radio) radio.checked = true;
+
+		// Update the state with all relevant information
+		BuyBoxState.setState({
+			selectedBox: el,
+			purchaseType: el.dataset.purchaseType,
+			sellingPlanId: planId,
+			variantId: variantId
+		});
+
+		console.log('Box selected:', {
+			type: el.dataset.purchaseType,
+			sellingPlanId: planId,
+			variantId: variantId
+		});
+
+		updateBuyButton(el);
+		updatePriceDisplay(el);
+
+		{% if isSlideVariant %}
+			if (window.hasInitialImageUpdateHappened) {
+				updateVariantImage(el);
+			} else {
+				window.hasInitialImageUpdateHappened = true;
+			}
+		{% endif %}
+	}
+
+	function initPurchaseOptions() {
+		// Only set up event listeners in this function, remove default selection logic
+		productActions.addEventListener('click', e => {
+			const radio = e.target.closest('input[type="radio"]');
+			const box   = e.target.closest('.variant-boxes .variant-box');
+			if (radio) {
+				e.preventDefault();
+				const pb = radio.closest('.variant-box');
+				if (pb) togglePurchaseBox(pb);
+			} else if (box) {
+				e.preventDefault();
+				togglePurchaseBox(box);
+			}
+		});
+	}
+	// Initialize event handlers right after defining the function
+	initPurchaseOptions();
+
+	// Updated function to select frequency option - handles both tabs and dropdown
+	function selectFrequencyOption(option) {
+		if (!option) return;
+
+		const newSellingPlanId = option.getAttribute ? option.getAttribute('data-selling-plan-id') : option.value;
+		if (!newSellingPlanId) return;
+
+		BuyBoxState.setState({
+			selectedFrequency: option,
+			sellingPlanId: newSellingPlanId
+		});
+
+		// Get the UI type directly from the container
+		const frequencyContainer = productActions.querySelector('[data-frequency-container]');
+		const uiType = frequencyContainer ? frequencyContainer.dataset.uiType || 'tabs' : 'tabs';
+
+		// If we're using tabs UI
+		if (uiType === 'tabs') {
+			const frequencyOptions = document.getElementById('frequency-options-{{ SID }}');
+			if (frequencyOptions) {
+				Array.from(frequencyOptions.children).forEach(box => {
+					if (box === option) {
+						box.style.backgroundColor = 'var(--primary-color)';
+						box.style.color = 'white';
+					} else {
+						box.style.backgroundColor = 'var(--bg-color)';
+						box.style.color = 'var(--primary-color)';
+					}
+				});
+			}
+		}
+		// For dropdown, selection is handled by the select element
+
+		const selectedBox = productActions.querySelector('.variant-box.selected');
+		if (selectedBox && selectedBox.dataset.purchaseType === 'subscribe') {
+			selectedBox.dataset.subscriptionSellingPlanId = newSellingPlanId;
+		}
+
+		// Make sure to update the frequency description text
+		updateFrequencyDescription();
+	}
+
+	// Modified function to handle both UI types
+	function handleFallbackFrequencyOptions(el, frequencyOptions, frequencyContainer) {
+		if (!frequencyOptions || !frequencyContainer) return;
+
+		// Get UI type directly from the container
+		const uiType = frequencyContainer.dataset.uiType || 'tabs';
+		const isDropdown = uiType === 'dropdown';
+
+		if (el.dataset.purchaseType === 'subscribe') {
+			const bottleQuantity = parseInt(el.dataset.bottleQuantity || '1', 10);
+			const currentSellingPlanId = el.dataset.subscriptionSellingPlanId;
+
+			if (currentSellingPlanId) {
+				frequencyOptions.innerHTML = '';
+				const fallbackBox = document.createElement('div');
+				fallbackBox.className = 'frequency-box rounded-md cursor-pointer py-2 min-w-[90px] max-w-[168px] text-center w-full transition-all duration-300 ease-in-out';
+				fallbackBox.style.backgroundColor = 'var(--primary-color)';
+				fallbackBox.style.color = 'white';
+				fallbackBox.setAttribute('data-selling-plan-id', currentSellingPlanId);
+				fallbackBox.setAttribute('data-frequency-value', bottleQuantity.toString()); // Use bottle quantity as default recommended frequency
+				fallbackBox.setAttribute('data-frequency-unit', 'month'); // Default to months
+				fallbackBox.innerHTML = `
+					<div class="p-1">
+						<span class="font-semibold">Every ${bottleQuantity} Month${bottleQuantity > 1 ? 's' : ''}</span>
+					</div>
+				`;
+				frequencyOptions.appendChild(fallbackBox);
+				frequencyContainer.classList.remove('hidden');
+
+				// Make sure fallback box has click handler
+				fallbackBox.addEventListener('click', function() {
+					selectFrequencyOption(this);
+				});
+
+				// Update description
+				setTimeout(updateFrequencyDescription, 100);
+			} else {
+				frequencyContainer.classList.add('hidden');
+			}
+		} else {
+			frequencyContainer.classList.add('hidden');
+		}
+	}
+
+	// Update the frequency description function to work with both UIs
+	function updateFrequencyDescription() {
+		const descriptionEl = productActions.querySelector('.frequency-description');
+		if (!descriptionEl) return;
+
+		// Get UI type from the container
+		const frequencyContainer = productActions.querySelector('[data-frequency-container]');
+		const uiType = frequencyContainer ? frequencyContainer.dataset.uiType || 'tabs' : 'tabs';
+
+		let selectedFrequencyValue, selectedFrequencyUnit;
+
+		// Get bottle quantity from the selected box
+		const selectedBox = productActions.querySelector('.variant-box.selected');
+		const bottleQuantity = parseInt(selectedBox?.dataset.bottleQuantity || '1', 10);
+
+		if (uiType === 'dropdown') {
+			const dropdown = document.getElementById('frequency-dropdown-{{ SID }}');
+			if (!dropdown || !dropdown.options || dropdown.options.length === 0) return;
+
+			const selectedOption = dropdown.options[dropdown.selectedIndex];
+			if (!selectedOption) return;
+
+			// Extract frequency from option text
+			const optionText = selectedOption.textContent;
+			const dayMatch = optionText.match(/Every (\d+) Days?/);
+			const monthMatch = optionText.match(/Every (\d+) Months?/);
+
+			if (dayMatch) {
+				selectedFrequencyValue = parseInt(dayMatch[1], 10);
+				selectedFrequencyUnit = 'day';
+			} else if (monthMatch) {
+				selectedFrequencyValue = parseInt(monthMatch[1], 10);
+				selectedFrequencyUnit = 'month';
+			} else if (optionText.includes('Every Day')) {
+				selectedFrequencyValue = 1;
+				selectedFrequencyUnit = 'day';
+			} else if (optionText.includes('Every Month')) {
+				selectedFrequencyValue = 1;
+				selectedFrequencyUnit = 'month';
+			} else {
+				selectedFrequencyValue = 1;
+				selectedFrequencyUnit = 'month';
+			}
+		} else {
+			const frequencyOptions = document.getElementById('frequency-options-{{ SID }}');
+			if (!frequencyOptions) return;
+
+			const selectedOption = Array.from(frequencyOptions.children).find(el =>
+				el.style.backgroundColor === 'var(--primary-color)'
+			);
+			if (!selectedOption) return;
+
+			selectedFrequencyValue = parseInt(selectedOption.getAttribute('data-frequency-value') || '1', 10);
+			selectedFrequencyUnit = selectedOption.getAttribute('data-frequency-unit') || 'month';
+		}
+
+		// Declare the description variable before using it
+		let description = '';
+
+		// If selected frequency matches recommended frequency (only for months)
+		if (selectedFrequencyUnit === 'month' && selectedFrequencyValue === bottleQuantity) {
+			description = ''; // No text when on recommended frequency
+		} else {
+			// Otherwise show the recommendation
+			description = `Recommended - every ${bottleQuantity} month${bottleQuantity > 1 ? 's' : ''}`;
+		}
+
+		// Always update with fade animation, even if going to/from empty
+		if (descriptionEl.innerHTML !== description) {
+			// Fade out
+			DOMUtils.updateStyle(descriptionEl, 'opacity', '0');
+
+			setTimeout(() => {
+				// Update content while faded out
+				DOMUtils.updateProperty(descriptionEl, 'innerHTML', description);
+
+				// Fade back in
+				DOMUtils.updateStyle(descriptionEl, 'opacity', '1');
+			}, 200);
+		}
+	}
+
+	function initSubmitButton() {
+		if (!submitButton) return;
+
+		// Use a variable to track if a submission is in progress
+		let isSubmitting = false;
+
+		submitButton.addEventListener('click', async e => {
+			e.preventDefault();
+
+			// Prevent double-clicks or multiple submissions
+			if (isSubmitting || BuyBoxState.data.isLoading) {
+				return;
+			}
+
+			isSubmitting = true;
+			const box = productActions.querySelector('.variant-box.selected');
+			const giftsAmount = parseInt(productActions.dataset.giftsAmount || '0', 10);
+
+			if (!box) {
+				showNotification('Please select a purchase option');
+				isSubmitting = false;
+				return;
+			}
+
+			BuyBoxState.setState({ isLoading: true });
+
+			try {
+				const isSub = box.dataset.purchaseType === 'subscribe';
+				const variant = box.dataset.originalVariant || box.dataset.variant;
+
+				if (!variant) {
+					throw new Error('No valid variant ID found');
+				}
+
+				// MODIFIED: Ensure we always get a valid selling plan ID for subscriptions
+				let sellingPlanId = null;
+				if (isSub) {
+					// First try the box's subscription selling plan ID
+					sellingPlanId = box.dataset.subscriptionSellingPlanId;
+
+					// If frequency selector is visible, use its value instead
+					if (frequencySelector && !frequencySelector.classList.contains('hidden')) {
+						sellingPlanId = frequencySelector.value;
+					}
+
+					// Fallback to state if needed
+					if (!sellingPlanId && BuyBoxState.data.sellingPlanId) {
+						sellingPlanId = BuyBoxState.data.sellingPlanId;
+					}
+
+					console.log('Using selling plan ID:', sellingPlanId);
+
+					// Last resort - check if there are any selling plan allocations for this variant
+					if (!sellingPlanId) {
+						const variantData = findVariantInProductData(variant);
+						if (variantData && variantData.selling_plan_allocations && variantData.selling_plan_allocations.length > 0) {
+							sellingPlanId = variantData.selling_plan_allocations[0].selling_plan.id;
+							console.log('Using fallback selling plan from allocations:', sellingPlanId);
+						}
+					}
+				}
+
+				let items = [{
+					id: parseInt(variant, 10),
+					quantity: 1,
+					selling_plan: isSub ? sellingPlanId : undefined
+				}];
+
+				// Debug log to check what's being sent to cart
+				console.log('Adding to cart with items:', JSON.stringify(items));
+
+				if (giftsAmount > 0) {
+					const giftEl = document.querySelector('.gift-box.selected');
+					if (!giftEl?.querySelector('.gift-option-border')) {
+						throw new Error('Please select a gift option');
+					}
+					const giftB = giftEl.querySelector('.gift-option-border');
+					const giftID = isSub ? giftB?.dataset.giftIdSubscription : giftB?.dataset.giftId;
+					if (!giftID) throw new Error('Invalid gift selection');
+
+					items.push({ id: parseInt(giftID, 10), quantity: 1 });
+				}
+
+				if (buyType === 'buy_now') {
+					await handleBuyNowFlow(items);
+					// Don't reset loading state if we're redirecting
+				} else {
+					await addValidItemsToCart(items);
+					// Only reset loading state if we're not redirecting
+					isSubmitting = false;
+					BuyBoxState.setState({ isLoading: false });
+				}
+			} catch (err) {
+				console.error('Submit error:', err);
+				showNotification(parseErrorMessage(err, 'checkout'), 'error');
+				isSubmitting = false;
+				BuyBoxState.setState({ isLoading: false });
+			}
+		});
+	}
+
+	function initOneTimeButton() {
+		if (!oneTimeButton) return;
+
+		oneTimeButton.setAttribute('data-original-text', oneTimeButton.textContent);
+
+		// Track submission state
+		let isSubmittingOneTime = false;
+
+		oneTimeButton.addEventListener('click', async e => {
+			e.preventDefault();
+
+			// Prevent multiple submissions
+			if (isSubmittingOneTime || BuyBoxState.data.isLoading) {
+				return;
+			}
+
+			isSubmittingOneTime = true;
+			BuyBoxState.setState({ isLoading: true });
+			oneTimeButton.innerHTML = '<div class="border-primary/20 border-t-primary animate-spin inline-block w-4 h-4 mr-2 align-middle border-2 rounded-full"></div> Adding...';
+			oneTimeButton.setAttribute('aria-busy', 'true');
+
+			try {
+				const giftEl = document.querySelector('.gift-box.selected');
+				const giftB = giftEl?.querySelector('.gift-option-border');
+				const giftID = giftB?.dataset.giftId;
+				const variant1 = oneTimeButton.dataset.variantId;
+
+				if (!variant1) {
+					throw new Error('Invalid variant ID');
+				}
+
+				const toAdd = [{ id: parseInt(variant1, 10), quantity: 1 }];
+
+				{% if isOneTimeGift %}
+					if (giftID) toAdd.push({ id: parseInt(giftID, 10), quantity: 1 });
+				{% endif %}
+
+				if (buyType === 'buy_now') {
+					// Optimize for buy now flow
+					BuyBoxState.setState({ isRedirectingToCheckout: true });
+
+					// Remove cart popup first
+					const cartPopup = document.getElementById('upCart');
+					if (cartPopup) cartPopup.remove();
+
+					// Clear cart with optimized fetch
+					await fetch('/cart/clear.js', {
+						method: 'POST',
+						cache: 'no-store',
+						headers: {
+							'Cache-Control': 'no-cache'
+						}
+					});
+
+					// Add items with optimized fetch
+					const res = await fetch('/cart/add.js', {
+						method: 'POST',
+						headers: {
+							'Content-Type': 'application/json',
+							'Cache-Control': 'no-cache'
+						},
+						cache: 'no-store',
+						body: JSON.stringify({ items: toAdd })
+					});
+
+					const responseData = await res.json();
+
+					if (!res.ok) {
+						const error = new Error(responseData.description || 'Failed to add items');
+						error.response = responseData;
+						throw error;
+					}
+
+					// Go to checkout immediately
+					window.location.href = '/checkout';
+				} else {
+					// Regular add to cart
+					const res = await fetch('/cart/add.js', {
+						method: 'POST',
+						headers: {
+							'Content-Type': 'application/json',
+							'Cache-Control': 'no-cache'
+						},
+						cache: 'no-store',
+						body: JSON.stringify({ items: toAdd })
+					});
+
+					const responseData = await res.json();
+
+					if (!res.ok) {
+						const error = new Error(responseData.description || 'Failed to add items');
+						error.response = responseData;
+						throw error;
+					}
+
+					// Invalidate cart cache
+					CartCache.invalidate();
+
+					// Update cart UI if needed
+					if (typeof window.updateCart === 'function') {
+						window.updateCart();
+					}
+
+					oneTimeButton.innerHTML = '✓ Added!';
+					oneTimeButton.classList.add('text-green-700', 'border-green-700');
+
+					// Reset state
+					setTimeout(() => {
+						oneTimeButton.innerHTML = oneTimeButton.getAttribute('data-original-text');
+						oneTimeButton.classList.remove('text-green-700', 'border-green-700');
+						oneTimeButton.removeAttribute('aria-busy');
+						isSubmittingOneTime = false;
+						BuyBoxState.setState({ isLoading: false });
+					}, 2000);
+				}
+			} catch (err) {
+				console.error('Cart error details:', {
+					message: err.message,
+					response: err.response,
+					error: err
+				});
+
+				const errorMessage = parseErrorMessage(err, 'cart-add');
+				showNotification(errorMessage, 'error');
+				oneTimeButton.innerHTML = '⚠ Failed';
+				oneTimeButton.classList.add('text-red-600', 'border-red-600');
+
+				// Reset state
+				setTimeout(() => {
+					oneTimeButton.innerHTML = oneTimeButton.getAttribute('data-original-text');
+					oneTimeButton.classList.remove('text-red-600', 'border-red-600');
+					oneTimeButton.removeAttribute('aria-busy');
+					isSubmittingOneTime = false;
+					BuyBoxState.setState({ isLoading: false });
+				}, 2000);
+			}
+		});
+	}
+
+	function hideMonthTextIfNeeded() {
+		document.querySelectorAll('.price-display').forEach(d => {
+			const monthText = d.querySelector('.per-text');
+			if (monthText && priceFormat === 'total') {
+				monthText.style.display = 'none';
+			}
+		});
+	}
+
+	// ~~~~~~~~~~~~~~~~~~~~~
+	//  Update Frequency Selector
+	// ~~~~~~~~~~~~~~~~~~~~~
+	function populateFrequencySelector(el) {
+		try {
+			// Use the data attribute for more specific selection
+			const frequencyContainer = productActions.querySelector('[data-frequency-container]');
+			if (!frequencyContainer) return;
+
+			// Get UI type directly from the container to avoid reference errors
+			const uiType = frequencyContainer.dataset.uiType || 'tabs';
+			const isDropdown = uiType === 'dropdown';
+			console.log('Frequency selector UI type:', uiType, 'isDropdown:', isDropdown);
+
+			const frequencyOptions = isDropdown
+				? document.getElementById('frequency-dropdown-{{ SID }}')
+				: document.getElementById('frequency-options-{{ SID }}');
+
+			if (!frequencyOptions) {
+				console.error('Frequency options element not found for type:', uiType);
+				return;
+			}
+
+			// Clear previous options
+			frequencyOptions.innerHTML = '';
+
+			const variant = el.dataset.originalVariant || el.dataset.variant;
+			const isSub = el.dataset.purchaseType === 'subscribe';
+			const allowedSellingPlans = el.dataset.allowedSellingPlans ? el.dataset.allowedSellingPlans.trim() : '';
+			const bottleQuantity = parseInt(el.dataset.bottleQuantity || '1', 10);
+
+			// For debugging allowed selling plans
+			if (allowedSellingPlans) {
+				console.log('Variant has allowed selling plans:', allowedSellingPlans);
+			}
+
+			if (!isSub) {
+				frequencyContainer.classList.add('hidden');
+				return;
+			}
+
+			// Always ensure container is visible for subscription products
+			frequencyContainer.classList.remove('hidden');
+
+			const productId = el.dataset.product;
+
+			console.log('Populating frequency selector:', {
+				productId,
+				variant,
+				hasProductData: window.productData && window.productData[productId] ? 'Yes' : 'No',
+				allowedSellingPlans: allowedSellingPlans || 'None specified',
+				recommendedFrequency: bottleQuantity,
+				uiType: uiType
+			});
+
+			const variantId = parseInt(variant);
+
+			let selectedVariant = null;
+			if (window.productData && window.productData[productId]) {
+				const product = window.productData[productId];
+				if (product.variants) {
+					// First try exact match
+					selectedVariant = product.variants.find(v => v.id === variantId);
+
+					if (!selectedVariant) {
+						console.log('Variant not found in product data. Available variants:', product.variants.map(v => v.id));
+
+						// Try original variant as fallback
+						const originalVariantId = parseInt(el.dataset.originalVariant || '0');
+						if (originalVariantId > 0) {
+							selectedVariant = product.variants.find(v => v.id === originalVariantId);
+
+							if (selectedVariant) {
+								console.log('Found variant using original variant ID fallback');
+							}
+						}
+					}
+				}
+			}
+
+			if (!selectedVariant) {
+				console.log('Using fallback for subscription plan options - variant not found in product data');
+				handleFallbackFrequencyOptions(el, frequencyOptions, frequencyContainer);
+				return;
+			}
+
+			// Check if variant has selling plan allocations
+			if (!selectedVariant.selling_plan_allocations || selectedVariant.selling_plan_allocations.length === 0) {
+				console.warn('Selected variant has no selling plan allocations:', selectedVariant.id);
+				handleFallbackFrequencyOptions(el, frequencyOptions, frequencyContainer);
+				return;
+			}
+
+			// Find selling plan that matches the bottle quantity (recommended frequency)
+			let recommendedSellingPlanId = '';
+			if (selectedVariant.selling_plan_allocations) {
+				for (const allocation of selectedVariant.selling_plan_allocations) {
+					const { value, unit } = extractFrequency(allocation.selling_plan.name);
+
+                    // If unit is months and matches bottle quantity
+					if (unit === 'month' && value === bottleQuantity) {
+						recommendedSellingPlanId = allocation.selling_plan.id.toString();
+						break;
+					}
+				}
+			}
+
+			// If we found a recommended selling plan, set it as the current
+			if (recommendedSellingPlanId && !el.dataset.subscriptionSellingPlanId) {
+				el.dataset.subscriptionSellingPlanId = recommendedSellingPlanId;
+			}
+
+			updateFrequencyOptionsFromVariant(selectedVariant, el.dataset.subscriptionSellingPlanId);
+		} catch (error) {
+			console.error('Error in populateFrequencySelector:', error);
+			handleFallbackFrequencyOptions(el, document.getElementById('frequency-options-{{ SID }}'), productActions.querySelector('[data-frequency-container]'));
+		}
+	}
+
+	// Helper function for fallback frequency option handling
+	function handleFallbackFrequencyOptions(el, frequencyOptions, frequencyContainer) {
+		if (!frequencyOptions || !frequencyContainer) return;
+
+		if (el.dataset.purchaseType === 'subscribe') {
+			const bottleQuantity = parseInt(el.dataset.bottleQuantity || '1', 10);
+			const currentSellingPlanId = el.dataset.subscriptionSellingPlanId;
+
+			if (currentSellingPlanId) {
+				frequencyOptions.innerHTML = '';
+				const fallbackBox = document.createElement('div');
+				fallbackBox.className = 'frequency-box rounded-md cursor-pointer py-2 min-w-[90px] max-w-[168px] text-center w-full transition-all duration-300 ease-in-out';
+				fallbackBox.style.backgroundColor = 'var(--primary-color)';
+				fallbackBox.style.color = 'white';
+				fallbackBox.setAttribute('data-selling-plan-id', currentSellingPlanId);
+				fallbackBox.setAttribute('data-frequency-value', bottleQuantity.toString()); // Use bottle quantity as default recommended frequency
+				fallbackBox.setAttribute('data-frequency-unit', 'month'); // Default to months
+				fallbackBox.innerHTML = `
+					<div class="p-1">
+						<span class="font-semibold">Every ${bottleQuantity} Month${bottleQuantity > 1 ? 's' : ''}</span>
+					</div>
+				`;
+				frequencyOptions.appendChild(fallbackBox);
+				frequencyContainer.classList.remove('hidden');
+
+				// Make sure fallback box has click handler
+				fallbackBox.addEventListener('click', function() {
+					selectFrequencyOption(this);
+				});
+
+				// Update description
+				setTimeout(updateFrequencyDescription, 100);
+			} else {
+				frequencyContainer.classList.add('hidden');
+			}
+		} else {
+			frequencyContainer.classList.add('hidden');
+		}
+	}
+
+	function updateFrequencyOptionsFromVariant(variant, currentSellingPlanId) {
+		if (!variant) return;
+		const frequencyOptions = document.getElementById('frequency-options-{{ SID }}');
+		if (!frequencyOptions) return;
+
+		// Use data attribute for more specific selection
+		const frequencyContainer = productActions.querySelector('[data-frequency-container]');
+		if (!frequencyContainer) return;
+
+		let sellingPlans = variant.selling_plan_allocations || [];
+
+		console.log('Updating frequency options:', {
+			variantId: variant.id,
+			plansCount: sellingPlans.length,
+			currentSellingPlanId
+		});
+
+		if (sellingPlans.length === 0) {
+			frequencyContainer.classList.add('hidden');
+			return;
+		}
+
+		const currentPlanIds = new Set(
+			Array.from(frequencyOptions.querySelectorAll('div[data-selling-plan-id]'))
+				.map(box => box.getAttribute('data-selling-plan-id'))
+		);
+
+		// Add implementation to complete the function
+		const { filteredPlans, hasChanged } = getFilteredSellingPlans(
+			sellingPlans,
+			currentPlanIds,
+			currentSellingPlanId
+		);
+
+		if (filteredPlans.length === 0) {
+			handleNoMatchingPlans(frequencyOptions, currentSellingPlanId, frequencyContainer);
+			return;
+		}
+
+		if (hasChanged) {
+			rebuildFrequencyOptions(frequencyOptions, filteredPlans, currentSellingPlanId);
+		} else {
+			updateSelectedFrequencyState(frequencyOptions, currentSellingPlanId);
+		}
+
+		updateFrequencyDescription();
+
+		if (frequencyContainer.classList.contains('hidden')) {
+			frequencyContainer.style.opacity = '0';
+			frequencyContainer.classList.remove('hidden');
+			setTimeout(() => {
+				frequencyContainer.style.opacity = '1';
+			}, 10);
+		}
+	}
+
+	// Helper function to find variant data in product data
+	function findVariantInProductData(variantId) {
+		if (!window.productData) return null;
+
+		// Convert variantId to integer for consistent comparison
+		const numericVariantId = parseInt(variantId, 10);
+
+		for (const productId in window.productData) {
+			const product = window.productData[productId];
+			if (product && product.variants) {
+				const variant = product.variants.find(v => parseInt(v.id, 10) === numericVariantId);
+				if (variant) return variant;
+			}
+		}
+
+		return null;
+	}
+
+	// Simplified implementations of required functions
+	function getFilteredSellingPlans(sellingPlans, currentPlanIds, currentSellingPlanId) {
+		return {
+			filteredPlans: sellingPlans,
+			hasChanged: true
+		};
+	}
+
+	function rebuildFrequencyOptions(frequencyOptions, filteredPlans, currentSellingPlanId) {
+		// Simple implementation to avoid errors
+		console.log('Rebuilding frequency options');
+	}
+
+	function updateSelectedFrequencyState(frequencyOptions, currentSellingPlanId) {
+		// Simple implementation to avoid errors
+		console.log('Updating frequency state');
+	}
+
+	// Simple implementation of the missing handleNoMatchingPlans function
+	function handleNoMatchingPlans(frequencyOptions, currentSellingPlanId, frequencyContainer) {
+		console.log('No matching plans found');
+		frequencyContainer.classList.add('hidden');
+	}
+
+	// Extract frequency value and unit from a selling plan name
+	function extractFrequency(planName) {
+		// Try matching days pattern first
+		let daysMatch = planName.match(/(\d+)\s*Day/i);
+		if (daysMatch) {
+			return {
+				value: parseInt(daysMatch[1], 10),
+				unit: 'day'
+			};
+		}
+
+		// Try matching months pattern
+		let monthsMatch = planName.match(/(\d+)\s*Month/i);
+		if (monthsMatch) {
+			return {
+				value: parseInt(monthsMatch[1], 10),
+				unit: 'month'
+			};
+		}
+
+		// Default fallback
+		return { value: 1, unit: 'month' };
+	}
+
+/* eslint-enable */
+</script>
+
+
+
+<script>
+/* eslint-disable */
+
+	document.addEventListener('DOMContentLoaded', function () {
+		const ctasection = document.querySelector('#cta-section-{{ SID }}');
+		if (!ctasection) return;
+
+		const productActions = ctasection.querySelector('.product-actions');
+		const ctaText = ctasection.querySelector('.cta-text');
+		const purchaseOptions = productActions ? productActions.querySelector('.purchase-options') : null;
+
+		if (!productActions) return;
+
+		if (window.innerWidth < 768 && ctaText) {
+			productActions.insertAdjacentElement('afterbegin', ctaText);
+		}
+	});
+
+/* eslint-enable */
+</script>

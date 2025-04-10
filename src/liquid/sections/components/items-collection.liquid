@@ -264,7 +264,7 @@
 	{% if section.settings.is_slider %}
 		<script defer>
 			// Define functions outside of DOMContentLoaded to avoid duplicate function creation
-			const swiperFunctions = {
+			window.swiperFunctions = window.swiperFunctions || {
 				getMaxHeightOfElements: function(selector) {
 					let maxHeight = 0;
 					document.querySelectorAll(selector).forEach(function(element) {
@@ -289,7 +289,6 @@
 				},
 
 				initSwiper: function(itemsContainer) {
-					// Use requestAnimationFrame to avoid layout thrashing
 					requestAnimationFrame(() => {
 						itemsContainer.classList.add('swiper');
 						itemsContainer.classList.remove('items', 'flex', 'flex-wrap');
@@ -299,7 +298,6 @@
 						loadSwiper(() => {
 							let swiper = initializeSwiper('#items-container-{{ section.id }}', {
 								spaceBetween: 15,
-								initialSlide: 1,
 								grabCursor: true,
 								watchSlidesVisibility: true,
 								slidesPerView: 'auto',
@@ -372,13 +370,13 @@
 			};
 
 			// Create a debounce function for resize events
-			const debounce = (func, delay) => {
+			window.debounce = window.debounce || ((func, delay) => {
 				let timeout;
 				return function(...args) {
 					clearTimeout(timeout);
 					timeout = setTimeout(() => func.apply(this, args), delay);
 				};
-			};
+			});
 
 			// Use "load" event to initialize UI after content is fully loaded
 			window.addEventListener('load', function() {
@@ -415,7 +413,7 @@
 				{% endif %}
 
 				// Use passive event listener for better scroll performance
-				window.addEventListener('resize', debounce(function() {
+				window.addEventListener('resize', window.debounce(function() {
 					const newIsMobile = window.innerWidth <= 768;
 					if (isMobile !== newIsMobile) {
 						isMobile = newIsMobile;
