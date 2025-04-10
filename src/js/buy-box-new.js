@@ -1103,6 +1103,7 @@ class BuyBoxNew {
 					value: plan.id,
 					textContent: optionText,
 					selected: isSelected,
+					className: isRecommended ? "text-primary font-bold" : "",
 					"data-frequency-value": value,
 					"data-frequency-unit": unit
 				});

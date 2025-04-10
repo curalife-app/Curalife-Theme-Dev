@@ -18,6 +18,7 @@ import { spawn, exec } from "child_process";
 import chalk from "chalk";
 import chokidar from "chokidar";
 import { writeFileSync } from "fs";
+import os from "os";
 
 // Get the current file's directory
 const __filename = fileURLToPath(import.meta.url);
@@ -115,8 +116,8 @@ const extractTailwindClasses = content => {
 	return [...new Set(matches)].sort().join(",");
 };
 
-// Flag file to communicate between processes
-const TAILWIND_READY_FLAG = path.join(BUILD_DIR, ".tailwind-ready");
+// Change this line to use the system's temporary directory
+const TAILWIND_READY_FLAG = path.join(os.tmpdir(), `.curalife-tailwind-ready-${Date.now()}`);
 
 /**
  * Print welcome banner
@@ -555,7 +556,7 @@ const runTailwindBuild = async () => {
 						// Create signal file to indicate Tailwind is ready
 						try {
 							writeFileSync(TAILWIND_READY_FLAG, new Date().toISOString(), "utf8");
-							log("Signaled browser refresh for Tailwind changes", "success");
+							log("Signaled Tailwind completion for browser refresh", "success");
 						} catch (err) {
 							log(`Error creating Tailwind ready flag: ${err.message}`, "error");
 						}
@@ -916,6 +917,18 @@ const cleanup = () => {
 			}
 		}
 	});
+
+	// Remove the Tailwind ready flag file if it exists
+	try {
+		if (fs.existsSync(TAILWIND_READY_FLAG)) {
+			fs.unlinkSync(TAILWIND_READY_FLAG);
+			if (process.argv.includes("--debug")) {
+				log(`Removed temporary Tailwind flag file`, "info");
+			}
+		}
+	} catch (err) {
+		// Ignore errors when removing the flag file
+	}
 
 	log("All processes terminated", "success");
 	process.exit(0);

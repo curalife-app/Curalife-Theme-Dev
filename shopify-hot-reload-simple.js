@@ -15,6 +15,7 @@ import chokidar from "chokidar";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import os from "os"; // Add os module for temp directory access
 
 // Get __dirname equivalent in ESM
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -239,8 +240,12 @@ const waitForTailwind = async (timeout = 5000) => {
 
 	const startTime = Date.now();
 
+	// Log that we're waiting for Tailwind but don't show the path (it's in temp dir)
+	log("Waiting for Tailwind CSS to complete processing...", colors.cyan);
+
 	while (Date.now() - startTime < timeout) {
 		if (isTailwindReady()) {
+			log("Tailwind CSS processing completed", colors.green);
 			return true;
 		}
 		// Wait 100ms before checking again
