@@ -1094,16 +1094,16 @@ class BuyBoxNew {
 			const isRecommended = plan.id.toString() === recommendedPlanId;
 
 			if (uiType === "dropdown") {
-				let optionText = `Every ${value} ${unit.charAt(0).toUpperCase() + unit.slice(1)}${value > 1 ? "s" : ""}`;
+				let optionText = `${value} ${unit.charAt(0).toUpperCase() + unit.slice(1)}${value > 1 ? "s" : ""}`;
 				console.log(` -> Creating option: PlanID=${plan.id}, Value=${value}, Unit=${unit}, Recommended? ${isRecommended} (Comparing to ${recommendedPlanId})`);
 				if (isRecommended) {
-					optionText += " (Recommended)";
+					optionText += " (Recommended Use)";
 				}
 				const option = DOMUtils.createElement("option", {
 					value: plan.id,
 					textContent: optionText,
 					selected: isSelected,
-					className: isRecommended ? "text-primary font-bold" : "",
+					className: isRecommended ? "text-primary" : "",
 					"data-frequency-value": value,
 					"data-frequency-unit": unit
 				});
@@ -1115,7 +1115,7 @@ class BuyBoxNew {
 					"data-selling-plan-id": plan.id,
 					"data-frequency-value": value,
 					"data-frequency-unit": unit,
-					innerHTML: `<span class="font-semibold text-[14px] block">Every ${value}</span><span class="text-[12px] block">${unit.charAt(0).toUpperCase() + unit.slice(1)}${value > 1 ? "s" : ""}</span>`
+					innerHTML: `<span class="font-semibold text-[14px] block">${value}</span><span class="text-[12px] block">${unit.charAt(0).toUpperCase() + unit.slice(1)}${value > 1 ? "s" : ""}</span>`
 				});
 				optionsContainer.appendChild(freqBox);
 			}
@@ -1147,7 +1147,7 @@ class BuyBoxNew {
 			const isDropdown = uiType === "dropdown";
 
 			// Create a single option representing the known plan ID
-			const fallbackText = `Every ${bottleQuantity} Month${bottleQuantity > 1 ? "s" : ""}`; // Default text
+			const fallbackText = `${bottleQuantity} Month${bottleQuantity > 1 ? "s" : ""}`; // Default text
 
 			if (isDropdown) {
 				const option = DOMUtils.createElement("option", {
@@ -1166,7 +1166,7 @@ class BuyBoxNew {
 					"data-selling-plan-id": currentSellingPlanId,
 					"data-frequency-value": bottleQuantity.toString(),
 					"data-frequency-unit": "month",
-					innerHTML: `<span class="font-semibold text-[14px] block">Every ${bottleQuantity}</span><span class="text-[12px] block">Month${bottleQuantity > 1 ? "s" : ""}</span>`
+					innerHTML: `<span class="font-semibold text-[14px] block">${bottleQuantity}</span><span class="text-[12px] block">Month${bottleQuantity > 1 ? "s" : ""}</span>`
 				});
 				frequencyOptions.appendChild(fallbackBox);
 			}
@@ -1220,7 +1220,7 @@ class BuyBoxNew {
 
 		let description = "";
 		if (selectedValue && selectedUnit && !(selectedUnit === "month" && selectedValue === bottleQuantity)) {
-			description = `Recommended - every ${bottleQuantity} month${bottleQuantity > 1 ? "s" : ""}`;
+			description = `Recommended - ${bottleQuantity} month${bottleQuantity > 1 ? "s" : ""}`;
 		}
 
 		if (this.elements.frequencyDescription.innerHTML !== description) {

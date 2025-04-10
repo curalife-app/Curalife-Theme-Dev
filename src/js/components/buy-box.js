@@ -1240,7 +1240,7 @@ window.CuralifeBoxes = window.CuralifeBoxes || {
 			}
 
 			.disabled {
-				opacity: 0.7;
+				opacity: 0.3;
 				pointer-events: none;
 			}
 		`;
