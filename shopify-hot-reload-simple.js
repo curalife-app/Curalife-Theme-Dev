@@ -220,6 +220,38 @@ const deleteFile = sourcePath => {
 	}
 };
 
+// Function to check if Tailwind is ready before refreshing
+const isTailwindReady = () => {
+	// If no flag path is set, always return true (no waiting)
+	if (!process.env.TAILWIND_READY_FLAG) {
+		return true;
+	}
+
+	return fs.existsSync(process.env.TAILWIND_READY_FLAG);
+};
+
+// Function to wait for Tailwind to be ready
+const waitForTailwind = async (timeout = 5000) => {
+	// If no flag is set, don't wait
+	if (!process.env.TAILWIND_READY_FLAG) {
+		return true;
+	}
+
+	const startTime = Date.now();
+
+	while (Date.now() - startTime < timeout) {
+		if (isTailwindReady()) {
+			return true;
+		}
+		// Wait 100ms before checking again
+		await new Promise(resolve => setTimeout(resolve, 100));
+	}
+
+	// If timeout occurs, log and continue anyway
+	log("Timeout waiting for Tailwind to complete, continuing anyway", colors.yellow);
+	return false;
+};
+
 // Set up file watcher with optimized configuration
 const setupWatcher = () => {
 	log("Setting up file watcher...", colors.magenta);
@@ -258,7 +290,7 @@ const setupWatcher = () => {
 	let pendingDeletes = new Set();
 	let processingTimeout = null;
 
-	const processPending = () => {
+	const processPending = async () => {
 		// Process copies
 		pendingCopies.forEach(path => copyFile(path));
 		pendingCopies.clear();
@@ -268,24 +300,65 @@ const setupWatcher = () => {
 		pendingDeletes.clear();
 
 		processingTimeout = null;
+
+		// Create a touch file to ensure Shopify detects the changes
+		// This helps ensure that Shopify's file watcher notices the changes
+		// even when the files were already processed by our own watcher
+		try {
+			const touchFile = path.join(BUILD_DIR, `.shopify-touch-${Date.now()}`);
+			fs.writeFileSync(touchFile, new Date().toISOString(), "utf8");
+
+			// Remove the touch file after a short delay (it only needs to exist momentarily)
+			setTimeout(() => {
+				try {
+					if (fs.existsSync(touchFile)) {
+						fs.unlinkSync(touchFile);
+					}
+				} catch (err) {
+					// Ignore errors when removing touch file
+				}
+			}, 1000);
+		} catch (err) {
+			// Ignore errors creating touch file
+		}
 	};
 
-	const scheduleBatch = (path, isDelete = false) => {
+	const scheduleBatch = (filePath, isDelete = false) => {
 		if (isDelete) {
-			pendingDeletes.add(path);
+			pendingDeletes.add(filePath);
 			// Remove from copies if it was there
-			pendingCopies.delete(path);
+			pendingCopies.delete(filePath);
 		} else {
-			pendingCopies.add(path);
+			pendingCopies.add(filePath);
 			// Remove from deletes if it was there
-			pendingDeletes.delete(path);
+			pendingDeletes.delete(filePath);
 		}
 
-		// Debounce processing to handle bursts of file changes
+		// Clear any existing timeout
 		if (processingTimeout) {
 			clearTimeout(processingTimeout);
 		}
-		processingTimeout = setTimeout(processPending, 100);
+
+		// Check if this is a CSS file or might affect styling
+		const isCssRelated = filePath.endsWith(".css") || filePath.includes("/styles/") || filePath.includes("/css/");
+
+		// For non-CSS files, process immediately
+		if (!isCssRelated) {
+			processingTimeout = setTimeout(processPending, 100);
+			return;
+		}
+
+		// For CSS-related files, set a longer timeout and wait for Tailwind
+		processingTimeout = setTimeout(async () => {
+			// If there's a Tailwind build in progress, wait for it to complete
+			if (process.env.TAILWIND_READY_FLAG) {
+				log("Waiting for Tailwind build to complete before refreshing...", colors.cyan);
+				await waitForTailwind();
+				log("Tailwind build completed, processing file changes", colors.green);
+			}
+
+			processPending();
+		}, 500); // Longer timeout for CSS-related changes
 	};
 
 	watcher

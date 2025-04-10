@@ -17,6 +17,7 @@ import { fileURLToPath } from "url";
 import { spawn, exec } from "child_process";
 import chalk from "chalk";
 import chokidar from "chokidar";
+import { writeFileSync } from "fs";
 
 // Get the current file's directory
 const __filename = fileURLToPath(import.meta.url);
@@ -83,6 +84,39 @@ const log = (message, level = "info") => {
 	const { color, icon } = levels[level] || levels.info;
 	console.log(`${icon} ${color(message)}`);
 };
+
+// Create a cache to store Tailwind class information by file path
+const tailwindClassCache = new Map();
+
+// Helper function to extract Tailwind classes from content
+const extractTailwindClasses = content => {
+	const classRegex = /class=["']([^"']*)["']|className=["']([^"']*)["']/gi;
+	const tailwindPatterns =
+		/(?:^|\s)(bg-|text-|p-|m-|px-|py-|pt-|pb-|pr-|pl-|mx-|my-|mt-|mb-|mr-|ml-|w-|h-|min-w-|min-h-|max-w-|max-h-|flex|grid|border|rounded|shadow|opacity-|scale-|rotate-|translate-|skew-|transform|transition|duration-|delay-|ease-|animate-|cursor-|select-|resize-|sr-|ring-|blur-|brightness-|contrast-|drop-|grayscale-|hue-|invert-|saturate-|sepia-|backdrop-|!|hover:|focus:|active:|disabled:|visited:|first:|last:|odd:|even:|dark:|lg:|md:|sm:|xl:|2xl:)([^\\s]*)/gi;
+
+	const matches = [];
+	let match;
+
+	// Extract all class and className attributes
+	while ((match = classRegex.exec(content)) !== null) {
+		const classString = match[1] || match[2] || "";
+
+		// Now extract Tailwind-specific classes from the class string
+		const classes = classString.split(/\s+/);
+		for (const cls of classes) {
+			// Check if this class matches Tailwind patterns
+			if (tailwindPatterns.test(cls)) {
+				matches.push(cls);
+			}
+		}
+	}
+
+	// Return a sorted set of unique Tailwind classes
+	return [...new Set(matches)].sort().join(",");
+};
+
+// Flag file to communicate between processes
+const TAILWIND_READY_FLAG = path.join(BUILD_DIR, ".tailwind-ready");
 
 /**
  * Print welcome banner
@@ -302,6 +336,44 @@ const getAllFiles = async dir => {
 };
 
 /**
+ * Find files matching a pattern in a directory
+ * @param {string} directory - The directory to search in
+ * @param {string} pattern - The glob pattern to match
+ * @returns {Promise<string[]>} - Array of matching file paths
+ */
+const findFiles = async (directory, pattern) => {
+	const files = await getAllFiles(directory);
+
+	// Simple glob pattern matching
+	// Convert glob pattern to regex
+	const regexPattern = pattern.replace(/\./g, "\\.").replace(/\*/g, ".*").replace(/\?/g, ".");
+
+	const regex = new RegExp(`^${regexPattern}$`);
+
+	// Filter files by the pattern
+	return files.filter(file => {
+		// For simplified matching, just check if the filename contains the pattern parts
+		const relativePath = path.relative(directory, file);
+
+		// Handle ** pattern (any subdirectory)
+		if (pattern.includes("**")) {
+			const parts = pattern.split("**");
+			return parts.every(part => {
+				if (!part) return true; // Empty part (e.g., "**/*.js" has empty first part)
+				return relativePath.includes(part.replace(/\*/g, ""));
+			});
+		}
+
+		// Simple extension check for common patterns like "**/*.js"
+		if (pattern.endsWith("*" + path.extname(file))) {
+			return true;
+		}
+
+		return regex.test(relativePath);
+	});
+};
+
+/**
  * Initial copy of all files
  */
 const initialCopy = async () => {
@@ -390,6 +462,16 @@ const getNpxCommand = () => {
 const runTailwindBuild = async () => {
 	log("Processing Tailwind CSS...", "tailwind");
 
+	// Create or update flag file to indicate Tailwind is processing
+	try {
+		// Remove any existing ready flag
+		if (fs.existsSync(TAILWIND_READY_FLAG)) {
+			fs.unlinkSync(TAILWIND_READY_FLAG);
+		}
+	} catch (err) {
+		// Ignore errors removing flag file
+	}
+
 	return new Promise((resolve, reject) => {
 		// Use proper npx command based on platform
 		const npxCommand = getNpxCommand();
@@ -469,6 +551,15 @@ const runTailwindBuild = async () => {
 				minifyProcess.on("close", minCode => {
 					if (minCode === 0) {
 						log("Tailwind CSS (minified) processed successfully", "success");
+
+						// Create signal file to indicate Tailwind is ready
+						try {
+							writeFileSync(TAILWIND_READY_FLAG, new Date().toISOString(), "utf8");
+							log("Signaled browser refresh for Tailwind changes", "success");
+						} catch (err) {
+							log(`Error creating Tailwind ready flag: ${err.message}`, "error");
+						}
+
 						resolve();
 					} else {
 						log(`Tailwind CSS minified processing failed with code ${minCode}`, "error");
@@ -522,15 +613,69 @@ const processFileChange = async filePath => {
 	// Check if the file path suggests it's related to styling
 	const isStyleRelated = filePath.includes("styles") || filePath.includes("css") || filePath.includes("tailwind");
 
-	// Determine if we should run Tailwind processing
-	const shouldProcessTailwind = isCssFile || (mightContainTailwindClasses && isStyleRelated);
-
-	// Only run Tailwind build if necessary
-	if (shouldProcessTailwind) {
-		log(`Running Tailwind because of change to: ${fileName}`, "tailwind");
+	// Always rebuild for CSS files or style-related content
+	if (isCssFile || isStyleRelated) {
+		log(`Running Tailwind because of style file change: ${fileName}`, "tailwind");
 		runTailwindBuild().catch(err => {
 			log(`Tailwind build error: ${err.message}`, "error");
 		});
+		return;
+	}
+
+	// For non-CSS files, we need to check if Tailwind classes have actually changed
+	if (mightContainTailwindClasses) {
+		try {
+			// Read the file content
+			const fileContent = fs.readFileSync(filePath, "utf8");
+
+			// Extract Tailwind classes from the current content
+			const currentTailwindClasses = extractTailwindClasses(fileContent);
+
+			// Get previously cached Tailwind classes for this file
+			const previousTailwindClasses = tailwindClassCache.get(filePath) || "";
+
+			// Update the cache with current classes
+			tailwindClassCache.set(filePath, currentTailwindClasses);
+
+			// Only rebuild if the Tailwind classes have actually changed
+			if (currentTailwindClasses !== previousTailwindClasses) {
+				if (currentTailwindClasses) {
+					log(`Running Tailwind because Tailwind classes changed in: ${fileName}`, "tailwind");
+					if (isDebugMode && previousTailwindClasses) {
+						log(`Previous classes: ${previousTailwindClasses}`, "info");
+						log(`Current classes: ${currentTailwindClasses}`, "info");
+					}
+					runTailwindBuild().catch(err => {
+						log(`Tailwind build error: ${err.message}`, "error");
+					});
+				} else if (previousTailwindClasses) {
+					// If classes were removed entirely, also rebuild
+					log(`Running Tailwind because Tailwind classes were removed from: ${fileName}`, "tailwind");
+					runTailwindBuild().catch(err => {
+						log(`Tailwind build error: ${err.message}`, "error");
+					});
+				} else {
+					// No classes before or after change
+					if (isDebugMode) {
+						log(`No Tailwind classes detected in ${fileName}, skipping rebuild`, "info");
+					}
+				}
+			} else if (isDebugMode) {
+				if (currentTailwindClasses) {
+					log(`Tailwind classes unchanged in ${fileName}, skipping rebuild`, "info");
+				} else {
+					log(`No Tailwind classes detected in ${fileName}, skipping rebuild`, "info");
+				}
+			}
+		} catch (err) {
+			log(`Error checking file for Tailwind classes: ${err.message}`, "error");
+
+			// If we can't check the file, process it to be safe
+			log(`Running Tailwind as fallback due to error checking: ${fileName}`, "tailwind");
+			runTailwindBuild().catch(err => {
+				log(`Tailwind build error: ${err.message}`, "error");
+			});
+		}
 	}
 };
 
@@ -683,10 +828,16 @@ const runScriptAsProcess = (scriptPath, label, logLevel = "info") => {
 
 		log(`Starting: ${path.basename(scriptPath)} (${label})`, logLevel);
 
+		// Add environment variable for Tailwind ready flag
+		const processEnv = {
+			...process.env,
+			TAILWIND_READY_FLAG: TAILWIND_READY_FLAG
+		};
+
 		// Spawn a child process to run the script
 		const childProcess = spawn(process.execPath, [scriptPath], {
 			stdio: "pipe",
-			env: process.env
+			env: processEnv
 		});
 
 		// Add to the list of child processes
@@ -771,6 +922,37 @@ const cleanup = () => {
 };
 
 /**
+ * Initial scan function to build the cache
+ */
+const buildTailwindClassCache = async () => {
+	if (process.argv.includes("--debug")) {
+		log("Building initial Tailwind class cache...", "tailwind");
+	}
+
+	// Find all liquid, html, and js files
+	const fileTypes = [".liquid", ".html", ".js", ".jsx"];
+
+	for (const ext of fileTypes) {
+		const files = await findFiles(SRC_DIR, `**/*${ext}`);
+		for (const file of files) {
+			try {
+				const content = fs.readFileSync(file, "utf8");
+				const classes = extractTailwindClasses(content);
+				if (classes) {
+					tailwindClassCache.set(file, classes);
+				}
+			} catch (err) {
+				// Silently ignore errors during initial scan
+			}
+		}
+	}
+
+	if (process.argv.includes("--debug")) {
+		log(`Initial Tailwind class cache built with ${tailwindClassCache.size} files`, "success");
+	}
+};
+
+/**
  * Main function
  */
 const main = async () => {
@@ -791,6 +973,9 @@ const main = async () => {
 		// Perform initial copy of all files
 		log("Starting initial file copy...", "info");
 		await initialCopy();
+
+		// Build initial Tailwind class cache
+		await buildTailwindClassCache();
 
 		// Run initial Tailwind build
 		await runTailwindBuild();
