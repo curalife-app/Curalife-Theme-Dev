@@ -1,109 +1,236 @@
-<div class="buy-box container md:!max-w-[100vw] flex mbl:flex-col" name="{{ buyboxName }}">
-	{% render 'buy-box-gallery',
-		product: prod,
-		SID: SID,
-		thumbs: thumbs,
-		badgeImage: badgeImage,
-		thumbnailImage: thumbnailImage,
-		thumbnailImageMobile: thumbnailImageMobile,
-		isProductThumbs: isProductThumbs
-	%}
+{% assign section_id = 'cta-section-' | append: SID %}
 
-	{% unless isHideInfo %}
-		<div class="product-info">
-			<div class="top-wrapper mbl:flex-col flex items-center justify-between mb-4">
-				<div class="titles">
-					{% if upperTitleNotice and prod.handle == 'curalin-curabox' -%}
-						<div class="upper-title-notice bg-light-pink w-fit text-bronze text-[16px] rounded-full font-bold px-4 py-2 mbl:mx-auto mbl:my-2">
-							{{ upperTitleNotice }}
-						</div>
-					{%- endif %}
-					<{{ titleTag | default: 'h1' }} class="product-title m-0 text-black">
-						{%- if prod.metafields.my_fields.alternative_title.value -%}
-							{{- prod.metafields.my_fields.alternative_title.value -}}
-						{%- elsif mainTitle != blank -%}
-							{{- mainTitle -}}
-						{%- else -%}
-							{{- prod.title -}}
-						{%- endif -%}
-					</{{ titleTag | default: 'h1' }}>
-					{% if subtitle %}
-						<p class="product-subtitle text-[22px] m-0">{{ subtitle }}</p>
-					{% endif %}
-				</div>
-
-				{% if isShowReviews %}
-					<div class="reviews flex items-center gap-2 text-[16px]">
-						{% render 'rating-stars', rating: '5' %}
-						Over 3000 Reviews
-					</div>
-				{% endif %}
-			</div>
-
-			{%- for block in section.blocks -%}
-				{%- case block.type -%}
-					{%- when '@app' -%}
-						{% render block %}
-				{%- endcase -%}
-			{%- endfor -%}
-
-			{% if ctaText %}
-				<div class="cta-text text-start mbl:mb-4">{{ ctaText }}</div>
-			{% endif %}
-
-			{% if isFSA and shop.name != 'CuraLife Global' %}{% render 'fsa-badge', SID: SID %}{% endif %}
+<div class="buy-box container md:!max-w-[100vw]" name="{{ buyboxName }}">
+	<div class="left">
+		<div class="product-image-wrapper">
+			{% render 'buy-box-gallery',
+				product: prod,
+				SID: SID,
+				badgeImage: badgeImage,
+				thumbnailImage: thumbnailImage,
+				thumbnailImageMobile: thumbnailImageMobile,
+				isProductThumbs: isProductThumbs,
+				thumbs: thumbs
+			%}
 		</div>
-	{% endunless %}
+	</div>
 
-	{% render 'buy-box-subscription',
-		prod: prod,
-		SID: SID,
-		blocks: blocks,
-		buyType: buyType,
-		ctaTextType: ctaTextType,
-		isVariantNotice: isVariantNotice,
-		product: prod,
-		ctaColor: ctaColor,
-		ctaTextColor: ctaTextColor,
-		isReversed: isReversed,
-		defaultSelectionIndex: defaultSelectionIndex,
-		pricePer: pricePer,
-		isOneTimePurchaseLink: isOneTimePurchaseLink,
-		isSlideVariant: isSlideVariant,
-		isOneTimeGift: isOneTimeGift,
-		isHideInfo: isHideInfo,
-		buyboxType: buyboxType
-	%}
+	<div class="right">
+		<div class="info-wrapper">
+			{% unless isHideInfo %}
+				<div class="product-info">
+					<div class="top-wrapper mbl:flex-col gap-y-2 flex items-center justify-between">
+						<div class="titles w-full">
+							{% if upperTitleNotice and prod.handle == 'curalin-curabox' -%}
+								<div class="upper-title-notice bg-light-pink w-fit text-bronze text-[16px] rounded-full font-bold px-4 py-2 mbl:mx-auto mbl:my-2">
+									{{ upperTitleNotice }}
+								</div>
+							{%- endif %}
+							<{{ titleTag | default: 'h1' }} class="product-title m-0 text-black text-[45px] mbl:text-[10vw]">
+								{%- if prod.metafields.my_fields.alternative_title.value -%}
+									{{- prod.metafields.my_fields.alternative_title.value -}}
+								{%- elsif mainTitle != blank -%}
+									{{- mainTitle -}}
+								{%- else -%}
+									{{- prod.title -}}
+								{%- endif -%}
+							</{{ titleTag | default: 'h1' }}>
+							{% if subtitle %}
+								<p class="product-subtitle text-[22px] m-0">{{ subtitle }}</p>
+							{% endif %}
+						</div>
+
+						{% if isShowReviews %}
+							<div class="reviews flex items-center flex-wrap justify-end gap-x-2 text-[14px]">
+								{% render 'rating-stars', rating: '5' %}
+								Over 3000 Reviews
+							</div>
+						{% endif %}
+					</div>
+
+					{%- for block in section.blocks -%}
+						{%- case block.type -%}
+							{%- when '@app' -%}
+								{% render block %}
+						{%- endcase -%}
+					{%- endfor -%}
+
+					{% if ctaText %}
+						<div class="cta-text text-start mt-2" style="margin-bottom: 1.5rem">{{ ctaText }}</div>
+					{% endif %}
+
+					{% if isFSA and shop.name != 'CuraLife Global' %}{% render 'fsa-badge', SID: SID %}{% endif %}
+				</div>
+			{% endunless %}
+		</div>
+
+		<div class="actions-wrapper">
+			{% if customer.b2b? %}
+				{% render 'product-cta-section-actions-add-to-cart',
+					SID: SID,
+					ctaTextType: ctaTextType,
+					isVariantNotice: isVariantNotice,
+					product: prod,
+					blocks: blocks,
+					ctaColor: ctaColor,
+					ctaTextColor: ctaTextColor,
+					variantsTitle: 'Select Your Product:',
+					isHighlightSubtitle: isHighlightSubtitle,
+					isReversed: isReversed
+				%}
+			{% else %}
+				{% assign buyBoxSnippetName = 'buy-box-' | append: buyboxType %}
+				{% render buyBoxSnippetName,
+						prod: prod,
+						SID: SID,
+						blocks: blocks,
+						buyType: buyType,
+						variantsTitle: variantsTitle,
+						variantsNotice: variantsNotice,
+						product: prod,
+						ctaColor: ctaColor,
+						ctaTextColor: ctaTextColor,
+						defaultSelectionIndex: defaultSelectionIndex,
+						pricePer: pricePer,
+						priceFormat: priceFormat,
+						isOneTimePurchaseLink: isOneTimePurchaseLink,
+						isSlideVariant: isSlideVariant,
+						isOneTimeGift: isOneTimeGift,
+						isHideInfo: isHideInfo,
+						buyboxType: buyboxType,
+						buyboxName: buyboxName
+					%}
+
+				{% comment %} {% if buyboxType contains '2' %}
+					{% render 'buy-box-subscription-2-optimized',
+						prod: prod,
+						SID: SID,
+						blocks: blocks,
+						buyType: buyType,
+						variantsTitle: variantsTitle,
+						variantsNotice: variantsNotice,
+						product: prod,
+						ctaColor: ctaColor,
+						ctaTextColor: ctaTextColor,
+						defaultSelectionIndex: defaultSelectionIndex,
+						pricePer: pricePer,
+						priceFormat: priceFormat,
+						isOneTimePurchaseLink: isOneTimePurchaseLink,
+						isSlideVariant: isSlideVariant,
+						isOneTimeGift: isOneTimeGift,
+						isHideInfo: isHideInfo,
+						buyboxType: buyboxType,
+						buyboxName: buyboxName
+					%}
+				{% elsif buyboxType contains '3' %}
+					{% render 'buy-box-subscription-3-optimized',
+						prod: prod,
+						SID: SID,
+						blocks: blocks,
+						buyType: buyType,
+						variantsTitle: variantsTitle,
+						variantsNotice: variantsNotice,
+						product: prod,
+						ctaColor: ctaColor,
+						ctaTextColor: ctaTextColor,
+						defaultSelectionIndex: defaultSelectionIndex,
+						pricePer: pricePer,
+						priceFormat: priceFormat,
+						isOneTimePurchaseLink: isOneTimePurchaseLink,
+						isSlideVariant: isSlideVariant,
+						isOneTimeGift: isOneTimeGift,
+						isHideInfo: isHideInfo,
+						buyboxType: buyboxType,
+						buyboxName: buyboxName
+					%}
+				{% elsif buyboxType contains '4' %}
+					{% render 'buy-box-subscription-4-optimized',
+						prod: prod,
+						SID: SID,
+						blocks: blocks,
+						buyType: buyType,
+						variantsTitle: variantsTitle,
+						variantsNotice: variantsNotice,
+						product: prod,
+						ctaColor: ctaColor,
+						ctaTextColor: ctaTextColor,
+						defaultSelectionIndex: defaultSelectionIndex,
+						pricePer: pricePer,
+						priceFormat: priceFormat,
+						isOneTimePurchaseLink: isOneTimePurchaseLink,
+						isSlideVariant: isSlideVariant,
+						isOneTimeGift: isOneTimeGift,
+						isHideInfo: isHideInfo,
+						buyboxType: buyboxType,
+						buyboxName: buyboxName
+					%} {% endcomment %}
+				{% endif %}
+			{% endif %}
+		</div>
+	</div>
 </div>
 
 <style>
 	#cta-section-{{ SID }} {
 		.buy-box {
-			.product-info {
-				padding: unset;
-				width: unset;
-			}
+			display: flex;
+			justify-content: space-between;
+		}
+
+		.left {
+			width: 50%;
+			flex-shrink: 0;
+			position: relative;
 		}
 
 		.product-image-wrapper {
 			position: relative;
+			width: 100%;
+		}
+
+		.right {
+			width: 45%;
+			flex-shrink: 0;
+			display: flex;
+			flex-direction: column;
+
+			@media screen and (max-width: 768px) {
+				width: 100%;
+				display: contents;
+			}
+		}
+
+		.info-wrapper,
+		.actions-wrapper {
+			width: 100%;
+		}
+
+		.product-info {
+			padding: unset;
+			width: 100%;
+		}
+
+		.container.line {
+			margin-top: -50px;
 		}
 
 		.cta-text {
-			font-size: 14px;
+			font-size: 16px;
 
 			h6 {
-				font-size: 16px;
 				font-weight: 600;
 				margin-bottom: 0.5rem;
 				font-family: 'DM Sans', sans-serif;
-				color: var('--primary-color');
+				color: var(--primary-color);
 			}
 
 			ul li {
 				padding-left: 1.5rem;
 				margin-bottom: 0.25rem;
-				color: var(--black);
+
+				strong {
+					color: var(--black);
+				}
 
 				&::before {
 					content: "✓";
@@ -130,14 +257,43 @@
 				padding: 0 20px !important;
 			}
 
-			.product-image-wrapper {
+			.buy-box {
+				display: flex !important;
+				flex-direction: column !important;
+				position: relative;
+				width: 100%;
 			}
 
-			.buy-box {
-				.product-info {
-					text-align: center;
-					padding-top: 15vw;
-				}
+			.left,
+			.right {
+				width: 100% !important;
+			}
+
+			.left,
+			.info-wrapper,
+			.actions-wrapper {
+				order: initial;
+			}
+
+			.info-wrapper {
+				order: 1 !important;
+				width: 100%;
+				max-height: 33vw;
+			}
+
+			.left {
+				order: 2 !important;
+				width: 100%;
+			}
+
+			.actions-wrapper {
+				order: 3 !important;
+				width: 100%;
+			}
+
+			.product-info {
+				text-align: center;
+				padding-top: 15vw;
 			}
 		}
 	}

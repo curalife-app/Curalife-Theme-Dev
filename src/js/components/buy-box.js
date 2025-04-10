@@ -206,7 +206,7 @@ window.CuralifeBoxes = window.CuralifeBoxes || {
 		 * @returns {string} Formatted price string
 		 */
 		formatMoney(cents) {
-			const currencySymbol = window.Shopify?.currency?.active || "$";
+			const currencySymbol = window.Shopify?.currency?.active === "GBP" ? "£" : window.Shopify?.currency?.active === "USD" ? "$" : window.Shopify?.currency?.symbol || "$";
 			return `${currencySymbol}${(cents / 100).toFixed(2)}`;
 		}
 	},
@@ -230,7 +230,25 @@ window.CuralifeBoxes = window.CuralifeBoxes || {
 				purchaseType: "subscribe",
 				buyType: "add_to_cart",
 				isRedirectingToCheckout: false,
-				isDebug: false
+				isDebug: false,
+
+				// Global settings from section
+				defaultSelectionIndex: 1,
+				priceFormat: "total",
+				saveFormat: "percentage",
+				pricePer: "dont_split",
+				thumbsLayout: "horizontal",
+
+				// Feature flags
+				isOneTimePurchase: false,
+				isOneTimeGift: false,
+				isSlideVariant: true,
+				isPrimeEnabled: false,
+				isShowReviews: false,
+				isProductThumbs: true,
+				isHideThumbs: false,
+				isHideInfo: false,
+				isBuyQuantity: false
 			},
 
 			// Elements
@@ -304,11 +322,8 @@ window.CuralifeBoxes = window.CuralifeBoxes || {
 				// Find all required elements
 				if (!this.elements.section) return;
 
-				// Check for debug mode on the section element
-				if (this.elements.section.hasAttribute("data-is-debug")) {
-					this.state.isDebug = true;
-					CuralifeBoxes.utils.setDebugMode(true);
-				}
+				// Read global settings from section element
+				this.initGlobalSettings();
 
 				this.elements.productActions = this.elements.section.querySelector(".product-actions");
 				if (!this.elements.productActions) return;
@@ -358,9 +373,9 @@ window.CuralifeBoxes = window.CuralifeBoxes || {
 					this.elements.oneTimeButton.setAttribute("data-original-text", this.elements.oneTimeButton.textContent);
 				}
 
-				// Read configuration from data attributes
+				// Read configuration from product actions (for backward compatibility)
 				const productActions = this.elements.productActions;
-				if (productActions.dataset.buyType) {
+				if (productActions.dataset.buyType && !this.state.buyType) {
 					this.state.buyType = productActions.dataset.buyType;
 					console.log(`Buy box ${this.SID} buy type set to: ${this.state.buyType}`);
 				}
@@ -381,6 +396,69 @@ window.CuralifeBoxes = window.CuralifeBoxes || {
 				this.initOneTimeButton();
 
 				console.log(`Buy box ${this.SID} initialized with custom checkout handling (buyType: ${this.state.buyType})`);
+
+				if (this.state.isDebug) {
+					console.log("Buy box settings:", {
+						buyType: this.state.buyType,
+						defaultSelectionIndex: this.state.defaultSelectionIndex,
+						isOneTimePurchase: this.state.isOneTimePurchase,
+						isOneTimeGift: this.state.isOneTimeGift,
+						isSlideVariant: this.state.isSlideVariant,
+						isPrimeEnabled: this.state.isPrimeEnabled,
+						priceFormat: this.state.priceFormat,
+						pricePer: this.state.pricePer,
+						saveFormat: this.state.saveFormat,
+						thumbsLayout: this.state.thumbsLayout
+					});
+				}
+			},
+
+			/**
+			 * Initialize global settings from section element data attributes
+			 */
+			initGlobalSettings() {
+				const section = this.elements.section;
+
+				if (section.hasAttribute("data-is-debug")) {
+					this.state.isDebug = true;
+					CuralifeBoxes.utils.setDebugMode(true);
+				}
+
+				/*
+				 * Note: We support two approaches for global settings:
+				 * 1. Data attributes on the section element (preferred, more efficient)
+				 * 2. Template variables passed to individual templates (legacy, for backward compatibility)
+				 *
+				 * This dual approach enables a smooth transition while ensuring nothing breaks.
+				 * The JavaScript code will prioritize settings from the section attributes.
+				 */
+
+				// Read buy type
+				this.state.buyType = section.dataset.buyType || "add_to_cart";
+
+				// Read selection settings
+				this.state.defaultSelectionIndex = CuralifeBoxes.utils.safeParseInt(section.dataset.defaultSelection, 1);
+
+				// Read format settings
+				this.state.priceFormat = section.dataset.priceFormat || "total";
+				this.state.saveFormat = section.dataset.saveFormat || "percentage";
+				this.state.pricePer = section.dataset.pricePer || "dont_split";
+				this.state.thumbsLayout = section.dataset.thumbs || "horizontal";
+
+				// Read feature flags
+				this.state.isOneTimePurchase = section.hasAttribute("data-one-time-purchase");
+				this.state.isOneTimeGift = section.hasAttribute("data-one-time-gift");
+				this.state.isSlideVariant = section.hasAttribute("data-slide-variant");
+				this.state.isPrimeEnabled = section.hasAttribute("data-buy-with-prime");
+				this.state.isShowReviews = section.hasAttribute("data-show-reviews");
+				this.state.isProductThumbs = section.hasAttribute("data-product-thumbs");
+				this.state.isHideThumbs = section.hasAttribute("data-hide-thumbs");
+				this.state.isHideInfo = section.hasAttribute("data-hide-info");
+				this.state.isBuyQuantity = section.hasAttribute("data-buy-quantity");
+
+				if (this.state.isDebug) {
+					console.log(`Buy box ${this.SID} initialized with global settings from section element`);
+				}
 			},
 
 			/**
@@ -518,7 +596,7 @@ window.CuralifeBoxes = window.CuralifeBoxes || {
 				const origPerItem = parseFloat(el.dataset.originalItemCap) / 100 || 0;
 				const bottles = parseInt(el.dataset.bottleQuantity, 10) || 1;
 
-				const currencySymbol = window.Shopify?.currency?.symbol || "$";
+				const currencySymbol = window.Shopify?.currency?.active === "GBP" ? "£" : window.Shopify?.currency?.active === "USD" ? "$" : window.Shopify?.currency?.symbol || "$";
 
 				const totalOrig = origPerItem * bottles;
 				const saveAmt = priceFormat === "total" ? totalOrig - subPrice : (origPerItem - subItem) * bottles;

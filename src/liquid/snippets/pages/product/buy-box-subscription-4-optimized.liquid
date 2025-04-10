@@ -16,6 +16,7 @@
 {% assign referenced_variant_product = prod %}
 
 {% assign giftsAmount = 0 %}
+{% assign faqsAmount = 0 %}
 {% for block in blocks %}
 	{% case block.type %}
 		{% when 'gift' %}
@@ -31,101 +32,118 @@
 			{% if show_gift %}
 				{% assign giftsAmount = giftsAmount | plus: 1 %}
 			{% endif %}
+
+		{% when 'faq' %}
+			{% assign faqsAmount = faqsAmount | plus: 1 %}
 	{% endcase %}
 {% endfor %}
 
 <div
-	class="product-actions"
-	data-default-variant-index="{{ defaultSelectionIndex }}"
-	data-gifts-amount="{{ giftsAmount }}"
+	id="cta-section-{{ SID }}"
+	class="cta-section"
+	data-default-selection="{{ defaultSelectionIndex }}"
+	data-price-format="{{ priceFormat }}"
+	data-save-format="{{ saveFormat }}"
+	data-price-per="{{ pricePer }}"
+	data-thumbs="{{ thumbsLayout }}"
 	data-buy-type="{{ buyType }}"
-	{% if isOneTimeGift %}
-		data-one-time-gift="true"
-	{% endif %}>
-	<div class="purchase-options flex flex-col gap-3 mb-3">
-		<div class="font-semibold text-[18px]">{{ variantsTitle }}</div>
+	{% if isOneTimePurchase %}data-one-time-purchase{% endif %}
+	{% if isOneTimeGift %}data-one-time-gift{% endif %}
+	{% if isSlideVariant %}data-slide-variant{% endif %}
+	{% if isPrimeEnabled %}data-buy-with-prime{% endif %}
+	{% if isShowReviews %}data-show-reviews{% endif %}
+	{% if isProductThumbs %}data-product-thumbs{% endif %}
+	{% if isHideThumbs %}data-hide-thumbs{% endif %}
+	{% if isHideInfo %}data-hide-info{% endif %}
+	{% if isBuyQuantity %}data-buy-quantity{% endif %}>
 
-		<div class="variant-boxes flex justify-around gap-2">
-			{% for block in blocks %}
-				{% assign varPurchaseType = block.settings.purchase_type %}
-				{% if block.type == 'variant' and varPurchaseType == 'subscribe' %}
-					{% assign referenced_variant = blank %}
-					{% if isGlobal %}
-						{% assign blockVarID = block.settings.variant_id_global | plus: 0 %}
-					{% else %}
-						{% assign blockVarID = block.settings.variant_id | plus: 0 %}
-					{% endif %}
+	<div class="product-actions" data-default-variant-index="{{ defaultSelectionIndex }}" data-gifts-amount="{{ giftsAmount }}">
+		<div class="purchase-options flex flex-col gap-3 mb-3">
+			<div class="font-semibold text-[18px]">{{ variantsTitle | default: 'Choose your package' }}</div>
 
-					{% for vari in referenced_variant_product.variants %}
-						{% assign currVarID = vari.id | plus: 0 %}
-
-						{% if currVarID == blockVarID %}
-							{% assign referenced_variant = vari %}
+			<div class="variant-boxes flex justify-around gap-2">
+				{% for block in blocks %}
+					{% assign varPurchaseType = block.settings.purchase_type %}
+					{% if block.type == 'variant' and varPurchaseType == 'subscribe' %}
+						{% assign referenced_variant = blank %}
+						{% if isGlobal %}
+							{% assign blockVarID = block.settings.variant_id_global | plus: 0 %}
+						{% else %}
+							{% assign blockVarID = block.settings.variant_id | plus: 0 %}
 						{% endif %}
-					{% endfor %}
 
-					{% assign var = referenced_variant %}
+						{% for vari in referenced_variant_product.variants %}
+							{% assign currVarID = vari.id | plus: 0 %}
 
-					{% comment %} Core Variable Assignments {% endcomment %}
-					{% assign variant_id = var.metafields.custom.reference_variant_id | default: var.id %}
-					{% assign bottle_quantity = var.metafields.my_fields.pack_bottles_quantity %}
-
-					{% comment %} Price Calculations {% endcomment %}
-					{% assign original_item_price = var.metafields.custom.original_item.value.price %}
-					{% assign original_item_cap = var.metafields.custom.original_item.value.compare_at_price | default: original_item_price %}
-					{% assign original_item_cap_total = original_item_cap | times: bottle_quantity %}
-					{% assign item_price = var.price | divided_by: bottle_quantity %}
-
-					{% comment %} Savings Calculations {% endcomment %}
-					{% assign subscription_save_money = original_item_cap | minus: subscription_item_price %}
-					{% assign buy_once_save_money = original_item_cap | minus: item_price %}
-
-					{% comment %} Selling Plan ID Logic {% endcomment %}
-					{% if var.metafields.custom.referenced_variant_product_handle %}
-						{% assign selling_plan_id = referenced_variant.metafields.subscription.selling_plan_id | default: variant.metafields.subscription.selling_plan_id %}
-					{% elsif var.metafields.subscription.selling_plan_id %}
-						{% assign selling_plan_id = var.metafields.subscription.selling_plan_id %}
-					{% elsif var.selling_plan_allocations.size > 0 %}
-						{% assign found_plan = false %}
-						{% for allocation in var.selling_plan_allocations %}
-							{% if allocation.selling_plan.name contains bottle_quantity %}
-								{% assign selling_plan_id = allocation.selling_plan.id %}
-								{% assign found_plan = true %}
-								{% break %}
+							{% if currVarID == blockVarID %}
+								{% assign referenced_variant = vari %}
 							{% endif %}
 						{% endfor %}
-						{% if found_plan == false %}
-							{% assign selling_plan_id = var.selling_plan_allocations.first.selling_plan.id %}
-						{% endif %}
-					{% endif %}
 
-					{% assign subscription_save_percents = 0 %}
-					{% assign subscription_item_price = original_item_cap %}
+						{% assign var = referenced_variant %}
 
-					{% for allocation in var.selling_plan_allocations %}
-						{% assign selling = selling_plan_id | minus: 0 %}
-						{% if allocation.selling_plan.id == selling %}
-							{% if allocation.compare_at_price %}
-								{% assign original_price = allocation.compare_at_price %}
-								{% assign discounted_price = allocation.price %}
-								{% assign subscription_save_percents = original_price | minus: discounted_price | times: 100 | divided_by: original_price %}
-								{% assign mod_5_remainder = subscription_save_percents | modulo: 5 %}
-								{% if mod_5_remainder < 3 %}
-									{% assign subscription_save_percents = subscription_save_percents | minus: mod_5_remainder %}
-								{% else %}
-									{% assign subscription_save_percents = subscription_save_percents | plus: 5 | minus: mod_5_remainder %}
+						{% comment %} Core Variable Assignments {% endcomment %}
+						{% assign variant_id = var.metafields.custom.reference_variant_id | default: var.id %}
+						{% assign bottle_quantity = var.metafields.my_fields.pack_bottles_quantity %}
+
+						{% comment %} Price Calculations {% endcomment %}
+						{% assign original_item_price = var.metafields.custom.original_item.value.price %}
+						{% assign original_item_cap = var.metafields.custom.original_item.value.compare_at_price | default: original_item_price %}
+						{% assign original_item_cap_total = original_item_cap | times: bottle_quantity %}
+						{% assign item_price = var.price | divided_by: bottle_quantity %}
+
+						{% comment %} Savings Calculations {% endcomment %}
+						{% assign subscription_save_money = original_item_cap | minus: subscription_item_price %}
+						{% assign buy_once_save_money = original_item_cap | minus: item_price %}
+
+						{% comment %} Selling Plan ID Logic {% endcomment %}
+						{% if var.metafields.custom.referenced_variant_product_handle %}
+							{% assign selling_plan_id = referenced_variant.metafields.subscription.selling_plan_id | default: variant.metafields.subscription.selling_plan_id %}
+						{% elsif var.metafields.subscription.selling_plan_id %}
+							{% assign selling_plan_id = var.metafields.subscription.selling_plan_id %}
+						{% elsif var.selling_plan_allocations.size > 0 %}
+							{% assign found_plan = false %}
+							{% for allocation in var.selling_plan_allocations %}
+								{% if allocation.selling_plan.name contains bottle_quantity %}
+									{% assign selling_plan_id = allocation.selling_plan.id %}
+									{% assign found_plan = true %}
+									{% break %}
 								{% endif %}
-								{% assign subscription_item_price = discounted_price | divided_by: bottle_quantity %}
-							{% else %}
-								{% assign subscription_save_percents = 0 %}
-								{% assign subscription_item_price = allocation.price | divided_by: bottle_quantity %}
+							{% endfor %}
+							{% if found_plan == false %}
+								{% assign selling_plan_id = var.selling_plan_allocations.first.selling_plan.id %}
 							{% endif %}
 						{% endif %}
-					{% endfor %}
 
-					{% assign subscription_total_price = subscription_item_price | times: bottle_quantity %}
+						{% assign subscription_save_percents = 0 %}
+						{% assign subscription_item_price = original_item_cap %}
 
-					<div
+						{% for allocation in var.selling_plan_allocations %}
+							{% assign selling = selling_plan_id | minus: 0 %}
+							{% if allocation.selling_plan.id == selling %}
+								{% if allocation.compare_at_price %}
+									{% assign original_price = allocation.compare_at_price %}
+									{% assign discounted_price = allocation.price %}
+									{% assign subscription_save_percents = original_price | minus: discounted_price | times: 100 | divided_by: original_price %}
+									{% assign mod_5_remainder = subscription_save_percents | modulo: 5 %}
+									{% if mod_5_remainder < 3 %}
+										{% assign subscription_save_percents = subscription_save_percents | minus: mod_5_remainder %}
+									{% else %}
+										{% assign subscription_save_percents = subscription_save_percents | plus: 5 | minus: mod_5_remainder %}
+									{% endif %}
+									{% assign subscription_item_price = discounted_price | divided_by: bottle_quantity %}
+								{% else %}
+									{% assign subscription_save_percents = 0 %}
+									{% assign subscription_item_price = allocation.price | divided_by: bottle_quantity %}
+								{% endif %}
+							{% endif %}
+						{% endfor %}
+
+						{% assign subscription_total_price = subscription_item_price | times: bottle_quantity %}
+
+						{% assign firstMonthDiscount = block.settings.first_month_discount_percentage %}
+
+						<div
 						id="variant-box-{{ SID }}-{{ forloop.index }}"
 						class="variant-box flex flex-col items-center variant-tab-style text-center w-full {% if forloop.index == 1 %}selected{% endif %} {{ varPurchaseType }}"
 						data-variant="{{ blockVarID }}"
@@ -142,417 +160,1057 @@
 						data-dc="{{ var.metafields.custom.discount_code | base64_encode }}"
 						data-buy-once-discount="{{ var.metafields.custom.save_percents }}"
 						data-subscription-discount="{{ subscription_save_percents }}"
+						data-first-month-discount="{{ firstMonthDiscount }}"
 						data-price-per="{{ pricePer }}"
 						data-bottle-quantity="{{ bottle_quantity }}"
 						data-purchase-type="{{ varPurchaseType }}"
 						data-buy-type="{{ buyType }}"
-						name="track:variant-box|variant-sku:{{ var.sku }}|purchase-type:{{ varPurchaseType }}">
-						{% if product.handle == 'curalin' %}
-							{% assign subscription_save_percents = var.metafields.subscription.save_percents %}
+						{% if block.settings.allowed_selling_plan_ids != blank %}
+						data-allowed-selling-plans="{{ block.settings.allowed_selling_plan_ids | strip | escape }}"
 						{% endif %}
-						{% if subscription_save_percents > 0 %}
-							<div class="discount mbl:text-[3.5vw] text-white bg-primary font-bold w-full text-[13px] p-1">{{ subscription_save_percents }}% OFF</div>
-						{% endif %}
+							name="track:variant-box|variant-sku:{{ var.sku }}|purchase-type:{{ varPurchaseType }}">
+							{% if product.handle == 'curalin' %}
+								{% assign subscription_save_percents = var.metafields.subscription.save_percents %}
+							{% endif %}
+							{% if subscription_save_percents > 0 %}
+								<div class="discount mbl:text-[3.5vw] text-white bg-primary font-bold w-full text-[13px] p-1">{{ subscription_save_percents | plus: firstMonthDiscount }}% OFF</div>
+							{% endif %}
 
-						<!-- prettier-ignore -->
-						<div class="title p-1">
-							<span class="font-bold mbl:text-[4vw]">{{ bottle_quantity }} Bottle{% if bottle_quantity > 1 %}s{% endif %}</span>
-							<span class="block text-[15px] mbl:text-[3.4vw]">every {{ bottle_quantity }} month{% if bottle_quantity > 1 %}s{% endif %}</span>
+							<div class="title p-1">
+								<span class="font-bold mbl:text-[4vw]">{{ bottle_quantity }} Bottle{% if bottle_quantity > 1 %}s{% endif %}</span>
+							</div>
+
+							<div class="md:hidden">
+								<span class="title block mbl:text-[3.4vw]"></span>
+							</div>
 						</div>
-					</div>
-				{% endif %}
-			{% endfor %}
-		</div>
-
-		<div class="price-display">
-			<div class="gap-y-2 flex flex-wrap items-end gap-2">
-				<div class="final-price flex items-center gap-2">
-					<div class="main-price text-primary flex items-end">
-						{% if priceFormat == 'total' %}
-							<span class="price font-bold leading-none text-[30px] mbl:text-[6vw]">{{ subscription_total_price | money }}</span>
-						{% else %}
-							<span class="price font-bold leading-none text-[30px] mbl:text-[6vw]">{{ subscription_item_price | money }}</span>
-							<span class="per-text mt-1 text-[20px]">/bottle</span>
-						{% endif %}
-					</div>
-
-					<span class="cap self-end text-gray-500 line-through">{{ original_item_cap | money }}</span>
-
-					{% if priceFormat == 'total' and subscription_total_price != subscription_item_price %}
-						<span class="discount-badge px-4 py-1 text-[16px] font-bold text-white bg-bronze rounded-full">SAVE {{ subscription_save_money | money }}</span>
 					{% endif %}
-				</div>
-			</div>
-
-			{% if priceFormat == 'per_bottle' and subscription_total_price != subscription_item_price %}
-				<div class="total-line mt-1 text-[16px] h-4">
-					Total {{ subscription_total_price | money }}
-					<span class="total-price-cap text-gray-500 line-through">{{ original_item_cap_total | money }}</span>
-				</div>
-			{% endif %}
-		</div>
-	</div>
-
-	{% if variantsNotice != blank %}
-		<div class="notice text-primary flex gap-2 my-4" style="font-size:15px">
-			<span>ⓘ</span>
-			<span>{{ variantsNotice }}</span>
-		</div>
-	{% endif %}
-
-	{% if giftsAmount > 0 %}
-		<div class="gift-selector-wrap flex flex-col gap-3 mb-3">
-			<div class="gift-selector-title text-[18px] font-medium">Pick your free gift</div>
-
-			<div class="gift-options flex flex-col gap-2">
-				{% for block in blocks %}
-					{% case block.type %}
-						{% when 'gift' %}
-							{% assign show_gift = false %}
-							{% if block.settings.show_on == 'both' %}
-								{% assign show_gift = true %}
-							{% elsif block.settings.show_on == 'global' and isGlobal %}
-								{% assign show_gift = true %}
-							{% elsif block.settings.show_on == 'us' and isGlobal == false %}
-								{% assign show_gift = true %}
-							{% endif %}
-
-							{% if show_gift %}
-								{% assign giftProd = block.settings.gift_product %}
-								{% assign giftVariant = giftProd.selected_or_first_available_variant %}
-								{% assign giftProdSubscription = block.settings.gift_product_subscription | default: giftProd %}
-								{% assign giftVariantSubscription = giftProdSubscription.selected_or_first_available_variant %}
-								{% assign giftThumb = block.settings.gift_thumbnail | default: giftProdSubscription.featured_image | default: giftProd.featured_image %}
-
-								<div class="gift-box clickable block" name="track:gift|variant-sku:{{ giftVariant.sku }}">
-									<div
-										class="gift-option-border p-2 rounded-lg"
-										data-gift-id="{{ giftVariant.id }}"
-										data-gift-id-subscription="{{ giftVariantSubscription.id | default: giftVariant.id }}">
-										<div class="flex items-center self-end gap-2 ml-auto" style="width:93%">
-											<div class="gift-image-container flex-shrink-0">
-												<img
-													src="{{ giftThumb | image_url: width: 160, height: 160 }}"
-													alt="{{ giftProd.title }}"
-													class="object-contain w-full h-full">
-											</div>
-
-											<div class="gift-content flex-grow">
-												<div class="flex items-center gap-2 mb-1">
-													<div class="gift-name text-[16px] font-bold">{{ giftProd.title | replace: 'Free ', '' }} - FREE</div>
-													<span class="text-gray-600 line-through">{{ giftVariantSubscription.compare_at_price | money }}</span>
-												</div>
-												<div class="text-gray-600" style="font-size: 14px">{{ block.settings.variant_description | default: giftProd.metafields.custom.short_description }}</div>
-											</div>
-
-											<div class="check-indicator w-8 h-8 rounded-full border-2 border-[--primary-color] flex items-center justify-center">
-												<svg class="check-mark text-primary w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
-													<path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
-												</svg>
-											</div>
-										</div>
-									</div>
-								</div>
-							{% endif %}
-					{% endcase %}
 				{% endfor %}
 			</div>
-		</div>
-	{% endif %}
 
-	<div class="submit-wrap flex flex-col w-full">
-		<div class="checkout-button">
-			{% assign buttonSID = SID | append: '-checkout' %}
-			{% if buyType == 'buy_now' %}{% assign ctaButtonTitle = 'Get Started' %}{% else %}{% assign ctaButtonTitle = 'Add To Cart' %}{% endif %}
+			<div class="price-display">
+				<div class="gap-y-2 flex flex-wrap items-end gap-2">
+						<div class="final-price flex items-center gap-2">
+								<div class="main-price text-primary flex items-end transition-opacity duration-200 ease-in-out">
+										{% if priceFormat == 'total' %}
+												<span class="price font-bold leading-none text-[30px] mbl:text-[6vw]">{{ subscription_total_price | money }}</span>
+										{% else %}
+												<span class="price font-bold leading-none text-[30px] mbl:text-[6vw]">{{ subscription_item_price | money }}</span>
+												<span class="per-text mt-1 text-[20px]">/bottle</span>
+										{% endif %}
+								</div>
 
-			{% render 'buy-buttons-new-4',
-				SID: buttonSID,
-				product: prod,
-				variant: '',
-				buttonText: ctaButtonTitle,
-				selling_plan_id: selling_plan_id,
-				product_form_id: product_form_id,
-				buyType: buyType,
-				isBuyWithPrime: isBuyWithPrime,
-				buyboxType: buyboxType,
-				buyboxName: buyboxName
-			%}
-		</div>
+								<span class="cap self-end text-gray-500 line-through transition-opacity duration-200 ease-in-out">{{ original_item_cap | money }}</span>
 
-		<div class="one-time-purchase-link mt-3 text-center">
-			{% if isOneTimePurchaseLink %}
-				{% assign firstVariant = prod.selected_or_first_available_variant %}
-				<div
-					id="one-time-add-to-cart"
-					class="one-time-add-to-cart variant-box text-primary mb-2 underline cursor-pointer"
-					name="track:link-submit|buybox-type:{{ buyboxType }}|buybox-name:{{ buyboxName }}|variant-sku:{{ firstVariant.sku }}|purchase-type:buyonce"
-					data-variant-id="{{ firstVariant.id }}"
-					data-bottle-quantity="1"
-					data-sku="{{ firstVariant.sku }}"
-					data-purchase-type="buyonce">
-					Buy Once for {{ firstVariant.price | money }} + {{ shippingPrice | money | replace: '.00', '' }} Shipping
+								{% if priceFormat == 'total' and subscription_total_price != subscription_item_price %}
+										<span class="discount-badge px-4 py-1 text-[16px] font-bold text-white bg-bronze rounded-full transition-opacity duration-200 ease-in-out">SAVE {{ subscription_save_money | money }}</span>
+								{% endif %}
+						</div>
 				</div>
+
+				{% if priceFormat == 'per_bottle' and subscription_total_price != subscription_item_price %}
+						<div class="total-line mt-1 text-[16px] h-4 transition-opacity duration-200 ease-in-out">
+								Total {{ subscription_total_price | money }}
+								<span class="total-price-cap text-gray-500 line-through">{{ original_item_cap_total | money }}</span>
+						</div>
+				{% endif %}
+
+				<div class="future-price-notice mt-2 text-[14px] text-gray-600 transition-opacity duration-200 ease-in-out"></div>
+		</div>
+
+		{% if variantsNotice != blank %}
+			<div class="notice text-primary flex gap-2 my-4 text-[15px]">
+				<span>ⓘ</span>
+				<span>{{ variantsNotice }}</span>
+			</div>
+		{% endif %}
+
+		<!-- Subscription Frequency Selector with direct Tailwind classes -->
+		<div class="mbl:my-0 hidden my-2 transition-all duration-300 ease-in-out subscription-frequency-container" data-frequency-container>
+			<div class="mb-3 font-semibold text-[18px]">Choose delivery frequency</div>
+			<div class="subscription-frequency-selector">
+				<div id="frequency-options-{{ SID }}" class="flex justify-start gap-2">
+					<!-- Options will be dynamically populated by JavaScript -->
+				</div>
+			</div>
+			<div class="frequency-description text-[14px] text-gray-600 mt-2 transition-opacity duration-300 ease-in-out leading-normal min-h-[24px]"><!-- Frequency description will be populated by JavaScript --></div>
+		</div>
+
+		{% render 'subscription-box-faq',
+			SID: SID,
+			faqsAmount: faqsAmount,
+			blocks: blocks
+		%}
+
+		{% render 'subscription-box-gift-selector',
+			SID: SID,
+			giftsAmount: giftsAmount,
+			blocks: blocks,
+			isGlobal: isGlobal
+		%}
+
+		<div class="submit-wrap flex flex-col w-full">
+			<div class="checkout-button">
+				{% assign buttonSID = SID | append: '-checkout' %}
+				{% if buyType == 'buy_now' %}{% assign ctaButtonTitle = 'Get Started' %}{% else %}{% assign ctaButtonTitle = 'Add To Cart' %}{% endif %}
+
+				{% render 'buy-buttons-new-4-old',
+					SID: buttonSID,
+					product: prod,
+					variant: '',
+					buttonText: ctaButtonTitle,
+					selling_plan_id: selling_plan_id,
+					product_form_id: product_form_id,
+					buyType: buyType,
+					isBuyWithPrime: isBuyWithPrime,
+					buyboxType: buyboxType,
+					buyboxName: buyboxName
+				%}
+			</div>
+
+			<div class="one-time-purchase-link mt-3 text-center">
+				{% if isOneTimePurchaseLink %}
+					{% assign firstVariant = prod.selected_or_first_available_variant %}
+					<div
+						id="one-time-add-to-cart"
+						class="one-time-add-to-cart variant-box text-primary mb-2 underline cursor-pointer"
+						name="track:link-submit|buybox-type:{{ buyboxType }}|buybox-name:{{ buyboxName }}|variant-sku:{{ firstVariant.sku }}|purchase-type:buyonce"
+						data-variant-id="{{ firstVariant.id }}"
+						data-bottle-quantity="1"
+						data-sku="{{ firstVariant.sku }}"
+						data-purchase-type="buyonce">
+						Buy Once for {{ firstVariant.price | money }} + {{ shippingPrice | money | replace: '.00', '' }} Shipping
+					</div>
+				{% endif %}
+			</div>
+
+			{% if blocks.size > 0 %}
+				{% for block in blocks %}
+					{% if block.type == 'text' %}
+						<div class="text-content text-[14px] text-primary whitespace-break-spaces {% if block.settings.text_position == 'center' %}text-center{% else %}text-start{% endif %}">{{ block.settings.content }}</div>
+					{% endif %}
+				{% endfor %}
 			{% endif %}
 		</div>
 	</div>
 </div>
 
-<!-- Use CSS without additional scripting -->
+<!-- For supporting old styles but with Tailwind classes, hidden by default -->
+<div class="buy-box grid grid-cols-[45%_40%] gap-x-[5%] justify-center hidden">
+</div>
+
 <style>
-	.buy-box {
-		grid-template-columns: 45% 40% !important;
-		grid-column-gap: 5% !important;
-		justify-content: center;
-	}
-
+	/* Core variables - keep these as CSS variables */
 	#cta-section-{{ SID }} {
-		/* Core variables */
-		--text-color: #4a5568;
-		--border-color: #cbcbcb;
-		--radio-size: 1em;
-		--radio-size-mobile: 1em;
-		--transition-speed: 0.2s;
+			--text-color: #4a5568;
+			--radio-size: 1em;
+			--radio-size-mobile: 1em;
+			--transition-speed: 0.2s;
 
-		/* Variant Tab Styles */
-		.variant-box.variant-tab-style {
-				border-width: 2px;
-				border-color: var(--primary-color);
-				border-radius: 5px;
+			/* Variant Tab Styles */
+			.variant-box.variant-tab-style,
+			.frequency-option.variant-tab-style {
+					border-radius: 0.375rem;
+					cursor: pointer;
+					align-content: center;
+					transition: all 0.3s ease;
+
+					&.variant-box {
+						border-width: 2px;
+						border-color: var(--primary-color);
+					}
+
+					&.selected {
+							background-color: var(--primary-color);
+							color: white;
+
+							.discount {
+									background-color: var(--orange);
+									color: var(--primary-color);
+									transition: all 0.3s ease;
+							}
+					}
+
+					&:not(.selected):hover {
+						background-color: var(--bg-color);
+					}
+			}
+
+			/* Frequency selector styles */
+			.subscription-frequency-container {
+				margin-top: 16px;
+				margin-bottom: 16px;
+			}
+
+			.frequency-option {
+				min-width: 100px;
+				padding: 8px;
+				text-align: center;
 				cursor: pointer;
-				align-content: center;
+				background-color: var(--bg-color);
+				color: var(--primary-color);
+				border-width: 1px;
+				border-color: var(--border-color, #e2e8f0);
+				border-radius: 0.375rem;
 				transition: all 0.3s ease;
+			}
 
-				&.selected {
-						background-color: var(--primary-color);
-						color: white;
+			.frequency-option.selected {
+				background-color: var(--primary-color);
+				color: white;
+			}
 
-						.discount {
-								background-color: var(--orange);
-								color: var(--primary-color);
-								transition: all 0.3s ease;
-						}
-				}
-		}
+			/* Product Actions - Keep these custom grid areas */
+			.product-actions {
+					grid-area: {% if isHideInfo %}1{% else %}2{% endif %}/2/3/3;
+			}
 
-		/* Gift Selector Component */
-		.gift-selector-wrap {
-				.gift-box {
-						.gift-option-border {
-								position: relative;
-								cursor: pointer;
-								background-color: white;
-								border: 1px solid var(--primary-color-light);
-								transition: all 0.3s ease;
+			/* Radio Input Styles */
+			.radio-input {
+					display: flex;
+					align-items: center;
+					justify-content: center;
+					position: relative;
 
-								&:hover {
-										background-color: var(--primary-color-lighter);
-								}
+					input[type='radio'] {
+							&:hover,
+							.variant-box:hover & {
+									transform: scale(1.1);
+									cursor: pointer;
+									transition: 0.1s all;
+							}
+					}
+			}
 
-								/* Gift Option Layout */
-								& > div.flex.items-center.gap-4 {
-										padding-left: 3rem;
-								}
+			/* Price Display Component */
+			.price-display {
+					.price-content-transition,
+					.description-transition {
+							transition: opacity 400ms ease-in-out;
+					}
 
-								.gift-image-container {
-										width: 80px;
-										height: 80px;
-										flex-shrink: 0;
-								}
+					.flex.items-end,
+					.mt-2 {
+							will-change: opacity;
+					}
 
-								/* Check Indicator */
-								.check-indicator {
-										position: absolute;
-										left: 3%;
-										top: 50%;
-										transform: translateY(-50%);
-										width: 20px;
-										height: 20px;
-										min-width: 20px;
-										min-height: 20px;
-										border: 1px solid var(--primary-color);
-										border-radius: 9999px;
-										display: flex;
-										align-items: center;
-										justify-content: center;
-										background-color: transparent;
+					/* Price Elements */
+					.main-price,
+					.discount-badge,
+					.total-line {
+							transition: opacity 200ms ease-in-out;
+							will-change: opacity;
+							opacity: 1;
+					}
+			}
 
-										svg.check-mark {
-												width: 12px;
-												height: 12px;
-												min-width: 12px;
-												min-height: 12px;
-												color: white;
-												stroke: var(--primary-color);
-												stroke-width: 2;
-												fill: none;
-												opacity: 0;
-												transition: opacity 0.3s ease;
-										}
-								}
+			/* Animation States */
+			.fade-out {
+					opacity: 0 !important;
+			}
 
-								.gift-content {
-										flex-grow: 1;
-								}
-						}
+			.fade-in {
+					opacity: 1 !important;
+			}
 
-						/* Selected State */
-						&.selected {
-								.gift-option-border {
-										background-color: var(--primary-color-lighter) !important;
+			/* Responsive Styles */
+			@media (max-width: 1269px) {
+					.variant-box {
+							width: 100%;
+					}
+			}
 
-										.check-indicator {
-												background-color: var(--primary-color);
+			@media (max-width: 767px) {
+					.product-actions {
+							grid-area: unset;
+							grid-row: 3;
+							max-width: unset;
+							min-height: unset;
+					}
 
-												svg.check-mark {
-														opacity: 1;
-														stroke: white;
-												}
-										}
-								}
-						}
-
-						&:hover {
-								.gift-option-border {
-										background-color: var(--primary-color-lightest);
-								}
-						}
-				}
-		}
-
-		/* Product Actions */
-		.product-actions {
-				grid-area: {% if isHideInfo %}1{% else %}2{% endif %}/2/3/3;
-		}
-
-		/* One Time Purchase Link */
-		.one-time-purchase-link {
-				a {
-						transition: color 0.3s ease;
-				}
-		}
-
-		/* Radio Input Styles */
-		.radio-input {
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				position: relative;
-
-				input[type='radio'] {
-						&:hover,
-						.variant-box:hover & {
-								transform: scale(1.1);
-								cursor: pointer;
-								transition: 0.1s all;
-						}
-				}
-		}
-
-		/* Responsive Styles */
-		@media (max-width: 1269px) {
-				.variant-box {
-						width: 100%;
-				}
-		}
-
-		@media (max-width: 767px) {
-				.product-actions {
-						grid-area: unset;
-						grid-row: 3;
-						max-width: unset;
-						min-height: unset;
-				}
-
-				.gift-content {
-						font-size: 4vw;
-				}
-
-				.variant-box {
-						font-size: 4vw;
-
-						&::before {
-								font-size: 3vw;
-								width: 23vw;
-								height: 5vw;
-								top: -5vw;
-								padding: 0.75vw;
-								border-radius: 2vw 2vw 0 0;
-						}
-
-						&.selected {
-								max-height: none;
-						}
-
-						.top-wrapper {
-								min-height: 9vw;
-						}
-
-						.left-wrapper {
-								gap: 2vw;
-						}
-
-						.option-title {
-								font-size: 3.9vw;
-						}
-
-						.price-wrapper {
-								min-width: 17.7vw;
-
-								.real-price {
-										font-size: 4.5vw;
-								}
-						}
-
-						.terms {
-								margin-left: 5vw;
-
-								.subtitle,
-								.terms-title {
-										font-size: 3.5vw;
-								}
-						}
-
-						.radio-box {
-								label {
-										width: 3vw;
-										height: 3vw;
-
-										&:after {
-												font-size: 2vw;
-												width: 3vw !important;
-												height: 3vw !important;
-												top: -0.25vw !important;
-												left: -0.25vw !important;
-												display: flex;
-												justify-content: center;
-												align-items: center;
-										}
-								}
-						}
-				}
-
-				.one-time-purchase-link {
-						.one-time-add-to-cart {
-								font-size: 4vw;
-						}
-				}
-		}
+					.one-time-purchase-link {
+							.one-time-add-to-cart {
+									font-size: 4vw;
+							}
+					}
+			}
 	}
 </style>
 
-<!-- Position the CTA text correctly on mobile if needed -->
+<!-- Load buy-box.js script if not already loaded -->
 <script>
-	document.addEventListener('DOMContentLoaded', function () {
-		const ctasection = document.querySelector('#cta-section-{{ SID }}');
-		if (!ctasection) return;
+	document.addEventListener('DOMContentLoaded', function() {
+		console.log('[Optimized] Script Start - DOMContentLoaded');
+		console.log('Initializing buy-box-subscription-4-optimized-2, SID: {{ SID }}');
 
-		const productActions = ctasection.querySelector('.product-actions');
-		const ctaText = ctasection.querySelector('.cta-text');
+		// Cache DOM elements to avoid repeated queries
+		const domCache = {};
+        const SID = '{{ SID }}';
+        const section = document.querySelector(`#cta-section-${SID}`);
+        const productActions = section ? section.querySelector('.product-actions') : null;
+        const frequencyContainer = section ? section.querySelector('[data-frequency-container]') : null;
+        const purchaseOptionBoxes = section ? section.querySelectorAll('.variant-box') : [];
+        const submitButton = section ? section.querySelector('.checkout-button button') : null;
+        const submitSellingPlanId = section ? section.querySelector('.submit-selling-plan-id') : null;
+        const oneTimeButton = section ? section.querySelector('.one-time-add-to-cart') : null;
 
-		if (!productActions) return;
+        // BuyBoxState - Centralized state management like in the original file
+        const BuyBoxState = {
+            // State properties
+            data: {
+                selectedBox: null,
+                selectedFrequency: null,
+                isInitialLoad: true,
+                isLoading: false,
+                isRedirectingToCheckout: false,
+                selectedGift: null,
+                productId: null,
+                variantId: null,
+                sellingPlanId: null,
+                purchaseType: null,
+                priceFormat: '{{ priceFormat }}',
+                buyType: '{{ buyType }}',
+                SID: '{{ SID }}'
+            },
 
-		if (window.innerWidth < 768 && ctaText) {
-			productActions.insertAdjacentElement('afterbegin', ctaText);
+            // Set state and trigger UI updates
+            setState(updates) {
+                // Store previous state for comparison
+                const previousState = {...this.data};
+
+                // Update state with new values
+                Object.assign(this.data, updates);
+
+                // React to specific state changes
+                this.updateUI(updates, previousState);
+            },
+
+            // Update UI based on state changes
+            updateUI(changes, previousState) {
+                // If selected box changed
+                if ('selectedBox' in changes) {
+                    // Only trigger if it's a different box
+                    if (this.data.selectedBox !== previousState.selectedBox) {
+                        this.updateSelectedBox(this.data.selectedBox);
+                    }
+                }
+
+                // If selected frequency changed
+                if ('selectedFrequency' in changes || 'sellingPlanId' in changes) {
+                    this.updateFrequencyUI();
+                }
+            },
+
+            // Update UI elements when box selection changes
+            updateSelectedBox(boxElement) {
+                if (!boxElement) return;
+
+                console.log('Updating selected box:', {
+                    variantId: boxElement.dataset.variant,
+                    purchaseType: boxElement.dataset.purchaseType,
+                    sellingPlanId: boxElement.dataset.subscriptionSellingPlanId
+                });
+
+                // Extract data from the box
+                const isSub = boxElement.dataset.purchaseType === 'subscribe';
+                let planId = isSub ? boxElement.dataset.subscriptionSellingPlanId : '';
+                const variantId = boxElement.dataset.variant;
+
+                // Update submit button settings
+                if (submitSellingPlanId) submitSellingPlanId.value = planId;
+
+                // Update selling plan and variant IDs in state
+                this.setState({
+                    sellingPlanId: planId,
+                    variantId: variantId,
+                    purchaseType: boxElement.dataset.purchaseType,
+                    productId: boxElement.dataset.product
+                });
+
+                // Visually update the UI
+                purchaseOptionBoxes.forEach(box => {
+                    box.classList.remove('selected');
+                });
+
+                boxElement.classList.add('selected');
+
+                // Update frequency selector - ensure this happens even during initialization
+                populateFrequencySelector(boxElement, SID);
+            },
+
+            // Update frequency UI based on state
+            updateFrequencyUI() {
+                const freqOptions = document.getElementById('frequency-options-{{ SID }}');
+                if (!freqOptions) return;
+
+                const sellingPlanId = this.data.sellingPlanId;
+                if (!sellingPlanId) return;
+
+                // Update selected frequency option
+                const options = freqOptions.querySelectorAll('div[data-selling-plan-id]');
+                options.forEach(option => {
+                    if (option.dataset.sellingPlanId === sellingPlanId) {
+                        option.classList.add('selected');
+                    } else {
+                        option.classList.remove('selected');
+                    }
+                });
+
+                // Update frequency description
+                updateFrequencyDescription(SID);
+            },
+
+            // Initialize state with default values
+            init() {
+                // Use the data attribute to determine default selection index
+                const defaultIdx = parseInt(productActions.dataset.defaultVariantIndex, 10) || 0;
+
+                // Find the default box
+                let defaultBox = null;
+
+                // First try to use the specified default index if it exists
+                if (defaultIdx > 0 && purchaseOptionBoxes.length >= defaultIdx) {
+                    defaultBox = purchaseOptionBoxes[defaultIdx - 1]; // 1-indexed to 0-indexed conversion
+                    console.log('Using specified default variant index:', defaultIdx);
+                } else if (purchaseOptionBoxes.length > 0) {
+                    // Fallback to first box
+                    defaultBox = purchaseOptionBoxes[0];
+                    console.log('Using first available box as default');
+                }
+
+                // Set initial state if a default box exists
+                if (defaultBox) {
+                    this.setState({
+                        selectedBox: defaultBox,
+                        isInitialLoad: true,
+                        purchaseType: defaultBox.dataset.purchaseType || null,
+                        sellingPlanId: defaultBox.dataset.subscriptionSellingPlanId || null
+                    });
+
+                    // Make sure the UI is updated to reflect this selection
+                    defaultBox.classList.add('selected');
+
+                    // Ensure variant is fully selected and UI updated
+                    this.updateSelectedBox(defaultBox);
+                }
+
+                // Mark initialization as complete
+                setTimeout(() => {
+                    this.setState({ isInitialLoad: false });
+                }, 100);
+            },
+        };
+
+		// Load the buy-box.js script if not already loaded
+		if (!window.CuralifeBoxes || !window.CuralifeBoxes.initialized) {
+			const script = document.createElement('script');
+			script.src = "{{ 'buy-box.js' | asset_url }}";
+			script.async = true;
+			document.head.appendChild(script);
+
+			// Initialize after script loads
+			script.onload = function() {
+				if (window.CuralifeBoxes) {
+					// Initialize all buy boxes on the page
+					window.CuralifeBoxes.initAll();
+
+					// Give some time for initialization then ensure the product variant data is available
+					setTimeout(function() {
+						initializeProductData('{{ SID }}');
+                        // Initialize BuyBoxState after product data is available
+                        BuyBoxState.init();
+					}, 300);
+				}
+			};
+		} else {
+			// Script already loaded, just ensure product data is available
+			initializeProductData('{{ SID }}');
+            // Initialize BuyBoxState after product data is available
+            BuyBoxState.init();
+		}
+
+		/**
+		 * Get a DOM element with caching
+		 * @param {string} selector - CSS selector
+		 * @param {Element} context - Parent element context (optional)
+		 * @returns {Element|null} - The found element or null
+		 */
+		function getElement(selector, context = document) {
+			const key = `${context === document ? 'doc' : 'ctx'}_${selector}`;
+			if (!domCache[key]) {
+				domCache[key] = context.querySelector(selector);
+			}
+			return domCache[key];
+		}
+
+		/**
+		 * Clear cache for a specific selector or all cache if no selector provided
+		 */
+		function clearCache(selector = null) {
+			if (selector) {
+				Object.keys(domCache).forEach(key => {
+					if (key.endsWith(selector)) {
+						delete domCache[key];
+					}
+				});
+			} else {
+				Object.keys(domCache).forEach(key => {
+					delete domCache[key];
+				});
+			}
+		}
+
+        // Function to handle variant box clicks - delegated event handler
+        function handleVariantBoxClick(e) {
+            const variantBox = e.target.closest('.variant-box');
+            if (variantBox) {
+                console.log('Variant box clicked:', variantBox);
+
+                // Update BuyBoxState with selected box
+                BuyBoxState.setState({
+                    selectedBox: variantBox,
+                    purchaseType: variantBox.dataset.purchaseType,
+                    sellingPlanId: variantBox.dataset.subscriptionSellingPlanId || null,
+                    variantId: variantBox.dataset.variant
+                });
+
+                // Clear cache to ensure we get fresh elements
+                clearCache();
+
+                // For subscription variants, handle frequency options
+                if (variantBox.dataset.purchaseType === 'subscribe') {
+                    // Clear frequency options first
+                    const frequencyOptions = getElement('#frequency-options-' + SID, section);
+                    if (frequencyOptions) frequencyOptions.innerHTML = '';
+
+                    // Clear cached frequencies
+                    memoizedFrequencies = {};
+
+                    // Populate frequency selector with short delay to ensure DOM updates
+                    setTimeout(() => populateFrequencySelector(variantBox, SID), 50);
+                }
+            }
+        }
+
+        // Function to handle frequency option selection - delegated event handler
+        function handleFrequencyOptionClick(e) {
+            const frequencyOption = e.target.closest('#frequency-options-' + SID + ' > div');
+            if (frequencyOption) {
+                console.log('Frequency option clicked:', frequencyOption);
+                selectFrequencyOption(frequencyOption, SID);
+            }
+        }
+
+        // Add event delegation for better performance
+        if (section) {
+            section.addEventListener('click', function(e) {
+                handleVariantBoxClick(e);
+                handleFrequencyOptionClick(e);
+            });
+        }
+
+		// Function to handle frequency option selection
+		function selectFrequencyOption(option, SID) {
+			const section = getElement(`#cta-section-${SID}`);
+			if (!section) return;
+
+			// Get all options in the container
+			const allOptions = option.parentElement.querySelectorAll('div');
+
+			// Update the visual state of all options
+			allOptions.forEach(opt => {
+				opt.classList.remove('selected');
+			});
+
+			option.classList.add('selected');
+
+			// Update the form field and selected box with new selling plan ID
+			const sellingPlanId = option.dataset.sellingPlanId;
+			const submitSellingPlanId = getElement('.submit-selling-plan-id', section);
+			const selectedBox = section.querySelector('.variant-box.selected');
+
+			if (submitSellingPlanId) {
+				submitSellingPlanId.value = sellingPlanId;
+			}
+
+			if (selectedBox) {
+				selectedBox.dataset.subscriptionSellingPlanId = sellingPlanId;
+			}
+
+            // Update BuyBoxState when frequency changes
+            if (BuyBoxState) {
+                BuyBoxState.setState({
+                    selectedFrequency: option,
+                    sellingPlanId: sellingPlanId
+                });
+            }
+
+			// Update the frequency description
+			updateFrequencyDescription(SID);
+		}
+
+		// Function to update the frequency description text
+		function updateFrequencyDescription(SID) {
+			const section = getElement(`#cta-section-${SID}`);
+			if (!section) return;
+
+			const descriptionEl = getElement('.frequency-description', section);
+			if (!descriptionEl) return;
+
+			const frequencyOptions = getElement('#frequency-options-' + SID, section);
+			if (!frequencyOptions) return;
+
+			const selectedOption = frequencyOptions.querySelector('.selected');
+			if (!selectedOption) return;
+
+			const selectedFrequencyValue = parseInt(selectedOption.dataset.frequencyValue || '1', 10);
+			const selectedFrequencyUnit = selectedOption.dataset.frequencyUnit || 'month';
+			const selectedBox = section.querySelector('.variant-box.selected');
+			const bottleQuantity = parseInt(selectedBox?.dataset.bottleQuantity || '1', 10);
+
+			// Only show recommendation text if not matching the recommended frequency
+			const description = (selectedFrequencyUnit === 'month' && selectedFrequencyValue === bottleQuantity)
+				? '' // No text when on recommended frequency
+				: `Recommended - every ${bottleQuantity} month${bottleQuantity > 1 ? 's' : ''}`;
+
+			// Animate the description update only if content changed
+			if (descriptionEl.innerHTML !== description) {
+				descriptionEl.style.opacity = '0';
+				setTimeout(() => {
+					descriptionEl.innerHTML = description;
+					descriptionEl.style.opacity = '1';
+				}, 200);
+			}
+		}
+
+		// Function to extract frequency value and unit from plan name - memoized for performance
+		let memoizedFrequencies = {};
+
+		function extractFrequency(planName) {
+			// Check memo cache first
+			if (memoizedFrequencies[planName]) {
+				return memoizedFrequencies[planName];
+			}
+
+			let result;
+
+			// Try matching days pattern first
+			let daysMatch = planName.match(/(\d+)\s*Day/i);
+			if (daysMatch) {
+				result = {
+					value: parseInt(daysMatch[1], 10),
+					unit: 'day'
+				};
+			} else {
+				// Try matching months pattern
+				let monthsMatch = planName.match(/(\d+)\s*Month/i);
+				if (monthsMatch) {
+					result = {
+						value: parseInt(monthsMatch[1], 10),
+						unit: 'month'
+					};
+				} else {
+					// Default fallback
+					result = { value: 1, unit: 'month' };
+				}
+			}
+
+			// Log extracted values for debugging
+			console.log(`Extracted frequency from "${planName}":`, result);
+
+			// Save to cache
+			memoizedFrequencies[planName] = result;
+			return result;
+		}
+
+		// Function to populate frequency options based on the selected variant
+		function populateFrequencySelector(el, SID) {
+			try {
+				const section = getElement(`#cta-section-${SID}`);
+				if (!section) return;
+
+				// Use the data attribute for more specific selection
+				const frequencyContainer = getElement('[data-frequency-container]', section);
+				if (!frequencyContainer) return;
+
+				const frequencyOptions = getElement('#frequency-options-' + SID, section);
+				if (!frequencyOptions) return;
+
+				// Always start with a clean slate
+				frequencyOptions.innerHTML = '';
+
+				const variant = el.dataset.originalVariant || el.dataset.variant;
+				const isSub = el.dataset.purchaseType === 'subscribe';
+				const bottleQuantity = parseInt(el.dataset.bottleQuantity || '1', 10);
+
+				if (!isSub) {
+					frequencyContainer.classList.add('hidden');
+					return;
+				}
+
+				const productId = el.dataset.product;
+				const variantId = parseInt(variant);
+				const allowedSellingPlansStr = el.dataset.allowedSellingPlans ? el.dataset.allowedSellingPlans.trim() : '';
+				const hasAllowedSellingPlans = allowedSellingPlansStr !== '';
+
+				console.log(`Populating frequency selector for variant ${variantId}, bottle quantity: ${bottleQuantity}`);
+				console.log(`Allowed selling plans: ${allowedSellingPlansStr}`);
+
+				// Try to find the variant in product data
+				const productData = window.productData?.[productId];
+				console.log('[Optimized] Product Data for', productId, ':', productData ? 'Found' : 'Not Found');
+				if (!productData || !productData.variants) {
+					console.log('[Optimized] Product data not found or invalid, using fallback', { productId });
+					handleFallbackFrequencyOptions(el, frequencyOptions, frequencyContainer, SID);
+					return;
+				}
+
+				// Find the variant
+				let selectedVariant = productData.variants.find(v => parseInt(v.id) === parseInt(variant));
+
+				// Try original variant as fallback
+				if (!selectedVariant && el.dataset.originalVariant) {
+					const originalVariantId = parseInt(el.dataset.originalVariant);
+					selectedVariant = productData.variants.find(v => parseInt(v.id) === originalVariantId);
+				}
+				console.log('[Optimized] Selected Variant:', selectedVariant ? selectedVariant.id : 'Not Found');
+
+				if (!selectedVariant) {
+					console.log('[Optimized] Variant not found in product data', { variant, variants: productData.variants.map(v => v.id) });
+					handleFallbackFrequencyOptions(el, frequencyOptions, frequencyContainer, SID);
+					return;
+				}
+
+				const sellingPlans = selectedVariant.selling_plan_allocations || [];
+				console.log('[Optimized] Selling Plans found:', sellingPlans.length);
+				if (!sellingPlans.length) {
+					console.log('[Optimized] No selling plan allocations for variant', { variant });
+					handleFallbackFrequencyOptions(el, frequencyOptions, frequencyContainer, SID);
+					return;
+				}
+
+				console.log('[Optimized] Found variant with selling plans', {
+					variant,
+					planCount: sellingPlans.length,
+					plans: sellingPlans.map(a => ({
+						id: a.selling_plan?.id,
+						name: a.selling_plan?.name
+					}))
+				});
+
+				// Get filtered and sorted selling plans
+				const { filteredPlans, hasChanged } = getFilteredSellingPlans(
+					sellingPlans,
+					el
+				);
+				console.log('[Optimized] Filtered Plans:', filteredPlans.length, 'Has Changed:', hasChanged);
+
+				if (!filteredPlans.length) {
+					console.log('[Optimized] No filtered plans, using fallback.');
+					handleFallbackFrequencyOptions(el, frequencyOptions, frequencyContainer, SID);
+					return;
+				}
+
+				rebuildFrequencyOptions(filteredPlans, el, SID);
+
+				// Show the frequency container if hidden
+				if (frequencyContainer && frequencyContainer.classList.contains('hidden')) {
+					frequencyContainer.classList.remove('hidden');
+				}
+			} catch (error) {
+				console.error('Error in populateFrequencySelector:', error);
+				handleFallbackFrequencyOptions(el, frequencyOptions, frequencyContainer, SID);
+			}
+		}
+
+		// Helper function for fallback frequency option handling
+		function handleFallbackFrequencyOptions(el, frequencyOptions, frequencyContainer, SID) {
+			console.log('[Optimized] handleFallbackFrequencyOptions called for box:', el.dataset.variant);
+			if (!frequencyContainer) return;
+
+			const isSub = el.dataset.purchaseType === 'subscribe';
+			if (!isSub) {
+				frequencyContainer.classList.add('hidden');
+				return;
+			}
+
+			const currentSellingPlanId = el.dataset.subscriptionSellingPlanId;
+			if (!currentSellingPlanId) {
+				console.log('[Optimized] Fallback: No current selling plan ID, hiding container.');
+				frequencyContainer.classList.add('hidden');
+				return;
+			}
+
+			const bottleQuantity = parseInt(el.dataset.bottleQuantity || '1', 10);
+
+			// Create a fallback frequency option
+			frequencyOptions.innerHTML = '';
+			const fallbackOption = document.createElement('div');
+			fallbackOption.className = 'frequency-option variant-tab-style py-2 min-w-[90px] text-center selected';
+			fallbackOption.dataset.sellingPlanId = currentSellingPlanId;
+			fallbackOption.dataset.frequencyValue = bottleQuantity.toString();
+			fallbackOption.dataset.frequencyUnit = 'month';
+			fallbackOption.innerHTML = `<span class="font-semibold">Every ${bottleQuantity} Month${bottleQuantity > 1 ? 's' : ''}</span>`;
+
+			frequencyOptions.appendChild(fallbackOption);
+			frequencyContainer.classList.remove('hidden');
+
+			// Update description
+			updateFrequencyDescription(SID);
+		}
+
+		// Function to get filtered selling plans
+		function getFilteredSellingPlans(sellingPlans, boxElement) {
+			let filteredPlans = [...sellingPlans];
+			let hasChanged = false;
+			const allowedSellingPlansStr = boxElement.dataset.allowedSellingPlans?.trim();
+
+			if (allowedSellingPlansStr) {
+				try {
+					const allowedPlans = allowedSellingPlansStr
+						.split(',')
+						.map(id => id.trim())
+						.filter(id => id && !isNaN(parseInt(id)));
+
+					console.log('[Optimized] Filtering selling plans by allowed plans:', allowedPlans);
+
+					if (allowedPlans.length > 0) {
+						const originalLength = filteredPlans.length;
+
+						filteredPlans = filteredPlans.filter(allocation =>
+							allocation.selling_plan?.id &&
+							allowedPlans.includes(allocation.selling_plan.id.toString())
+						);
+
+						console.log(`[Optimized] Filtered selling plans: ${originalLength} → ${filteredPlans.length}`);
+
+						// If we have allowed plans, sort them according to the specified order
+						if (filteredPlans.length > 0) {
+							filteredPlans.sort((a, b) => {
+								const indexA = allowedPlans.indexOf(a.selling_plan.id.toString());
+								const indexB = allowedPlans.indexOf(b.selling_plan.id.toString());
+								return indexA - indexB;
+							});
+						}
+
+						hasChanged = filteredPlans.length !== originalLength;
+					}
+				} catch (err) {
+					console.error('[Optimized] Error filtering selling plans:', err);
+					filteredPlans = [...sellingPlans];
+				}
+			} else {
+				// Default sorting by frequency (days)
+				filteredPlans.sort((a, b) => {
+					const daysA = getDaysFromFrequency(a);
+					const daysB = getDaysFromFrequency(b);
+					return daysA - daysB;
+				});
+			}
+
+			// If filtering removed all plans, use the original set
+			if (filteredPlans.length === 0 && sellingPlans.length > 0) {
+				console.warn('[Optimized] Filtering removed all selling plans! Using all available plans.');
+				filteredPlans = [...sellingPlans];
+				hasChanged = true;
+
+				// Sort by frequency in days for the default case
+				filteredPlans.sort((a, b) => {
+					const daysA = getDaysFromFrequency(a);
+					const daysB = getDaysFromFrequency(b);
+					return daysA - daysB;
+				});
+			}
+
+			return { filteredPlans, hasChanged };
+		}
+
+		// Rebuild all frequency options based on filtered plans
+		function rebuildFrequencyOptions(filteredPlans, boxElement, SID) {
+			const frequencyOptions = document.getElementById(`frequency-options-${SID}`);
+			if (!frequencyOptions) {
+				console.error('[Optimized] Frequency options container not found!');
+				return;
+			}
+			console.log('[Optimized] rebuildFrequencyOptions called with', filteredPlans.length, 'plans.');
+
+			frequencyOptions.innerHTML = ''; // Clear existing options
+
+			const fragment = document.createDocumentFragment();
+			const currentSellingPlanId = boxElement.dataset.subscriptionSellingPlanId;
+			const bottleQuantity = parseInt(boxElement.dataset.bottleQuantity || '1', 10);
+			const hasAllowedSellingPlans = boxElement.dataset.allowedSellingPlans?.trim() !== '';
+
+			// Determine if we need to use a recommended plan
+			let recommendedPlanId = '';
+			let selectedOptionExists = false;
+
+			filteredPlans.forEach((allocation, index) => {
+				const plan = allocation.selling_plan;
+				if (!plan?.id || !plan?.name) {
+					console.warn('[Optimized] Skipping invalid allocation at index', index, allocation);
+					return;
+				}
+
+				const { value, unit } = extractFrequency(plan.name); // Use the globally defined extractFrequency
+				console.log('[Optimized] Processing plan:', { id: plan.id, name: plan.name, value, unit });
+
+				// Check if this is the recommended plan (matching bottle quantity)
+				const isRecommendedFrequency = (unit === 'month' && value === bottleQuantity);
+				if (isRecommendedFrequency) {
+					recommendedPlanId = plan.id.toString();
+				}
+
+				// Check if this matches the current selection
+				if (currentSellingPlanId && plan.id.toString() === currentSellingPlanId) {
+					selectedOptionExists = true;
+				}
+
+				const frequencyBox = document.createElement('div');
+				frequencyBox.className = 'frequency-option variant-tab-style py-2 min-w-[90px] text-center transition-all duration-300 ease-in-out';
+
+				// Set data attributes
+				frequencyBox.dataset.sellingPlanId = plan.id;
+				frequencyBox.dataset.frequencyValue = value;
+				frequencyBox.dataset.frequencyUnit = unit;
+
+				// Format display text based on frequency
+				let displayText = '';
+				if (unit === 'day') {
+					displayText = value === 1 ? 'Every Day' : `Every ${value} Days`;
+				} else {
+					displayText = value === 1 ? 'Every Month' : `Every ${value} Months`;
+				}
+
+				frequencyBox.innerHTML = `<span class="font-semibold">${displayText}</span>`;
+
+				// Determine if this option should be selected
+				let shouldBeSelected = false;
+
+				if (currentSellingPlanId && plan.id.toString() === currentSellingPlanId) {
+					// Select if it matches the current selling plan ID
+					shouldBeSelected = true;
+					console.log('[Optimized] Selecting plan based on currentSellingPlanId:', plan.id);
+				} else if (!currentSellingPlanId && !hasAllowedSellingPlans && isRecommendedFrequency) {
+					// Select the recommended frequency if no current selection and no allowed plans
+					shouldBeSelected = true;
+					console.log('[Optimized] Selecting recommended plan (no current selection):', plan.id);
+					// Update the box's selling plan ID
+					boxElement.dataset.subscriptionSellingPlanId = plan.id.toString();
+					if (submitSellingPlanId) submitSellingPlanId.value = plan.id.toString();
+				}
+
+				if (shouldBeSelected) {
+					frequencyBox.classList.add('selected');
+				}
+
+				// Add click event listener
+				frequencyBox.addEventListener('click', function() {
+					selectFrequencyOption(this, SID);
+				});
+
+				fragment.appendChild(frequencyBox);
+			});
+
+			// If no option was selected but we have a recommended plan, select it
+			if (!selectedOptionExists && recommendedPlanId && !currentSellingPlanId && !hasAllowedSellingPlans) {
+				const recommendedOption = fragment.querySelector(`[data-selling-plan-id="${recommendedPlanId}"]`);
+				if (recommendedOption) {
+					console.log('[Optimized] Applying recommended plan as fallback selection:', recommendedPlanId);
+					recommendedOption.classList.add('selected');
+					boxElement.dataset.subscriptionSellingPlanId = recommendedPlanId;
+					if (submitSellingPlanId) submitSellingPlanId.value = recommendedPlanId;
+				}
+			}
+
+			// If still no selection, select the first option
+			if (!fragment.querySelector('.selected') && fragment.children.length > 0) {
+				const firstOption = fragment.children[0];
+				console.log('[Optimized] Selecting first plan as fallback selection:', firstOption.dataset.sellingPlanId);
+				firstOption.classList.add('selected');
+
+				const firstPlanId = firstOption.dataset.sellingPlanId;
+				boxElement.dataset.subscriptionSellingPlanId = firstPlanId;
+				if (submitSellingPlanId) submitSellingPlanId.value = firstPlanId;
+			}
+
+			frequencyOptions.appendChild(fragment);
+			console.log('[Optimized] Appended', fragment.children.length, 'options to the container.');
+
+			// Update the frequency description
+			updateFrequencyDescription(SID);
+		}
+
+		// Function to initialize product data from Shopify product JSON
+		function initializeProductData(SID) {
+			// Ensure we have a global productData object
+			window.productData = window.productData || {};
+
+			try {
+				const section = getElement(`#cta-section-${SID}`);
+				if (!section) {
+					console.error('[Optimized] Cannot find section element for SID:', SID);
+					return;
+				}
+				const variantBox = section.querySelector('.variant-box');
+				if (!variantBox) {
+					console.error('[Optimized] Cannot find variant box within section:', SID);
+					return;
+				}
+				const productId = variantBox.dataset.product;
+
+				if (!productId) {
+					console.error('[Optimized] Product ID not found on variant box for SID:', SID);
+					return;
+				}
+
+				// Check if data already exists
+				if (window.productData[productId]) {
+					console.log(`[Optimized] Product data for ${productId} already exists.`);
+					return; // Already loaded
+				}
+
+				// ADDED: Log before attempting to find the JSON element
+				console.log(`[Optimized] Attempting to find product JSON for ID: ${productId}`);
+
+				// Try to load product data directly from the JSON script tag
+				const productJSONElement = document.getElementById(`ProductJson-${productId}`);
+
+				// ADDED: Log whether the element was found
+				if (productJSONElement) {
+					console.log(`[Optimized] Found element #ProductJson-${productId}. Content length: ${productJSONElement.textContent?.length || 0}`);
+				} else {
+					console.warn(`[Optimized] Element #ProductJson-${productId} NOT FOUND.`);
+				}
+
+				if (productJSONElement && productJSONElement.textContent) {
+					try {
+						window.productData[productId] = JSON.parse(productJSONElement.textContent);
+						console.log(`[Optimized] Successfully loaded and parsed product data for ${productId} directly from JSON tag.`);
+					} catch (parseError) {
+						console.error(`[Optimized] Error parsing ProductJson-${productId}:`, parseError, productJSONElement.textContent);
+					}
+				} else {
+					console.warn(`[Optimized] ProductJson-${productId} script tag not found or content is empty.`);
+					// Optionally, attempt to fetch if critical and not found?
+				}
+
+			} catch (error) {
+				console.error('[Optimized] Error in initializeProductData:', error);
+			}
+		}
+
+		// Convert frequency to approximate days for sorting
+		function getDaysFromFrequency(plan) {
+			try {
+				if (!plan?.selling_plan?.name) return 30; // default
+
+				const { value, unit } = extractFrequency(plan.selling_plan.name); // Use global extractFrequency
+				return unit === 'day' ? value : value * 30; // approximate month as 30 days
+			} catch (error) {
+				console.warn('[Optimized] Error calculating days for plan:', plan, error);
+				return 30; // default fallback
+			}
 		}
 	});
 </script>
