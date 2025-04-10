@@ -1186,13 +1186,20 @@ window.CuralifeBoxes = window.CuralifeBoxes || {
 
 		// Find all buy box sections on the page
 		document.querySelectorAll('[id^="cta-section-"]').forEach(section => {
+			// Skip sections that are marked as using the new buy box implementation
+			const productActions = section.querySelector(".product-actions");
+			if (productActions && productActions.dataset.buyBoxNewRoot === "true") {
+				console.log(`Skipping section ${section.id} as it uses new buy box implementation`);
+				return;
+			}
+
 			const SID = section.id.replace("cta-section-", "");
 			const instance = this.createInstance(SID);
 			instance.init();
 		});
 
 		this.initialized = true;
-		console.log("All buy boxes initialized");
+		console.log("All legacy buy boxes initialized");
 
 		// Add styles for buy box UI elements
 		this.addStyles();

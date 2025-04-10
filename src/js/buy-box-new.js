@@ -217,16 +217,39 @@ async function clearCart() {
 }
 
 function extractFrequency(planName) {
+	if (!planName) return { value: 1, unit: "month" };
+
 	let daysMatch = planName.match(/(\d+)\s*Day/i);
-	if (daysMatch) return { value: parseInt(daysMatch[1], 10), unit: "day" };
+	if (daysMatch) {
+		return { value: parseInt(daysMatch[1], 10), unit: "day" };
+	}
+
+	let weeksMatch = planName.match(/(\d+)\s*Week/i);
+	if (weeksMatch) {
+		return { value: parseInt(weeksMatch[1], 10), unit: "week" };
+	}
+
 	let monthsMatch = planName.match(/(\d+)\s*Month/i);
-	if (monthsMatch) return { value: parseInt(monthsMatch[1], 10), unit: "month" };
+	if (monthsMatch) {
+		return { value: parseInt(monthsMatch[1], 10), unit: "month" };
+	}
+
 	return { value: 1, unit: "month" };
 }
+
+// At the top of the file, add a static instances map for tracking
+const BuyBoxNewInstances = new Map();
 
 class BuyBoxNew {
 	constructor(container, config) {
 		console.log(`BuyBoxNew (${config.SID}): Constructor started.`);
+
+		// Check if an instance already exists for this SID
+		if (BuyBoxNewInstances.has(config.SID)) {
+			console.warn(`BuyBoxNew (${config.SID}): Instance already exists, returning existing instance`);
+			return BuyBoxNewInstances.get(config.SID);
+		}
+
 		this.container = container;
 		this.config = config;
 		this.elements = {};
@@ -247,6 +270,9 @@ class BuyBoxNew {
 			console.error("BuyBoxNew: Container element not found for SID:", this.config.SID);
 			return;
 		}
+
+		// Store this instance in the map
+		BuyBoxNewInstances.set(config.SID, this);
 
 		this.bindElements();
 		this.storeInitialProductData();
@@ -1060,13 +1086,13 @@ class BuyBoxNew {
 			}
 		}
 
-		// Sort plans (optional, e.g., by frequency)
+		// Sort plans by frequency
 		plans.sort((a, b) => {
 			const freqA = extractFrequency(a.selling_plan.name);
 			const freqB = extractFrequency(b.selling_plan.name);
-			// Convert to a comparable unit (e.g., days)
-			const daysA = freqA.unit === "month" ? freqA.value * 30 : freqA.value;
-			const daysB = freqB.unit === "month" ? freqB.value * 30 : freqB.value;
+			// Convert to a comparable unit (days)
+			const daysA = freqA.unit === "month" ? freqA.value * 30 : freqA.unit === "week" ? freqA.value * 7 : freqA.value;
+			const daysB = freqB.unit === "month" ? freqB.value * 30 : freqB.unit === "week" ? freqB.value * 7 : freqB.value;
 			return daysA - daysB;
 		});
 
@@ -1077,7 +1103,8 @@ class BuyBoxNew {
 			const { value, unit } = extractFrequency(alloc.selling_plan.name);
 			// Recommended if: unit is month AND value matches quantity
 			// OR if: quantity is 1 AND unit is day AND value is 30
-			if ((unit === "month" && value === bottleQuantity) || (bottleQuantity === 1 && unit === "day" && value === 30)) {
+			// OR if: unit is week AND value is 4
+			if ((unit === "month" && value === bottleQuantity) || (bottleQuantity === 1 && unit === "day" && value === 30) || (unit === "week" && value === 4)) {
 				recommendedPlanId = alloc.selling_plan.id.toString();
 			}
 		});
@@ -1146,17 +1173,28 @@ class BuyBoxNew {
 			const uiType = frequencyContainer.dataset.uiType || "tabs";
 			const isDropdown = uiType === "dropdown";
 
+			// Look for any selling plan data in the variant box's dataset
+			let frequencyValue = bottleQuantity;
+			let frequencyUnit = "month";
+
+			// Check if there's frequency data in a data attribute (e.g. data-frequency-value, data-frequency-unit)
+			// This could be set elsewhere or determined from the selling plan name if available
+			if (el.dataset.frequencyValue && el.dataset.frequencyUnit) {
+				frequencyValue = parseInt(el.dataset.frequencyValue, 10);
+				frequencyUnit = el.dataset.frequencyUnit;
+			}
+
 			// Create a single option representing the known plan ID
-			const fallbackText = `${bottleQuantity} Month${bottleQuantity > 1 ? "s" : ""}`; // Default text
+			const fallbackText = `${frequencyValue} ${frequencyUnit.charAt(0).toUpperCase() + frequencyUnit.slice(1)}${frequencyValue > 1 ? "s" : ""}`;
 
 			if (isDropdown) {
 				const option = DOMUtils.createElement("option", {
 					value: currentSellingPlanId,
-					textContent: fallbackText, // Use default text
+					textContent: fallbackText,
 					selected: true,
 					"data-selling-plan-id": currentSellingPlanId,
-					"data-frequency-value": bottleQuantity.toString(),
-					"data-frequency-unit": "month"
+					"data-frequency-value": frequencyValue.toString(),
+					"data-frequency-unit": frequencyUnit
 				});
 				frequencyOptions.appendChild(option);
 			} else {
@@ -1164,9 +1202,9 @@ class BuyBoxNew {
 				const fallbackBox = DOMUtils.createElement("div", {
 					className: "frequency-box rounded border border-primary cursor-pointer py-2 px-3 min-w-[90px] max-w-[168px] text-center w-full transition-all duration-300 ease-in-out bg-primary text-white", // Selected style
 					"data-selling-plan-id": currentSellingPlanId,
-					"data-frequency-value": bottleQuantity.toString(),
-					"data-frequency-unit": "month",
-					innerHTML: `<span class="font-semibold text-[14px] block">${bottleQuantity}</span><span class="text-[12px] block">Month${bottleQuantity > 1 ? "s" : ""}</span>`
+					"data-frequency-value": frequencyValue.toString(),
+					"data-frequency-unit": frequencyUnit,
+					innerHTML: `<span class="font-semibold text-[14px] block">${frequencyValue}</span><span class="text-[12px] block">${frequencyUnit.charAt(0).toUpperCase() + frequencyUnit.slice(1)}${frequencyValue > 1 ? "s" : ""}</span>`
 				});
 				frequencyOptions.appendChild(fallbackBox);
 			}
@@ -1275,6 +1313,16 @@ class BuyBoxNew {
 			}
 		}
 		// Optional: Add logic to move it back on resize if needed
+	}
+
+	// Optional: Add a static method to retrieve instances
+	static getInstance(sid) {
+		return BuyBoxNewInstances.get(sid);
+	}
+
+	// Optional: Add a static method to retrieve all instances
+	static getAllInstances() {
+		return Array.from(BuyBoxNewInstances.values());
 	}
 }
 
