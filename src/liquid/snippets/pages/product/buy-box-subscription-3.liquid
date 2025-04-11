@@ -838,6 +838,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	function initSubmitButton() {
 			if (!submitButton) return;
+
+			// Store original button text
+			if (!submitButton.getAttribute('data-original-text')) {
+					submitButton.setAttribute('data-original-text', submitButton.innerHTML);
+			}
+
 			submitButton.addEventListener('click', async e => {
 					e.preventDefault();
 					const box = productActions.querySelector('.variant-box.selected');
@@ -907,6 +913,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	function initOneTimeButton() {
 		if (!oneTimeButton) return;
+
+		// Store original button text
+		if (!oneTimeButton.getAttribute('data-original-text')) {
+				oneTimeButton.setAttribute('data-original-text', oneTimeButton.textContent);
+		}
+
 		oneTimeButton.addEventListener('click', async e => {
 				e.preventDefault();
 				oneTimeButton.disabled = true;
@@ -1015,6 +1027,33 @@ document.addEventListener('DOMContentLoaded', () => {
 		initSubmitButton();
 		initOneTimeButton();
 		hideMonthTextIfNeeded();
+
+		// Add pageshow event listener to handle browser back button
+		window.addEventListener('pageshow', function(event) {
+			// This fires when navigating back via browser history
+			// persisted=true means page was restored from cache (back button)
+			if (event.persisted) {
+				console.log('Page restored from cache - resetting button states');
+				if (submitButton) {
+					submitButton.disabled = false;
+					if (submitButton.classList.contains('loading') ||
+						submitButton.innerHTML.includes('button-spinner')) {
+						submitButton.innerHTML = submitButton.getAttribute('data-original-text') ||
+							(buyType === 'buy_now' ? 'Get Started' : 'Add To Cart');
+						submitButton.classList.remove('loading');
+					}
+				}
+				if (oneTimeButton) {
+					oneTimeButton.disabled = false;
+					if (oneTimeButton.textContent === 'Adding...' ||
+						oneTimeButton.textContent === 'Added!' ||
+						oneTimeButton.textContent === 'Failed') {
+						oneTimeButton.textContent = oneTimeButton.getAttribute('data-original-text') ||
+							'Buy Once for {{ firstVariant.price | money }} + {{ shippingPrice | money | replace: ".00", "" }} Shipping';
+					}
+				}
+			}
+		});
 	}
 	init();
 });

@@ -295,6 +295,7 @@ class BuyBoxNew {
 		this.elements.submitButton = this.elements.productActions.querySelector(".checkout-button button");
 		this.elements.submitSellingPlanId = this.elements.productActions.querySelector(".submit-selling-plan-id"); // Hidden input likely
 		this.elements.submitVariantId = this.elements.productActions.querySelector(".submit-variant-id"); // Hidden input likely
+		this.elements.sellingPlanInput = this.elements.productActions.querySelector('input[name="selling_plan"]'); // Find the actual form input
 		this.elements.oneTimeButton = this.elements.productActions.querySelector(".one-time-add-to-cart");
 		this.elements.frequencyContainer = this.elements.productActions.querySelector("[data-frequency-container]");
 		this.elements.frequencyOptions = this.elements.productActions.querySelector(`#frequency-options-${this.config.SID}`);
@@ -357,6 +358,10 @@ class BuyBoxNew {
 
 		if (this.elements.submitSellingPlanId) this.elements.submitSellingPlanId.value = planId || "";
 		if (this.elements.submitVariantId) this.elements.submitVariantId.value = variantId || "";
+		if (this.elements.sellingPlanInput) {
+			this.elements.sellingPlanInput.value = planId || "";
+			console.log(`BuyBoxNew (${this.config.SID}): Updated selling_plan input to ${planId || "(empty)"}`);
+		}
 
 		this.setState({
 			sellingPlanId: planId,
@@ -446,7 +451,13 @@ class BuyBoxNew {
 			DOMUtils.updateProperty(this.elements.oneTimeButton, "disabled", isLoading);
 			DOMUtils.updateAttribute(this.elements.oneTimeButton, "aria-busy", isLoading ? "true" : null);
 			DOMUtils.toggleClass(this.elements.oneTimeButton, "disabled", isLoading);
-			// Visual text/style updates for one-time button happen in its click handler
+
+			// Update one-time button content based on loading state
+			if (isLoading) {
+				this.elements.oneTimeButton.innerHTML = '<div class="border-primary/20 border-t-primary animate-spin inline-block w-4 h-4 mr-2 align-middle border-2 rounded-full"></div> Adding...';
+			} else {
+				this.elements.oneTimeButton.innerHTML = this.elements.oneTimeButton.getAttribute("data-original-text") || "One-Time Purchase";
+			}
 		}
 		if (this.elements.productActions) {
 			DOMUtils.toggleClass(this.elements.productActions, "processing-order", isLoading);
@@ -497,8 +508,16 @@ class BuyBoxNew {
 			this.state.selectedBox = defaultBox;
 			this.state.purchaseType = defaultBox.dataset.purchaseType || null;
 			this.state.variantId = defaultBox.dataset.variant || null;
-			this.state.sellingPlanId = defaultBox.dataset.subscriptionSellingPlanId || null;
 			this.state.productId = defaultBox.dataset.product || null;
+
+			// For subscriptions, we'll get the selling plan ID from the populateFrequencySelector method
+			// which will identify the recommended plan
+			if (this.state.purchaseType === "subscribe") {
+				// Don't set sellingPlanId yet - let populateFrequencySelector determine the recommended one
+				this.state.sellingPlanId = null;
+			} else {
+				this.state.sellingPlanId = null;
+			}
 
 			// Manually apply initial UI state based on the default box
 			this.updateSelectedBoxUI(defaultBox); // This handles selection visuals, price, frequency visibility etc.
@@ -550,30 +569,29 @@ class BuyBoxNew {
 
 		// Main submit button
 		if (this.elements.submitButton) {
-			let isSubmitting = false;
 			this.elements.submitButton.addEventListener("click", async e => {
 				e.preventDefault();
-				if (isSubmitting || this.state.isLoading || this.state.isRedirectingToCheckout) return;
+				if (this.state.isLoading || this.state.isRedirectingToCheckout) return;
 
-				isSubmitting = true;
 				this.setState({ isLoading: true });
 
 				try {
 					const items = this.prepareItemsForCart();
-					if (!items) throw new Error("Could not prepare items."); // prepareItemsForCart handles gift validation
+					if (!items) {
+						this.setState({ isLoading: false });
+						return;
+					}
 
 					if (this.config.buyType === "buy_now") {
 						await this.handleBuyNowFlow(items);
-						// isSubmitting will remain true as page redirects
+						// Loading state reset happens in handleBuyNowFlow
 					} else {
 						await this.addValidItemsToCart(items);
-						isSubmitting = false; // Only reset if not redirecting
 						this.setState({ isLoading: false });
 					}
 				} catch (err) {
 					console.error("Submit error:", err);
 					showNotification(parseErrorMessage(err, "checkout"), "error");
-					isSubmitting = false;
 					this.setState({ isLoading: false });
 				}
 			});
@@ -581,19 +599,11 @@ class BuyBoxNew {
 
 		// One-time purchase button
 		if (this.elements.oneTimeButton) {
-			let isSubmittingOneTime = false;
 			this.elements.oneTimeButton.addEventListener("click", async e => {
 				e.preventDefault();
-				if (isSubmittingOneTime || this.state.isLoading || this.state.isRedirectingToCheckout) return;
+				if (this.state.isLoading || this.state.isRedirectingToCheckout) return;
 
-				isSubmittingOneTime = true;
-				this.setState({ isLoading: true }); // Use centralized loading state
-				DOMUtils.updateProperty(
-					this.elements.oneTimeButton,
-					"innerHTML",
-					'<div class="border-primary/20 border-t-primary animate-spin inline-block w-4 h-4 mr-2 align-middle border-2 rounded-full"></div> Adding...'
-				);
-				DOMUtils.updateAttribute(this.elements.oneTimeButton, "aria-busy", "true");
+				this.setState({ isLoading: true });
 
 				try {
 					const variantId = this.elements.oneTimeButton.dataset.variantId;
@@ -619,35 +629,59 @@ class BuyBoxNew {
 					} else {
 						await this.addValidItemsToCart(items);
 
-						DOMUtils.updateProperty(this.elements.oneTimeButton, "innerHTML", "✓ Added!");
+						// Show success state for 2 seconds then reset
+						this.elements.oneTimeButton.innerHTML = "✓ Added!";
 						this.elements.oneTimeButton.classList.add("text-green-700", "border-green-700");
 						this.elements.oneTimeButton.classList.remove("text-red-600", "border-red-600");
 
 						setTimeout(() => {
-							DOMUtils.updateProperty(this.elements.oneTimeButton, "innerHTML", this.elements.oneTimeButton.getAttribute("data-original-text"));
-							this.elements.oneTimeButton.classList.remove("text-green-700", "border-green-700");
-							DOMUtils.updateAttribute(this.elements.oneTimeButton, "aria-busy", null);
-							isSubmittingOneTime = false;
 							this.setState({ isLoading: false });
+							this.elements.oneTimeButton.classList.remove("text-green-700", "border-green-700");
 						}, 2000);
 					}
 				} catch (err) {
 					console.error("One-time add error:", err);
 					showNotification(parseErrorMessage(err, "cart-add"), "error");
-					DOMUtils.updateProperty(this.elements.oneTimeButton, "innerHTML", "⚠ Failed");
+
+					// Show error state for 2 seconds then reset
+					this.elements.oneTimeButton.innerHTML = "⚠ Failed";
 					this.elements.oneTimeButton.classList.add("text-red-600", "border-red-600");
 					this.elements.oneTimeButton.classList.remove("text-green-700", "border-green-700");
 
 					setTimeout(() => {
-						DOMUtils.updateProperty(this.elements.oneTimeButton, "innerHTML", this.elements.oneTimeButton.getAttribute("data-original-text"));
-						this.elements.oneTimeButton.classList.remove("text-red-600", "border-red-600");
-						DOMUtils.updateAttribute(this.elements.oneTimeButton, "aria-busy", null);
-						isSubmittingOneTime = false;
 						this.setState({ isLoading: false });
+						this.elements.oneTimeButton.classList.remove("text-red-600", "border-red-600");
 					}, 2000);
 				}
 			});
 		}
+
+		// Add visibility change listener to handle browser back button
+		document.addEventListener("visibilitychange", () => {
+			if (document.visibilityState === "visible") {
+				// Small delay to ensure DOM is ready after tab/page becomes visible
+				setTimeout(() => {
+					// Check if we need to repopulate the frequency selector
+					if (this.state.selectedBox && this.state.purchaseType === "subscribe") {
+						console.log(`BuyBoxNew (${this.config.SID}): Page became visible - repopulating frequency selector`);
+						this.handleFrequencySelectorVisibility(true, this.state.selectedBox);
+					}
+				}, 100);
+			}
+		});
+
+		// Add pageshow event as additional protection for back button
+		window.addEventListener("pageshow", event => {
+			// persisted is true if the page was restored from the bfcache
+			if (event.persisted) {
+				console.log(`BuyBoxNew (${this.config.SID}): Page restored from cache - reinitializing UI`);
+				// Reinitialize UI elements
+				if (this.state.selectedBox) {
+					this.updateSelectedBoxUI(this.state.selectedBox);
+				}
+			}
+		});
+
 		console.log(`BuyBoxNew (${this.config.SID}): attachEventListeners finished.`);
 	}
 
@@ -741,7 +775,7 @@ class BuyBoxNew {
 
 	async handleBuyNowFlow(items) {
 		try {
-			this.setState({ isRedirectingToCheckout: true }); // Keep loading true
+			this.setState({ isRedirectingToCheckout: true });
 
 			// Remove cart popup if it exists
 			const cartPopup = document.getElementById("upCart");
@@ -763,7 +797,14 @@ class BuyBoxNew {
 			}
 
 			CartCache.invalidate();
-			window.location.href = "/checkout";
+
+			// Reset loading states before redirecting
+			this.setState({ isRedirectingToCheckout: false, isLoading: false });
+
+			// Small delay to ensure state update completes before redirect
+			setTimeout(() => {
+				window.location.href = "/checkout";
+			}, 50);
 		} catch (err) {
 			console.error("handleBuyNowFlow error:", err);
 			// Reset state only if redirect fails
@@ -1038,6 +1079,12 @@ class BuyBoxNew {
 			this.elements.submitSellingPlanId.value = newSellingPlanId;
 		}
 
+		// Update the actual form selling_plan input too
+		if (this.elements.sellingPlanInput) {
+			this.elements.sellingPlanInput.value = newSellingPlanId;
+			console.log(`BuyBoxNew (${this.config.SID}): Updated selling_plan input to ${newSellingPlanId}`);
+		}
+
 		// Update associated variant box data (important!)
 		if (this.state.selectedBox && this.state.selectedBox.dataset.purchaseType === "subscribe") {
 			this.state.selectedBox.dataset.subscriptionSellingPlanId = newSellingPlanId;
@@ -1064,7 +1111,9 @@ class BuyBoxNew {
 			return;
 		}
 
-		optionsContainer.innerHTML = ""; // Clear previous options
+		// Always clear previous options to prevent duplicates
+		optionsContainer.innerHTML = "";
+		console.log(`BuyBoxNew (${this.config.SID}): Cleared frequency options before repopulating`);
 
 		const variantData = this.findVariantInProductData(variantId);
 
@@ -1109,22 +1158,44 @@ class BuyBoxNew {
 			}
 		});
 
-		// Determine the plan ID to pre-select
-		let planIdToSelect = this.state.sellingPlanId || selectedVariantBox.dataset.subscriptionSellingPlanId || recommendedPlanId || plans[0]?.selling_plan.id.toString();
+		// IMPORTANT CHANGE: Prioritize the recommended plan ID for the initial load
+		// If no sellingPlanId is set yet, or if we're in initial load, use the recommended one
+		if (this.state.isInitialLoad || !this.state.sellingPlanId) {
+			// Determine the plan ID to pre-select - PRIORITIZE RECOMMENDED PLAN
+			let planIdToSelect = recommendedPlanId || this.state.sellingPlanId || selectedVariantBox.dataset.subscriptionSellingPlanId || plans[0]?.selling_plan.id.toString();
 
-		console.log(`populateFrequencySelector: bottleQuantity=${bottleQuantity}, recommendedPlanId=${recommendedPlanId}, planIdToSelect=${planIdToSelect}`); // Log initial values
+			// Update the state and form inputs directly with the recommended plan
+			this.state.sellingPlanId = planIdToSelect;
+
+			// Update the form fields
+			if (this.elements.submitSellingPlanId) {
+				this.elements.submitSellingPlanId.value = planIdToSelect;
+			}
+			if (this.elements.sellingPlanInput) {
+				this.elements.sellingPlanInput.value = planIdToSelect;
+				console.log(`BuyBoxNew (${this.config.SID}): Set selling_plan input to recommended plan ${planIdToSelect}`);
+			}
+
+			// Update the variant box data
+			selectedVariantBox.dataset.subscriptionSellingPlanId = planIdToSelect;
+		} else {
+			// For non-initial loads, respect the current selection
+			let planIdToSelect = this.state.sellingPlanId || selectedVariantBox.dataset.subscriptionSellingPlanId || recommendedPlanId || plans[0]?.selling_plan.id.toString();
+		}
+
+		console.log(`populateFrequencySelector: bottleQuantity=${bottleQuantity}, recommendedPlanId=${recommendedPlanId}, planIdToSelect=${this.state.sellingPlanId}`);
 
 		plans.forEach(allocation => {
 			const plan = allocation.selling_plan;
 			const { value, unit } = extractFrequency(plan.name);
-			const isSelected = plan.id.toString() === planIdToSelect;
+			const isSelected = plan.id.toString() === this.state.sellingPlanId;
 			const isRecommended = plan.id.toString() === recommendedPlanId;
 
 			if (uiType === "dropdown") {
 				let optionText = `${value} ${unit.charAt(0).toUpperCase() + unit.slice(1)}${value > 1 ? "s" : ""}`;
 				console.log(` -> Creating option: PlanID=${plan.id}, Value=${value}, Unit=${unit}, Recommended? ${isRecommended} (Comparing to ${recommendedPlanId})`);
 				if (isRecommended) {
-					optionText += " (Recommended Use)";
+					optionText += " (Recommended use)";
 				}
 				const option = DOMUtils.createElement("option", {
 					value: plan.id,
@@ -1148,12 +1219,12 @@ class BuyBoxNew {
 			}
 		});
 
-		// Ensure the state reflects the actual selected plan ID
-		if (planIdToSelect && planIdToSelect !== this.state.sellingPlanId) {
-			this.setState({ sellingPlanId: planIdToSelect });
-		} else if (!planIdToSelect && plans.length > 0) {
-			// Fallback if somehow no plan ID was determined but plans exist
-			this.setState({ sellingPlanId: plans[0].selling_plan.id.toString() });
+		// For dropdown, explicitly set the selected value
+		if (uiType === "dropdown" && this.elements.frequencyDropdown) {
+			// Set the value directly
+			this.elements.frequencyDropdown.value = this.state.sellingPlanId;
+
+			console.log(`BuyBoxNew (${this.config.SID}): Set dropdown value to ${this.state.sellingPlanId}`);
 		}
 
 		this.updateFrequencyDescription(); // Update text based on selection

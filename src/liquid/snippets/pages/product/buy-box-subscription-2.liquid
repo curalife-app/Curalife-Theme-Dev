@@ -267,7 +267,7 @@
 		</div>
 	{% endif %}
 
-	<div class="submit-wrap flex flex-col w-full">
+	<div class="submit-wrap flex flex-col  w-full">
 		<div class="checkout-button">
 			{% assign buttonSID = SID | append: '-checkout' %}
 			{% if buyType == 'buy_now' %}{% assign ctaButtonTitle = 'Get Started' %}{% else %}{% assign ctaButtonTitle = 'Add To Cart' %}{% endif %}
@@ -662,196 +662,225 @@ document.addEventListener('DOMContentLoaded', () => {
 	//   Cart/Checkout
 	// ~~~~~~~~~~~~~~~~~~~~~
 	async function handleBuyNowFlow(items) {
+		try {
+			// Remove cart popup if it exists
+			const cartPopup = document.getElementById('upCart');
+			if (cartPopup) cartPopup.remove();
+
+			// Clear the cart
 			try {
-					// Remove cart popup if it exists
-					const cartPopup = document.getElementById('upCart');
-					if (cartPopup) cartPopup.remove();
-
-					// Clear the cart
-					try {
-							await clearCart();
-					} catch (clearErr) {
-							console.error('Error clearing cart:', clearErr);
-							throw new Error('Failed to clear cart');
-					}
-
-					// Add items to cart
-					const addRes = await fetch('/cart/add.js', {
-							method: 'POST',
-							headers: { 'Content-Type': 'application/json' },
-							body: JSON.stringify({ items })
-					});
-
-					if (!addRes.ok) {
-							const errorData = await addRes.json();
-							console.error('Cart add response:', errorData);
-							throw new Error(errorData.description || 'Failed to add items to cart');
-					}
-
-					// If we get here, redirect to checkout
-					window.location.href = '/checkout';
-			} catch (err) {
-					console.error('handleBuyNowFlow error:', err);
-					throw err; // Re-throw to be handled by the caller
+				await clearCart();
+			} catch (clearErr) {
+				console.error('Error clearing cart:', clearErr);
+				throw new Error('Failed to clear cart');
 			}
+
+			// Add items to cart
+			const addRes = await fetch('/cart/add.js', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ items })
+			});
+
+			if (!addRes.ok) {
+				const errorData = await addRes.json();
+				console.error('Cart add response:', errorData);
+				throw new Error(errorData.description || 'Failed to add items to cart');
+			}
+
+			// Reset button state before redirecting
+			if (submitButton) {
+				submitButton.innerHTML = submitButton.getAttribute('data-original-text') || 'Add To Cart';
+				submitButton.disabled = false;
+			}
+
+			// Minimal delay to ensure state updates before redirect
+			setTimeout(() => {
+				// If we get here, redirect to checkout
+				window.location.href = '/checkout';
+			}, 10);
+		} catch (err) {
+			console.error('handleBuyNowFlow error:', err);
+			throw err; // Re-throw to be handled by the caller
+		}
 	}
 
 	function initSubmitButton() {
-			if (!submitButton) return;
-			submitButton.addEventListener('click', async e => {
-					e.preventDefault();
-					const box = productActions.querySelector('.variant-box.selected');
-					const giftsAmount = parseInt(productActions.dataset.giftsAmount || '0', 10);
+		if (!submitButton) return;
 
-					if (!box) {
-							showNotification('Please select a purchase option');
-							return;
-					}
+		// Store original button text for later restoration
+		submitButton.setAttribute('data-original-text', submitButton.innerHTML);
 
-					// Debug variant data
-					console.log('Selected box data:', {
-							variant: box.dataset.variant,
-							originalVariant: box.dataset.originalVariant,
-							product: box.dataset.product,
-							purchaseType: box.dataset.purchaseType,
-							sellingPlanId: box.dataset.subscriptionSellingPlanId
-					});
+		submitButton.addEventListener('click', async e => {
+			e.preventDefault();
+			const box = productActions.querySelector('.variant-box.selected');
+			const giftsAmount = parseInt(productActions.dataset.giftsAmount || '0', 10);
 
-					submitButton.disabled = true;
-					const btnHTML = submitButton.innerHTML;
-					submitButton.innerHTML = `<div class="button-spinner"></div>`;
+			if (!box) {
+				showNotification('Please select a purchase option');
+				return;
+			}
 
-					try {
-							const isSub = box.dataset.purchaseType === 'subscribe';
-							// Try originalVariant if variant is not available
-							const variant = box.dataset.originalVariant || box.dataset.variant;
-
-							if (!variant) {
-									throw new Error('No valid variant ID found');
-							}
-
-							let items = [{
-									id: parseInt(variant, 10), // Ensure variant ID is a number
-									quantity: 1,
-									selling_plan: isSub ? box.dataset.subscriptionSellingPlanId : undefined
-							}];
-
-							console.log('Items to add:', items); // Debug log
-
-							if (giftsAmount > 0) {
-									const giftEl = document.querySelector('.gift-box.selected');
-									if (!giftEl?.querySelector('.gift-option-border')) {
-											throw new Error('Please select a gift option');
-									}
-									const giftB = giftEl.querySelector('.gift-option-border');
-									const giftID = isSub ? giftB?.dataset.giftIdSubscription : giftB?.dataset.giftId;
-									if (!giftID) throw new Error('Invalid gift selection');
-
-									items.push({ id: parseInt(giftID, 10), quantity: 1 });
-							}
-
-							if (buyType === 'buy_now') {
-									await handleBuyNowFlow(items);
-							} else {
-									await addValidItemsToCart(items);
-							}
-					} catch (err) {
-							console.error('Submit error:', err);
-							showNotification(err.message || 'Error adding items to cart. Please try again.');
-					} finally {
-							submitButton.innerHTML = btnHTML;
-							submitButton.disabled = false;
-					}
+			// Debug variant data
+			console.log('Selected box data:', {
+				variant: box.dataset.variant,
+				originalVariant: box.dataset.originalVariant,
+				product: box.dataset.product,
+				purchaseType: box.dataset.purchaseType,
+				sellingPlanId: box.dataset.subscriptionSellingPlanId
 			});
+
+			submitButton.disabled = true;
+			const btnHTML = submitButton.innerHTML;
+			submitButton.innerHTML = `<div class="button-spinner"></div>`;
+
+			try {
+				const isSub = box.dataset.purchaseType === 'subscribe';
+				// Try originalVariant if variant is not available
+				const variant = box.dataset.originalVariant || box.dataset.variant;
+
+				if (!variant) {
+					throw new Error('No valid variant ID found');
+				}
+
+				let items = [{
+					id: parseInt(variant, 10), // Ensure variant ID is a number
+					quantity: 1,
+					selling_plan: isSub ? box.dataset.subscriptionSellingPlanId : undefined
+				}];
+
+				console.log('Items to add:', items); // Debug log
+
+				if (giftsAmount > 0) {
+					const giftEl = document.querySelector('.gift-box.selected');
+					if (!giftEl?.querySelector('.gift-option-border')) {
+						throw new Error('Please select a gift option');
+					}
+					const giftB = giftEl.querySelector('.gift-option-border');
+					const giftID = isSub ? giftB?.dataset.giftIdSubscription : giftB?.dataset.giftId;
+					if (!giftID) throw new Error('Invalid gift selection');
+
+					items.push({ id: parseInt(giftID, 10), quantity: 1 });
+				}
+
+				if (buyType === 'buy_now') {
+					await handleBuyNowFlow(items);
+				} else {
+					await addValidItemsToCart(items);
+				}
+			} catch (err) {
+				console.error('Submit error:', err);
+				showNotification(err.message || 'Error adding items to cart. Please try again.');
+				submitButton.innerHTML = btnHTML;
+				submitButton.disabled = false;
+			}
+		});
 	}
 
 	function initOneTimeButton() {
 		if (!oneTimeButton) return;
+
+		// Store original text for restoration
+		oneTimeButton.setAttribute('data-original-text', oneTimeButton.textContent);
+
 		oneTimeButton.addEventListener('click', async e => {
-				e.preventDefault();
-				oneTimeButton.disabled = true;
-				const origText = oneTimeButton.textContent;
-				oneTimeButton.textContent = 'Adding...';
+			e.preventDefault();
 
-				try {
-						const giftEl = document.querySelector('.gift-box.selected');
-						const giftB = giftEl?.querySelector('.gift-option-border');
-						const giftID = giftB?.dataset.giftId;
-						const variant1 = oneTimeButton.dataset.variantId;
+			// Prevent multiple clicks
+			if (oneTimeButton.disabled) return;
 
-						if (!variant1) {
-								throw new Error('Invalid variant ID');
-						}
+			oneTimeButton.disabled = true;
+			const origText = oneTimeButton.getAttribute('data-original-text') || oneTimeButton.textContent;
+			oneTimeButton.textContent = 'Adding...';
 
-						const toAdd = [{ id: parseInt(variant1, 10), quantity: 1 }];
-						{% if isOneTimeGift %}
-							if (giftID) toAdd.push({ id: parseInt(giftID, 10), quantity: 1 });
-						{% endif %}
-						console.log('Adding to cart:', toAdd);
+			try {
+				const giftEl = document.querySelector('.gift-box.selected');
+				const giftB = giftEl?.querySelector('.gift-option-border');
+				const giftID = giftB?.dataset.giftId;
+				const variant1 = oneTimeButton.dataset.variantId;
 
-						if (buyType === 'buy_now') {
-								const cartPopup = document.getElementById('upCart');
-								if (cartPopup) cartPopup.remove();
-								await clearCart();
-
-								const res = await fetch('/cart/add.js', {
-										method: 'POST',
-										headers: { 'Content-Type': 'application/json' },
-										body: JSON.stringify({ items: toAdd })
-								});
-
-								const responseData = await res.json();
-								console.log('Cart response:', responseData);
-
-								if (!res.ok) {
-										const error = new Error(responseData.description || 'Failed to add items');
-										error.response = responseData;
-										throw error;
-								}
-
-								window.location.href = '/checkout';
-						} else {
-								const res = await fetch('/cart/add.js', {
-										method: 'POST',
-										headers: { 'Content-Type': 'application/json' },
-										body: JSON.stringify({ items: toAdd })
-								});
-
-								const responseData = await res.json();
-								console.log('Cart response:', responseData);
-
-								if (!res.ok) {
-										const error = new Error(responseData.description || 'Failed to add items');
-										error.response = responseData;
-										throw error;
-								}
-
-								if (typeof window.updateCart === 'function') {
-										window.updateCart();
-								}
-
-								oneTimeButton.textContent = 'Added!';
-								setTimeout(() => {
-										oneTimeButton.textContent = origText;
-										oneTimeButton.disabled = false;
-								}, 2000);
-						}
-				} catch (err) {
-						console.error('Cart error details:', {
-								message: err.message,
-								response: err.response,
-								error: err
-						});
-
-						const errorMessage = err.message || 'Error adding items to cart';
-						showNotification(errorMessage, 'error');
-						oneTimeButton.textContent = 'Failed';
-
-						setTimeout(() => {
-								oneTimeButton.textContent = origText;
-								oneTimeButton.disabled = false;
-						}, 2000);
+				if (!variant1) {
+					throw new Error('Invalid variant ID');
 				}
+
+				const toAdd = [{ id: parseInt(variant1, 10), quantity: 1 }];
+
+				{% if isOneTimeGift %}
+					if (giftID) toAdd.push({ id: parseInt(giftID, 10), quantity: 1 });
+				{% endif %}
+
+				console.log('Adding to cart:', toAdd);
+
+				if (buyType === 'buy_now') {
+					const cartPopup = document.getElementById('upCart');
+					if (cartPopup) cartPopup.remove();
+					await clearCart();
+
+					const res = await fetch('/cart/add.js', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ items: toAdd })
+					});
+
+					const responseData = await res.json();
+					console.log('Cart response:', responseData);
+
+					if (!res.ok) {
+						const error = new Error(responseData.description || 'Failed to add items');
+						error.response = responseData;
+						throw error;
+					}
+
+					// Reset button state before redirecting
+					oneTimeButton.textContent = origText;
+					oneTimeButton.disabled = false;
+
+					// Minimal delay to ensure state updates before redirect
+					setTimeout(() => {
+						window.location.href = '/checkout';
+					}, 10);
+				} else {
+					const res = await fetch('/cart/add.js', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ items: toAdd })
+					});
+
+					const responseData = await res.json();
+					console.log('Cart response:', responseData);
+
+					if (!res.ok) {
+						const error = new Error(responseData.description || 'Failed to add items');
+						error.response = responseData;
+						throw error;
+					}
+
+					if (typeof window.updateCart === 'function') {
+						window.updateCart();
+					}
+
+					oneTimeButton.textContent = 'Added!';
+					setTimeout(() => {
+						oneTimeButton.textContent = origText;
+						oneTimeButton.disabled = false;
+					}, 2000);
+				}
+			} catch (err) {
+				console.error('Cart error details:', {
+					message: err.message,
+					response: err.response,
+					error: err
+				});
+
+				const errorMessage = err.message || 'Error adding items to cart';
+				showNotification(errorMessage, 'error');
+				oneTimeButton.textContent = 'Failed';
+
+				setTimeout(() => {
+					oneTimeButton.textContent = origText;
+					oneTimeButton.disabled = false;
+				}, 2000);
+			}
 		});
 	}
 
@@ -873,6 +902,96 @@ document.addEventListener('DOMContentLoaded', () => {
 		initSubmitButton();
 		initOneTimeButton();
 		hideMonthTextIfNeeded();
+
+		// Handle back button navigation from checkout - Simplified & Delayed Approach
+		window.addEventListener('pageshow', function(event) {
+			console.log('[pageshow] Event triggered. persisted:', event.persisted);
+			// Only act if the page was restored from the back/forward cache
+			if (event.persisted) {
+				console.log('[pageshow] Page restored from cache. Resetting button states after delay...');
+
+				const resetButtonState = (button, isSubmit) => {
+					if (!button) return;
+
+					try {
+						// --- State Reset ---
+						button.removeAttribute('disabled');
+						button.disabled = false;
+
+						// --- Appearance Reset ---
+						const originalText = button.getAttribute('data-original-text');
+
+						if (isSubmit) {
+							// Restore original HTML if spinner is present or text is missing
+							if (button.innerHTML.includes('button-spinner') || button.textContent.trim().length < 2) {
+								button.innerHTML = originalText || (buyType === 'buy_now' ? 'Get Started' : 'Add To Cart');
+							}
+							// Ensure common loading/active classes are removed
+							button.classList.remove('loading', 'loading-active', 'processing', 'disabled', 'active');
+						} else { // One-time button
+							// Restore original text if temporary state text is present
+							if (['Adding...', 'Added!', 'Failed'].includes(button.textContent)) {
+								button.textContent = originalText || `Buy Once for...`;
+							}
+							// Ensure common loading/active classes are removed
+							button.classList.remove('loading', 'loading-active', 'processing', 'disabled', 'active', 'text-green-700', 'border-green-700', 'text-red-600', 'border-red-600');
+						}
+
+						// --- Visual State Reset ---
+						button.style.opacity = '1';
+						button.style.pointerEvents = 'auto';
+						// Remove potential inline styles causing issues
+						button.style.backgroundColor = '';
+						button.style.borderColor = '';
+						button.style.color = '';
+
+						console.log(`[pageshow] ✓ ${isSubmit ? 'Submit' : 'One-time'} button appearance reset.`);
+					} catch (e) {
+						console.error(`[pageshow] Error resetting ${isSubmit ? 'Submit' : 'One-time'} button appearance:`, e);
+					}
+				};
+
+				// Execute the reset after a short delay
+				setTimeout(() => {
+					resetButtonState(submitButton, true);
+					resetButtonState(oneTimeButton, false);
+				}, 150); // 150ms delay - adjust if needed
+			}
+		});
+
+		// Keep visibilitychange listener as backup
+		document.addEventListener('visibilitychange', function() {
+			if (document.visibilityState === 'visible') {
+				console.log('[visibilitychange] Page became visible. Checking button states...');
+
+				// Wait a moment for stabilization
+				setTimeout(() => {
+					// Reset main button if needed
+					if (submitButton && (submitButton.disabled || submitButton.hasAttribute('disabled'))) {
+						console.log('[visibilitychange] Submit button found disabled. Resetting...');
+						submitButton.disabled = false;
+						submitButton.removeAttribute('disabled');
+						if (submitButton.innerHTML.includes('button-spinner') || submitButton.innerHTML.length < 10) {
+							submitButton.innerHTML = submitButton.getAttribute('data-original-text') || (buyType === 'buy_now' ? 'Get Started' : 'Add To Cart');
+						}
+						submitButton.classList.remove('loading', 'loading-active', 'disabled');
+						submitButton.style.opacity = '1';
+						submitButton.style.pointerEvents = 'auto';
+					}
+
+					// Reset one-time button if needed
+					if (oneTimeButton && (oneTimeButton.disabled || oneTimeButton.hasAttribute('disabled'))) {
+						console.log('[visibilitychange] One-time button found disabled. Resetting...');
+						oneTimeButton.disabled = false;
+						oneTimeButton.removeAttribute('disabled');
+						oneTimeButton.style.pointerEvents = 'auto';
+						if (['Adding...', 'Added!', 'Failed'].includes(oneTimeButton.textContent)) {
+							oneTimeButton.textContent = oneTimeButton.getAttribute('data-original-text') || `Buy Once for...`;
+						}
+					}
+				}, 100);
+			}
+		});
 	}
 	init();
 });

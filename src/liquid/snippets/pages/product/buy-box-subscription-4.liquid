@@ -124,6 +124,11 @@
 
 					{% assign firstMonthDiscount = block.settings.first_month_discount_percentage %}
 
+					{% comment %} Check if there's a metafield discount percentage and use it if available {% endcomment %}
+					{% if var.metafields.subscription.save_percents %}
+						{% assign subscription_save_percents = var.metafields.subscription.save_percents %}
+					{% endif %}
+
 					<div
 					id="variant-box-{{ SID }}-{{ forloop.index }}"
 				class="variant-box flex flex-col items-center variant-tab-style text-center w-full {% if forloop.index == 1 %}selected{% endif %} {{ varPurchaseType }}"
@@ -568,24 +573,47 @@ document.addEventListener('DOMContentLoaded', () => {
 
 			// Set initial state if a default box exists
 			if (defaultBox) {
-				this.setState({
-					selectedBox: defaultBox,
-					isInitialLoad: true,
-					purchaseType: defaultBox.dataset.purchaseType || null,
-					sellingPlanId: defaultBox.dataset.subscriptionSellingPlanId || null
-				});
+                // 1. Set initial state directly, avoiding immediate full UI update
+                Object.assign(this.data, { // Direct assignment
+                    selectedBox: defaultBox,
+                    isInitialLoad: true,
+                    purchaseType: defaultBox.dataset.purchaseType || null,
+                    sellingPlanId: defaultBox.dataset.subscriptionSellingPlanId || null,
+                    variantId: defaultBox.dataset.variant || null,
+                    productId: defaultBox.dataset.product || null,
+                    isLoading: false,
+                    isRedirectingToCheckout: false
+                });
 
-				// Make sure the UI is updated to reflect this selection
-				defaultBox.classList.add('selected');
-				const radio = defaultBox.querySelector('input[type="radio"]');
-				if (radio) radio.checked = true;
+                // Ensure the default box has the selected class visually
+                document.querySelectorAll('.variant-box').forEach(box => {
+                    box.classList.remove('selected');
+                    const radio = box.querySelector('input[type="radio"]');
+                    if (radio) radio.checked = false;
+                });
+                defaultBox.classList.add('selected');
+                const radio = defaultBox.querySelector('input[type="radio"]');
+                if (radio) radio.checked = true;
 
-				// Ensure variant is fully selected and UI updated
-				this.updateSelectedBox(defaultBox);
+                // 2. Populate frequency selector - this might update sellingPlanId in state/dataset
+                populateFrequencySelector(defaultBox);
+
+                // 3. Update price display - uses the potentially updated sellingPlanId
+                updatePriceDisplay(defaultBox);
+
+                // 4. Update other UI elements
+                updateBuyButton(defaultBox);
+                {% if isSlideVariant %}
+                    if (!window.hasInitialImageUpdateHappened) {
+                        updateVariantImage(defaultBox);
+                        window.hasInitialImageUpdateHappened = true;
+                    }
+                {% endif %}
 			}
 
-			// Mark initialization as complete
+			// Mark initialization as complete after a delay
 			setTimeout(() => {
+                // Use setState now to trigger potential UI updates if needed
 				this.setState({ isInitialLoad: false });
 			}, 100);
 		}
@@ -907,8 +935,22 @@ document.addEventListener('DOMContentLoaded', () => {
 			// Invalidate cart cache
 			CartCache.invalidate();
 
-			// Redirect to checkout immediately
-			window.location.href = '/checkout';
+			// Reset loading states before redirecting
+			BuyBoxState.setState({
+				isRedirectingToCheckout: false,
+				isLoading: false
+			});
+
+			// Redirect to checkout with a small delay to ensure state updates
+			console.log("Redirecting to checkout...");
+			if (state.isDebug) {
+				CuralifeBoxes.utils.showNotification("Redirecting to checkout...", "debug");
+			}
+
+			// Small delay to ensure state update completes before redirect
+			setTimeout(() => {
+				window.location.href = '/checkout';
+			}, 50);
 		} catch (err) {
 			console.error('handleBuyNowFlow error details:', err);
 			BuyBoxState.setState({
@@ -1007,8 +1049,6 @@ document.addEventListener('DOMContentLoaded', () => {
 		const priceEls = document.querySelectorAll('.price-display');
 
 		// Get base prices and convert from cents to dollars
-		const subItem = parseFloat(el.dataset.subscriptionItemPrice) / 100 || 0;
-		const subPrice = parseFloat(el.dataset.subscriptionPrice) / 100 || 0;
 		const origPerItem = parseFloat(el.dataset.originalItemCap) / 100 || 0;
 		const bottles = parseInt(el.dataset.bottleQuantity, 10) || 1;
 
@@ -1019,24 +1059,31 @@ document.addEventListener('DOMContentLoaded', () => {
 		const subscriptionDiscount = parseFloat(el.dataset.subscriptionDiscount) || 0;
 		const firstMonthDiscount = parseFloat(el.dataset.firstMonthDiscount) || 0;
 
-		// Combine discounts for first month
-		const totalFirstMonthDiscount = subscriptionDiscount + firstMonthDiscount;
-		const firstMonthDiscountMultiplier = (100 - totalFirstMonthDiscount) / 100;
+		// --- Revised Price Calculation ---
+		// 1. Calculate base subscription price (applying subscriptionDiscount)
+		const baseSubDiscountMultiplier = (100 - subscriptionDiscount) / 100;
+		const baseSubItem = origPerItem * baseSubDiscountMultiplier;
+		const baseSubPrice = totalOrig * baseSubDiscountMultiplier;
 
-		// Calculate first month prices
-		const firstMonthSubItem = origPerItem * firstMonthDiscountMultiplier;
-		const firstMonthSubPrice = totalOrig * firstMonthDiscountMultiplier;
+        // 2. Calculate the additional discount multiplier JUST for the first month
+        const firstMonthAdditionalMultiplier = (100 - firstMonthDiscount) / 100;
 
-		const regularDiscountMultiplier = (100 - subscriptionDiscount) / 100;
-		const regularPrice = (priceFormat === 'total' ? totalOrig : origPerItem) * regularDiscountMultiplier;
+        // 3. Calculate the final price for the first month
+        const firstMonthFinalItem = baseSubItem * firstMonthAdditionalMultiplier;
+        const firstMonthFinalPrice = baseSubPrice * firstMonthAdditionalMultiplier;
 
+        // 4. Regular price for refills is simply the base subscription price
+		const regularPrice = priceFormat === 'total' ? baseSubPrice : baseSubItem;
+
+        // 5. Calculate savings compared to the original price
 		const saveAmt = priceFormat === 'total'
-				? (totalOrig - firstMonthSubPrice)
-				: ((origPerItem - firstMonthSubItem) * bottles);
+				? (totalOrig - firstMonthFinalPrice)
+				: ((origPerItem - firstMonthFinalItem) * bottles);
+		// --- End Revised Price Calculation ---
 
 		const currencySymbol = '{{ cart.currency.symbol }}' || '$';
 
-		const newMainPrice = `${currencySymbol}${(priceFormat === 'total' ? firstMonthSubPrice : firstMonthSubItem).toFixed(2)}`;
+		const newMainPrice = `${currencySymbol}${(priceFormat === 'total' ? firstMonthFinalPrice : firstMonthFinalItem).toFixed(2)}`;
 		const newComparePrice = `${currencySymbol}${(priceFormat === 'total' ? totalOrig : origPerItem).toFixed(2)}`;
 		const regularPriceFormatted = `${currencySymbol}${regularPrice.toFixed(2)}`;
 		const flooredSave = Math.floor(saveAmt);
@@ -1063,11 +1110,11 @@ document.addEventListener('DOMContentLoaded', () => {
 				}
 
 				if (totalLine && priceFormat === 'per_bottle') {
-					if (flooredSave > 0 && firstMonthSubPrice != firstMonthSubItem) {
+					if (flooredSave > 0 && firstMonthFinalPrice != firstMonthFinalItem) {
 						DOMUtils.updateProperty(
 							totalLine,
 							'innerHTML',
-							`Total ${currencySymbol}${firstMonthSubPrice.toFixed(2)} <span class="total-price-cap text-gray-500 line-through">${currencySymbol}${totalOrig.toFixed(2)}</span>`
+							`Total ${currencySymbol}${firstMonthFinalPrice.toFixed(2)} <span class="total-price-cap text-gray-500 line-through">${currencySymbol}${totalOrig.toFixed(2)}</span>`
 						);
 					} else {
 						DOMUtils.updateProperty(totalLine, 'textContent', '');
@@ -1104,8 +1151,8 @@ document.addEventListener('DOMContentLoaded', () => {
 			}
 
 			if (totalLine && priceFormat === 'per_bottle') {
-				const newTotalLineHTML = flooredSave > 0 && firstMonthSubPrice != firstMonthSubItem
-					? `Total ${currencySymbol}${firstMonthSubPrice.toFixed(2)} <span class="total-price-cap text-gray-500 line-through">${currencySymbol}${totalOrig.toFixed(2)}</span>`
+				const newTotalLineHTML = flooredSave > 0 && firstMonthFinalPrice != firstMonthFinalItem
+					? `Total ${currencySymbol}${firstMonthFinalPrice.toFixed(2)} <span class="total-price-cap text-gray-500 line-through">${currencySymbol}${totalOrig.toFixed(2)}</span>`
 					: '';
 				hasContentChanged = hasContentChanged || totalLine.innerHTML !== newTotalLineHTML;
 			}
@@ -1142,15 +1189,15 @@ document.addEventListener('DOMContentLoaded', () => {
 						}
 
 						if (totalLine && priceFormat === 'per_bottle') {
-							if (flooredSave > 0 && firstMonthSubPrice != firstMonthSubItem) {
+							if (flooredSave > 0 && firstMonthFinalPrice != firstMonthFinalItem) {
 								DOMUtils.updateProperty(
 									totalLine,
 									'innerHTML',
-									`Total ${currencySymbol}${firstMonthSubPrice.toFixed(2)} <span class="total-price-cap text-gray-500 line-through">${currencySymbol}${totalOrig.toFixed(2)}</span>`
+									`Total ${currencySymbol}${firstMonthFinalPrice.toFixed(2)} <span class="total-price-cap text-gray-500 line-through">${currencySymbol}${totalOrig.toFixed(2)}</span>`
 								);
 							} else {
-								DOMUtils.updateProperty(totalLine, 'textContent', ' ');
-							}
+									DOMUtils.updateProperty(totalLine, 'textContent', ' ');
+								}
 						}
 
 						// Update future price notice
@@ -1346,11 +1393,66 @@ document.addEventListener('DOMContentLoaded', () => {
 		// Use a variable to track if a submission is in progress
 		let isSubmitting = false;
 
+		// Create a function to fully reset the button state
+		function resetButtonState() {
+			isSubmitting = false;
+			BuyBoxState.setState({
+				isLoading: false,
+				isRedirectingToCheckout: false
+			});
+
+			// Ensure button is visually ready - enhanced to clear more visual states
+			if (submitButton) {
+				submitButton.disabled = false;
+				submitButton.innerHTML = submitButton.getAttribute('data-original-text') || 'Add To Cart';
+				submitButton.removeAttribute('aria-busy');
+
+				// More thorough CSS class cleanup
+				submitButton.classList.remove('loading-active', 'loading', 'processing', 'active');
+
+				// Clear any inline styles that might be affecting appearance
+				submitButton.style.backgroundColor = '';
+				submitButton.style.borderColor = '';
+				submitButton.style.color = '';
+			}
+
+			// Reset one-time button if it exists
+			if (oneTimeButton) {
+				oneTimeButton.disabled = false;
+
+				// More thorough CSS class cleanup
+				oneTimeButton.classList.remove('disabled', 'text-green-700', 'border-green-700', 'text-red-600', 'border-red-600', 'loading', 'processing', 'active');
+
+				// Restore original text if it was changed
+				if (oneTimeButton.getAttribute('data-original-text')) {
+					oneTimeButton.innerHTML = oneTimeButton.getAttribute('data-original-text');
+				}
+
+				oneTimeButton.removeAttribute('aria-busy');
+
+				// Clear any inline styles
+				oneTimeButton.style.backgroundColor = '';
+				oneTimeButton.style.borderColor = '';
+				oneTimeButton.style.color = '';
+			}
+
+			// Remove processing state from container
+			if (productActions) {
+				productActions.classList.remove('processing-order');
+			}
+
+			console.log('Button state fully reset');
+		}
+
+		// Make resetButtonState available globally for the visibility handler
+		window.resetBuyBoxButtonState = resetButtonState;
+
 		submitButton.addEventListener('click', async e => {
 			e.preventDefault();
 
 			// Prevent double-clicks or multiple submissions
 			if (isSubmitting || BuyBoxState.data.isLoading) {
+				console.log('Button click ignored - already processing');
 				return;
 			}
 
@@ -1425,12 +1527,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
 				if (buyType === 'buy_now') {
 					await handleBuyNowFlow(items);
-					// Don't reset loading state if we're redirecting
+					// Will be reset in handleBuyNowFlow with longer delay
 				} else {
 					await addValidItemsToCart(items);
 					// Only reset loading state if we're not redirecting
 					isSubmitting = false;
-					BuyBoxState.setState({ isLoading: false });
+
+					// Reset button state
+					resetButtonState();
 				}
 			} catch (err) {
 				console.error('Submit error:', err);
@@ -1441,6 +1545,22 @@ document.addEventListener('DOMContentLoaded', () => {
 		});
 	}
 
+	// Add a visibility change handler to reset button state when returning from checkout
+	document.addEventListener('visibilitychange', function() {
+		if (document.visibilityState === 'visible') {
+			console.log('Page visible again, resetting button state');
+			if (typeof window.resetBuyBoxButtonState === 'function') {
+				window.resetBuyBoxButtonState();
+			}
+
+			// Always ensure these states are reset
+			BuyBoxState.setState({
+				isLoading: false,
+				isRedirectingToCheckout: false
+			});
+		}
+	});
+
 	function initOneTimeButton() {
 		if (!oneTimeButton) return;
 
@@ -1449,11 +1569,25 @@ document.addEventListener('DOMContentLoaded', () => {
 		// Track submission state
 		let isSubmittingOneTime = false;
 
+		// Create a function to fully reset the one-time button state
+		function resetOneTimeButtonState() {
+			isSubmittingOneTime = false;
+			oneTimeButton.disabled = false;
+			oneTimeButton.classList.remove('disabled', 'text-green-700', 'border-green-700', 'text-red-600', 'border-red-600');
+			oneTimeButton.innerHTML = oneTimeButton.getAttribute('data-original-text');
+			oneTimeButton.removeAttribute('aria-busy');
+			console.log('One-time button state fully reset');
+		}
+
+		// Make resetOneTimeButtonState available globally for the visibility handler
+		window.resetOneTimeButtonState = resetOneTimeButtonState;
+
 		oneTimeButton.addEventListener('click', async e => {
 			e.preventDefault();
 
 			// Prevent multiple submissions
 			if (isSubmittingOneTime || BuyBoxState.data.isLoading) {
+				console.log('One-time button click ignored - already processing');
 				return;
 			}
 
@@ -1514,8 +1648,21 @@ document.addEventListener('DOMContentLoaded', () => {
 						throw error;
 					}
 
-					// Go to checkout immediately
-					window.location.href = '/checkout';
+					// Reset loading states before redirecting
+					isSubmittingOneTime = false;
+					BuyBoxState.setState({
+						isLoading: false,
+						isRedirectingToCheckout: false
+					});
+
+					// Also reset the oneTimeButton state
+					resetOneTimeButtonState();
+
+					// Go to checkout with a small delay to ensure state updates
+					console.log("One-time purchase: Redirecting to checkout...");
+					setTimeout(() => {
+						window.location.href = '/checkout';
+					}, 50);
 				} else {
 					// Regular add to cart
 					const res = await fetch('/cart/add.js', {
@@ -1549,10 +1696,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 					// Reset state
 					setTimeout(() => {
-						oneTimeButton.innerHTML = oneTimeButton.getAttribute('data-original-text');
-						oneTimeButton.classList.remove('text-green-700', 'border-green-700');
-						oneTimeButton.removeAttribute('aria-busy');
-						isSubmittingOneTime = false;
+						resetOneTimeButtonState();
 						BuyBoxState.setState({ isLoading: false });
 					}, 2000);
 				}
@@ -1570,10 +1714,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 				// Reset state
 				setTimeout(() => {
-					oneTimeButton.innerHTML = oneTimeButton.getAttribute('data-original-text');
-					oneTimeButton.classList.remove('text-red-600', 'border-red-600');
-					oneTimeButton.removeAttribute('aria-busy');
-					isSubmittingOneTime = false;
+					resetOneTimeButtonState();
 					BuyBoxState.setState({ isLoading: false });
 				}, 2000);
 			}
@@ -1792,6 +1933,18 @@ document.addEventListener('DOMContentLoaded', () => {
 		const selectedBox = productActions.querySelector('.variant-box.selected');
 		const recommendedMonths = parseInt(selectedBox?.dataset.bottleQuantity || '1', 10);
 
+		// Clear existing styles before rebuilding to avoid conflicts
+		filteredPlans.forEach(allocation => {
+            if (!allocation || !allocation.selling_plan) return;
+            const plan = allocation.selling_plan;
+            const planId = plan.id.toString();
+            const freqBox = fragment.querySelector(`div[data-selling-plan-id="${planId}"]`);
+            if (freqBox) {
+                 freqBox.style.backgroundColor = 'var(--bg-color)';
+			     freqBox.style.color = 'var(--primary-color)';
+            }
+        });
+
 		filteredPlans.forEach(allocation => {
 			// Defensive check to ensure allocation exists
 			if (!allocation || !allocation.selling_plan) {
@@ -1821,34 +1974,13 @@ document.addEventListener('DOMContentLoaded', () => {
 			const frequencyBox = document.createElement('div');
 			frequencyBox.className = 'rounded-md cursor-pointer py-2 min-w-[90px] max-w-[168px] text-center w-full transition-all duration-300 ease-in-out';
 
+            // Default style
 			frequencyBox.style.backgroundColor = 'var(--bg-color)';
 			frequencyBox.style.color = 'var(--primary-color)';
 
 			frequencyBox.setAttribute('data-selling-plan-id', plan.id);
 			frequencyBox.setAttribute('data-frequency-value', value);
 			frequencyBox.setAttribute('data-frequency-unit', unit);
-
-			// Set the current selling plan ID to recommended months if it's a new selection
-			// or keep existing selection if it was already set
-			const isRecommendedMonthPlan = (unit === 'month' && value === recommendedMonths);
-			const shouldSelectRecommended = !currentSellingPlanId || isRecommendedMonthPlan;
-
-			if ((plan.id && plan.id.toString() === currentSellingPlanId) ||
-				(shouldSelectRecommended && isRecommendedMonthPlan)) {
-				frequencyBox.style.backgroundColor = 'var(--primary-color)';
-				frequencyBox.style.color = 'white';
-
-				// Update the current box with the recommended selling plan ID
-				if (shouldSelectRecommended && isRecommendedMonthPlan) {
-					currentSellingPlanId = plan.id.toString();
-
-					// Update the selected box with the new selling plan ID
-					if (selectedBox) {
-						selectedBox.dataset.subscriptionSellingPlanId = currentSellingPlanId;
-						if (submitSellingPlanId) submitSellingPlanId.value = currentSellingPlanId;
-					}
-				}
-			}
 
 			// Change label format based on the frequency unit
             let displayText = '';
@@ -1870,6 +2002,71 @@ document.addEventListener('DOMContentLoaded', () => {
 
 			fragment.appendChild(frequencyBox);
 		});
+
+        // --- Start: New Selection Logic ---
+        let finalSelectedPlanId = null;
+        const recommendedPlan = filteredPlans.find(alloc => {
+             if (!alloc || !alloc.selling_plan || !alloc.selling_plan.name) return false;
+             const { value, unit } = extractFrequency(alloc.selling_plan.name);
+             return unit === 'month' && value === recommendedMonths;
+        });
+
+        if (BuyBoxState.data.isInitialLoad) {
+            // On initial load, prioritize the recommended plan
+            if (recommendedPlan) {
+                finalSelectedPlanId = recommendedPlan.selling_plan.id.toString();
+                console.log('Initial load: Selecting recommended plan:', finalSelectedPlanId);
+            } else if (filteredPlans.length > 0) {
+                // Fallback to the first available plan if no recommended found
+                finalSelectedPlanId = filteredPlans[0].selling_plan.id.toString();
+                console.log('Initial load: No recommended plan found, selecting first available:', finalSelectedPlanId);
+            }
+        } else {
+            // After initial load, prioritize the plan stored in state (from user click)
+            const statePlanId = BuyBoxState.data.sellingPlanId;
+            const statePlanExists = filteredPlans.some(alloc => alloc.selling_plan.id.toString() === statePlanId);
+
+            if (statePlanId && statePlanExists) {
+                finalSelectedPlanId = statePlanId;
+                console.log('User interaction: Selecting plan from state:', finalSelectedPlanId);
+            } else if (recommendedPlan) {
+                 // Fallback to recommended if state plan is invalid or missing
+                finalSelectedPlanId = recommendedPlan.selling_plan.id.toString();
+                console.log('User interaction: State plan invalid/missing, falling back to recommended:', finalSelectedPlanId);
+            } else if (filteredPlans.length > 0) {
+                // Fallback to the first available plan if no state or recommended plan found
+                finalSelectedPlanId = filteredPlans[0].selling_plan.id.toString();
+                 console.log('User interaction: No state or recommended plan, selecting first available:', finalSelectedPlanId);
+            }
+        }
+
+        // Apply styles to the selected frequency box in the fragment
+        if (finalSelectedPlanId) {
+             const selectedFreqBox = fragment.querySelector(`div[data-selling-plan-id="${finalSelectedPlanId}"]`);
+             if (selectedFreqBox) {
+                selectedFreqBox.style.backgroundColor = 'var(--primary-color)';
+				selectedFreqBox.style.color = 'white';
+             } else {
+                 console.warn('Selected plan ID not found in fragment:', finalSelectedPlanId);
+                 // Potentially reset finalSelectedPlanId if the element wasn't found?
+                 // finalSelectedPlanId = null;
+             }
+        }
+
+        // Update state and related elements if the selection changed or needs setting
+        if (finalSelectedPlanId && BuyBoxState.data.sellingPlanId !== finalSelectedPlanId) {
+            console.log(`Updating sellingPlanId. Was: ${BuyBoxState.data.sellingPlanId}, New: ${finalSelectedPlanId}`);
+            BuyBoxState.setState({ sellingPlanId: finalSelectedPlanId });
+            if (selectedBox) selectedBox.dataset.subscriptionSellingPlanId = finalSelectedPlanId;
+            if (submitSellingPlanId) submitSellingPlanId.value = finalSelectedPlanId;
+        } else if (!finalSelectedPlanId && BuyBoxState.data.sellingPlanId) {
+            // If nothing is selected, clear the state
+             console.log(`Clearing sellingPlanId. Was: ${BuyBoxState.data.sellingPlanId}`);
+             BuyBoxState.setState({ sellingPlanId: null });
+             if (selectedBox) selectedBox.dataset.subscriptionSellingPlanId = '';
+             if (submitSellingPlanId) submitSellingPlanId.value = '';
+        }
+        // --- End: New Selection Logic ---
 
 		frequencyOptions.innerHTML = '';
 		frequencyOptions.appendChild(fragment);
@@ -1915,8 +2112,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
 		let description = '';
 
+		// If selected frequency is 30 days, show nothing
+		if (selectedFrequencyUnit === 'day' && selectedFrequencyValue === 30) {
+			description = '';
+		}
 		// If selected frequency matches recommended frequency (only for months)
-		if (selectedFrequencyUnit === 'month' && selectedFrequencyValue === bottleQuantity) {
+		else if (selectedFrequencyUnit === 'month' && selectedFrequencyValue === bottleQuantity) {
 			description = ''; // No text when on recommended frequency
 		} else {
 			// Otherwise show the recommendation
@@ -1951,6 +2152,52 @@ document.addEventListener('DOMContentLoaded', () => {
 		hideMonthTextIfNeeded();
 	}
 	init();
+
+	// Global reset function to ensure buttons work after returning from checkout
+	window.addEventListener('pageshow', function(event) {
+		// Only run this when navigating back via browser history (persisted page)
+		if (event.persisted) {
+			console.log('Page shown from back/forward cache, resetting button state');
+
+			// Add a short delay to let the browser finish restoration
+			setTimeout(function() {
+				// Reset all button states
+				if (typeof window.resetBuyBoxButtonState === 'function') {
+					window.resetBuyBoxButtonState();
+				}
+
+				if (typeof window.resetOneTimeButtonState === 'function') {
+					window.resetOneTimeButtonState();
+				}
+
+				// Force complete UI reset
+				BuyBoxState.setState({
+					isLoading: false,
+					isRedirectingToCheckout: false
+				});
+
+				if (productActions) {
+					productActions.classList.remove('processing-order');
+				}
+			}, 150);
+		}
+	});
+
+	// Keep existing visibilitychange listener as backup
+	document.addEventListener('visibilitychange', function() {
+		if (document.visibilityState === 'visible') {
+			console.log('Page visible again, resetting button state');
+			if (typeof window.resetBuyBoxButtonState === 'function') {
+				window.resetBuyBoxButtonState();
+			}
+
+			// Always ensure these states are reset
+			BuyBoxState.setState({
+				isLoading: false,
+				isRedirectingToCheckout: false
+			});
+		}
+	});
 
 	// Updated to extract both value and unit (days or months)
     function extractFrequency(planName) {

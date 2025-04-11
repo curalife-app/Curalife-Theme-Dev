@@ -863,12 +863,22 @@ window.CuralifeBoxes = window.CuralifeBoxes || {
 						}
 					}
 
+					// Reset loading states before redirecting
+					this.setState({
+						isRedirectingToCheckout: false,
+						isLoading: false
+					});
+
 					// Redirect to checkout
 					console.log("Redirecting to checkout...");
 					if (this.state.isDebug) {
 						CuralifeBoxes.utils.showNotification("Redirecting to checkout...", "debug");
 					}
-					window.location.href = "/checkout";
+
+					// Small delay to ensure state update completes before redirect
+					setTimeout(() => {
+						window.location.href = "/checkout";
+					}, 50);
 				} catch (err) {
 					console.error("Buy now flow error:", err);
 					this.setState({
@@ -1141,9 +1151,18 @@ window.CuralifeBoxes = window.CuralifeBoxes || {
 								console.error("Failed to verify cart contents:", e);
 							}
 
-							// Go to checkout
+							// Reset loading states before redirecting
+							isSubmittingOneTime = false;
+							this.setState({
+								isLoading: false,
+								isRedirectingToCheckout: false
+							});
+
+							// Go to checkout with a small delay to ensure state updates
 							console.log("One-time purchase: Redirecting to checkout...");
-							window.location.href = "/checkout";
+							setTimeout(() => {
+								window.location.href = "/checkout";
+							}, 50);
 						} else {
 							// Regular add to cart
 							await CuralifeBoxes.utils.addToCart(toAdd);
@@ -1209,7 +1228,6 @@ window.CuralifeBoxes = window.CuralifeBoxes || {
 	 * Add required styles to the document
 	 */
 	addStyles() {
-		// Check if styles are already added
 		if (document.getElementById("curalife-buy-box-styles")) return;
 
 		const styleElement = document.createElement("style");
