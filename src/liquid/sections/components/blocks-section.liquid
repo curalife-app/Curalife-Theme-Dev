@@ -1,0 +1,314 @@
+{% comment %}
+	Section that provides a flexible block layout.
+	Merchants add 'Blocks Group' blocks, which then accept nested content blocks.
+{% endcomment %}
+
+{% assign section_id = section.id %}
+{% assign columns = section.settings.columns | default: 2 %}
+{% assign columns_mobile = section.settings.columns_mobile | default: 1 %}
+{% assign column_gap = section.settings.column_gap | default: 2 %}
+
+<style>
+	#section-{{ section_id }} {
+		--column-gap: {{ column_gap }}rem;
+		--mobile-gap: {{ column_gap | times: 0.75 | default: 1 }}rem;
+		--columns: {{ columns }};
+		--columns-mobile: {{ columns_mobile }};
+		--alignment: {{ section.settings.vertical_alignment | default: 'flex-start' }};
+	}
+
+	#section-{{ section_id }} .blocks-section-flex {
+		display: grid;
+		grid-template-columns: repeat(var(--columns), 1fr);
+		gap: var(--column-gap);
+		align-items: var(--alignment);
+	}
+
+	#section-{{ section_id }} .blocks-section-block {
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+		width: 100%;
+	}
+
+	/* For flex-based layout when using custom column widths */
+	#section-{{ section_id }}.using-custom-widths .blocks-section-flex {
+		display: flex;
+		flex-wrap: {% if section.settings.is_wrap_columns %}wrap{% else %}nowrap{% endif %};
+		gap: var(--column-gap);
+	}
+
+	@media (max-width: 768px) {
+		#section-{{ section_id }} .blocks-section-flex {
+			grid-template-columns: repeat(var(--columns-mobile), 1fr);
+			gap: var(--mobile-gap);
+		}
+
+		#section-{{ section_id }}.using-custom-widths .blocks-section-flex {
+			{% if section.settings.is_wrap_columns_mobile %}
+				flex-wrap: wrap;
+			{% else %}
+				flex-direction: column;
+			{% endif %}
+		}
+	}
+</style>
+
+<section
+	id="section-{{ section_id }}"
+	class="blocks-section {% if any_custom_width %}using-custom-widths{% endif %} {% if section.settings.section_classes %}{{ section.settings.section_classes }}{% endif %}"
+	data-section-id="{{ section_id }}"
+	data-section-type="blocks-section"
+	style="
+		{% if section.settings.bg_color %}background-color: {{ section.settings.bg_color }};{% endif %}
+		{% if section.settings.section_padding_top != blank %}padding-top: {{ section.settings.section_padding_top }}px;{% endif %}
+		{% if section.settings.section_padding_bottom != blank %}padding-bottom: {{ section.settings.section_padding_bottom }}px;{% endif %}
+	">
+	<div class="container mx-auto px-4 py-8">
+		{% if section.settings.title != blank %}
+			<{{ section.settings.title_tag | default: 'h2' }} class="section-title {% if section.settings.title_alignment %}text-{{ section.settings.title_alignment }}{% else %}text-center{% endif %} text-2xl mb-6 {% if section.settings.title_color %}text-[{{ section.settings.title_color }}]{% endif %}">
+				{{ section.settings.title }}
+			</{{ section.settings.title_tag | default: 'h2' }}>
+		{% endif %}
+
+		{% if section.settings.subtitle != blank %}
+			<div class="section-subtitle {% if section.settings.title_alignment %}text-{{ section.settings.title_alignment }}{% else %}text-center{% endif %} mb-6 {% if section.settings.subtitle_color %}text-[{{ section.settings.subtitle_color }}]{% endif %}">
+				{{ section.settings.subtitle }}
+			</div>
+		{% endif %}
+
+		{% assign any_custom_width = false %}
+		{% for block in section.blocks %}
+			{% if block.settings.column_width and block.settings.column_width != 6 %}
+				{% assign any_custom_width = true %}
+				{% break %}
+			{% endif %}
+		{% endfor %}
+
+		<div class="blocks-section-flex">
+			{% for block in section.blocks %}
+				{% if any_custom_width %}
+					{%- assign col_width = block.settings.column_width | default: 12 | divided_by: columns -%}
+					{%- assign column_percent = col_width | times: 100 | divided_by: 12 -%}
+
+					<div class="blocks-section-block" style="flex-basis: {{ column_percent }}%; width: {{ column_percent }}%;">
+						{% render block %}
+					</div>
+				{% else %}
+					<div class="blocks-section-block">
+						{% render block %}
+					</div>
+				{% endif %}
+			{% endfor %}
+		</div>
+	</div>
+</section>
+
+{% schema %}
+	{
+		"name": "Blocks Section",
+		"tag": "section",
+		"class": "blocks-section",
+		"settings": [
+			{
+				"type": "header",
+				"content": "Section Header"
+			},
+			{
+				"type": "text",
+				"id": "title",
+				"label": "Section Title (Optional)"
+			},
+			{
+				"type": "select",
+				"id": "title_tag",
+				"label": "Title Tag",
+				"options": [
+					{
+						"value": "h1",
+						"label": "H1"
+					},
+					{
+						"value": "h2",
+						"label": "H2"
+					},
+					{
+						"value": "h3",
+						"label": "H3"
+					}
+				],
+				"default": "h2"
+			},
+			{
+				"type": "color",
+				"id": "title_color",
+				"label": "Title Color"
+			},
+			{
+				"type": "select",
+				"id": "title_alignment",
+				"label": "Title Alignment",
+				"options": [
+					{
+						"value": "left",
+						"label": "Left"
+					},
+					{
+						"value": "center",
+						"label": "Center"
+					},
+					{
+						"value": "right",
+						"label": "Right"
+					}
+				],
+				"default": "center"
+			},
+			{
+				"type": "richtext",
+				"id": "subtitle",
+				"label": "Section Subtitle"
+			},
+			{
+				"type": "color",
+				"id": "subtitle_color",
+				"label": "Subtitle Color"
+			},
+			{
+				"type": "header",
+				"content": "Block Layout"
+			},
+			{
+				"type": "range",
+				"id": "columns",
+				"label": "Columns (Desktop)",
+				"min": 1,
+				"max": 6,
+				"step": 1,
+				"default": 2
+			},
+			{
+				"type": "select",
+				"id": "columns_mobile",
+				"label": "Columns (Mobile)",
+				"options": [
+					{ "value": "1", "label": "1 column" },
+					{ "value": "2", "label": "2 columns" }
+				],
+				"default": "1"
+			},
+			{
+				"type": "range",
+				"id": "column_gap",
+				"label": "Block Gap",
+				"min": 0,
+				"max": 8,
+				"step": 0.5,
+				"unit": "rem",
+				"default": 2
+			},
+			{
+				"type": "checkbox",
+				"id": "is_wrap_columns",
+				"label": "Wrap blocks (Desktop)",
+				"default": false
+			},
+			{
+				"type": "checkbox",
+				"id": "is_wrap_columns_mobile",
+				"label": "Wrap blocks (Mobile)",
+				"default": false
+			},
+			{
+				"type": "select",
+				"id": "vertical_alignment",
+				"label": "Vertical Alignment",
+				"options": [
+					{
+						"value": "flex-start",
+						"label": "Top"
+					},
+					{
+						"value": "center",
+						"label": "Middle"
+					},
+					{
+						"value": "flex-end",
+						"label": "Bottom"
+					},
+					{
+						"value": "stretch",
+						"label": "Stretch"
+					}
+				],
+				"default": "flex-start"
+			},
+			{
+				"type": "header",
+				"content": "Section Styling"
+			},
+			{
+				"type": "color",
+				"id": "bg_color",
+				"label": "Background Color"
+			},
+			{
+				"type": "number",
+				"id": "section_padding_top",
+				"label": "Section Padding Top",
+				"default": 50
+			},
+			{
+				"type": "number",
+				"id": "section_padding_bottom",
+				"label": "Section Padding Bottom",
+				"default": 50
+			},
+			{
+				"type": "text",
+				"id": "section_classes",
+				"label": "Additional Section Classes"
+			}
+		],
+		"blocks": [{ "type": "@theme" }, { "type": "@app" }],
+		"presets": [
+			{
+				"name": "Blocks Section (Empty)",
+				"blocks": [{ "type": "column-content" }, { "type": "column-content" }]
+			},
+			{
+				"name": "Two Blocks with Heading & Text",
+				"settings": {
+					"columns": 2,
+					"column_gap": 2
+				},
+				"blocks": [
+					{
+						"type": "column-content",
+						"blocks": [
+							{
+								"type": "text-block",
+								"settings": {
+									"text": "<h2>Example Heading</h2>",
+									"text_color": "#1f2937"
+								}
+							}
+						]
+					},
+					{
+						"type": "column-content",
+						"blocks": [
+							{
+								"type": "text-block",
+								"settings": {
+									"text": "<p>Use this section to explain a concept or feature. Add more blocks like images or buttons below.</p>",
+									"text_color": "#6b7280"
+								}
+							}
+						]
+					}
+				]
+			}
+		]
+	}
+{% endschema %}
