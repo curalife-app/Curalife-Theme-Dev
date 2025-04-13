@@ -1,0 +1,79 @@
+{% comment %}
+	Renders an image block, utilizing the 'image-test' snippet.
+
+	Accepts:
+	- block: The block object containing settings.
+	- lazy: Boolean to control lazy loading (passed from section/parent).
+
+	Usage:
+	{% render 'image-block', block: block, lazy: lazyLoad %}
+{% endcomment %}
+
+{% assign blockMainImage = block.settings.image %}
+{% assign blockMainMobileImage = block.settings.image_mobile %}
+
+{% comment %} Global Store Overrides - Add your logic here if needed {% endcomment %}
+{% comment %}
+	{% if shop.name contains 'Global' %}
+	  {% assign blockMainImage = block.settings.image_global | default: block.settings.image %}
+	  {% assign blockMainMobileImage = block.settings.image_mobile_global | default: block.settings.image_mobile %}
+	{% endif %}
+{% endcomment %}
+
+<div class="image-block-wrapper" {{ block.shopify_attributes }}>
+	{%
+		render 'image-test',
+		image: blockMainImage,
+		mobile_image: blockMainMobileImage,
+		is_log: true, // Keep or remove based on your debugging needs
+		lazy: lazy | default: true, // Default to lazy load if not specified
+		load_mobile: true,
+		alt: blockMainImage.alt | default: 'Image block',
+		link: block.settings.image_link,
+		class: block.settings.additional_classes
+	%}
+</div>
+
+{% schema %}
+	{
+	  "name": "Image Block",
+	  "settings": [
+	    {
+	      "type": "image_picker",
+	      "id": "image",
+	      "label": "Image"
+	    },
+	    {
+	      "type": "image_picker",
+	      "id": "image_mobile",
+	      "label": "Mobile Image (Optional)"
+	    },
+	    {
+	      "type": "url",
+	      "id": "image_link",
+	      "label": "Image Link (Optional)"
+	    },
+	    {
+	      "type": "text",
+	      "id": "additional_classes",
+	      "label": "Additional CSS Classes"
+	    }
+	    {% comment %} Add Global Store image pickers here if needed {% endcomment %}
+	    // {
+	    //   "type": "image_picker",
+	    //   "id": "image_global",
+	    //   "label": "Image on Global (Optional)"
+	    // },
+	    // {
+	    //   "type": "image_picker",
+	    //   "id": "image_mobile_global",
+	    //   "label": "Mobile Image on Global (Optional)"
+	    // }
+	  ],
+	  "presets": [
+	    {
+	      "name": "Image Block"
+	    }
+	  ]
+	}
+{% endschema %}

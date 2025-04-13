@@ -1,0 +1,103 @@
+{% comment %}
+	Renders a text block with optional styling (background, border, shadow).
+
+	Accepts:
+	- block: The block object containing settings.
+
+	Usage:
+	{% render 'text-block', block: block %}
+{% endcomment %}
+
+{% assign text_block_styles = '' %}
+{% if block.settings.box_border_color != blank %}
+	{% assign border_style = 'border: 1px solid ' | append: block.settings.box_border_color | append: ';' %}
+	{% assign text_block_styles = text_block_styles | append: border_style | append: ' padding: 20px;' %}
+{% endif %}
+{% if block.settings.box_bg_color != blank %}
+	{% assign bg_style = 'background-color: ' | append: block.settings.box_bg_color | append: ';' %}
+	{% assign text_block_styles = text_block_styles | append: bg_style | append: ' padding: 20px;' %}
+{% endif %}
+{% if block.settings.is_box_shadow %}
+	{% assign shadow_style = 'box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);' %}
+	{% assign text_block_styles = text_block_styles | append: shadow_style %}
+{% endif %}
+
+<div
+	id="text-block-{{ block.id }}"
+	class="text-block"
+	style="opacity: {{ block.settings.opacity }}%; color: {{ block.settings.text_color }}; border-radius: 10px; {{ text_block_styles }}"
+	{{ block.shopify_attributes }}>
+	{{ block.settings.text }}
+	{% if block.settings.font_size != 18 %}
+		<style>
+			#text-block-{{ block.id }} p {
+			  font-size:  {{ block.settings.font_size }}px !important;
+			}
+		</style>
+	{% endif %}
+</div>
+
+{% schema %}
+	{
+		"name": "Text Block",
+		"settings": [
+			{
+				"type": "richtext",
+				"id": "text",
+				"label": "Text Content",
+				"default": "<p>Use this text block to share information about your brand with your customers.</p>"
+			},
+			{
+				"type": "color",
+				"id": "text_color",
+				"label": "Text Color",
+				"default": "#000000"
+			},
+			{
+				"type": "range",
+				"id": "font_size",
+				"label": "Font Size",
+				"min": 10,
+				"max": 40,
+				"step": 1,
+				"unit": "px",
+				"default": 18
+			},
+			{
+				"type": "range",
+				"id": "opacity",
+				"label": "Opacity",
+				"min": 0,
+				"max": 100,
+				"step": 10,
+				"unit": "%",
+				"default": 100
+			},
+			{
+				"type": "header",
+				"content": "Box Styling (Optional)"
+			},
+			{
+				"type": "color",
+				"id": "box_border_color",
+				"label": "Box Border Color"
+			},
+			{
+				"type": "color",
+				"id": "box_bg_color",
+				"label": "Box Background Color"
+			},
+			{
+				"type": "checkbox",
+				"id": "is_box_shadow",
+				"label": "Add Box Shadow",
+				"default": false
+			}
+		],
+		"presets": [
+			{
+				"name": "Text Block"
+			}
+		]
+	}
+{% endschema %}
