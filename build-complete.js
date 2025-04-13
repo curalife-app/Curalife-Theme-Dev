@@ -45,7 +45,7 @@ const dirMappings = {
 	"liquid/layout": "layout",
 	"liquid/sections": "sections",
 	"liquid/snippets": "snippets",
-	"liquid/blocks": "snippets",
+	"liquid/blocks": "blocks",
 	"styles/css": "assets",
 	styles: "assets",
 	fonts: "assets",
