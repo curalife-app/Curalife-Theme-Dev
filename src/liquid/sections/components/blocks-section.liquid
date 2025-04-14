@@ -85,8 +85,24 @@
 			{% endif %}
 		{% endfor %}
 
-		<div class="blocks-section-flex">
-			{% for block in section.blocks %}
+		{% if section.settings.is_slider %}
+			<div
+				class="swiper blocks-section-swiper !overflow-visible z-10 {% if section.settings.is_dots or section.settings.is_scrollbar %}!pb-12{% endif %}"
+				id="blocks-swiper-{{ section_id }}"
+				{% if section.settings.animation %}
+					data-aos="{{ section.settings.animation }}"
+				{% endif %}>
+				<div class="swiper-wrapper">
+		{% else %}
+			<div class="blocks-section-flex">
+		{% endif %}
+
+		{% for block in section.blocks %}
+			{% if section.settings.is_slider %}
+				<div class="swiper-slide blocks-section-block">
+					{% render block %}
+				</div>
+			{% else %}
 				{% if any_custom_width %}
 					{%- assign col_width = block.settings.column_width | default: 12 | divided_by: columns -%}
 					{%- assign column_percent = col_width | times: 100 | divided_by: 12 -%}
@@ -99,15 +115,182 @@
 						{% render block %}
 					</div>
 				{% endif %}
-			{% endfor %}
-		</div>
+			{% endif %}
+		{% endfor %}
+
+		{% if section.settings.is_slider %}
+			</div>
+			<div class="swiper-navigations">
+				{% if section.settings.is_arrows %}
+					<div class="swiper-nav swiper-button-next" name="track:Slider Arrow - Next"></div>
+					<div class="swiper-nav swiper-button-prev" name="track:Slider Arrow - Preview"></div>
+				{% endif %}
+
+				{% if section.settings.is_dots %}
+					<div class="swiper-pagination"></div>
+				{% endif %}
+
+				{% if section.settings.is_scrollbar %}
+					<div class="swiper-scrollbar"></div>
+				{% endif %}
+			</div>
+			</div>
+		{% else %}
+			</div>
+		{% endif %}
 	</div>
 </section>
+
+{% if section.settings.is_slider %}
+	<script defer>
+		// Define functions outside of DOMContentLoaded to avoid duplicate function creation
+		window.blocksSwiperFunctions = window.blocksSwiperFunctions || {
+			initSwiper: function(swiperContainer) {
+				requestAnimationFrame(() => {
+					loadSwiper(() => {
+						let swiper = initializeSwiper('#blocks-swiper-{{ section_id }}', {
+							spaceBetween: 15,
+							grabCursor: true,
+							watchSlidesVisibility: true,
+							slidesPerView: 'auto',
+							autoHeight: {{ section.settings.is_auto_height | default: false }},
+							{% if section.settings.is_arrows %}
+							navigation: {
+								nextEl: '#blocks-swiper-{{ section_id }} .swiper-button-next',
+								prevEl: '#blocks-swiper-{{ section_id }} .swiper-button-prev',
+							},
+							{% endif %}
+							{% if section.settings.is_dots %}
+							pagination: {
+								el: '#blocks-swiper-{{ section_id }} .swiper-pagination',
+								clickable: true
+							},
+							{% endif %}
+							{% if section.settings.is_scrollbar %}
+							scrollbar: {
+								el: '#blocks-swiper-{{ section_id }} .swiper-scrollbar'
+							},
+							{% endif %}
+							{% if section.settings.is_ticker %}
+							loop: true,
+							speed: 1500,
+							autoplay: {
+								delay: 0,
+								disableOnInteraction: false
+							},
+							{% elsif section.settings.slider_autoplay_speed > 0 %}
+							loop: true,
+							speed: {{ section.settings.slider_autoplay_speed }},
+							autoplay: {
+								delay: {{ section.settings.slider_autoplay_speed }},
+							},
+							{% endif %}
+							lazy: true,
+							breakpoints: {
+								768: {
+									slidesPerView: {{ section.settings.slides_per_view_mobile | default: 1 }},
+								},
+								1200: {
+									slidesPerView: {% if section.settings.slides_per_view != 'all' %}{{ section.settings.slides_per_view | default: 3 }}{% else %}'auto'{% endif %}
+								}
+							}
+						});
+					});
+				});
+			}
+		};
+
+		// Create a debounce function for resize events
+		window.debounce = window.debounce || ((func, delay) => {
+			let timeout;
+			return function(...args) {
+				clearTimeout(timeout);
+				timeout = setTimeout(() => func.apply(this, args), delay);
+			};
+		});
+
+		// Use "load" event to initialize UI after content is fully loaded
+		window.addEventListener('load', function() {
+			const swiperContainer = document.getElementById('blocks-swiper-{{ section_id }}');
+			if (!swiperContainer) return;
+
+			blocksSwiperFunctions.initSwiper(swiperContainer);
+		});
+	</script>
+
+	<style>
+		{% if section.settings.is_ticker %}
+			:root {
+				--swiper-transition-timing-function: linear;
+			}
+		{% endif %}
+
+		#section-{{ section_id }} .swiper-slide {
+			opacity: 0;
+			transition: opacity 1s ease;
+		}
+
+		#section-{{ section_id }} .swiper-slide-active {
+			opacity: 1;
+		}
+
+		{% if section.settings.slides_per_view == 'all' %}
+			{% assign slides_per_view = section.blocks.size %}
+		{% else %}
+			{% assign slides_per_view = section.settings.slides_per_view | minus: 1 | default: 2 %}
+		{% endif %}
+
+		{% for i in (1..slides_per_view) %}
+			#section-{{ section_id }} .swiper-slide-active{% for j in (1..i) %} + .swiper-slide{% endfor %} {
+				opacity: 1;
+			}
+		{% endfor %}
+
+		@media (max-width: 768px) {
+			#section-{{ section_id }} .swiper-slide-active {
+				opacity: 1;
+			}
+
+			{% if section.settings.slides_per_view_mobile == 'all' %}
+				{% assign slides_per_view_mobile = section.blocks.size %}
+			{% else %}
+				{% assign slides_per_view_mobile = section.settings.slides_per_view_mobile | minus: 1 | default: 0 %}
+			{% endif %}
+
+			{% for i in (1..slides_per_view_mobile) %}
+				#section-{{ section_id }} .swiper-slide-active{% for j in (1..i) %} + .swiper-slide{% endfor %} {
+					opacity: 1;
+				}
+			{% endfor %}
+		}
+
+		{% if section.settings.is_arrows_bottom %}
+			#section-{{ section_id }} {
+				--swiper-navigation-top-offset: 98% !important;
+				--swiper-navigation-sides-offset: 370px;
+
+				.swiper {
+					padding-bottom: 50px !important;
+				}
+
+				@media (width < 768px) {
+					--swiper-navigation-sides-offset: 15vw !important;
+					--swiper-navigation-top-offset: 105vw !important;
+
+					.swiper {
+						padding-bottom: 13vw !important;
+					}
+				}
+			}
+		{% endif %}
+	</style>
+{% endif %}
 
 {% schema %}
 	{
 		"name": "Blocks Section",
 		"tag": "section",
+		"blocks": [{ "type": "@theme" }, { "type": "@app" }],
 		"class": "blocks-section",
 		"settings": [
 			{
@@ -245,6 +428,82 @@
 			},
 			{
 				"type": "header",
+				"content": "Slider Settings"
+			},
+			{
+				"type": "checkbox",
+				"id": "is_slider",
+				"label": "Enable Slider",
+				"default": false
+			},
+			{
+				"type": "range",
+				"id": "slider_autoplay_speed",
+				"label": "Autoplay Speed",
+				"min": 0,
+				"max": 5000,
+				"step": 100,
+				"unit": "ms",
+				"default": 0
+			},
+			{
+				"type": "checkbox",
+				"id": "is_ticker",
+				"label": "Slider Ticker Animation"
+			},
+			{
+				"type": "checkbox",
+				"id": "is_arrows",
+				"label": "Show Arrows",
+				"default": true
+			},
+			{
+				"type": "checkbox",
+				"id": "is_dots",
+				"label": "Show Dots",
+				"default": true
+			},
+			{
+				"type": "checkbox",
+				"id": "is_scrollbar",
+				"label": "Show ScrollBar"
+			},
+			{
+				"type": "checkbox",
+				"id": "is_arrows_bottom",
+				"label": "Arrows On Bottom"
+			},
+			{
+				"type": "checkbox",
+				"id": "is_auto_height",
+				"label": "Auto Height"
+			},
+			{
+				"type": "select",
+				"id": "slides_per_view",
+				"label": "Slides Per View (Desktop)",
+				"options": [
+					{ "value": "1", "label": "1 slide" },
+					{ "value": "2", "label": "2 slides" },
+					{ "value": "3", "label": "3 slides" },
+					{ "value": "4", "label": "4 slides" },
+					{ "value": "all", "label": "All slides" }
+				],
+				"default": "3"
+			},
+			{
+				"type": "select",
+				"id": "slides_per_view_mobile",
+				"label": "Slides Per View (Mobile)",
+				"options": [
+					{ "value": "1", "label": "1 slide" },
+					{ "value": "2", "label": "2 slides" },
+					{ "value": "all", "label": "All slides" }
+				],
+				"default": "1"
+			},
+			{
+				"type": "header",
 				"content": "Section Styling"
 			},
 			{
@@ -268,46 +527,56 @@
 				"type": "text",
 				"id": "section_classes",
 				"label": "Additional Section Classes"
-			}
-		],
-		"blocks": [{ "type": "@theme" }, { "type": "@app" }],
-		"presets": [
-			{
-				"name": "Blocks Section (Empty)",
-				"blocks": [{ "type": "column-content" }, { "type": "column-content" }]
 			},
 			{
-				"name": "Two Blocks with Heading & Text",
+				"type": "select",
+				"id": "animation",
+				"label": "Animation",
+				"options": [
+					{
+						"value": "none",
+						"label": "None"
+					},
+					{
+						"value": "fade-zoom-in",
+						"label": "Fade"
+					},
+					{
+						"value": "fade-up",
+						"label": "Fade Up"
+					},
+					{
+						"value": "fade-down",
+						"label": "Fade Down"
+					},
+					{
+						"value": "fade-left",
+						"label": "Fade Left"
+					},
+					{
+						"value": "fade-right",
+						"label": "Fade Right"
+					},
+					{
+						"value": "zoom-in",
+						"label": "Zoom In"
+					},
+					{
+						"value": "zoom-out",
+						"label": "Zoom Out"
+					}
+				],
+				"default": "none"
+			}
+		],
+		"presets": [
+			{
+				"name": "Blocks Section",
+				"blocks": [{ "type": "blocks-group" }, { "type": "blocks-group" }],
 				"settings": {
 					"columns": 2,
 					"column_gap": 2
-				},
-				"blocks": [
-					{
-						"type": "column-content",
-						"blocks": [
-							{
-								"type": "text-block",
-								"settings": {
-									"text": "<h2>Example Heading</h2>",
-									"text_color": "#1f2937"
-								}
-							}
-						]
-					},
-					{
-						"type": "column-content",
-						"blocks": [
-							{
-								"type": "text-block",
-								"settings": {
-									"text": "<p>Use this section to explain a concept or feature. Add more blocks like images or buttons below.</p>",
-									"text_color": "#6b7280"
-								}
-							}
-						]
-					}
-				]
+				}
 			}
 		]
 	}
