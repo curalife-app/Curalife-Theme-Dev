@@ -41,10 +41,7 @@
 									data-gift-id-subscription="{{ giftVariantSubscription.id | default: giftVariant.id }}">
 									<div class="flex items-center self-end gap-2 {% if giftsAmount > 1 %} ml-6 {% endif %}">
 										<div class="gift-image-container flex-shrink-0">
-											<img
-												src="{{ giftThumb | image_url: width: 160, height: 160 }}"
-												alt="{{ giftProd.title }}"
-												class="object-contain w-full h-full">
+											{% render 'image-test', image: giftThumb, is_retina: true, lazy: true, alt: giftProd.title, class: 'w-full h-full', max_width: 80 %}
 										</div>
 
 										<div class="gift-content flex-grow">
@@ -143,7 +140,6 @@
 		      }
 		    }
 
-		    /* Selected State */
 		    &.selected {
 		      .gift-option-border {
 		        background-color: {% if giftsAmount > 1 %}var(--primary-color-lighter){% else %}white{% endif %} !important;
@@ -176,20 +172,16 @@
 
 	<script>
 		document.addEventListener('DOMContentLoaded', () => {
-			// Initialize the gift selector functionality
 			const SID = '{{ SID }}';
 			const productActions = document.querySelector('#cta-section-' + SID + ' .product-actions');
 			if (!productActions) return;
 
 			const giftOptionContainers = productActions.querySelectorAll('.gift-box');
 
-			// Make the getSelectedGift function available globally for other components
 			window.subscriptionBox = window.subscriptionBox || {};
 			window.subscriptionBox[SID] = window.subscriptionBox[SID] || {};
 
-			// Function to update the selected gift visually
 			function updateGiftSelection(container) {
-				// Only update selection visually if there's more than one gift
 				if (giftOptionContainers.length > 1) {
 					giftOptionContainers.forEach(c => {
 						const mark = c.querySelector('.check-mark');
@@ -201,12 +193,10 @@
 						}
 					});
 				} else {
-					// For a single gift, always mark it as selected but don't show visual indicator
 					container.classList.add('selected');
 				}
 			}
 
-			// Function to get the currently selected gift
 			window.subscriptionBox[SID].getSelectedGift = function (isSubscription = false) {
 				const giftEl = document.querySelector('#cta-section-' + SID + ' .gift-box.selected');
 				if (!giftEl || !giftEl.querySelector('.gift-option-border')) {
@@ -225,12 +215,10 @@
 				};
 			};
 
-			// Initialize gift selection
 			if (giftOptionContainers.length > 0) {
 				updateGiftSelection(giftOptionContainers[0]);
 			}
 
-			// Only add click handlers if there's more than one gift
 			if (giftOptionContainers.length > 1) {
 				giftOptionContainers.forEach(c => {
 					c.addEventListener('click', () => updateGiftSelection(c));

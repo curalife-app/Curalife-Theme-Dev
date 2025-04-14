@@ -39,7 +39,7 @@
 {% endfor %}
 
 <div
-	class="product-actions"
+	class="product-actions [&[data-processing=true]]:opacity-70 [&[data-processing=true]]:pointer-events-none"
 	data-buy-box-new-root="true"
 	data-sid="{{ SID }}"
 	data-buy-type="{{ buyType }}"
@@ -55,7 +55,7 @@
 	<div class="purchase-options flex flex-col gap-3 mb-3">
 		<div class="font-medium text-[18px]">Choose your package</div>
 
-		<div class="variant-boxes flex justify-around gap-2">
+		<div class="variant-boxes flex justify-around gap-2" role="tablist" aria-label="Purchase options">
 			{% for block in blocks %}
 				{% assign varPurchaseType = block.settings.purchase_type %}
 				{% if block.type == 'variant' and varPurchaseType == 'subscribe' %}
@@ -142,42 +142,45 @@
 						{% assign subscription_save_percents = var.metafields.subscription.save_percents %}
 					{% endif %}
 
-					<div
-					id="variant-box-{{ SID }}-{{ forloop.index }}"
-				class="variant-box flex flex-col items-center border-2 border-primary rounded-md cursor-pointer transition-all duration-300 ease-in-out hover:bg-gray-100 text-center w-full {{ varPurchaseType }}"
-				data-variant="{{ blockVarID }}"
-				data-product="{{ prod.id }}"
-				data-original-variant="{{ var.id }}"
-				data-subscription-selling-plan-id="{{ selling_plan_id }}"
-				data-price="{{ var.price | money_without_currency | replace: ".00", "" }}"
-				data-sku="{{ var.sku }}"
-				data-index="{{ forloop.index }}"
-				data-item-price="{{ item_price }}"
-				data-subscription-price="{{ subscription_total_price }}"
-				data-subscription-item-price="{{ subscription_item_price }}"
-				data-original-item-cap="{{ original_item_cap }}"
-				data-dc="{{ var.metafields.custom.discount_code | base64_encode }}"
-				data-buy-once-discount="{{ var.metafields.custom.save_percents }}"
-				data-subscription-discount="{{ subscription_save_percents }}"
-				data-first-month-discount="{{ firstMonthDiscount }}"
-				data-price-per="{{ pricePer }}"
-				data-bottle-quantity="{{ bottle_quantity }}"
-				data-purchase-type="{{ varPurchaseType }}"
-				data-buy-type="{{ buyType }}"
-				{% if isGlobal %}
-				{% if block.settings.allowed_selling_plan_ids_global != blank %}
-				data-allowed-selling-plans="{{ block.settings.allowed_selling_plan_ids_global | strip | escape }}"
-				{% endif %}
-				{% else %}
-				{% if block.settings.allowed_selling_plan_ids != blank %}
-				data-allowed-selling-plans="{{ block.settings.allowed_selling_plan_ids | strip | escape }}"
-				{% endif %}
-				{% endif %}
+					<div id="variant-box-{{ SID }}-{{ forloop.index }}"
+						class="variant-box flex flex-col items-center relative border-2 border-primary-lighter rounded-md cursor-pointer transition-all duration-300 ease-in-out aria-selected:bg-primary aria-selected:border-primary aria-selected:text-white aria-[selected=false]:bg-white aria-[selected=false]:text-primary hover:bg-gray-100 text-center w-full {{ varPurchaseType }}"
+						role="tab"
+						aria-selected="false"
+						aria-controls="variant-content-{{ SID }}-{{ forloop.index }}"
+						tabindex="0"
+						data-variant="{{ blockVarID }}"
+						data-product="{{ prod.id }}"
+						data-original-variant="{{ var.id }}"
+						data-subscription-selling-plan-id="{{ selling_plan_id }}"
+						data-price="{{ var.price | money_without_currency | replace: ".00", "" }}"
+						data-sku="{{ var.sku }}"
+						data-index="{{ forloop.index }}"
+						data-item-price="{{ item_price }}"
+						data-subscription-price="{{ subscription_total_price }}"
+						data-subscription-item-price="{{ subscription_item_price }}"
+						data-original-item-cap="{{ original_item_cap }}"
+						data-dc="{{ var.metafields.custom.discount_code | base64_encode }}"
+						data-buy-once-discount="{{ var.metafields.custom.save_percents }}"
+						data-subscription-discount="{{ subscription_save_percents }}"
+						data-first-month-discount="{{ firstMonthDiscount }}"
+						data-price-per="{{ pricePer }}"
+						data-bottle-quantity="{{ bottle_quantity }}"
+						data-purchase-type="{{ varPurchaseType }}"
+						data-buy-type="{{ buyType }}"
+						{% if isGlobal %}
+						{% if block.settings.allowed_selling_plan_ids_global != blank %}
+						data-allowed-selling-plans="{{ block.settings.allowed_selling_plan_ids_global | strip | escape }}"
+						{% endif %}
+						{% else %}
+						{% if block.settings.allowed_selling_plan_ids != blank %}
+						data-allowed-selling-plans="{{ block.settings.allowed_selling_plan_ids | strip | escape }}"
+						{% endif %}
+						{% endif %}
 						name="track:variant-box|variant-sku:{{ var.sku }}|purchase-type:{{ varPurchaseType }}">
 						{% if product.handle contains 'curalin' %}
 							{% assign subscription_save_percents = var.metafields.subscription.save_percents %}
 						{% endif %}
-						<div class="discount mbl:text-[3.5vw] text-white bg-primary font-bold w-full text-[13px] p-1">{{ subscription_save_percents }}% OFF</div>
+						<div class="discount mbl:text-[3.5vw] font-medium w-full text-[13px] p-1 text-primary bg-bg">{{ subscription_save_percents }}% OFF</div>
 
 						<!-- prettier-ignore -->
 						<div class="title p-1">
@@ -193,34 +196,34 @@
 			{% endfor %}
 		</div>
 
-		<div class="price-display">
-			<div class="gap-y-2 flex flex-wrap items-end gap-2">
-					<div class="final-price flex items-center gap-2">
-							<div class="main-price text-primary flex items-end transition-opacity duration-200 ease-in-out">
+		<div class="price-display transition-all duration-300 ease-in-out">
+			<div class="gap-y-2 flex flex-wrap items-end gap-2 transition-opacity duration-300">
+					<div class="final-price flex items-end items-center gap-2">
+							<div class="main-price text-primary flex items-end transition-opacity duration-300 ease-in-out">
 									{% if priceFormat == 'total' %}
-											<span class="price font-bold leading-none text-[30px] mbl:text-[6vw]">{{ subscription_total_price | money }}</span>
+											<span class="price leading-none text-[30px] mbl:text-[6vw] transition-all duration-300">{{ subscription_total_price | money }}</span>
 									{% else %}
-											<span class="price font-bold leading-none text-[30px] mbl:text-[6vw]">{{ subscription_item_price | money }}</span>
-											<span class="per-text mt-1 text-[20px]">/bottle</span>
+											<span class="price leading-none text-[30px] mbl:text-[6vw] transition-all duration-300">{{ subscription_item_price | money }}</span>
+											<span class="per-text mt-1 text-[20px] transition-all duration-300">/bottle</span>
 									{% endif %}
 							</div>
 
-							<span class="cap self-end text-gray-500 line-through transition-opacity duration-200 ease-in-out">{{ original_item_cap | money }}</span>
+							<span class="cap self-end text-gray-500 line-through transition-opacity duration-300 ease-in-out">{{ original_item_cap | money }}</span>
 
 							{% if priceFormat == 'total' and subscription_total_price != subscription_item_price %}
-									<span class="discount-badge px-4 py-1 text-[16px] font-bold text-white bg-bronze rounded-full transition-opacity duration-200 ease-in-out">SAVE {{ subscription_save_money | money }}</span>
+									<span class="discount-badge text-[16px] text-bronze transition-opacity duration-300 ease-in-out [&[data-visible=false]]:hidden">SAVE {{ subscription_save_money | money }}</span>
 							{% endif %}
 					</div>
 			</div>
 
 			{% if priceFormat == 'per_bottle' and subscription_total_price != subscription_item_price %}
-					<div class="total-line mt-1 text-[16px] h-4 transition-opacity duration-200 ease-in-out">
+					<div class="total-line mt-1 text-[16px] h-4 transition-opacity duration-300 ease-in-out">
 							Total {{ subscription_total_price | money }}
 							<span class="total-price-cap text-gray-500 line-through">{{ original_item_cap_total | money }}</span>
 					</div>
 			{% endif %}
 
-			<div class="future-price-notice mt-2 text-[14px] text-gray-600 transition-opacity duration-200 ease-in-out"></div>
+			<div class="future-price-notice mt-2 text-[14px] text-gray-600 transition-opacity duration-300 ease-in-out"></div>
 	</div>
 
 	{% if variantsNotice != blank %}
@@ -230,13 +233,12 @@
 		</div>
 	{% endif %}
 
-	<!-- Subscription Frequency Selector with direct Tailwind classes -->
 	<div class="mbl:my-0 hidden my-2 transition-all duration-300 ease-in-out" data-frequency-container data-ui-type="{{ sellingPlanUI | default: 'tabs' }}">
-		<div class="mb-3 font-medium">Deliver every</div>
+		<div class="mb-3 font-medium">Choose delivery frequency</div>
 		<div class="subscription-frequency-selector">
 			{% if sellingPlanUI == 'dropdown' %}
 				<div class="relative">
-					<select id="frequency-dropdown-{{ SID }}" class="w-full appearance-none p-3 pr-10 border-2 border-primary rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-[16px] cursor-pointer transition-all duration-300 ease-in-out">
+					<select id="frequency-dropdown-{{ SID }}" class="w-full appearance-none p-3 pr-10 border-2 border-primary-lighter rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-[16px] text-primary cursor-pointer transition-all duration-300 ease-in-out">
 						<!-- Options will be dynamically populated by JavaScript -->
 					</select>
 					<div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-primary">
@@ -246,14 +248,14 @@
 					</div>
 				</div>
 			{% else %}
-				<div id="frequency-options-{{ SID }}" class="flex justify-start gap-2">
+				<div id="frequency-options-{{ SID }}" class="flex justify-start gap-2" role="tablist" aria-label="Delivery frequency options">
 					<!-- Options will be dynamically populated by JavaScript -->
 				</div>
 			{% endif %}
 		</div>
 
 		{% if sellingPlanUI == 'tabs' %}
-			<div class="frequency-description text-[14px] text-gray-600 mt-2 transition-opacity duration-300 ease-in-out leading-normal min-h-[24px]"><!-- Frequency description will be populated by JavaScript --></div>
+			<div class="frequency-description text-[14px] text-gray-600 mt-2 transition-opacity duration-300 ease-in-out leading-normal min-h-[24px] [&[data-changing=true]]:opacity-0 [&[data-changing=false]]:opacity-100"><!-- Frequency description will be populated by JavaScript --></div>
 		{% endif %}
 	</div>
 
@@ -296,7 +298,7 @@
 				{% assign firstVariant = prod.selected_or_first_available_variant %}
 				<div
 					id="one-time-add-to-cart"
-					class="one-time-add-to-cart variant-box text-primary mb-2 underline cursor-pointer !bg-white"
+					class="one-time-add-to-cart variant-box text-primary mb-2 underline cursor-pointer !bg-white aria-[busy=true]:opacity-70 aria-[busy=true]:cursor-not-allowed"
 					name="track:link-submit|buybox-type:{{ buyboxType }}|buybox-name:{{ buyboxName }}|variant-sku:{{ firstVariant.sku }}|purchase-type:buyonce"
 					data-variant-id="{{ firstVariant.id }}"
 					data-bottle-quantity="1"
@@ -324,6 +326,16 @@
 		}
 	}
 
+	.discount {
+		border-top-left-radius: 5px;
+		border-top-right-radius: 5px;
+
+
+	}
+	[aria-selected="true"] .discount {
+			background-color: var(--beige) ;
+		}
+
   /* Custom dropdown styles */
   #frequency-dropdown-{{ SID }} {
     transition: all 0.2s ease;
@@ -344,6 +356,34 @@
 
   #frequency-dropdown-{{ SID }}:focus + div svg {
     transform: rotate(180deg);
+  }
+
+  /* Price animation */
+  @keyframes fadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; }
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  .price-display[data-updating="true"] > * {
+    animation: fadeOut 0.2s forwards;
+  }
+
+  .price-display[data-updating="false"] > * {
+    animation: fadeIn 0.3s forwards;
+  }
+
+  /* Frequency description animation */
+  .frequency-description[data-changing="true"] {
+    animation: fadeOut 0.2s forwards;
+  }
+
+  .frequency-description[data-changing="false"] {
+    animation: fadeIn 0.3s forwards;
   }
 </style>
 
@@ -408,3 +448,30 @@
 
 {% comment %} JS logic moved to src/js/buy-box-new.js {% endcomment %}
 <script src="{{ 'buy-box-new.js' | asset_url }}" defer="defer"></script>
+
+<script>
+	// Update discount badge styles based on box selection
+	document.addEventListener('DOMContentLoaded', function() {
+		const updateDiscountBadgeStyles = () => {
+			document.querySelectorAll('.variant-box').forEach(box => {
+				const isSelected = box.getAttribute('aria-selected') === 'true';
+			});
+		};
+
+		// Initial update
+		updateDiscountBadgeStyles();
+
+		// Watch for attribute changes on variant boxes
+		const observer = new MutationObserver(mutations => {
+			mutations.forEach(mutation => {
+				if (mutation.type === 'attributes' && mutation.attributeName === 'aria-selected') {
+					updateDiscountBadgeStyles();
+				}
+			});
+		});
+
+		document.querySelectorAll('.variant-box').forEach(box => {
+			observer.observe(box, { attributes: true });
+		});
+	});
+</script>
