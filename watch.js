@@ -212,8 +212,10 @@ const getDestination = sourcePath => {
 			// Check if it's a section, snippet, layout, or block
 			if (normalizedRelativePath.includes("sections")) {
 				destDir = "sections";
-			} else if (normalizedRelativePath.includes("snippets") || normalizedRelativePath.includes("blocks")) {
+			} else if (normalizedRelativePath.includes("snippets")) {
 				destDir = "snippets";
+			} else if (normalizedRelativePath.includes("blocks")) {
+				destDir = "blocks";
 			} else if (normalizedRelativePath.includes("layout")) {
 				destDir = "layout";
 			} else {

@@ -7,6 +7,8 @@
 {% assign columns = section.settings.columns | default: 2 %}
 {% assign columns_mobile = section.settings.columns_mobile | default: 1 %}
 {% assign column_gap = section.settings.column_gap | default: 2 %}
+{% assign max_width = section.settings.max_width | default: 1200 %}
+{% assign content_width = section.settings.content_width | default: 100 %}
 
 <style>
 	#section-{{ section_id }} {
@@ -15,13 +17,49 @@
 		--columns: {{ columns }};
 		--columns-mobile: {{ columns_mobile }};
 		--alignment: {{ section.settings.vertical_alignment | default: 'flex-start' }};
+		--max-width: {{ max_width }}px;
+		--content-width: {{ content_width }}%;
+		/* Calculate width accounting for gaps */
+		--total-gap-space: calc(var(--column-gap) * ({{ columns }} - 1));
+		--default-column-width: calc((100% - var(--total-gap-space)) / {{ columns }});
+		--total-gap-space-mobile: calc(var(--mobile-gap) * ({{ columns_mobile }} - 1));
+		--default-column-width-mobile: calc((100% - var(--total-gap-space-mobile)) / {{ columns_mobile }});
 	}
 
+	/*
+	 * Always use flex layout for simplicity and consistency
+	 * This will handle both custom width blocks and standard grid layout
+	 */
 	#section-{{ section_id }} .blocks-section-flex {
-		display: grid;
-		grid-template-columns: repeat(var(--columns), 1fr);
+		display: flex;
+		flex-wrap: wrap;
 		gap: var(--column-gap);
 		align-items: var(--alignment);
+		width: var(--content-width);
+		margin: 0 auto;
+	}
+
+	/* Adjust the custom widths to account for gaps */
+	{% for width in '25,33,50,66,75,100' | split: ',' %}
+	#section-{{ section_id }} .shopify-block[style*="width: {{ width }}%"] {
+		width: calc(({{ width }}% * (100% - var(--total-gap-space)) / 100%)) !important;
+		flex-basis: calc(({{ width }}% * (100% - var(--total-gap-space)) / 100%)) !important;
+	}
+
+	@media (max-width: 768px) {
+		#section-{{ section_id }} .shopify-block[style*="width: {{ width }}%"] {
+			width: calc(({{ width }}% * (100% - var(--total-gap-space-mobile)) / 100%)) !important;
+			flex-basis: calc(({{ width }}% * (100% - var(--total-gap-space-mobile)) / 100%)) !important;
+		}
+	}
+	{% endfor %}
+
+	/* Default width for blocks that don't have custom width */
+	#section-{{ section_id }} .shopify-block:not([style*="width"]) {
+		width: var(--default-column-width);
+		flex-basis: var(--default-column-width);
+		flex-grow: 0;
+		flex-shrink: 0;
 	}
 
 	#section-{{ section_id }} .blocks-section-block {
@@ -31,40 +69,50 @@
 		width: 100%;
 	}
 
-	/* For flex-based layout when using custom column widths */
-	#section-{{ section_id }}.using-custom-widths .blocks-section-flex {
-		display: flex;
-		flex-wrap: {% if section.settings.is_wrap_columns %}wrap{% else %}nowrap{% endif %};
-		gap: var(--column-gap);
-	}
-
 	@media (max-width: 768px) {
 		#section-{{ section_id }} .blocks-section-flex {
-			grid-template-columns: repeat(var(--columns-mobile), 1fr);
 			gap: var(--mobile-gap);
+			width: 100%;
 		}
 
-		#section-{{ section_id }}.using-custom-widths .blocks-section-flex {
-			{% if section.settings.is_wrap_columns_mobile %}
-				flex-wrap: wrap;
-			{% else %}
+		#section-{{ section_id }} .shopify-block:not([style*="width"]) {
+			width: var(--default-column-width-mobile);
+			flex-basis: var(--default-column-width-mobile);
+		}
+
+		/* For very small screens, stack items */
+		@media (max-width: 480px) {
+			#section-{{ section_id }} .blocks-section-flex {
 				flex-direction: column;
-			{% endif %}
+			}
+
+			#section-{{ section_id }} .shopify-block {
+				width: 100% !important;
+				flex-basis: 100% !important;
+			}
 		}
 	}
 </style>
 
 <section
 	id="section-{{ section_id }}"
-	class="blocks-section {% if any_custom_width %}using-custom-widths{% endif %} {% if section.settings.section_classes %}{{ section.settings.section_classes }}{% endif %}"
+	class="blocks-section {% if section.settings.section_classes %}{{ section.settings.section_classes }}{% endif %}"
 	data-section-id="{{ section_id }}"
 	data-section-type="blocks-section"
 	style="
 		{% if section.settings.bg_color %}background-color: {{ section.settings.bg_color }};{% endif %}
+		{% if section.settings.bg_image %}background-image: url('{{ section.settings.bg_image | image_url }}'); background-size: cover; background-position: center; background-repeat: no-repeat;{% endif %}
 		{% if section.settings.section_padding_top != blank %}padding-top: {{ section.settings.section_padding_top }}px;{% endif %}
 		{% if section.settings.section_padding_bottom != blank %}padding-bottom: {{ section.settings.section_padding_bottom }}px;{% endif %}
 	">
-	<div class="container mx-auto px-4 py-8">
+	<div
+		class="container mx-auto px-4 py-8"
+		style="
+			max-width: var(--max-width);
+			{% if section.settings.container_bg_color %}background-color: {{ section.settings.container_bg_color }};{% endif %}
+			{% if section.settings.container_bg_color %}border-radius: {{ section.settings.container_border_radius | default: 5 }}px; padding: 30px;{% endif %}
+			{% if section.settings.border_color %}border: 1px solid {{ section.settings.border_color }};{% endif %}
+		">
 		{% if section.settings.title != blank %}
 			<{{ section.settings.title_tag | default: 'h2' }} class="section-title {% if section.settings.title_alignment %}text-{{ section.settings.title_alignment }}{% else %}text-center{% endif %} text-2xl mb-6 {% if section.settings.title_color %}text-[{{ section.settings.title_color }}]{% endif %}">
 				{{ section.settings.title }}
@@ -76,14 +124,6 @@
 				{{ section.settings.subtitle }}
 			</div>
 		{% endif %}
-
-		{% assign any_custom_width = false %}
-		{% for block in section.blocks %}
-			{% if block.settings.column_width and block.settings.column_width != 6 %}
-				{% assign any_custom_width = true %}
-				{% break %}
-			{% endif %}
-		{% endfor %}
 
 		{% if section.settings.is_slider %}
 			<div
@@ -103,18 +143,8 @@
 					{% render block %}
 				</div>
 			{% else %}
-				{% if any_custom_width %}
-					{%- assign col_width = block.settings.column_width | default: 12 | divided_by: columns -%}
-					{%- assign column_percent = col_width | times: 100 | divided_by: 12 -%}
-
-					<div class="blocks-section-block" style="flex-basis: {{ column_percent }}%; width: {{ column_percent }}%;">
-						{% render block %}
-					</div>
-				{% else %}
-					<div class="blocks-section-block">
-						{% render block %}
-					</div>
-				{% endif %}
+				{% comment %} Render block directly without wrapper when not a slider {% endcomment %}
+				{% render block %}
 			{% endif %}
 		{% endfor %}
 
@@ -286,6 +316,26 @@
 	</style>
 {% endif %}
 
+{% if section.settings.bg_image_mobile %}
+	<style>
+		@media (max-width: 768px) {
+			#section-{{ section_id }} {
+				background-image: url('{{ section.settings.bg_image_mobile | image_url }}');
+			}
+		}
+	</style>
+{% endif %}
+
+{% if section.settings.is_remove_container_padding_mobile %}
+	<style>
+		@media (max-width: 768px) {
+			#section-{{ section_id }} .container {
+				padding-inline: 0;
+			}
+		}
+	</style>
+{% endif %}
+
 {% schema %}
 	{
 		"name": "Blocks Section",
@@ -428,6 +478,55 @@
 			},
 			{
 				"type": "header",
+				"content": "Container Settings"
+			},
+			{
+				"type": "range",
+				"id": "max_width",
+				"label": "Maximum Container Width",
+				"min": 600,
+				"max": 1600,
+				"step": 10,
+				"unit": "px",
+				"default": 1200
+			},
+			{
+				"type": "range",
+				"id": "content_width",
+				"label": "Content Width",
+				"min": 50,
+				"max": 100,
+				"step": 1,
+				"unit": "%",
+				"default": 100
+			},
+			{
+				"type": "range",
+				"id": "container_border_radius",
+				"label": "Container Border Radius",
+				"min": 0,
+				"max": 30,
+				"step": 1,
+				"unit": "px",
+				"default": 5
+			},
+			{
+				"type": "color",
+				"id": "container_bg_color",
+				"label": "Container Background Color"
+			},
+			{
+				"type": "color",
+				"id": "border_color",
+				"label": "Border Color"
+			},
+			{
+				"type": "checkbox",
+				"id": "is_remove_container_padding_mobile",
+				"label": "Remove container padding on mobile"
+			},
+			{
+				"type": "header",
 				"content": "Slider Settings"
 			},
 			{
@@ -512,6 +611,16 @@
 				"label": "Background Color"
 			},
 			{
+				"type": "image_picker",
+				"id": "bg_image",
+				"label": "Background Image"
+			},
+			{
+				"type": "image_picker",
+				"id": "bg_image_mobile",
+				"label": "Background Image on Mobile"
+			},
+			{
 				"type": "number",
 				"id": "section_padding_top",
 				"label": "Section Padding Top",
@@ -524,9 +633,39 @@
 				"default": 50
 			},
 			{
+				"type": "number",
+				"id": "section_padding_top_mobile",
+				"label": "Section Padding Top on Mobile (vw unit)"
+			},
+			{
+				"type": "number",
+				"id": "section_padding_bottom_mobile",
+				"label": "Section Padding Bottom on Mobile (vw unit)"
+			},
+			{
+				"type": "checkbox",
+				"id": "is_remove_padding_top",
+				"label": "Remove Padding Top"
+			},
+			{
+				"type": "checkbox",
+				"id": "is_remove_padding_bottom",
+				"label": "Remove Padding Bottom"
+			},
+			{
 				"type": "text",
 				"id": "section_classes",
 				"label": "Additional Section Classes"
+			},
+			{
+				"type": "text",
+				"id": "anchor_id",
+				"label": "Anchor ID"
+			},
+			{
+				"type": "html",
+				"id": "additional_code",
+				"label": "Additional Code"
 			},
 			{
 				"type": "select",

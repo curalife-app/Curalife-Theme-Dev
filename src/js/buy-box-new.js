@@ -260,7 +260,8 @@ class BuyBoxNew {
 			variantId: null,
 			sellingPlanId: null,
 			purchaseType: null,
-			currencySymbol: this.config.currencySymbol || "$"
+			currencySymbol: this.config.currencySymbol || "$",
+			loadingButton: null // Track which button is loading: 'submit', 'oneTime', or null
 		};
 
 		if (!this.container) {
@@ -403,11 +404,14 @@ class BuyBoxNew {
 	}
 
 	updateLoadingState(isLoading) {
-		if (this.elements.submitButton) {
-			this.elements.submitButton.setAttribute("aria-busy", isLoading ? "true" : "false");
-			this.elements.submitButton.disabled = isLoading;
+		const { loadingButton } = this.state;
 
-			if (isLoading) {
+		if (this.elements.submitButton) {
+			const isSubmitLoading = isLoading && loadingButton === "submit";
+			this.elements.submitButton.setAttribute("aria-busy", isSubmitLoading ? "true" : "false");
+			this.elements.submitButton.disabled = isSubmitLoading;
+
+			if (isSubmitLoading) {
 				this.elements.submitButton.innerHTML = `<div class="border-white/20 border-t-white animate-spin inline-block w-6 h-6 mx-auto border-2 rounded-full"></div>`;
 			} else {
 				this.elements.submitButton.innerHTML = this.elements.submitButton.getAttribute("data-original-text") || "Add To Cart";
@@ -415,11 +419,12 @@ class BuyBoxNew {
 		}
 
 		if (this.elements.oneTimeButton) {
-			this.elements.oneTimeButton.setAttribute("aria-busy", isLoading ? "true" : "false");
-			this.elements.oneTimeButton.disabled = isLoading;
+			const isOneTimeLoading = isLoading && loadingButton === "oneTime";
+			this.elements.oneTimeButton.setAttribute("aria-busy", isOneTimeLoading ? "true" : "false");
+			this.elements.oneTimeButton.disabled = isOneTimeLoading;
 
 			// Update one-time button content based on loading state
-			if (isLoading) {
+			if (isOneTimeLoading) {
 				this.elements.oneTimeButton.innerHTML = '<div class="border-primary/20 border-t-primary animate-spin inline-block w-4 h-4 mr-2 align-middle border-2 rounded-full"></div> Adding...';
 			} else {
 				this.elements.oneTimeButton.innerHTML = this.elements.oneTimeButton.getAttribute("data-original-text") || "One-Time Purchase";
@@ -557,12 +562,12 @@ class BuyBoxNew {
 				e.preventDefault();
 				if (this.state.isLoading || this.state.isRedirectingToCheckout) return;
 
-				this.setState({ isLoading: true });
+				this.setState({ isLoading: true, loadingButton: "submit" });
 
 				try {
 					const items = this.prepareItemsForCart();
 					if (!items) {
-						this.setState({ isLoading: false });
+						this.setState({ isLoading: false, loadingButton: null });
 						return;
 					}
 
@@ -571,12 +576,12 @@ class BuyBoxNew {
 						// Loading state reset happens in handleBuyNowFlow
 					} else {
 						await this.addValidItemsToCart(items);
-						this.setState({ isLoading: false });
+						this.setState({ isLoading: false, loadingButton: null });
 					}
 				} catch (err) {
 					console.error("Submit error:", err);
 					showNotification(parseErrorMessage(err, "checkout"), "error");
-					this.setState({ isLoading: false });
+					this.setState({ isLoading: false, loadingButton: null });
 				}
 			});
 		}
@@ -587,7 +592,7 @@ class BuyBoxNew {
 				e.preventDefault();
 				if (this.state.isLoading || this.state.isRedirectingToCheckout) return;
 
-				this.setState({ isLoading: true });
+				this.setState({ isLoading: true, loadingButton: "oneTime" });
 
 				try {
 					const variantId = this.elements.oneTimeButton.dataset.variantId;
@@ -619,7 +624,7 @@ class BuyBoxNew {
 						this.elements.oneTimeButton.classList.remove("text-red-600", "border-red-600");
 
 						setTimeout(() => {
-							this.setState({ isLoading: false });
+							this.setState({ isLoading: false, loadingButton: null });
 							this.elements.oneTimeButton.classList.remove("text-green-700", "border-green-700");
 						}, 2000);
 					}
@@ -633,7 +638,7 @@ class BuyBoxNew {
 					this.elements.oneTimeButton.classList.remove("text-green-700", "border-green-700");
 
 					setTimeout(() => {
-						this.setState({ isLoading: false });
+						this.setState({ isLoading: false, loadingButton: null });
 						this.elements.oneTimeButton.classList.remove("text-red-600", "border-red-600");
 					}, 2000);
 				}
@@ -761,7 +766,7 @@ class BuyBoxNew {
 			CartCache.invalidate();
 
 			// Reset loading states before redirecting
-			this.setState({ isRedirectingToCheckout: false, isLoading: false });
+			this.setState({ isRedirectingToCheckout: false, isLoading: false, loadingButton: null });
 
 			// Small delay to ensure state update completes before redirect
 			setTimeout(() => {
@@ -770,7 +775,7 @@ class BuyBoxNew {
 		} catch (err) {
 			console.error("handleBuyNowFlow error:", err);
 			// Reset state only if redirect fails
-			this.setState({ isRedirectingToCheckout: false, isLoading: false });
+			this.setState({ isRedirectingToCheckout: false, isLoading: false, loadingButton: null });
 			throw err; // Re-throw to be handled by caller
 		}
 	}
