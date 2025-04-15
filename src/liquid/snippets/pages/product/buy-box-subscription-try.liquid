@@ -123,7 +123,7 @@
 			</ul>
 
 			{% if giftsAmount > 0 %}
-				<div class="gift-selector mb-2">
+				<div class="gift-selector mb-2 hidden">
 					{% render 'subscription-box-gift-selector',
 						SID: SID,
 						giftsAmount: giftsAmount,
@@ -265,7 +265,6 @@ document.addEventListener('DOMContentLoaded', () => {
 				}
 			}
 
-			// Use class-based disabling for better performance
 			if (isLoading) {
 				productActions.classList.add('processing-order');
 			} else {
@@ -496,8 +495,6 @@ document.addEventListener('DOMContentLoaded', () => {
 		if (form) {
 			form.addEventListener('submit', function(e) {
 				e.preventDefault();
-				console.log('Form submit intercepted');
-				// The actual submission logic is handled by the button click handler
 			});
 		}
 
@@ -505,7 +502,6 @@ document.addEventListener('DOMContentLoaded', () => {
 			e.preventDefault();
 			console.log('Submit button clicked');
 
-			// Prevent double-clicks or multiple submissions
 			if (isSubmitting || BuyBoxState.data.isLoading) {
 				console.log('Submission already in progress, ignoring click');
 				return;
@@ -514,7 +510,6 @@ document.addEventListener('DOMContentLoaded', () => {
 			isSubmitting = true;
 			BuyBoxState.setState({ isLoading: true });
 
-			// Track the event in dataLayer - this is happening but not followed by cart action
 			if (window.dataLayer) {
 				window.dataLayer.push({
 					'event': 'submit-clicked',
@@ -524,7 +519,7 @@ document.addEventListener('DOMContentLoaded', () => {
 			}
 
 			try {
-				const isSub = true; // Always subscription in this simplified version
+				const isSub = true;
 				const variantBox = document.querySelector('.single-variant-box');
 				const variant = variantBox?.dataset.variantId;
 				const sellingPlanId = variantBox?.dataset.sellingPlanId;
@@ -537,13 +532,11 @@ document.addEventListener('DOMContentLoaded', () => {
 					throw new Error('No selling plan ID found for subscription purchase');
 				}
 
-				// Ensure selling plan ID is a number (Shopify requires this)
 				const numericSellingPlanId = parseInt(sellingPlanId, 10);
 				if (isNaN(numericSellingPlanId)) {
 					throw new Error(`Invalid selling plan ID: ${sellingPlanId}`);
 				}
 
-				// Set values in the form if it exists
 				const variantIdInput = productActions.querySelector('.submit-variant-id');
 				const sellingPlanIdInput = productActions.querySelector('.submit-selling-plan-id');
 
@@ -556,10 +549,6 @@ document.addEventListener('DOMContentLoaded', () => {
 					selling_plan: numericSellingPlanId
 				}];
 
-				// Debug log to check what's being sent to cart
-				console.log('Adding to cart with items:', JSON.stringify(items), 'isSub:', isSub, 'sellingPlanId:', numericSellingPlanId);
-
-				// Add selected gift if available
 				{% if giftsAmount > 0 %}
 				const selectedGiftBox = document.querySelector('.gift-box.selected');
 				if (selectedGiftBox) {
@@ -570,7 +559,6 @@ document.addEventListener('DOMContentLoaded', () => {
 						const giftIDSub = giftBorder.dataset.giftIdSubscription;
 						const giftID = giftBorder.dataset.giftId;
 
-						// Use subscription gift ID for subscription purchase, otherwise use regular gift ID
 						const giftIDToUse = isSub && giftIDSub ? giftIDSub : giftID;
 
 						if (giftIDToUse) {
@@ -581,8 +569,6 @@ document.addEventListener('DOMContentLoaded', () => {
 						}
 					}
 				} else {
-					console.log('No gift selected, looking for default gift');
-					// Get first available gift when no gift selection UI is shown
 					{% for block in blocks %}
 						{% if block.type == 'gift' and block.settings.show_on != 'none' %}
 							{% if isGlobal %}
@@ -609,15 +595,12 @@ document.addEventListener('DOMContentLoaded', () => {
 				}
 				{% endif %}
 
-				// For "Try Before You Buy", always use buy_now flow to go directly to checkout
-				console.log("Starting checkout process with buyType:", BuyBoxState.data.buyType);
 				await handleBuyNowFlow(items);
 
 				// The following code won't execute if handleBuyNowFlow is successful since it redirects
 				// But let's keep it as a fallback
 				if (BuyBoxState.data.buyType !== 'buy_now') {
 					await addValidItemsToCart(items);
-					// Only reset loading state if we're not redirecting
 					isSubmitting = false;
 					BuyBoxState.setState({ isLoading: false });
 				}
@@ -635,13 +618,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
 		oneTimeButton.setAttribute('data-original-text', oneTimeButton.textContent);
 
-		// Track submission state
 		let isSubmittingOneTime = false;
 
 		oneTimeButton.addEventListener('click', async e => {
 			e.preventDefault();
 
-			// Prevent multiple submissions
 			if (isSubmittingOneTime || BuyBoxState.data.isLoading) {
 				return;
 			}
@@ -661,20 +642,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
 				const toAdd = [{ id: parseInt(variant1, 10), quantity: 1 }];
 
-				{% if giftsAmount > 0 %}
-				// For one-time purchase, we don't add any gifts
-				// Removed gift adding logic for one-time purchases
-				{% endif %}
-
 				if (BuyBoxState.data.buyType === 'buy_now') {
-					// Optimize for buy now flow
 					BuyBoxState.setState({ isRedirectingToCheckout: true });
 
-					// Remove cart popup first
 					const cartPopup = document.getElementById('upCart');
 					if (cartPopup) cartPopup.remove();
 
-					// Clear cart with optimized fetch
 					await fetch('/cart/clear.js', {
 						method: 'POST',
 						cache: 'no-store',
@@ -683,7 +656,6 @@ document.addEventListener('DOMContentLoaded', () => {
 						}
 					});
 
-					// Add items with optimized fetch
 					const res = await fetch('/cart/add.js', {
 						method: 'POST',
 						headers: {
@@ -702,10 +674,8 @@ document.addEventListener('DOMContentLoaded', () => {
 						throw error;
 					}
 
-					// Go to checkout immediately
 					window.location.href = '/checkout';
 				} else {
-					// Regular add to cart
 					const res = await fetch('/cart/add.js', {
 						method: 'POST',
 						headers: {
@@ -724,7 +694,6 @@ document.addEventListener('DOMContentLoaded', () => {
 						throw error;
 					}
 
-					// Update cart UI if needed
 					if (typeof window.updateCart === 'function') {
 						window.updateCart();
 					}
@@ -732,7 +701,6 @@ document.addEventListener('DOMContentLoaded', () => {
 					oneTimeButton.innerHTML = '✓ Added!';
 					oneTimeButton.classList.add('text-green-700', 'border-green-700');
 
-					// Reset state
 					setTimeout(() => {
 						oneTimeButton.innerHTML = oneTimeButton.getAttribute('data-original-text');
 						oneTimeButton.classList.remove('text-green-700', 'border-green-700');
@@ -747,7 +715,6 @@ document.addEventListener('DOMContentLoaded', () => {
 				oneTimeButton.innerHTML = '⚠ Failed';
 				oneTimeButton.classList.add('text-red-600', 'border-red-600');
 
-				// Reset state
 				setTimeout(() => {
 					oneTimeButton.innerHTML = oneTimeButton.getAttribute('data-original-text');
 					oneTimeButton.classList.remove('text-red-600', 'border-red-600');
@@ -766,11 +733,6 @@ document.addEventListener('DOMContentLoaded', () => {
 		initGiftBoxes();
 	}
 	init();
-
-	function initGiftBoxes() {
-		// This function is no longer needed as the functionality is handled by subscription-box-gift-selector.liquid
-		// We can leave it empty as it's still called in init()
-	}
 });
 </script>
 

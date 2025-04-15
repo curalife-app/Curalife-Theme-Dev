@@ -546,6 +546,8 @@ class BuyBoxNew {
 		if (this.elements.frequencyDropdown) {
 			this.elements.frequencyDropdown.addEventListener("change", e => {
 				this.selectFrequencyOption(e.target.options[e.target.selectedIndex]);
+				// Remove focus after selection
+				e.target.blur();
 			});
 		}
 
@@ -1159,7 +1161,7 @@ class BuyBoxNew {
 			const isRecommended = plan.id.toString() === recommendedPlanId;
 
 			if (uiType === "dropdown") {
-				let optionText = `Every ${value} ${unit.charAt(0).toUpperCase() + unit.slice(1)}${value > 1 ? "s" : ""}`;
+				let optionText = `Every ${value} ${unit}${value > 1 ? "s" : ""}`;
 				if (isRecommended) {
 					optionText += " (Recommended use)";
 				}
@@ -1183,7 +1185,7 @@ class BuyBoxNew {
 					"aria-selected": isSelected ? "true" : "false",
 					role: "tab",
 					tabindex: "0", // Make focusable for keyboard navigation
-					innerHTML: `<span class="font-semibold text-[14px] block">Every ${value}</span><span class="text-[12px] block">${unit.charAt(0).toUpperCase() + unit.slice(1)}${value > 1 ? "s" : ""}</span>`
+					innerHTML: `<span class="font-semibold text-[14px] block">Every ${value}</span><span class="text-[12px] block">${unit}${value > 1 ? "s" : ""}</span>`
 				});
 				optionsContainer.appendChild(freqBox);
 			}
@@ -1220,7 +1222,7 @@ class BuyBoxNew {
 				frequencyUnit = el.dataset.frequencyUnit;
 			}
 
-			const fallbackText = `Every ${frequencyValue} ${frequencyUnit.charAt(0).toUpperCase() + frequencyUnit.slice(1)}${frequencyValue > 1 ? "s" : ""}`;
+			const fallbackText = `Every ${frequencyValue} ${frequencyUnit}${frequencyValue > 1 ? "s" : ""}`;
 
 			if (isDropdown) {
 				const option = DOMUtils.createElement("option", {
@@ -1242,7 +1244,7 @@ class BuyBoxNew {
 					"aria-selected": "true", // Always selected in fallback
 					role: "tab",
 					tabindex: "0", // Make focusable for keyboard navigation
-					innerHTML: `<span class="font-semibold text-[14px] block">Every ${frequencyValue}</span><span class="text-[12px] block">${frequencyUnit.charAt(0).toUpperCase() + frequencyUnit.slice(1)}${frequencyValue > 1 ? "s" : ""}</span>`
+					innerHTML: `<span class="font-semibold text-[14px] block">Every ${frequencyValue}</span><span class="text-[12px] block">${frequencyUnit}${frequencyValue > 1 ? "s" : ""}</span>`
 				});
 				frequencyOptions.appendChild(fallbackBox);
 			}
