@@ -4,31 +4,34 @@
 {% endcomment %}
 
 {% assign section_id = section.id %}
+{% assign column_gap = section.settings.column_gap | default: 10 %}
 {% assign columns = section.settings.columns | default: 2 %}
 {% assign columns_mobile = section.settings.columns_mobile | default: 1 %}
-{% assign column_gap = section.settings.column_gap | default: 2 %}
 {% assign max_width = section.settings.max_width | default: 1200 %}
 {% assign content_width = section.settings.content_width | default: 100 %}
 
+{% assign total_gaps_desktop = columns | minus: 1 %}
+{% assign total_gaps_mobile = columns_mobile | minus: 1 %}
+{% assign total_gap_percent_desktop = column_gap | times: total_gaps_desktop %}
+{% assign total_gap_percent_mobile = column_gap | times: 0.75 | times: total_gaps_mobile %}
+{% assign default_width_desktop = 100 | minus: total_gap_percent_desktop | divided_by: columns %}
+{% assign default_width_mobile = 100 | minus: total_gap_percent_mobile | divided_by: columns_mobile %}
+
 <style>
 	#section-{{ section_id }} {
-		--column-gap: {{ column_gap }}rem;
-		--mobile-gap: {{ column_gap | times: 0.75 | default: 1 }}rem;
+		--column-gap: {{ column_gap }}%;
+		--mobile-gap: {{ column_gap | times: 0.75 | default: 1 }}%;
 		--columns: {{ columns }};
 		--columns-mobile: {{ columns_mobile }};
 		--alignment: {{ section.settings.vertical_alignment | default: 'flex-start' }};
 		--max-width: {{ max_width }}px;
 		--content-width: {{ content_width }}%;
-		/* Calculate width accounting for gaps */
-		--total-gap-space: calc(var(--column-gap) * ({{ columns }} - 1));
-		--default-column-width: calc((100% - var(--total-gap-space)) / {{ columns }});
-		--total-gap-space-mobile: calc(var(--mobile-gap) * ({{ columns_mobile }} - 1));
-		--default-column-width-mobile: calc((100% - var(--total-gap-space-mobile)) / {{ columns_mobile }});
+		--default-width-desktop: {{ default_width_desktop }}%;
+		--default-width-mobile: {{ default_width_mobile }}%;
 	}
 
 	/*
-	 * Always use flex layout for simplicity and consistency
-	 * This will handle both custom width blocks and standard grid layout
+	 * Use flex layout with gap to create proper spacing
 	 */
 	#section-{{ section_id }} .blocks-section-flex {
 		display: flex;
@@ -39,27 +42,38 @@
 		margin: 0 auto;
 	}
 
-	/* Adjust the custom widths to account for gaps */
-	{% for width in '25,33,50,66,75,100' | split: ',' %}
-	#section-{{ section_id }} .shopify-block[style*="width: {{ width }}%"] {
-		width: calc(({{ width }}% * (100% - var(--total-gap-space)) / 100%)) !important;
-		flex-basis: calc(({{ width }}% * (100% - var(--total-gap-space)) / 100%)) !important;
+	/* Use pre-calculated width for default blocks */
+	#section-{{ section_id }} .shopify-block {
+		width: {{ default_width_desktop }}%;
+		flex-basis: {{ default_width_desktop }}%;
+		flex-grow: 0;
+		flex-shrink: 0;
 	}
 
 	@media (max-width: 768px) {
-		#section-{{ section_id }} .shopify-block[style*="width: {{ width }}%"] {
-			width: calc(({{ width }}% * (100% - var(--total-gap-space-mobile)) / 100%)) !important;
-			flex-basis: calc(({{ width }}% * (100% - var(--total-gap-space-mobile)) / 100%)) !important;
+		#section-{{ section_id }} .blocks-section-flex {
+			gap: var(--mobile-gap);
+			width: 100%;
 		}
-	}
-	{% endfor %}
 
-	/* Default width for blocks that don't have custom width */
-	#section-{{ section_id }} .shopify-block:not([style*="width"]) {
-		width: var(--default-column-width);
-		flex-basis: var(--default-column-width);
-		flex-grow: 0;
-		flex-shrink: 0;
+		/* Reset block width on mobile with simplified calculation */
+		#section-{{ section_id }} .shopify-block {
+			width: {{ default_width_mobile }}%;
+			flex-basis: {{ default_width_mobile }}%;
+		}
+
+		/* For very small screens, stack items */
+		@media (max-width: 480px) {
+			#section-{{ section_id }} .blocks-section-flex {
+				flex-direction: column;
+				gap: calc(var(--mobile-gap) * 1.5);
+			}
+
+			#section-{{ section_id }} .shopify-block {
+				width: 100% !important;
+				flex-basis: 100% !important;
+			}
+		}
 	}
 
 	#section-{{ section_id }} .blocks-section-block {
@@ -76,8 +90,8 @@
 		}
 
 		#section-{{ section_id }} .shopify-block:not([style*="width"]) {
-			width: var(--default-column-width-mobile);
-			flex-basis: var(--default-column-width-mobile);
+			width: var(--default-width-mobile);
+			flex-basis: var(--default-width-mobile);
 		}
 
 		/* For very small screens, stack items */
@@ -435,10 +449,10 @@
 				"id": "column_gap",
 				"label": "Block Gap",
 				"min": 0,
-				"max": 8,
-				"step": 0.5,
-				"unit": "rem",
-				"default": 2
+				"max": 50,
+				"step": 1,
+				"unit": "%",
+				"default": 5
 			},
 			{
 				"type": "checkbox",
