@@ -1,6 +1,7 @@
 {% render 'block-width-styles',
 	block_id: block.id,
 	width_percent: block.settings.block_width_percent,
+	mobile_width_percent: block.settings.block_mobile_width_percent,
 	columns: section.settings.columns,
 	columns_mobile: section.settings.columns_mobile,
 	gap_width: section.settings.column_gap
@@ -25,63 +26,30 @@
 
 <style>
 	#block-{{ block_id }} {
-	  --block-column-gap: {{ column_gap }}%;
-	  --block-row-gap: {{ row_gap_rem }}rem;
-	  --block-alignment: {{ block.settings.content_alignment | default: 'flex-start' }};
-	  --nested-block-width: {{ block_width }}%;
-	}
-
-	/* Width is now handled by block-width-styles snippet */
-
-	#block-{{ block_id }} .block-flex-layout {
-	  display: flex;
-	  flex-wrap: {% if block.settings.is_nowrap %}nowrap{% else %}wrap{% endif %};
-	  justify-content: flex-start;
-	  gap: var(--block-row-gap) var(--block-column-gap);
-	  align-items: var(--block-alignment);
-	  width: 100%;
-	}
-
-	{% if block.settings.is_nowrap %}
-	/* Customize scrollbar for better UX */
-	#block-{{ block_id }} .block-flex-layout::-webkit-scrollbar {
-	  height: 4px;
-	}
-	#block-{{ block_id }} .block-flex-layout::-webkit-scrollbar-track {
-	  background: rgba(0,0,0,0.05);
-	  border-radius: 10px;
-	}
-	#block-{{ block_id }} .block-flex-layout::-webkit-scrollbar-thumb {
-	  background: rgba(0,0,0,0.2);
-	  border-radius: 10px;
-	}
-	{% endif %}
-
-	   /* Ensure nested blocks are excluded */
-	   #block-{{ block_id }} .block-flex-layout > * .block-flex-layout > * {
-	     width: auto !important;
-	     flex-basis: auto !important;
-	   }
-
-	#block-{{ block.id }} {
+		--block-row-gap: {{ row_gap_rem }}rem;
+		--block-column-gap: {{ column_gap }}%;
+		--block-alignment: {{ block.settings.content_alignment | default: 'flex-start' }};
 		flex-grow: 0;
 		flex-shrink: 0;
 	}
 
-	@media (max-width: 480px) {
-	  #block-{{ block_id }} .block-flex-layout {
-	    {% if block.settings.is_stack_mobile and block.settings.is_nowrap != true %}
-	    flex-direction: column;
-	    {% endif %}
-	  }
-
-	  {% if block.settings.is_stack_mobile and block.settings.is_nowrap != true %}
-	     #block-{{ block_id }} .block-flex-layout > .shopify-block > .custom-block {
-	       width: 100% !important;
-	       flex-basis: 100% !important;
-	     }
-	  {% endif %}
+	#block-{{ block_id }} .block-flex-layout {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: space-between;
+		gap: var(--block-row-gap) var(--block-column-gap);
+		align-items: var(--block-alignment);
+		width: 100%;
 	}
+
+	{% if block.settings.block_mobile_width_percent == '100' %}
+	@media (max-width: 768px) {
+		#block-{{ block_id }} {
+			--block-column-gap: 0%;
+			{% if block.settings.margin_top_mobile != blank %}margin-top: {{ block.settings.margin_top_mobile }}rem !important;{% endif %}
+		}
+	}
+	{% endif %}
 </style>
 
 <div
@@ -95,6 +63,7 @@
 	{% endif %}
 	style="
 		{% if block.settings.bg_color %}background-color: {{ block.settings.bg_color }};{% endif %}
+		{% if block.settings.margin_top != blank %}margin-top: {{ block.settings.margin_top }}rem;{% endif %}
 		{% if block.settings.padding != blank %}padding: {{ block.settings.padding }}rem;{% endif %}
 		{% if block.settings.text_color %}color: {{ block.settings.text_color }};{% endif %}
 		{% if block.settings.border_radius != blank %}border-radius: {{ block.settings.border_radius }}px;{% endif %}
@@ -349,6 +318,21 @@
 				"info": "Overrides grid width for this block/group. Leave blank to use section grid."
 			},
 			{
+				"type": "select",
+				"id": "block_mobile_width_percent",
+				"label": "Block Width on Mobile (%)",
+				"options": [
+					{ "value": "100", "label": "100% (Full)" },
+					{ "value": "75", "label": "75% (3/4)" },
+					{ "value": "66", "label": "66% (2/3)" },
+					{ "value": "50", "label": "50% (Half)" },
+					{ "value": "33", "label": "33% (1/3)" },
+					{ "value": "25", "label": "25% (1/4)" }
+				],
+				"default": "100",
+				"info": "Width on mobile devices. Default is full width."
+			},
+			{
 				"type": "header",
 				"content": "Block Layout"
 			},
@@ -371,24 +355,6 @@
 				"step": 0.1,
 				"unit": "rem",
 				"default": 1
-			},
-			{
-				"type": "checkbox",
-				"id": "is_nowrap",
-				"label": "Force Single Row (No Wrap)",
-				"default": false,
-				"info": "Forces blocks to stay in a single row, may require horizontal scrolling"
-			},
-			{
-				"type": "range",
-				"id": "min_block_width",
-				"label": "Minimum Block Width (No Wrap mode)",
-				"min": 100,
-				"max": 500,
-				"step": 10,
-				"unit": "px",
-				"default": 200,
-				"info": "Applies only when No Wrap is enabled"
 			},
 			{
 				"type": "checkbox",
@@ -574,6 +540,27 @@
 				"step": 0.5,
 				"unit": "rem",
 				"default": 0
+			},
+			{
+				"type": "range",
+				"id": "margin_top",
+				"label": "Margin Top",
+				"min": 0,
+				"max": 10,
+				"step": 0.5,
+				"unit": "rem",
+				"default": 0
+			},
+			{
+				"type": "range",
+				"id": "margin_top_mobile",
+				"label": "Margin Top on Mobile",
+				"min": 0,
+				"max": 10,
+				"step": 0.5,
+				"unit": "rem",
+				"default": 0,
+				"info": "Overrides desktop margin top on mobile devices"
 			},
 			{
 				"type": "header",
