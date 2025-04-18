@@ -935,6 +935,37 @@ document.addEventListener('DOMContentLoaded', () => {
 			// Invalidate cart cache
 			CartCache.invalidate();
 
+			// Add detailed debug logging right before checkout
+			try {
+				const cartData = await getCart(true); // Force fresh cart data
+				console.log('=== CHECKOUT DEBUG INFO ===');
+				console.log('Cart Items:', cartData.items);
+				console.log('Item Count:', cartData.item_count);
+				console.log('Total Price:', cartData.total_price);
+				console.log('Items Detail:');
+				cartData.items.forEach((item, index) => {
+					console.log(`Item ${index + 1}:`, {
+						title: item.title,
+						variant_title: item.variant_title,
+						quantity: item.quantity,
+						price: item.price,
+						line_price: item.line_price,
+						final_price: item.final_price,
+						discounted_price: item.discounted_price,
+						selling_plan_allocation: item.selling_plan_allocation,
+						variant_id: item.variant_id,
+						sku: item.sku,
+						properties: item.properties
+					});
+				});
+				console.log('Cart Attributes:', cartData.attributes);
+				console.log('Original Total Price:', cartData.original_total_price);
+				console.log('Cart Token:', cartData.token);
+				console.log('=== END CHECKOUT DEBUG INFO ===');
+			} catch (debugErr) {
+				console.warn('Failed to log checkout debug info:', debugErr);
+			}
+
 			// Reset loading states before redirecting
 			BuyBoxState.setState({
 				isRedirectingToCheckout: false,
@@ -1648,6 +1679,40 @@ document.addEventListener('DOMContentLoaded', () => {
 						throw error;
 					}
 
+					// Invalidate cart cache
+					CartCache.invalidate();
+
+					// Add detailed debug logging before redirecting to checkout
+					try {
+						const cartData = await getCart(true); // Force fresh cart data
+						console.log('=== ONE-TIME PURCHASE CHECKOUT DEBUG INFO ===');
+						console.log('Cart Items:', cartData.items);
+						console.log('Item Count:', cartData.item_count);
+						console.log('Total Price:', cartData.total_price);
+						console.log('Items Detail:');
+						cartData.items.forEach((item, index) => {
+							console.log(`Item ${index + 1}:`, {
+								title: item.title,
+								variant_title: item.variant_title,
+								quantity: item.quantity,
+								price: item.price,
+								line_price: item.line_price,
+								final_price: item.final_price,
+								discounted_price: item.discounted_price,
+								selling_plan_allocation: item.selling_plan_allocation,
+								variant_id: item.variant_id,
+								sku: item.sku,
+								properties: item.properties
+							});
+						});
+						console.log('Cart Attributes:', cartData.attributes);
+						console.log('Original Total Price:', cartData.original_total_price);
+						console.log('Cart Token:', cartData.token);
+						console.log('=== END ONE-TIME PURCHASE CHECKOUT DEBUG INFO ===');
+					} catch (debugErr) {
+						console.warn('Failed to log one-time checkout debug info:', debugErr);
+					}
+
 					// Reset loading states before redirecting
 					isSubmittingOneTime = false;
 					BuyBoxState.setState({
@@ -1661,7 +1726,9 @@ document.addEventListener('DOMContentLoaded', () => {
 					// Go to checkout with a small delay to ensure state updates
 					console.log("One-time purchase: Redirecting to checkout...");
 					setTimeout(() => {
-						window.location.href = '/checkout';
+						{% unless customer.email contains 'yotam' %}
+				window.location.href = "/checkout";
+				{% endunless %}
 					}, 50);
 				} else {
 					// Regular add to cart
