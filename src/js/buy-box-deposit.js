@@ -656,7 +656,7 @@ class BuyBoxNew {
 		const selectedBox = this.container.querySelector(`.variant-box[data-original-variant="${selectedVariantId}"]`);
 		if (!selectedBox) return [];
 
-		const quantity = parseInt(selectedBox.dataset.bottleQuantity || "1", 10);
+		const quantity = 1;
 
 		// --- Determine Selling Plan ID ---
 		// Prioritize Downpay plan ID if it exists in the state for the selected variant
@@ -711,6 +711,20 @@ class BuyBoxNew {
 	}
 
 	async handleBuyNowFlow(items) {
+		// Temporarily disable cart drawer opening to avoid flicker before redirect
+		try {
+			const cartDrawerEl = document.querySelector("cart-drawer");
+			if (cartDrawerEl && !cartDrawerEl.__openDisabledForBuyNow) {
+				cartDrawerEl.__originalOpen = cartDrawerEl.open;
+				cartDrawerEl.open = function () {};
+				cartDrawerEl.__openDisabledForBuyNow = true;
+				// Also hide it just in case
+				cartDrawerEl.style.display = "none";
+			}
+		} catch (err) {
+			console.warn("Could not override cart drawer open:", err);
+		}
+
 		// 1. Clear the cart
 		try {
 			await clearCart();
