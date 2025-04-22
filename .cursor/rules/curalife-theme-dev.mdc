@@ -1,0 +1,120 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+# Curalife Theme Development - Project Rules
+
+## Core Philosophy & Goals
+
+- **Mobile-First:** Design and build with mobile devices as the primary consideration.
+- **Progressive Enhancement:** Ensure core functionality works without JavaScript; enhance with JS.
+- **Performance:** Prioritize fast loading times and adherence to Core Web Vitals.
+- **Accessibility:** Strive for WCAG compliance.
+- **Component-Based:** Aim to build reusable Liquid snippets/sections and potentially JS modules.
+- **Vanilla JS:** Prefer modern vanilla JavaScript over heavy frameworks for performance and simplicity.
+- **Utility-First CSS:** Leverage Tailwind CSS for most styling.
+
+## Core Configuration
+
+- **Build System:** Vite ([vite.config.js](mdc:vite.config.js)) augmented with custom build scripts (`[build-scripts/](mdc:build-scripts)`).
+- **CSS Framework:** Tailwind CSS v4 ([tailwind.config.js](mdc:tailwind.config.js)) using CSS-first approach via PostCSS ([postcss.config.cjs](mdc:postcss.config.cjs)). Main entry: `[src/styles/tailwind.css](mdc:src/styles/tailwind.css)`.
+- **Linting/Quality:** ESLint ([.eslintrc.js](mdc:.eslintrc.js)), Prettier ([.prettierrc](mdc:.prettierrc)), Shopify Theme Check ([.theme-check.yml](mdc:.theme-check.yml)). Configured in `[linting/](mdc:linting)`.
+- **Package Manager:** pnpm ([package.json](mdc:package.json)).
+
+## File Structure & Flattening
+
+- Source code resides in `[src/](mdc:src)` with logical subdirectories:
+  - Liquid: `[src/liquid/](mdc:src/liquid)` (layouts, sections, snippets, blocks, templates). Sections/snippets may have further subdirs (e.g., `components/`, `products/`).
+  - JavaScript: `[src/scripts/](mdc:src/scripts)`. Utility modules are often placed in `[src/scripts/utils/](mdc:src/scripts/utils)` (e.g., performance utils).
+  - Styles: `[src/styles/](mdc:src/styles)` (contains `tailwind.css` entry, `css/` subdir for other CSS).
+  - Static Assets: `[src/assets/](mdc:src/assets)`, `[src/images/](mdc:src/images)`, `[src/fonts/](mdc:src/fonts)`.
+  - Shopify Config/Locales: `[src/config/](mdc:src/config)`, `[src/locales/](mdc:src/locales)`.
+- **Build Output:** Generated in `[Curalife-Theme-Build/](mdc:Curalife-Theme-Build)`.
+- **Flattening:** The build process (managed by custom logic in `[vite.config.js](mdc:vite.config.js)`'s plugins and `[build-scripts/](mdc:build-scripts)`) **flattens** the `src/` directory structure into the Shopify-required flat structure within `Curalife-Theme-Build/` (e.g., all snippets from `src/liquid/snippets/**/*` end up directly in `Curalife-Theme-Build/snippets/`).
+
+## Naming Conventions
+
+- Liquid Sections/Snippets: Use descriptive, kebab-case names (e.g., `testimonials-section.liquid`, `rating-stars.liquid`). Dotted prefixes (`layout.head.*`) may occur for organization.
+- CSS Classes: Primarily Tailwind utility classes.
+- JavaScript Files/Modules: Generally kebab-case (e.g., `performance-init.js`). Entry points defined in `[vite.config.js](mdc:vite.config.js)`.
+- JS Functions/Variables: Use camelCase.
+
+## Development Workflow
+
+- **Setup:** Requires Node.js, pnpm, Shopify CLI. Run `pnpm install`, authenticate Shopify CLI (`npm run shopify:login`).
+- **Build (Production):** `npm run build`. Executes `[build-scripts/build-complete.js](mdc:build-scripts/build-complete.js)`, which orchestrates Vite build, file copying/flattening, and CSS minification.
+- **Watch (Generic):** `npm run watch`. Runs `[build-scripts/watch.js](mdc:build-scripts/watch.js)` for basic file watching (likely less integrated than `watch:shopify`).
+- **Watch (Shopify Dev / Hot Reload):** `npm run watch:shopify`. Sets `VITE_WATCH_MODE=true`. Uses Vite's dev server combined with custom plugins in `[vite.config.js](mdc:vite.config.js)` (`createWatchPlugin`) to handle JS/CSS HMR *and* watch/copy changes for other files (like `.liquid`). CSS is *not* minified in this mode. (See Known Issues).
+- **Shopify CLI:** Use `npm run shopify:theme:dev`, `push`, `pull`, etc., targeting the `[Curalife-Theme-Build/](mdc:Curalife-Theme-Build)` directory.
+- **Linting:** `npm run lint` / `npm run lint:fix`.
+
+## CSS Guidelines
+
+- Use Tailwind CSS v4 via `@import "tailwindcss";` in `[src/styles/tailwind.css](mdc:src/styles/tailwind.css)`. Configure theme tokens in the `@theme` layer using CSS custom properties.
+- Follow layer order: `@layer theme, base, components, utilities;`. Place custom component styles in `@layer components`.
+- Styles processed by Vite/PostCSS (`[postcss.config.cjs](mdc:postcss.config.cjs)`) including `autoprefixer`.
+- Production builds generate `tailwind.css` and `tailwind.min.css` in `[Curalife-Theme-Build/assets/](mdc:Curalife-Theme-Build/assets)` via a post-build step in `[vite.config.js](mdc:vite.config.js)`. Watch mode only generates `tailwind.css`.
+- SCSS (`sass`) is available. Custom non-Tailwind CSS can go in `[src/styles/css/](mdc:src/styles/css)`.
+
+## JavaScript Patterns
+
+- Use modern ES modules (ESM) syntax, processed by Vite. Main entry points likely in `[src/scripts/](mdc:src/scripts)`.
+- Primarily vanilla JavaScript. Apply patterns like:
+    - **Module Pattern:** Encapsulate functionality.
+    - **Event Delegation:** For efficient event handling.
+    - **Lazy Loading:** Defer non-critical script execution/resource loading.
+- Utility functions may be found in `[src/scripts/utils/](mdc:src/scripts/utils)`.
+- Use `data-js-hook="hook-name"` attributes for selecting elements in JS.
+- Important global scripts might be loaded via snippets like `[src/liquid/snippets/global.third-party-scripts.liquid](mdc:src/liquid/snippets/global.third-party-scripts.liquid)`.
+
+## Shopify-Specific Patterns
+
+- Structure theme using sections (`[src/liquid/sections/](mdc:src/liquid/sections)`) and snippets (`[src/liquid/snippets/](mdc:src/liquid/snippets)`).
+- Define settings in section/block schemas (`{% schema %}`). Consider using presets for sections.
+- Leverage Liquid tags (`{% ... %}`, `{{ ... }}`). Key utility snippets might include `[src/liquid/snippets/utils.script-loader.liquid](mdc:src/liquid/snippets/utils.script-loader.liquid)`.
+- Use Shopify APIs (AJAX Cart API, etc.).
+- Remember all `src/liquid`, `src/config`, `src/locales` files are flattened into the build output.
+
+## Performance Guidelines
+
+- Optimize images. Consider `imagemin` tools (dev dependency).
+- Leverage Vite's production build optimizations (minification, code splitting).
+- Analyze CSS output size (`tailwind.min.css`).
+- Use performance testing scripts: `npm run lighthouse:*`. Performance utilities might be in `[src/scripts/utils/performance/](mdc:src/scripts/utils/performance)`.
+- Implement lazy loading for images and scripts.
+- Minimize render-blocking resources.
+
+## Testing & Quality
+
+- **Linters/Formatters:** Use `npm run lint` (ESLint, Theme Check) and `npm run lint:fix` (Prettier).
+- **Cross-Browser/Device:** Manually test critical flows and layouts across target browsers (including Safari) and devices.
+
+## Deployment Process
+
+- Run `npm run build` to generate the production-ready `[Curalife-Theme-Build/](mdc:Curalife-Theme-Build)` directory.
+- Test the build locally or on a staging environment.
+- Deploy this directory using `npm run shopify:theme:push` or other methods (e.g., GitHub Actions).
+
+## Known Issues & Workarounds
+
+- **Flattening is Key:** The custom logic in `[vite.config.js](mdc:vite.config.js)` (plugins like `createCopyPlugin`) and `[build-scripts/](mdc:build-scripts)` is essential for transforming the structured `[src/](mdc:src)` into Shopify's required flat theme structure in `[Curalife-Theme-Build/](mdc:Curalife-Theme-Build)`.
+- **Watch Mode Complexity:** `npm run watch:shopify` uses Vite's HMR for JS/CSS but relies on a custom Vite plugin (`createWatchPlugin`) to detect and copy changes for non-bundled files (e.g., `.liquid`, images, fonts).
+    - **Hot Reload Timing:** May occasionally have race conditions requiring manual refresh (`progress.md`).
+    - **Cache Issues:** Some file changes might not trigger rebuilds reliably (`progress.md`).
+- **CSS Minification:** The `tailwind.min.css` file is only generated during `npm run build`, not during `watch:shopify`.
+- **Environment Variables:** Build behavior can be influenced by `NODE_ENV`, `VITE_WATCH_MODE`, `VITE_SKIP_CLEAN`, `VITE_VERBOSE_LOGGING`. Shopify API keys might be needed via `.env` (`techContext.md`).
+- **Theme Editor Sync:** Some section setting changes might not reflect live in the theme editor preview (`progress.md`).
+- **Performance:** Watch for Tailwind processing speed on large changes, image/font loading flashes/layout shifts (`progress.md`).
+- **Browser Compatibility:** Pay attention to potential minor inconsistencies, especially in Safari (`progress.md`).
+
+
+
+
+
+
+
+
+
+
+
