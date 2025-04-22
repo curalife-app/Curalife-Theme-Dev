@@ -1,147 +1,502 @@
-{{ 'customer.css' | asset_url | stylesheet_tag }}
+{% comment %}
+	Account Activation Component
+	- Handles account activation form
+	- Styles based on main-login.liquid
+{% endcomment %}
 
-{%- style -%}
-  .section-{{ section.id }}-padding {
-    padding-top: {{ section.settings.padding_top | times: 0.75 | round: 0 }}px;
-    padding-bottom: {{ section.settings.padding_bottom | times: 0.75 | round: 0 }}px;
-  }
+<section class="customer activate main-activate-account-section">
+	<div class="container">
+		<div class="activate-form">
+			<h1 tabindex="-1">{{ 'customer.activate_account.title' | t }}</h1>
+			<p>{{ 'customer.activate_account.subtext' | t }}</p>
 
-  @media screen and (min-width: 750px) {
-    .section-{{ section.id }}-padding {
-      padding-top: {{ section.settings.padding_top }}px;
-      padding-bottom: {{ section.settings.padding_bottom }}px;
-    }
-  }
-{%- endstyle -%}
+			{%- form 'activate_customer_password' -%}
+				{%- if form.errors -%}
+					<div class="form__message form__message--error" tabindex="-1" autofocus>
+						{% render 'icon-error' %}
+						{{ 'templates.contact.form.error_heading' | t }}
+					</div>
+					<ul class="form__errors">
+						{%- for field in form.errors -%}
+							<li>
+								{%- if field == 'form' -%}
+									{{ form.errors.messages[field] }}
+								{%- else -%}
+									<a href="#{{ field }}">
+										{{ form.errors.translated_fields[field] | capitalize }}
+										{{ form.errors.messages[field] }}
+									</a>
+								{%- endif -%}
+							</li>
+						{%- endfor -%}
+					</ul>
+				{%- endif -%}
 
-<div class="customer activate section-{{ section.id }}-padding">
-  <svg style="display: none">
-    <symbol id="icon-error" viewBox="0 0 13 13">
-      <circle cx="6.5" cy="6.50049" r="5.5" stroke="white" stroke-width="2"/>
-      <circle cx="6.5" cy="6.5" r="5.5" fill="#EB001B" stroke="#EB001B" stroke-width="0.7"/>
-      <path d="M5.87413 3.52832L5.97439 7.57216H7.02713L7.12739 3.52832H5.87413ZM6.50076 9.66091C6.88091 9.66091 7.18169 9.37267 7.18169 9.00504C7.18169 8.63742 6.88091 8.34917 6.50076 8.34917C6.12061 8.34917 5.81982 8.63742 5.81982 9.00504C5.81982 9.37267 6.12061 9.66091 6.50076 9.66091Z" fill="white"/>
-      <path d="M5.87413 3.17832H5.51535L5.52424 3.537L5.6245 7.58083L5.63296 7.92216H5.97439H7.02713H7.36856L7.37702 7.58083L7.47728 3.537L7.48617 3.17832H7.12739H5.87413ZM6.50076 10.0109C7.06121 10.0109 7.5317 9.57872 7.5317 9.00504C7.5317 8.43137 7.06121 7.99918 6.50076 7.99918C5.94031 7.99918 5.46982 8.43137 5.46982 9.00504C5.46982 9.57872 5.94031 10.0109 6.50076 10.0109Z" fill="white" stroke="#EB001B" stroke-width="0.7">
-    </symbol>
-  </svg>
-  <h1>
-    {{ 'customer.activate_account.title' | t }}
-  </h1>
-  <p>
-    {{ 'customer.activate_account.subtext' | t }}
-  </p>
-  {%- form 'activate_customer_password' -%}
-    {%- if form.errors -%}
-      <h2 class="form__message" tabindex="-1" autofocus>
-        <svg aria-hidden="true" focusable="false">
-          <use href="#icon-error" />
-        </svg>
-        {{ 'templates.contact.form.error_heading' | t }}
-      </h2>
-      <ul>
-        {%- for field in form.errors -%}
-          <li>
-            {%- if field == 'form' -%}
-              {{ form.errors.messages[field] }}
-            {%- else -%}
-              <a href="#{{ field }}">
-                {{ form.errors.translated_fields[field] | capitalize }}
-                {{ form.errors.messages[field] }}
-              </a>
-            {%- endif -%}
-          </li>
-        {%- endfor -%}
-      </ul>
-    {%- endif -%}
+				<div class="field">
+					<input
+						type="password"
+						name="customer[password]"
+						id="password"
+						autocomplete="new-password"
+						{% if form.errors contains 'password' %}
+							aria-invalid="true"
+							aria-describedby="password-error"
+						{% endif %}
+						placeholder="{{ 'customer.activate_account.password' | t }}">
+					<label for="password">
+						{{ 'customer.activate_account.password' | t }}
+					</label>
+					<button type="button" class="password-toggle no-style" aria-label="Toggle password visibility">
+						<svg
+							class="icon-eye-open"
+							xmlns="http://www.w3.org/2000/svg"
+							width="20"
+							height="20"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round">
+							<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+							<circle cx="12" cy="12" r="3"></circle>
+						</svg>
+						<svg
+							class="icon-eye-closed"
+							xmlns="http://www.w3.org/2000/svg"
+							width="20"
+							height="20"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round">
+							<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+							<line x1="1" y1="1" x2="23" y2="23"></line>
+						</svg>
+					</button>
+					{%- if form.errors contains 'password' -%}
+						<div id="password-error" class="form__message form__message--field-error">
+							{% render 'icon-error' %}
+							{{ form.errors.translated_fields.password | capitalize }}
+							{{ form.errors.messages.password }}
+						</div>
+					{%- endif -%}
+				</div>
 
-    <div class="field">
-      <input
-        type="password"
-        name="customer[password]"
-        id="password"
-        autocomplete="new-password"
-        placeholder="{{ 'customer.activate_account.password' | t }}"
-        {% if form.errors contains 'password' %}
-          aria-invalid="true"
-          aria-describedby="password-error"
-        {% endif %}
-      >
-      <label for="password">
-        {{ 'customer.activate_account.password' | t }}
-      </label>
-      {%- if form.errors contains 'password' -%}
-        <small id="password-error" class="form__message">
-          <svg aria-hidden="true" focusable="false">
-            <use href="#icon-error" />
-          </svg>
-          {{ form.errors.translated_fields.password | capitalize }}
-          {{ form.errors.messages.password }}
-        </small>
-      {%- endif -%}
-    </div>
+				<div class="field">
+					<input
+						type="password"
+						name="customer[password_confirmation]"
+						id="password_confirmation"
+						autocomplete="new-password"
+						{% if form.errors contains 'password_confirmation' %}
+							aria-invalid="true"
+							aria-describedby="password_confirmation-error"
+						{% endif %}
+						placeholder="{{ 'customer.activate_account.password_confirm' | t }}">
+					<label for="password_confirmation">
+						{{ 'customer.activate_account.password_confirm' | t }}
+					</label>
+					<button type="button" class="password-toggle no-style" aria-label="Toggle password visibility">
+						<svg
+							class="icon-eye-open"
+							xmlns="http://www.w3.org/2000/svg"
+							width="20"
+							height="20"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round">
+							<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+							<circle cx="12" cy="12" r="3"></circle>
+						</svg>
+						<svg
+							class="icon-eye-closed"
+							xmlns="http://www.w3.org/2000/svg"
+							width="20"
+							height="20"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round">
+							<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+							<line x1="1" y1="1" x2="23" y2="23"></line>
+						</svg>
+					</button>
+					{%- if form.errors contains 'password_confirmation' -%}
+						<div id="password_confirmation-error" class="form__message form__message--field-error">
+							{% render 'icon-error' %}
+							{{ form.errors.translated_fields.password_confirmation | capitalize }}
+							{{ form.errors.messages.password_confirmation }}
+						</div>
+					{%- endif -%}
+				</div>
 
-    <div class="field">
-      <input
-        type="password"
-        name="customer[password_confirmation]"
-        id="password_confirmation"
-        autocomplete="new-password"
-        placeholder="{{ 'customer.activate_account.password_confirm' | t }}"
-        {% if form.errors contains 'password' %}
-          aria-invalid="true"
-          aria-describedby="password_confirmation-error"
-        {% endif %}
-      >
-      <label for="password_confirmation">
-        {{ 'customer.activate_account.password_confirm' | t }}
-      </label>
-      {%- if form.errors contains 'password_confirmation' -%}
-        <small id="password_confirmation-error" class="form__message">
-          <svg aria-hidden="true" focusable="false">
-            <use href="#icon-error" />
-          </svg>
-          {{ form.errors.translated_fields.password_confirmation | capitalize }}
-          {{ form.errors.messages.password_confirmation }}
-        </small>
-      {%- endif -%}
-    </div>
+				<div class="button-group">
+					<button type="submit" class="button button--primary">
+						{{ 'customer.activate_account.submit' | t }}
+					</button>
+					<button type="submit" name="decline" class="button button--secondary">
+						{{ 'customer.activate_account.cancel' | t }}
+					</button>
+				</div>
+			{%- endform -%}
+		</div>
+	</div>
+</section>
 
-    <button>
-      {{ 'customer.activate_account.submit' | t }}
-    </button>
-    <button name="decline">
-      {{ 'customer.activate_account.cancel' | t }}
-    </button>
-  {%- endform -%}
-</div>
+<style>
+	main {
+		background: linear-gradient(135deg, var(--beige, #f8f5f1) 0%, #f5f5f5 100%);
+		display: grid;
+		place-items: center;
+		padding: 2rem;
+	}
+
+	.main-activate-account-section {
+		/* Base Styles */
+		--form-max-width: 450px;
+		--form-padding: clamp(20px, 5vw, 40px);
+		--input-height: 48px;
+		--border-radius: 8px;
+
+		/* Colors */
+		--color-primary: var(--primary-color, #4a7c7d);
+		--color-primary-dark: var(--primary-color-dark, #3a6162);
+		--color-primary-light: rgba(74, 124, 125, 0.1);
+		--color-text: var(--heading-color, #2c3338);
+		--color-text-light: #666;
+		--color-border: #e0e0e0;
+		--color-error: #dc3545;
+		--color-success: #28a745;
+		--color-background: white;
+
+		/* Shadows */
+		--shadow-card: 0 10px 40px rgba(0, 0, 0, 0.08);
+		--shadow-focus: 0 0 0 3px var(--color-primary-light);
+
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		min-height: 80vh;
+		width: min(var(--form-max-width), 100%);
+		margin: 0 auto;
+
+		.shopify-section {
+			@media (max-width: 768px) {
+				width: 90%;
+			}
+		}
+
+		form {
+			min-height: 330px;
+		}
+
+		.container {
+			background: var(--color-background);
+			border-radius: var(--border-radius);
+			padding: var(--form-padding);
+			box-shadow: var(--shadow-card);
+			position: relative;
+			overflow: hidden;
+
+			&::before {
+				content: '';
+				position: absolute;
+				top: 0;
+				left: 0;
+				right: 0;
+				height: 4px;
+				background: linear-gradient(to right, var(--color-primary), var(--color-primary-dark));
+			}
+		}
+
+		/* Typography */
+		h1,
+		h2 {
+			color: var(--color-text);
+			text-align: center;
+			margin-bottom: 1.5rem;
+			font-size: clamp(24px, 5vw, 32px);
+			font-weight: 700;
+			letter-spacing: -0.5px;
+			font-family: var(--heading-font-family, sans-serif);
+		}
+
+		p {
+			color: var(--color-text-light);
+			text-align: center;
+			margin-bottom: 2rem;
+			font-size: 16px;
+			line-height: 1.5;
+		}
+
+		/* Form Fields */
+		.field {
+			position: relative;
+			margin-bottom: 1rem;
+
+			input {
+				width: 100%;
+				height: var(--input-height);
+				padding: 0.75rem 1rem;
+				border: 2px solid var(--color-border);
+				border-radius: var(--border-radius);
+				font-size: 1rem;
+				background: var(--color-background);
+				transition: all 0.2s ease-in-out;
+
+				&:focus {
+					outline: none;
+					border-color: var(--color-primary);
+					box-shadow: var(--shadow-focus);
+				}
+
+				&::placeholder {
+					color: transparent;
+				}
+
+				&:focus + label,
+				&:not(:placeholder-shown) + label {
+					top: -0.5rem;
+					left: 12px;
+					transform: translateY(0);
+					font-size: 0.75rem;
+					color: var(--color-primary);
+					background: var(--color-background);
+					padding: 0 6px;
+				}
+
+				&[aria-invalid='true'] {
+					border-color: var(--color-error);
+				}
+			}
+
+			label {
+				position: absolute;
+				left: 1rem;
+				top: 50%;
+				transform: translateY(-50%);
+				font-size: 1rem;
+				color: var(--color-text-light);
+				background: transparent;
+				padding: 0 0.25rem;
+				transition: all 0.2s ease-in-out;
+				pointer-events: none;
+			}
+
+			.password-toggle {
+				position: absolute;
+				right: 1rem;
+				top: 50%;
+				transform: translateY(-50%);
+				background: transparent;
+				border: none;
+				cursor: pointer;
+				padding: 0;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				color: var(--color-text-light);
+
+				.icon-eye-open {
+					display: block;
+				}
+
+				.icon-eye-closed {
+					display: none;
+				}
+
+				&.show {
+					.icon-eye-open {
+						display: none;
+					}
+
+					.icon-eye-closed {
+						display: block;
+					}
+				}
+			}
+
+			.form__message--field-error {
+				color: var(--color-error);
+				font-size: 0.8rem;
+				margin-top: 0.25rem;
+				display: flex;
+				align-items: center;
+				gap: 0.25rem;
+
+				svg {
+					width: 1rem;
+					height: 1rem;
+					flex-shrink: 0;
+				}
+			}
+		}
+
+		/* Buttons */
+		.button {
+			display: inline-block;
+			width: 100%;
+			padding: 0.875rem;
+			border: none;
+			border-radius: var(--border-radius);
+			font-size: 1rem;
+			font-weight: 600;
+			text-align: center;
+			cursor: pointer;
+			transition: all 0.2s ease-in-out;
+
+			&--primary {
+				background: linear-gradient(to right, var(--color-primary), var(--color-primary-dark));
+				color: white;
+
+				&:hover {
+					transform: translateY(-1px);
+					box-shadow: 0 4px 12px rgba(74, 124, 125, 0.2);
+				}
+			}
+
+			&--secondary {
+				background: transparent;
+				color: var(--color-primary);
+				border: 2px solid var(--color-primary);
+
+				&:hover {
+					background: var(--color-primary-light);
+				}
+			}
+		}
+
+		.button-group {
+			display: flex;
+			flex-direction: column; /* Stack buttons vertically */
+			gap: 1rem;
+			margin-top: 1.5rem;
+		}
+
+		/* Messages */
+		.form__message {
+			display: flex;
+			align-items: center;
+			gap: 0.75rem;
+			padding: 1rem;
+			border: 0 !important; /* Override default border */
+			margin-bottom: 1rem;
+			border-radius: var(--border-radius);
+			font-size: 0.875rem;
+			animation: main-activate-slideIn 0.3s ease-out;
+
+			svg {
+				width: 1.25rem;
+				height: 1.25rem;
+				flex-shrink: 0;
+			}
+
+			&--error {
+				background: #ffebee;
+				color: var(--color-error);
+			}
+		}
+
+		.form__errors {
+			list-style: none;
+			padding: 0;
+			margin: 0 0 1rem 0;
+
+			li {
+				font-size: 0.875rem;
+				color: var(--color-error);
+				margin-bottom: 0.5rem;
+
+				a {
+					color: var(--color-error);
+					text-decoration: underline;
+				}
+			}
+		}
+
+		/* Animations */
+		@keyframes main-activate-slideIn {
+			from {
+				transform: translateY(-10px);
+				opacity: 0;
+			}
+			to {
+				transform: translateY(0);
+				opacity: 1;
+			}
+		}
+
+		/* Responsive */
+		@media (max-width: 768px) {
+			main {
+				padding: 1rem;
+			}
+
+			.customer.activate {
+				.container {
+					padding: 1.5rem;
+				}
+			}
+		}
+	}
+</style>
+
+<script>
+	document.querySelectorAll('.password-toggle').forEach(button => {
+		button.addEventListener('click', () => {
+			const field = button.closest('.field');
+			if (!field) return;
+			const input = field.querySelector('input[type="password"], input[type="text"]');
+			if (!input) return;
+
+			const type = input.getAttribute('type') === 'password' ? 'text' : 'password';
+			input.setAttribute('type', type);
+			button.classList.toggle('show');
+
+			// Optional: Update aria-label for accessibility
+			const newLabel = type === 'password' ? 'Show password' : 'Hide password';
+			button.setAttribute('aria-label', newLabel);
+		});
+	});
+</script>
 
 {% schema %}
-{
-  "name": "t:sections.main-activate-account.name",
-  "settings": [
-    {
-      "type": "header",
-      "content": "t:sections.all.padding.section_padding_heading"
-    },
-    {
-      "type": "range",
-      "id": "padding_top",
-      "min": 0,
-      "max": 100,
-      "step": 4,
-      "unit": "px",
-      "label": "t:sections.all.padding.padding_top",
-      "default": 36
-    },
-    {
-      "type": "range",
-      "id": "padding_bottom",
-      "min": 0,
-      "max": 100,
-      "step": 4,
-      "unit": "px",
-      "label": "t:sections.all.padding.padding_bottom",
-      "default": 36
-    }
-  ]
-}
+	{
+		"name": "t:sections.main-activate-account.name",
+		"class": "main-activate-account-section",
+		"settings": [
+			{
+				"type": "header",
+				"content": "t:sections.all.padding.section_padding_heading"
+			},
+			{
+				"type": "range",
+				"id": "padding_top",
+				"min": 0,
+				"max": 100,
+				"step": 4,
+				"unit": "px",
+				"label": "t:sections.all.padding.padding_top",
+				"default": 36
+			},
+			{
+				"type": "range",
+				"id": "padding_bottom",
+				"min": 0,
+				"max": 100,
+				"step": 4,
+				"unit": "px",
+				"label": "t:sections.all.padding.padding_bottom",
+				"default": 36
+			}
+		]
+	}
 {% endschema %}

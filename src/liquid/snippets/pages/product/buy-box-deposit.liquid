@@ -38,11 +38,25 @@
 	{% endcase %}
 {% endfor %}
 
+{% comment %} Check if product has Downpay selling plans AT THE PRODUCT LEVEL {% endcomment %}
+{% assign product_downpay_group = prod.selling_plan_groups | where: 'app_id', 'downpay' | first %}
+{% assign product_downpay_plan_id = '' %}
+{% if product_downpay_group %}
+    {% assign product_downpay_plan_id = product_downpay_group.selling_plans[0].id %}
+    {% comment %} Debugging: Output ID to console {% endcomment %}
+    <script>console.log('Product Downpay Plan ID Found:', {{ product_downpay_plan_id | json }});</script>
+{% else %}
+    <script>console.log('No Product Level Downpay Plan Group Found for app_id=downpay');</script>
+{% endif %}
+
+{% comment %} Check if product has Downpay selling plans {% endcomment %}
+{% assign downpay_selling_plan_groups = prod.selling_plan_groups | where: 'app_id', 'downpay' %}
+
 <div
 	class="product-actions [&[data-processing=true]]:opacity-70 [&[data-processing=true]]:pointer-events-none"
 	data-buy-box-new-root="true"
 	data-sid="{{ SID }}"
-	data-buy-type="{{ buyType }}"
+	data-buy-type="{{ buyType }}" {% comment %} Keep buyType for potential future use or differentiation {% endcomment %}
 	data-price-format="{{ priceFormat | default: 'per_bottle' }}"
 	data-is-slide-variant="{{ isSlideVariant | default: false }}"
 	data-is-one-time-gift="{{ isOneTimeGift | default: false }}"
@@ -58,7 +72,7 @@
 		<div class="variant-boxes flex justify-around gap-2" role="tablist" aria-label="Purchase options">
 			{% for block in blocks %}
 				{% assign varPurchaseType = block.settings.purchase_type %}
-				{% if block.type == 'variant' and varPurchaseType == 'subscribe' %}
+				{% if block.type == 'variant' %} {% comment %} Allow both subscribe and one-time variants initially, Downpay logic handled at button {% endcomment %}
 					{% assign referenced_variant = blank %}
 					{% if isGlobal %}
 						{% assign blockVarID = block.settings.variant_id_global | plus: 0 %}
@@ -80,32 +94,35 @@
 					{% assign variant_id = var.metafields.custom.reference_variant_id | default: var.id %}
 					{% assign bottle_quantity = var.metafields.my_fields.pack_bottles_quantity %}
 
-					{% comment %} Price Calculations {% endcomment %}
+					{% comment %} Price Calculations (Keep original for context) {% endcomment %}
 					{% assign original_item_price = var.metafields.custom.original_item.value.price %}
 					{% assign original_item_cap = var.metafields.custom.original_item.value.compare_at_price | default: original_item_price %}
 					{% assign original_item_cap_total = original_item_cap | times: bottle_quantity %}
 					{% assign item_price = var.price | divided_by: bottle_quantity %}
 
-					{% comment %} Savings Calculations {% endcomment %}
-					{% assign subscription_save_money = original_item_cap | minus: subscription_item_price %}
+					{% comment %} Savings Calculations (Keep original for context) {% endcomment %}
+					{% assign subscription_save_money = 0 %}
 					{% assign buy_once_save_money = original_item_cap | minus: item_price %}
 
-					{% comment %} Selling Plan ID Logic {% endcomment %}
+					{% comment %} Selling Plan ID Logic (Subscription only here) {% endcomment %}
+					{% assign subscription_selling_plan_id = '' %}
+
 					{% if var.metafields.custom.referenced_variant_product_handle %}
-						{% assign selling_plan_id = referenced_variant.metafields.subscription.selling_plan_id | default: variant.metafields.subscription.selling_plan_id %}
+						{% assign subscription_selling_plan_id = referenced_variant.metafields.subscription.selling_plan_id | default: variant.metafields.subscription.selling_plan_id %}
 					{% elsif var.metafields.subscription.selling_plan_id %}
-						{% assign selling_plan_id = var.metafields.subscription.selling_plan_id %}
+						{% assign subscription_selling_plan_id = var.metafields.subscription.selling_plan_id %}
 					{% elsif var.selling_plan_allocations.size > 0 %}
 						{% assign found_plan = false %}
 						{% for allocation in var.selling_plan_allocations %}
-							{% if allocation.selling_plan.name contains bottle_quantity %}
-								{% assign selling_plan_id = allocation.selling_plan.id %}
+                            {% comment %} Ensure we only grab non-Downpay subscription plans here {% endcomment %}
+							{% if allocation.selling_plan.name contains bottle_quantity and allocation.selling_plan.app_id != 'downpay' %}
+								{% assign subscription_selling_plan_id = allocation.selling_plan.id %}
 								{% assign found_plan = true %}
 								{% break %}
 							{% endif %}
 						{% endfor %}
-						{% if found_plan == false %}
-							{% assign selling_plan_id = var.selling_plan_allocations.first.selling_plan.id %}
+						{% if found_plan == false and var.selling_plan_allocations.first.selling_plan.app_id != 'downpay' %}
+							{% assign subscription_selling_plan_id = var.selling_plan_allocations.first.selling_plan.id %}
 						{% endif %}
 					{% endif %}
 
@@ -113,8 +130,8 @@
 					{% assign subscription_item_price = original_item_cap %}
 
 					{% for allocation in var.selling_plan_allocations %}
-						{% assign selling = selling_plan_id | minus: 0 %}
-						{% if allocation.selling_plan.id == selling %}
+						{% assign selling = subscription_selling_plan_id | minus: 0 %}
+						{% if allocation.selling_plan.id == selling and allocation.selling_plan.app_id != 'downpay' %}
 							{% if allocation.compare_at_price %}
 								{% assign original_price = allocation.compare_at_price %}
 								{% assign discounted_price = allocation.price %}
@@ -142,6 +159,13 @@
 						{% assign subscription_save_percents = var.metafields.subscription.save_percents %}
 					{% endif %}
 
+					{% comment %} Determine display price (this might need JS adjustment for deposit amount) {% endcomment %}
+					{% assign display_item_price = item_price %}
+					{% assign display_total_price = item_price | times: bottle_quantity %}
+					{% assign display_cap_price = original_item_cap %}
+					{% assign display_total_cap_price = original_item_cap_total %}
+					{% assign display_save_percents = var.metafields.custom.save_percents | default: 0 %}
+
 					<div id="variant-box-{{ SID }}-{{ forloop.index }}"
 						class="variant-box flex flex-col items-center relative border-2 border-primary-lighter rounded-md cursor-pointer transition-all duration-300 ease-in-out aria-selected:bg-primary aria-selected:border-primary aria-selected:text-white aria-[selected=false]:bg-white aria-[selected=false]:text-primary hover:bg-gray-100 text-center w-full {{ varPurchaseType }}"
 						role="tab"
@@ -151,21 +175,22 @@
 						data-variant="{{ blockVarID }}"
 						data-product="{{ prod.id }}"
 						data-original-variant="{{ var.id }}"
-						data-subscription-selling-plan-id="{{ selling_plan_id }}"
+						data-subscription-selling-plan-id="{{ subscription_selling_plan_id }}" {% comment %} Keep for potential hybrid use {% endcomment %}
+						data-downpay-plan-id="710535938429"
 						data-price="{{ var.price | money_without_currency | replace: ".00", "" }}"
 						data-sku="{{ var.sku }}"
 						data-index="{{ forloop.index }}"
 						data-item-price="{{ item_price }}"
-						data-subscription-price="{{ subscription_total_price }}"
-						data-subscription-item-price="{{ subscription_item_price }}"
+						data-subscription-price="{{ subscription_total_price }}" {% comment %} Keep for context {% endcomment %}
+						data-subscription-item-price="{{ subscription_item_price }}" {% comment %} Keep for context {% endcomment %}
 						data-original-item-cap="{{ original_item_cap }}"
 						data-dc="{{ var.metafields.custom.discount_code | base64_encode }}"
 						data-buy-once-discount="{{ var.metafields.custom.save_percents }}"
-						data-subscription-discount="{{ subscription_save_percents }}"
-						data-first-month-discount="{{ firstMonthDiscount }}"
+						data-subscription-discount="{{ subscription_save_percents }}" {% comment %} Keep for context {% endcomment %}
+						data-first-month-discount="{{ firstMonthDiscount }}" {% comment %} Keep for context {% endcomment %}
 						data-price-per="{{ pricePer }}"
 						data-bottle-quantity="{{ bottle_quantity }}"
-						data-purchase-type="{{ varPurchaseType }}"
+						data-purchase-type="{{ varPurchaseType }}" {% comment %} Indicate if variant block is setup for 'subscribe' or 'buyonce' {% endcomment %}
 						data-buy-type="{{ buyType }}"
 						{% if isGlobal %}
 						{% if block.settings.allowed_selling_plan_ids_global != blank %}
@@ -177,10 +202,17 @@
 						{% endif %}
 						{% endif %}
 						name="track:variant-box|variant-sku:{{ var.sku }}|purchase-type:{{ varPurchaseType }}">
-						{% if product.handle contains 'curalin' %}
-							{% assign subscription_save_percents = var.metafields.subscription.save_percents %}
+
+						{% assign displayDiscount = subscription_save_percents %}
+						{% if varPurchaseType == 'buyonce' and var.metafields.custom.save_percents %}
+							{% assign displayDiscount = var.metafields.custom.save_percents %}
 						{% endif %}
-						<div class="discount mbl:text-[3.5vw] font-medium w-full text-[13px] p-1 text-primary bg-bg">{{ subscription_save_percents }}% OFF</div>
+
+						{% if displayDiscount > 0 %}
+							<div class="discount mbl:text-[3.5vw] font-medium w-full text-[13px] p-1 text-primary bg-bg">{{ displayDiscount }}% OFF</div>
+						{% else %}
+							<div class="discount mbl:text-[3.5vw] font-medium w-full text-[13px] p-1 text-transparent bg-transparent">&nbsp;</div> {% comment %} Placeholder for consistent height {% endcomment %}
+						{% endif %}
 
 						<!-- prettier-ignore -->
 						<div class="title p-1">
@@ -201,25 +233,25 @@
 					<div class="final-price flex items-end gap-2">
 							<div class="main-price text-primary flex items-end transition-opacity duration-300 ease-in-out">
 									{% if priceFormat == 'total' %}
-											<span class="price leading-none text-[30px] font-semibold mbl:text-[6vw] transition-all duration-300">{{ subscription_total_price | money }}</span>
+											<span class="price leading-none text-[30px] font-semibold mbl:text-[6vw] transition-all duration-300">{{ display_total_price | money }}</span>
 									{% else %}
-											<span class="price leading-none text-[30px] mbl:text-[6vw] transition-all duration-300">{{ subscription_item_price | money }}</span>
+											<span class="price leading-none text-[30px] mbl:text-[6vw] transition-all duration-300">{{ display_item_price | money }}</span>
 											<span class="per-text mt-1 text-[20px] transition-all duration-300">/bottle</span>
 									{% endif %}
 							</div>
 
-							<span class="cap self-end text-gray-500 line-through transition-opacity duration-300 ease-in-out">{{ original_item_cap | money }}</span>
+							<span class="cap self-end text-gray-500 line-through transition-opacity duration-300 ease-in-out">{{ display_cap_price | money }}</span>
 
-							{% if priceFormat == 'total' and subscription_total_price != subscription_item_price %}
-									<span class="discount-badge text-bronze transition-opacity duration-300 ease-in-out [&[data-visible=false]]:hidden">SAVE {{ subscription_save_money | money }}</span>
+							{% if priceFormat == 'total' and display_total_price != display_item_price %}
+									<span class="discount-badge text-bronze transition-opacity duration-300 ease-in-out [&[data-visible=false]]:hidden">SAVE {{ buy_once_save_money | money }}</span>
 							{% endif %}
 					</div>
 			</div>
 
-			{% if priceFormat == 'per_bottle' and subscription_total_price != subscription_item_price %}
+			{% if priceFormat == 'per_bottle' and display_total_price != display_item_price %}
 					<div class="total-line mt-1 text-[16px] h-4 transition-opacity duration-300 ease-in-out">
-							Total {{ subscription_total_price | money }}
-							<span class="total-price-cap text-gray-500 line-through">{{ original_item_cap_total | money }}</span>
+							Total {{ display_total_price | money }}
+							<span class="total-price-cap text-gray-500 line-through">{{ display_total_cap_price | money }}</span>
 					</div>
 			{% endif %}
 
@@ -232,32 +264,6 @@
 			<span>{{ variantsNotice }}</span>
 		</div>
 	{% endif %}
-
-	<div class="mbl:my-0 hidden my-2 transition-all duration-300 ease-in-out" data-frequency-container data-ui-type="{{ sellingPlanUI | default: 'tabs' }}">
-		<div class="mb-3 font-medium">Choose delivery frequency</div>
-		<div class="subscription-frequency-selector">
-			{% if sellingPlanUI == 'dropdown' %}
-				<div class="relative">
-					<select id="frequency-dropdown-{{ SID }}" class="w-full appearance-none p-3 pr-10 border-2 border-primary-lighter rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-primary cursor-pointer transition-all duration-300 ease-in-out">
-						<!-- Options will be dynamically populated by JavaScript -->
-					</select>
-					<div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-primary">
-						<svg class="h-4 w-4 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-							<path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"></path>
-						</svg>
-					</div>
-				</div>
-			{% else %}
-				<div id="frequency-options-{{ SID }}" class="flex justify-start gap-2" role="tablist" aria-label="Delivery frequency options">
-					<!-- Options will be dynamically populated by JavaScript -->
-				</div>
-			{% endif %}
-		</div>
-
-		{% if sellingPlanUI == 'tabs' %}
-			<div class="frequency-description text-[14px] text-gray-600 mt-2 transition-opacity duration-300 ease-in-out leading-normal min-h-[24px] [&[data-changing=true]]:opacity-0 [&[data-changing=false]]:opacity-100"><!-- Frequency description will be populated by JavaScript --></div>
-		{% endif %}
-	</div>
 
 	{% render 'subscription-box-faq',
 		SID: SID,
@@ -277,21 +283,49 @@
 	<div class="submit-wrap flex flex-col w-full">
 		<div class="checkout-button">
 			{% assign buttonSID = SID | append: '-checkout' %}
-			{% if buyType == 'buy_now' %}{% assign ctaButtonTitle = 'Get Started' %}{% else %}{% assign ctaButtonTitle = 'Add To Cart' %}{% endif %}
+			{% assign ctaButtonTitle = 'Add To Cart' %}
 
+			{% comment %} Use the product-level check now - BUT ID WILL BE HARDCODED {% endcomment %}
+			{% if product_downpay_plan_id != '' or true %} {% comment %} Force true since we hardcode {% endcomment %}
+				{% comment %} Downpay form setup {% endcomment %}
+				{% form 'product', product, id: product_form_id, class: 'downpay-form' %}
+					<input type="hidden" name="id" value="{{ prod.selected_or_first_available_variant.id }}" class="downpay-variant-id-input">
+					{% comment %} Set initial value using the product-level ID - NOW HARDCODED TO PLAN ID {% endcomment %}
+					<input type="hidden" name="selling_plan" value="710535938429" class="downpay-selling-plan-input">
 
-			{% render 'buy-buttons-new-4-old',
-				SID: buttonSID,
-				product: prod,
-				variant: '',
-				buttonText: ctaButtonTitle,
-				selling_plan_id: selling_plan_id,
-				product_form_id: product_form_id,
-				buyType: buyType,
-				isBuyWithPrime: isBuyWithPrime,
-				buyboxType: buyboxType,
-				buyboxName: buyboxName
-			%}
+					<button
+						type="submit"
+						name="add"
+						class="button w-full variant-submit button--primary bg-primary text-white py-3 px-4 rounded-md font-semibold hover:bg-primary-dark transition-colors duration-300 ease-in-out disabled:opacity-70 disabled:cursor-not-allowed"
+						data-button-name="track:button-submit|buybox-type:{{ buyboxType }}|buybox-name:{{ buyboxName }}"
+						data-alternative-text="Processing..."
+						aria-busy="false"
+						{% unless prod.selected_or_first_available_variant.available %}disabled{% endunless %}>
+						<span class="button__content">Pay Deposit</span> {% comment %} TODO: Make text dynamic? {% endcomment %}
+						<div class="loading-overlay__spinner hidden">
+                            <svg aria-hidden="true" focusable="false" class="spinner animate-spin w-6 h-6" viewBox="0 0 66 66" xmlns="http://www.w3.org/2000/svg">
+                                <circle class="path !stroke-white" fill="none" stroke-width="6" cx="33" cy="33" r="30"></circle>
+                            </svg>
+                        </div>
+					</button>
+				{% endform %}
+			{% else %}
+				{% comment %} This block should ideally not be reached if Downpay is expected {% endcomment %}
+				{% comment %} Fallback to original non-Downpay button {% endcomment %}
+				<script>console.log('Downpay is not available for this product (based on product_downpay_plan_id)');</script>
+				{% render 'buy-buttons-new-4-old',
+					SID: buttonSID,
+					product: prod,
+					variant: '',
+					buttonText: ctaButtonTitle,
+					selling_plan_id: '',
+					product_form_id: product_form_id,
+					buyType: buyType,
+					isBuyWithPrime: isBuyWithPrime,
+					buyboxType: buyboxType,
+					buyboxName: buyboxName
+				%}
+			{% endif %}
 		</div>
 
 		<div class="one-time-purchase-link mt-3 text-center">
@@ -330,36 +364,11 @@
 	.discount {
 		border-top-left-radius: 5px;
 		border-top-right-radius: 5px;
-
-
 	}
 	[aria-selected="true"] .discount {
 			background-color: var(--beige) ;
-		}
+	}
 
-  /* Custom dropdown styles */
-  #frequency-dropdown-{{ SID }} {
-    transition: all 0.2s ease;
-  }
-
-  #frequency-dropdown-{{ SID }}:focus {
-    box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), 0.25);
-  }
-
-  #frequency-dropdown-{{ SID }} option {
-    padding: 10px;
-  }
-
-  /* Custom dropdown arrow animation */
-  #frequency-dropdown-{{ SID }} + div svg {
-    transition: transform 0.2s ease;
-  }
-
-  #frequency-dropdown-{{ SID }}:focus + div svg {
-    transform: rotate(180deg);
-  }
-
-  /* Price animation */
   @keyframes fadeOut {
     from { opacity: 1; }
     to { opacity: 0; }
@@ -377,18 +386,9 @@
   .price-display[data-updating="false"] > * {
     animation: fadeIn 0.3s forwards;
   }
-
-  /* Frequency description animation */
-  .frequency-description[data-changing="true"] {
-    animation: fadeOut 0.2s forwards;
-  }
-
-  .frequency-description[data-changing="false"] {
-    animation: fadeIn 0.3s forwards;
-  }
 </style>
 
-{% comment %} Pass product data to JS {% endcomment %}
+{% comment %} Pass product data to JS - Keep this as JS might still need it {% endcomment %}
 <script>
 	document.addEventListener('DOMContentLoaded', () => {
 		if (!window.productData) window.productData = {};
@@ -411,7 +411,8 @@
 						{
 							selling_plan: {
 								id: {{ allocation.selling_plan.id | json }},
-								name: {{ allocation.selling_plan.name | json }}
+								name: {{ allocation.selling_plan.name | json }},
+								app_id: {{ allocation.selling_plan.app_id | json }} {% comment %} Add app_id {% endcomment %}
 							},
 							price: {{ allocation.price | json }},
 							compare_at_price: {{ allocation.compare_at_price | json }}
@@ -447,11 +448,11 @@
 	});
 </script>
 
-{% comment %} JS logic moved to src/js/buy-box-new.js {% endcomment %}
-<script src="{{ 'buy-box-new.js' | asset_url }}" defer="defer"></script>
+{% comment %} JS logic moved to src/js/buy-box-new.js - This script will need updates for Downpay {% endcomment %}
+<script src="{{ 'buy-box-deposit.js' | asset_url }}" defer="defer"></script>
 
 <script>
-	// Update discount badge styles based on box selection
+	// Update discount badge styles based on box selection - Keep this
 	document.addEventListener('DOMContentLoaded', function() {
 		const updateDiscountBadgeStyles = () => {
 			document.querySelectorAll('.variant-box').forEach(box => {
