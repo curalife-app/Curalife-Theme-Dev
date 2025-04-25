@@ -25,8 +25,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Configuration
-const SRC_DIR = path.join(__dirname, "src");
-const BUILD_DIR = path.join(__dirname, "Curalife-Theme-Build");
+const SRC_DIR = path.resolve(__dirname, "../src");
+const BUILD_DIR = path.resolve(__dirname, "../Curalife-Theme-Build");
 
 // Dracula Theme Colors
 const draculaColors = {
@@ -53,7 +53,9 @@ const dirMappings = {
 	styles: "assets",
 	fonts: "assets",
 	images: "assets",
-	scripts: "assets"
+	scripts: "assets",
+	js: "assets",
+	assets: "assets"
 };
 
 // Track child processes for cleanup
