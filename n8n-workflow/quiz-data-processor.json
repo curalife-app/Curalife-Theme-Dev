@@ -1,0 +1,438 @@
+{
+  "name": "Quiz Data Processor",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "quiz-webhook",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "2dc87e1f-2306-4da2-9b8e-71b60ccb0a54",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -160,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get incoming quiz data\nconst quizData = $input.item.json;\n\n// Extract key information from responses\nconst extractAnswer = (questionId) => {\n  const response = quizData.responses.find(r => r.questionId === questionId);\n  return response ? response.answer : null;\n};\n\n// Format the quiz data into a more usable structure\nconst formattedData = {\n  quizId: quizData.quizId,\n  quizTitle: quizData.quizTitle,\n  completedAt: quizData.completedAt,\n  customerEmail: extractAnswer('q5'),\n  state: extractAnswer('q3'),\n  insurance: extractAnswer('q4'),\n  mainReason: extractAnswer('q1'),\n  secondaryReasons: extractAnswer('q2'),\n  allResponses: quizData.responses\n};\n\n// Add some additional useful fields\nformattedData.formattedDate = new Date(formattedData.completedAt).toLocaleDateString();\nformattedData.formattedTime = new Date(formattedData.completedAt).toLocaleTimeString();\n\n// Map option IDs to readable text (based on your quiz structure)\nconst reasonMap = {\n  'opt1': 'Weight Concerns',\n  'opt2': 'Intuitive/Mindful Eating',\n  'opt3': 'Gut Health',\n  'opt4': 'Emotional Eating',\n  'opt5': 'Mental Health Nutrition',\n  'opt6': 'Women\\'s Health',\n  'opt7': 'General Wellbeing',\n  'opt8': 'More'\n};\n\n// Convert option IDs to readable text\nformattedData.mainReasonText = reasonMap[formattedData.mainReason] || formattedData.mainReason;\n\nif (Array.isArray(formattedData.secondaryReasons)) {\n  formattedData.secondaryReasonsText = formattedData.secondaryReasons\n    .map(id => reasonMap[id] || id)\n    .join(', ');\n}\n\n// Prepare data for Klaviyo\nformattedData.klaviyoProperties = {\n  $email: formattedData.customerEmail,\n  $first_name: \"\", // No first name from the quiz\n  $last_name: \"\", // No last name from the quiz\n  $phone_number: \"\", // No phone from quiz\n  $address1: \"\",\n  $city: \"\",\n  $state: formattedData.state,\n  $zip: \"\",\n  $country: \"US\", // Default to US\n  $source: \"Curalife Health Quiz\",\n  quiz_id: formattedData.quizId,\n  quiz_title: formattedData.quizTitle,\n  quiz_completed_at: formattedData.completedAt,\n  quiz_main_interest: formattedData.mainReasonText,\n  quiz_secondary_interests: formattedData.secondaryReasonsText || \"\",\n  insurance_provider: formattedData.insurance || \"\"\n};\n\nreturn {json: formattedData};"
+      },
+      "id": "83e4b3e7-41c5-46b2-8ffe-dc8a5d5b62d9",
+      "name": "Format Quiz Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        60,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "filePath": "={{ $env.NVM_USER_FOLDER || './n8n-workflow/data' }}/quiz-responses.json",
+        "options": {
+          "append": true,
+          "appendNewLine": true,
+          "jsonPretty": true
+        }
+      },
+      "id": "bd7ac25a-e6f8-4c18-8f4a-7dda13f9f50c",
+      "name": "Save to File",
+      "type": "n8n-nodes-base.writeFile",
+      "typeVersion": 1,
+      "position": [
+        280,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://hooks.slack.com/services/YOUR_SLACK_WEBHOOK_PATH",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"blocks\": [\n    {\n      \"type\": \"section\",\n      \"text\": {\n        \"type\": \"mrkdwn\",\n        \"text\": \"*New Quiz Submission!*\\n{{$json.customerEmail}} from {{$json.state}} completed the {{$json.quizTitle}}.\"\n      }\n    },\n    {\n      \"type\": \"section\",\n      \"text\": {\n        \"type\": \"mrkdwn\",\n        \"text\": \"*Main Interest:* {{$json.mainReasonText}}\\n*Insurance:* {{$json.insurance}}\"\n      }\n    },\n    {\n      \"type\": \"actions\",\n      \"elements\": [\n        {\n          \"type\": \"button\",\n          \"text\": {\n            \"type\": \"plain_text\",\n            \"text\": \"View Details\",\n            \"emoji\": true\n          },\n          \"url\": \"https://your-admin-dashboard.com/quiz/{{$json.quizId}}\"\n        }\n      ]\n    }\n  ]\n}",
+        "options": {}
+      },
+      "id": "f8e96a7a-a2a5-4fd9-95ba-76e1c5c5d76c",
+      "name": "Slack Notification",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        280,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.example.com/notifications",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"subject\": \"New Quiz Submission\",\n  \"message\": \"Quiz: {{$json.quizTitle}}\\nCompleted: {{$json.formattedDate}} at {{$json.formattedTime}}\\n\\nCustomer Information:\\n- Email: {{$json.customerEmail}}\\n- State: {{$json.state}}\\n- Insurance: {{$json.insurance}}\\n\\nHealth Interests:\\n- Main Reason: {{$json.mainReasonText}}\\n- Secondary Interests: {{$json.secondaryReasonsText}}\\n\\nThis is an automated notification from the Curalife Quiz System.\"\n}",
+        "options": {}
+      },
+      "id": "7e55ca02-9bf8-4b4c-8a9f-e9f68bb6d33e",
+      "name": "Notification Service",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        280,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "quiz@yourdomain.com",
+        "toEmail": "={{ $json.customerEmail }}",
+        "subject": "Thank you for completing our quiz!",
+        "text": "=Dear Customer,\n\nThank you for completing our health quiz! Based on your responses, we see that you're primarily interested in {{$json.mainReasonText}}.\n\nOne of our health specialists will be contacting you soon to discuss how we can help you achieve your health goals. We'll be using the insurance information you provided ({{$json.insurance}}).\n\nIf you have any questions in the meantime, please don't hesitate to contact us.\n\nBest regards,\nThe Curalife Team",
+        "options": {}
+      },
+      "id": "ea01eb2e-d8c4-42f5-aa58-27b97d8d27bc",
+      "name": "Send Confirmation Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [
+        280,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.mainReasonText }}",
+              "operation": "contains",
+              "value2": "Gut Health"
+            }
+          ]
+        }
+      },
+      "id": "f50bcdd2-5dd7-456f-914c-bc4f9f96c0ba",
+      "name": "Is Gut Health?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        500,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://your-crm-system.com/api/leads",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "email",
+              "value": "={{ $json.customerEmail }}"
+            },
+            {
+              "name": "state",
+              "value": "={{ $json.state }}"
+            },
+            {
+              "name": "insurance",
+              "value": "={{ $json.insurance }}"
+            },
+            {
+              "name": "interest",
+              "value": "={{ $json.mainReasonText }}"
+            },
+            {
+              "name": "secondaryInterests",
+              "value": "={{ $json.secondaryReasonsText }}"
+            },
+            {
+              "name": "leadSource",
+              "value": "Quiz"
+            },
+            {
+              "name": "priority",
+              "value": "high"
+            },
+            {
+              "name": "tags",
+              "value": "=[\"Gut Health\", \"High Priority\"]"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d5e56ded-d50e-4db7-8e78-72eb6a13d354",
+      "name": "Create High Priority Lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        700,
+        140
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://your-crm-system.com/api/leads",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "email",
+              "value": "={{ $json.customerEmail }}"
+            },
+            {
+              "name": "state",
+              "value": "={{ $json.state }}"
+            },
+            {
+              "name": "insurance",
+              "value": "={{ $json.insurance }}"
+            },
+            {
+              "name": "interest",
+              "value": "={{ $json.mainReasonText }}"
+            },
+            {
+              "name": "secondaryInterests",
+              "value": "={{ $json.secondaryReasonsText }}"
+            },
+            {
+              "name": "leadSource",
+              "value": "Quiz"
+            },
+            {
+              "name": "priority",
+              "value": "normal"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "7b1b73ff-0a23-4bea-a25c-3f7a6c1fcd89",
+      "name": "Create Standard Lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        700,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://a.klaviyo.com/api/profiles/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "revision",
+              "value": "2023-09-15"
+            },
+            {
+              "name": "Authorization",
+              "value": "Klaviyo-API-Key {{$env.KLAVIYO_API_KEY}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"data\": {\n    \"type\": \"profile\",\n    \"attributes\": {\n      \"email\": \"{{$json.customerEmail}}\",\n      \"properties\": {\n        \"State\": \"{{$json.state}}\",\n        \"Insurance\": \"{{$json.insurance}}\",\n        \"Main Interest\": \"{{$json.mainReasonText}}\",\n        \"Secondary Interests\": \"{{$json.secondaryReasonsText}}\",\n        \"Quiz Source\": \"{{$json.quizTitle}}\",\n        \"Quiz Completed\": \"{{$json.formattedDate}}\",\n        \"$source\": \"Health Quiz\"\n      }\n    }\n  }\n}",
+        "options": {}
+      },
+      "id": "e37dd9c9-4c60-4d84-8cfa-d0ebd2c1fb49",
+      "name": "Create Klaviyo Profile",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        280,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare Klaviyo event data\nconst data = $input.item.json;\n\n// Create event data for Klaviyo\nconst eventData = {\n  data: {\n    type: \"event\",\n    attributes: {\n      profile: {\n        email: data.customerEmail\n      },\n      metric: {\n        name: \"Completed Health Quiz\"\n      },\n      properties: {\n        \"Quiz Title\": data.quizTitle,\n        \"Main Interest\": data.mainReasonText,\n        \"Insurance\": data.insurance || \"Not Provided\",\n        \"State\": data.state,\n        \"Secondary Interests\": data.secondaryReasonsText || \"None\"\n      },\n      time: data.completedAt || new Date().toISOString()\n    }\n  }\n};\n\nreturn {json: {data, eventData}};"
+      },
+      "id": "9f3feb14-d9e7-42e3-9bb5-c1ae9e8d2fcd",
+      "name": "Prepare Klaviyo Event",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        500,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://a.klaviyo.com/api/events/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "revision",
+              "value": "2023-09-15"
+            },
+            {
+              "name": "Authorization",
+              "value": "Klaviyo-API-Key {{$env.KLAVIYO_API_KEY}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.eventData }}",
+        "options": {}
+      },
+      "id": "75a8d3f5-2d18-4e24-bbf3-4d6c8d1f9ca5",
+      "name": "Track Klaviyo Event",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        700,
+        600
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Format Quiz Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Quiz Data": {
+      "main": [
+        [
+          {
+            "node": "Notification Service",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Save to File",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Slack Notification",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send Confirmation Email",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Is Gut Health?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Create Klaviyo Profile",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Gut Health?": {
+      "main": [
+        [
+          {
+            "node": "Create High Priority Lead",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create Standard Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Klaviyo Profile": {
+      "main": [
+        [
+          {
+            "node": "Prepare Klaviyo Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Klaviyo Event": {
+      "main": [
+        [
+          {
+            "node": "Track Klaviyo Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {},
+  "staticData": null,
+  "tags": [
+    {
+      "name": "quiz"
+    }
+  ],
+  "triggerCount": 1,
+  "updatedAt": "2023-10-15T00:00:00.000Z",
+  "versionId": "5f0a4b73-7e72-4316-9bd7-5f5c1320f4bc"
+}
