@@ -1,67 +1,117 @@
 {
-	"name": "Health Quiz Data Processor",
 	"nodes": [
 		{
 			"parameters": {
-				"httpMethod": "POST",
-				"path": "quiz-webhook",
-				"options": {}
+				"values": {
+					"string": [
+						{
+							"name": "SHOPIFY_STORE_NAME",
+							"value": "curalife-commerce"
+						},
+						{
+							"name": "SHOPIFY_ADMIN_ACCESS_TOKEN",
+							"value": "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"
+						}
+					]
+				},
+				"options": {
+					"dotNotation": true
+				}
 			},
-			"id": "2dc87e1f-2306-4da2-9b8e-71b60ccb0a54",
-			"name": "Webhook",
-			"type": "n8n-nodes-base.webhook",
-			"typeVersion": 1,
+			"id": "1deb9867-2e7a-4a75-9ac3-56a69832dcd3",
+			"name": "Shopify Config",
+			"type": "n8n-nodes-base.set",
+			"typeVersion": 2,
 			"position": [
-				-160,
-				320
-			],
-			"webhookId": "f3a17f6a-de5b-426c-bb98-be3527276205"
-		},
-		{
-			"parameters": {
-				"jsCode": "// Get incoming quiz data\nconst rawData = $input.item.json;\nlet quizData;\n\n// Check if data came from URL parameter or other source format\nif (rawData && rawData.data && typeof rawData.data === 'string') {\n  try {\n    quizData = JSON.parse(decodeURIComponent(rawData.data));\n  } catch (e) {\n    console.log('Error parsing data:', e);\n    quizData = rawData;\n  }\n} else {\n  quizData = rawData || {};\n}\n\n// Extract key information from responses - with validation\nconst extractAnswer = (questionId) => {\n  if (!quizData.responses || !Array.isArray(quizData.responses)) {\n    return null;\n  }\n  const response = quizData.responses.find(r => r && r.questionId === questionId);\n  return response ? response.answer : null;\n};\n\n// Get email and validate it with a stricter validation function\nlet customerEmail = extractAnswer('q5') || '';\n\n// Improved email validation function\nfunction isValidEmail(email) {\n  if (!email || typeof email !== 'string') return false;\n  \n  // Trim whitespace\n  email = email.trim();\n  \n  // Check for empty string after trimming\n  if (email === '') return false;\n  \n  // Use a more comprehensive regex for email validation\n  const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;\n  \n  // Check if it passes the regex test\n  if (!emailRegex.test(email)) return false;\n  \n  // Make sure there's a domain with at least one dot\n  const parts = email.split('@');\n  if (parts.length !== 2) return false;\n  if (!parts[1].includes('.')) return false;\n  \n  // Check domain length\n  const domain = parts[1];\n  if (domain.length < 3) return false;\n  \n  // Passed all checks\n  return true;\n}\n\n// Normalize email (lowercase)\nif (customerEmail) {\n  customerEmail = customerEmail.trim().toLowerCase();\n}\n\n// Format the quiz data into a more usable structure with defaults\nconst formattedData = {\n  quizId: quizData.quizId || 'unknown',\n  quizTitle: quizData.quizTitle || 'Unknown Quiz',\n  completedAt: quizData.completedAt || new Date().toISOString(),\n  customerEmail: customerEmail,\n  isValidEmail: isValidEmail(customerEmail),\n  state: extractAnswer('q3') || '',\n  insurance: extractAnswer('q4') || '',\n  mainReason: extractAnswer('q1') || '',\n  secondaryReasons: extractAnswer('q2') || [],\n  allResponses: Array.isArray(quizData.responses) ? quizData.responses : []\n};\n\n// Add formatted date fields safely\ntry {\n  const date = new Date(formattedData.completedAt);\n  formattedData.formattedDate = date.toLocaleDateString();\n  formattedData.formattedTime = date.toLocaleTimeString();\n} catch (e) {\n  console.log('Error formatting date:', e);\n  formattedData.formattedDate = '';\n  formattedData.formattedTime = '';\n}\n\n// Map option IDs to readable text (based on your quiz structure)\nconst reasonMap = {\n  'opt1': 'Weight Concerns',\n  'opt2': 'Intuitive/Mindful Eating',\n  'opt3': 'Gut Health',\n  'opt4': 'Emotional Eating',\n  'opt5': 'Mental Health Nutrition',\n  'opt6': 'Women\\'s Health',\n  'opt7': 'General Wellbeing',\n  'opt8': 'More'\n};\n\n// Convert option IDs to readable text with safety checks\nformattedData.mainReasonText = formattedData.mainReason && reasonMap[formattedData.mainReason] \n  ? reasonMap[formattedData.mainReason] \n  : (formattedData.mainReason || 'Unknown');\n\n// Always set secondaryReasonsText\nif (Array.isArray(formattedData.secondaryReasons) && formattedData.secondaryReasons.length > 0) {\n  formattedData.secondaryReasonsText = formattedData.secondaryReasons\n    .map(id => (id && reasonMap[id]) ? reasonMap[id] : (id || ''))\n    .filter(text => text.length > 0)\n    .join(', ');\n} else {\n  formattedData.secondaryReasonsText = '';\n}\n\n// Prepare data for Klaviyo - with safety checks\nformattedData.klaviyoProperties = {\n  $email: formattedData.isValidEmail ? formattedData.customerEmail : '',\n  $first_name: \"\", \n  $last_name: \"\", \n  $phone_number: \"\", \n  $address1: \"\",\n  $city: \"\",\n  $state: formattedData.state || '',\n  $zip: \"\",\n  $country: \"US\",\n  $source: \"Curalife Health Quiz\",\n  quiz_id: formattedData.quizId || '',\n  quiz_title: formattedData.quizTitle || '',\n  quiz_completed_at: formattedData.completedAt || '',\n  quiz_main_interest: formattedData.mainReasonText || '',\n  quiz_secondary_interests: formattedData.secondaryReasonsText || '',\n  insurance_provider: formattedData.insurance || ''\n};\n\n// Extra check to ensure we don't proceed with invalid emails\nif (formattedData.isValidEmail === false) {\n  console.log('Invalid email detected and marked as invalid:', customerEmail);\n}\n\n// Log for debugging\nconsole.log('Processed quiz data:', JSON.stringify(formattedData));\n\nreturn {json: formattedData};"
-			},
-			"id": "83e4b3e7-41c5-46b2-8ffe-dc8a5d5b62d9",
-			"name": "Format Quiz Data",
-			"type": "n8n-nodes-base.code",
-			"typeVersion": 1,
-			"position": [
-				60,
-				320
+				0,
+				200
 			]
 		},
 		{
 			"parameters": {
-				"conditions": {
-					"string": [
-						{
-							"value1": "={{$json.isValidEmail}}",
-							"operation": "equal",
-							"value2": true
-						}
-					],
-					"boolean": [
-						{
-							"value1": "={{!!$json.customerEmail}}",
-							"value2": true
-						}
-					]
-				},
-				"combineOperation": "AND"
+				"jsCode": "// Prepare data for Shopify customer creation\n// This ensures we have all the data in the right format\nconst inputData = $input.item.json;\n\n// Log the input data for debugging\nconsole.log('Creating Shopify customer with data:', JSON.stringify(inputData, null, 2));\n\n// Extract important values with fallbacks\n// Check multiple possible paths for email\nlet email = '';\n\n// First, directly check for common email field paths\nif (inputData.customerEmail) {\n  email = inputData.customerEmail;\n} else if (inputData.email) {\n  email = inputData.email;\n} \n// Check if we have a Klaviyo response with nested data\nelse if (typeof inputData.data === 'string' && inputData.data.includes('\"email\":')) {\n  try {\n    // Parse the Klaviyo response data if it's a string\n    const klaviyoData = JSON.parse(inputData.data);\n    if (klaviyoData.data && klaviyoData.data.attributes && klaviyoData.data.attributes.email) {\n      email = klaviyoData.data.attributes.email;\n      console.log('Successfully extracted email from Klaviyo string data:', email);\n    }\n  } catch (e) {\n    console.log('Error parsing Klaviyo data string:', e);\n  }\n}\n// If we have already parsed Klaviyo data object\nelse if (inputData.data && inputData.data.attributes && inputData.data.attributes.email) {\n  email = inputData.data.attributes.email;\n  console.log('Found email in Klaviyo data attributes:', email);\n}\n// Last fallback for deeply nested structures\nelse if (inputData.data && inputData.data.data && inputData.data.data.attributes) {\n  email = inputData.data.data.attributes.email || '';\n  console.log('Found email in deeply nested structure:', email);\n}\n\n// Special case for klaviyoProfileData structure\nif (!email && inputData.klaviyoProfileData) {\n  if (typeof inputData.klaviyoProfileData === 'string') {\n    try {\n      const parsedKlaviyo = JSON.parse(inputData.klaviyoProfileData);\n      if (parsedKlaviyo.data && parsedKlaviyo.data.attributes && parsedKlaviyo.data.attributes.email) {\n        email = parsedKlaviyo.data.attributes.email;\n        console.log('Extracted email from klaviyoProfileData string:', email);\n      }\n    } catch (e) {\n      console.log('Error parsing klaviyoProfileData string:', e);\n    }\n  } else if (inputData.klaviyoProfileData.data && inputData.klaviyoProfileData.data.attributes) {\n    email = inputData.klaviyoProfileData.data.attributes.email || '';\n    console.log('Extracted email from klaviyoProfileData object:', email);\n  }\n}\n\n// Extra logging to inspect the full Klaviyo response if available\nif (!email && inputData.data) {\n  console.log('Full data object available:', typeof inputData.data);\n  if (typeof inputData.data === 'string') {\n    console.log('Data is string, first 100 chars:', inputData.data.substring(0, 100));\n  } else {\n    console.log('Data object keys:', Object.keys(inputData.data));\n  }\n}\n\nconst quizId = inputData.quizId || '';\nconst quizTitle = inputData.quizTitle || 'Health Quiz';\n\n// Log the critical values for debugging\nconsole.log(`Critical values for Shopify customer creation:\\nEmail: ${email}\\nQuiz ID: ${quizId}\\nQuiz Title: ${quizTitle}`);\n\n// Extra validation\nif (!email) {\n  console.log('WARNING: No email provided for Shopify customer creation');\n  // Check raw input for debugging\n  console.log('Input data keys available:', Object.keys(inputData));\n}\n\n// Prepare the request body for the Shopify API\nconst requestBody = {\n  query: \"mutation customerCreate($input: CustomerInput!) { customerCreate(input: $input) { userErrors { field message } customer { id email firstName lastName phone } } }\",\n  variables: {\n    input: {\n      email: email, // Explicitly include email field\n      firstName: \"\",\n      lastName: \"\",\n      phone: \"\",\n      tags: `quiz-lead, ${quizTitle}`,\n      addresses: [\n        {\n          country: \"US\",\n          province: inputData.state || ''\n        }\n      ],\n      metafields: [\n        {\n          namespace: \"quiz\",\n          key: \"main_interest\",\n          value: inputData.mainReasonText || '',\n          type: \"single_line_text_field\"\n        },\n        {\n          namespace: \"quiz\",\n          key: \"secondary_interests\",\n          value: inputData.secondaryReasonsText || '',\n          type: \"single_line_text_field\"\n        },\n        {\n          namespace: \"quiz\",\n          key: \"insurance_provider\",\n          value: inputData.insurance || '',\n          type: \"single_line_text_field\"\n        },\n        {\n          namespace: \"quiz\",\n          key: \"quiz_id\",\n          value: quizId,\n          type: \"single_line_text_field\"\n        },\n        {\n          namespace: \"quiz\",\n          key: \"completed_at\",\n          value: inputData.completedAt || '',\n          type: \"single_line_text_field\"\n        }\n      ]\n    }\n  }\n};\n\n// Log the request we're about to send\nconsole.log('Shopify request prepared:', JSON.stringify(requestBody, null, 2));\n\n// Return both the original data and the Shopify request\nreturn { json: { ...inputData, shopifyRequestBody: requestBody } };"
 			},
-			"id": "cde45675-7fc8-4bf9-afb0-9d15ef3a7ba0",
-			"name": "IF Email Valid",
-			"type": "n8n-nodes-base.if",
+			"id": "eb780ee4-c9ca-41a9-bb93-d7f15c3b5690",
+			"name": "Prepare Shopify Request",
+			"type": "n8n-nodes-base.code",
 			"typeVersion": 1,
 			"position": [
-				220,
-				320
+				200,
+				200
 			]
 		},
 		{
 			"parameters": {
 				"method": "POST",
-				"url": "https://a.klaviyo.com/api/profiles/",
+				"url": "={{\"https://\" + $node[\"Shopify Config\"].json[\"SHOPIFY_STORE_NAME\"] + \".myshopify.com/admin/api/2025-04/graphql.json\"}}",
+				"sendHeaders": true,
+				"headerParameters": {
+					"parameters": [
+						{
+							"name": "Content-Type",
+							"value": "application/json"
+						},
+						{
+							"name": "X-Shopify-Access-Token",
+							"value": "={{$node[\"Shopify Config\"].json[\"SHOPIFY_ADMIN_ACCESS_TOKEN\"]}}"
+						}
+					]
+				},
+				"sendBody": true,
+				"specifyBody": "json",
+				"jsonBody": "={{ $json.shopifyRequestBody }}",
+				"options": {}
+			},
+			"id": "3d493cc4-6859-4fe6-a21b-7b012d74e711",
+			"name": "Create Shopify Customer",
+			"type": "n8n-nodes-base.httpRequest",
+			"typeVersion": 3,
+			"position": [
+				400,
+				200
+			]
+		},
+		{
+			"parameters": {
+				"options": {}
+			},
+			"id": "bf2f6bdf-a719-42e9-af29-917ce597b9f2",
+			"name": "Respond to Webhook",
+			"type": "n8n-nodes-base.respondToWebhook",
+			"typeVersion": 1,
+			"position": [
+				800,
+				300
+			]
+		},
+		{
+			"parameters": {},
+			"id": "c2e6a8f7-ec4c-43d2-98e1-edb63a07cc2b",
+			"name": "Merge Responses",
+			"type": "n8n-nodes-base.merge",
+			"typeVersion": 2,
+			"position": [
+				600,
+				300
+			]
+		},
+		{
+			"parameters": {
+				"jsCode": "// Log that we received a quiz submission with invalid email\nconst data = $input.item.json;\n\nconsole.log(`Quiz submitted with invalid or missing email. Quiz ID: ${data.quizId}, Title: ${data.quizTitle}, Email attempted: ${data.customerEmail || 'None provided'}`);\n\n// You could store this information in a database or send to another system\n// for tracking quiz submissions without valid emails\n\nreturn {\n  json: {\n    status: \"skipped\",\n    reason: \"Invalid email address\",\n    quizId: data.quizId,\n    quizTitle: data.quizTitle,\n    timestamp: new Date().toISOString(),\n    attemptedEmail: data.customerEmail || 'None provided'\n  }\n};"
+			},
+			"id": "28e9dade-95b4-47fb-90d6-e9a729174b9f",
+			"name": "Handle Invalid Email",
+			"type": "n8n-nodes-base.code",
+			"typeVersion": 1,
+			"position": [
+				-200,
+				400
+			]
+		},
+		{
+			"parameters": {
+				"method": "POST",
+				"url": "https://a.klaviyo.com/api/profile-import",
 				"authentication": "genericCredentialType",
 				"genericAuthType": "httpHeaderAuth",
 				"sendHeaders": true,
@@ -69,7 +119,7 @@
 					"parameters": [
 						{
 							"name": "revision",
-							"value": "2023-09-15"
+							"value": "2025-04-15"
 						},
 						{
 							"name": "Authorization",
@@ -77,26 +127,26 @@
 						},
 						{
 							"name": "Content-Type",
-							"value": "application/json"
+							"value": "application/vnd.api+json"
 						},
 						{
 							"name": "Accept",
-							"value": "application/json"
+							"value": "application/vnd.api+json"
 						}
 					]
 				},
 				"sendBody": true,
 				"specifyBody": "json",
-				"jsonBody": "{\n  \"data\": {\n    \"type\": \"profile\",\n    \"attributes\": {\n      \"email\": \"{{$json.customerEmail}}\",\n      \"properties\": {\n        \"State\": \"{{$json.state}}\",\n        \"Insurance\": \"{{$json.insurance}}\",\n        \"Main Interest\": \"{{$json.mainReasonText}}\",\n        \"Secondary Interests\": \"{{$json.secondaryReasonsText}}\",\n        \"Quiz Source\": \"{{$json.quizTitle}}\",\n        \"Quiz Completed\": \"{{$json.formattedDate}}\",\n        \"$source\": \"Health Quiz\"\n      }\n    }\n  }\n}",
+				"jsonBody": "={{ $json.klaviyoProfileData }}",
 				"options": {}
 			},
-			"id": "e37dd9c9-4c60-4d84-8cfa-d0ebd2c1fb49",
-			"name": "Create Klaviyo Profile",
+			"id": "95eea6cb-113d-4bfa-b64c-3cfad25cb2e8",
+			"name": "Create or Update Klaviyo Profile",
 			"type": "n8n-nodes-base.httpRequest",
 			"typeVersion": 3,
 			"position": [
-				420,
-				240
+				-200,
+				200
 			],
 			"credentials": {
 				"httpBasicAuth": {
@@ -115,102 +165,144 @@
 		},
 		{
 			"parameters": {
-				"jsCode": "// Prepare Klaviyo event data\nconst data = $input.item.json;\n\n// Double-check email validation before creating event\nif (!data.isValidEmail || !data.customerEmail) {\n  throw new Error('Cannot create Klaviyo event: Invalid or missing email');\n}\n\n// Create event data for Klaviyo\nconst eventData = {\n  data: {\n    type: \"event\",\n    attributes: {\n      profile: {\n        email: data.customerEmail\n      },\n      metric: {\n        name: \"Completed Health Quiz\"\n      },\n      properties: {\n        \"Quiz Title\": data.quizTitle,\n        \"Main Interest\": data.mainReasonText,\n        \"Insurance\": data.insurance || \"Not Provided\",\n        \"State\": data.state,\n        \"Secondary Interests\": data.secondaryReasonsText || \"None\"\n      },\n      time: data.completedAt || new Date().toISOString()\n    }\n  }\n};\n\nreturn {json: {data, eventData}};"
-			},
-			"id": "9f3feb14-d9e7-42e3-9bb5-c1ae9e8d2fcd",
-			"name": "Prepare Klaviyo Event",
-			"type": "n8n-nodes-base.code",
-			"typeVersion": 1,
-			"position": [
-				640,
-				240
-			]
-		},
-		{
-			"parameters": {
-				"method": "POST",
-				"url": "https://a.klaviyo.com/api/events/",
-				"sendHeaders": true,
-				"headerParameters": {
-					"parameters": [
+				"conditions": {
+					"string": [
 						{
-							"name": "revision",
-							"value": "2023-09-15"
+							"value1": "={{$json.isValidEmail}}",
+							"value2": true
 						},
 						{
-							"name": "Authorization",
-							"value": "Klaviyo-API-KEY {{$env.KLAVIYO_API_KEY}}"
-						},
+							"value1": "={{$json.customerEmail}}",
+							"operation": "regex",
+							"value2": "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$"
+						}
+					],
+					"boolean": [
 						{
-							"name": "Content-Type",
-							"value": "application/json"
-						},
-						{
-							"name": "Accept",
-							"value": "application/json"
+							"value1": "={{!!$json.customerEmail}}",
+							"value2": true
 						}
 					]
-				},
-				"sendBody": true,
-				"specifyBody": "json",
-				"jsonBody": "={{ $json.eventData }}",
-				"options": {}
+				}
 			},
-			"id": "75a8d3f5-2d18-4e24-bbf3-4d6c8d1f9ca5",
-			"name": "Track Klaviyo Event",
-			"type": "n8n-nodes-base.httpRequest",
-			"typeVersion": 3,
+			"id": "dc1e3300-0ad5-4caf-a0d4-2f536dd3460a",
+			"name": "IF Email Valid",
+			"type": "n8n-nodes-base.if",
+			"typeVersion": 1,
 			"position": [
-				840,
-				240
+				-400,
+				300
 			]
 		},
 		{
 			"parameters": {
-				"jsCode": "// Log that we received a quiz submission with invalid email\nconst data = $input.item.json;\n\nconsole.log(`Quiz submitted with invalid or missing email. Quiz ID: ${data.quizId}, Title: ${data.quizTitle}, Email attempted: ${data.customerEmail || 'None provided'}`);\n\n// You could store this information in a database or send to another system\n// for tracking quiz submissions without valid emails\n\nreturn {\n  json: {\n    status: \"skipped\",\n    reason: \"Invalid email address\",\n    quizId: data.quizId,\n    quizTitle: data.quizTitle,\n    timestamp: new Date().toISOString(),\n    attemptedEmail: data.customerEmail || 'None provided'\n  }\n};"
+				"jsCode": "// Get incoming quiz data\nconst rawData = $input.item.json;\nlet quizData;\n\n// Log the raw data for debugging\nconsole.log('Raw input data:', JSON.stringify(rawData, null, 2));\n\n// Case 1: If data is directly in the object\nif (rawData.quizId && rawData.responses) {\n  console.log('Case 1: Data is directly in the object');\n  quizData = rawData;\n}\n// Case 2: Data is in body.data as a JSON string\nelse if (rawData.body && rawData.body.data && typeof rawData.body.data === 'string') {\n  console.log('Case 2: Data is in body.data as a string');\n  try {\n    quizData = JSON.parse(rawData.body.data);\n  } catch (e) {\n    console.log('Error parsing body.data:', e);\n    quizData = rawData;\n  }\n}\n// Case 3: Data is in body as an object\nelse if (rawData.body && rawData.body.quizId && rawData.body.responses) {\n  console.log('Case 3: Data is in body as an object');\n  quizData = rawData.body;\n}\n// Case 4: Data is directly in data field as an object\nelse if (rawData.data && rawData.data.quizId && rawData.data.responses) {\n  console.log('Case 4: Data is in data field as an object');\n  quizData = rawData.data;\n}\n// Case 5: Data is in data as a string\nelse if (rawData.data && typeof rawData.data === 'string') {\n  console.log('Case 5: Data is in data as a string');\n  try {\n    quizData = JSON.parse(rawData.data);\n  } catch (e) {\n    console.log('Error parsing data:', e);\n    quizData = rawData;\n  }\n}\n// Default case\nelse {\n  console.log('Default case: Using raw data');\n  quizData = rawData;\n}\n\n// Log the extracted quiz data\nconsole.log('Extracted quiz data:', JSON.stringify(quizData, null, 2));\n\n// Extract key information from responses - with validation\nconst extractAnswer = (questionId) => {\n  if (!quizData.responses || !Array.isArray(quizData.responses)) {\n    return null;\n  }\n  const response = quizData.responses.find(r => r && r.questionId === questionId);\n  return response ? response.answer : null;\n};\n\n// Get email and validate it with a stricter validation function\nlet customerEmail = extractAnswer('q5') || '';\n\n// Ultra-strict email validation function that Klaviyo will accept\nfunction isValidEmail(email) {\n  if (!email || typeof email !== 'string') return false;\n  \n  // Trim whitespace and convert to lowercase\n  email = email.trim().toLowerCase();\n  \n  // Check for empty string after trimming\n  if (email === '') return false;\n  \n  // Very basic validation - this is what Klaviyo uses\n  const emailRegex = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;\n  \n  // Check if it passes the regex test\n  if (!emailRegex.test(email)) return false;\n  \n  // Check length constraints\n  if (email.length < 5 || email.length > 100) return false;\n  \n  // Check for common disposable email domains\n  const disposableDomains = ['mailinator.com', 'tempmail.com', 'temp-mail.org', 'fakeinbox.com'];\n  const domain = email.split('@')[1];\n  if (disposableDomains.includes(domain)) return false;\n  \n  // Ensure domain has a valid TLD\n  if (!domain.includes('.')) return false;\n  const tld = domain.split('.').pop();\n  if (tld.length < 2) return false;\n  \n  // Passed all checks\n  return true;\n}\n\n// Normalize email (lowercase and trim) and handle special characters\nif (customerEmail) {\n  customerEmail = customerEmail.trim().toLowerCase();\n  // Remove any quotes or special characters that might cause issues\n  customerEmail = customerEmail.replace(/['\"`\\\\]/g, '');\n}\n\n// Log the extracted email\nconsole.log('Extracted email:', customerEmail);\nconsole.log('Is valid email:', isValidEmail(customerEmail));\n\n// Format the quiz data into a more usable structure with defaults\nconst formattedData = {\n  quizId: quizData.quizId || 'unknown',\n  quizTitle: quizData.quizTitle || 'Unknown Quiz',\n  completedAt: quizData.completedAt || new Date().toISOString(),\n  customerEmail: customerEmail,\n  isValidEmail: isValidEmail(customerEmail),\n  state: extractAnswer('q3') || '',\n  insurance: extractAnswer('q4') || '',\n  mainReason: extractAnswer('q1') || '',\n  secondaryReasons: extractAnswer('q2') || [],\n  allResponses: quizData.responses || []\n};\n\n// Add formatted date fields safely\ntry {\n  const date = new Date(formattedData.completedAt);\n  formattedData.formattedDate = date.toLocaleDateString();\n  formattedData.formattedTime = date.toLocaleTimeString();\n} catch (e) {\n  console.log('Error formatting date:', e);\n  formattedData.formattedDate = '';\n  formattedData.formattedTime = '';\n}\n\n// Map option IDs to readable text (based on your quiz structure)\nconst reasonMap = {\n  'opt1': 'Weight Concerns',\n  'opt2': 'Intuitive/Mindful Eating',\n  'opt3': 'Gut Health',\n  'opt4': 'Emotional Eating',\n  'opt5': 'Mental Health Nutrition',\n  'opt6': 'Women\\'s Health',\n  'opt7': 'General Wellbeing',\n  'opt8': 'More',\n  'opt9': 'Weight Concerns',\n  'opt10': 'Intuitive/Mindful Eating',\n  'opt11': 'Gut Health',\n  'opt12': 'Emotional Eating',\n  'opt13': 'Mental Health Nutrition',\n  'opt14': 'Women\\'s Health',\n  'opt15': 'General Wellbeing',\n  'opt16': 'Men\\'s Health',\n  'opt17': 'Autoimmune Disease',\n  'opt18': 'Bariatric',\n  'opt19': 'Binge Eating',\n  'opt20': 'Cancer',\n  'opt21': 'Constipation',\n  'opt22': 'Digestive Disease',\n  'opt23': 'Eating Disorder',\n  'opt24': 'Food Allergies',\n  'opt25': 'Healthy Aging',\n  'opt26': 'Heart Health'\n};\n\n// Convert option IDs to readable text with safety checks\nformattedData.mainReasonText = formattedData.mainReason && reasonMap[formattedData.mainReason] ? reasonMap[formattedData.mainReason] : (formattedData.mainReason || 'Unknown');\n\n// Always set secondaryReasonsText\nif (Array.isArray(formattedData.secondaryReasons) && formattedData.secondaryReasons.length > 0) {\n  formattedData.secondaryReasonsText = formattedData.secondaryReasons\n    .map(id => (id && reasonMap[id]) ? reasonMap[id] : (id || ''))\n    .filter(text => text.length > 0)\n    .join(', ');\n} else {\n  formattedData.secondaryReasonsText = '';\n}\n\n// Debug email validation\nconsole.log(`Email: ${customerEmail} | Valid: ${isValidEmail(customerEmail)}`);\nif (!isValidEmail(customerEmail)) {\n  console.log('Email validation failed for:', customerEmail);\n}\n\n// Prepare data for Klaviyo - with safety checks\nformattedData.klaviyoProperties = {\n  $email: formattedData.isValidEmail ? formattedData.customerEmail : '',\n  $first_name: \"\",\n  $last_name: \"\",\n  $phone_number: \"\",\n  $address1: \"\",\n  $city: \"\",\n  $state: formattedData.state || '',\n  $zip: \"\",\n  $country: \"US\",\n  $source: \"Curalife Health Quiz\",\n  quiz_id: formattedData.quizId || '',\n  quiz_title: formattedData.quizTitle || '',\n  quiz_completed_at: formattedData.completedAt || '',\n  quiz_main_interest: formattedData.mainReasonText || '',\n  quiz_secondary_interests: formattedData.secondaryReasonsText || '',\n  insurance_provider: formattedData.insurance || ''\n};\n\n// Prepare the Klaviyo profile API request data\nformattedData.klaviyoProfileData = {\n  data: {\n    type: \"profile\",\n    attributes: {\n      email: customerEmail,\n      first_name: \"\",\n      last_name: \"\",\n      properties: {\n        \"State\": formattedData.state || '',\n        \"Insurance\": formattedData.insurance || '',\n        \"Main Interest\": formattedData.mainReasonText || '',\n        \"Secondary Interests\": formattedData.secondaryReasonsText || '',\n        \"Quiz Source\": formattedData.quizTitle || '',\n        \"Quiz Completed\": formattedData.formattedDate || '',\n        \"$source\": \"Health Quiz\"\n      }\n    }\n  }\n};\n\n// Extra check to ensure we don't proceed with invalid emails\nif (formattedData.isValidEmail === false) {\n  console.log('Invalid email detected and marked as invalid:', customerEmail);\n}\n\n// Log for debugging\nconsole.log('Processed quiz data:', JSON.stringify(formattedData, null, 2));\n\nreturn {json: formattedData};"
 			},
-			"id": "ab123456-7890-4def-abcd-ef1234567890",
-			"name": "Handle Invalid Email",
+			"id": "9412d0dd-e6aa-4e79-a22b-6994bb6946ff",
+			"name": "Format Quiz Data",
 			"type": "n8n-nodes-base.code",
 			"typeVersion": 1,
 			"position": [
-				420,
-				400
-			]
-		},
-		{
-			"parameters": {},
-			"id": "c41abcde-f123-4567-89ab-cdef12345678",
-			"name": "Merge",
-			"type": "n8n-nodes-base.merge",
-			"typeVersion": 2,
-			"position": [
-				1040,
-				320
+				-600,
+				300
 			]
 		},
 		{
 			"parameters": {
-				"responseCode": "200",
-				"responseMode": "responseBody",
+				"httpMethod": "POST",
+				"path": "quiz-webhook",
 				"options": {}
 			},
-			"id": "de987654-3210-fedc-ba98-7654321fedcb",
-			"name": "Respond to Webhook",
-			"type": "n8n-nodes-base.respondToWebhook",
+			"id": "d5555a09-6417-4db2-8b12-09997e0db1b9",
+			"name": "Quiz Submission Webhook",
+			"type": "n8n-nodes-base.webhook",
 			"typeVersion": 1,
 			"position": [
-				1240,
-				320
-			]
+				-800,
+				300
+			],
+			"webhookId": "f3a17f6a-de5b-426c-bb98-be3527276205"
 		}
 	],
 	"connections": {
-		"Webhook": {
+		"Shopify Config": {
 			"main": [
 				[
 					{
-						"node": "Format Quiz Data",
+						"node": "Prepare Shopify Request",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"Prepare Shopify Request": {
+			"main": [
+				[
+					{
+						"node": "Create Shopify Customer",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"Create Shopify Customer": {
+			"main": [
+				[
+					{
+						"node": "Merge Responses",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"Merge Responses": {
+			"main": [
+				[
+					{
+						"node": "Respond to Webhook",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"Handle Invalid Email": {
+			"main": [
+				[
+					{
+						"node": "Merge Responses",
+						"type": "main",
+						"index": 1
+					}
+				]
+			]
+		},
+		"Create or Update Klaviyo Profile": {
+			"main": [
+				[
+					{
+						"node": "Shopify Config",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"IF Email Valid": {
+			"main": [
+				[
+					{
+						"node": "Create or Update Klaviyo Profile",
+						"type": "main",
+						"index": 0
+					}
+				],
+				[
+					{
+						"node": "Handle Invalid Email",
 						"type": "main",
 						"index": 0
 					}
@@ -228,73 +320,11 @@
 				]
 			]
 		},
-		"IF Email Valid": {
+		"Quiz Submission Webhook": {
 			"main": [
 				[
 					{
-						"node": "Create Klaviyo Profile",
-						"type": "main",
-						"index": 0
-					}
-				],
-				[
-					{
-						"node": "Handle Invalid Email",
-						"type": "main",
-						"index": 0
-					}
-				]
-			]
-		},
-		"Create Klaviyo Profile": {
-			"main": [
-				[
-					{
-						"node": "Prepare Klaviyo Event",
-						"type": "main",
-						"index": 0
-					}
-				]
-			]
-		},
-		"Prepare Klaviyo Event": {
-			"main": [
-				[
-					{
-						"node": "Track Klaviyo Event",
-						"type": "main",
-						"index": 0
-					}
-				]
-			]
-		},
-		"Track Klaviyo Event": {
-			"main": [
-				[
-					{
-						"node": "Merge",
-						"type": "main",
-						"index": 0
-					}
-				]
-			]
-		},
-		"Handle Invalid Email": {
-			"main": [
-				[
-					{
-						"node": "Merge",
-						"type": "main",
-						"index": 1
-					}
-				]
-			]
-		},
-		"Merge": {
-			"main": [
-				[
-					{
-						"node": "Respond to Webhook",
+						"node": "Format Quiz Data",
 						"type": "main",
 						"index": 0
 					}
@@ -302,10 +332,51 @@
 			]
 		}
 	},
-	"settings": {},
-	"pinData": {},
+	"pinData": {
+		"Quiz Submission Webhook": [
+			{
+				"headers": {
+					"connection": "upgrade",
+					"host": "n8n.curalife.com",
+					"x-real-ip": "172.69.23.188",
+					"x-forwarded-for": "2a00:20:6013:27e2:b45e:66ce:e734:eb73, 172.69.23.188",
+					"x-forwarded-proto": "http",
+					"content-length": "627",
+					"cf-ray": "93858d9deafce52b-SJC",
+					"sec-fetch-site": "same-site",
+					"sec-fetch-mode": "navigate",
+					"accept-encoding": "gzip, br",
+					"sec-fetch-user": "?1",
+					"cf-connecting-ip": "2a00:20:6013:27e2:b45e:66ce:e734:eb73",
+					"cf-visitor": "{\"scheme\":\"https\"}",
+					"cf-ipcountry": "DE",
+					"cookie": "_fbp=fb.1.1744625492660.381306680841572800; _ga=GA1.1.61823864.1744625493; _vwo_uuid=DBFB27B6854218290059800364FC42641; _vis_opt_s=1%7C; _vis_opt_test_cookie=1; _vwo_uuid_v2=DBFB27B6854218290059800364FC42641|c2ce8305b97aadc7e9ffd6e2709d50dd; _vwo_ds=3%3At_0%2Ca_0%3A0%241744625493%3A28.62278714%3A%3A%3A%3A0; cjConsent=MHxZfDB8Tnww; _gcl_au=1.1.1390429849.1744625495; sib_cuid=a0bfd982-9118-4e72-9800-f32d5bcb426b; curalin_timer_15=true; curalin_timer_30=true; curalin_timer_60=true; _vis_opt_exp_60_combi=1; rl_page_init_referrer=RudderEncrypt%3AU2FsdGVkX1%2B0z1l6zwNnKWEKPT0pyAqSwmWl6pAdPyc%3D; rl_page_init_referring_domain=RudderEncrypt%3AU2FsdGVkX19wvSq%2By6ZIK0Dbl84AqQ9ITUyU4y43%2B38%3D; user_first_name=Yotam; user_last_name=Faraggi; user_region=DE; wooTracker=rBKO3oOesP6K; _shopify_y=A64190DF-9603-491B-b589-6fc48cfac7ff; user_phone=+972503591552; user_city=Dover; user_country=US; user_postal_code=19904; user_email=yotamon@gmail.com; n8n-auth=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjYxMDI1ZjdiLTRmYzctNGNlNy04MDAwLWJhZTkwOGNhNmY5MyIsImhhc2giOiJ6czJIYnNRakM2IiwiYnJvd3NlcklkIjoibXByWm40TnpkTHNsY1l3Y2d6M2x4ZkFlY2pYUFJ6UW1nSSs3ZThVdDFZMD0iLCJpYXQiOjE3NDU4Mjc1MTYsImV4cCI6MTc0NjQzMjMxNn0.MZ4CTkKuEWh9abIjDDeHfHhKaZDM4g1Xxe3y-ktKHOw; _landing_page=%2Fproducts%2Fcuralin-try-before-buy; _orig_referrer=https%3A%2F%2Fcuralife.com%2F; _tracking_consent=%7B%22con%22%3A%7B%22CMP%22%3A%7B%22a%22%3A%221%22%2C%22m%22%3A%221%22%2C%22p%22%3A%221%22%2C%22s%22%3A%22%22%7D%7D%2C%22v%22%3A%222.1%22%2C%22region%22%3A%22DEBE%22%2C%22reg%22%3A%22%22%2C%22purposes%22%3A%7B%22p%22%3Atrue%2C%22a%22%3Atrue%2C%22m%22%3Atrue%2C%22t%22%3Atrue%7D%2C%22display_banner%22%3Afalse%2C%22sale_of_data_region%22%3Afalse%2C%22consent_id%22%3A%2270A020F8-02f4-4C3E-a8db-237bff746f6f%22%7D; curaslim_timer_15=true; curaslim_timer_30=true; curaslim_timer_60=true; cf_clearance=bOcsd.RI3uyeUFEQptBCptTz1x_gqIY0aEgG9Pf2RbQ-1745933557-1.2.1.1-Dv_ruVn0ahmCQUxXLAK3lnFMPjQdaRLV.DWoRFAyzr38dITAV01iVhJmjOuoImPt151sXZ2seakkvOQdcx_oIagJunMs9p1Q3jijef3KgLXiKUgya62R0KzqudbxIRi7PQEIlTnl9nMos.gesHWUFUgK7vrkylNB0yYmFddcSJwD9wm405cOeMTwajbb8FpwYH24OaFvIwU.nyLuGJxjdftO5kazrjrXd8VCmzbFvTGGx7gwnv2JiO4VnTAPDoysAv59OxPGmMagQi0no2yEyaZ8INw4xZ4AZ6MXiVdSIJPE3dCPKJSbsJ9cpaoMp0cVar_.qhvsuox2MXgM99sp5STcvHZ8Qc7lzADKjZw7h_c; rl_anonymous_id=RudderEncrypt%3AU2FsdGVkX1%2FKvWDAY8dGmfqnQqMGHsZPZA3mUJbUijElW4uIQMi%2FWHrVTw8h%2FzCW5yTXCNnEYrtZa29Me5vYXg%3D%3D; rl_user_id=RudderEncrypt%3AU2FsdGVkX182nF%2Fcs7CwyLBMY%2B%2FWU8LtqLBwzsFRIsJ12Fj%2FzVw4jDykIbtiNTc12yDquOzdc4l70unJgf1aNzjCrRv%2B3f1sH3L%2BR%2Bz5GGZnJ5qE2eNWUPuYQq5ekonRWT54Z6Mdmje4coHpAvJZOl%2Bp9I4LycPjRmhWOdXjilI%3D; rl_trait=RudderEncrypt%3AU2FsdGVkX1%2FIwbZjYSkGZxKGID4r0cls6cS%2BVFrXhrrQEOL%2FwwJoc4HT7NtQQ3QcgnvAo%2B4P%2F0sWPZjKZ2qWPwkQfVQ%2FXaPVh0f5kXRqwTVxdHWkUsBnpXxKc6BUN9xAxKY6n8INcX7%2BsWOpExZWXw%3D%3D; ph_phc_4URIAm1uYfJO7j8kWSe0J8lc8IqnstRLS7Jx8NcakHo_posthog=%7B%22distinct_id%22%3A%22f15776d71e783ab65b5ded264368414021571e48c329de491bbc7f5f44253f60%2361025f7b-4fc7-4ce7-8000-bae908ca6f93%22%2C%22%24sesid%22%3A%5Bnull%2Cnull%2Cnull%5D%2C%22%24epp%22%3Atrue%2C%22%24initial_person_info%22%3A%7B%22r%22%3A%22%24direct%22%2C%22u%22%3A%22https%3A%2F%2Fn8n.curalife.com%2Fsignin%3Fredirect%3D%25252F%22%7D%7D; rl_session=RudderEncrypt%3AU2FsdGVkX1%2BSeZ1gK1TT2C3OScpb9C5gflRYYsCQ2tc5v1Hc0v7KqRAjucP4x8TVZtl0WAeX5E0PeKmuozORBrjzmRsq%2BZcQmh4qDjlm5RhLOweXvCwjQ1BobpN6khHBczGtWL9zpvYLSsQYgS%2FTTw%3D%3D; _shopify_s=19E36F7F-bd00-47D1-96aa-4ec0da0a364e; _shopify_sa_t=2025-04-30T08%3A08%3A19.003Z; _shopify_sa_p=; _ga_5PMZ76MKBX=GS1.1.1746000498.41.1.1746000499.0.0.0; _ga_NCJMMGVP3M=GS1.1.1746000500.38.0.1746000500.0.0.0; _vwo_sn=1370277%3A2%3A%3A%3A1; _ga_F0MV256GM0=GS1.1.1746000526.37.0.1746000526.60.0.0; _ga_TQMYLV4KCL=GS1.1.1746000526.36.0.1746000526.0.0.2077848382",
+					"cdn-loop": "cloudflare; loops=1",
+					"priority": "u=0, i",
+					"accept-language": "en-US,en;q=0.9,he;q=0.8,zh-CN;q=0.7,zh;q=0.6,de;q=0.5",
+					"referer": "https://curalife.com/",
+					"sec-fetch-dest": "iframe",
+					"cache-control": "max-age=0",
+					"sec-ch-ua": "\"Google Chrome\";v=\"135\", \"Not-A.Brand\";v=\"8\", \"Chromium\";v=\"135\"",
+					"sec-ch-ua-mobile": "?0",
+					"sec-ch-ua-platform": "\"Windows\"",
+					"origin": "https://curalife.com",
+					"content-type": "application/x-www-form-urlencoded",
+					"upgrade-insecure-requests": "1",
+					"user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
+					"accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
+				},
+				"params": {},
+				"query": {},
+				"body": {
+					"data": "{\"quizId\":\"berry-street-intake\",\"quizTitle\":\"Find Your Perfect Dietitian\",\"responses\":[{\"questionId\":\"q1\",\"answer\":\"opt5\"},{\"questionId\":\"q2\",\"answer\":[\"opt12\",\"opt16\"]},{\"questionId\":\"q3\",\"answer\":\"AZ\"},{\"questionId\":\"q4\",\"answer\":\"humana\"},{\"questionId\":\"info1\",\"answer\":\"info-acknowledged\"},{\"questionId\":\"q5\",\"answer\":\"yotamon+10@gmail.com\"}],\"completedAt\":\"2025-04-30T08:08:46.965Z\"}"
+				},
+				"webhookUrl": "https://n8n.curalife.com/webhook-test/quiz-webhook",
+				"executionMode": "test"
+			}
+		]
+	},
 	"meta": {
-		"templateCredsSetupCompleted": true,
 		"instanceId": "f15776d71e783ab65b5ded264368414021571e48c329de491bbc7f5f44253f60"
 	}
 }

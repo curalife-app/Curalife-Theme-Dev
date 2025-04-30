@@ -401,7 +401,7 @@ class ProductQuiz {
 		};
 
 		// Get the webhook URL
-		const n8nWebhookUrl = this.container.getAttribute("data-n8n-webhook") || "/api/quiz-webhook";
+		const n8nWebhookUrl = this.container.getAttribute("data-n8n-webhook") || "https://n8n.curalife.com/webhook-test/quiz-webhook";
 
 		// Log for debugging
 		console.log("Submitting quiz data to:", n8nWebhookUrl);
