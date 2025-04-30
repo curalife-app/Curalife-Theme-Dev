@@ -5,13 +5,13 @@
  * It loads quiz data from a JSON file and guides the user through
  * a series of questions to provide product recommendations.
  */
-
 class ProductQuiz {
 	constructor(options = {}) {
 		// DOM elements
 		this.container = document.getElementById("product-quiz");
 		if (!this.container) return;
 
+		// Use the specific class names we added to the HTML
 		this.intro = this.container.querySelector(".quiz-intro");
 		this.questions = this.container.querySelector(".quiz-questions");
 		this.results = this.container.querySelector(".quiz-results");
@@ -24,6 +24,21 @@ class ProductQuiz {
 		this.prevButton = this.container.querySelector("#quiz-prev-button");
 		this.nextButton = this.container.querySelector("#quiz-next-button");
 		this.startButton = this.container.querySelector("#quiz-start-button");
+
+		// Check if we found all the required elements
+		console.log("Quiz elements found:", {
+			intro: !!this.intro,
+			questions: !!this.questions,
+			results: !!this.results,
+			error: !!this.error,
+			loading: !!this.loading,
+			progressBar: !!this.progressBar,
+			questionContainer: !!this.questionContainer,
+			navigationButtons: !!this.navigationButtons,
+			prevButton: !!this.prevButton,
+			nextButton: !!this.nextButton,
+			startButton: !!this.startButton
+		});
 
 		// Options
 		this.dataUrl = options.dataUrl || this.container.getAttribute("data-quiz-url") || "/apps/product-quiz/data.json";
@@ -71,10 +86,20 @@ class ProductQuiz {
 	}
 
 	async startQuiz() {
+		// Check that we have all required elements before proceeding
+		if (!this.intro || !this.questions || !this.loading) {
+			console.error("Required quiz elements are missing:", {
+				intro: !!this.intro,
+				questions: !!this.questions,
+				loading: !!this.loading
+			});
+			return;
+		}
+
 		// Hide intro, show questions
 		this.intro.style.display = "none";
-		this.questions.style.display = "block";
-		this.loading.style.display = "flex";
+		this.questions.classList.remove("hidden");
+		this.loading.classList.remove("hidden");
 
 		try {
 			// Fetch quiz data
@@ -82,6 +107,14 @@ class ProductQuiz {
 
 			// Initialize responses array
 			this.responses = [];
+
+			// Check that quiz data was loaded properly
+			if (!this.quizData || !this.quizData.steps) {
+				console.error("Quiz data is missing or incomplete:", this.quizData);
+				this.loading.classList.add("hidden");
+				if (this.error) this.error.classList.remove("hidden");
+				return;
+			}
 
 			// Initialize responses for all questions across all steps
 			this.quizData.steps.forEach(step => {
@@ -104,15 +137,15 @@ class ProductQuiz {
 			});
 
 			// Hide loading indicator
-			this.loading.style.display = "none";
+			this.loading.classList.add("hidden");
 
 			// Render the first step
 			this.renderCurrentStep();
 			this.updateNavigation();
 		} catch (error) {
 			console.error("Failed to load quiz data:", error);
-			this.loading.style.display = "none";
-			this.error.style.display = "block";
+			this.loading.classList.add("hidden");
+			if (this.error) this.error.classList.remove("hidden");
 		}
 	}
 
@@ -143,6 +176,10 @@ class ProductQuiz {
 
 	// Get the current step
 	getCurrentStep() {
+		// Guard against null quizData
+		if (!this.quizData || !this.quizData.steps) {
+			return null;
+		}
 		return this.quizData.steps[this.currentStepIndex];
 	}
 
@@ -187,15 +224,15 @@ class ProductQuiz {
 		const progress = ((this.currentStepIndex + 1) / this.quizData.steps.length) * 100;
 		this.progressBar.style.width = `${progress}%`;
 
-		// Create step HTML
-		let stepHTML = `<div class="quiz-fade-in">`;
+		// Create step HTML with Tailwind classes
+		let stepHTML = `<div class="animate-fade-in">`;
 
 		// Add the info section if present
 		if (step.info) {
 			stepHTML += `
-				<h3 class="quiz-question-title">${step.info.heading}</h3>
-				<p class="quiz-question-description">${step.info.text}</p>
-				${step.info.subtext ? `<p class="quiz-subtext">${step.info.subtext}</p>` : ""}
+				<h3 class="text-2xl font-semibold mb-2">${step.info.heading}</h3>
+				<p class="text-slate-500 mb-6">${step.info.text}</p>
+				${step.info.subtext ? `<p class="text-slate-500 text-sm mt-2 italic">${step.info.subtext}</p>` : ""}
 			`;
 
 			// Mark this step's info as acknowledged
@@ -218,16 +255,16 @@ class ProductQuiz {
 		if (step.questions && step.questions.length > 0) {
 			if (isFormStep) {
 				// For form-style steps, render all questions at once
-				stepHTML += `<div class="quiz-form-container">`;
+				stepHTML += `<div class="space-y-6">`;
 
 				step.questions.forEach((question, index) => {
 					// Find response for this question
 					const response = this.responses.find(r => r.questionId === question.id) || { answer: null };
 
 					stepHTML += `
-						<div class="quiz-form-field">
-							<label class="quiz-form-label" for="question-${question.id}">${question.text}${question.required ? ' <span class="required">*</span>' : ""}</label>
-							${question.helpText ? `<p class="quiz-help-text">${question.helpText}</p>` : ""}
+						<div class="mb-6">
+							<label class="text-lg font-semibold text-slate-800 block mb-2" for="question-${question.id}">${question.text}${question.required ? ' <span class="text-red-500">*</span>' : ""}</label>
+							${question.helpText ? `<p class="text-slate-500 text-sm mb-2">${question.helpText}</p>` : ""}
 					`;
 
 					// Add input based on question type
@@ -242,7 +279,7 @@ class ProductQuiz {
 							stepHTML += this.renderDateInput(question, response);
 							break;
 						default:
-							stepHTML += `<p class="quiz-error">Unsupported field type: ${question.type}</p>`;
+							stepHTML += `<p class="text-red-500">Unsupported field type: ${question.type}</p>`;
 					}
 
 					stepHTML += `</div>`;
@@ -256,22 +293,22 @@ class ProductQuiz {
 
 				if (!question) {
 					console.error("No question found at index", this.currentQuestionIndex, "for step", step.id);
-					stepHTML += `<p class="quiz-error">Question not found. Please try again.</p>`;
+					stepHTML += `<p class="text-red-500">Question not found. Please try again.</p>`;
 				} else {
 					console.log("Rendering question:", question.id, question.type);
 
 					// Add the question title and help text if they weren't already added via info
 					if (!step.info) {
 						stepHTML += `
-							<h3 class="quiz-question-title">${question.text}</h3>
-							${question.helpText ? `<p class="quiz-question-description">${question.helpText}</p>` : ""}
+							<h3 class="text-2xl font-semibold mb-2">${question.text}</h3>
+							${question.helpText ? `<p class="text-slate-500 mb-6">${question.helpText}</p>` : ""}
 						`;
 					} else {
 						// If we have both info and questions, still show the question text
 						stepHTML += `
-							<div class="quiz-question-form">
-								<h4 class="quiz-form-label">${question.text}</h4>
-								${question.helpText ? `<p class="quiz-help-text">${question.helpText}</p>` : ""}
+							<div class="mt-6 pt-4 border-t border-slate-200">
+								<h4 class="text-lg font-semibold text-slate-800 mb-2">${question.text}</h4>
+								${question.helpText ? `<p class="text-slate-500 text-sm mb-2">${question.helpText}</p>` : ""}
 							</div>
 						`;
 					}
@@ -300,19 +337,19 @@ class ProductQuiz {
 							stepHTML += this.renderRating(question, response);
 							break;
 						default:
-							stepHTML += '<p class="quiz-error">Unknown question type</p>';
+							stepHTML += '<p class="text-red-500">Unknown question type</p>';
 					}
 				}
 			}
 		} else if (!step.info) {
 			// Neither info nor questions found
 			console.error("Step has neither info nor questions:", step.id);
-			stepHTML += `<p class="quiz-error">Step configuration error. Please contact support.</p>`;
+			stepHTML += `<p class="text-red-500">Step configuration error. Please contact support.</p>`;
 		}
 
 		// Add legal text if present
 		if (step.legal) {
-			stepHTML += `<p class="quiz-legal">${step.legal}</p>`;
+			stepHTML += `<p class="text-xs text-slate-500 mt-6 pt-2 border-t border-slate-200 leading-relaxed">${step.legal}</p>`;
 		}
 
 		stepHTML += "</div>";
@@ -348,14 +385,14 @@ class ProductQuiz {
 	}
 
 	renderMultipleChoice(question, response) {
-		let html = '<div class="quiz-options">';
+		let html = '<div class="space-y-3 mt-6">';
 
 		question.options.forEach(option => {
 			html += `
-				<div class="quiz-option-item">
-					<input type="radio" id="${option.id}" name="question-${question.id}" value="${option.id}"
+				<div class="flex items-center">
+					<input type="radio" id="${option.id}" name="question-${question.id}" value="${option.id}" class="mr-2"
 						${response.answer === option.id ? "checked" : ""}>
-					<label class="quiz-option-label" for="${option.id}">${option.text}</label>
+					<label class="cursor-pointer" for="${option.id}">${option.text}</label>
 				</div>
 			`;
 		});
@@ -367,14 +404,14 @@ class ProductQuiz {
 	renderCheckbox(question, response) {
 		const selectedOptions = Array.isArray(response.answer) ? response.answer : [];
 
-		let html = '<div class="quiz-options">';
+		let html = '<div class="space-y-3 mt-6">';
 
 		question.options.forEach(option => {
 			html += `
-				<div class="quiz-option-item">
-					<input type="checkbox" id="${option.id}" name="question-${question.id}" value="${option.id}"
+				<div class="flex items-center">
+					<input type="checkbox" id="${option.id}" name="question-${question.id}" value="${option.id}" class="mr-2"
 						${selectedOptions.includes(option.id) ? "checked" : ""}>
-					<label class="quiz-option-label" for="${option.id}">${option.text}</label>
+					<label class="cursor-pointer" for="${option.id}">${option.text}</label>
 				</div>
 			`;
 		});
@@ -387,8 +424,8 @@ class ProductQuiz {
 		let options = question.options || [];
 
 		let html = `
-			<div class="quiz-dropdown">
-				<select id="question-${question.id}" class="quiz-select">
+			<div class="mb-6">
+				<select id="question-${question.id}" class="w-full p-3 text-base border border-slate-200 rounded-lg bg-white appearance-none shadow-sm focus:outline-none focus:border-slate-800 focus:ring-2 focus:ring-slate-800/10 cursor-pointer">
 					<option value="">Select an option</option>
 		`;
 
@@ -405,8 +442,8 @@ class ProductQuiz {
 
 	renderTextInput(question, response) {
 		return `
-			<div class="quiz-text-answer">
-				<input type="text" id="question-${question.id}" class="quiz-text-input"
+			<div class="mb-6">
+				<input type="text" id="question-${question.id}" class="w-full p-3 border border-slate-200 rounded-lg shadow-sm focus:outline-none focus:border-slate-800 focus:ring-2 focus:ring-slate-800/10"
 					placeholder="${question.placeholder || "Type your answer here..."}"
 					value="${response.answer || ""}">
 			</div>
@@ -415,19 +452,19 @@ class ProductQuiz {
 
 	renderDateInput(question, response) {
 		return `
-			<div class="quiz-text-answer">
-				<input type="date" id="question-${question.id}" class="quiz-text-input"
+			<div class="mb-6">
+				<input type="date" id="question-${question.id}" class="w-full p-3 border border-slate-200 rounded-lg shadow-sm focus:outline-none focus:border-slate-800 focus:ring-2 focus:ring-slate-800/10"
 					placeholder="${question.helpText || "MM/DD/YYYY"}"
 					value="${response.answer || ""}">
-				${question.helpText ? `<p class="quiz-help-text">${question.helpText}</p>` : ""}
+				${question.helpText ? `<p class="text-slate-500 text-sm mt-2">${question.helpText}</p>` : ""}
 			</div>
 		`;
 	}
 
 	renderTextarea(question, response) {
 		return `
-			<div class="quiz-text-answer">
-				<textarea id="question-${question.id}" class="quiz-textarea" rows="4"
+			<div class="mb-6">
+				<textarea id="question-${question.id}" class="w-full p-3 border border-slate-200 rounded-lg shadow-sm focus:outline-none focus:border-slate-800 focus:ring-2 focus:ring-slate-800/10" rows="4"
 					placeholder="${question.placeholder || "Type your answer here..."}">${response.answer || ""}</textarea>
 			</div>
 		`;
@@ -435,10 +472,10 @@ class ProductQuiz {
 
 	renderRating(question, response) {
 		return `
-			<div class="quiz-rating-answer">
-				<input type="range" id="question-${question.id}" class="quiz-rating-slider"
+			<div class="mt-6">
+				<input type="range" id="question-${question.id}" class="w-full mb-2"
 					min="1" max="10" step="1" value="${response.answer || 5}">
-				<div class="quiz-rating-labels">
+				<div class="flex justify-between text-sm text-slate-500">
 					<span>1</span>
 					<span>5</span>
 					<span>10</span>
@@ -504,10 +541,10 @@ class ProductQuiz {
 					if (question.validation && question.validation.pattern) {
 						const regex = new RegExp(question.validation.pattern);
 						if (regex.test(textInput.value)) {
-							textInput.classList.remove("quiz-input-error");
+							textInput.classList.remove("border-red-500");
 							this.handleAnswer(textInput.value);
 						} else {
-							textInput.classList.add("quiz-input-error");
+							textInput.classList.add("border-red-500");
 							this.handleAnswer(null); // Invalid input
 						}
 					} else {
@@ -766,265 +803,189 @@ class ProductQuiz {
 	}
 
 	async finishQuiz() {
-		if (!this.quizData || this.submitting) return;
-
-		this.submitting = true;
-		this.updateNavigation();
-
-		// Show completion state
-		this.nextButton.innerHTML = '<span class="quiz-spinner-small"></span> Finishing...';
-		this.nextButton.disabled = true;
-		this.prevButton.disabled = true;
-
-		// Store responses (optional, maybe useful for analytics later)
-		sessionStorage.setItem("quizResponses", JSON.stringify(this.responses));
-		sessionStorage.setItem("quizId", this.quizData.id);
-
-		// Prepare the quiz data payload
-		const payload = {
-			quizId: this.quizData.id,
-			quizTitle: this.quizData.title,
-			responses: this.responses.map(r => ({
-				questionId: r.questionId,
-				answer: r.answer
-			})),
-			completedAt: new Date().toISOString()
-		};
-
-		// Get the webhook URL
-		const n8nWebhookUrl = this.container.getAttribute("data-n8n-webhook") || "https://n8n.curalife.com/webhook/quiz-webhook";
-
-		// Log for debugging
-		console.log("Submitting quiz data to:", n8nWebhookUrl);
-
-		// Send data to backend - attempt multiple methods if needed
-		let dataSent = false;
-		let responseData = null;
-
 		try {
-			// Try direct fetch first for better response handling
-			const response = await fetch(n8nWebhookUrl, {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json"
-				},
-				body: JSON.stringify(payload)
+			this.submitting = true;
+			this.nextButton.disabled = true;
+			this.nextButton.innerHTML = `
+				<div class="w-4 h-4 border-2 border-white/30 border-l-white rounded-full animate-spin mr-2 inline-block"></div>
+				Processing...
+			`;
+
+			// Extract required data from responses
+			// This is directly matching what the n8n workflow expects
+			let customerEmail = "";
+			let firstName = "";
+			let lastName = "";
+			let phoneNumber = "";
+			let state = "";
+			let insurance = "";
+			let insuranceMemberId = "";
+			let mainReason = "";
+			let secondaryReasons = [];
+			let dateOfBirth = "";
+
+			// Extract individual answers
+			this.responses.forEach(response => {
+				if (response.questionId === "q9") customerEmail = response.answer || "";
+				if (response.questionId === "q7") firstName = response.answer || "";
+				if (response.questionId === "q8") lastName = response.answer || "";
+				if (response.questionId === "q10") phoneNumber = response.answer || "";
+				if (response.questionId === "q5") state = response.answer || "";
+				if (response.questionId === "q3") insurance = response.answer || "";
+				if (response.questionId === "q4") insuranceMemberId = response.answer || "";
+				if (response.questionId === "q1") mainReason = response.answer || "";
+				if (response.questionId === "q2") secondaryReasons = response.answer || [];
+				if (response.questionId === "q6") dateOfBirth = response.answer || "";
 			});
 
-			if (response.ok) {
-				responseData = await response.json();
-				console.log("Quiz data sent successfully via fetch, received response:", responseData);
-				dataSent = true;
-			}
-		} catch (fetchError) {
-			console.warn("Fetch submission failed:", fetchError);
-		}
+			// Format for n8n workflow
+			const completedAt = new Date().toISOString();
+			const quizId = this.quizData?.id || "dietitian-quiz";
+			const quizTitle = this.quizData?.title || "Dietitian Quiz";
 
-		// If fetch failed, try alternative methods
-		if (!dataSent) {
-			try {
-				// Try the form submission approach (most reliable for CORS issues)
-				const formSubmitResult = await this.submitViaForm(n8nWebhookUrl, payload);
-				if (formSubmitResult) {
-					console.log("Quiz data sent successfully via form");
-					dataSent = true;
-				}
-			} catch (formError) {
-				console.warn("Form submission failed:", formError);
-			}
-		}
+			// Create exact payload structure that n8n expects
+			const payload = {
+				quizId,
+				quizTitle,
+				completedAt,
+				customerEmail,
+				firstName,
+				lastName,
+				phoneNumber,
+				dateOfBirth,
+				state,
+				insurance,
+				insuranceMemberId,
+				mainReason,
+				secondaryReasons,
+				// Provide the full responses array exactly as n8n expects
+				allResponses: this.responses.map(r => ({
+					stepId: r.stepId,
+					questionId: r.questionId,
+					answer: r.answer
+				}))
+			};
 
-		if (!dataSent) {
-			try {
-				// Fall back to XMLHttpRequest
-				const xhr = new XMLHttpRequest();
-				xhr.open("POST", n8nWebhookUrl, true);
-				xhr.setRequestHeader("Content-Type", "application/json");
-				xhr.responseType = "json";
+			console.log("Sending payload to webhook:", payload);
 
-				// Set up a promise to track completion
-				const xhrPromise = new Promise((resolve, reject) => {
-					xhr.onload = function () {
-						if (this.status >= 200 && this.status < 300) {
-							console.log("Quiz data sent successfully via XHR");
-							responseData = xhr.response;
-							dataSent = true;
-							resolve(true);
-						} else {
-							console.warn(`Server returned ${this.status} ${this.statusText}`, this.responseText);
-							reject(new Error(`Server error: ${this.status}`));
-						}
-					};
+			// Get webhook URL from data attribute
+			const webhookUrl = this.container.getAttribute("data-n8n-webhook");
+			const bookingUrl = this.container.getAttribute("data-booking-url") || "/appointment-booking";
 
-					xhr.onerror = function () {
-						console.error("Network error occurred with XHR");
-						reject(new Error("Network error"));
-					};
-				});
-
-				// Send the request
-				xhr.send(JSON.stringify(payload));
-
-				// Wait for completion or timeout after 3 seconds
-				await Promise.race([xhrPromise, new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 3000))]);
-			} catch (error) {
-				console.warn("XHR failed:", error.message);
-
-				// Try navigator.sendBeacon as fallback
-				if (!dataSent) {
-					try {
-						const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
-						dataSent = navigator.sendBeacon(n8nWebhookUrl, blob);
-						if (dataSent) {
-							console.log("Quiz data sent successfully via Beacon API");
-						} else {
-							console.warn("Beacon API failed to send data");
-						}
-					} catch (beaconError) {
-						console.warn("Beacon API error:", beaconError);
-					}
-				}
-			}
-		}
-
-		// Wait a moment to make the loading state visible
-		await new Promise(resolve => setTimeout(resolve, 500));
-
-		// Process eligibility data if we received a response and we're on the eligibility step
-		const lastStep = this.quizData.steps[this.quizData.steps.length - 1];
-		if (lastStep && lastStep.id === "step-eligibility" && responseData) {
-			// Check if we have eligibility data in the response
-			const eligibilityData = responseData.eligibilityData;
-
-			if (eligibilityData) {
-				console.log("Processing eligibility data:", eligibilityData);
-
-				// Store eligibility data for use in template
-				this.eligibilityData = eligibilityData;
-
-				// Render the eligibility step with the data
-				this.questions.style.display = "none";
-				this.results.style.display = "block";
-
-				// Process the eligibility template
-				let template = `
-					<div class="quiz-results-header quiz-fade-in">
-						<h2>${lastStep.info.heading}</h2>
-						<p>${lastStep.info.text}</p>
-						${lastStep.info.subtext ? `<p class="quiz-subtext">${lastStep.info.subtext}</p>` : ""}
-
-						<div class="eligibility-results">
-							<div class="eligibility-message">${eligibilityData.userMessage || "Your eligibility results are ready."}</div>
-						</div>
-
-						<a href="${this.container.getAttribute("data-booking-url") || "/appointment-booking"}" class="quiz-btn quiz-btn-primary">
-							${lastStep.ctaText || "Book Your Appointment"}
-						</a>
-					</div>
-				`;
-
-				// Process any template variables in the HTML
-				template = template.replace(/{{eligibilityData\.(\w+)}}/g, (match, key) => {
-					return eligibilityData[key] || "";
-				});
-
-				template = template.replace(/{{eligibilityData\.deductible\.individual}}/g, () => {
-					return eligibilityData.deductible?.individual || "standard";
-				});
-
-				this.results.innerHTML = template;
-				this.submitting = false;
+			if (!webhookUrl) {
+				console.warn("No webhook URL provided - proceeding to booking URL without webhook submission");
+				this.showResults(bookingUrl);
 				return;
 			}
+
+			// Try to call the webhook
+			let webhookSuccess = false;
+			let errorMessage = "";
+
+			try {
+				// Set a timeout to avoid waiting too long
+				const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Webhook request timed out")), 8000));
+
+				// Make the actual request
+				const fetchPromise = fetch(webhookUrl, {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json"
+					},
+					body: JSON.stringify({
+						data: JSON.stringify(payload) // Double wrap as some n8n workflows expect this format
+					})
+				});
+
+				// Race the timeout against the fetch
+				const webhook = await Promise.race([fetchPromise, timeoutPromise]);
+
+				// Check the response status
+				if (webhook.ok) {
+					console.log("Webhook response ok:", webhook.status);
+					webhookSuccess = true;
+
+					try {
+						const webhookResponse = await webhook.json();
+						console.log("Webhook response data:", webhookResponse);
+					} catch (jsonError) {
+						console.warn("Could not parse webhook JSON response:", jsonError);
+					}
+				} else {
+					errorMessage = `Server returned status ${webhook.status}`;
+					console.error("Webhook error:", errorMessage);
+
+					try {
+						const errorData = await webhook.text();
+						console.error("Error response:", errorData);
+					} catch (textError) {
+						console.warn("Could not read error response:", textError);
+					}
+				}
+			} catch (error) {
+				errorMessage = error.message || "Network error";
+				console.error("Error submitting quiz responses:", error);
+			}
+
+			// Always show results, even if webhook fails
+			this.showResults(bookingUrl, webhookSuccess);
+
+			// Log to analytics if available
+			if (window.analytics && typeof window.analytics.track === "function") {
+				window.analytics.track("Quiz Completed", {
+					quizId: this.quizData?.id || "dietitian-quiz",
+					successfullySubmitted: webhookSuccess,
+					error: !webhookSuccess ? errorMessage : null
+				});
+			}
+		} catch (error) {
+			console.error("Error in quiz completion:", error);
+			this.showError("Unexpected Error", "There was a problem completing the quiz. Please try again later.");
+		} finally {
+			this.submitting = false;
+			this.nextButton.disabled = false;
+			this.nextButton.innerHTML = `
+				Next
+				<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="ml-2">
+					<path d="M5 12h14M12 5l7 7-7 7"/>
+				</svg>
+			`;
 		}
+	}
 
-		// Check if we should redirect to appointment booking
-		if (lastStep && lastStep.id === "step-eligibility") {
-			// Get the booking URL from the section settings or use a default
-			const bookingUrl = this.container.getAttribute("data-booking-url") || "/appointment-booking";
-			console.log("Redirecting to booking URL:", bookingUrl);
+	// New method to show results with booking URL
+	showResults(bookingUrl, webhookSuccess = true) {
+		// Hide questions, show results
+		this.questions.classList.add("hidden");
+		this.results.classList.remove("hidden");
 
-			// Redirect to appointment booking page
-			window.location.href = bookingUrl;
-			return;
-		}
-
-		// Otherwise show completion message
-		this.questions.style.display = "none";
-		this.results.style.display = "block";
-		this.results.innerHTML = `
-			<div class="quiz-results-header quiz-fade-in">
-				<h2>Quiz Complete!</h2>
-				<p>Thank you for taking the quiz.</p>
-				<button class="quiz-btn quiz-btn-primary" onclick="window.location.reload()">Take Again</button>
-				<a href="/" class="quiz-btn quiz-btn-secondary">Return Home</a>
+		// Generate results content
+		let resultsHTML = `
+			<div class="text-center mb-8">
+				<h2 class="text-4xl font-bold mb-4 leading-tight md:text-5xl">Thanks for completing the quiz!</h2>
+				<p class="text-lg text-slate-500 max-w-xl mx-auto mb-8">We're ready to connect you with a registered dietitian who can help guide your health journey.</p>
+				${!webhookSuccess ? `<p class="text-amber-600 mb-6">There was an issue processing your submission, but you can still continue.</p>` : ""}
+				<div class="space-y-4 md:space-y-0 md:space-x-4">
+					<a href="${bookingUrl}" class="inline-flex items-center justify-center px-6 py-3 text-base font-medium rounded-lg bg-slate-800 text-white hover:bg-slate-700 transition duration-200 relative md:px-8">
+						Book Your Appointment
+						<span class="ml-2 transform transition-transform duration-200">→</span>
+					</a>
+				</div>
 			</div>
 		`;
 
-		this.submitting = false;
+		this.results.innerHTML = resultsHTML;
 	}
 
-	// Helper method to submit data via a hidden form (gets around CORS)
-	submitViaForm(url, data) {
-		return new Promise((resolve, reject) => {
-			try {
-				// Create a hidden iframe to target the form
-				const iframeId = "quiz-submit-iframe";
-				let iframe = document.getElementById(iframeId);
+	showError(title, message) {
+		this.questions.classList.add("hidden");
+		this.error.classList.remove("hidden");
 
-				if (!iframe) {
-					iframe = document.createElement("iframe");
-					iframe.id = iframeId;
-					iframe.name = iframeId;
-					iframe.style.display = "none";
-					document.body.appendChild(iframe);
-				}
+		const errorTitle = this.error.querySelector("h3");
+		const errorMessage = this.error.querySelector("p");
 
-				// Create a form
-				const form = document.createElement("form");
-				form.method = "POST";
-				form.action = url;
-				form.target = iframeId;
-				form.style.display = "none";
-
-				// Add the data field
-				const input = document.createElement("input");
-				input.type = "hidden";
-				input.name = "data";
-				input.value = JSON.stringify(data);
-				form.appendChild(input);
-
-				// Add the form to the document
-				document.body.appendChild(form);
-
-				// Handle iframe load event
-				iframe.onload = () => {
-					try {
-						resolve(true);
-					} catch (err) {
-						resolve(true); // Assume success even if we can't read the iframe content
-					}
-
-					// Clean up after a delay
-					setTimeout(() => {
-						if (form && form.parentNode) {
-							form.parentNode.removeChild(form);
-						}
-					}, 1000);
-				};
-
-				// Set a timeout in case iframe never loads
-				setTimeout(() => {
-					resolve(true); // Assume success after timeout
-				}, 3000);
-
-				// Submit the form
-				form.submit();
-			} catch (error) {
-				console.error("Error in submitViaForm:", error);
-				reject(error);
-			}
-		});
+		if (errorTitle) errorTitle.textContent = title;
+		if (errorMessage) errorMessage.textContent = message;
 	}
 
 	// New method to attach event listeners for form fields
@@ -1057,10 +1018,10 @@ class ProductQuiz {
 					if (question.validation && question.validation.pattern) {
 						const regex = new RegExp(question.validation.pattern);
 						if (regex.test(textInput.value)) {
-							textInput.classList.remove("quiz-input-error");
+							textInput.classList.remove("border-red-500");
 							this.handleFormAnswer(question.id, textInput.value);
 						} else {
-							textInput.classList.add("quiz-input-error");
+							textInput.classList.add("border-red-500");
 							this.handleFormAnswer(question.id, null); // Invalid input
 						}
 					} else {
@@ -1111,7 +1072,7 @@ class ProductQuiz {
 	}
 }
 
-// Initialize the quiz when the DOM is loaded
+// Initialize the quiz when the DOM is ready
 document.addEventListener("DOMContentLoaded", () => {
-	new ProductQuiz();
+	const quiz = new ProductQuiz();
 });

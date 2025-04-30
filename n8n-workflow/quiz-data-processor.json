@@ -26,40 +26,39 @@
 					"dotNotation": true
 				}
 			},
-			"id": "6057b38a-6127-47d9-b359-9ea3eaf375c6",
-			"name": "⚙️ Configuration1",
+			"id": "bdfa6483-4fdc-49fd-897e-9c5f86a9c6c2",
+			"name": "⚙️ Configuration2",
 			"type": "n8n-nodes-base.set",
 			"typeVersion": 2,
 			"position": [
-				-1600,
-				1920
+				-1520,
+				3060
 			]
 		},
 		{
 			"parameters": {
-				"jsCode": "// Optimized code with cached constants and streamlined functions\n\n// Cached mapping constants for reuse\nconst REASON_MAP = {\n  'opt1': 'Weight Loss',\n  'opt2': 'Blood Sugar Health',\n  'opt3': 'Supplements Advice',\n  'opt4': 'Other',\n  'opt5': 'Weight Loss',\n  'opt6': 'Blood Sugar Health',\n  'opt7': 'Supplements Advice',\n  'opt8': 'Glucometer & Strips'\n};\n\nconst INSURANCE_MAP = {\n  'ins1': 'Aetna',\n  'ins2': 'Anthem',\n  'ins3': 'Blue Cross Blue Shield',\n  'ins4': 'Cigna',\n  'ins5': 'Humana',\n  'ins6': 'Kaiser Permanente',\n  'ins7': 'Molina Healthcare',\n  'ins8': 'UnitedHealthcare',\n  'ins9': 'Health Net',\n  'ins10': 'Highmark',\n  'ins11': 'Tricare',\n  'ins12': 'Medicare',\n  'ins13': 'Medicaid',\n  'ins14': 'Other / Not Listed'\n};\n\n/**\n * Extract and normalize quiz data from various input formats\n * @param {Object} rawData - Raw webhook data\n * @returns {Object} - Normalized quiz data\n */\nfunction extractQuizData(rawData) {\n  // Direct structure\n  if (rawData.quizId && rawData.responses) {\n    return rawData;\n  }\n  \n  // Body.data as JSON string\n  if (rawData.body?.data && typeof rawData.body.data === 'string') {\n    try {\n      return JSON.parse(rawData.body.data);\n    } catch (e) {\n      console.log('Error parsing body.data:', e.message);\n    }\n  }\n  \n  // Data in body object\n  if (rawData.body?.quizId && rawData.body.responses) {\n    return rawData.body;\n  }\n  \n  // Data field as object\n  if (rawData.data?.quizId && rawData.data.responses) {\n    return rawData.data;\n  }\n  \n  // Data as string\n  if (rawData.data && typeof rawData.data === 'string') {\n    try {\n      return JSON.parse(rawData.data);\n    } catch (e) {\n      console.log('Error parsing data string:', e.message);\n    }\n  }\n  \n  // Default case - return unchanged\n  return rawData;\n}\n\n/**\n * Enhanced email validation with detailed logging\n * @param {string} email - Email to validate\n * @returns {boolean} - Is email valid\n */\nfunction isValidEmail(email) {\n  // Basic validation\n  if (!email || typeof email !== 'string') {\n    console.log(`Email validation failed: ${!email ? 'Empty email' : 'Not a string'}`);\n    return false;\n  }\n  \n  // Normalize email\n  email = email.trim().toLowerCase();\n  if (email === '') {\n    console.log('Email validation failed: Empty after trimming');\n    return false;\n  }\n  \n  // Format validation\n  const emailRegex = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;\n  if (!emailRegex.test(email)) {\n    console.log(`Email validation failed: Invalid format - ${email}`);\n    return false;\n  }\n  \n  // Length constraints\n  if (email.length < 5 || email.length > 100) {\n    console.log(`Email validation failed: Length (${email.length}) outside valid range`);\n    return false;\n  }\n  \n  // Domain validity\n  const domain = email.split('@')[1];\n  if (!domain || !domain.includes('.')) {\n    console.log(`Email validation failed: Invalid domain - ${domain}`);\n    return false;\n  }\n  \n  return true;\n}\n\n/**\n * Extract answer safely from responses\n * @param {Array} responses - Quiz responses array\n * @param {string} questionId - Target question ID\n * @returns {*} - Answer value or null\n */\nfunction extractAnswer(responses, questionId) {\n  if (!responses || !Array.isArray(responses)) {\n    return null;\n  }\n  const response = responses.find(r => r && r.questionId === questionId);\n  return response ? response.answer : null;\n}\n\n/**\n * Main processing function\n */\nfunction processQuizData() {\n  // Extract raw data\n  const rawData = $input.item.json;\n  const quizData = extractQuizData(rawData);\n  \n  // Extract responses with safety checks\n  const responses = quizData.responses || [];\n  \n  // Get customer information with consistent extraction\n  let customerEmail = extractAnswer(responses, 'q9') || '';\n  const firstName = extractAnswer(responses, 'q7') || '';\n  const lastName = extractAnswer(responses, 'q8') || '';\n  const phoneNumber = extractAnswer(responses, 'q10') || '';\n  const state = extractAnswer(responses, 'q5') || '';\n  const insurance = extractAnswer(responses, 'q3') || '';\n  const insuranceMemberId = extractAnswer(responses, 'q4') || '';\n  const mainReason = extractAnswer(responses, 'q1') || '';\n  const secondaryReasons = extractAnswer(responses, 'q2') || [];\n  const dateOfBirth = extractAnswer(responses, 'q6') || '';\n  \n  // Normalize email with better safety\n  if (customerEmail) {\n    customerEmail = customerEmail.trim().toLowerCase();\n    // Remove potentially problematic characters\n    customerEmail = customerEmail.replace(/['\\\"`\\\\]/g, '');\n  }\n  \n  // Validate email\n  const isValidEmailResult = isValidEmail(customerEmail);\n  if (!isValidEmailResult) {\n    console.log(`Email validation failed for: ${customerEmail || '(empty)'}`);\n  }\n  \n  // Build normalized data structure\n  const formattedData = {\n    quizId: quizData.quizId || 'unknown',\n    quizTitle: quizData.quizTitle || 'Unknown Quiz',\n    completedAt: quizData.completedAt || new Date().toISOString(),\n    customerEmail,\n    firstName,\n    lastName,\n    phoneNumber,\n    dateOfBirth,\n    isValidEmail: isValidEmailResult,\
-    state,\n    insurance,\n    insuranceMemberId,\n    mainReason,\n    secondaryReasons,\n    allResponses: responses\n  };\n  \n  // Format date fields consistently\n  try {\n    const date = new Date(formattedData.completedAt);\n    formattedData.formattedDate = date.toLocaleDateString();\n    formattedData.formattedTime = date.toLocaleTimeString();\n  } catch (e) {\n    console.log('Error formatting date:', e.message);\n    formattedData.formattedDate = '';\n    formattedData.formattedTime = '';\n  }\n  \n  // Convert option IDs to readable text\n  formattedData.mainReasonText = REASON_MAP[formattedData.mainReason] || formattedData.mainReason || 'Unknown';\n  \n  // Format secondary reasons text\n  if (Array.isArray(formattedData.secondaryReasons) && formattedData.secondaryReasons.length > 0) {\n    formattedData.secondaryReasonsText = formattedData.secondaryReasons\n      .map(id => REASON_MAP[id] || id || '')\n      .filter(text => text.length > 0)\n      .join(', ');\n  } else {\n    formattedData.secondaryReasonsText = '';\n  }\n  \n  // Get readable insurance name\n  formattedData.insuranceText = INSURANCE_MAP[formattedData.insurance] || formattedData.insurance || 'Unknown';\n  \n  // Prepare Klaviyo profile data in required format\n  formattedData.klaviyoProfileData = {\n    data: {\n      type: \"profile\",\n      attributes: {\n        email: customerEmail,\n        first_name: formattedData.firstName,\n        last_name: formattedData.lastName,\n        phone_number: formattedData.phoneNumber,\n        properties: {\n          \"State\": formattedData.state || '',\n          \"Insurance\": formattedData.insuranceText || '',\n          \"Insurance Member ID\": formattedData.insuranceMemberId || '',\n          \"Main Interest\": formattedData.mainReasonText || '',\n          \"Secondary Interests\": formattedData.secondaryReasonsText || '',\n          \"Quiz Source\": formattedData.quizTitle || '',\n          \"Quiz Completed\": formattedData.formattedDate || '',\n          \"$source\": \"Dietitian Quiz\"\n        }\n      }\n    }\n  };\n  \n  return {json: formattedData};\n}\n\n// Execute main function\nreturn processQuizData();"
+				"jsCode": "// Optimized code with cached constants and streamlined functions\n\n// Cached mapping constants for reuse\nconst REASON_MAP = {\n  'opt1': 'Weight Loss',\n  'opt2': 'Blood Sugar Health',\n  'opt3': 'Supplements Advice',\n  'opt4': 'Other',\n  'opt5': 'Weight Loss',\n  'opt6': 'Blood Sugar Health',\n  'opt7': 'Supplements Advice',\n  'opt8': 'Glucometer & Strips'\n};\n\nconst INSURANCE_MAP = {\n  'ins1': 'Aetna',\n  'ins2': 'Anthem',\n  'ins3': 'Blue Cross Blue Shield',\n  'ins4': 'Cigna',\n  'ins5': 'Humana',\n  'ins6': 'Kaiser Permanente',\n  'ins7': 'Molina Healthcare',\n  'ins8': 'UnitedHealthcare',\n  'ins9': 'Health Net',\n  'ins10': 'Highmark',\n  'ins11': 'Tricare',\n  'ins12': 'Medicare',\n  'ins13': 'Medicaid',\n  'ins14': 'Other / Not Listed'\n};\n\n/**\n * Extract and normalize quiz data from various input formats\n * @param {Object} rawData - Raw webhook data\n * @returns {Object} - Normalized quiz data\n */\nfunction extractQuizData(rawData) {\n  console.log('Extracting quiz data from:', JSON.stringify(rawData).substring(0, 200));\n  \n  // Direct structure\n  if (rawData.quizId && rawData.responses) {\n    console.log('Found direct quiz structure');\n    return rawData;\n  }\n  \n  // Check for nested body.data JSON string (double-wrapped data from frontend)\n  if (rawData.body?.data && typeof rawData.body.data === 'string') {\n    try {\n      console.log('Found body.data as string, parsing...');\n      return JSON.parse(rawData.body.data);\n    } catch (e) {\n      console.log('Error parsing body.data:', e.message);\n    }\n  }\n  \n  // Check for direct data property as string (common frontend pattern)\n  if (rawData.data && typeof rawData.data === 'string') {\n    try {\n      console.log('Found data as string, parsing...');\n      return JSON.parse(rawData.data);\n    } catch (e) {\n      console.log('Error parsing data string:', e.message);\n    }\n  }\n  \n  // Direct data property as object\n  if (rawData.data?.quizId && rawData.data.responses) {\n    console.log('Found quiz structure in data property');\n    return rawData.data;\n  }\n  \n  // Try to handle the Shopify quiz specific format\n  if (rawData.body?.responses || rawData.responses) {\n    const quizData = rawData.body || rawData;\n    console.log('Found responses directly in body or root');\n    return {\n      quizId: quizData.quizId || 'unknown', quizTitle: quizData.quizTitle || 'Unknown Quiz', completedAt: quizData.completedAt || quizData.timestamp || new Date().toISOString(), responses: quizData.responses || []\n    };\n  }\n  \n  // Default case - return unchanged\n  console.log('Using default data extraction case');\n  return rawData;\n}\n\n/**\n * Enhanced email validation with detailed logging\n * @param {string} email - Email to validate\n * @returns {boolean} - Is email valid\n */\nfunction isValidEmail(email) {\n  // Basic validation\n  if (!email || typeof email !== 'string') {\n    console.log(`Email validation failed: ${!email ? 'Empty email' : 'Not a string'}`);\n    return false;\n  }\n  \n  // Normalize email\n  email = email.trim().toLowerCase();\n  if (email === '') {\n    console.log('Email validation failed: Empty after trimming');\n    return false;\n  }\n  \n  // Format validation\n  const emailRegex = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;\n  if (!emailRegex.test(email)) {\n    console.log(`Email validation failed: Invalid format - ${email}`);\n    return false;\n  }\n  \n  // Length constraints\n  if (email.length < 5 || email.length > 100) {\n    console.log(`Email validation failed: Length (${email.length}) outside valid range`);\n    return false;\n  }\n  \n  // Domain validity\n  const domain = email.split('@')[1];\n  if (!domain || !domain.includes('.')) {\n    console.log(`Email validation failed: Invalid domain - ${domain}`);\n    return false;\n  }\n  \n  return true;\n}\n\n/**\n * Extract answer safely from responses\n * @param {Array} responses - Quiz responses array\n * @param {string} questionId - Target question ID\n * @returns {*} - Answer value or null\n */\nfunction extractAnswer(responses, questionId) {\n  if (!responses || !Array.isArray(responses)) {\n    return null;\n  }\n  const response = responses.find(r => r && r.questionId === questionId);\n  return response ? response.answer : null;\n}\n\n/**\n * Main processing function\n */\nfunction processQuizData() {\n  // Extract raw data\n  const rawData = $input.item.json;\n  \n  console.log('Processing raw data:', JSON.stringify(rawData).substring(0, 200));\n  const quizData = extractQuizData(rawData);\n  console.log('Extracted quiz data:', JSON.stringify(quizData).substring(0, 200));\n  \n  // Extract responses with safety checks\n  const responses = quizData.responses || quizData.allResponses || [];\n  console.log('Extracted responses:', JSON.stringify(responses).substring(0, 200));\n  \n  // Check if responses is an object with question IDs as keys (alternative format)\n  let normalizedResponses = responses;\n  if (!Array.isArray(responses) && typeof responses === 'object') {\n    normalizedResponses = Object.entries(responses).map(([key, value]) => ({\n      questionId: key,\n      answer: value\n    }));\n    console.log('Normalized responses from object format:', JSON.stringify(normalizedResponses).substring(0, 200));\n  }\n  \n  // Get customer information with consistent extraction\n  let customerEmail = extractAnswer(normalizedResponses, 'q9') || '';\n  const firstName = extractAnswer(normalizedResponses, 'q7') || '';\n  const lastName = extractAnswer(normalizedResponses, 'q8') || '';\n  const phoneNumber = extractAnswer(normalizedResponses, 'q10') || '';\n  const state = extractAnswer(normalizedResponses, 'q5') || '';\n  const insurance = extractAnswer(normalizedResponses, 'q3') || '';\n  const insuranceMemberId = extractAnswer(normalizedResponses, 'q4') || '';\n  const mainReason = extractAnswer(normalizedResponses, 'q1') || '';\n  const secondaryReasons = extractAnswer(normalizedResponses, 'q2') || [];\n  const dateOfBirth = extractAnswer(normalizedResponses, 'q6') || '';\n  \n  // Alternative direct extraction if responses is an object\n  if (!Array.isArray(responses) && typeof responses === 'object') {\n    if (!customerEmail) customerEmail = responses.q9 || '';\n    // No need to add alternatives for other fields as they're already handled\n  }\n  \n  // Normalize email with better safety\n  if (customerEmail) {\n    customerEmail = customerEmail.trim().toLowerCase();\n    // Remove potentially problematic characters\n    customerEmail = customerEmail.replace(/['\\\"`\\\\]/g, '');\n  }\n  \n  // Validate email\n  const isValidEmailResult = isValidEmail(customerEmail);\n  if (!isValidEmailResult) {\n    console.log(`Email validation failed for: ${customerEmail || '(empty)'}`);\n  }\n  \n  // Build normalized data structure\n  const formattedData = {\n    quizId: quizData.quizId || 'unknown', quizTitle: quizData.quizTitle || 'Unknown Quiz', completedAt: quizData.completedAt || new Date().toISOString(), customerEmail, firstName, lastName, phoneNumber, dateOfBirth, isValidEmail: isValidEmailResult, state, insurance, insuranceMemberId, mainReason, secondaryReasons, allResponses: normalizedResponses\n  };\n  \n  // Format date fields consistently\n  try {\n    const date = new Date(formattedData.completedAt);\n    formattedData.formattedDate = date.toLocaleDateString();\n    formattedData.formattedTime = date.toLocaleTimeString();\n  } catch (e) {\n    console.log('Error formatting date:', e.message);\n    formattedData.formattedDate = '';\n    formattedData.formattedTime = '';\n  }\n  \n  // Convert option IDs to readable text\n  formattedData.mainReasonText = REASON_MAP[formattedData.mainReason] || formattedData.mainReason || 'Unknown';\n  \n  // Format secondary reasons text\n  if (Array.isArray(formattedData.secondaryReasons) && formattedData.secondaryReasons.length > 0) {\n    formattedData.secondaryReasonsText = formattedData.secondaryReasons\n      .map(id => REASON_MAP[id] || id || '')\n      .filter(text => text.length > 0)\n      .join(', ');\n  } else {\n    formattedData.secondaryReasonsText = '';\n  }\n  \n  // Get readable insurance name\n  formattedData.insuranceText = INSURANCE_MAP[formattedData.insurance] || formattedData.insurance || 'Unknown';\n  \n  // Prepare Klaviyo profile data in required format\n  formattedData.klaviyoProfileData = {\n    data: {\n      type: \"profile\",\n      attributes: {\n        email: customerEmail,\n        first_name: formattedData.firstName,\n        last_name: formattedData.lastName,\n        phone_number: formattedData.phoneNumber,\n        properties: {\n          \"State\": formattedData.state || '',\n          \"Insurance\": formattedData.insuranceText || '',\n          \"Insurance Member ID\": formattedData.insuranceMemberId || '',\n          \"Main Interest\": formattedData.mainReasonText || '',\n          \"Secondary Interests\": formattedData.secondaryReasonsText || '',\n          \"Quiz Source\": formattedData.quizTitle || '',\n          \"Quiz Completed\": formattedData.formattedDate || '',\n          \"$source\": \"Dietitian Quiz\"\n        }\n      }\n    }\n  };\n  \n  return {json: formattedData};\n}\n\n// Execute main function\nreturn processQuizData();"
 			},
-			"id": "3d3586dc-8cfc-4bc4-bdb1-cc381ed99125",
-			"name": "1️⃣ Format Quiz Data1",
+			"id": "4d0df220-1e1d-41c9-945f-caa8382fc4ae",
+			"name": "1️⃣ Format Quiz Data2",
 			"type": "n8n-nodes-base.code",
 			"typeVersion": 1,
 			"position": [
-				-1400,
-				1920
+				-1320,
+				3060
 			]
 		},
 		{
 			"parameters": {
-				"jsCode": "/**\n * INSURANCE ELIGIBILITY DATA PREPARATION\n * Optimized version with enhanced error handling and data validation\n */\n\n// Cached configuration maps for provider lookup\nconst INSURANCE_NPI_MAP = {\n  'ins1': '1999999984', // Aetna\n  'ins2': '1999999984', // Anthem\n  'ins3': '1999999984', // Blue Cross Blue Shield\n  'ins4': '1999999984', // Cigna\n  'ins5': '1999999984', // Humana\n  'ins6': '1999999984', // Kaiser Permanente\n  'ins7': '1999999984', // Molina Healthcare\n  'ins8': '1999999984', // UnitedHealthcare\n  'ins9': '1999999984', // Health Net\n  'ins10': '1999999984', // Highmark\n  'ins11': '1999999984', // Tricare\n  'ins12': '1999999984', // Medicare\n  'ins13': '1999999984', // Medicaid\n  'ins14': '1999999984'  // Other / Not Listed\n};\n\nconst INSURANCE_PARTNER_MAP = {\n  'ins1': 'AHS', // Aetna\n  'ins2': 'AHS', // Anthem\n  'ins3': 'AHS', // Blue Cross Blue Shield\n  'ins4': 'AHS', // Cigna\n  'ins5': 'AHS', // Humana\n  'ins6': 'AHS', // Kaiser Permanente\n  'ins7': 'AHS', // Molina Healthcare\n  'ins8': 'AHS', // UnitedHealthcare\n  'ins9': 'AHS', // Health Net\n  'ins10': 'AHS', // Highmark\n  'ins11': 'AHS', // Tricare\n  'ins12': 'AHS', // Medicare\n  'ins13': 'AHS', // Medicaid\n  'ins14': 'AHS'  // Other / Not Listed\n};\n\n/**\n * Format date of birth consistently for insurance APIs\n * @param {string} dobValue - Date of birth in any format\n * @returns {string} - Formatted date as YYYYMMDD\n */\nfunction formatDateOfBirth(dobValue) {\n  if (!dobValue) return '19000101';\n  \n  try {\n    const date = new Date(dobValue);\n    if (!isNaN(date.getTime())) {\n      const year = date.getFullYear().toString();\n      const month = (date.getMonth() + 1).toString().padStart(2, '0');\n      const day = date.getDate().toString().padStart(2, '0');\n      return `${year}${month}${day}`;\n    }\n  } catch (e) {\n    console.log('Error formatting date of birth:', e.message);\n  }\n  \n  return '19000101';\n}\n\n/**\n * Extract and normalize name fields with fallbacks\n * @param {Object} formattedData - Formatted quiz data\n * @returns {Object} - Object with firstName and lastName\n */\nfunction extractNames(formattedData) {\n  let firstName = formattedData.firstName || '';\n  let lastName = formattedData.lastName || '';\n  \n  // Check responses if main fields are empty\n  if ((!firstName || !lastName) && formattedData.allResponses) {\n    const firstNameResponse = formattedData.allResponses.find(r => r.questionId === 'q7');\n    const lastNameResponse = formattedData.allResponses.find(r => r.questionId === 'q8');\n    \n    if (firstNameResponse) firstName = firstNameResponse.answer || '';\n    if (lastNameResponse) lastName = lastNameResponse.answer || '';\n  }\n  \n  // Fallbacks for still-missing names\n  if (!firstName) {\n    firstName = formattedData.customerEmail ? \n      formattedData.customerEmail.split('@')[0] || 'Anonymous' : \n      'Anonymous';\n  }\n  \n  if (!lastName) {\n    lastName = 'Patient';\n  }\n  \n  // Ensure valid values\n  firstName = firstName.trim() || 'Anonymous';\n  lastName = lastName.trim() || 'Patient';\n  \n  return { firstName, lastName };\n}\n\n/**\n * Process and normalize member ID\n * @param {Object} formattedData - Formatted quiz data\n * @returns {string} - Normalized member ID\n */\nfunction processMemberId(formattedData) {\n  let memberId = formattedData.insuranceMemberId || '';\n  \n  // Special case: sometimes memberId is in insurance field\n  if (!memberId && formattedData.insurance && !formattedData.insurance.startsWith('ins')) {\n    memberId = formattedData.insurance;\n  }\n  \n  return memberId || '123456789';\n}\n\n/**\n * Main function to prepare insurance eligibility request\n */\nfunction prepareInsuranceRequest() {\n  const formattedData = $input.item.json;\n  \n  // Get date of birth\n  const dateOfBirth = formatDateOfBirth(formattedData.dateOfBirth);\n  \n  // Generate unique control number for request tracing\n  const controlNumber = Date.now().toString().substring(0, 9);\n  \n  // Get provider information\n  const insuranceId = formattedData.insurance || '';\n  const npi = INSURANCE_NPI_MAP[insuranceId] || '1999999984';\n  const tradingPartnerId = INSURANCE_PARTNER_MAP[insuranceId] || 'AHS';\n  \n  // Generate unique patient ID with validation\n  const memberIdBase = formattedData.insuranceMemberId || '111222333';\n  const externalPatientId = `UAA${memberIdBase.replace(/[^a-zA-Z0-9]/g, '')}`;\n  \n  // Extract name information with fallbacks\n  const { firstName, lastName } = extractNames(formattedData);\n  \n  // Process member ID with validation\n  const memberId = processMemberId(formattedData);\n  \n  // Prepare complete Stedi request body\n  const stediRequestBody = {\n    \"controlNumber\": controlNumber,\n    \"tradingPartnerServiceId\": tradingPartnerId,\n    \"externalPatientId\": externalPatientId,\n    \"encounter\": {\n      \"serviceTypeCodes\": [\n        \"MH\" // Mental Health service type\n      ]\n    },\n    \"provider\": {\n      \"organizationName\": \"Curalife Health Services\",\n      \"npi\": npi\n    },\n    \"subscriber\": {\n      \"dateOfBirth\": dateOfBirth,\n      \"firstName\": firstName,\n      \"lastName\": lastName,\n      \"memberId\": memberId\n    }\n  };\n  \n  // Return both original data and Stedi request\n  return { json: { ...formattedData, stediRequestBody } };\n}\n\n// Execute main function\nreturn prepareInsuranceRequest();"
+				"jsCode": "/**\n * INSURANCE ELIGIBILITY DATA PREPARATION\n * Optimized version with enhanced error handling and data validation\n */\n\n// Cached configuration maps for provider lookup\nconst INSURANCE_NPI_MAP = {\n  'ins1': '1999999984', // Aetna\n  'ins2': '1999999984', // Anthem\n  'ins3': '1999999984', // Blue Cross Blue Shield\n  'ins4': '1999999984', // Cigna\n  'ins5': '1999999984', // Humana\n  'ins6': '1999999984', // Kaiser Permanente\n  'ins7': '1999999984', // Molina Healthcare\n  'ins8': '1999999984', // UnitedHealthcare\n  'ins9': '1999999984', // Health Net\n  'ins10': '1999999984', // Highmark\n  'ins11': '1999999984', // Tricare\n  'ins12': '1999999984', // Medicare\n  'ins13': '1999999984', // Medicaid\n  'ins14': '1999999984'  // Other / Not Listed\n};\n\nconst INSURANCE_PARTNER_MAP = {\n  'ins1': 'AHS', // Aetna\n  'ins2': 'AHS', // Anthem\n  'ins3': 'AHS', // Blue Cross Blue Shield\n  'ins4': 'AHS', // Cigna\n  'ins5': 'AHS', // Humana\n  'ins6': 'AHS', // Kaiser Permanente\n  'ins7': 'AHS', // Molina Healthcare\n  'ins8': 'AHS', // UnitedHealthcare\n  'ins9': 'AHS', // Health Net\n  'ins10': 'AHS', // Highmark\n  'ins11': 'AHS', // Tricare\n  'ins12': 'AHS', // Medicare\n  'ins13': 'AHS', // Medicaid\n  'ins14': 'AHS'  // Other / Not Listed\n};\n\n/**\n * Format date of birth consistently for insurance APIs\n * @param {string} dobValue - Date of birth in any format\n * @returns {string} - Formatted date as YYYYMMDD\n */\nfunction formatDateOfBirth(dobValue) {\n  if (!dobValue) return '19000101';\n  \n  try {\n    const date = new Date(dobValue);\n    if (!isNaN(date.getTime())) {\n      const year = date.getFullYear().toString();\n      const month = (date.getMonth() + 1).toString().padStart(2, '0');\n      const day = date.getDate().toString().padStart(2, '0');\n      return `${year}${month}${day}`;\n    }\n  } catch (e) {\n    console.log('Error formatting date of birth:', e.message);\n  }\n  \n  return '19000101';\n}\n\n/**\n * Extract and normalize name fields with fallbacks\n * @param {Object} formattedData - Formatted quiz data\n * @returns {Object} - Object with firstName and lastName\n */\nfunction extractNames(formattedData) {\n  let firstName = formattedData.firstName || '';\n  let lastName = formattedData.lastName || '';\n  \n  // Check responses if main fields are empty\n  if ((!firstName || !lastName) && formattedData.allResponses) {\n    // Handle both array and object formats for allResponses\n    if (Array.isArray(formattedData.allResponses)) {\n      const firstNameResponse = formattedData.allResponses.find(r => r.questionId === 'q7');\n      const lastNameResponse = formattedData.allResponses.find(r => r.questionId === 'q8');\n      \n      if (firstNameResponse) firstName = firstNameResponse.answer || '';\n      if (lastNameResponse) lastName = lastNameResponse.answer || '';\n    } else if (typeof formattedData.allResponses === 'object') {\n      // Direct object access for object format\n      if (formattedData.allResponses.q7) firstName = formattedData.allResponses.q7 || '';\n      if (formattedData.allResponses.q8) lastName = formattedData.allResponses.q8 || '';\n    }\n  }\n  \n  // Fallbacks for still-missing names\n  if (!firstName) {\n    firstName = formattedData.customerEmail ? \n      formattedData.customerEmail.split('@')[0] || 'Anonymous' : \n      'Anonymous';\n  }\n  \n  if (!lastName) {\n    lastName = 'Patient';\n  }\n  \n  // Ensure valid values\n  firstName = firstName.trim() || 'Anonymous';\n  lastName = lastName.trim() || 'Patient';\n  \n  return { firstName, lastName };\n}\n\n/**\n * Process and normalize member ID\n * @param {Object} formattedData - Formatted quiz data\n * @returns {string} - Normalized member ID\n */\nfunction processMemberId(formattedData) {\n  let memberId = formattedData.insuranceMemberId || '';\n  \n  // Special case: sometimes memberId is in insurance field\n  if (!memberId && formattedData.insurance && !formattedData.insurance.startsWith('ins')) {\n    memberId = formattedData.insurance;\n  }\n  \n  return memberId || '123456789';\n}\n\n/**\n * Main function to prepare insurance eligibility request\n */\nfunction prepareInsuranceRequest() {\n  const formattedData = $input.item.json;\n  \n  // Get date of birth\n  const dateOfBirth = formatDateOfBirth(formattedData.dateOfBirth);\n  \n  // Generate unique control number for request tracing\n  const controlNumber = Date.now().toString().substring(0, 9);\n  \n  // Get provider information\n  const insuranceId = formattedData.insurance || '';\n  const npi = INSURANCE_NPI_MAP[insuranceId] || '1999999984';\n  const tradingPartnerId = INSURANCE_PARTNER_MAP[insuranceId] || 'AHS';\n  \n  // Generate unique patient ID with validation\n  const memberIdBase = formattedData.insuranceMemberId || '111222333';\n  const externalPatientId = `UAA${memberIdBase.replace(/[^a-zA-Z0-9]/g, '')}`;\n  \n  // Extract name information with fallbacks\n  const { firstName, lastName } = extractNames(formattedData);\n  \n  // Process member ID with validation\n  const memberId = processMemberId(formattedData);\n  \n  // Prepare complete Stedi request body\n  const stediRequestBody = {\n    \"controlNumber\": controlNumber,\n    \"tradingPartnerServiceId\": tradingPartnerId,\n    \"externalPatientId\": externalPatientId,\n    \"encounter\": {\n      \"serviceTypeCodes\": [\n        \"MH\" // Mental Health service type\n      ]\n    },\n    \"provider\": {\n      \"organizationName\": \"Curalife Health Services\",\n      \"npi\": npi\n    },\n    \"subscriber\": {\n      \"dateOfBirth\": dateOfBirth,\n      \"firstName\": firstName,\n      \"lastName\": lastName,\n      \"memberId\": memberId\n    }\n  };\n  \n  // Return both original data and Stedi request\n  return { json: { ...formattedData, stediRequestBody } };\n}\n\n// Execute main function\nreturn prepareInsuranceRequest();"
 			},
-			"id": "f841b8d1-7b59-4cbc-a15a-a14a827accd8",
-			"name": "2️⃣ INSUR: Prepare Request1",
+			"id": "8fe975c7-8ec3-4e8d-99b5-7e6f9fc0a824",
+			"name": "2️⃣ INSUR: Prepare Request2",
 			"type": "n8n-nodes-base.code",
 			"typeVersion": 2,
 			"position": [
-				-1200,
-				2080
+				-1120,
+				3220
 			]
 		},
 		{
@@ -71,7 +70,7 @@
 					"parameters": [
 						{
 							"name": "Authorization",
-							"value": "={{$node[\"⚙️ Configuration1\"].json[\"STEDI_API_KEY\"]}}"
+							"value": "={{$node[\"⚙️ Configuration2\"].json[\"STEDI_API_KEY\"]}}"
 						},
 						{
 							"name": "Content-Type",
@@ -87,13 +86,13 @@
 					"response": {}
 				}
 			},
-			"id": "5387b230-2ad9-47d1-84db-e4a0c4d47e3a",
-			"name": "2️⃣ INSUR: Check Eligibility1",
+			"id": "31804f9c-d944-46dc-b8da-308592731d3f",
+			"name": "2️⃣ INSUR: Check Eligibility2",
 			"type": "n8n-nodes-base.httpRequest",
 			"typeVersion": 3,
 			"position": [
-				-1000,
-				2080
+				-920,
+				3220
 			],
 			"alwaysOutputData": true,
 			"onError": "continueErrorOutput"
@@ -102,13 +101,13 @@
 			"parameters": {
 				"jsCode": "/**\n * ELIGIBILITY RESPONSE PROCESSOR\n * Optimized with standardized error handling and response structure\n */\n\n/**\n * Extract response body from various API response formats\n * @param {Object} rawData - Raw API response\n * @returns {Object} - Standardized response object\n */\nfunction extractResponseBody(rawData) {\n  // Check for HTTP errors\n  if (rawData.statusCode >= 400) {\n    return { \n      isError: true, \n      error: {\n        code: rawData.statusCode.toString(),\n        message: rawData.statusMessage || 'Failed to check eligibility'\n      }\n    };\n  }\n  \n  // Handle various response body formats\n  if (rawData.body) {\n    if (typeof rawData.body === 'string') {\n      try {\n        return { isError: false, data: JSON.parse(rawData.body) };\n      } catch (e) {\n        console.log('Error parsing response body:', e.message);\n        return { isError: true, error: { code: 'PARSE_ERROR', message: e.message } };\n      }\n    }\n    return { isError: false, data: rawData.body };\n  } \n  \n  if (rawData.data) {\n    return { isError: false, data: rawData.data };\n  }\n  \n  // Direct response object\n  return { isError: false, data: rawData };\n}\n\n/**\n * Process eligibility response data into standardized format\n * @param {Object} responseBody - Parsed response body\n * @returns {Object} - Standardized eligibility data\n */\nfunction processEligibilityData(responseBody) {\n  // Initialize with default values\n  const eligibilityData = {\n    isEligible: false,\n    coverageActive: false,\n    sessionsCovered: 0,\n    deductible: {\n      individual: null,\n      family: null,\n    },\n    outOfPocket: {\n      individual: null,\n      family: null,\n    },\n    errors: [],\n    rawResponse: responseBody,\n    eligibilityStatus: 'UNKNOWN',\n    userMessage: ''\n  };\n  \n  // Check for API errors\n  if (responseBody.errors && responseBody.errors.length > 0) {\n    eligibilityData.errors = responseBody.errors;\n    eligibilityData.eligibilityStatus = 'ERROR';\n    return eligibilityData;\n  }\n  \n  // For demo/development purposes - assume coverage is active\n  eligibilityData.coverageActive = true;\n  eligibilityData.isEligible = true;\n  eligibilityData.sessionsCovered = 10;\n  eligibilityData.deductible.individual = 250;\n  eligibilityData.deductible.family = 500;\n  \n  // For real integration, process plan status\n  if (responseBody.planStatus) {\n    const planStatus = responseBody.planStatus || [];\n    \n    // Find active coverage status\n    const activeStatus = planStatus.find(status => \n      status.statusCode === \"1\" && status.status === \"Active Coverage\"\n    );\n    \n    eligibilityData.coverageActive = !!activeStatus;\n    \n    if (activeStatus) {\n      // Check for relevant service type codes\n      const relevantCodes = [\"MH\", \"AH\", \"BH\"];\n      const hasRelevantCoverage = activeStatus.serviceTypeCodes && \n        activeStatus.serviceTypeCodes.some(code => relevantCodes.includes(code));\n      \n      eligibilityData.isEligible = hasRelevantCoverage;\n    }\n    \n    // Extract benefit details if available\n    if (responseBody.benefitsInformation) {\n      extractBenefitDetails(responseBody.benefitsInformation, eligibilityData);\n    }\n  }\n  \n  // Generate user-friendly message\n  createUserMessage(eligibilityData);\n  \n  return eligibilityData;\n}\n\n/**\n * Extract detailed benefit information\n * @param {Array} benefits - Benefits information array\n * @param {Object} eligibilityData - Eligibility data object to update\n */\nfunction extractBenefitDetails(benefits, eligibilityData) {\n  // Find nutrition or dietitian related benefits\n  const dietitianBenefits = benefits.filter(benefit => \n    benefit.serviceTypes && benefit.serviceTypes.some(service => \n      service.toLowerCase().includes('dietitian') || \n      service.toLowerCase().includes('nutrition')\n    )\n  );\n  \n  // Extract session count from benefits\n  if (dietitianBenefits.length > 0) {\n    const sessionBenefit = dietitianBenefits.find(benefit => \n      benefit.name.toLowerCase().includes('visit') || \n      benefit.name.toLowerCase().includes('session')\n    );\n    \n    if (sessionBenefit?.benefitAmount) {\n      const sessions = parseInt(sessionBenefit.benefitAmount, 10);\n      if (!isNaN(sessions)) {\n        eligibilityData.sessionsCovered = sessions;\n      }\n    }\n  }\n  \n  // Extract deductible information\n  const deductibles = benefits.filter(benefit => \n    benefit.code === \"C\" && benefit.name === \"Deductible\"\n  );\n  \n  if (deductibles.length > 0) {\n    // Get individual deductible\n    const individualDeductible = deductibles.find(d => \n      d.coverageLevelCode === \"IND\" && d.inPlanNetworkIndicatorCode === \"Y\"\n    );\n    \n    if (individualDeductible?.benefitAmount) {\n      const amount = parseFloat(individualDeductible.benefitAmount);\n      if (!isNaN(amount)) {\n        eligibilityData.deductible.individual = amount;\n      }\n    }\n    \n    // Get family deductible\n    const familyDeductible = deductibles.find(d => \n      d.coverageLevelCode === \"FAM\" && d.inPlanNetworkIndicatorCode === \"Y\"\n    );\n    \n    if (familyDeductible?.benefitAmount) {\n      const amount = parseFloat(familyDeductible.benefitAmount);\n      if (!isNaN(amount)) {\n        eligibilityData.deductible.family = amount;\n      }\n    }\n  }\n}\n\n/**\n * Create user-friendly eligibility message\n * @param {Object} eligibilityData - Eligibility data object to update\n */\nfunction createUserMessage(eligibilityData) {\n  if (eligibilityData.isEligible) {\n    const sessions = eligibilityData.sessionsCovered;\n    const deductibleAmount = eligibilityData.deductible.individual || 'standard';\n    \n    eligibilityData.userMessage = `Good news! Based on your insurance information, you are eligible for ${sessions} dietitian sessions. Your individual deductible is $${deductibleAmount}.`;\n    eligibilityData.eligibilityStatus = 'ELIGIBLE';\n  } else if (eligibilityData.errors.length > 0) {\n    eligibilityData.userMessage = `We couldn't verify your eligibility at this time. Please contact customer support for assistance.`;\n    eligibilityData.eligibilityStatus = 'ERROR';\n  } else {\n    eligibilityData.userMessage = `Based on the information provided, we couldn't confirm coverage for dietitian services with your insurance plan. You may still be eligible - contact your insurance provider for details.`;\n    eligibilityData.eligibilityStatus = 'NOT_ELIGIBLE';\n  }\n}\n\n/**\n * Main processing function with enhanced error handling\n */\nfunction processEligibilityResponse() {\n  const rawData = $input.item.json;\n  try {\n    // Extract and validate response\n    const { isError, error, data } = extractResponseBody(rawData);\n    \n    // Process eligibility data\n    let eligibilityData;\n    if (isError) {\n      // Handle API errors with detailed structure\n      eligibilityData = {\n        isEligible: false,\n        coverageActive: false,\n        sessionsCovered: 0,\n        deductible: { individual: null, family: null },\n        outOfPocket: { individual: null, family: null },\n        errors: [error],\n        rawResponse: null,\n        eligibilityStatus: 'ERROR',\n        userMessage: `We encountered an error checking your eligibility: ${error.message}`\n      };\n    } else {\n      // Process valid response\n      eligibilityData = processEligibilityData(data);\n    }\n    \n    // Return enhanced data\n    return { json: { ...rawData, eligibilityData } };\n  } catch (error) {\n    // Handle unexpected processing errors\n    console.error('Error processing eligibility data:', error.message);\n    return { \n      json: { \n        ...rawData, \n        eligibilityData: {\n          isEligible: false,\n          eligibilityStatus: 'ERROR',\n          errors: [{ code: 'PROCESSING_ERROR', message: error.message }],\n          userMessage: `We encountered an unexpected error. Please try again later.`\n        } \n      } \n    };\n  }\n}\n\n// Execute main function\nreturn processEligibilityResponse();"
 			},
-			"id": "ed3c8e03-ff38-4826-8465-c8c209edbb45",
-			"name": "2️⃣ INSUR: Process Response1",
+			"id": "e5fe6c6c-f0f8-4552-a8e8-d7c142802e46",
+			"name": "2️⃣ INSUR: Process Response2",
 			"type": "n8n-nodes-base.code",
 			"typeVersion": 2,
 			"position": [
-				-800,
-				2080
+				-720,
+				3220
 			]
 		},
 		{
@@ -116,19 +115,19 @@
 				"conditions": {
 					"string": [
 						{
-							"value1": "={{ $('2️⃣ INSUR: Prepare Request1').item.json.isValidEmail }}",
+							"value1": "={{ $('2️⃣ INSUR: Prepare Request2').item.json.isValidEmail }}",
 							"value2": true
 						}
 					]
 				}
 			},
-			"id": "9ce7bbf3-44fe-4b99-b8ff-68c266cb7b4f",
-			"name": "3️⃣ Validate: Email Check1",
+			"id": "b026fbcc-9ebc-459e-b37c-5d375afd2643",
+			"name": "3️⃣ Validate: Email Check2",
 			"type": "n8n-nodes-base.if",
 			"typeVersion": 1,
 			"position": [
-				-860,
-				2320
+				-780,
+				3460
 			]
 		},
 		{
@@ -160,19 +159,19 @@
 				},
 				"sendBody": true,
 				"specifyBody": "json",
-				"jsonBody": "={{ $('1️⃣ Format Quiz Data1').item.json.klaviyoProfileData }}",
+				"jsonBody": "={{ $('1️⃣ Format Quiz Data2').item.json.klaviyoProfileData }}",
 				"options": {
 					"redirect": {},
 					"response": {}
 				}
 			},
-			"id": "879276db-c9b4-4090-9096-82d8aa0d0bb9",
-			"name": "4️⃣ KLAV: Create Profile1",
+			"id": "0169ffc6-588f-4b33-aaf2-44a6ea98eb1a",
+			"name": "4️⃣ KLAV: Create Profile2",
 			"type": "n8n-nodes-base.httpRequest",
 			"typeVersion": 3,
 			"position": [
-				-620,
-				2300
+				-540,
+				3440
 			],
 			"credentials": {
 				"httpHeaderAuth": {
@@ -186,19 +185,19 @@
 			"parameters": {
 				"jsCode": "/**\n * SHOPIFY REQUEST PREPARATION\n * Optimized with improved email extraction and request structure\n */\n\n/**\n * Comprehensive email extraction function with better error handling\n * @param {Object} inputData - Input data object \n * @returns {string} - Extracted email or empty string\n */\nfunction extractEmail(inputData) {\n  // Direct email fields check\n  if (inputData.customerEmail) return inputData.customerEmail;\n  if (inputData.email) return inputData.email;\n  \n  // Log available data for debugging\n  console.log('Searching for email in:', Object.keys(inputData).join(', '));\n  \n  // Klaviyo response as string\n  if (typeof inputData.data === 'string' && inputData.data.includes('\\\"email\\\"')) {\n    try {\n      const klaviyoData = JSON.parse(inputData.data);\n      if (klaviyoData.data?.attributes?.email) {\n        return klaviyoData.data.attributes.email;\n      }\n    } catch (e) {\n      console.log('Error parsing Klaviyo data string:', e.message);\n    }\n  }\n  \n  // Klaviyo data as object - direct path\n  if (inputData.data?.attributes?.email) {\n    return inputData.data.attributes.email;\n  }\n  \n  // Deeply nested structure - common in API responses\n  if (inputData.data?.data?.attributes?.email) {\n    return inputData.data.data.attributes.email;\n  }\n  \n  // KlaviyoProfileData handling with safety checks\n  if (inputData.klaviyoProfileData) {\n    if (typeof inputData.klaviyoProfileData === 'string') {\n      try {\n        const parsedKlaviyo = JSON.parse(inputData.klaviyoProfileData);\n        if (parsedKlaviyo.data?.attributes?.email) {\n          return parsedKlaviyo.data.attributes.email;\n        }\n      } catch (e) {\n        console.log('Error parsing klaviyoProfileData string:', e.message);\n      }\n    } else if (inputData.klaviyoProfileData.data?.attributes?.email) {\n      return inputData.klaviyoProfileData.data.attributes.email;\n    }\n  }\n  \n  // Return empty string if no email found\n  return '';\n}\n\n/**\n * Optimized Shopify GraphQL request builder\n * @param {Object} data - Customer data \n * @returns {Object} - Formatted Shopify request\n */\nfunction prepareShopifyRequest(data) {\n  // Use destructuring with defaults for cleaner code\n  const {\n    email = '',\n    firstName = '',\n    lastName = '',\n    phoneNumber = '',\n    quizId = '',\n    quizTitle = 'Dietitian Quiz',\n    state = '',\n    mainReasonText = '',\n    secondaryReasonsText = '',\n    insuranceText = '',\n    insuranceMemberId = '',\n    completedAt = ''\n  } = data;\n  \n  // Build metafields array conditionally to reduce payload size\n  const metafields = [\n    { namespace: \"quiz\", key: \"quiz_id\", value: quizId, type: \"single_line_text_field\" },\n    { namespace: \"quiz\", key: \"completed_at\", value: completedAt, type: \"single_line_text_field\" }\n  ];\n  \n  // Only add fields with values\n  if (mainReasonText) {\n    metafields.push({ \n      namespace: \"quiz\", \n      key: \"main_interest\", \n      value: mainReasonText, \n      type: \"single_line_text_field\" \n    });\n  }\n  \n  if (secondaryReasonsText) {\n    metafields.push({ \n      namespace: \"quiz\", \n      key: \"secondary_interests\", \n      value: secondaryReasonsText, \n      type: \"single_line_text_field\" \n    });\n  }\n  \n  if (insuranceText) {\n    metafields.push({ \n      namespace: \"quiz\", \n      key: \"insurance_provider\", \n      value: insuranceText, \n      type: \"single_line_text_field\" \n    });\n  }\n  \n  if (insuranceMemberId) {\n    metafields.push({ \n      namespace: \"quiz\", \n      key: \"insurance_member_id\", \n      value: insuranceMemberId, \n      type: \"single_line_text_field\" \n    });\n  }\n  \n  // Build addresses array only if state is provided\n  const addresses = state ? [{ country: \"US\", province: state }] : [];\n  \n  // Build request with optimized structure\n  return {\n    query: \"mutation customerCreate($input: CustomerInput!) { customerCreate(input: $input) { userErrors { field message } customer { id email firstName lastName phone } } }\",\n    variables: {\n      input: {\n        email,\n        firstName,\n        lastName,\n        phone: phoneNumber,\n        tags: `dietitian-quiz-lead, ${quizTitle}`,\n        addresses,\n        metafields\n      }\n    }\n  };\n}\n\n/**\n * Main execution function with improved logging\n */\nfunction prepareShopifyCustomerRequest() {\n  const inputData = $input.item.json;\n  console.log('Preparing Shopify customer with quiz data ID:', inputData.quizId || 'Unknown');\n  \n  // Extract email with better context logging\n  const email = extractEmail(inputData);\n  if (!email) {\n    console.log('WARNING: No email found for Shopify customer creation');\n    console.log('Available data keys:', Object.keys(inputData).join(', '));\n  }\n  \n  // Prepare request body\n  const requestBody = prepareShopifyRequest({ \n    ...inputData,\n    email: email\n  });\n  \n  // Return both original data and formatted request\n  return { json: { ...inputData, shopifyRequestBody: requestBody } };\n}\n\n// Execute main function\nreturn prepareShopifyCustomerRequest();"
 			},
-			"id": "5d190c50-400b-424f-a02e-3d2b1df26dc3",
-			"name": "4️⃣ SHOP: Prepare Request1",
+			"id": "82365dff-a3f2-4b39-b79c-69d431cb2f55",
+			"name": "4️⃣ SHOP: Prepare Request2",
 			"type": "n8n-nodes-base.code",
 			"typeVersion": 2,
 			"position": [
-				-460,
-				2300
+				-380,
+				3440
 			]
 		},
 		{
 			"parameters": {
 				"method": "POST",
-				"url": "={{\"https://\" + $node[\"⚙️ Configuration1\"].json[\"SHOPIFY_STORE_NAME\"] + \".myshopify.com/admin/api/2025-04/graphql.json\"}}",
+				"url": "={{\"https://\" + $node[\"⚙️ Configuration2\"].json[\"SHOPIFY_STORE_NAME\"] + \".myshopify.com/admin/api/2025-04/graphql.json\"}}",
 				"sendHeaders": true,
 				"headerParameters": {
 					"parameters": [
@@ -208,7 +207,7 @@
 						},
 						{
 							"name": "X-Shopify-Access-Token",
-							"value": "={{$node[\"⚙️ Configuration1\"].json[\"SHOPIFY_ADMIN_ACCESS_TOKEN\"]}}"
+							"value": "={{$node[\"⚙️ Configuration2\"].json[\"SHOPIFY_ADMIN_ACCESS_TOKEN\"]}}"
 						}
 					]
 				},
@@ -220,13 +219,13 @@
 					"response": {}
 				}
 			},
-			"id": "034bfcbe-d014-4548-8c0e-69d355d2c2dc",
-			"name": "4️⃣ SHOP: Create Customer1",
+			"id": "41a15c59-5074-4e81-bce6-58f21a9d8c68",
+			"name": "4️⃣ SHOP: Create Customer2",
 			"type": "n8n-nodes-base.httpRequest",
 			"typeVersion": 3,
 			"position": [
-				-260,
-				2300
+				-180,
+				3440
 			],
 			"onError": "continueErrorOutput"
 		},
@@ -234,37 +233,37 @@
 			"parameters": {
 				"jsCode": "/**\n * SHOPIFY API ERROR PROCESSOR\n * Optimized with standardized error handling and response structure\n */\n\n/**\n * Process Shopify API responses to extract errors and success indicators\n * @param {Object} responseData - Raw Shopify API response\n * @returns {Object} - Standardized result object\n */\nfunction processShopifyErrors(responseData) {\n  // Initialize result structure\n  const result = {\n    success: true,\n    customerCreated: false,\n    customerId: null,\n    errors: [],\n    originalResponse: responseData\n  };\n  \n  // Safety check for missing response\n  if (!responseData) {\n    result.success = false;\n    result.errors.push({\n      source: 'processing',\n      code: 'MISSING_DATA',\n      message: 'Response data is missing or undefined'\n    });\n    return result;\n  }\n  \n  // Check for HTTP-level errors\n  if (responseData.statusCode >= 400) {\n    result.success = false;\n    result.errors.push({\n      source: 'shopify_api',\n      code: responseData.statusCode.toString(),\n      message: responseData.statusMessage || 'Shopify API error'\n    });\n    return result;\n  }\n  \n  // Parse response body if needed\n  let data = responseData.body;\n  \n  // Safety check for missing body\n  if (data === undefined || data === null) {\n    result.success = false;\n    result.errors.push({\n      source: 'response_format',\n      code: 'MISSING_BODY',\n      message: 'Response body is missing or undefined'\n    });\n    return result;\n  }\n  \n  // Parse JSON string if needed\n  if (typeof data === 'string') {\n    try {\n      data = JSON.parse(data);\n    } catch (e) {\n      result.success = false;\n      result.errors.push({\n        source: 'response_parsing',\n        code: 'PARSE_ERROR',\n        message: 'Failed to parse Shopify response'\n      });\n      return result;\n    }\n  }\n  \n  // Check for GraphQL-level errors\n  if (data?.errors?.length > 0) {\n    result.success = false;\n    data.errors.forEach(error => {\n      if (error) {\n        result.errors.push({\n          source: 'shopify_graphql',\n          code: error.extensions?.code || 'GRAPHQL_ERROR',\n          message: error.message || 'Unknown GraphQL error'\n        });\n      }\n    });\n    return result;\n  }\n  \n  // Check for user errors in the response\n  if (data?.data?.customerCreate?.userErrors?.length > 0) {\n    result.success = false;\n    data.data.customerCreate.userErrors.forEach(error => {\n      if (error) {\n        result.errors.push({\n          source: 'shopify_mutation',\n          code: 'USER_ERROR',\n          field: error.field || '',\n          message: error.message || 'Unknown user error'\n        });\n      }\n    });\n    return result;\n  }\n  \n  // Extract customer ID if creation was successful\n  if (data?.data?.customerCreate?.customer?.id) {\n    result.success = true;\n    result.customerCreated = true;\n    result.customerId = data.data.customerCreate.customer.id;\n  }\n  \n  return result;\n}\n\n/**\n * Main function with enhanced logging\n */\nfunction processShopifyResponse() {\n  const responseData = $input.item.json;\n  // Add logging to help debug issues\n  console.log('Processing Shopify response type:', typeof responseData);\n  \n  // Process response and return with standardized format\n  const shopifyResult = processShopifyErrors(responseData);\n  \n  return { \n    json: { \n      ...responseData, \n      shopifyResult,\n      // Add standardized success indicator for downstream nodes\n      integrationSuccess: shopifyResult.success\n    } \n  };\n}\n\n// Execute main function\nreturn processShopifyResponse();"
 			},
-			"id": "a8112b47-0421-4ada-9e7a-17a4af150903",
-			"name": "5️⃣ Process API Errors1",
+			"id": "4bac5da5-86da-4edc-8e27-b6d06e431987",
+			"name": "5️⃣ Process API Errors2",
 			"type": "n8n-nodes-base.code",
 			"typeVersion": 2,
 			"position": [
-				-60,
-				2300
+				20,
+				3440
 			]
 		},
 		{
 			"parameters": {
 				"jsCode": "/**\n * Handle Quiz Submission with Invalid Email\n * Optimized with standardized response format and improved logging\n */\n\n/**\n * Create standardized response for invalid email submissions\n * @param {Object} data - Quiz submission data\n * @returns {Object} - Standardized error response\n */\nfunction handleInvalidEmailSubmission(data) {\n  // Extract basic quiz information with fallbacks\n  const quizId = data.quizId || 'unknown';\n  const quizTitle = data.quizTitle || 'Unknown Quiz';\n  const attemptedEmail = data.customerEmail || 'None provided';\n  \n  // Enhanced logging with more context\n  console.log(`Invalid email submission detected:\\n - Quiz ID: ${quizId}\\n - Title: ${quizTitle}\\n - Attempted Email: ${attemptedEmail}`);\n  \n  // Log additional data for debugging if available\n  if (Array.isArray(data.responses)) {\n    const emailResponse = data.responses.find(r => r.questionId === 'q9');\n    if (emailResponse) {\n      console.log(`Original email response: ${JSON.stringify(emailResponse)}`);\n    }\n  }\n  \n  // Return standardized response format for consistent handling\n  return {\n    status: \"skipped\",\n    reason: \"Invalid email address\",\n    quizId,\n    quizTitle,\n    timestamp: new Date().toISOString(),\n    attemptedEmail,\n    success: false,\n    error: {\n      code: 'INVALID_EMAIL',\n      message: 'Invalid or missing email address',\n      details: {\n        attemptedEmail,\n        validationErrors: ['Email format validation failed']\n      }\n    }\n  };\n}\n\n/**\n * Main execution with simplified logic\n */\nfunction processInvalidEmail() {\n  const data = $input.item.json;\n  return { json: handleInvalidEmailSubmission(data) };\n}\n\n// Execute main function\nreturn processInvalidEmail();"
 			},
-			"id": "cfee4805-cd2a-470e-ac90-556ca192617e",
-			"name": "5️⃣ ERROR: Invalid Email1",
+			"id": "ee0b1504-8cbd-42a5-b646-d1e235421bd2",
+			"name": "5️⃣ ERROR: Invalid Email2",
 			"type": "n8n-nodes-base.code",
 			"typeVersion": 2,
 			"position": [
-				-740,
-				2520
+				-660,
+				3660
 			]
 		},
 		{
 			"parameters": {},
-			"id": "527c98c1-53d1-4434-bb0c-325f83e3f3f7",
-			"name": "6️⃣ Merge All Responses1",
+			"id": "e3584aac-3925-48f2-a2c6-081dba220a18",
+			"name": "6️⃣ Merge All Responses2",
 			"type": "n8n-nodes-base.merge",
 			"typeVersion": 2,
 			"position": [
-				80,
-				2500
+				160,
+				3640
 			]
 		},
 		{
@@ -272,45 +271,44 @@
 				"respondWith": "allIncomingItems",
 				"options": {}
 			},
-			"id": "01ba7bad-7ea5-472e-8a7a-28898b0d8c13",
-			"name": "7️⃣ Final Response1",
+			"id": "41225706-8eb3-41ec-982f-dac3fb7900d3",
+			"name": "7️⃣ Final Response2",
 			"type": "n8n-nodes-base.respondToWebhook",
 			"typeVersion": 1,
 			"position": [
-				300,
-				2500
+				380,
+				3640
 			]
 		},
 		{
 			"parameters": {
 				"httpMethod": "POST",
-				"path": "webhook/quiz-webhook",
+				"path": "quiz-webhook",
 				"responseMode": "lastNode",
 				"options": {}
 			},
-			"id": "92e813fd-561c-4c8c-a558-d932107fa168",
-			"name": "📥 Quiz Submission Webhook1",
+			"id": "3cd780de-ff13-43bd-bafa-076f933227a7",
+			"name": "📥 Quiz Submission Webhook2",
 			"type": "n8n-nodes-base.webhook",
 			"typeVersion": 1,
 			"position": [
-				-1800,
-				1920
+				-1720,
+				3060
 			],
-			"webhookId": "f3a17f6a-de5b-426c-bb98-be3527276205",
-			"webhookUrl": "https://n8n.curalife.com/webhook/quiz-webhook"
+			"webhookId": "f3a17f6a-de5b-426c-bb98-be3527276205"
 		},
 		{
 			"parameters": {
 				"content": "# ENTRY POINT\n---\nThis webhook receives dietitian quiz submissions.\nThe Config node stores API keys and settings.\nQuiz data is extracted, normalized and formatted.",
 				"width": 520
 			},
-			"id": "4a702bc0-02e2-4fa7-b137-954160b622b5",
-			"name": "Entry & Data Processing1",
+			"id": "7dddb8e7-e443-4724-a0ea-4436f276808d",
+			"name": "Entry & Data Processing2",
 			"type": "n8n-nodes-base.stickyNote",
 			"typeVersion": 1,
 			"position": [
-				-1820,
-				1720
+				-1740,
+				2860
 			]
 		},
 		{
@@ -318,13 +316,13 @@
 				"content": "# INSURANCE VERIFICATION\n---\nPrepares and sends eligibility request to Stedi.\nDetermines if user's insurance covers dietitian services.\nProcesses response into standardized eligibility data.",
 				"width": 520
 			},
-			"id": "f6448a88-3e71-45b3-8c07-1e911e6de151",
-			"name": "Insurance Eligibility1",
+			"id": "6720c173-4bd8-4c5a-b7bf-0dbb5ee22fc9",
+			"name": "Insurance Eligibility2",
 			"type": "n8n-nodes-base.stickyNote",
 			"typeVersion": 1,
 			"position": [
-				-1160,
-				1860
+				-1080,
+				3000
 			]
 		},
 		{
@@ -332,13 +330,13 @@
 				"content": "# CUSTOMER CREATION\n---\nValid emails: Creates profiles in both Klaviyo and Shopify.\nInvalid emails: Logs error and continues workflow.\nAll user data is enriched with eligibility information.",
 				"width": 500
 			},
-			"id": "10605be7-c429-454b-8ecd-eb70339a8886",
-			"name": "Data Integration1",
+			"id": "2ecd3e9d-1b20-441a-b717-d89e5232d43d",
+			"name": "Data Integration2",
 			"type": "n8n-nodes-base.stickyNote",
 			"typeVersion": 1,
 			"position": [
-				-540,
-				2080
+				-460,
+				3220
 			]
 		},
 		{
@@ -346,13 +344,13 @@
 				"content": "# RESPONSE MANAGEMENT\n---\nMerges results from all paths.\nReturns final response to original webhook.\nHandles both success and error cases.",
 				"width": 520
 			},
-			"id": "56a72cf8-4cc8-4f15-9c5e-c7f7ca3249db",
-			"name": "Response Handling1",
+			"id": "c00bc681-ab16-44f6-a112-abb81b9c64a7",
+			"name": "Response Handling2",
 			"type": "n8n-nodes-base.stickyNote",
 			"typeVersion": 1,
 			"position": [
-				140,
-				2260
+				220,
+				3400
 			]
 		},
 		{
@@ -361,168 +359,168 @@
 				"height": 240,
 				"width": 420
 			},
-			"id": "e8e15168-2480-422e-8fa6-1f35f3b0a108",
-			"name": "Error Handling1",
+			"id": "2b187e19-c75f-4454-9b92-6d4f6d8d7770",
+			"name": "Error Handling2",
 			"type": "n8n-nodes-base.stickyNote",
 			"typeVersion": 1,
 			"position": [
-				-1240,
-				2500
+				-1160,
+				3640
 			]
 		}
 	],
 	"connections": {
-		"⚙️ Configuration1": {
+		"⚙️ Configuration2": {
 			"main": [
 				[
 					{
-						"node": "1️⃣ Format Quiz Data1",
+						"node": "1️⃣ Format Quiz Data2",
 						"type": "main",
 						"index": 0
 					}
 				]
 			]
 		},
-		"1️⃣ Format Quiz Data1": {
+		"1️⃣ Format Quiz Data2": {
 			"main": [
 				[
 					{
-						"node": "2️⃣ INSUR: Prepare Request1",
+						"node": "2️⃣ INSUR: Prepare Request2",
 						"type": "main",
 						"index": 0
 					}
 				]
 			]
 		},
-		"2️⃣ INSUR: Prepare Request1": {
+		"2️⃣ INSUR: Prepare Request2": {
 			"main": [
 				[
 					{
-						"node": "2️⃣ INSUR: Check Eligibility1",
+						"node": "2️⃣ INSUR: Check Eligibility2",
 						"type": "main",
 						"index": 0
 					}
 				]
 			]
 		},
-		"2️⃣ INSUR: Check Eligibility1": {
+		"2️⃣ INSUR: Check Eligibility2": {
 			"main": [
 				[
 					{
-						"node": "2️⃣ INSUR: Process Response1",
+						"node": "2️⃣ INSUR: Process Response2",
 						"type": "main",
 						"index": 0
 					}
 				]
 			]
 		},
-		"2️⃣ INSUR: Process Response1": {
+		"2️⃣ INSUR: Process Response2": {
 			"main": [
 				[
 					{
-						"node": "3️⃣ Validate: Email Check1",
+						"node": "3️⃣ Validate: Email Check2",
 						"type": "main",
 						"index": 0
 					}
 				]
 			]
 		},
-		"3️⃣ Validate: Email Check1": {
+		"3️⃣ Validate: Email Check2": {
 			"main": [
 				[
 					{
-						"node": "4️⃣ KLAV: Create Profile1",
-						"type": "main",
-						"index": 0
-					}
-				],
-				[
-					{
-						"node": "5️⃣ ERROR: Invalid Email1",
-						"type": "main",
-						"index": 0
-					}
-				]
-			]
-		},
-		"4️⃣ KLAV: Create Profile1": {
-			"main": [
-				[
-					{
-						"node": "4️⃣ SHOP: Prepare Request1",
+						"node": "4️⃣ KLAV: Create Profile2",
 						"type": "main",
 						"index": 0
 					}
 				],
 				[
 					{
-						"node": "6️⃣ Merge All Responses1",
+						"node": "5️⃣ ERROR: Invalid Email2",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"4️⃣ KLAV: Create Profile2": {
+			"main": [
+				[
+					{
+						"node": "4️⃣ SHOP: Prepare Request2",
+						"type": "main",
+						"index": 0
+					}
+				],
+				[
+					{
+						"node": "6️⃣ Merge All Responses2",
 						"type": "main",
 						"index": 1
 					}
 				]
 			]
 		},
-		"4️⃣ SHOP: Prepare Request1": {
+		"4️⃣ SHOP: Prepare Request2": {
 			"main": [
 				[
 					{
-						"node": "4️⃣ SHOP: Create Customer1",
+						"node": "4️⃣ SHOP: Create Customer2",
 						"type": "main",
 						"index": 0
 					}
 				]
 			]
 		},
-		"4️⃣ SHOP: Create Customer1": {
+		"4️⃣ SHOP: Create Customer2": {
 			"main": [
 				[
 					{
-						"node": "5️⃣ Process API Errors1",
+						"node": "5️⃣ Process API Errors2",
 						"type": "main",
 						"index": 0
 					}
 				]
 			]
 		},
-		"5️⃣ Process API Errors1": {
+		"5️⃣ Process API Errors2": {
 			"main": [
 				[
 					{
-						"node": "6️⃣ Merge All Responses1",
+						"node": "6️⃣ Merge All Responses2",
 						"type": "main",
 						"index": 0
 					}
 				]
 			]
 		},
-		"5️⃣ ERROR: Invalid Email1": {
+		"5️⃣ ERROR: Invalid Email2": {
 			"main": [
 				[
 					{
-						"node": "6️⃣ Merge All Responses1",
+						"node": "6️⃣ Merge All Responses2",
 						"type": "main",
 						"index": 1
 					}
 				]
 			]
 		},
-		"6️⃣ Merge All Responses1": {
+		"6️⃣ Merge All Responses2": {
 			"main": [
 				[
 					{
-						"node": "7️⃣ Final Response1",
+						"node": "7️⃣ Final Response2",
 						"type": "main",
 						"index": 0
 					}
 				]
 			]
 		},
-		"📥 Quiz Submission Webhook1": {
+		"📥 Quiz Submission Webhook2": {
 			"main": [
 				[
 					{
-						"node": "⚙️ Configuration1",
+						"node": "⚙️ Configuration2",
 						"type": "main",
 						"index": 0
 					}
@@ -531,43 +529,60 @@
 		}
 	},
 	"pinData": {
-		"📥 Quiz Submission Webhook1": [
+		"📥 Quiz Submission Webhook2": [
 			{
 				"headers": {
 					"connection": "upgrade",
 					"host": "n8n.curalife.com",
-					"x-real-ip": "172.69.23.28",
-					"x-forwarded-for": "2a00:20:6013:27e2:b45e:66ce:e734:eb73, 172.69.23.28",
+					"x-real-ip": "162.158.112.185",
+					"x-forwarded-for": "2a00:20:6013:27e2:b45e:66ce:e734:eb73, 162.158.112.185",
 					"x-forwarded-proto": "http",
-					"content-length": "632",
-					"cf-ray": "938751c46b70e507-SJC",
-					"accept": "*/*",
-					"origin": "https://curalife.com",
-					"accept-encoding": "gzip, br",
-					"sec-fetch-site": "same-site",
-					"cdn-loop": "cloudflare; loops=1",
-					"cf-visitor": "{\"scheme\":\"https\"}",
+					"content-length": "302",
+					"cf-ray": "93886f740d6be50e-TXL",
 					"priority": "u=1, i",
+					"accept-encoding": "gzip, br",
 					"accept-language": "en-US,en;q=0.9,he;q=0.8,zh-CN;q=0.7,zh;q=0.6,de;q=0.5",
-					"cf-connecting-ip": "2a00:20:6013:27e2:b45e:66ce:e734:eb73",
-					"cf-ipcountry": "DE",
+					"cdn-loop": "cloudflare; loops=1",
 					"referer": "https://curalife.com/",
+					"cf-visitor": "{\"scheme\":\"https\"}",
 					"sec-fetch-dest": "empty",
 					"sec-fetch-mode": "cors",
+					"cf-connecting-ip": "2a00:20:6013:27e2:b45e:66ce:e734:eb73",
+					"cf-ipcountry": "DE",
+					"sec-fetch-site": "same-site",
+					"origin": "https://curalife.com",
 					"pragma": "no-cache",
 					"cache-control": "no-cache",
 					"sec-ch-ua-platform": "\"Windows\"",
 					"user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
 					"sec-ch-ua": "\"Google Chrome\";v=\"135\", \"Not-A.Brand\";v=\"8\", \"Chromium\";v=\"135\"",
 					"content-type": "application/json",
-					"sec-ch-ua-mobile": "?0"
+					"sec-ch-ua-mobile": "?0",
+					"accept": "*/*"
 				},
 				"params": {},
 				"query": {},
 				"body": {
-					"data": "{\"quizId\":\"curalife-intake\",\"quizTitle\":\"Find Your Perfect Dietitian\",\"responses\":[{\"questionId\":\"q1\",\"answer\":\"opt3\"},{\"questionId\":\"q2\",\"answer\":[\"opt6\",\"opt7\"]},{\"questionId\":\"q3\",\"answer\":\"ins2\"},{\"questionId\":\"q4\",\"answer\":\"123\"},{\"questionId\":\"q5\",\"answer\":\"st2\"},{\"questionId\":\"q6\",\"answer\":\"2025-04-16\"},{\"questionId\":\"q7\",\"answer\":\"Yotam\"},{\"questionId\":\"q8\",\"answer\":\"Faraggi\"},{\"questionId\":\"q9\",\"answer\":\"yotamon@gmail.com\"},{\"questionId\":\"q10\",\"answer\":\"+972503591552\"}],\"completedAt\":\"2025-04-30T13:17:27.450Z\"}"
+					"responses": {
+						"q1": "opt2",
+						"q2": [
+							"opt6",
+							"opt7"
+						],
+						"q3": "ins2",
+						"q4": "123",
+						"q5": "st4",
+						"q6": "2025-04-22",
+						"q7": "Yotam",
+						"q8": "Faraggi",
+						"q9": "yotamon@gmail.com",
+						"q10": "+972503591552"
+					},
+					"quizId": "curalife-intake",
+					"timestamp": "2025-04-30T16:32:28.539Z",
+					"source": "https://curalife.com/pages/tests?geo=us&full=true"
 				},
-				"webhookUrl": "https://n8n.curalife.com/webhook/quiz-webhook",
+				"webhookUrl": "https://n8n.curalife.com/webhook-test/quiz-webhook",
 				"executionMode": "test"
 			}
 		]
