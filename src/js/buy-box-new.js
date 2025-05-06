@@ -602,9 +602,21 @@ class BuyBoxNew {
 
 					// Add gift if applicable and selected for one-time
 					if (this.config.isOneTimeGift) {
-						const selectedGiftId = this.getSelectedGiftId(false); // Get non-subscription gift ID
-						if (selectedGiftId) {
-							items.push({ id: parseInt(selectedGiftId, 10), quantity: 1 });
+						const selectedGift = this.getSelectedGiftId(false); // Get non-subscription gift ID
+						if (selectedGift && selectedGift.id) {
+							const giftItem = {
+								id: parseInt(selectedGift.id, 10),
+								quantity: 1,
+								properties: { _gift: "true" }
+							};
+
+							// Add selling plan to gift if available
+							if (selectedGift.selling_plan_id) {
+								giftItem.selling_plan = selectedGift.selling_plan_id;
+								console.log(`Adding one-time gift with selling plan: ${selectedGift.selling_plan_id}`);
+							}
+
+							items.push(giftItem);
 						} else if (this.elements.productActions?.dataset.giftsAmount > 0) {
 							// If gifts are present but none selected specifically for one-time,
 							// decide if this is an error or if a gift isn't mandatory for one-time.
@@ -707,12 +719,25 @@ class BuyBoxNew {
 		const giftsAmount = parseInt(this.elements.productActions?.dataset.giftsAmount || "0", 10);
 
 		if (giftsAmount > 0) {
-			const selectedGiftId = this.getSelectedGiftId(isSub);
-			if (!selectedGiftId) {
+			const selectedGift = this.getSelectedGiftId(isSub);
+			if (!selectedGift || !selectedGift.id) {
 				showNotification("Please select your free gift");
 				return null;
 			}
-			items.push({ id: parseInt(selectedGiftId, 10), quantity: 1 });
+
+			const giftItem = {
+				id: parseInt(selectedGift.id, 10),
+				quantity: 1,
+				properties: { _gift: "true" }
+			};
+
+			// Add selling plan to gift if available
+			if (selectedGift.selling_plan_id) {
+				giftItem.selling_plan = selectedGift.selling_plan_id;
+				console.log(`Adding gift with selling plan: ${selectedGift.selling_plan_id}`);
+			}
+
+			items.push(giftItem);
 		}
 
 		return items;
@@ -737,7 +762,14 @@ class BuyBoxNew {
 
 		// Return the appropriate gift ID
 		const giftId = isSubscription ? selectedGiftOption.dataset.giftIdSubscription : selectedGiftOption.dataset.giftId;
-		return giftId;
+
+		// Get the selling plan ID if available
+		const sellingPlanId = isSubscription ? selectedGiftOption.dataset.giftSellingPlanIdSubscription : selectedGiftOption.dataset.giftSellingPlanId;
+
+		return {
+			id: giftId,
+			selling_plan_id: sellingPlanId ? parseInt(sellingPlanId, 10) : null
+		};
 	}
 
 	async handleBuyNowFlow(items) {
