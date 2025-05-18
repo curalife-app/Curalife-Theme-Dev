@@ -1,0 +1,336 @@
+main:
+  params: [request]
+  steps:
+    # Initialize CORS headers and default values
+    - setup:
+        assign:
+          - corsHeaders:
+              "Access-Control-Allow-Origin": "*"
+              "Access-Control-Allow-Methods": "POST, GET, OPTIONS"
+              "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With"
+              "Access-Control-Allow-Credentials": "true"
+              "Access-Control-Max-Age": "3600"
+              "Content-Type": "application/json"
+          - requestMethod: "POST"
+          - rawData: ${if(request != null, if("data" in request, request.data, request), null)}
+          - parsedData: ${rawData}
+          - actualPayload: null
+
+    # Handle OPTIONS preflight
+    - checkOptions:
+        switch:
+          - condition: ${requestMethod == "OPTIONS"}
+            return:
+              statusCode: 204
+              body: ""
+              headers: ${corsHeaders}
+          - condition: true
+            next: parseJson
+
+    # Try to parse JSON
+    - parseJson:
+        try:
+          assign:
+            - jsonDecodeResult: ${json.decode(rawData)}
+            - parsedData: ${jsonDecodeResult}
+        except:
+          as: e
+          steps:
+            - logParseError:
+                assign:
+                  - parsedData: ${rawData}
+
+    # Parse data field
+    - parseDataField:
+        switch:
+          - condition: ${parsedData != null and "data" in parsedData}
+            next: tryParseDataField
+          - condition: true
+            assign:
+              - actualPayload: ${parsedData}
+            next: initializeData
+
+    # Try parsing data field
+    - tryParseDataField:
+        try:
+          assign:
+            - dataFieldResult: ${json.decode(parsedData.data)}
+            - actualPayload: ${dataFieldResult}
+        except:
+          as: e
+          steps:
+            - handleDataError:
+                assign:
+                  - actualPayload: ${parsedData.data}
+
+    # Initialize customer data
+    - initializeData:
+        assign:
+          - customerEmail: ""
+          - firstName: ""
+          - lastName: ""
+          - phoneNumber: ""
+          - state: ""
+          - insurance: ""
+          - insuranceMemberId: ""
+          - mainReason: ""
+          - secondaryReasons: []
+          - dateOfBirth: ""
+          - quizId: "unknown"
+          - quizTitle: "Unknown Quiz"
+          - timestamp: ${sys.now()}
+          - responses: {}
+
+    # Extract data from payload
+    - extractQuizId:
+        switch:
+          - condition: ${actualPayload != null and "quizId" in actualPayload}
+            assign:
+              - quizId: ${actualPayload.quizId}
+
+    - extractQuizTitle:
+        switch:
+          - condition: ${actualPayload != null and "quizTitle" in actualPayload}
+            assign:
+              - quizTitle: ${actualPayload.quizTitle}
+
+    - extractTimestamp:
+        switch:
+          - condition: ${actualPayload != null and "completedAt" in actualPayload}
+            assign:
+              - timestamp: ${actualPayload.completedAt}
+          - condition: ${actualPayload != null and "timestamp" in actualPayload}
+            assign:
+              - timestamp: ${actualPayload.timestamp}
+
+    - extractResponses:
+        switch:
+          - condition: ${actualPayload != null and "responses" in actualPayload}
+            assign:
+              - responses: ${actualPayload.responses}
+
+    - extractEmail:
+        switch:
+          - condition: ${actualPayload != null and "customerEmail" in actualPayload}
+            assign:
+              - customerEmail: ${actualPayload.customerEmail}
+          - condition: ${responses != null and "q9" in responses}
+            assign:
+              - customerEmail: ${responses.q9}
+
+    - extractFirstName:
+        switch:
+          - condition: ${actualPayload != null and "firstName" in actualPayload}
+            assign:
+              - firstName: ${actualPayload.firstName}
+          - condition: ${responses != null and "q7" in responses}
+            assign:
+              - firstName: ${responses.q7}
+
+    - extractLastName:
+        switch:
+          - condition: ${actualPayload != null and "lastName" in actualPayload}
+            assign:
+              - lastName: ${actualPayload.lastName}
+          - condition: ${responses != null and "q8" in responses}
+            assign:
+              - lastName: ${responses.q8}
+
+    - extractPhoneNumber:
+        switch:
+          - condition: ${actualPayload != null and "phoneNumber" in actualPayload}
+            assign:
+              - phoneNumber: ${actualPayload.phoneNumber}
+          - condition: ${responses != null and "q10" in responses}
+            assign:
+              - phoneNumber: ${responses.q10}
+
+    - extractState:
+        switch:
+          - condition: ${actualPayload != null and "state" in actualPayload}
+            assign:
+              - state: ${actualPayload.state}
+          - condition: ${responses != null and "q5" in responses}
+            assign:
+              - state: ${responses.q5}
+
+    - extractInsurance:
+        switch:
+          - condition: ${actualPayload != null and "insurance" in actualPayload}
+            assign:
+              - insurance: ${actualPayload.insurance}
+          - condition: ${responses != null and "q3" in responses}
+            assign:
+              - insurance: ${responses.q3}
+
+    - extractInsuranceMemberId:
+        switch:
+          - condition: ${actualPayload != null and "insuranceMemberId" in actualPayload}
+            assign:
+              - insuranceMemberId: ${actualPayload.insuranceMemberId}
+          - condition: ${responses != null and "q4" in responses}
+            assign:
+              - insuranceMemberId: ${responses.q4}
+
+    - extractMainReason:
+        switch:
+          - condition: ${actualPayload != null and "mainReason" in actualPayload}
+            assign:
+              - mainReason: ${actualPayload.mainReason}
+          - condition: ${responses != null and "q1" in responses}
+            assign:
+              - mainReason: ${responses.q1}
+
+    - extractSecondaryReasons:
+        switch:
+          - condition: ${actualPayload != null and "secondaryReasons" in actualPayload}
+            assign:
+              - secondaryReasons: ${actualPayload.secondaryReasons}
+          - condition: ${responses != null and "q2" in responses}
+            assign:
+              - secondaryReasons: ${responses.q2}
+
+    - extractDateOfBirth:
+        switch:
+          - condition: ${actualPayload != null and "dateOfBirth" in actualPayload}
+            assign:
+              - dateOfBirth: ${actualPayload.dateOfBirth}
+          - condition: ${responses != null and "q6" in responses}
+            assign:
+              - dateOfBirth: ${responses.q6}
+
+    # Initialize environment configuration
+    - initConfig:
+        assign:
+          - reasonMap:
+              opt1: "Weight Loss"
+              opt2: "Blood Sugar Health"
+              opt3: "Supplements Advice"
+              opt4: "Other"
+              opt5: "Weight Loss"
+              opt6: "Blood Sugar Health"
+              opt7: "Supplements Advice"
+              opt8: "Glucometer & Strips"
+          - insuranceMap:
+              ins1: "Aetna"
+              ins2: "Anthem"
+              ins3: "Blue Cross Blue Shield"
+              ins4: "Cigna"
+              ins5: "Humana"
+              ins6: "Kaiser Permanente"
+              ins7: "Molina Healthcare"
+              ins8: "UnitedHealthcare"
+              ins9: "Health Net"
+              ins10: "Highmark"
+              ins11: "Tricare"
+              ins12: "Medicare"
+              ins13: "Medicaid"
+              ins14: "Other / Not Listed"
+
+    # Validate email
+    - validateEmail:
+        switch:
+          - condition: ${customerEmail != ""}
+            next: prepareTextMappings
+          - condition: true
+            next: handleInvalidEmail
+
+    # Map coded values to human-readable text
+    - prepareTextMappings:
+        assign:
+          - mainReasonText: "Unknown"
+          - insuranceText: "Unknown"
+
+    # Map main reason code to text
+    - mapMainReason:
+        switch:
+          - condition: ${mainReason != "" and reasonMap[mainReason] != null}
+            assign:
+              - mainReasonText: ${reasonMap[mainReason]}
+          - condition: true
+            assign:
+              - mainReasonText: ${mainReason}
+
+    # Map insurance code to text
+    - mapInsurance:
+        switch:
+          - condition: ${insurance != "" and insuranceMap[insurance] != null}
+            assign:
+              - insuranceText: ${insuranceMap[insurance]}
+          - condition: true
+            assign:
+              - insuranceText: ${insurance}
+
+    # Create eligibility data
+    - createEligibilityData:
+        assign:
+          - eligibilityData:
+              isEligible: true
+              sessionsCovered: 10
+              deductible:
+                individual: 250
+              eligibilityStatus: "ELIGIBLE"
+              userMessage: "Good news! Based on your insurance information, you are eligible for 10 dietitian sessions."
+
+    # Prepare success response
+    - prepareSuccessResponse:
+        assign:
+          - successResponse:
+              success: true
+              quizId: ${quizId}
+              customerEmail: ${customerEmail}
+              eligibilityStatus: ${eligibilityData.eligibilityStatus}
+              eligibilityMessage: ${eligibilityData.userMessage}
+              timestamp: ${sys.now()}
+
+    # Return success
+    - returnSuccess:
+        return:
+          statusCode: 200
+          body: ${successResponse}
+          headers: ${corsHeaders}
+
+    # Handle invalid email
+    - handleInvalidEmail:
+        assign:
+          - errorResponse:
+              status: "skipped"
+              success: false
+              reason: "Invalid email address"
+              quizId: ${quizId}
+              quizTitle: ${quizTitle}
+              timestamp: ${sys.now()}
+              attemptedEmail: ${customerEmail}
+              error:
+                code: "INVALID_EMAIL"
+                message: "Invalid or missing email address"
+                details:
+                  validationErrors: ["Email format validation failed"]
+
+    # Return error for invalid email
+    - returnError:
+        return:
+          statusCode: 400
+          body: ${errorResponse}
+          headers: ${corsHeaders}
+
+# Define a helper subworkflow to decode strings safely
+json:
+  params: [input]
+  steps:
+    - checkInput:
+        switch:
+          - condition: ${input == null}
+            return: null
+          - condition: true
+            next: tryParse
+    - tryParse:
+        try:
+          steps:
+            - decode:
+                assign:
+                  - decoded: ${json.decode(input)}
+            - returnDecoded:
+                return: ${decoded}
+        except:
+          return: ${input}

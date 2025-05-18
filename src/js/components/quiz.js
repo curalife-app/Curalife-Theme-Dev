@@ -840,8 +840,8 @@ class ProductQuiz {
 
 			// Format for n8n workflow
 			const completedAt = new Date().toISOString();
-			const quizId = this.quizData?.id || "dietitian-quiz";
-			const quizTitle = this.quizData?.title || "Dietitian Quiz";
+			const quizId = "curalife-intake";
+			const quizTitle = this.quizData?.title || "Find Your Perfect Dietitian";
 
 			// Create exact payload structure that n8n expects
 			const payload = {
@@ -886,22 +886,42 @@ class ProductQuiz {
 				// Set a timeout to avoid waiting too long
 				const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Webhook request timed out")), 8000));
 
-				// Make the actual request
-				const fetchPromise = fetch(webhookUrl, {
+				// Try regular CORS request first
+				let fetchPromise = fetch(webhookUrl, {
 					method: "POST",
+					mode: "cors",
+					credentials: "include",
 					headers: {
-						"Content-Type": "application/json"
+						"Content-Type": "application/json",
+						Accept: "application/json",
+						Origin: window.location.origin
 					},
 					body: JSON.stringify({
 						data: JSON.stringify(payload) // Double wrap as some n8n workflows expect this format
 					})
+				}).catch(error => {
+					console.log("CORS request failed, trying no-cors mode:", error);
+					// Fallback to no-cors mode if regular CORS fails
+					return fetch(webhookUrl, {
+						method: "POST",
+						mode: "no-cors",
+						headers: {
+							"Content-Type": "application/json"
+						},
+						body: JSON.stringify({
+							data: JSON.stringify(payload)
+						})
+					});
 				});
 
 				// Race the timeout against the fetch
 				const webhook = await Promise.race([fetchPromise, timeoutPromise]);
 
-				// Check the response status
-				if (webhook.ok) {
+				// Check the response status - for no-cors mode, response.type will be 'opaque'
+				if (webhook.type === "opaque") {
+					console.log("Got opaque response from no-cors request - assuming success");
+					webhookSuccess = true;
+				} else if (webhook.ok) {
 					console.log("Webhook response ok:", webhook.status);
 					webhookSuccess = true;
 
