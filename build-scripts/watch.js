@@ -839,34 +839,42 @@ const runScriptAsProcess = (scriptPath, label, logLevel = "info") => {
 			TAILWIND_READY_FLAG: TAILWIND_READY_FLAG
 		};
 
+		// For Shopify process, use inherit stdio to avoid double-prefixing
+		// For other processes, use pipe to add prefixes
+		const isShopifyProcess = label.includes("Shopify");
+		const stdio = isShopifyProcess ? "inherit" : "pipe";
+
 		// Spawn a child process to run the script
 		const childProcess = spawn(process.execPath, [scriptPath], {
-			stdio: "pipe",
+			stdio: stdio,
 			env: processEnv
 		});
 
 		// Add to the list of child processes
 		childProcesses.push(childProcess);
 
-		// Capture and prefix stdout
-		childProcess.stdout.on("data", data => {
-			const lines = data.toString().trim().split("\n");
-			lines.forEach(line => {
-				if (line.trim()) {
-					console.log(`${logLevel === "vite" ? chalk.hex(draculaColors.purple)("[VITE] ") : chalk.hex(draculaColors.pink)("[SHOPIFY] ")}${line}`);
-				}
+		// Only add output handlers for non-Shopify processes
+		if (!isShopifyProcess) {
+			// Capture and prefix stdout
+			childProcess.stdout.on("data", data => {
+				const lines = data.toString().trim().split("\n");
+				lines.forEach(line => {
+					if (line.trim()) {
+						console.log(`${logLevel === "vite" ? chalk.hex(draculaColors.purple)("[VITE] ") : chalk.hex(draculaColors.pink)("[SHOPIFY] ")}${line}`);
+					}
+				});
 			});
-		});
 
-		// Capture and prefix stderr
-		childProcess.stderr.on("data", data => {
-			const lines = data.toString().trim().split("\n");
-			lines.forEach(line => {
-				if (line.trim()) {
-					console.error(`${logLevel === "vite" ? chalk.hex(draculaColors.purple)("[VITE] ") : chalk.hex(draculaColors.pink)("[SHOPIFY] ")}${chalk.hex(draculaColors.red)(line)}`);
-				}
+			// Capture and prefix stderr
+			childProcess.stderr.on("data", data => {
+				const lines = data.toString().trim().split("\n");
+				lines.forEach(line => {
+					if (line.trim()) {
+						console.error(`${logLevel === "vite" ? chalk.hex(draculaColors.purple)("[VITE] ") : chalk.hex(draculaColors.pink)("[SHOPIFY] ")}${chalk.hex(draculaColors.red)(line)}`);
+					}
+				});
 			});
-		});
+		}
 
 		// Handle process exit
 		childProcess.on("close", code => {
