@@ -1,0 +1,425 @@
+# ==================================================================
+#  User Creation Workflow (Shopify & HubSpot)
+# ==================================================================
+
+main:
+  params: [request]
+
+  steps:
+    # ---------------------------------------------------------------
+    # 0. Load configuration & CORS headers
+    # ---------------------------------------------------------------
+    - setup:
+        assign:
+          - corsHeaders:
+              Access-Control-Allow-Origin: "*"
+              Access-Control-Allow-Methods: "POST, GET, OPTIONS"
+              Access-Control-Allow-Headers: "Content-Type, Authorization, X-Requested-With"
+              Access-Control-Allow-Credentials: "true"
+              Access-Control-Max-Age: "3600"
+              Content-Type: "application/json"
+          - rawData: ${request} # Use the entire request object
+          - parsedData: null
+          - actualPayload: null
+          - hubspotBaseUrl: "https://api.hubapi.com"
+          - shopifyStoreName: ${if(sys.get_env("SHOPIFY_STORE_NAME") != null, sys.get_env("SHOPIFY_STORE_NAME"), "curalife-commerce")}
+          - shopifyAdminUrl: ${"https://" + shopifyStoreName + ".myshopify.com/admin/api/2025-04/customers.json"}
+          - hubspotAccessToken: ${if(sys.get_env("HUBSPOT_ACCESS_TOKEN") != null, sys.get_env("HUBSPOT_ACCESS_TOKEN"), "")}
+          - shopifyAdminToken: ${if(sys.get_env("SHOPIFY_ADMIN_TOKEN") != null, sys.get_env("SHOPIFY_ADMIN_TOKEN"), "")}
+          - timestamp: ${sys.now()}
+
+    # ---------------------------------------------------------------
+    # 1.  Validate tokens
+    # ---------------------------------------------------------------
+    - validateTokens:
+        switch:
+          - condition: ${hubspotAccessToken == ""}
+            return:
+              statusCode: 500
+              headers: ${corsHeaders}
+              body:
+                success: false
+                error: "Missing HUBSPOT_ACCESS_TOKEN environment variable"
+                timestamp: ${timestamp}
+          - condition: ${shopifyAdminToken == ""}
+            return:
+              statusCode: 500
+              headers: ${corsHeaders}
+              body:
+                success: false
+                error: "Missing SHOPIFY_ADMIN_TOKEN environment variable"
+                timestamp: ${timestamp}
+          - condition: true
+            next: parseJson
+
+    # ---------------------------------------------------------------
+    # 2.  OPTIONS pre-flight
+    # ---------------------------------------------------------------
+    - checkOptions:
+        switch:
+          - condition: ${rawData.method == "OPTIONS"}
+            return:
+              statusCode: 204
+              body: ""
+              headers: ${corsHeaders}
+          - condition: true
+            next: parseJson
+
+    # ---------------------------------------------------------------
+    # 3.  Parse JSON safely
+    # ---------------------------------------------------------------
+    - parseJson:
+        try:
+          assign:
+            - parsedData: ${json.decode(rawData)}
+        except:
+          as: e
+          assign:
+            - parsedData: ${rawData} # keep as string
+
+    # ---------------------------------------------------------------
+    # 4.  If payload has nested "data" field → parse again
+    # ---------------------------------------------------------------
+    - resolveDataField:
+        switch:
+          - condition: ${parsedData != null and "data" in parsedData}
+            try:
+              assign:
+                - actualPayload: ${json.decode(parsedData.data)}
+            except:
+              assign:
+                - actualPayload: ${parsedData.data}
+          - condition: true
+            assign:
+              - actualPayload: ${parsedData}
+
+    # ---------------------------------------------------------------
+    # 5.  Init variables (email etc.)
+    # ---------------------------------------------------------------
+    - initializeVars:
+        assign:
+          - customerEmail: ""
+          - firstName: ""
+          - lastName: ""
+          - phoneNumber: ""
+          - state: ""
+          - insurance: ""
+          - insuranceMemberId: ""
+          - mainReasons: []
+          - medicalConditions: []
+          - dateOfBirth: ""
+          - consent: false
+          - quizId: ${if(actualPayload != null and "quizId" in actualPayload, actualPayload.quizId, "unknown")}
+          - quizTitle: ${if(actualPayload != null and "quizTitle" in actualPayload, actualPayload.quizTitle, "Unknown Quiz")}
+          - timestamp: ${if(actualPayload != null and "completedAt" in actualPayload, actualPayload.completedAt, sys.now())}
+          - emptyMap: {}
+          - emptyArray: []
+          - responses: ${if(actualPayload != null and "allResponses" in actualPayload, actualPayload.allResponses, emptyArray)}
+          # Extract eligibility data
+          - eligibilityData: ${if(actualPayload != null and "eligibilityData" in actualPayload, actualPayload.eligibilityData, emptyMap)}
+          # Set default values if eligibility data is empty
+          - eligibilityData:
+              isEligible: ${if("isEligible" in eligibilityData, eligibilityData.isEligible, false)}
+              sessionsCovered: ${if("sessionsCovered" in eligibilityData, eligibilityData.sessionsCovered, 0)}
+              deductible:
+                individual: ${if("deductible" in eligibilityData and "individual" in eligibilityData.deductible, eligibilityData.deductible.individual, 0)}
+              eligibilityStatus: ${if("eligibilityStatus" in eligibilityData, eligibilityData.eligibilityStatus, "UNKNOWN")}
+              userMessage: ${if("userMessage" in eligibilityData, eligibilityData.userMessage, "Eligibility data not provided")}
+              planBegin: ${if("planBegin" in eligibilityData, eligibilityData.planBegin, "")}
+              planEnd: ${if("planEnd" in eligibilityData, eligibilityData.planEnd, "")}
+
+    # ---------------------------------------------------------------
+    # 6.  Extract values directly from the payload + backup from responses
+    # ---------------------------------------------------------------
+    - extractFields:
+        assign:
+          - customerEmail: ${if(actualPayload != null and "customerEmail" in actualPayload, actualPayload.customerEmail, "")}
+          - firstName: ${if(actualPayload != null and "firstName" in actualPayload, actualPayload.firstName, "")}
+          - lastName: ${if(actualPayload != null and "lastName" in actualPayload, actualPayload.lastName, "")}
+          - phoneNumber: ${if(actualPayload != null and "phoneNumber" in actualPayload, actualPayload.phoneNumber, "")}
+          - state: ${if(actualPayload != null and "state" in actualPayload, actualPayload.state, "")}
+          - insurance: ${if(actualPayload != null and "insurance" in actualPayload, actualPayload.insurance, "")}
+          - insuranceMemberId: ${if(actualPayload != null and "insuranceMemberId" in actualPayload, actualPayload.insuranceMemberId, "")}
+          - mainReasons: ${if(actualPayload != null and "mainReasons" in actualPayload, actualPayload.mainReasons, emptyArray)}
+          - medicalConditions: ${if(actualPayload != null and "medicalConditions" in actualPayload, actualPayload.medicalConditions, emptyArray)}
+          - dateOfBirth: ${if(actualPayload != null and "dateOfBirth" in actualPayload, actualPayload.dateOfBirth, "")}
+          - consent: ${if(actualPayload != null and "consent" in actualPayload, actualPayload.consent, false)}
+
+    # ---------------------------------------------------------------
+    # 7.  Maps for data formatting
+    # ---------------------------------------------------------------
+    - setupMaps:
+        assign:
+          - reasonMap:
+              {
+                opt1: "Blood sugar management",
+                opt2: "Weight loss",
+                opt3: "Lowering high blood pressure",
+                opt4: "Better energy",
+                opt5: "Improving nutrition habits",
+                opt6: "Meal guidance",
+                opt7: "Supplement guidance",
+                opt8: "General wellness"
+              }
+          - medicalMap: { med1: "Type 1 Diabetes", med2: "Type 2 Diabetes", med3: "Prediabetes", med4: "Insulin resistance", med5: "High blood pressure", med6: "PCOS", med7: "None of the above" }
+          - insuranceMap:
+              {
+                ins1: "Aetna",
+                ins2: "Anthem",
+                ins3: "Blue Cross Blue Shield",
+                ins4: "Cigna",
+                ins5: "Humana",
+                ins6: "Kaiser Permanente",
+                ins7: "Molina Healthcare",
+                ins8: "UnitedHealthcare",
+                ins9: "Health Net",
+                ins10: "Highmark",
+                ins11: "Tricare",
+                ins12: "Medicare",
+                ins13: "Medicaid",
+                ins14: "Other / Not Listed"
+              }
+          - formattedReasons: []
+          - formattedMedical: []
+          - insuranceFromMap: ${if(insuranceMap[insurance] != null, insuranceMap[insurance], null)}
+          - insuranceText: ${if(insuranceFromMap != null, insuranceFromMap, if(insurance != "", insurance, "Unknown"))}
+
+    # Format reasons and medical conditions
+    - formatReasonsLoop:
+        for:
+          value: reason
+          in: ${mainReasons}
+          steps:
+            - formatReason:
+                assign:
+                  - formattedReason: ${if(reasonMap[reason] != null, reasonMap[reason], if(reason != "", reason, "Unknown"))}
+                  - formattedReasons: ${list.concat(formattedReasons, [formattedReason])}
+
+    - formatConditionsLoop:
+        for:
+          value: condition
+          in: ${medicalConditions}
+          steps:
+            - formatCondition:
+                assign:
+                  - formattedCondition: ${if(medicalMap[condition] != null, medicalMap[condition], if(condition != "", condition, "Unknown"))}
+                  - formattedMedical: ${list.concat(formattedMedical, [formattedCondition])}
+
+    # ---------------------------------------------------------------
+    # 8.  Validate email
+    # ---------------------------------------------------------------
+    - validateEmail:
+        switch:
+          - condition: ${customerEmail != ""}
+            next: generatePassword
+          - condition: true
+            return:
+              statusCode: 400
+              headers: ${corsHeaders}
+              body:
+                status: "skipped"
+                success: false
+                reason: "Invalid email address"
+                attemptedEmail: ${customerEmail}
+
+    # ---------------------------------------------------------------
+    # 9. Generate temporary password
+    # ---------------------------------------------------------------
+    - generatePassword:
+        assign:
+          - tempPassword: "Auto123456" # Simple static password for initial account creation
+
+    # ---------------------------------------------------------------
+    # ===  SHOPIFY CUSTOMER CREATION  ===
+    # Create customer in Shopify before HubSpot
+    # ---------------------------------------------------------------
+    - createShopifyCustomer:
+        call: http.post
+        args:
+          url: ${shopifyAdminUrl}
+          headers:
+            X-Shopify-Access-Token: ${shopifyAdminToken}
+            Content-Type: "application/json"
+            Accept: "application/json"
+          body:
+            customer:
+              first_name: ${firstName}
+              last_name: ${lastName}
+              email: ${customerEmail}
+              phone: ${phoneNumber}
+              password: ${tempPassword}
+              password_confirmation: ${tempPassword}
+              accepts_marketing: ${consent}
+        result: shopifyCustomerResponse
+
+    - handleShopifyCustomerResp:
+        switch:
+          - condition: ${shopifyCustomerResponse.body != null and "customer" in shopifyCustomerResponse.body}
+            assign:
+              - shopifyCustomerId: ${shopifyCustomerResponse.body.customer.id}
+            next: createHubSpotContact
+          - condition: ${shopifyCustomerResponse.body != null and "errors" in shopifyCustomerResponse.body}
+            assign:
+              - shopifyError: ${string(shopifyCustomerResponse.body.errors)}
+            next: shopifyError
+          - condition: true
+            next: shopifyError
+
+    # ---------------------------------------------------------------
+    # ===  HUBSPOT CALLS  ===
+    # All share same headers with Bearer TOKEN
+    # ---------------------------------------------------------------
+    - createHubSpotContact:
+        call: http.post
+        args:
+          url: ${hubspotBaseUrl + "/crm/v3/objects/contacts"}
+          headers:
+            Authorization: '${"Bearer " + hubspotAccessToken}'
+            Content-Type: "application/json"
+          body:
+            properties:
+              email: ${customerEmail}
+              firstname: ${firstName}
+              lastname: ${lastName}
+              phone: ${phoneNumber}
+              state: ${state}
+              date_of_birth: ${dateOfBirth}
+              insurance_provider: ${insuranceText}
+              insurance_member_id: ${insuranceMemberId}
+              health_goals: ${string(formattedReasons)}
+              medical_conditions: ${string(formattedMedical)}
+              consent_provided: ${string(consent)}
+              shopify_customer_id: ${shopifyCustomerId} # Add Shopify customer ID to HubSpot contact
+        result: hubspotContactResponse
+
+    - handleContactResp:
+        switch:
+          - condition: ${hubspotContactResponse.statusCode >= 200 and hubspotContactResponse.statusCode < 300}
+            assign:
+              - hubspotContactId: ${hubspotContactResponse.body.id}
+            next: createInsurancePlan
+          - condition: ${hubspotContactResponse.statusCode == 409}
+            next: getExistingContact
+          - condition: true
+            next: hubspotError
+
+    - getExistingContact:
+        call: http.post
+        args:
+          url: ${hubspotBaseUrl + "/crm/v3/objects/contacts/search"}
+          headers: { Authorization: '${"Bearer " + hubspotAccessToken}', Content-Type: "application/json" }
+          body:
+            filterGroups:
+              - filters:
+                  - propertyName: "email"
+                    operator: "EQ"
+                    value: ${customerEmail}
+        result: searchResp
+
+    - assignExistingId:
+        assign:
+          - hubspotContactId: ${searchResp.body.results[0].id}
+        next: createInsurancePlan
+
+    # ---- Insurance Plan (replace `p2_insurance_plan` with your object type) ----
+    - createInsurancePlan:
+        call: http.post
+        args:
+          url: ${hubspotBaseUrl + "/crm/v3/objects/p2_insurance_plan"}
+          headers: { Authorization: '${"Bearer " + hubspotAccessToken}', Content-Type: "application/json" }
+          body:
+            properties:
+              insurance_provider: ${insuranceText}
+              member_id: ${insuranceMemberId}
+              sessions_covered: ${eligibilityData.sessionsCovered}
+              deductible_amount: ${eligibilityData.deductible.individual}
+              eligibility_status: ${eligibilityData.eligibilityStatus}
+        result: insuranceResp
+
+    - checkInsuranceResp:
+        switch:
+          - condition: ${insuranceResp.statusCode >= 200 and insuranceResp.statusCode < 300}
+            assign:
+              - insurancePlanId: ${insuranceResp.body.id}
+            next: associateContactToInsurance
+          - condition: true
+            next: hubspotError
+
+    - associateContactToInsurance:
+        call: http.put
+        args:
+          url: ${hubspotBaseUrl + "/crm/v3/objects/contacts/" + hubspotContactId + "/associations/p2_insurance_plan/" + insurancePlanId + "/insurance_contact"}
+          headers: { Authorization: '${"Bearer " + hubspotAccessToken}' }
+        result: assocInsuranceResp
+
+    # ---- Consultation (replace `p2_consultation`) ----
+    - createConsultation:
+        call: http.post
+        args:
+          url: ${hubspotBaseUrl + "/crm/v3/objects/p2_consultation"}
+          headers: { Authorization: '${"Bearer " + hubspotAccessToken}', Content-Type: "application/json" }
+          body:
+            properties:
+              reason: ${string(formattedReasons)}
+              medical_conditions: ${string(formattedMedical)}
+              consultation_date: ${timestamp}
+              consultation_status: "Scheduled"
+        result: consultResp
+
+    - checkConsultResp:
+        switch:
+          - condition: ${consultResp.statusCode >= 200 and consultResp.statusCode < 300}
+            assign:
+              - consultationId: ${consultResp.body.id}
+            next: associateContactToConsultation
+          - condition: true
+            next: hubspotError
+
+    - associateContactToConsultation:
+        call: http.put
+        args:
+          url: ${hubspotBaseUrl + "/crm/v3/objects/contacts/" + hubspotContactId + "/associations/p2_consultation/" + consultationId + "/contact_consultation"}
+          headers: { Authorization: '${"Bearer " + hubspotAccessToken}' }
+        result: assocConsultResp
+
+    # ---------------------------------------------------------------
+    # 10.  Success response
+    # ---------------------------------------------------------------
+    - returnSuccess:
+        return:
+          statusCode: 200
+          headers: ${corsHeaders}
+          body:
+            success: true
+            quizId: ${quizId}
+            customerEmail: ${customerEmail}
+            eligibilityStatus: ${eligibilityData.eligibilityStatus}
+            shopifyCustomerId: ${shopifyCustomerId}
+            hubspotContactId: ${hubspotContactId}
+            insurancePlanId: ${insurancePlanId}
+            consultationId: ${consultationId}
+            timestamp: ${timestamp}
+
+    # ---------------------------------------------------------------
+    # 11. Error handlers
+    # ---------------------------------------------------------------
+    - shopifyError:
+        return:
+          statusCode: 500
+          headers: ${corsHeaders}
+          body:
+            success: false
+            error: ${if(shopifyError != null, shopifyError, "Unknown Shopify error")}
+            quizId: ${quizId}
+            timestamp: ${timestamp}
+
+    - hubspotError:
+        return:
+          statusCode: 500
+          headers: ${corsHeaders}
+          body:
+            success: false
+            error: ${if(hubspotContactResponse.body != null and "message" in hubspotContactResponse.body, hubspotContactResponse.body.message, if(insuranceResp.body != null and "message" in insuranceResp.body, insuranceResp.body.message, if(consultResp.body != null and "message" in consultResp.body, consultResp.body.message, "Unknown error")))}
+            statusCode: ${if(hubspotContactResponse.statusCode != null, hubspotContactResponse.statusCode, if(insuranceResp.statusCode != null, insuranceResp.statusCode, if(consultResp.statusCode != null, consultResp.statusCode, 500)))}
+            quizId: ${quizId}
+            timestamp: ${timestamp}

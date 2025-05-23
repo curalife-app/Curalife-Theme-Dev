@@ -1,0 +1,327 @@
+# ==================================================================
+#  Quiz → Shopify Account → HubSpot → Shopify HubSpot Link  (v4 – Split Workflow)
+# ==================================================================
+
+main:
+  params: [request]
+
+  steps:
+    # ---------------------------------------------------------------
+    # 0. Load configuration & CORS headers
+    # ---------------------------------------------------------------
+    - setup:
+        assign:
+          - corsHeaders:
+              Access-Control-Allow-Origin: "*"
+              Access-Control-Allow-Methods: "POST, GET, OPTIONS"
+              Access-Control-Allow-Headers: "Content-Type, Authorization, X-Requested-With"
+              Access-Control-Allow-Credentials: "true"
+              Access-Control-Max-Age: "3600"
+              Content-Type: "application/json"
+          # Get request method with complete fallback
+          - rawData: ${request} # Store the entire request object
+          - timestamp: ${sys.now()}
+          - projectId: ${if(sys.get_env("GCP_PROJECT") != null, sys.get_env("GCP_PROJECT"), "telemedicine-458913")}
+
+    # Get method safely
+    - getMethod:
+        try:
+          assign:
+            - requestMethod: ${request.method}
+        except:
+          assign:
+            - requestMethod: "POST" # Default to POST if method can't be accessed
+
+    # ---------------------------------------------------------------
+    # 1.  OPTIONS pre-flight
+    # ---------------------------------------------------------------
+    - checkOptions:
+        switch:
+          - condition: ${requestMethod == "OPTIONS"}
+            return:
+              statusCode: 204
+              body: ""
+              headers: ${corsHeaders}
+          - condition: true
+            next: parseJson
+
+    # ---------------------------------------------------------------
+    # 2.  Parse JSON safely
+    # ---------------------------------------------------------------
+    - parseJson:
+        try:
+          assign:
+            - parsedData: ${json.decode(rawData)}
+        except:
+          as: e
+          assign:
+            - parsedData: ${rawData} # keep as string
+
+    # ---------------------------------------------------------------
+    # 3.  If payload has nested "data" field → parse again
+    # ---------------------------------------------------------------
+    - resolveDataField:
+        switch:
+          - condition: ${parsedData != null and "data" in parsedData}
+            try:
+              assign:
+                - actualPayload: ${json.decode(parsedData.data)}
+            except:
+              assign:
+                - actualPayload: ${parsedData.data}
+          - condition: true
+            assign:
+              - actualPayload: ${parsedData}
+
+    # ---------------------------------------------------------------
+    # 4.  Init variables (email etc.)
+    # ---------------------------------------------------------------
+    - initializeVars:
+        assign:
+          - customerEmail: ""
+          - firstName: ""
+          - lastName: ""
+          - phoneNumber: ""
+          - state: ""
+          - insurance: ""
+          - insuranceMemberId: ""
+          - mainReasons: []
+          - medicalConditions: []
+          - dateOfBirth: ""
+          - consent: false
+          - quizId: ${if(actualPayload != null and "quizId" in actualPayload, actualPayload.quizId, "unknown")}
+          - quizTitle: ${if(actualPayload != null and "quizTitle" in actualPayload, actualPayload.quizTitle, "Unknown Quiz")}
+          - timestamp: ${if(actualPayload != null and "completedAt" in actualPayload, actualPayload.completedAt, sys.now())}
+          - emptyMap: {}
+          - emptyArray: []
+          - responses: ${if(actualPayload != null and "allResponses" in actualPayload, actualPayload.allResponses, emptyArray)}
+
+    # ---------------------------------------------------------------
+    # 5.  Extract values directly from the payload + backup from responses
+    # ---------------------------------------------------------------
+    - extractFields:
+        assign:
+          - customerEmail: ${if(actualPayload != null and "customerEmail" in actualPayload, actualPayload.customerEmail, "")}
+          - firstName: ${if(actualPayload != null and "firstName" in actualPayload, actualPayload.firstName, "")}
+          - lastName: ${if(actualPayload != null and "lastName" in actualPayload, actualPayload.lastName, "")}
+          - phoneNumber: ${if(actualPayload != null and "phoneNumber" in actualPayload, actualPayload.phoneNumber, "")}
+          - state: ${if(actualPayload != null and "state" in actualPayload, actualPayload.state, "")}
+          - insurance: ${if(actualPayload != null and "insurance" in actualPayload, actualPayload.insurance, "")}
+          - insuranceMemberId: ${if(actualPayload != null and "insuranceMemberId" in actualPayload, actualPayload.insuranceMemberId, "")}
+          - mainReasons: ${if(actualPayload != null and "mainReasons" in actualPayload, actualPayload.mainReasons, emptyArray)}
+          - medicalConditions: ${if(actualPayload != null and "medicalConditions" in actualPayload, actualPayload.medicalConditions, emptyArray)}
+          - dateOfBirth: ${if(actualPayload != null and "dateOfBirth" in actualPayload, actualPayload.dateOfBirth, "")}
+          - consent: ${if(actualPayload != null and "consent" in actualPayload, actualPayload.consent, false)}
+
+    # ---------------------------------------------------------------
+    # 6.  Validate email
+    # ---------------------------------------------------------------
+    - validateEmail:
+        switch:
+          - condition: ${customerEmail != ""}
+            next: callEligibilityWorkflow
+          - condition: true
+            return:
+              statusCode: 400
+              headers: ${corsHeaders}
+              body:
+                status: "skipped"
+                success: false
+                reason: "Invalid email address"
+                attemptedEmail: ${customerEmail}
+
+    # ---------------------------------------------------------------
+    # 7. Call Eligibility Workflow
+    # ---------------------------------------------------------------
+    - logEligibilityData:
+        assign:
+          - debugMessage: "Sending eligibility data for ${firstName} ${lastName}"
+        next: callEligibilityWorkflow
+
+    - callEligibilityWorkflow:
+        call: http.post
+        args:
+          url: ${"https://us-central1-" + projectId + ".cloudfunctions.net/workflow_eligibility"}
+          auth:
+            type: OIDC
+          body:
+            firstName: ${firstName}
+            lastName: ${lastName}
+            insurance: ${insurance}
+            insuranceMemberId: ${insuranceMemberId}
+            dateOfBirth: ${dateOfBirth}
+            source: "telemedicine-workflow"
+            timestamp: ${timestamp}
+            quizId: ${quizId}
+        result: eligibilityResponse
+
+    - initEligibilityCheck:
+        assign:
+          - hasSuccess: false
+          - hasEligibilityData: false
+          - emptyObject: {}
+          - eligibilityData: ${emptyObject}
+          - eligibilityResponseCode: ${if("code" in eligibilityResponse, eligibilityResponse.code, 500)}
+          - eligibilityResponseBody: ${if("body" in eligibilityResponse, eligibilityResponse.body, emptyObject)}
+        next: logEligibilityResponse
+
+    - logEligibilityResponse:
+        assign:
+          - logMessage: "Eligibility response received with code ${eligibilityResponseCode}"
+        next: handleEligibilityResponse
+
+    - handleEligibilityResponse:
+        try:
+          steps:
+            - checkResponseFields:
+                assign:
+                  - hasSuccess: ${eligibilityResponseBody != null and "success" in eligibilityResponseBody and eligibilityResponseBody.success}
+                  - hasEligibilityData: ${eligibilityResponseBody != null and "eligibilityData" in eligibilityResponseBody}
+                next: setEligibilityData
+
+            - setEligibilityData:
+                switch:
+                  - condition: ${hasEligibilityData}
+                    assign:
+                      - eligibilityData: ${eligibilityResponseBody.eligibilityData}
+                  - condition: true
+                    assign:
+                      - eligibilityData: ${emptyObject}
+        except:
+          as: e
+          steps:
+            - handleEligibilityError:
+                return:
+                  statusCode: ${eligibilityResponseCode}
+                  headers: ${corsHeaders}
+                  body:
+                    success: false
+                    error: "Error processing eligibility response"
+                    details: ${string(e)}
+                    responseCode: ${eligibilityResponseCode}
+                    responseBody: ${eligibilityResponseBody}
+                    timestamp: ${timestamp}
+        next: checkEligibilitySuccess
+
+    - checkEligibilitySuccess:
+        switch:
+          - condition: ${hasSuccess and eligibilityResponseCode >= 200 and eligibilityResponseCode < 300}
+            next: callUserCreationWorkflow
+          - condition: true
+            return:
+              statusCode: ${eligibilityResponseCode}
+              headers: ${corsHeaders}
+              body:
+                success: false
+                error: "Eligibility check failed"
+                details: ${eligibilityResponseBody}
+                requestData:
+                  firstName: ${firstName}
+                  lastName: ${lastName}
+                  insurance: ${insurance}
+                  insuranceMemberId: ${insuranceMemberId}
+                  dateOfBirth: ${dateOfBirth}
+                timestamp: ${timestamp}
+
+    # ---------------------------------------------------------------
+    # 8. Call User Creation Workflow
+    # ---------------------------------------------------------------
+    - callUserCreationWorkflow:
+        call: http.post
+        args:
+          url: ${"https://us-central1-" + projectId + ".cloudfunctions.net/workflow_user_creation"}
+          auth:
+            type: OIDC
+          body:
+            customerEmail: ${customerEmail}
+            firstName: ${firstName}
+            lastName: ${lastName}
+            phoneNumber: ${phoneNumber}
+            state: ${state}
+            insurance: ${insurance}
+            insuranceMemberId: ${insuranceMemberId}
+            mainReasons: ${mainReasons}
+            medicalConditions: ${medicalConditions}
+            dateOfBirth: ${dateOfBirth}
+            consent: ${consent}
+            quizId: ${quizId}
+            quizTitle: ${quizTitle}
+            completedAt: ${timestamp}
+            allResponses: ${responses}
+            eligibilityData: ${eligibilityData}
+        result: userCreationResponse
+
+    - initUserCreationCheck:
+        assign:
+          - hasSuccess: false
+        next: handleUserCreationResponse
+
+    - handleUserCreationResponse:
+        try:
+          steps:
+            - checkUserResponseFields:
+                assign:
+                  - hasSuccess: ${"body" in userCreationResponse and "success" in userCreationResponse.body and userCreationResponse.body.success}
+        except:
+          as: e
+          steps:
+            - handleUserError:
+                return:
+                  statusCode: ${if("code" in userCreationResponse, userCreationResponse.code, 500)}
+                  headers: ${corsHeaders}
+                  body:
+                    success: false
+                    error: "Error processing user creation response"
+                    details: ${string(e)}
+                    timestamp: ${timestamp}
+        next: checkUserCreationSuccess
+
+    - checkUserCreationSuccess:
+        switch:
+          - condition: ${hasSuccess and userCreationResponse.code >= 200 and userCreationResponse.code < 300}
+            return:
+              statusCode: 200
+              headers: ${corsHeaders}
+              body: ${userCreationResponse.body}
+          - condition: true
+            return:
+              statusCode: ${if("code" in userCreationResponse, userCreationResponse.code, 500)}
+              headers: ${corsHeaders}
+              body:
+                success: false
+                error: "User creation failed"
+                details: ${userCreationResponse.body}
+                timestamp: ${timestamp}
+
+# -----------------------------------------------------------------
+# Helper sub-workflow: extract fields from payload / responses
+# -----------------------------------------------------------------
+extract_helper:
+  params: [payload, responses]
+  steps:
+    - map:
+        assign:
+          - email: ${if(payload != null and "customerEmail" in payload and payload.customerEmail != null, payload.customerEmail, if(responses != null and "q9" in responses, responses.q9, ""))}
+          - firstname: ${if(payload != null and "firstName" in payload and payload.firstName != null, payload.firstName, if(responses != null and "q7" in responses, responses.q7, ""))}
+          - lastname: ${if(payload != null and "lastName" in payload and payload.lastName != null, payload.lastName, if(responses != null and "q8" in responses, responses.q8, ""))}
+          - phone: ${if(payload != null and "phoneNumber" in payload and payload.phoneNumber != null, payload.phoneNumber, if(responses != null and "q10" in responses, responses.q10, ""))}
+          - state: ${if(payload != null and "state" in payload and payload.state != null, payload.state, if(responses != null and "q5" in responses, responses.q5, ""))}
+          - insurance: ${if(payload != null and "insurance" in payload and payload.insurance != null, payload.insurance, if(responses != null and "q3" in responses, responses.q3, ""))}
+          - insuranceMemberId: ${if(payload != null and "insuranceMemberId" in payload and payload.insuranceMemberId != null, payload.insuranceMemberId, if(responses != null and "q4" in responses, responses.q4, ""))}
+          - mainReasons: ${if(payload != null and "mainReasons" in payload and payload.mainReasons != null, payload.mainReasons, if(responses != null and "q1" in responses, responses.q1, []))}
+          - medicalConditions: ${if(payload != null and "medicalConditions" in payload and payload.medicalConditions != null, payload.medicalConditions, if(responses != null and "q2" in responses, responses.q2, []))}
+          - dob: ${if(payload != null and "dateOfBirth" in payload and payload.dateOfBirth != null, payload.dateOfBirth, if(responses != null and "q6" in responses, responses.q6, ""))}
+          - consent: ${if(payload != null and "consent" in payload and payload.consent != null, payload.consent, if(responses != null and "consent" in responses, responses.consent, false))}
+    - returnResult:
+        return:
+          email: ${email}
+          firstname: ${firstname}
+          lastname: ${lastname}
+          phone: ${phone}
+          state: ${state}
+          insurance: ${insurance}
+          insuranceMemberId: ${insuranceMemberId}
+          mainReasons: ${mainReasons}
+          medicalConditions: ${medicalConditions}
+          dob: ${dob}
+          consent: ${consent}
