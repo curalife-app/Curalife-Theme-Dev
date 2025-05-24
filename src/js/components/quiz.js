@@ -9,7 +9,11 @@ class ProductQuiz {
 	constructor(options = {}) {
 		// DOM elements
 		this.container = document.getElementById("product-quiz");
-		if (!this.container) return;
+		if (!this.container) {
+			console.error("ProductQuiz: Main container #product-quiz not found. Quiz cannot start.");
+			this._isInitialized = false;
+			return;
+		}
 
 		// Use the specific class names we added to the HTML
 		this.intro = this.container.querySelector(".quiz-intro");
@@ -25,6 +29,36 @@ class ProductQuiz {
 		this.prevButton = this.container.querySelector("#quiz-prev-button");
 		this.nextButton = this.container.querySelector("#quiz-next-button");
 		this.startButton = this.container.querySelector("#quiz-start-button");
+
+		// Comprehensive check for essential elements
+		const essentialElements = {
+			intro: this.intro,
+			questions: this.questions,
+			results: this.results,
+			error: this.error,
+			loading: this.loading,
+			// eligibilityCheck is optional for some flows initially
+			progressBar: this.progressBar,
+			questionContainer: this.questionContainer,
+			navigationButtons: this.navigationButtons,
+			prevButton: this.prevButton,
+			nextButton: this.nextButton
+		};
+
+		for (const key in essentialElements) {
+			if (!essentialElements[key]) {
+				console.error(`ProductQuiz: Essential DOM element ".${key}" or "#${key}" is missing. Quiz cannot start reliably.`);
+				// Display a user-facing error directly in the quiz container
+				this.container.innerHTML =
+					'<div class="quiz-error" style="display: block; text-align: center; padding: 2rem;">' +
+					'<h3 class="text-xl font-semibold text-red-500 mb-2">Quiz Error</h3>' +
+					'<p class="text-slate-500 mb-6">A critical component of the quiz is missing. Please ensure the page is loaded correctly or contact support.</p>' +
+					"</div>";
+				this._isInitialized = false;
+				return;
+			}
+		}
+		this._isInitialized = true;
 
 		// Check if we found all the required elements
 		console.log("Quiz elements found:", {
@@ -59,13 +93,12 @@ class ProductQuiz {
 	async init() {
 		console.log("Initializing quiz...");
 
-		// Remove any existing event listeners to prevent duplicates
-		if (this.startButton) {
-			this.startButton.removeEventListener("click", this.startQuizHandler);
-			this.startQuizHandler = () => this.startQuiz();
-			this.startButton.addEventListener("click", this.startQuizHandler);
+		if (!this._isInitialized) {
+			console.warn("ProductQuiz: Initialization skipped as essential elements are missing or an error occurred in constructor.");
+			return;
 		}
 
+		// Remove any existing event listeners to prevent duplicates
 		if (this.prevButton) {
 			this.prevButton.removeEventListener("click", this.prevButtonHandler);
 			this.prevButtonHandler = () => {
@@ -101,24 +134,27 @@ class ProductQuiz {
 			console.log("Next button event listener attached");
 		}
 
-		console.log("Quiz initialization complete");
+		console.log("Quiz initialization complete, loading first step...");
+		this._loadAndDisplayFirstStep();
 	}
 
-	async startQuiz() {
+	async _loadAndDisplayFirstStep() {
 		// Check that we have all required elements before proceeding
-		if (!this.intro || !this.questions || !this.loading) {
-			console.error("Required quiz elements are missing:", {
-				intro: !!this.intro,
+		if (!this._isInitialized || !this.questions || !this.loading) {
+			console.error("Required quiz elements are missing or quiz not initialized:", {
+				initialized: this._isInitialized,
 				questions: !!this.questions,
 				loading: !!this.loading
 			});
 			return;
 		}
 
-		// Hide intro, show questions
-		this.intro.style.display = "none";
-		this.questions.classList.remove("hidden");
+		// Show loading indicator and questions container (intro is hidden by CSS)
 		this.loading.classList.remove("hidden");
+		this.questions.classList.remove("hidden");
+		if (this.intro) {
+			this.intro.classList.add("hidden");
+		}
 
 		try {
 			// Fetch quiz data
@@ -241,7 +277,9 @@ class ProductQuiz {
 
 		// Update progress bar
 		const progress = ((this.currentStepIndex + 1) / this.quizData.steps.length) * 100;
-		this.progressBar.style.width = `${progress}%`;
+		if (this.progressBar) {
+			this.progressBar.style.width = `${progress}%`;
+		}
 
 		// Create step HTML with Tailwind classes
 		let stepHTML = `<div class="animate-fade-in">`;
@@ -407,7 +445,7 @@ class ProductQuiz {
 	}
 
 	renderMultipleChoice(question, response) {
-		let html = '<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">';
+		let html = '<div class="grid grid-cols-2 gap-4 mt-6">';
 
 		question.options.forEach(option => {
 			const isSelected = response.answer === option.id;
@@ -419,7 +457,7 @@ class ProductQuiz {
 						<div class="text-center">
 							<div class="text-lg font-medium text-slate-800">${option.text}</div>
 						</div>
-						${isSelected ? '<div class="absolute top-3 right-3 w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center"><svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path></svg></div>' : ""}
+						${isSelected ? '<div class="absolute top-2 right-2 w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center shadow-lg transform scale-100 transition-all duration-300"><svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path></svg></div>' : ""}
 					</div>
 				</label>
 			`;
@@ -477,7 +515,9 @@ class ProductQuiz {
 			<div class="mb-6">
 				<input type="text" id="question-${question.id}" class="w-full p-3 border border-slate-200 rounded-lg shadow-sm focus:outline-none focus:border-slate-800 focus:ring-2 focus:ring-slate-800/10"
 					placeholder="${question.placeholder || "Type your answer here..."}"
-					value="${response.answer || ""}">
+					value="${response.answer || ""}"
+					aria-describedby="error-${question.id}">
+				<p id="error-${question.id}" class="text-red-500 text-sm mt-1" style="display: none;"></p>
 			</div>
 		`;
 	}
@@ -487,7 +527,9 @@ class ProductQuiz {
 			<div class="mb-6">
 				<input type="date" id="question-${question.id}" class="w-full p-3 border border-slate-200 rounded-lg shadow-sm focus:outline-none focus:border-slate-800 focus:ring-2 focus:ring-slate-800/10"
 					placeholder="${question.helpText || "MM/DD/YYYY"}"
-					value="${response.answer || ""}">
+					value="${response.answer || ""}"
+					aria-describedby="error-${question.id}">
+				<p id="error-${question.id}" class="text-red-500 text-sm mt-1" style="display: none;"></p>
 				${question.helpText ? `<p class="text-slate-500 text-sm mt-2">${question.helpText}</p>` : ""}
 			</div>
 		`;
@@ -549,20 +591,23 @@ class ProductQuiz {
 					// Define the handler
 					input._changeHandler = () => {
 						console.log(`Checkbox ${input.id} changed, checked:`, input.checked);
-
+						let answerToSet;
 						// If this is a single checkbox option field (like consent)
 						if (question.options.length === 1) {
 							const isChecked = input.checked;
 							console.log(`Single checkbox consent: ${isChecked ? "checked" : "unchecked"}`);
-							this.handleFormAnswer(question.id, isChecked ? [input.value] : []);
+							// this.handleFormAnswer(question.id, isChecked ? [input.value] : []);
+							answerToSet = isChecked ? [input.value] : [];
 						} else {
 							// Multiple option checkbox field
 							const selectedOptions = Array.from(checkboxInputs)
 								.filter(cb => cb.checked)
 								.map(cb => cb.value);
 							console.log(`Multiple checkbox options selected:`, selectedOptions);
-							this.handleFormAnswer(question.id, selectedOptions);
+							// this.handleFormAnswer(question.id, selectedOptions);
+							answerToSet = selectedOptions;
 						}
+						this.handleAnswer(answerToSet); // Use handleAnswer for wizard steps
 					};
 
 					// Add the handler
@@ -599,16 +644,24 @@ class ProductQuiz {
 					// If there's validation, check it
 					if (question.validation && question.validation.pattern) {
 						const regex = new RegExp(question.validation.pattern);
+						const errorEl = this.questionContainer.querySelector(`#error-${question.id}`);
+
 						if (regex.test(textInput.value)) {
 							textInput.classList.remove("border-red-500");
+							if (errorEl) errorEl.style.display = "none";
 							this.handleFormAnswer(question.id, textInput.value);
 						} else {
 							textInput.classList.add("border-red-500");
+							if (errorEl && question.validation.message) {
+								errorEl.textContent = question.validation.message;
+								errorEl.style.display = "block";
+							}
 							this.handleFormAnswer(question.id, null); // Invalid input
 						}
 					} else {
 						this.handleFormAnswer(question.id, textInput.value);
 					}
+					this.updateNavigation(); // Ensure navigation updates after handling answer
 				};
 
 				// Add both input and change handlers
@@ -672,15 +725,12 @@ class ProductQuiz {
 				});
 			}
 
-			// Auto-advance for multiple-choice questions in non-form steps
-			const isFormStep = this.isFormStep(step.id);
-			if (!isFormStep && question.type === "multiple-choice") {
-				// Add a small delay so user can see their selection
-				setTimeout(() => {
-					this.goToNextStep();
-				}, 600);
-				return; // Don't update navigation immediately as we're auto-advancing
-			}
+			// Allow user to see their selection and manually proceed
+			// No auto-advance for better user experience
+
+			// Re-render the current step to show the updated selection state
+			this.renderCurrentStep();
+			return; // Return early since renderCurrentStep calls updateNavigation
 		} else if (step.info) {
 			// For info-only steps, mark as acknowledged
 			const responseIndex = this.responses.findIndex(r => r.stepId === step.id);
@@ -722,88 +772,45 @@ class ProductQuiz {
 		// Update the button text based on the current step's ctaText
 		if (isLastStep && isLastQuestionInStep) {
 			this.nextButton.innerHTML = step.ctaText || "Finish Quiz";
-		} else {
-			this.nextButton.innerHTML =
-				step.ctaText ||
-				'Next <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>';
-		}
-
-		// For form-style steps, check if all required fields have answers
-		if (isFormStep && step.questions) {
-			let allRequiredAnswered = true;
-
-			// Check each required question
-			for (const q of step.questions.filter(q => q.required)) {
-				const resp = this.responses.find(r => r.questionId === q.id);
-				console.log(`Checking required field ${q.id} (${q.type}):`, resp ? resp.answer : "no response");
-
-				if (!resp || resp.answer === null) {
-					console.log(`Field ${q.id} has no response`);
-					allRequiredAnswered = false;
-					break;
-				}
-
-				// For checkboxes, check if any option is selected
-				if (q.type === "checkbox") {
-					const isValid = Array.isArray(resp.answer) && resp.answer.length > 0;
-					console.log(`Checkbox ${q.id} validation: ${isValid ? "VALID" : "INVALID"}`);
-					if (!isValid) {
-						allRequiredAnswered = false;
-						break;
-					}
-				}
-				// For text fields, ensure non-empty
-				else if (typeof resp.answer === "string") {
-					const isValid = resp.answer.trim() !== "";
-					console.log(`Text field ${q.id} validation: ${isValid ? "VALID" : "INVALID"}`);
-					if (!isValid) {
-						allRequiredAnswered = false;
-						break;
-					}
-				}
-			}
-
-			console.log(`Form validation result: ${allRequiredAnswered ? "ALL FIELDS VALID" : "SOME FIELDS INVALID"}`);
-
-			// Force the button to be enabled if all required fields are answered
-			if (allRequiredAnswered) {
-				console.log("Enabling next button - all requirements satisfied");
-				this.nextButton.disabled = false;
-			} else {
-				console.log("Disabling next button - some required fields missing");
-				this.nextButton.disabled = true;
-			}
 			return;
 		}
 
-		// For other steps, check if current question has an answer or if it's an info step
-		let hasAnswer = true;
+		// For other steps (wizard-style steps)
+		let hasAnswer;
 
-		if (step.questions && step.questions.length > 0 && !isFormStep) {
+		if (step.info && (!step.questions || step.questions.length === 0)) {
+			// Info-only step
+			hasAnswer = true;
+		} else if (step.questions && step.questions.length > 0) {
+			// Step with questions (wizard style)
 			const question = step.questions[this.currentQuestionIndex];
 			if (!question) {
-				console.error("Cannot update navigation: No question found at index", this.currentQuestionIndex);
-				this.nextButton.disabled = true;
+				console.error("Cannot update navigation: No question found at index", this.currentQuestionIndex, "for step", step.id);
+				this.nextButton.disabled = true; // Disable if question is missing
 				return;
 			}
 
-			const response = this.responses.find(r => r.questionId === question.id);
-
-			// Check if the question is required and has an answer
-			if (question.required) {
-				if (!response || response.answer === null) {
+			if (!question.required) {
+				hasAnswer = true; // Not required, can proceed
+			} else {
+				const response = this.responses.find(r => r.questionId === question.id);
+				if (!response || response.answer === null || response.answer === undefined) {
 					hasAnswer = false;
 				} else if (question.type === "checkbox") {
-					// For checkboxes, check if any option is selected
+					// For checkboxes, check if any option is selected (must be non-empty array)
 					hasAnswer = Array.isArray(response.answer) && response.answer.length > 0;
 				} else if (typeof response.answer === "string") {
 					// For text fields, ensure non-empty
 					hasAnswer = response.answer.trim() !== "";
+				} else {
+					hasAnswer = true; // Other types with non-null/undefined answer are considered answered
 				}
 			}
-		} else if (step.info) {
-			// For info steps, always allow proceeding
-			hasAnswer = true;
+		} else {
+			// This case implies a misconfigured step (no info and no questions).
+			// Button should be disabled.
+			hasAnswer = false;
+			console.warn(`Step ${step.id} has no info and no questions. Disabling next button.`);
 		}
 
 		this.nextButton.disabled = !hasAnswer || this.submitting;
@@ -1264,16 +1271,24 @@ class ProductQuiz {
 					// If there's validation, check it
 					if (question.validation && question.validation.pattern) {
 						const regex = new RegExp(question.validation.pattern);
+						const errorEl = this.questionContainer.querySelector(`#error-${question.id}`);
+
 						if (regex.test(textInput.value)) {
 							textInput.classList.remove("border-red-500");
+							if (errorEl) errorEl.style.display = "none";
 							this.handleFormAnswer(question.id, textInput.value);
 						} else {
 							textInput.classList.add("border-red-500");
+							if (errorEl && question.validation.message) {
+								errorEl.textContent = question.validation.message;
+								errorEl.style.display = "block";
+							}
 							this.handleFormAnswer(question.id, null); // Invalid input
 						}
 					} else {
 						this.handleFormAnswer(question.id, textInput.value);
 					}
+					this.updateNavigation(); // Ensure navigation updates after handling answer
 				};
 
 				// Add both input and change handlers
@@ -1351,48 +1366,15 @@ class ProductQuiz {
 		// Log all current responses for debugging
 		console.log("Current responses:", JSON.stringify(this.responses, null, 2));
 
-		// Check if all required questions in the form have answers
-		const allRequiredAnswered = step.questions
-			.filter(q => q.required)
-			.every(q => {
-				const resp = this.responses.find(r => r.questionId === q.id);
-
-				console.log(`Validating required field ${q.id} (${q.type}):`, {
-					hasResponse: !!resp,
-					answer: resp ? resp.answer : null,
-					questionType: q.type
-				});
-
-				if (!resp || resp.answer === null) {
-					console.log(`Field ${q.id} has no response`);
-					return false;
-				}
-
-				// For checkboxes, check if any option is selected (must be non-empty array)
-				if (q.type === "checkbox") {
-					const isValid = Array.isArray(resp.answer) && resp.answer.length > 0;
-					console.log(`Checkbox ${q.id} validation: ${isValid ? "VALID" : "INVALID"}`);
-					return isValid;
-				}
-
-				// For text fields, ensure non-empty
-				if (typeof resp.answer === "string") {
-					const isValid = resp.answer.trim() !== "";
-					console.log(`Text field ${q.id} validation: ${isValid ? "VALID" : "INVALID"}`);
-					return isValid;
-				}
-
-				return true;
-			});
-
-		console.log(`Form validation: All required fields completed? ${allRequiredAnswered}`);
-
-		// Enable/disable the next button based on whether all required fields are filled
-		this.nextButton.disabled = !allRequiredAnswered;
+		// Note: The enabling/disabling of the next button is now solely handled by
+		// this.updateNavigation(), which should be called by the event listener
+		// after this function completes.
 	}
 }
 
 // Initialize the quiz when the DOM is ready
 document.addEventListener("DOMContentLoaded", () => {
 	const quiz = new ProductQuiz();
+	// Optional: Expose quiz instance for debugging
+	// window.productQuiz = quiz;
 });
