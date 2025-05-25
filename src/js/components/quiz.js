@@ -148,15 +148,7 @@ class ProductQuiz {
 			return;
 		}
 
-		// Remove any existing event listeners to prevent duplicates
-		if (this.prevButton) {
-			this.prevButton.removeEventListener("click", this.prevButtonHandler);
-			this.prevButtonHandler = () => {
-				console.log("Previous button clicked");
-				this.goToPreviousStep();
-			};
-			this.prevButton.addEventListener("click", this.prevButtonHandler);
-		}
+		// Back button is disabled - no event listeners needed
 
 		if (this.nextButton) {
 			// First remove any existing event listeners to prevent duplicates
@@ -340,6 +332,11 @@ class ProductQuiz {
 
 		// Update navigation state
 		this.updateNavigation();
+
+		// Add legal text after navigation (if it exists)
+		if (step.legal) {
+			this._addLegalTextAfterNavigation(step.legal);
+		}
 	}
 
 	_updateProgressBar() {
@@ -365,11 +362,6 @@ class ProductQuiz {
 			}
 		} else if (!step.info) {
 			stepHTML += `<p class="quiz-error-text">Step configuration error. Please contact support.</p>`;
-		}
-
-		// Add legal text
-		if (step.legal) {
-			stepHTML += `<p class="quiz-text-xs">${step.legal}</p>`;
 		}
 
 		stepHTML += "</div>";
@@ -975,8 +967,10 @@ class ProductQuiz {
 			this.navigationButtons.classList.add("quiz-navigation-visible");
 		}
 
-		// Disable/enable previous button
-		this.prevButton.disabled = this.currentStepIndex === 0 || this.submitting;
+		// Hide the back button
+		if (this.prevButton) {
+			this.prevButton.style.display = "none";
+		}
 
 		// Check if we need to show Next or Finish
 		const isLastStep = this.currentStepIndex === this.quizData.steps.length - 1;
@@ -1070,35 +1064,7 @@ class ProductQuiz {
 		this.nextButton.disabled = !hasAnswer || this.submitting;
 	}
 
-	goToPreviousStep() {
-		const currentStep = this.getCurrentStep();
-
-		// If we have multiple questions in the current step and not on the first one
-		// AND we're not in a form-style step (insurance or contact)
-		const isCurrentFormStep = this.isFormStep(currentStep.id);
-
-		if (currentStep.questions && this.currentQuestionIndex > 0 && !isCurrentFormStep) {
-			this.currentQuestionIndex--;
-			this.renderCurrentStep();
-			this.updateNavigation();
-			return;
-		}
-
-		// Otherwise, go to the previous step
-		if (this.currentStepIndex > 0) {
-			this.currentStepIndex--;
-			// If the previous step has questions, check if it's a form step
-			const prevStep = this.quizData.steps[this.currentStepIndex];
-			const isPrevFormStep = this.isFormStep(prevStep.id);
-
-			// For form steps, always set question index to 0 as we display all fields at once
-			// For wizard steps, set to the last question
-			this.currentQuestionIndex = isPrevFormStep ? 0 : prevStep.questions ? prevStep.questions.length - 1 : 0;
-
-			this.renderCurrentStep();
-			this.updateNavigation();
-		}
-	}
+	// Back navigation is disabled
 
 	goToNextStep() {
 		const currentStep = this.getCurrentStep();
@@ -1132,24 +1098,7 @@ class ProductQuiz {
 			return;
 		}
 
-		// If we're at the insurance step and they've filled all fields,
-		// explicitly handle the consent checkbox
-		if (currentStep.id === "step-insurance") {
-			// Check if consent exists
-			const consentResponse = this.responses.find(r => r.questionId === "consent");
-			if (!consentResponse || !Array.isArray(consentResponse.answer) || consentResponse.answer.length === 0) {
-				console.log("Consent checkbox not found or not checked");
-
-				// Try to find and check the checkbox directly
-				const consentCheckbox = this.questionContainer.querySelector('input[name="question-consent"]');
-				if (consentCheckbox && consentCheckbox.checked) {
-					console.log("Consent checkbox IS checked but not in responses, adding it");
-					this.handleFormAnswer("consent", ["consent_yes"]);
-				}
-			} else {
-				console.log("Consent checkbox is already in responses:", consentResponse.answer);
-			}
-		}
+		// No special handling needed for insurance step since consent checkbox was removed
 
 		// For form steps, special handling for next step
 		if (isFormStep) {
@@ -1219,9 +1168,13 @@ class ProductQuiz {
 			let mainReasons = [];
 			let medicalConditions = [];
 			let dateOfBirth = "";
-			let consent = false;
+			let consent = true; // Consent is implied by proceeding through the quiz
 
 			// Extract individual answers
+			let dobMonth = "";
+			let dobDay = "";
+			let dobYear = "";
+
 			this.responses.forEach(response => {
 				if (response.questionId === "q9") customerEmail = response.answer || "";
 				if (response.questionId === "q7") firstName = response.answer || "";
@@ -1232,9 +1185,15 @@ class ProductQuiz {
 				if (response.questionId === "q4") insuranceMemberId = response.answer || "";
 				if (response.questionId === "q1") mainReasons = response.answer || [];
 				if (response.questionId === "q2") medicalConditions = response.answer || [];
-				if (response.questionId === "q6") dateOfBirth = response.answer || "";
-				if (response.questionId === "consent") consent = response.answer && response.answer.includes("consent_yes");
+				if (response.questionId === "q6_month") dobMonth = response.answer || "";
+				if (response.questionId === "q6_day") dobDay = response.answer || "";
+				if (response.questionId === "q6_year") dobYear = response.answer || "";
 			});
+
+			// Construct date of birth from parts
+			if (dobMonth && dobDay && dobYear) {
+				dateOfBirth = `${dobMonth}/${dobDay}/${dobYear}`;
+			}
 
 			// Format for n8n workflow
 			const completedAt = new Date().toISOString();
@@ -1626,6 +1585,25 @@ class ProductQuiz {
 		// after this function completes.
 	}
 
+	// Helper method to add legal text after navigation
+	_addLegalTextAfterNavigation(legalText) {
+		// Find the navigation container
+		const navContainer = this.navigationButtons;
+		if (!navContainer) return;
+
+		// Remove any existing legal text
+		const existingLegal = navContainer.querySelector(".quiz-legal-after-nav");
+		if (existingLegal) {
+			existingLegal.remove();
+		}
+
+		// Create and append legal text element
+		const legalElement = document.createElement("p");
+		legalElement.className = "quiz-text-xs quiz-legal-after-nav";
+		legalElement.innerHTML = legalText;
+		navContainer.appendChild(legalElement);
+	}
+
 	// Template generation methods
 	_generateStepInfoHTML(step) {
 		if (!step.info) return "";
@@ -1638,7 +1616,7 @@ class ProductQuiz {
 	}
 
 	_generateRequiredMarker(required) {
-		return required ? ' <span class="quiz-required-marker">*</span>' : "";
+		return ""; // All fields are required, no need to show asterisks
 	}
 
 	_generateHelpIcon() {
@@ -1708,6 +1686,14 @@ class ProductQuiz {
 			if (question.id === pairs.NAME_FIELDS[0] && questions[i + 1] && questions[i + 1].id === pairs.NAME_FIELDS[1]) {
 				const lastNameResponse = this.responses.find(r => r.questionId === questions[i + 1].id) || { answer: null };
 				html += this._generateFormFieldPair(question, questions[i + 1], response, lastNameResponse);
+				i += 2;
+				continue;
+			}
+
+			// Check for email + phone pair (step-contact)
+			if (question.id === "q9" && questions[i + 1] && questions[i + 1].id === "q10") {
+				const phoneResponse = this.responses.find(r => r.questionId === questions[i + 1].id) || { answer: null };
+				html += this._generateFormFieldPair(question, questions[i + 1], response, phoneResponse);
 				i += 2;
 				continue;
 			}
