@@ -3,59 +3,71 @@
 
 <div
 	id="product-quiz"
-	class="text-slate-800 max-w-4xl mx-auto font-sans leading-normal"
+	class="quiz-main-container"
 	data-quiz-url="{{ 'dietitian-quiz.json' | asset_url }}"
 	data-n8n-webhook="{{ section.settings.n8n_webhook_url }}"
 	data-booking-url="{{ section.settings.booking_url }}">
 	<!-- Quiz Intro -->
-	<div class="quiz-intro px-4 py-12 mx-auto text-center hidden">
-		<h2 class="md:text-5xl mb-4 text-4xl font-bold leading-tight">{{ section.settings.title }}</h2>
-		<p class="text-slate-500 max-w-xl mx-auto mb-8 text-lg">{{ section.settings.description }}</p>
-		<button id="quiz-start-button" class="bg-slate-800 hover:bg-slate-700 inline-flex items-center justify-center px-6 py-3 text-base font-medium text-white transition duration-200 rounded-lg">
+	<div class="quiz-intro hidden">
+		<h2 class="quiz-intro-title">{{ section.settings.title }}</h2>
+		<p class="quiz-intro-description">{{ section.settings.description }}</p>
+		<button id="quiz-start-button" class="quiz-start-button">
 			{{ section.settings.button_text }}
-			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="ml-2">
+			<svg
+				class="quiz-start-icon"
+				xmlns="http://www.w3.org/2000/svg"
+				width="16"
+				height="16"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="2"
+				stroke-linecap="round"
+				stroke-linejoin="round">
 				<path d="M5 12h14M12 5l7 7-7 7"/>
 			</svg>
 		</button>
 	</div>
 
 	<!-- Loading Indicator -->
-	<div class="quiz-loading hidden px-4 py-12">
-		<div class="border-slate-200 border-l-slate-800 animate-spin w-10 h-10 mb-4 border-4 rounded-full"></div>
-		<p>Loading quiz...</p>
+	<div class="quiz-loading hidden">
+		<div class="quiz-loading-spinner"></div>
+		<p class="quiz-loading-text">Loading quiz...</p>
 	</div>
 
 	<!-- Eligibility Check Indicator -->
-	<div class="quiz-eligibility-check hidden px-4 py-12">
-		<div class="border-slate-200 border-l-slate-800 animate-spin w-10 h-10 mb-4 border-4 rounded-full"></div>
-		<h3 class="mb-2 text-xl font-semibold">Checking Insurance Eligibility</h3>
-		<p class="text-slate-500 max-w-md text-center">We're verifying your insurance coverage. This may take a moment...</p>
+	<div class="quiz-eligibility-check hidden">
+		<div class="quiz-loading-spinner"></div>
+		<h3 class="quiz-eligibility-title">Checking Insurance Eligibility</h3>
+		<p class="quiz-eligibility-description">We're verifying your insurance coverage. This may take a moment...</p>
 	</div>
 
 	<!-- Error Message -->
-	<div class="quiz-error hidden max-w-md px-4 py-8 mx-auto text-center">
-		<h3 class="mb-2 text-xl font-semibold text-red-500">Error</h3>
-		<p class="text-slate-500 mb-6">Failed to load quiz data. Please try again later.</p>
-		<button class="bg-slate-800 hover:bg-slate-700 px-6 py-3 text-base font-medium text-white transition duration-200 rounded-lg" onclick="window.location.reload()">Retry</button>
+	<div class="quiz-error hidden">
+		<h3 class="quiz-error-title">Error</h3>
+		<p class="quiz-error-description">Failed to load quiz data. Please try again later.</p>
+		<button class="quiz-retry-button" onclick="window.location.reload()">Retry</button>
 	</div>
 
 	<!-- Quiz Questions -->
-	<div class="hidden min-h-[400px] bg-white mx-auto w-full my-8 quiz-questions">
-		<div class="bg-gray-200 quiz-progress-container h-2 overflow-hidden rounded-full mx-8 mt-6 mb-8 shadow-inner">
-			<div class="quiz-progress-bar w-0 h-full rounded-full transition-all duration-500 ease-out shadow-sm relative overflow-hidden" style="background-color: #306E51;">
-				<div class="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-30 transform -skew-x-12 animate-pulse"></div>
+	<div class="quiz-questions hidden">
+		<!-- Progress Bar -->
+		<div class="quiz-progress-container">
+			<div class="quiz-progress-bar">
+				<div class="quiz-progress-shimmer"></div>
 			</div>
 		</div>
 
-		<div class="quiz-question-container p-8">
+		<!-- Question Content -->
+		<div class="quiz-question-container">
 			<!-- Question will be inserted here by JavaScript -->
 		</div>
 
-		<div class="quiz-navigation flex justify-between px-8 pb-8">
-			<button
-				class="text-slate-800 border-slate-200 hover:bg-slate-100 inline-flex items-center px-6 py-3 text-base font-medium transition duration-200 bg-white border rounded-lg"
-				id="quiz-prev-button">
+		<!-- Navigation -->
+		<div class="quiz-navigation">
+			<button class="quiz-nav-button quiz-nav-button--secondary" id="quiz-prev-button">
 				<svg
+					class="quiz-nav-icon quiz-nav-icon--left"
 					xmlns="http://www.w3.org/2000/svg"
 					width="16"
 					height="16"
@@ -64,20 +76,15 @@
 					stroke="currentColor"
 					stroke-width="2"
 					stroke-linecap="round"
-					stroke-linejoin="round"
-					class="mr-2">
+					stroke-linejoin="round">
 					<path d="M19 12H5M12 19l-7-7 7-7"/>
 				</svg>
 				Back
 			</button>
-			<button
-				class="inline-flex items-center px-6 py-3 text-base font-medium text-white transition duration-200 rounded-lg"
-				style="background-color: #306E51;"
-				id="quiz-next-button"
-				onmouseover="this.style.backgroundColor='#255e41'"
-				onmouseout="this.style.backgroundColor='#306E51'">
+			<button class="quiz-nav-button quiz-nav-button--primary" id="quiz-next-button">
 				Next
 				<svg
+					class="quiz-nav-icon quiz-nav-icon--right"
 					xmlns="http://www.w3.org/2000/svg"
 					width="16"
 					height="16"
@@ -86,15 +93,15 @@
 					stroke="currentColor"
 					stroke-width="2"
 					stroke-linecap="round"
-					stroke-linejoin="round"
-					class="ml-2">
+					stroke-linejoin="round">
 					<path d="M5 12h14M12 5l7 7-7 7"/>
 				</svg>
 			</button>
 		</div>
 	</div>
 
-	<div class="quiz-results hidden max-w-4xl px-4 py-8 mx-auto my-8">
+	<!-- Results Section -->
+	<div class="quiz-results hidden">
 		<!-- Results content will be injected here by JavaScript -->
 	</div>
 </div>
