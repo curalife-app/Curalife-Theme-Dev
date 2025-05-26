@@ -8,11 +8,18 @@
 	gap_width_mobile: section.settings.column_gap_mobile
 %}
 
+<script>
+	console.log('gap_width', {{ gap_width }});
+	console.log('gap_width_mobile', {{ gap_width_mobile }});
+	console.log('columns', {{ columns }});
+	console.log('columns_mobile', {{ columns_mobile }});
+</script>
+
 {% assign block_id = block.id %}
 {% assign column_gap = block.settings.column_gap | default: 2 %}
 {% assign row_gap_rem = block.settings.row_gap_rem | default: 1 %}
-{% assign column_gap_mobile = block.settings.column_gap_mobile | default: column_gap %}
-{% assign row_gap_rem_mobile = block.settings.row_gap_rem_mobile | default: row_gap_rem %}
+{% assign column_gap_mobile = block.settings.column_gap_mobile | default: 5 %}
+{% assign row_gap_rem_mobile = block.settings.row_gap_rem_mobile | default: 1 %}
 
 {% comment %}Calculate nested block width with gaps considered{% endcomment %}
 {% assign total_blocks = block.blocks | size %}
@@ -40,7 +47,8 @@
 
 	#block-{{ block_id }} .block-flex-layout {
 		display: flex;
-		flex-wrap: wrap;
+		flex-direction: {{ block.settings.flex_direction | default: 'row' }};
+		flex-wrap: {% if block.settings.is_wrap_blocks %}wrap{% else %}nowrap{% endif %};
 		justify-content: space-between;
 		gap: var(--block-row-gap) var(--block-column-gap);
 		align-items: var(--block-alignment);
@@ -60,6 +68,8 @@
 	{% comment %} Mobile responsive styling {% endcomment %}
 	@media (max-width: 768px) {
 		#block-{{ block_id }} .block-flex-layout {
+			flex-direction: {{ block.settings.flex_direction_mobile | default: 'column' }};
+			flex-wrap: {% if block.settings.is_wrap_blocks_mobile %}wrap{% else %}nowrap{% endif %};
 			gap: var(--block-row-gap-mobile) var(--block-column-gap-mobile);
 		}
 
@@ -384,7 +394,7 @@
 				"max": 10,
 				"step": 1,
 				"unit": "%",
-				"info": "Leave blank to use desktop column gap on mobile"
+				"default": 5
 			},
 			{
 				"type": "range",
@@ -394,7 +404,51 @@
 				"max": 5,
 				"step": 0.1,
 				"unit": "rem",
-				"info": "Leave blank to use desktop row gap on mobile"
+				"default": 1
+			},
+			{
+				"type": "checkbox",
+				"id": "is_wrap_blocks",
+				"label": "Wrap blocks (Desktop)",
+				"default": true
+			},
+			{
+				"type": "checkbox",
+				"id": "is_wrap_blocks_mobile",
+				"label": "Wrap blocks (Mobile)",
+				"default": true
+			},
+			{
+				"type": "select",
+				"id": "flex_direction",
+				"label": "Block Direction (Desktop)",
+				"options": [
+					{
+						"value": "row",
+						"label": "Horizontal (Row)"
+					},
+					{
+						"value": "column",
+						"label": "Vertical (Column)"
+					}
+				],
+				"default": "row"
+			},
+			{
+				"type": "select",
+				"id": "flex_direction_mobile",
+				"label": "Block Direction (Mobile)",
+				"options": [
+					{
+						"value": "row",
+						"label": "Horizontal (Row)"
+					},
+					{
+						"value": "column",
+						"label": "Vertical (Column)"
+					}
+				],
+				"default": "column"
 			},
 			{
 				"type": "checkbox",

@@ -24,8 +24,18 @@
 {% assign total_gaps_mobile = columns_mobile | minus: 1 %}
 
 {% comment %} Only generate CSS if we have custom width settings that differ from defaults {% endcomment %}
-{% assign should_generate_desktop = width_percent and width_percent != blank %}
-{% assign should_generate_mobile = mobile_width_percent and mobile_width_percent != blank and mobile_width_percent != '100' %}
+{% assign should_generate_desktop = false %}
+{% assign should_generate_mobile = false %}
+
+{% if width_percent != blank %}
+	{% assign should_generate_desktop = true %}
+{% endif %}
+
+{% comment %} Only generate mobile CSS for explicit custom widths (not 100% or blank) {% endcomment %}
+{% case mobile_width_percent %}
+	{% when '75', '66', '50', '33', '25', '20', '16' %}
+		{% assign should_generate_mobile = true %}
+{% endcase %}
 
 {% if should_generate_desktop or should_generate_mobile %}
 	<style>
