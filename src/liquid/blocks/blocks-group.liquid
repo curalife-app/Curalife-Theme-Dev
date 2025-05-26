@@ -4,12 +4,15 @@
 	mobile_width_percent: block.settings.block_mobile_width_percent,
 	columns: section.settings.columns,
 	columns_mobile: section.settings.columns_mobile,
-	gap_width: section.settings.column_gap
+	gap_width: section.settings.column_gap,
+	gap_width_mobile: section.settings.column_gap_mobile
 %}
 
 {% assign block_id = block.id %}
 {% assign column_gap = block.settings.column_gap | default: 2 %}
 {% assign row_gap_rem = block.settings.row_gap_rem | default: 1 %}
+{% assign column_gap_mobile = block.settings.column_gap_mobile | default: column_gap %}
+{% assign row_gap_rem_mobile = block.settings.row_gap_rem_mobile | default: row_gap_rem %}
 
 {% comment %}Calculate nested block width with gaps considered{% endcomment %}
 {% assign total_blocks = block.blocks | size %}
@@ -28,6 +31,8 @@
 	#block-{{ block_id }} {
 		--block-row-gap: {{ row_gap_rem }}rem;
 		--block-column-gap: {{ column_gap }}%;
+		--block-row-gap-mobile: {{ row_gap_rem_mobile }}rem;
+		--block-column-gap-mobile: {{ column_gap_mobile }}%;
 		--block-alignment: {{ block.settings.content_alignment | default: 'flex-start' }};
 		flex-grow: 0;
 		flex-shrink: 0;
@@ -54,6 +59,10 @@
 
 	{% comment %} Mobile responsive styling {% endcomment %}
 	@media (max-width: 768px) {
+		#block-{{ block_id }} .block-flex-layout {
+			gap: var(--block-row-gap-mobile) var(--block-column-gap-mobile);
+		}
+
 		{% if block.settings.margin_top_mobile != blank %}
 		#block-{{ block_id }} {
 			margin-top: {{ block.settings.margin_top_mobile }}rem !important;
@@ -366,6 +375,26 @@
 				"step": 0.1,
 				"unit": "rem",
 				"default": 1
+			},
+			{
+				"type": "range",
+				"id": "column_gap_mobile",
+				"label": "Column Gap (Mobile)",
+				"min": 0,
+				"max": 10,
+				"step": 1,
+				"unit": "%",
+				"info": "Leave blank to use desktop column gap on mobile"
+			},
+			{
+				"type": "range",
+				"id": "row_gap_rem_mobile",
+				"label": "Row Gap (Mobile)",
+				"min": 0,
+				"max": 5,
+				"step": 0.1,
+				"unit": "rem",
+				"info": "Leave blank to use desktop row gap on mobile"
 			},
 			{
 				"type": "checkbox",

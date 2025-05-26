@@ -7,51 +7,43 @@
 	Parameters:
 	- block_id: The ID of the block
 	- width_percent: The width percentage from block settings
-	- mobile_width_percent: The width percentage from block settings for mobile (defaults to 100)
+	- mobile_width_percent: The width percentage from block settings for mobile (defaults to calculated)
 	- columns: Number of columns for desktop (default: 2)
 	- columns_mobile: Number of columns for mobile (default: 1)
-	- gap_width: Gap width in % (default: 2)
+	- gap_width: Gap width in % for desktop (default: 2)
+	- gap_width_mobile: Gap width in % for mobile (defaults to gap_width)
 {% endcomment %}
 
 {% assign columns = columns | default: 2 %}
 {% assign columns_mobile = columns_mobile | default: 1 | plus: 0 %}
 {% assign gap_width = gap_width | default: 2 %}
+{% assign gap_width_mobile = gap_width_mobile | default: gap_width %}
 
-{% comment %} Calculate default mobile width based on section's mobile column setting {% endcomment %}
-{% assign total_gaps_mobile_default = columns_mobile | minus: 1 %}
-{% assign total_gap_percent_mobile_default = gap_width | times: total_gaps_mobile_default %}
-{% assign default_mobile_width = 100 | minus: total_gap_percent_mobile_default | divided_by: columns_mobile %}
-
-{% assign mobile_width_percent = mobile_width_percent | default: default_mobile_width %}
+{% comment %} Calculate gap variables for CSS calc() {% endcomment %}
 {% assign total_gaps_desktop = columns | minus: 1 %}
 {% assign total_gaps_mobile = columns_mobile | minus: 1 %}
-{% assign total_gap_percent_desktop = gap_width | times: total_gaps_desktop %}
-{% assign total_gap_percent_mobile = gap_width | times: total_gaps_mobile %}
-{% assign available_space_desktop = 100 | minus: total_gap_percent_desktop %}
-{% assign available_space_mobile = 100 | minus: total_gap_percent_mobile %}
-{% assign actual_width_desktop = width_percent | times: available_space_desktop | divided_by: 100.0 %}
-{% assign actual_width_mobile = mobile_width_percent | times: available_space_mobile | divided_by: 100.0 %}
 
-{% comment %} Generate CSS if we have desktop width OR mobile needs custom styling {% endcomment %}
-{% if width_percent or mobile_width_percent != default_mobile_width or columns_mobile > 1 %}
+{% comment %} Only generate CSS if we have custom width settings that differ from defaults {% endcomment %}
+{% assign should_generate_desktop = width_percent and width_percent != blank %}
+{% assign should_generate_mobile = mobile_width_percent and mobile_width_percent != blank and mobile_width_percent != '100' %}
+
+{% if should_generate_desktop or should_generate_mobile %}
 	<style>
-		{% if width_percent %}
-		/* Pre-calculated width accounting for gaps */
+		{% if should_generate_desktop %}
+		/* Custom desktop width using CSS calc() with gap consideration */
 		#block-{{ block_id }} {
-			width: {{ actual_width_desktop }}% !important;
-			flex-basis: {{ actual_width_desktop }}% !important;
+			width: calc(((100% - ({{ gap_width }}% * {{ total_gaps_desktop }})) / {{ columns }}) * {{ width_percent | divided_by: 100.0 | times: columns }}) !important;
+			flex-basis: calc(((100% - ({{ gap_width }}% * {{ total_gaps_desktop }})) / {{ columns }}) * {{ width_percent | divided_by: 100.0 | times: columns }}) !important;
 		}
 		{% endif %}
 
+		{% if should_generate_mobile %}
 		@media (max-width: 768px) {
 			#block-{{ block_id }} {
-				width: {{ actual_width_mobile }}% !important;
-				flex-basis: {{ actual_width_mobile }}% !important;
-				{% comment %} Only remove gap if explicitly set to 100% or if calculated default equals 100% {% endcomment %}
-				{% if mobile_width_percent == 100 or default_mobile_width == 100 %}
-				--block-column-gap: 0%;
-				{% endif %}
+				width: calc(((100% - ({{ gap_width_mobile }}% * {{ total_gaps_mobile }})) / {{ columns_mobile }}) * {{ mobile_width_percent | divided_by: 100.0 | times: columns_mobile }}) !important;
+				flex-basis: calc(((100% - ({{ gap_width_mobile }}% * {{ total_gaps_mobile }})) / {{ columns_mobile }}) * {{ mobile_width_percent | divided_by: 100.0 | times: columns_mobile }}) !important;
 			}
 		}
+		{% endif %}
 	</style>
 {% endif %}

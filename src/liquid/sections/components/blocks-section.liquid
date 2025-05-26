@@ -11,10 +11,14 @@
 {% assign max_width = section.settings.max_width | default: 1200 %}
 {% assign content_width = section.settings.content_width | default: 100 %}
 
+{% comment %} Mobile gap settings - fallback to desktop values if not set {% endcomment %}
+{% assign column_gap_mobile = section.settings.column_gap_mobile | default: column_gap %}
+{% assign row_gap_rem_mobile = section.settings.row_gap_rem_mobile | default: row_gap_rem %}
+
 {% assign total_gaps_desktop = columns | minus: 1 %}
 {% assign total_gaps_mobile = columns_mobile | minus: 1 %}
 {% assign total_gap_percent_desktop = column_gap | times: total_gaps_desktop %}
-{% assign total_gap_percent_mobile = column_gap | times: total_gaps_mobile %}
+{% assign total_gap_percent_mobile = column_gap_mobile | times: total_gaps_mobile %}
 {% assign default_width_desktop = 100 | minus: total_gap_percent_desktop | divided_by: columns %}
 {% assign default_width_mobile = 100 | minus: total_gap_percent_mobile | divided_by: columns_mobile %}
 
@@ -22,12 +26,14 @@
 	#section-{{ section_id }} {
 		--column-gap: {{ column_gap }}%;
 		--row-gap: {{ row_gap_rem }}rem;
+		--column-gap-mobile: {{ column_gap_mobile }}%;
+		--row-gap-mobile: {{ row_gap_rem_mobile }}rem;
 		--columns: {{ columns }};
 		--columns-mobile: {{ columns_mobile }};
 		--alignment: {{ section.settings.vertical_alignment | default: 'flex-start' }};
 		--max-width: {{ max_width }}px;
 		--content-width: {{ content_width }}%;
-				--default-width-desktop: {{ default_width_desktop }}%;
+		--default-width-desktop: {{ default_width_desktop }}%;
 		--default-width-mobile: {{ default_width_mobile }}%;
 
 		/* Desktop padding settings */
@@ -53,10 +59,10 @@
 		margin: 0 auto;
 	}
 
-	/* Use pre-calculated width for default blocks-group elements */
+	/* Use calc() for precise width calculation including gaps */
 	#section-{{ section_id }} .blocks-section-flex > .shopify-block > .blocks-group {
-		width: {{ default_width_desktop }}%;
-		flex-basis: {{ default_width_desktop }}%;
+		width: calc((100% - (var(--column-gap) * {{ total_gaps_desktop }})) / {{ columns }});
+		flex-basis: calc((100% - (var(--column-gap) * {{ total_gaps_desktop }})) / {{ columns }});
 		flex-grow: 0;
 		flex-shrink: 0;
 	}
@@ -64,12 +70,14 @@
 	@media (max-width: 768px) {
 		#section-{{ section_id }} .blocks-section-flex {
 			width: 100%;
+			column-gap: var(--column-gap-mobile);
+			row-gap: var(--row-gap-mobile);
 		}
 
-		/* Reset block width on mobile with simplified calculation */
+		/* Reset block width on mobile with precise calculation */
 		#section-{{ section_id }} .blocks-section-flex > .shopify-block > .blocks-group {
-			width: {{ default_width_mobile }}%;
-			flex-basis: {{ default_width_mobile }}%;
+			width: calc((100% - (var(--column-gap-mobile) * {{ total_gaps_mobile }})) / {{ columns_mobile }});
+			flex-basis: calc((100% - (var(--column-gap-mobile) * {{ total_gaps_mobile }})) / {{ columns_mobile }});
 		}
 
 		/* Container mobile styles */
@@ -97,7 +105,7 @@
 	@media (max-width: 480px) {
 		#section-{{ section_id }} .blocks-section-flex {
 			flex-direction: column;
-			row-gap: calc(var(--row-gap) * 1.5);
+			row-gap: calc(var(--row-gap-mobile) * 1.5);
 		}
 
 		#section-{{ section_id }} .blocks-section-flex > .shopify-block > .blocks-group {
@@ -472,6 +480,26 @@
 				"type": "range",
 				"id": "row_gap_rem",
 				"label": "Row Gap",
+				"min": 0,
+				"max": 5,
+				"step": 0.1,
+				"unit": "rem",
+				"default": 1
+			},
+			{
+				"type": "range",
+				"id": "column_gap_mobile",
+				"label": "Column Gap (Mobile)",
+				"min": 0,
+				"max": 20,
+				"step": 1,
+				"unit": "%",
+				"default": 0
+			},
+			{
+				"type": "range",
+				"id": "row_gap_rem_mobile",
+				"label": "Row Gap (Mobile)",
 				"min": 0,
 				"max": 5,
 				"step": 0.1,
