@@ -14,9 +14,15 @@
 {% endcomment %}
 
 {% assign columns = columns | default: 2 %}
-{% assign columns_mobile = columns_mobile | default: 1 %}
+{% assign columns_mobile = columns_mobile | default: 1 | plus: 0 %}
 {% assign gap_width = gap_width | default: 2 %}
-{% assign mobile_width_percent = mobile_width_percent | default: 100 %}
+
+{% comment %} Calculate default mobile width based on section's mobile column setting {% endcomment %}
+{% assign total_gaps_mobile_default = columns_mobile | minus: 1 %}
+{% assign total_gap_percent_mobile_default = gap_width | times: total_gaps_mobile_default %}
+{% assign default_mobile_width = 100 | minus: total_gap_percent_mobile_default | divided_by: columns_mobile %}
+
+{% assign mobile_width_percent = mobile_width_percent | default: default_mobile_width %}
 {% assign total_gaps_desktop = columns | minus: 1 %}
 {% assign total_gaps_mobile = columns_mobile | minus: 1 %}
 {% assign total_gap_percent_desktop = gap_width | times: total_gaps_desktop %}
@@ -26,19 +32,23 @@
 {% assign actual_width_desktop = width_percent | times: available_space_desktop | divided_by: 100.0 %}
 {% assign actual_width_mobile = mobile_width_percent | times: available_space_mobile | divided_by: 100.0 %}
 
-{% if width_percent %}
+{% comment %} Generate CSS if we have desktop width OR mobile needs custom styling {% endcomment %}
+{% if width_percent or mobile_width_percent != default_mobile_width or columns_mobile > 1 %}
 	<style>
+		{% if width_percent %}
 		/* Pre-calculated width accounting for gaps */
 		#block-{{ block_id }} {
 			width: {{ actual_width_desktop }}% !important;
 			flex-basis: {{ actual_width_desktop }}% !important;
 		}
+		{% endif %}
 
 		@media (max-width: 768px) {
 			#block-{{ block_id }} {
 				width: {{ actual_width_mobile }}% !important;
 				flex-basis: {{ actual_width_mobile }}% !important;
-				{% if mobile_width_percent == 100 %}
+				{% comment %} Only remove gap if explicitly set to 100% or if calculated default equals 100% {% endcomment %}
+				{% if mobile_width_percent == 100 or default_mobile_width == 100 %}
 				--block-column-gap: 0%;
 				{% endif %}
 			}

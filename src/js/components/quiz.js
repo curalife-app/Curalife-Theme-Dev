@@ -333,8 +333,8 @@ class ProductQuiz {
 		// Update navigation state
 		this.updateNavigation();
 
-		// Add legal text after navigation (if it exists)
-		if (step.legal) {
+		// Add legal text after navigation (if it exists and not a form step)
+		if (step.legal && !this.isFormStep(step.id)) {
 			this._addLegalTextAfterNavigation(step.legal);
 		}
 	}
@@ -369,12 +369,32 @@ class ProductQuiz {
 	}
 
 	_generateFormStepHTML(step) {
+		const isLastStep = this.currentStepIndex === this.quizData.steps.length - 1;
+		const buttonText = isLastStep ? step.ctaText || "Finish Quiz" : step.ctaText || "Continue";
+
 		return `
 			<div class="quiz-form-container">
 				${step.info && step.info.formSubHeading ? `<h4 class="quiz-heading">${step.info.formSubHeading}</h4>` : ""}
 				<div class="quiz-space-y-6">
 					${this._processFormQuestions(step.questions)}
 				</div>
+				<button class="quiz-nav-button quiz-nav-button--primary quiz-form-button" id="quiz-form-next-button">
+					${buttonText}
+					<svg
+						class="quiz-nav-icon quiz-nav-icon--right"
+						xmlns="http://www.w3.org/2000/svg"
+						width="16"
+						height="16"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round">
+						<path d="M5 12h14M12 5l7 7-7 7"/>
+					</svg>
+				</button>
+				${step.legal ? `<p class="quiz-legal-form">${step.legal}</p>` : ""}
 			</div>
 		`;
 	}
@@ -440,6 +460,19 @@ class ProductQuiz {
 			step.questions.forEach(question => {
 				this.attachFormQuestionListener(question);
 			});
+
+			// Attach listener to the form button
+			const formButton = this.questionContainer.querySelector("#quiz-form-next-button");
+			if (formButton) {
+				formButton.removeEventListener("click", this.formButtonHandler);
+				this.formButtonHandler = e => {
+					console.log("Form button clicked");
+					if (!formButton.disabled) {
+						this.goToNextStep();
+					}
+				};
+				formButton.addEventListener("click", this.formButtonHandler);
+			}
 		} else {
 			// Attach listener to current wizard question
 			const currentQuestion = step.questions[this.currentQuestionIndex];
@@ -700,7 +733,11 @@ class ProductQuiz {
 				}
 				dropdownInput.addEventListener("change", () => {
 					this.handleAnswer(dropdownInput.value);
+					// Update dropdown color when value is selected
+					this._updateDropdownColor(dropdownInput);
 				});
+				// Set initial color state
+				this._updateDropdownColor(dropdownInput);
 				break;
 
 			case "text":
@@ -983,8 +1020,12 @@ class ProductQuiz {
 			this.nextButton.innerHTML = step.ctaText || "Continue";
 		}
 
-		// For form-style steps, check if all required fields have answers
+		// For form-style steps, hide external navigation and handle internal button
 		if (isFormStep && step.questions) {
+			// Hide the external navigation for form steps
+			this.navigationButtons.classList.add("quiz-navigation-hidden");
+			this.navigationButtons.classList.remove("quiz-navigation-visible");
+
 			let allRequiredAnswered = true;
 
 			// Check each required question
@@ -1019,7 +1060,12 @@ class ProductQuiz {
 			}
 
 			console.log(`Form validation result: ${allRequiredAnswered ? "ALL FIELDS VALID" : "SOME FIELDS INVALID"}`);
-			this.nextButton.disabled = !allRequiredAnswered || this.submitting;
+
+			// Update the form button state
+			const formButton = this.questionContainer.querySelector("#quiz-form-next-button");
+			if (formButton) {
+				formButton.disabled = !allRequiredAnswered || this.submitting;
+			}
 			return;
 		}
 
@@ -1458,7 +1504,11 @@ class ProductQuiz {
 				}
 				dropdownInput.addEventListener("change", () => {
 					this.handleFormAnswer(question.id, dropdownInput.value);
+					// Update dropdown color when value is selected
+					this._updateDropdownColor(dropdownInput);
 				});
+				// Set initial color state
+				this._updateDropdownColor(dropdownInput);
 				break;
 
 			case "text":
@@ -1619,8 +1669,19 @@ class ProductQuiz {
 		return ""; // All fields are required, no need to show asterisks
 	}
 
-	_generateHelpIcon() {
-		return '<svg class="quiz-help-icon" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path></svg>';
+	_generateHelpIcon(questionId) {
+		const tooltipContent = this._getTooltipContent(questionId);
+		const escapedTooltip = tooltipContent.replace(/"/g, "&quot;");
+		return `<span class="quiz-help-icon-container" data-tooltip="${escapedTooltip}"><svg class="quiz-help-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#clip0_3657_2618)"><path d="M14.6668 8.00004C14.6668 4.31814 11.682 1.33337 8.00016 1.33337C4.31826 1.33337 1.3335 4.31814 1.3335 8.00004C1.3335 11.6819 4.31826 14.6667 8.00016 14.6667C11.682 14.6667 14.6668 11.6819 14.6668 8.00004Z" stroke="#121212"/><path d="M8.1613 11.3334V8.00004C8.1613 7.68577 8.1613 7.52864 8.06363 7.43097C7.96603 7.33337 7.8089 7.33337 7.49463 7.33337" stroke="#121212" stroke-linecap="round" stroke-linejoin="round"/><path d="M7.99463 5.33337H8.00063" stroke="#121212" stroke-linecap="round" stroke-linejoin="round"/></g><defs><clipPath id="clip0_3657_2618"><rect width="16" height="16" fill="white"/></clipPath></defs></svg></span>`;
+	}
+
+	_getTooltipContent(questionId) {
+		const tooltips = {
+			q3: "Select your primary insurance company. This helps us verify your coverage and find in-network dietitians.",
+			q4: "Enter your member ID exactly as it appears on your insurance card. This is typically found on the front of your card.",
+			q5: "Select the state where you reside. Insurance coverage may vary by state."
+		};
+		return tooltips[questionId] || "";
 	}
 
 	_generateFormFieldPair(leftQuestion, rightQuestion, leftResponse, rightResponse) {
@@ -1628,19 +1689,22 @@ class ProductQuiz {
 
 		const rightInput = rightQuestion.type === "dropdown" ? this.renderDropdown(rightQuestion, rightResponse) : this.renderTextInput(rightQuestion, rightResponse);
 
+		// Fields that should have help icons
+		const fieldsWithHelpIcon = ["q3", "q4", "q5"]; // insurance plan, member id, state
+
 		return `
 			<div class="quiz-grid-2-form">
 				<div>
 					<label class="quiz-label" for="question-${leftQuestion.id}">
 						${leftQuestion.text}${this._generateRequiredMarker(leftQuestion.required)}
-						${leftQuestion.type === "dropdown" ? this._generateHelpIcon() : ""}
+						${fieldsWithHelpIcon.includes(leftQuestion.id) ? this._generateHelpIcon(leftQuestion.id) : ""}
 					</label>
 					${leftInput}
 				</div>
 				<div>
 					<label class="quiz-label" for="question-${rightQuestion.id}">
 						${rightQuestion.text}${this._generateRequiredMarker(rightQuestion.required)}
-						${rightQuestion.type === "dropdown" ? this._generateHelpIcon() : ""}
+						${fieldsWithHelpIcon.includes(rightQuestion.id) ? this._generateHelpIcon(rightQuestion.id) : ""}
 					</label>
 					${rightInput}
 				</div>
@@ -1711,10 +1775,12 @@ class ProductQuiz {
 			}
 
 			// Regular single question
+			const fieldsWithHelpIcon = ["q3", "q4", "q5"]; // insurance plan, member id, state
 			html += `
 				<div class="quiz-question-section">
 					<label class="quiz-label" for="question-${question.id}">
 						${question.text}${this._generateRequiredMarker(question.required)}
+						${fieldsWithHelpIcon.includes(question.id) ? this._generateHelpIcon(question.id) : ""}
 					</label>
 					${question.helpText ? `<p class="quiz-text-sm">${question.helpText}</p>` : ""}
 					${this._renderQuestionByType(question, response)}
@@ -1746,6 +1812,17 @@ class ProductQuiz {
 				return this.renderRating(question, response);
 			default:
 				return `<p class="quiz-error-text">Unsupported field type: ${question.type}</p>`;
+		}
+	}
+
+	// Helper method to update dropdown color based on selection
+	_updateDropdownColor(dropdown) {
+		if (dropdown.value === "" || dropdown.value === dropdown.options[0].value) {
+			// No selection or placeholder selected - use placeholder color
+			dropdown.style.color = "#B0B0B0";
+		} else {
+			// Value selected - use normal text color
+			dropdown.style.color = "var(--quiz-text-primary)";
 		}
 	}
 
