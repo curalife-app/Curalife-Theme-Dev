@@ -136,6 +136,8 @@ class ProductQuiz {
 		this.prevButton = this.container.querySelector(selectors.PREV_BUTTON);
 		this.nextButton = this.container.querySelector(selectors.NEXT_BUTTON);
 		this.startButton = this.container.querySelector(selectors.START_BUTTON);
+		this.navHeader = this.container.querySelector("#quiz-nav-header");
+		this.progressSection = this.container.querySelector("#quiz-progress-section");
 
 		this._isInitialized = true;
 	}
@@ -148,7 +150,20 @@ class ProductQuiz {
 			return;
 		}
 
-		// Back button is disabled - no event listeners needed
+		// Add back button event listener
+		if (this.navHeader) {
+			const backButton = this.navHeader.querySelector("#quiz-back-button");
+			if (backButton) {
+				backButton.addEventListener("click", () => {
+					// On the first step, go to telemedicine page
+					if (this.currentStepIndex === 0) {
+						window.location.href = "/pages/telemedicine";
+					} else {
+						this.goToPreviousStep();
+					}
+				});
+			}
+		}
 
 		if (this.nextButton) {
 			// First remove any existing event listeners to prevent duplicates
@@ -234,9 +249,11 @@ class ProductQuiz {
 				}
 			});
 
-			// Hide loading indicator and show questions container
+			// Hide loading indicator and show questions container, nav header, and progress section
 			this._hideElement(this.loading);
 			this._showElement(this.questions);
+			this._showElement(this.navHeader);
+			this._showElement(this.progressSection);
 
 			// Render the first step
 			this.renderCurrentStep();
@@ -343,7 +360,28 @@ class ProductQuiz {
 		const progress = ((this.currentStepIndex + 1) / this.quizData.steps.length) * 100;
 		if (this.progressBar) {
 			this.progressBar.classList.add("quiz-progress-bar-animated");
-			this.progressBar.style.width = `${progress}%`;
+			this.progressBar.style.setProperty("--progress-width", `${progress}%`);
+
+			// Update progress indicator position and visibility
+			const progressIndicator = this.container.querySelector(".quiz-progress-indicator");
+			if (progressIndicator) {
+				// Get the actual container width instead of hardcoded 480px
+				const progressContainer = this.container.querySelector(".quiz-progress-container");
+				const containerWidth = progressContainer ? progressContainer.offsetWidth : 480;
+
+				// Calculate indicator position based on actual container width
+				// Use smaller indicator width for mobile (16px vs 26px)
+				const isMobile = window.innerWidth <= 768;
+				const indicatorHalfWidth = isMobile ? 16 : 26;
+				const indicatorPosition = (progress / 100) * containerWidth - indicatorHalfWidth;
+
+				progressIndicator.style.left = `${indicatorPosition}px`;
+				if (progress > 0) {
+					progressIndicator.classList.add("visible");
+				} else {
+					progressIndicator.classList.remove("visible");
+				}
+			}
 		}
 	}
 
@@ -380,19 +418,6 @@ class ProductQuiz {
 				</div>
 				<button class="quiz-nav-button quiz-nav-button--primary quiz-form-button" id="quiz-form-next-button">
 					${buttonText}
-					<svg
-						class="quiz-nav-icon quiz-nav-icon--right"
-						xmlns="http://www.w3.org/2000/svg"
-						width="16"
-						height="16"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-						stroke-linecap="round"
-						stroke-linejoin="round">
-						<path d="M5 12h14M12 5l7 7-7 7"/>
-					</svg>
 				</button>
 				${step.legal ? `<p class="quiz-legal-form">${step.legal}</p>` : ""}
 			</div>
@@ -903,7 +928,17 @@ class ProductQuiz {
 
 	// Handle auto-advance animation for single-choice questions
 	handleSingleChoiceAutoAdvance(answer) {
-		// Apply visual feedback by showing the checkmark immediately
+		// First, clear all previous selections immediately
+		const allOptionButtons = this.questionContainer.querySelectorAll(".quiz-option-button");
+		allOptionButtons.forEach(button => {
+			button.classList.remove("selected", "processing", "auto-advance-feedback");
+			const existingCheckmark = button.querySelector(".quiz-checkmark");
+			if (existingCheckmark) {
+				existingCheckmark.remove();
+			}
+		});
+
+		// Apply visual feedback by showing the checkmark immediately for the new selection
 		const selectedElement = this.questionContainer.querySelector(`input[value="${answer}"]:checked`);
 		if (selectedElement) {
 			const optionButton = selectedElement.closest(".quiz-option-card")?.querySelector(".quiz-option-button");
@@ -911,14 +946,12 @@ class ProductQuiz {
 				// Add selected state and checkmark
 				optionButton.classList.add("selected", "processing");
 
-				// Add checkmark if not already present
-				if (!optionButton.querySelector(".quiz-checkmark")) {
-					const checkmark = document.createElement("div");
-					checkmark.className = "quiz-checkmark";
-					checkmark.innerHTML =
-						'<svg viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path></svg>';
-					optionButton.appendChild(checkmark);
-				}
+				// Add checkmark
+				const checkmark = document.createElement("div");
+				checkmark.className = "quiz-checkmark";
+				checkmark.innerHTML =
+					'<svg viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path></svg>';
+				optionButton.appendChild(checkmark);
 
 				// Add auto-advance feedback animation
 				optionButton.classList.add("auto-advance-feedback");
@@ -1110,7 +1143,18 @@ class ProductQuiz {
 		this.nextButton.disabled = !hasAnswer || this.submitting;
 	}
 
-	// Back navigation is disabled
+	goToPreviousStep() {
+		// Don't go back if we're on the first step
+		if (this.currentStepIndex <= 0) {
+			return;
+		}
+
+		// Go back to previous step
+		this.currentStepIndex--;
+		this.currentQuestionIndex = 0; // Reset question index for the previous step
+		this.renderCurrentStep();
+		this.updateNavigation();
+	}
 
 	goToNextStep() {
 		const currentStep = this.getCurrentStep();
@@ -1236,9 +1280,9 @@ class ProductQuiz {
 				if (response.questionId === "q6_year") dobYear = response.answer || "";
 			});
 
-			// Construct date of birth from parts
+			// Construct date of birth from parts in YYYYMMDD format
 			if (dobMonth && dobDay && dobYear) {
-				dateOfBirth = `${dobMonth}/${dobDay}/${dobYear}`;
+				dateOfBirth = `${dobYear}${dobMonth.padStart(2, "0")}${dobDay.padStart(2, "0")}`;
 			}
 
 			// Format for n8n workflow
