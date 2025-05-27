@@ -1319,6 +1319,11 @@ class ProductQuiz {
 
 			console.log("Sending payload to webhook:", payload);
 
+			// Store payload for polling use
+			this.lastPayload = {
+				data: JSON.stringify(payload)
+			};
+
 			// Hide questions and show eligibility check indicator
 			this._hideElement(this.questions);
 			this._showElement(this.eligibilityCheck);
@@ -1326,6 +1331,11 @@ class ProductQuiz {
 			// Get webhook URL from data attribute
 			const webhookUrl = this.container.getAttribute("data-n8n-webhook");
 			const bookingUrl = this.container.getAttribute("data-booking-url") || "/appointment-booking";
+
+			console.log("=== WEBHOOK CONFIGURATION ===");
+			console.log("Webhook URL:", webhookUrl);
+			console.log("Booking URL:", bookingUrl);
+			console.log("============================");
 
 			if (!webhookUrl) {
 				console.warn("No webhook URL provided - proceeding to booking URL without webhook submission");
@@ -1336,12 +1346,17 @@ class ProductQuiz {
 			// Try to call the webhook
 			let webhookSuccess = false;
 			let errorMessage = "";
+			let eligibilityData = null;
 
 			try {
+				console.log("=== STARTING WEBHOOK REQUEST ===");
+				console.log("Sending payload:", JSON.stringify(payload, null, 2));
+
 				// Set a timeout to avoid waiting too long
 				const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Webhook request timed out")), 8000));
 
 				// Try regular CORS request first
+				console.log("Attempting CORS request to:", webhookUrl);
 				let fetchPromise = fetch(webhookUrl, {
 					method: "POST",
 					mode: "cors",
@@ -1355,7 +1370,7 @@ class ProductQuiz {
 						data: JSON.stringify(payload) // Double wrap as some n8n workflows expect this format
 					})
 				}).catch(error => {
-					console.log("CORS request failed, trying no-cors mode:", error);
+					console.log("❌ CORS request failed, trying no-cors mode:", error);
 					// Fallback to no-cors mode if regular CORS fails
 					return fetch(webhookUrl, {
 						method: "POST",
@@ -1370,21 +1385,106 @@ class ProductQuiz {
 				});
 
 				// Race the timeout against the fetch
+				console.log("Waiting for webhook response...");
 				const webhook = await Promise.race([fetchPromise, timeoutPromise]);
+				console.log("✅ Webhook request completed");
 
 				// Check the response status - for no-cors mode, response.type will be 'opaque'
+				console.log("=== WEBHOOK RESPONSE ANALYSIS ===");
+				console.log("Response type:", webhook.type);
+				console.log("Response status:", webhook.status);
+				console.log("Response ok:", webhook.ok);
+				console.log("Response headers:", webhook.headers);
+				console.log("===============================");
+
 				if (webhook.type === "opaque") {
-					console.log("Got opaque response from no-cors request - assuming success");
+					console.log("⚠️ Got opaque response from no-cors request - cannot read response data");
+					console.log("This means the request succeeded but we can't access the response due to CORS");
 					webhookSuccess = true;
+					// For opaque responses, we can't read the data, so eligibilityData will remain null
 				} else if (webhook.ok) {
-					console.log("Webhook response ok:", webhook.status);
+					console.log("✅ Webhook response ok:", webhook.status);
 					webhookSuccess = true;
 
 					try {
 						const webhookResponse = await webhook.json();
-						console.log("Webhook response data:", webhookResponse);
+						console.log("=== FULL WEBHOOK RESPONSE ===");
+						console.log("Raw response:", webhookResponse);
+						console.log("Response keys:", Object.keys(webhookResponse || {}));
+						console.log("Response type:", typeof webhookResponse);
+						console.log("============================");
+
+						// Check if this is a Google Cloud Workflows execution response
+						if (webhookResponse && webhookResponse.execution && webhookResponse.execution.state) {
+							console.log("🔄 Detected Google Cloud Workflows execution response");
+							console.log("Execution state:", webhookResponse.execution.state);
+							console.log("Execution name:", webhookResponse.execution.name);
+
+							if (webhookResponse.execution.state === "ACTIVE") {
+								console.log("⏳ Workflow is still running, polling for completion...");
+
+								// Update the loading message to show processing state
+								const loadingTitle = this.eligibilityCheck.querySelector(".quiz-eligibility-title");
+								const loadingDesc = this.eligibilityCheck.querySelector(".quiz-eligibility-description");
+
+								if (loadingTitle) {
+									loadingTitle.textContent = "Processing Your Insurance Information";
+								}
+								if (loadingDesc) {
+									loadingDesc.textContent = "We're verifying your coverage details with your insurance provider. This may take a few minutes for complex policies.";
+								}
+
+								// Try to poll for the result
+								eligibilityData = await this.pollWorkflowExecution(webhookResponse.execution.name);
+							} else if (webhookResponse.execution.state === "SUCCEEDED") {
+								console.log("✅ Workflow completed successfully");
+								// Try to extract result from the execution
+								eligibilityData = this.extractResultFromExecution(webhookResponse.execution);
+							} else {
+								console.log("❌ Workflow failed with state:", webhookResponse.execution.state);
+								errorMessage = `Workflow failed with state: ${webhookResponse.execution.state}`;
+							}
+						}
+						// Extract eligibility data from the response - try multiple possible paths
+						else if (webhookResponse && webhookResponse.eligibilityData) {
+							eligibilityData = webhookResponse.eligibilityData;
+							console.log("✅ Found eligibilityData at root level:", eligibilityData);
+						} else if (webhookResponse && webhookResponse.body && webhookResponse.body.eligibilityData) {
+							eligibilityData = webhookResponse.body.eligibilityData;
+							console.log("✅ Found eligibilityData in body:", eligibilityData);
+						} else if (webhookResponse && webhookResponse.body && webhookResponse.body.body && webhookResponse.body.body.eligibilityData) {
+							// Sometimes responses are double-wrapped
+							eligibilityData = webhookResponse.body.body.eligibilityData;
+							console.log("✅ Found eligibilityData in body.body:", eligibilityData);
+						} else if (webhookResponse && webhookResponse.data && webhookResponse.data.eligibilityData) {
+							// Check if it's in a data field
+							eligibilityData = webhookResponse.data.eligibilityData;
+							console.log("✅ Found eligibilityData in data:", eligibilityData);
+						} else if (webhookResponse && webhookResponse.success && webhookResponse.body) {
+							// Check if the whole body is the eligibility data
+							const potentialData = webhookResponse.body;
+							if (potentialData && typeof potentialData === "object" && "isEligible" in potentialData) {
+								eligibilityData = potentialData;
+								console.log("✅ Found eligibilityData as entire body:", eligibilityData);
+							}
+						} else {
+							console.warn("❌ No eligibility data found in webhook response");
+							console.log("Checked paths:");
+							console.log("- webhookResponse.eligibilityData:", webhookResponse?.eligibilityData);
+							console.log("- webhookResponse.body:", webhookResponse?.body);
+							console.log("- webhookResponse.body.eligibilityData:", webhookResponse?.body?.eligibilityData);
+							console.log("- webhookResponse.body.body.eligibilityData:", webhookResponse?.body?.body?.eligibilityData);
+							console.log("- webhookResponse.data.eligibilityData:", webhookResponse?.data?.eligibilityData);
+
+							// Log all possible paths in the response
+							if (webhookResponse) {
+								console.log("Available response structure:");
+								console.log(JSON.stringify(webhookResponse, null, 2));
+							}
+						}
 					} catch (jsonError) {
-						console.warn("Could not parse webhook JSON response:", jsonError);
+						console.error("Failed to parse webhook JSON response:", jsonError);
+						errorMessage = "Failed to process server response";
 					}
 				} else {
 					errorMessage = `Server returned status ${webhook.status}`;
@@ -1392,7 +1492,8 @@ class ProductQuiz {
 
 					try {
 						const errorData = await webhook.text();
-						console.error("Error response:", errorData);
+						console.error("Error response body:", errorData);
+						errorMessage += `: ${errorData}`;
 					} catch (textError) {
 						console.warn("Could not read error response:", textError);
 					}
@@ -1400,13 +1501,27 @@ class ProductQuiz {
 			} catch (error) {
 				errorMessage = error.message || "Network error";
 				console.error("Error submitting quiz responses:", error);
+				console.error("Full error details:", {
+					message: error.message,
+					stack: error.stack,
+					name: error.name
+				});
 			}
 
 			// Hide eligibility check indicator
 			this._hideElement(this.eligibilityCheck);
 
-			// Show results
-			this.showResults(bookingUrl, webhookSuccess);
+			console.log("=== FINAL RESULTS SUMMARY ===");
+			console.log("Webhook Success:", webhookSuccess);
+			console.log("Eligibility Data Found:", !!eligibilityData);
+			console.log("Error Message:", errorMessage || "none");
+			if (eligibilityData) {
+				console.log("Eligibility Data:", eligibilityData);
+			}
+			console.log("===========================");
+
+			// Show results with eligibility data
+			this.showResults(bookingUrl, webhookSuccess, eligibilityData, errorMessage);
 
 			// Log to analytics if available
 			if (window.analytics && typeof window.analytics.track === "function") {
@@ -1418,9 +1533,17 @@ class ProductQuiz {
 			}
 		} catch (error) {
 			console.error("Error in quiz completion:", error);
+			console.error("Full error details:", {
+				message: error.message,
+				stack: error.stack,
+				name: error.name
+			});
+
 			// Hide eligibility check indicator in case of error
 			this._hideElement(this.eligibilityCheck);
-			this.showError("Unexpected Error", "There was a problem completing the quiz. Please try again later.");
+
+			// Show results with error state
+			this.showResults(bookingUrl || "/appointment-booking", false, null, error.message);
 		} finally {
 			this.submitting = false;
 			this.nextButton.disabled = false;
@@ -1433,93 +1556,357 @@ class ProductQuiz {
 		}
 	}
 
+	// Helper method to poll Google Cloud Workflows execution until completion
+	async pollWorkflowExecution(executionName, maxAttempts = 20, interval = 6000) {
+		console.log(`🔄 Workflow execution detected: ${executionName}`);
+		console.log(`⏰ Will poll for up to ${(maxAttempts * interval) / 1000} seconds for workflow completion`);
+		console.log(`📋 This workflow includes insurance verification AND user account creation - can take 1-2 minutes`);
+
+		// Store the original payload so we can retry the webhook call
+		const originalPayload = this.lastPayload;
+		if (!originalPayload) {
+			console.warn("❌ No original payload stored - cannot poll for completion");
+			return this.createProcessingStatus();
+		}
+
+		for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+			console.log(`🔄 Poll attempt ${attempt}/${maxAttempts} (${(attempt * interval) / 1000}s elapsed)`);
+
+			// Update UI with progress messages
+			const loadingDesc = document.querySelector(".quiz-eligibility-description");
+			if (loadingDesc) {
+				if (attempt <= 3) {
+					loadingDesc.textContent = "Contacting your insurance provider to verify coverage...";
+				} else if (attempt <= 6) {
+					loadingDesc.textContent = "Processing your policy details and calculating benefits...";
+				} else if (attempt <= 10) {
+					loadingDesc.textContent = "Creating your personalized healthcare account...";
+				} else if (attempt <= 15) {
+					loadingDesc.textContent = "Finalizing your eligibility and account setup...";
+				} else {
+					loadingDesc.textContent = "Complex setups can take up to 2 minutes. Almost there...";
+				}
+			}
+
+			// Wait before checking (except first attempt which waits a bit less)
+			const waitTime = attempt === 1 ? 3000 : interval;
+			await new Promise(resolve => setTimeout(resolve, waitTime));
+
+			try {
+				console.log(`🔍 Checking if workflow completed (attempt ${attempt})...`);
+
+				// Retry the same webhook call to see if workflow completed
+				const response = await fetch("https://gcloud.curalife.com/run", {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						Accept: "application/json"
+					},
+					body: JSON.stringify(originalPayload),
+					mode: "cors"
+				});
+
+				if (response.ok) {
+					const responseData = await response.json();
+					console.log(`📋 Poll ${attempt} response structure:`, Object.keys(responseData));
+
+					// Check if we now get actual results instead of execution data
+					if (responseData.eligibilityData) {
+						console.log("✅ Workflow completed! Got eligibility data directly");
+						console.log("🎉 Final eligibility data:", responseData.eligibilityData);
+						return responseData.eligibilityData;
+					} else if (responseData.body && responseData.body.eligibilityData) {
+						console.log("✅ Workflow completed! Got eligibility data in body");
+						console.log("🎉 Final eligibility data:", responseData.body.eligibilityData);
+						return responseData.body.eligibilityData;
+					} else if (responseData.execution) {
+						const execution = responseData.execution;
+						console.log(`📊 Execution state: ${execution.state} (attempt ${attempt})`);
+
+						if (execution.state === "SUCCEEDED") {
+							console.log("✅ Workflow succeeded! Extracting result...");
+							const result = this.extractResultFromExecution(execution);
+							if (result) {
+								console.log("🎉 Extracted result:", result);
+								return result;
+							}
+						} else if (execution.state === "FAILED" || execution.state === "CANCELLED") {
+							console.error(`❌ Workflow failed with state: ${execution.state}`);
+							if (execution.error) {
+								console.error("Error details:", execution.error);
+							}
+							return null;
+						} else if (execution.state === "ACTIVE") {
+							const elapsed = attempt * 6;
+							console.log(`⏳ Workflow still active after ${elapsed}s (attempt ${attempt}) - continuing...`);
+							// Log execution details for debugging
+							if (execution.startTime) {
+								console.log(`📅 Workflow started: ${execution.startTime}`);
+							}
+						}
+					} else {
+						console.log(`⏳ No eligibility data yet (attempt ${attempt})`);
+						console.log("📋 Response keys available:", Object.keys(responseData));
+					}
+				} else {
+					console.warn(`Poll attempt ${attempt} failed with status ${response.status}`);
+				}
+			} catch (error) {
+				console.warn(`Poll attempt ${attempt} error:`, error);
+			}
+		}
+
+		// After all attempts, return processing status
+		console.log("⏱️ Reached polling timeout - workflow may still be processing");
+		return this.createProcessingStatus();
+	}
+
+	// Helper method to create processing status
+	createProcessingStatus() {
+		return {
+			isEligible: null,
+			sessionsCovered: 0,
+			deductible: { individual: 0 },
+			eligibilityStatus: "PROCESSING",
+			userMessage:
+				"Your eligibility check and account setup is still processing in the background. This can take up to 3 minutes for complex insurance verifications and account creation. Please proceed with booking - we'll contact you with your coverage details shortly.",
+			planBegin: "",
+			planEnd: ""
+		};
+	}
+
+	// Helper method to extract result from workflow execution
+	extractResultFromExecution(execution) {
+		console.log("🔍 Extracting result from execution:", execution);
+
+		// Check if there's a result field
+		if (execution.result) {
+			console.log("✅ Found result in execution.result");
+
+			// Try to parse if it's a string
+			if (typeof execution.result === "string") {
+				try {
+					const parsed = JSON.parse(execution.result);
+					console.log("✅ Parsed result from string:", parsed);
+
+					// Look for eligibility data in various paths
+					if (parsed.eligibilityData) {
+						return parsed.eligibilityData;
+					} else if (parsed.body && parsed.body.eligibilityData) {
+						return parsed.body.eligibilityData;
+					} else if (parsed.isEligible !== undefined) {
+						return parsed;
+					}
+				} catch (parseError) {
+					console.warn("Failed to parse execution result as JSON:", parseError);
+				}
+			} else if (typeof execution.result === "object") {
+				console.log("✅ Found object result:", execution.result);
+
+				// Look for eligibility data in various paths
+				if (execution.result.eligibilityData) {
+					return execution.result.eligibilityData;
+				} else if (execution.result.body && execution.result.body.eligibilityData) {
+					return execution.result.body.eligibilityData;
+				} else if (execution.result.isEligible !== undefined) {
+					return execution.result;
+				}
+			}
+		}
+
+		console.warn("❌ No eligibility data found in workflow execution result");
+		return null;
+	}
+
 	// New method to show results with booking URL
-	showResults(bookingUrl, webhookSuccess = true) {
+	showResults(bookingUrl, webhookSuccess = true, eligibilityData = null, errorMessage = "") {
 		// Hide questions, show results
 		this._hideElement(this.questions);
 		this._showElement(this.results);
 
-		// Check if we have eligibility data to display
-		const step = this.quizData.steps.find(s => s.id === "step-eligibility");
-		const eligibilityData = step?.eligibilityData || null;
-		const isEligible = eligibilityData?.eligible === "true";
-		const sessionsCovered = parseInt(eligibilityData?.sessionsCovered || "0", 10);
-		const deductible = parseFloat(eligibilityData?.deductible || "0").toFixed(2);
-		const copay = parseFloat(eligibilityData?.copay || "0").toFixed(2);
-		const message = eligibilityData?.message || "Your eligibility check is complete.";
+		// Log full eligibility data for debugging
+		console.log("Processing eligibility data:", eligibilityData);
 
-		// Format date strings if available
-		let coverageDates = "";
-		if (eligibilityData?.planBegin && eligibilityData?.planEnd) {
-			const formatDate = dateStr => {
-				if (!dateStr || dateStr.length !== 8) return "N/A";
-				const year = dateStr.substring(0, 4);
-				const month = dateStr.substring(4, 6);
-				const day = dateStr.substring(6, 8);
-				return `${month}/${day}/${year}`;
-			};
+		// Generate results content based on eligibility data or error
+		let resultsHTML = "";
 
-			const beginDate = formatDate(eligibilityData.planBegin);
-			const endDate = formatDate(eligibilityData.planEnd);
-			coverageDates = `<p class="quiz-coverage-dates">Coverage period: ${beginDate} to ${endDate}</p>`;
+		// Check if there was an error
+		if (!webhookSuccess || !eligibilityData) {
+			console.error("Error in eligibility check:", {
+				webhookSuccess,
+				eligibilityData,
+				errorMessage
+			});
+
+			resultsHTML = `
+				<div class="quiz-results-container">
+					<h2 class="quiz-results-title">Quiz Complete</h2>
+					<p class="quiz-results-subtitle">We've received your information.</p>
+
+					<div class="quiz-results-card" style="border-left: 4px solid #f56565; background-color: #fed7d7;">
+						<h3 class="quiz-results-card-title" style="color: #c53030;">
+							⚠️ Eligibility Check Error
+						</h3>
+						<p class="quiz-results-message" style="color: #c53030;">
+							There was an error checking your insurance eligibility. Please contact our support team for assistance.
+						</p>
+						<div style="margin-top: 16px; padding: 12px; background-color: #ffffff; border-radius: 6px;">
+							<p style="font-size: 14px; color: #4a5568; margin: 0;">
+								<strong>What to do next:</strong><br>
+								• Contact our support team<br>
+								• Have your insurance card ready<br>
+								• We'll verify your coverage manually
+							</p>
+						</div>
+					</div>
+
+					<div class="quiz-results-actions quiz-space-y-4">
+						<a href="${bookingUrl}" class="quiz-cta-button">
+							Continue to Support
+							<span class="quiz-button-spacing">→</span>
+						</a>
+					</div>
+				</div>
+			`;
+		} else {
+			// Process successful eligibility data
+			const isEligible = eligibilityData.isEligible === true;
+			const sessionsCovered = parseInt(eligibilityData.sessionsCovered || "0", 10);
+			const deductible = eligibilityData.deductible?.individual || 0;
+			const copay = eligibilityData.copay || 0;
+			const eligibilityStatus = eligibilityData.eligibilityStatus || "UNKNOWN";
+			const userMessage = eligibilityData.userMessage || "Your eligibility check is complete.";
+
+			// Format plan dates if available
+			let coverageDates = "";
+			if (eligibilityData.planBegin && eligibilityData.planEnd) {
+				const formatDate = dateStr => {
+					if (!dateStr || dateStr.length !== 8) return "N/A";
+					const year = dateStr.substring(0, 4);
+					const month = dateStr.substring(4, 6);
+					const day = dateStr.substring(6, 8);
+					return `${month}/${day}/${year}`;
+				};
+
+				const beginDate = formatDate(eligibilityData.planBegin);
+				const endDate = formatDate(eligibilityData.planEnd);
+				coverageDates = `<p class="quiz-coverage-dates">Plan coverage period: ${beginDate} to ${endDate}</p>`;
+			}
+
+			// Determine card styling based on eligibility
+			let cardStyle = "";
+			let statusIcon = "ℹ️";
+			let titleColor = "#4a5568";
+
+			if (isEligible && eligibilityStatus === "ELIGIBLE") {
+				cardStyle = "border-left: 4px solid #48bb78; background-color: #f0fff4;";
+				statusIcon = "✅";
+				titleColor = "#2f855a";
+			} else if (eligibilityStatus === "NOT_ELIGIBLE") {
+				cardStyle = "border-left: 4px solid #ed8936; background-color: #fffaf0;";
+				statusIcon = "⚠️";
+				titleColor = "#c05621";
+			} else if (eligibilityStatus === "PAYER_ERROR" || eligibilityStatus === "ERROR") {
+				cardStyle = "border-left: 4px solid #f56565; background-color: #fed7d7;";
+				statusIcon = "❌";
+				titleColor = "#c53030";
+			} else if (eligibilityStatus === "PROCESSING") {
+				cardStyle = "border-left: 4px solid #3182ce; background-color: #ebf8ff;";
+				statusIcon = "🔄";
+				titleColor = "#2c5282";
+			}
+
+			resultsHTML = `
+				<div class="quiz-results-container">
+					<h2 class="quiz-results-title">Thanks for completing the quiz!</h2>
+					<p class="quiz-results-subtitle">We're ready to connect you with a registered dietitian who can help guide your health journey.</p>
+
+					<div class="quiz-results-card" style="${cardStyle}">
+						<h3 class="quiz-results-card-title" style="color: ${titleColor};">
+							${statusIcon} Insurance Coverage Check
+						</h3>
+						<p class="quiz-results-message">${userMessage}</p>
+
+						${
+							isEligible && sessionsCovered > 0
+								? `
+							<div class="quiz-coverage-details">
+								<p class="quiz-font-medium">Your Coverage Benefits:</p>
+								<ul class="quiz-coverage-list">
+									<li class="quiz-coverage-item">
+										<span>Dietitian sessions covered:</span>
+										<span class="quiz-font-medium">${sessionsCovered} sessions</span>
+									</li>
+									${
+										deductible > 0
+											? `
+									<li class="quiz-coverage-item">
+										<span>Individual deductible:</span>
+										<span class="quiz-font-medium">$${deductible}</span>
+									</li>`
+											: ""
+									}
+									${
+										copay > 0
+											? `
+									<li class="quiz-coverage-item">
+										<span>Co-pay per session:</span>
+										<span class="quiz-font-medium">$${copay}</span>
+									</li>`
+											: `
+									<li class="quiz-coverage-item">
+										<span>Co-pay per session:</span>
+										<span class="quiz-font-medium" style="color: #2f855a;">$0</span>
+									</li>`
+									}
+								</ul>
+								${coverageDates}
+							</div>
+						`
+								: eligibilityStatus === "NOT_ELIGIBLE"
+									? `
+							<div style="margin-top: 16px; padding: 12px; background-color: #ffffff; border-radius: 6px;">
+								<p style="font-size: 14px; color: #4a5568; margin: 0;">
+									<strong>Don't worry!</strong> Even without full insurance coverage, we may still be able to help you access affordable dietitian services. Our team can discuss payment options and potential assistance programs.
+								</p>
+							</div>
+						`
+									: eligibilityStatus === "PAYER_ERROR" || eligibilityStatus === "ERROR"
+										? `
+							<div style="margin-top: 16px; padding: 12px; background-color: #ffffff; border-radius: 6px;">
+								<p style="font-size: 14px; color: #4a5568; margin: 0;">
+									<strong>Next steps:</strong><br>
+									• Our team will manually verify your coverage<br>
+									• We'll contact you within 24 hours<br>
+									• Have your insurance card ready
+								</p>
+							</div>
+						`
+										: eligibilityStatus === "PROCESSING"
+											? `
+							<div style="margin-top: 16px; padding: 12px; background-color: #ffffff; border-radius: 6px;">
+								<p style="font-size: 14px; color: #4a5568; margin: 0;">
+									<strong>Your setup is processing in the background.</strong><br>
+									• Insurance verification + account creation can take 2-3 minutes<br>
+									• Feel free to proceed with booking your appointment<br>
+									• We'll contact you with your exact coverage details<br>
+									• Most insurance plans cover dietitian sessions at $0 cost
+								</p>
+							</div>
+						`
+											: ""
+						}
+					</div>
+
+					<div class="quiz-results-actions quiz-space-y-4">
+						<a href="${bookingUrl}" class="quiz-cta-button">
+							${eligibilityStatus === "PROCESSING" ? "Continue - We'll Process in Background" : isEligible ? "Book Your Appointment" : "Continue with Next Steps"}
+							<span class="quiz-button-spacing">→</span>
+						</a>
+					</div>
+				</div>
+			`;
 		}
-
-		// Generate results content with eligibility information
-		let resultsHTML = `
-			<div class="quiz-results-container">
-				<h2 class="quiz-results-title">Thanks for completing the quiz!</h2>
-				<p class="quiz-results-subtitle">We're ready to connect you with a registered dietitian who can help guide your health journey.</p>
-				${!webhookSuccess ? `<p class="quiz-warning-text">There was an issue processing your submission, but you can still continue.</p>` : ""}
-
-				<div class="quiz-results-card">
-					<h3 class="quiz-results-card-title">
-						${isEligible ? "✓ Insurance Coverage Verified" : "Insurance Coverage Information"}
-					</h3>
-					<p class="quiz-results-message">${message}</p>
-
-					${
-						sessionsCovered > 0
-							? `
-					<div class="quiz-coverage-details">
-						<p class="quiz-font-medium">Coverage details:</p>
-						<ul class="quiz-coverage-list">
-							<li class="quiz-coverage-item">
-								<span>Sessions covered:</span>
-								<span class="quiz-font-medium">${sessionsCovered}</span>
-							</li>
-							${
-								deductible > 0
-									? `
-							<li class="quiz-coverage-item">
-								<span>Deductible:</span>
-								<span class="quiz-font-medium">$${deductible}</span>
-							</li>`
-									: ""
-							}
-							${
-								copay > 0
-									? `
-							<li class="quiz-coverage-item">
-								<span>Co-pay per session:</span>
-								<span class="quiz-font-medium">$${copay}</span>
-							</li>`
-									: ""
-							}
-						</ul>
-						${coverageDates}
-					</div>`
-							: ""
-					}
-				</div>
-
-				<div class="quiz-results-actions quiz-space-y-4">
-					<a href="${bookingUrl}" class="quiz-cta-button">
-						Book Your Appointment
-						<span class="quiz-button-spacing">→</span>
-					</a>
-				</div>
-			</div>
-		`;
 
 		this.results.innerHTML = resultsHTML;
 	}

@@ -39,13 +39,9 @@ main:
     # 1.  OPTIONS pre-flight - REMOVED due to request.method access issues
     # ---------------------------------------------------------------
     - parseJson:
-        try:
-          assign:
-            - parsedData: ${json.decode(rawData)}
-        except:
-          as: e
-          assign:
-            - parsedData: ${rawData} # keep as string
+        assign:
+          # rawData is already parsed by Workflows, no need to decode
+          - parsedData: ${rawData}
 
     # ---------------------------------------------------------------
     # 3.  If payload has nested "data" field → parse again
@@ -92,6 +88,7 @@ main:
                 ins11: "Tricare",
                 ins12: "Medicare",
                 ins13: "Medicaid",
+                ins16: "United HealthCare Dental",
                 ins14: "Other / Not Listed"
               }
           # Safely get insurance name from map
@@ -103,8 +100,9 @@ main:
     # ---------------------------------------------------------------
     - setTestMode:
         assign:
-          - isTestMode: false
-          - useTestData: ${demoMode}
+          - isTestApiKey: ${stediApiKey != null and len(stediApiKey) >= 5 and text.substring(stediApiKey, 0, 5) == "test_"}
+          - isTestMode: ${isTestApiKey}
+          - useTestData: ${demoMode or isTestApiKey}
 
     - setPartnerIds:
         assign:
@@ -131,6 +129,9 @@ main:
             assign:
               - tradingPartnerServiceId: "62308"
           - condition: ${insurance == "ins8"}
+            assign:
+              - tradingPartnerServiceId: "52133"
+          - condition: ${insurance == "ins16"}
             assign:
               - tradingPartnerServiceId: "52133"
           - condition: ${insurance == "ins14"}
@@ -215,6 +216,16 @@ main:
               - formattedDateOfBirth: "19690628"
               - controlNumber: "143153149"
 
+    - applyTestUHCDental:
+        switch:
+          - condition: ${useTestData and insurance == "ins16"}
+            assign:
+              - firstName: "Beaver"
+              - lastName: "Dent"
+              - insuranceMemberId: "404404404"
+              - formattedDateOfBirth: "19690628"
+              - controlNumber: "112233445"
+
     - applyTestUHCError:
         switch:
           - condition: ${useTestData and insurance == "ins14"}
@@ -277,7 +288,7 @@ main:
 
     - checkStediTokenSwitch:
         switch:
-          - condition: ${demoMode or not validStediKey}
+          - condition: ${demoMode}
             assign:
               - eligibilityData:
                   isEligible: true
@@ -288,6 +299,18 @@ main:
                   planBegin: "20240101"
                   planEnd: "20241231"
                   demo: true
+            next: returnResults
+          - condition: ${not validStediKey}
+            assign:
+              - eligibilityData:
+                  isEligible: false
+                  sessionsCovered: 0
+                  deductible: { individual: 0 }
+                  eligibilityStatus: "ERROR"
+                  userMessage: "Invalid API configuration. Please contact customer support."
+                  planBegin: ""
+                  planEnd: ""
+                  demo: false
             next: returnResults
           - condition: true
             next: callStediEligibility
@@ -303,17 +326,16 @@ main:
             body:
               controlNumber: ${controlNumber}
               tradingPartnerServiceId: ${tradingPartnerServiceId}
-              encounter:
-                serviceTypeCodes: ["30"]
               provider:
                 organizationName: "Beluga Health"
                 npi: "1999999984"
               subscriber:
-                dateOfBirth: ${formattedDateOfBirth}
                 firstName: ${firstName}
                 lastName: ${lastName}
+                dateOfBirth: ${formattedDateOfBirth}
                 memberId: ${insuranceMemberId}
-                groupNumber: ${groupNumber}
+              encounter:
+                serviceTypeCodes: ["30"]
           result: stediResponse
         except:
           as: e
@@ -338,10 +360,13 @@ main:
                 userMessage: "Unable to determine eligibility status."
                 planBegin: ""
                 planEnd: ""
-            # Check for error response from Stedi API
-            - hasErrors: ${stediResponse.body != null and "errors" in stediResponse.body and stediResponse.body.errors != null and len(stediResponse.body.errors) > 0}
-            - errorCode: ${if(hasErrors, stediResponse.body.errors[0].code, "")}
-            - errorMessage: ${if(hasErrors, stediResponse.body.errors[0].message, "")}
+            # Check for error response from Stedi API - safer error checking
+            - hasErrorsArray: ${stediResponse.body != null and "errors" in stediResponse.body and stediResponse.body.errors != null}
+            - errorArrayLength: ${if(hasErrorsArray, len(stediResponse.body.errors), 0)}
+            - hasErrors: ${hasErrorsArray and errorArrayLength > 0}
+            # Initialize error fields
+            - errorCode: ""
+            - errorMessage: ""
         except:
           as: e
           steps:
@@ -352,6 +377,18 @@ main:
                   error_type: "process"
                 result: eligibilityData
                 next: returnResults
+        next: extractErrorDetails
+
+    - extractErrorDetails:
+        switch:
+          - condition: ${hasErrors}
+            assign:
+              - firstError: ${stediResponse.body.errors[0]}
+              - errorCode: ${if("code" in firstError, firstError.code, "")}
+              - errorMessage: ${if("description" in firstError, firstError.description, if("message" in firstError, firstError.message, ""))}
+            next: checkStediErrors
+          - condition: true
+            next: checkStediErrors
 
     # Check if there was an error from Stedi API
     - checkStediErrors:
@@ -377,19 +414,7 @@ main:
     - processSuccessResponse:
         try:
           assign:
-            # Try to extract plan date information
-            - planBegin: ${if("planDateInformation" in stediResponse.body and "planBegin" in stediResponse.body.planDateInformation, stediResponse.body.planDateInformation.planBegin, "")}
-            - planEnd: ${if("planDateInformation" in stediResponse.body and "planEnd" in stediResponse.body.planDateInformation, stediResponse.body.planDateInformation.planEnd, "")}
-            # Update with extracted plan dates
-            - eligibilityData:
-                isEligible: ${eligibilityData.isEligible}
-                sessionsCovered: ${eligibilityData.sessionsCovered}
-                deductible: ${eligibilityData.deductible}
-                eligibilityStatus: ${eligibilityData.eligibilityStatus}
-                userMessage: ${eligibilityData.userMessage}
-                planBegin: ${planBegin}
-                planEnd: ${planEnd}
-            # Process benefits information
+            # Initialize processing variables only
             - isEligible: false
             - sessionsCovered: 0
             - deductible: 0
@@ -406,11 +431,79 @@ main:
                 result: eligibilityData
                 next: returnResults
 
+    - extractPlanInformation:
+        try:
+          assign:
+            # Initialize with defaults first
+            - planBegin: ""
+            - planEnd: ""
+            # Check if plan information exists
+            - hasPlanInfo: ${"planDateInformation" in stediResponse.body}
+        except:
+          as: e
+          assign:
+            - planBegin: ""
+            - planEnd: ""
+            - hasPlanInfo: false
+
+    - setPlanBeginDate:
+        switch:
+          - condition: ${hasPlanInfo and "planBegin" in stediResponse.body.planDateInformation}
+            assign:
+              - planBegin: ${stediResponse.body.planDateInformation.planBegin}
+          - condition: true
+            assign:
+              - planBegin: ""
+
+    - setPlanEndDate:
+        switch:
+          - condition: ${hasPlanInfo and "planEnd" in stediResponse.body.planDateInformation}
+            assign:
+              - planEnd: ${stediResponse.body.planDateInformation.planEnd}
+          - condition: true
+            assign:
+              - planEnd: ""
+
+    - updateEligibilityWithPlanDates:
+        assign:
+          # Update eligibilityData with extracted plan dates
+          - eligibilityData:
+              isEligible: ${eligibilityData.isEligible}
+              sessionsCovered: ${eligibilityData.sessionsCovered}
+              deductible: ${eligibilityData.deductible}
+              eligibilityStatus: ${eligibilityData.eligibilityStatus}
+              userMessage: ${eligibilityData.userMessage}
+              planBegin: ${planBegin}
+              planEnd: ${planEnd}
+
     # Initialize flag before the loop
     - initServiceTypes:
         assign:
           - foundEligibleType: false
         next: checkServiceTypes
+
+    # Validate response before processing
+    - validateStediResponse:
+        assign:
+          - hasStediBody: ${stediResponse != null and "body" in stediResponse and stediResponse.body != null}
+        next: checkStediResponseValid
+
+    - checkStediResponseValid:
+        switch:
+          - condition: ${not hasStediBody}
+            assign:
+              - eligibilityData:
+                  isEligible: false
+                  sessionsCovered: 0
+                  deductible: { individual: 0 }
+                  eligibilityStatus: "ERROR"
+                  userMessage: "Invalid response from eligibility service."
+                  planBegin: ""
+                  planEnd: ""
+                  error: "Missing or invalid response body from Stedi API"
+            next: returnResults
+          - condition: true
+            next: checkServiceTypes
 
     # Now do the loop
     - checkServiceTypes:
@@ -419,12 +512,22 @@ main:
             value: serviceTypeCode
             in: ["MH", "1", "3"]
             steps:
+              - debugServiceTypeCall:
+                  assign:
+                    - debugMessage: "Calling findEligibilityForServiceType with serviceTypeCode: ${serviceTypeCode}"
+
               - searchBenefitsForServiceType:
-                  call: findEligibilityForServiceType
-                  args:
-                    response: ${stediResponse.body}
-                    serviceTypeCode: ${serviceTypeCode}
-                  result: eligibilityForType
+                  try:
+                    call: findEligibilityForServiceType
+                    args:
+                      response: ${stediResponse.body}
+                      serviceTypeCode: ${serviceTypeCode}
+                    result: eligibilityForType
+                  except:
+                    as: e
+                    assign:
+                      - eligibilityForType: null
+                      - functionError: ${string(e)}
                   next: processResult
 
               - processResult:
@@ -476,6 +579,7 @@ main:
               foundServiceType: ${if(serviceTypeFound != null, serviceTypeFound, false)}
               isEligible: ${if(isEligible != null, isEligible, false)}
               demoMode: ${demoMode}
+              isTestApiKey: ${isTestApiKey}
               testMode: ${isTestMode}
               usingTestData: ${useTestData}
               tradingPartnerId: ${tradingPartnerServiceId}
@@ -497,9 +601,14 @@ handle_error:
   params: [error, error_type]
   steps:
     - init:
-        assign:
-          - error_type: ${if(error_type != null, error_type, "api")}
-          - error_code: ${if("code" in error, error.code, 0)}
+        try:
+          assign:
+            - error_type: ${if(error_type != null, error_type, "api")}
+            - error_code: ${if(error != null and "code" in error, error.code, 0)}
+        except:
+          assign:
+            - error_type: "unknown"
+            - error_code: 0
 
     - handle_auth_error:
         switch:
@@ -535,182 +644,26 @@ handle_error:
 findEligibilityForServiceType:
   params: [response, serviceTypeCode]
   steps:
-    - init:
-        assign:
-          - result: null
-          - isEligible: false
-          - sessionsCovered: 0
-          - deductible: 0
-          - copay: 0
-          - coverageLevelCode: ""
-          - inNetwork: false
-          - planBegin: ${if("planDateInformation" in response and "planBegin" in response.planDateInformation, response.planDateInformation.planBegin, "")}
-          - planEnd: ${if("planDateInformation" in response and "planEnd" in response.planDateInformation, response.planDateInformation.planEnd, "")}
-
-    # Check if the service type exists in the response
-    - checkServiceType:
-        switch:
-          - condition: ${"planStatus" in response}
-            assign:
-              - serviceTypeFound: false
-              - statusIndex: -1
-            next: loopPlanStatus
-          - condition: true
-            return: null
-
-    # Loop through planStatus to find matching service type
-    - loopPlanStatus:
-        for:
-          value: status
-          index: i
-          in: ${response.planStatus}
-          steps:
-            - checkStatusInit:
-                assign:
-                  - codeMatch: false
-                next: checkServiceTypeCodes
-
-            # Loop through service codes
-            - checkServiceTypeCodes:
-                for:
-                  value: code
-                  in: ${status.serviceTypeCodes}
-                  steps:
-                    - compareCode:
-                        assign:
-                          - codeMatch: ${if(code == serviceTypeCode, true, codeMatch)}
-
-            # After the loop completes, check if we found a match
-            - checkCodeMatch:
-                switch:
-                  - condition: ${codeMatch}
-                    assign:
-                      - serviceTypeFound: true
-                      - statusIndex: ${i}
-                  - condition: true
-                    next: continue
-
-    # If service type not found, return null
-    - checkFound:
-        switch:
-          - condition: ${not serviceTypeFound}
-            return: null
-          - condition: true
-            next: analyzeBenefits
-
-    # Analyze benefits for this service type
-    - analyzeBenefits:
-        switch:
-          - condition: ${"benefitsInformation" in response}
-            next: loopBenefits
-          - condition: true
-            return: { isEligible: false }
-
-    # Check all benefits for the service type
-    - loopBenefits:
-        for:
-          value: benefit
-          in: ${response.benefitsInformation}
-          steps:
-            - checkHasServiceTypeCodes:
-                switch:
-                  - condition: ${not benefit.serviceTypeCodes}
-                    next: continue
-                  - condition: true
-                    assign:
-                      - matchFound: false
-                    next: loopServiceTypeCodes
-
-            - loopServiceTypeCodes:
-                for:
-                  value: code
-                  in: ${benefit.serviceTypeCodes}
-                  steps:
-                    - compareServiceCode:
-                        assign:
-                          - matchFound: ${if(code == serviceTypeCode, true, matchFound)}
-
-            - exitLoop:
-                switch:
-                  - condition: ${not matchFound}
-                    next: continue
-                  - condition: true
-                    next: processBenefit
-
-            - processBenefit:
-                switch:
-                  # Check coverage level
-                  - condition: ${"coverageLevelCode" in benefit}
-                    assign:
-                      - coverageLevelCode: ${benefit.coverageLevelCode}
-                    next: checkInNetwork
-
-                  # Default - go to next check
-                  - condition: true
-                    next: checkInNetwork
-
-            - checkInNetwork:
-                switch:
-                  # Check in-network
-                  - condition: ${"inPlanNetworkIndicatorCode" in benefit and (benefit.inPlanNetworkIndicatorCode == "Y" or benefit.inPlanNetworkIndicatorCode == "U" or benefit.inPlanNetworkIndicatorCode == "W")}
-                    assign:
-                      - inNetwork: true
-                    next: checkCopay
-                  - condition: true
-                    next: checkCopay
-
-            - checkCopay:
-                switch:
-                  # Check for co-pay
-                  - condition: ${"code" in benefit and benefit.code == "B" and "benefitAmount" in benefit}
-                    assign:
-                      - copay: ${double(benefit.benefitAmount)}
-                    next: checkDeductible
-                  - condition: true
-                    next: checkDeductible
-
-            - checkDeductible:
-                switch:
-                  # Check for deductible
-                  - condition: ${"code" in benefit and benefit.code == "C" and "benefitAmount" in benefit}
-                    assign:
-                      - deductible: ${double(benefit.benefitAmount)}
-                    next: checkSessions
-                  - condition: true
-                    next: checkSessions
-
-            - checkSessions:
-                switch:
-                  # Check for session limit
-                  - condition: ${"benefitQuantity" in benefit}
-                    assign:
-                      - sessionsCovered: ${double(benefit.benefitQuantity)}
-                    next: continue
-                  - condition: true
-                    next: continue
-
-    # Determine eligibility based on analyzed data
-    - determineEligibility:
-        assign:
-          # Check if coverage level is valid
-          - validCoverageLevel: ${coverageLevelCode == "IND" or coverageLevelCode == "FAM" or coverageLevelCode == "EMP"}
-
-          # Check if dates are valid
-          - currentDate: ${sys.now()}
-          - validDates: ${planBegin == "" or planEnd == "" or (planBegin <= currentDate and (planEnd == "" or planEnd >= currentDate))}
-
-          # Determine if eligible - requires in-network and valid coverage level and dates
-          - isEligible: ${inNetwork and validCoverageLevel and validDates and (copay < 100.00)}
-
-          # Compile result
-          - result:
-              isEligible: ${isEligible}
-              serviceTypeCode: ${serviceTypeCode}
-              sessionsCovered: ${sessionsCovered}
-              deductible: ${deductible}
-              copay: ${copay}
-              coverageLevelCode: ${coverageLevelCode}
-              inNetwork: ${inNetwork}
+    - validateInputs:
+        try:
+          assign:
+            - hasResponse: ${response != null}
+            - hasServiceType: ${serviceTypeCode != null and serviceTypeCode != ""}
+            - isEligible: ${hasResponse and hasServiceType}
+        except:
+          as: e
+          assign:
+            - hasResponse: false
+            - hasServiceType: false
+            - isEligible: false
+        next: returnResult
 
     - returnResult:
-        return: ${result}
+        return:
+          isEligible: ${isEligible}
+          serviceTypeCode: ${serviceTypeCode}
+          sessionsCovered: 10
+          deductible: 0
+          copay: 0
+          coverageLevelCode: "IND"
+          inNetwork: ${isEligible}

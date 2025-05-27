@@ -53,32 +53,15 @@ main:
             next: parseJson
 
     # ---------------------------------------------------------------
-    # 2.  OPTIONS pre-flight
-    # ---------------------------------------------------------------
-    - checkOptions:
-        switch:
-          - condition: ${rawData.method == "OPTIONS"}
-            return:
-              statusCode: 204
-              body: ""
-              headers: ${corsHeaders}
-          - condition: true
-            next: parseJson
-
-    # ---------------------------------------------------------------
-    # 3.  Parse JSON safely
+    # 2.  OPTIONS pre-flight - REMOVED due to request.method access issues
     # ---------------------------------------------------------------
     - parseJson:
-        try:
-          assign:
-            - parsedData: ${json.decode(rawData)}
-        except:
-          as: e
-          assign:
-            - parsedData: ${rawData} # keep as string
+        assign:
+          # rawData is already parsed by Workflows, no need to decode
+          - parsedData: ${rawData}
 
     # ---------------------------------------------------------------
-    # 4.  If payload has nested "data" field → parse again
+    # 3.  If payload has nested "data" field → parse again
     # ---------------------------------------------------------------
     - resolveDataField:
         switch:
@@ -94,7 +77,7 @@ main:
               - actualPayload: ${parsedData}
 
     # ---------------------------------------------------------------
-    # 5.  Init variables (email etc.)
+    # 4.  Init variables (email etc.)
     # ---------------------------------------------------------------
     - initializeVars:
         assign:
@@ -130,7 +113,7 @@ main:
               planEnd: ${if("planEnd" in eligibilityData, eligibilityData.planEnd, "")}
 
     # ---------------------------------------------------------------
-    # 6.  Extract values directly from the payload + backup from responses
+    # 5.  Extract values directly from the payload + backup from responses
     # ---------------------------------------------------------------
     - extractFields:
         assign:
@@ -148,7 +131,7 @@ main:
           - consent: ${if(actualPayload != null and "consent" in actualPayload, actualPayload.consent, false)}
 
     # ---------------------------------------------------------------
-    # 7.  Maps for data formatting
+    # 6.  Maps for data formatting
     # ---------------------------------------------------------------
     - setupMaps:
         assign:
@@ -208,7 +191,7 @@ main:
                   - formattedMedical: ${list.concat(formattedMedical, [formattedCondition])}
 
     # ---------------------------------------------------------------
-    # 8.  Validate email
+    # 7.  Validate email
     # ---------------------------------------------------------------
     - validateEmail:
         switch:
@@ -225,7 +208,7 @@ main:
                 attemptedEmail: ${customerEmail}
 
     # ---------------------------------------------------------------
-    # 9. Generate temporary password
+    # 8. Generate temporary password
     # ---------------------------------------------------------------
     - generatePassword:
         assign:
@@ -387,7 +370,7 @@ main:
         result: assocConsultResp
 
     # ---------------------------------------------------------------
-    # 10.  Success response
+    # 9.  Success response
     # ---------------------------------------------------------------
     - returnSuccess:
         return:
@@ -405,7 +388,7 @@ main:
             timestamp: ${timestamp}
 
     # ---------------------------------------------------------------
-    # 11. Error handlers
+    # 10. Error handlers
     # ---------------------------------------------------------------
     - shopifyError:
         return:

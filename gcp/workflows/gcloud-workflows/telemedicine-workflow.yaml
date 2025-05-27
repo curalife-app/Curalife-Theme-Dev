@@ -23,42 +23,16 @@ main:
           - timestamp: ${sys.now()}
           - projectId: ${if(sys.get_env("GCP_PROJECT") != null, sys.get_env("GCP_PROJECT"), "telemedicine-458913")}
 
-    # Get method safely
-    - getMethod:
-        try:
-          assign:
-            - requestMethod: ${request.method}
-        except:
-          assign:
-            - requestMethod: "POST" # Default to POST if method can't be accessed
-
     # ---------------------------------------------------------------
-    # 1.  OPTIONS pre-flight
-    # ---------------------------------------------------------------
-    - checkOptions:
-        switch:
-          - condition: ${requestMethod == "OPTIONS"}
-            return:
-              statusCode: 204
-              body: ""
-              headers: ${corsHeaders}
-          - condition: true
-            next: parseJson
-
-    # ---------------------------------------------------------------
-    # 2.  Parse JSON safely
+    # 1.  OPTIONS pre-flight - REMOVED due to request.method access issues
     # ---------------------------------------------------------------
     - parseJson:
-        try:
-          assign:
-            - parsedData: ${json.decode(rawData)}
-        except:
-          as: e
-          assign:
-            - parsedData: ${rawData} # keep as string
+        assign:
+          # rawData is already parsed by Workflows, no need to decode
+          - parsedData: ${rawData}
 
     # ---------------------------------------------------------------
-    # 3.  If payload has nested "data" field → parse again
+    # 2.  If payload has nested "data" field → parse again
     # ---------------------------------------------------------------
     - resolveDataField:
         switch:
@@ -74,7 +48,7 @@ main:
               - actualPayload: ${parsedData}
 
     # ---------------------------------------------------------------
-    # 4.  Init variables (email etc.)
+    # 3.  Init variables (email etc.)
     # ---------------------------------------------------------------
     - initializeVars:
         assign:
@@ -98,7 +72,7 @@ main:
           - responses: ${if(actualPayload != null and "allResponses" in actualPayload, actualPayload.allResponses, emptyArray)}
 
     # ---------------------------------------------------------------
-    # 5.  Extract values directly from the payload + backup from responses
+    # 4.  Extract values directly from the payload + backup from responses
     # ---------------------------------------------------------------
     - extractFields:
         assign:
@@ -116,7 +90,7 @@ main:
           - consent: ${if(actualPayload != null and "consent" in actualPayload, actualPayload.consent, false)}
 
     # ---------------------------------------------------------------
-    # 6.  Validate email
+    # 5.  Validate email
     # ---------------------------------------------------------------
     - validateEmail:
         switch:
@@ -133,7 +107,7 @@ main:
                 attemptedEmail: ${customerEmail}
 
     # ---------------------------------------------------------------
-    # 7. Call Eligibility Workflow
+    # 6. Call Eligibility Workflow
     # ---------------------------------------------------------------
     - logEligibilityData:
         assign:
@@ -164,13 +138,68 @@ main:
           - hasEligibilityData: false
           - emptyObject: {}
           - eligibilityData: ${emptyObject}
-          - eligibilityResponseCode: ${if("code" in eligibilityResponse, eligibilityResponse.code, 500)}
-          - eligibilityResponseBody: ${if("body" in eligibilityResponse, eligibilityResponse.body, emptyObject)}
-        next: logEligibilityResponse
+          # Debug the response structure - check what keys exist
+          - responseHasCode: ${"code" in eligibilityResponse}
+          - responseHasStatusCode: ${"statusCode" in eligibilityResponse}
+          - responseHasBody: ${"body" in eligibilityResponse}
+          - responseHasSuccess: ${"success" in eligibilityResponse}
+        next: extractResponseCode
+
+    - extractResponseCode:
+        try:
+          switch:
+            - condition: ${"code" in eligibilityResponse}
+              assign:
+                - eligibilityResponseCode: ${eligibilityResponse.code}
+            - condition: ${"statusCode" in eligibilityResponse}
+              assign:
+                - eligibilityResponseCode: ${eligibilityResponse.statusCode}
+            - condition: true
+              assign:
+                - eligibilityResponseCode: 200
+        except:
+          assign:
+            - eligibilityResponseCode: 200
+        next: extractResponseBody
+
+    - extractResponseBody:
+        try:
+          switch:
+            - condition: ${"body" in eligibilityResponse}
+              try:
+                # Try to parse the body as JSON first, fallback to using it directly
+                assign:
+                  - eligibilityResponseBody: ${json.decode(eligibilityResponse.body)}
+              except:
+                assign:
+                  - eligibilityResponseBody: ${eligibilityResponse.body}
+            - condition: ${"success" in eligibilityResponse}
+              assign:
+                - eligibilityResponseBody: ${eligibilityResponse}
+            - condition: true
+              assign:
+                - eligibilityResponseBody: ${emptyObject}
+        except:
+          assign:
+            - eligibilityResponseBody: ${emptyObject}
+        next: checkForDirectResponse
+
+    - checkForDirectResponse:
+        # Sometimes OIDC calls return the body content directly, let's check for that
+        switch:
+          - condition: ${eligibilityResponseBody != null and "success" in eligibilityResponseBody}
+            next: logEligibilityResponse
+          - condition: ${"eligibilityData" in eligibilityResponse}
+            assign:
+              - eligibilityResponseBody: ${eligibilityResponse}
+            next: logEligibilityResponse
+          - condition: true
+            next: logEligibilityResponse
 
     - logEligibilityResponse:
         assign:
           - logMessage: "Eligibility response received with code ${eligibilityResponseCode}"
+          - debugMessage: "Response structure - hasCode: ${responseHasCode}, hasStatusCode: ${responseHasStatusCode}, hasBody: ${responseHasBody}, hasSuccess: ${responseHasSuccess}"
         next: handleEligibilityResponse
 
     - handleEligibilityResponse:
@@ -180,6 +209,77 @@ main:
                 assign:
                   - hasSuccess: ${eligibilityResponseBody != null and "success" in eligibilityResponseBody and eligibilityResponseBody.success}
                   - hasEligibilityData: ${eligibilityResponseBody != null and "eligibilityData" in eligibilityResponseBody}
+                  # Debug what's in the body
+                  - bodyIsNull: ${eligibilityResponseBody == null}
+                  - bodyHasSuccess: ${eligibilityResponseBody != null and "success" in eligibilityResponseBody}
+                  - bodyHasEligibilityData: ${eligibilityResponseBody != null and "eligibilityData" in eligibilityResponseBody}
+                  - hasBodyField: ${"body" in eligibilityResponse}
+                  # Check if response itself has the data (OIDC calls sometimes return differently)
+                  - responseHasEligibilityData: ${"eligibilityData" in eligibilityResponse}
+                  - responseHasSuccessField: ${"success" in eligibilityResponse}
+                  # Debug what keys are actually present
+                  - responseHasError: ${"error" in eligibilityResponse}
+                  - responseHasMessage: ${"message" in eligibilityResponse}
+                  - bodyHasError: ${eligibilityResponseBody != null and "error" in eligibilityResponseBody}
+                  - bodyHasMessage: ${eligibilityResponseBody != null and "message" in eligibilityResponseBody}
+                next: tryAlternativeExtraction
+
+            - tryAlternativeExtraction:
+                switch:
+                  - condition: ${not hasSuccess and responseHasEligibilityData}
+                    assign:
+                      - eligibilityResponseBody: ${eligibilityResponse}
+                      - hasSuccess: ${eligibilityResponse != null and "success" in eligibilityResponse and eligibilityResponse.success}
+                      - hasEligibilityData: ${eligibilityResponse != null and "eligibilityData" in eligibilityResponse}
+                  # Check if the Cloud Function returned an error
+                  - condition: ${not hasSuccess and (responseHasError or bodyHasError)}
+                    assign:
+                      - eligibilityData:
+                          isEligible: false
+                          sessionsCovered: 0
+                          deductible: { individual: 0 }
+                          eligibilityStatus: "ERROR"
+                          userMessage: "Error occurred during eligibility check. Please contact customer support."
+                      - hasSuccess: false
+                      - hasEligibilityData: true
+                  # If we still don't have success, try calling the eligibility workflow directly inline
+                  - condition: ${not hasSuccess}
+                    next: fallbackDirectCall
+                  - condition: true
+                    next: setEligibilityData
+
+            - fallbackDirectCall:
+                try:
+                  steps:
+                    - callFallback:
+                        call: http.post
+                        args:
+                          url: ${"https://us-central1-" + projectId + ".cloudfunctions.net/workflow_eligibility"}
+                          headers:
+                            Content-Type: "application/json"
+                          body:
+                            firstName: ${firstName}
+                            lastName: ${lastName}
+                            insurance: ${insurance}
+                            insuranceMemberId: ${insuranceMemberId}
+                            groupNumber: ${groupNumber}
+                            dateOfBirth: ${dateOfBirth}
+                            source: "telemedicine-workflow-fallback"
+                        result: fallbackResponse
+                    - processFallbackResponse:
+                        switch:
+                          - condition: ${fallbackResponse.body != null and "success" in fallbackResponse.body and fallbackResponse.body.success}
+                            assign:
+                              - eligibilityResponseBody: ${fallbackResponse.body}
+                              - hasSuccess: true
+                              - hasEligibilityData: ${"eligibilityData" in fallbackResponse.body}
+                          - condition: true
+                            assign:
+                              - hasSuccess: false
+                except:
+                  as: e
+                  assign:
+                    - hasSuccess: false
                 next: setEligibilityData
 
             - setEligibilityData:
@@ -218,6 +318,25 @@ main:
                 success: false
                 error: "Eligibility check failed"
                 details: ${eligibilityResponseBody}
+                debug:
+                  hasSuccess: ${hasSuccess}
+                  eligibilityResponseCode: ${eligibilityResponseCode}
+                  responseStructure:
+                    hasCode: ${responseHasCode}
+                    hasStatusCode: ${responseHasStatusCode}
+                    hasBody: ${responseHasBody}
+                    hasSuccess: ${responseHasSuccess}
+                  bodyDebug:
+                    bodyIsNull: ${bodyIsNull}
+                    bodyHasSuccess: ${bodyHasSuccess}
+                    bodyHasEligibilityData: ${bodyHasEligibilityData}
+                    hasBodyField: ${hasBodyField}
+                    responseHasEligibilityData: ${responseHasEligibilityData}
+                    responseHasSuccessField: ${responseHasSuccessField}
+                    responseHasError: ${responseHasError}
+                    responseHasMessage: ${responseHasMessage}
+                    bodyHasError: ${bodyHasError}
+                    bodyHasMessage: ${bodyHasMessage}
                 requestData:
                   firstName: ${firstName}
                   lastName: ${lastName}
@@ -228,7 +347,7 @@ main:
                 timestamp: ${timestamp}
 
     # ---------------------------------------------------------------
-    # 8. Call User Creation Workflow
+    # 7. Call User Creation Workflow
     # ---------------------------------------------------------------
     - callUserCreationWorkflow:
         call: http.post
@@ -290,7 +409,7 @@ main:
               body: ${userCreationResponse.body}
           - condition: true
             return:
-              statusCode: ${if("code" in userCreationResponse, userCreationResponse.code, 500)}
+              statusCode: ${if("code" in userCreationResponse, userCreationResponse.code, if("statusCode" in userCreationResponse, userCreationResponse.statusCode, 500))}
               headers: ${corsHeaders}
               body:
                 success: false
