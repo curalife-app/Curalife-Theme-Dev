@@ -12,7 +12,7 @@ const QUIZ_CONFIG = {
 	WEBHOOK_TIMEOUT: 8000,
 	FORM_STEP_IDS: ["step-insurance", "step-contact"],
 	QUESTION_PAIRS: {
-		INSURANCE_FIELDS: ["q3", "q4"],
+		MEMBER_ID_FIELDS: ["q4", "q4_group"],
 		NAME_FIELDS: ["q7", "q8"],
 		DATE_PARTS: ["q6_month", "q6_day", "q6_year"]
 	},
@@ -1255,6 +1255,7 @@ class ProductQuiz {
 			let state = "";
 			let insurance = "";
 			let insuranceMemberId = "";
+			let groupNumber = "";
 			let mainReasons = [];
 			let medicalConditions = [];
 			let dateOfBirth = "";
@@ -1273,6 +1274,7 @@ class ProductQuiz {
 				if (response.questionId === "q5") state = response.answer || "";
 				if (response.questionId === "q3") insurance = response.answer || "";
 				if (response.questionId === "q4") insuranceMemberId = response.answer || "";
+				if (response.questionId === "q4_group") groupNumber = response.answer || "";
 				if (response.questionId === "q1") mainReasons = response.answer || [];
 				if (response.questionId === "q2") medicalConditions = response.answer || [];
 				if (response.questionId === "q6_month") dobMonth = response.answer || "";
@@ -1303,6 +1305,7 @@ class ProductQuiz {
 				state,
 				insurance,
 				insuranceMemberId,
+				groupNumber,
 				mainReasons,
 				medicalConditions,
 				consent,
@@ -1781,11 +1784,11 @@ class ProductQuiz {
 			const question = questions[i];
 			const response = this.responses.find(r => r.questionId === question.id) || { answer: null };
 
-			// Check for insurance plan + member ID pair
+			// Check for member ID + group number pair
 			const pairs = QUIZ_CONFIG.QUESTION_PAIRS;
-			if (question.id === pairs.INSURANCE_FIELDS[0] && questions[i + 1] && questions[i + 1].id === pairs.INSURANCE_FIELDS[1]) {
-				const memberIdResponse = this.responses.find(r => r.questionId === questions[i + 1].id) || { answer: null };
-				html += this._generateFormFieldPair(question, questions[i + 1], response, memberIdResponse);
+			if (question.id === pairs.MEMBER_ID_FIELDS[0] && questions[i + 1] && questions[i + 1].id === pairs.MEMBER_ID_FIELDS[1]) {
+				const groupNumberResponse = this.responses.find(r => r.questionId === questions[i + 1].id) || { answer: null };
+				html += this._generateFormFieldPair(question, questions[i + 1], response, groupNumberResponse);
 				i += 2;
 				continue;
 			}
