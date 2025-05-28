@@ -1332,18 +1332,29 @@ class ProductQuiz {
 			const webhookUrl = this.container.getAttribute("data-n8n-webhook");
 			const bookingUrl = this.container.getAttribute("data-booking-url") || "/appointment-booking";
 
+			// Temporary override: Force the new Cloud Function URL
+			const actualWebhookUrl = "https://us-central1-telemedicine-458913.cloudfunctions.net/telemedicine-webhook";
+
 			console.log("=== WEBHOOK CONFIGURATION ===");
-			console.log("Webhook URL:", webhookUrl);
+			console.log("Original Webhook URL:", webhookUrl);
+			console.log("Using Webhook URL:", actualWebhookUrl);
 			console.log("Booking URL:", bookingUrl);
 			console.log("============================");
 
-			if (!webhookUrl) {
+			if (!actualWebhookUrl) {
 				console.warn("No webhook URL provided - proceeding to booking URL without webhook submission");
 				this.showResults(bookingUrl);
 				return;
 			}
 
-			// Try to call the webhook
+			// Check if we're using the old webhook URL and warn about it
+			if (webhookUrl && webhookUrl.includes("gcloud.curalife.com")) {
+				console.warn("⚠️ Section is configured with old webhook URL. Using override to new Cloud Function:");
+				console.warn("Old URL:", webhookUrl);
+				console.warn("New URL:", actualWebhookUrl);
+			}
+
+			// Call the Cloud Function webhook directly
 			let webhookSuccess = false;
 			let errorMessage = "";
 			let eligibilityData = null;
@@ -1352,160 +1363,177 @@ class ProductQuiz {
 				console.log("=== STARTING WEBHOOK REQUEST ===");
 				console.log("Sending payload:", JSON.stringify(payload, null, 2));
 
-				// Set a timeout to avoid waiting too long
-				const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Webhook request timed out")), 8000));
+				// Set a timeout to avoid waiting too long (30 seconds for the Cloud Function)
+				const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Request timed out")), 35000));
 
-				// Try regular CORS request first
-				console.log("Attempting CORS request to:", webhookUrl);
-				let fetchPromise = fetch(webhookUrl, {
+				// Call the Cloud Function webhook
+				console.log("Calling Cloud Function webhook:", actualWebhookUrl);
+				const fetchPromise = fetch(actualWebhookUrl, {
 					method: "POST",
 					mode: "cors",
-					credentials: "include",
 					headers: {
 						"Content-Type": "application/json",
-						Accept: "application/json",
-						Origin: window.location.origin
+						Accept: "application/json"
 					},
-					body: JSON.stringify({
-						data: JSON.stringify(payload) // Double wrap as some n8n workflows expect this format
-					})
-				}).catch(error => {
-					console.log("❌ CORS request failed, trying no-cors mode:", error);
-					// Fallback to no-cors mode if regular CORS fails
-					return fetch(webhookUrl, {
-						method: "POST",
-						mode: "no-cors",
-						headers: {
-							"Content-Type": "application/json"
-						},
-						body: JSON.stringify({
-							data: JSON.stringify(payload)
-						})
-					});
+					body: JSON.stringify(payload)
 				});
 
 				// Race the timeout against the fetch
-				console.log("Waiting for webhook response...");
-				const webhook = await Promise.race([fetchPromise, timeoutPromise]);
-				console.log("✅ Webhook request completed");
+				console.log("Waiting for Cloud Function response...");
+				const response = await Promise.race([fetchPromise, timeoutPromise]);
+				console.log("✅ Cloud Function request completed");
 
-				// Check the response status - for no-cors mode, response.type will be 'opaque'
-				console.log("=== WEBHOOK RESPONSE ANALYSIS ===");
-				console.log("Response type:", webhook.type);
-				console.log("Response status:", webhook.status);
-				console.log("Response ok:", webhook.ok);
-				console.log("Response headers:", webhook.headers);
+				// Check the response status
+				console.log("=== CLOUD FUNCTION RESPONSE ===");
+				console.log("Response status:", response.status);
+				console.log("Response ok:", response.ok);
 				console.log("===============================");
 
-				if (webhook.type === "opaque") {
-					console.log("⚠️ Got opaque response from no-cors request - cannot read response data");
-					console.log("This means the request succeeded but we can't access the response due to CORS");
-					webhookSuccess = true;
-					// For opaque responses, we can't read the data, so eligibilityData will remain null
-				} else if (webhook.ok) {
-					console.log("✅ Webhook response ok:", webhook.status);
+				if (response.ok) {
+					console.log("✅ Cloud Function response ok:", response.status);
 					webhookSuccess = true;
 
 					try {
-						const webhookResponse = await webhook.json();
-						console.log("=== FULL WEBHOOK RESPONSE ===");
-						console.log("Raw response:", webhookResponse);
-						console.log("Response keys:", Object.keys(webhookResponse || {}));
-						console.log("Response type:", typeof webhookResponse);
+						const result = await response.json();
+						console.log("=== CLOUD FUNCTION RESULT ===");
+						console.log("Raw result:", result);
+						console.log("Result keys:", Object.keys(result || {}));
 						console.log("============================");
 
-						// Check if this is a Google Cloud Workflows execution response
-						if (webhookResponse && webhookResponse.execution && webhookResponse.execution.state) {
-							console.log("🔄 Detected Google Cloud Workflows execution response");
-							console.log("Execution state:", webhookResponse.execution.state);
-							console.log("Execution name:", webhookResponse.execution.name);
+						// The Cloud Function now returns the workflow result body directly
+						if (result && result.success === true && result.eligibilityData) {
+							eligibilityData = result.eligibilityData;
+							console.log("✅ Found eligibilityData:", eligibilityData);
+						} else if (result && result.success === false) {
+							console.error("❌ Workflow completed with error:", result);
+							console.error("Error message:", result.error || "Unknown error");
 
-							if (webhookResponse.execution.state === "ACTIVE") {
-								console.log("⏳ Workflow is still running, polling for completion...");
+							// Create error eligibility status
+							eligibilityData = {
+								isEligible: false,
+								sessionsCovered: 0,
+								deductible: { individual: 0 },
+								eligibilityStatus: "ERROR",
+								userMessage: `There was an error processing your request: ${result.error || "Unknown error"}. Our team will contact you to manually verify your coverage.`,
+								planBegin: "",
+								planEnd: ""
+							};
+							console.log("✅ Created error eligibility data:", eligibilityData);
+						}
+						// Handle the case where Cloud Function returns the HTTP response wrapper (before fix)
+						else if (result && result.body) {
+							console.log("🔄 Detected HTTP response wrapper, extracting body");
+							console.log("Body content:", result.body);
 
-								// Update the loading message to show processing state
-								const loadingTitle = this.eligibilityCheck.querySelector(".quiz-eligibility-title");
-								const loadingDesc = this.eligibilityCheck.querySelector(".quiz-eligibility-description");
-
-								if (loadingTitle) {
-									loadingTitle.textContent = "Processing Your Insurance Information";
-								}
-								if (loadingDesc) {
-									loadingDesc.textContent = "We're verifying your coverage details with your insurance provider. This may take a few minutes for complex policies.";
-								}
-
-								// Try to poll for the result
-								eligibilityData = await this.pollWorkflowExecution(webhookResponse.execution.name);
-							} else if (webhookResponse.execution.state === "SUCCEEDED") {
-								console.log("✅ Workflow completed successfully");
-								// Try to extract result from the execution
-								eligibilityData = this.extractResultFromExecution(webhookResponse.execution);
+							if (result.body.success === true && result.body.eligibilityData) {
+								eligibilityData = result.body.eligibilityData;
+								console.log("✅ Found eligibilityData in body:", eligibilityData);
+							} else if (result.body.success === false) {
+								console.error("❌ Workflow completed with error in body:", result.body);
+								eligibilityData = {
+									isEligible: false,
+									sessionsCovered: 0,
+									deductible: { individual: 0 },
+									eligibilityStatus: "ERROR",
+									userMessage: `There was an error processing your request: ${result.body.error || "Unknown error"}. Our team will contact you to manually verify your coverage.`,
+									planBegin: "",
+									planEnd: ""
+								};
+								console.log("✅ Created error eligibility data from body:", eligibilityData);
 							} else {
-								console.log("❌ Workflow failed with state:", webhookResponse.execution.state);
-								errorMessage = `Workflow failed with state: ${webhookResponse.execution.state}`;
+								console.warn("❌ No success/eligibilityData found in body");
+								console.log("Body structure:", result.body);
+								eligibilityData = this.createProcessingStatus();
 							}
 						}
-						// Extract eligibility data from the response - try multiple possible paths
-						else if (webhookResponse && webhookResponse.eligibilityData) {
-							eligibilityData = webhookResponse.eligibilityData;
-							console.log("✅ Found eligibilityData at root level:", eligibilityData);
-						} else if (webhookResponse && webhookResponse.body && webhookResponse.body.eligibilityData) {
-							eligibilityData = webhookResponse.body.eligibilityData;
-							console.log("✅ Found eligibilityData in body:", eligibilityData);
-						} else if (webhookResponse && webhookResponse.body && webhookResponse.body.body && webhookResponse.body.body.eligibilityData) {
-							// Sometimes responses are double-wrapped
-							eligibilityData = webhookResponse.body.body.eligibilityData;
-							console.log("✅ Found eligibilityData in body.body:", eligibilityData);
-						} else if (webhookResponse && webhookResponse.data && webhookResponse.data.eligibilityData) {
-							// Check if it's in a data field
-							eligibilityData = webhookResponse.data.eligibilityData;
-							console.log("✅ Found eligibilityData in data:", eligibilityData);
-						} else if (webhookResponse && webhookResponse.success && webhookResponse.body) {
-							// Check if the whole body is the eligibility data
-							const potentialData = webhookResponse.body;
-							if (potentialData && typeof potentialData === "object" && "isEligible" in potentialData) {
-								eligibilityData = potentialData;
-								console.log("✅ Found eligibilityData as entire body:", eligibilityData);
+						// Handle the old execution object response (fallback for old webhook URL)
+						else if (result && result.execution && result.execution.state) {
+							console.log("🔄 Detected old Google Cloud Workflows execution response");
+							console.log("Execution state:", result.execution.state);
+							console.log("Execution name:", result.execution.name);
+							console.warn("⚠️ This indicates you're using the old webhook URL. Please update to the new Cloud Function URL.");
+
+							if (result.execution.state === "SUCCEEDED") {
+								console.log("✅ Workflow completed successfully");
+								const workflowResult = this.extractResultFromExecution(result.execution);
+								if (workflowResult) {
+									eligibilityData = workflowResult;
+									console.log("✅ Extracted result from execution:", eligibilityData);
+								} else {
+									console.warn("⚠️ Workflow succeeded but no eligibility data found in result");
+									eligibilityData = this.createProcessingStatus();
+								}
+							} else if (result.execution.state === "ACTIVE") {
+								console.log("🔄 Workflow is still running - creating processing status");
+								eligibilityData = this.createProcessingStatus();
+							} else {
+								console.log("❌ Workflow failed with state:", result.execution.state);
+								eligibilityData = {
+									isEligible: false,
+									sessionsCovered: 0,
+									deductible: { individual: 0 },
+									eligibilityStatus: "ERROR",
+									userMessage: `Workflow failed with state: ${result.execution.state}. Our team will contact you to manually verify your coverage.`,
+									planBegin: "",
+									planEnd: ""
+								};
 							}
 						} else {
-							console.warn("❌ No eligibility data found in webhook response");
-							console.log("Checked paths:");
-							console.log("- webhookResponse.eligibilityData:", webhookResponse?.eligibilityData);
-							console.log("- webhookResponse.body:", webhookResponse?.body);
-							console.log("- webhookResponse.body.eligibilityData:", webhookResponse?.body?.eligibilityData);
-							console.log("- webhookResponse.body.body.eligibilityData:", webhookResponse?.body?.body?.eligibilityData);
-							console.log("- webhookResponse.data.eligibilityData:", webhookResponse?.data?.eligibilityData);
+							console.warn("❌ Unexpected response format from Cloud Function");
+							console.log("Expected: { success: true, eligibilityData: {...} }");
+							console.log("Received:", result);
 
-							// Log all possible paths in the response
-							if (webhookResponse) {
-								console.log("Available response structure:");
-								console.log(JSON.stringify(webhookResponse, null, 2));
-							}
+							// Create a fallback processing status
+							console.log("🔄 Creating fallback processing status");
+							eligibilityData = this.createProcessingStatus();
 						}
 					} catch (jsonError) {
-						console.error("Failed to parse webhook JSON response:", jsonError);
+						console.error("Failed to parse Cloud Function JSON response:", jsonError);
 						errorMessage = "Failed to process server response";
+						eligibilityData = this.createProcessingStatus();
 					}
 				} else {
-					errorMessage = `Server returned status ${webhook.status}`;
-					console.error("Webhook error:", errorMessage);
+					errorMessage = `Server returned status ${response.status}`;
+					console.error("Cloud Function error:", errorMessage);
 
 					try {
-						const errorData = await webhook.text();
+						const errorData = await response.text();
 						console.error("Error response body:", errorData);
 						errorMessage += `: ${errorData}`;
 					} catch (textError) {
 						console.warn("Could not read error response:", textError);
 					}
+
+					// Create error eligibility status for HTTP errors
+					eligibilityData = {
+						isEligible: false,
+						sessionsCovered: 0,
+						deductible: { individual: 0 },
+						eligibilityStatus: "ERROR",
+						userMessage: `Server error (${response.status}). Our team will contact you to manually verify your coverage.`,
+						planBegin: "",
+						planEnd: ""
+					};
 				}
 			} catch (error) {
 				errorMessage = error.message || "Network error";
-				console.error("Error submitting quiz responses:", error);
+				console.error("Error calling Cloud Function:", error);
 				console.error("Full error details:", {
 					message: error.message,
 					stack: error.stack,
 					name: error.name
 				});
+
+				// Create error eligibility status for network errors
+				eligibilityData = {
+					isEligible: false,
+					sessionsCovered: 0,
+					deductible: { individual: 0 },
+					eligibilityStatus: "ERROR",
+					userMessage: `Network error: ${error.message}. Please check your connection and try again, or contact our support team.`,
+					planBegin: "",
+					planEnd: ""
+				};
 			}
 
 			// Hide eligibility check indicator
@@ -1557,107 +1585,13 @@ class ProductQuiz {
 	}
 
 	// Helper method to poll Google Cloud Workflows execution until completion
+	// NOTE: This method was causing multiple workflow executions by making new webhook calls.
+	// It has been disabled to prevent this issue. Instead, we return a processing status immediately.
 	async pollWorkflowExecution(executionName, maxAttempts = 20, interval = 6000) {
 		console.log(`🔄 Workflow execution detected: ${executionName}`);
-		console.log(`⏰ Will poll for up to ${(maxAttempts * interval) / 1000} seconds for workflow completion`);
-		console.log(`📋 This workflow includes insurance verification AND user account creation - can take 1-2 minutes`);
+		console.log(`⚠️ POLLING DISABLED: This method was creating multiple executions. Returning processing status instead.`);
 
-		// Store the original payload so we can retry the webhook call
-		const originalPayload = this.lastPayload;
-		if (!originalPayload) {
-			console.warn("❌ No original payload stored - cannot poll for completion");
-			return this.createProcessingStatus();
-		}
-
-		for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-			console.log(`🔄 Poll attempt ${attempt}/${maxAttempts} (${(attempt * interval) / 1000}s elapsed)`);
-
-			// Update UI with progress messages
-			const loadingDesc = document.querySelector(".quiz-eligibility-description");
-			if (loadingDesc) {
-				if (attempt <= 3) {
-					loadingDesc.textContent = "Contacting your insurance provider to verify coverage...";
-				} else if (attempt <= 6) {
-					loadingDesc.textContent = "Processing your policy details and calculating benefits...";
-				} else if (attempt <= 10) {
-					loadingDesc.textContent = "Creating your personalized healthcare account...";
-				} else if (attempt <= 15) {
-					loadingDesc.textContent = "Finalizing your eligibility and account setup...";
-				} else {
-					loadingDesc.textContent = "Complex setups can take up to 2 minutes. Almost there...";
-				}
-			}
-
-			// Wait before checking (except first attempt which waits a bit less)
-			const waitTime = attempt === 1 ? 3000 : interval;
-			await new Promise(resolve => setTimeout(resolve, waitTime));
-
-			try {
-				console.log(`🔍 Checking if workflow completed (attempt ${attempt})...`);
-
-				// Retry the same webhook call to see if workflow completed
-				const response = await fetch("https://gcloud.curalife.com/run", {
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-						Accept: "application/json"
-					},
-					body: JSON.stringify(originalPayload),
-					mode: "cors"
-				});
-
-				if (response.ok) {
-					const responseData = await response.json();
-					console.log(`📋 Poll ${attempt} response structure:`, Object.keys(responseData));
-
-					// Check if we now get actual results instead of execution data
-					if (responseData.eligibilityData) {
-						console.log("✅ Workflow completed! Got eligibility data directly");
-						console.log("🎉 Final eligibility data:", responseData.eligibilityData);
-						return responseData.eligibilityData;
-					} else if (responseData.body && responseData.body.eligibilityData) {
-						console.log("✅ Workflow completed! Got eligibility data in body");
-						console.log("🎉 Final eligibility data:", responseData.body.eligibilityData);
-						return responseData.body.eligibilityData;
-					} else if (responseData.execution) {
-						const execution = responseData.execution;
-						console.log(`📊 Execution state: ${execution.state} (attempt ${attempt})`);
-
-						if (execution.state === "SUCCEEDED") {
-							console.log("✅ Workflow succeeded! Extracting result...");
-							const result = this.extractResultFromExecution(execution);
-							if (result) {
-								console.log("🎉 Extracted result:", result);
-								return result;
-							}
-						} else if (execution.state === "FAILED" || execution.state === "CANCELLED") {
-							console.error(`❌ Workflow failed with state: ${execution.state}`);
-							if (execution.error) {
-								console.error("Error details:", execution.error);
-							}
-							return null;
-						} else if (execution.state === "ACTIVE") {
-							const elapsed = attempt * 6;
-							console.log(`⏳ Workflow still active after ${elapsed}s (attempt ${attempt}) - continuing...`);
-							// Log execution details for debugging
-							if (execution.startTime) {
-								console.log(`📅 Workflow started: ${execution.startTime}`);
-							}
-						}
-					} else {
-						console.log(`⏳ No eligibility data yet (attempt ${attempt})`);
-						console.log("📋 Response keys available:", Object.keys(responseData));
-					}
-				} else {
-					console.warn(`Poll attempt ${attempt} failed with status ${response.status}`);
-				}
-			} catch (error) {
-				console.warn(`Poll attempt ${attempt} error:`, error);
-			}
-		}
-
-		// After all attempts, return processing status
-		console.log("⏱️ Reached polling timeout - workflow may still be processing");
+		// Return processing status immediately instead of polling
 		return this.createProcessingStatus();
 	}
 

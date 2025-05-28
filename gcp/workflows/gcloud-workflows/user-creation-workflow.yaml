@@ -1,3 +1,27 @@
+manualJoin:
+  params: [listToJoin, separator]
+  steps:
+    - init:
+        assign:
+          - joinedString: ""
+          - first: true
+    - iterate:
+        for:
+          value: item
+          in: ${listToJoin}
+          steps:
+            - appendItem:
+                switch:
+                  - condition: ${first}
+                    assign:
+                      - joinedString: ${item}
+                      - first: false
+                  - condition: true
+                    assign:
+                      - joinedString: ${joinedString + separator + item}
+    - returnJoinedString:
+        return: ${joinedString}
+
 # ==================================================================
 #  User Creation Workflow (Shopify & HubSpot)
 # ==================================================================
@@ -53,7 +77,7 @@ main:
             next: parseJson
 
     # ---------------------------------------------------------------
-    # 2.  OPTIONS pre-flight - REMOVED due to request.method access issues
+    # 2.  Parse JSON payload
     # ---------------------------------------------------------------
     - parseJson:
         assign:
@@ -99,18 +123,23 @@ main:
           - emptyMap: {}
           - emptyArray: []
           - responses: ${if(actualPayload != null and "allResponses" in actualPayload, actualPayload.allResponses, emptyArray)}
-          # Extract eligibility data
-          - eligibilityData: ${if(actualPayload != null and "eligibilityData" in actualPayload, actualPayload.eligibilityData, emptyMap)}
-          # Set default values if eligibility data is empty
+          # Extract eligibility data - check if exists first
+          - eligibilityDataRaw: ${if(actualPayload != null and "eligibilityData" in actualPayload, actualPayload.eligibilityData, emptyMap)}
+
+    # Set up eligibility data with defaults
+    - setupEligibilityData:
+        assign:
+          # Safely extract deductible individual value with proper null checking
+          - eligibilityDeductibleIndividual: ${if("deductible" in eligibilityDataRaw and eligibilityDataRaw.deductible != null and "individual" in eligibilityDataRaw.deductible, eligibilityDataRaw.deductible.individual, 0)}
           - eligibilityData:
-              isEligible: ${if("isEligible" in eligibilityData, eligibilityData.isEligible, false)}
-              sessionsCovered: ${if("sessionsCovered" in eligibilityData, eligibilityData.sessionsCovered, 0)}
+              isEligible: ${if("isEligible" in eligibilityDataRaw, eligibilityDataRaw.isEligible, false)}
+              sessionsCovered: ${if("sessionsCovered" in eligibilityDataRaw, eligibilityDataRaw.sessionsCovered, 0)}
               deductible:
-                individual: ${if("deductible" in eligibilityData and "individual" in eligibilityData.deductible, eligibilityData.deductible.individual, 0)}
-              eligibilityStatus: ${if("eligibilityStatus" in eligibilityData, eligibilityData.eligibilityStatus, "UNKNOWN")}
-              userMessage: ${if("userMessage" in eligibilityData, eligibilityData.userMessage, "Eligibility data not provided")}
-              planBegin: ${if("planBegin" in eligibilityData, eligibilityData.planBegin, "")}
-              planEnd: ${if("planEnd" in eligibilityData, eligibilityData.planEnd, "")}
+                individual: ${eligibilityDeductibleIndividual}
+              eligibilityStatus: ${if("eligibilityStatus" in eligibilityDataRaw, eligibilityDataRaw.eligibilityStatus, "UNKNOWN")}
+              userMessage: ${if("userMessage" in eligibilityDataRaw, eligibilityDataRaw.userMessage, "Eligibility data not provided")}
+              planBegin: ${if("planBegin" in eligibilityDataRaw, eligibilityDataRaw.planBegin, "")}
+              planEnd: ${if("planEnd" in eligibilityDataRaw, eligibilityDataRaw.planEnd, "")}
 
     # ---------------------------------------------------------------
     # 5.  Extract values directly from the payload + backup from responses
@@ -125,28 +154,65 @@ main:
           - insurance: ${if(actualPayload != null and "insurance" in actualPayload, actualPayload.insurance, "")}
           - insuranceMemberId: ${if(actualPayload != null and "insuranceMemberId" in actualPayload, actualPayload.insuranceMemberId, "")}
           - groupNumber: ${if(actualPayload != null and "groupNumber" in actualPayload, actualPayload.groupNumber, "")}
-          - mainReasons: ${if(actualPayload != null and "mainReasons" in actualPayload, actualPayload.mainReasons, emptyArray)}
-          - medicalConditions: ${if(actualPayload != null and "medicalConditions" in actualPayload, actualPayload.medicalConditions, emptyArray)}
           - dateOfBirth: ${if(actualPayload != null and "dateOfBirth" in actualPayload, actualPayload.dateOfBirth, "")}
           - consent: ${if(actualPayload != null and "consent" in actualPayload, actualPayload.consent, false)}
 
     # ---------------------------------------------------------------
-    # 6.  Maps for data formatting
+    # 5a. Parse mainReasons - handle both arrays and strings
+    # ---------------------------------------------------------------
+    - parseMainReasons:
+        assign:
+          - _mr_raw: ${if(actualPayload != null and "mainReasons" in actualPayload, actualPayload.mainReasons, null)}
+
+    - processMainReasons:
+        switch:
+          - condition: ${_mr_raw == null}
+            assign:
+              - reasonsText: ""
+          - condition: true
+            try:
+              # Try to use len() - if it works, it's an array
+              call: manualJoin
+              args:
+                listToJoin: ${_mr_raw}
+                separator: ", "
+              result: reasonsText
+            except:
+              # If len() fails in manualJoin, it's a string
+              assign:
+                - reasonsText: ${_mr_raw}
+
+    # ---------------------------------------------------------------
+    # 5b. Parse medicalConditions - handle both arrays and strings
+    # ---------------------------------------------------------------
+    - parseMedicalConditions:
+        assign:
+          - _mc_raw: ${if(actualPayload != null and "medicalConditions" in actualPayload, actualPayload.medicalConditions, null)}
+
+    - processMedicalConditions:
+        switch:
+          - condition: ${_mc_raw == null}
+            assign:
+              - conditionsText: ""
+          - condition: true
+            try:
+              # Try to use len() - if it works, it's an array
+              call: manualJoin
+              args:
+                listToJoin: ${_mc_raw}
+                separator: ", "
+              result: conditionsText
+            except:
+              # If len() fails in manualJoin, it's a string
+              assign:
+                - conditionsText: ${_mc_raw}
+        next: setupMaps
+
+    # ---------------------------------------------------------------
+    # 6.  Setup insurance mapping and format data for HubSpot
     # ---------------------------------------------------------------
     - setupMaps:
         assign:
-          - reasonMap:
-              {
-                opt1: "Blood sugar management",
-                opt2: "Weight loss",
-                opt3: "Lowering high blood pressure",
-                opt4: "Better energy",
-                opt5: "Improving nutrition habits",
-                opt6: "Meal guidance",
-                opt7: "Supplement guidance",
-                opt8: "General wellness"
-              }
-          - medicalMap: { med1: "Type 1 Diabetes", med2: "Type 2 Diabetes", med3: "Prediabetes", med4: "Insulin resistance", med5: "High blood pressure", med6: "PCOS", med7: "None of the above" }
           - insuranceMap:
               {
                 ins1: "Aetna",
@@ -154,7 +220,7 @@ main:
                 ins3: "Blue Cross Blue Shield",
                 ins4: "Cigna",
                 ins5: "Humana",
-                ins6: "Kaiser Permanente",
+                ins6: "Kaaiser Permanente",
                 ins7: "Molina Healthcare",
                 ins8: "UnitedHealthcare",
                 ins9: "Health Net",
@@ -162,33 +228,12 @@ main:
                 ins11: "Tricare",
                 ins12: "Medicare",
                 ins13: "Medicaid",
+                ins16: "United HealthCare Dental",
                 ins14: "Other / Not Listed"
               }
-          - formattedReasons: []
-          - formattedMedical: []
-          - insuranceFromMap: ${if(insuranceMap[insurance] != null, insuranceMap[insurance], null)}
+          - insuranceFromMap: ${if(insurance in insuranceMap, insuranceMap[insurance], null)}
           - insuranceText: ${if(insuranceFromMap != null, insuranceFromMap, if(insurance != "", insurance, "Unknown"))}
-
-    # Format reasons and medical conditions
-    - formatReasonsLoop:
-        for:
-          value: reason
-          in: ${mainReasons}
-          steps:
-            - formatReason:
-                assign:
-                  - formattedReason: ${if(reasonMap[reason] != null, reasonMap[reason], if(reason != "", reason, "Unknown"))}
-                  - formattedReasons: ${list.concat(formattedReasons, [formattedReason])}
-
-    - formatConditionsLoop:
-        for:
-          value: condition
-          in: ${medicalConditions}
-          steps:
-            - formatCondition:
-                assign:
-                  - formattedCondition: ${if(medicalMap[condition] != null, medicalMap[condition], if(condition != "", condition, "Unknown"))}
-                  - formattedMedical: ${list.concat(formattedMedical, [formattedCondition])}
+        next: validateEmail
 
     # ---------------------------------------------------------------
     # 7.  Validate email
@@ -213,46 +258,99 @@ main:
     - generatePassword:
         assign:
           - tempPassword: "Auto123456" # Simple static password for initial account creation
+        next: tryCreateShopifyCustomer
 
-    # ---------------------------------------------------------------
-    # ===  SHOPIFY CUSTOMER CREATION  ===
-    # Create customer in Shopify before HubSpot
-    # ---------------------------------------------------------------
-    - createShopifyCustomer:
-        call: http.post
-        args:
-          url: ${shopifyAdminUrl}
-          headers:
-            X-Shopify-Access-Token: ${shopifyAdminToken}
-            Content-Type: "application/json"
-            Accept: "application/json"
-          body:
-            customer:
-              first_name: ${firstName}
-              last_name: ${lastName}
-              email: ${customerEmail}
-              phone: ${phoneNumber}
-              password: ${tempPassword}
-              password_confirmation: ${tempPassword}
-              accepts_marketing: ${consent}
-        result: shopifyCustomerResponse
+    - tryCreateShopifyCustomer:
+        try:
+          call: http.post
+          args:
+            url: ${shopifyAdminUrl}
+            headers:
+              X-Shopify-Access-Token: ${shopifyAdminToken}
+              Content-Type: "application/json"
+              Accept: "application/json"
+            body:
+              customer:
+                first_name: ${firstName}
+                last_name: ${lastName}
+                email: ${customerEmail}
+                phone: ${phoneNumber}
+                password: ${tempPassword}
+                password_confirmation: ${tempPassword}
+                accepts_marketing: ${consent}
+          result: shopifyCustomerResponse
+        except:
+          as: e
+          steps:
+            - assignErrorToResponse:
+                assign:
+                  - shopifyCustomerResponse: ${e}
+        next: prepareShopifyErrorChecks
+
+    - prepareShopifyErrorChecks:
+        assign:
+          - shopifyResponseCode: ${shopifyCustomerResponse.code}
+          - shopifyHasBody: ${"body" in shopifyCustomerResponse}
+          - shopifyHasErrorsInBody: ${shopifyHasBody and "errors" in shopifyCustomerResponse.body}
+          - shopifyEmailTakenErrorMessage: "has already been taken"
+          - shopifyPhoneTakenErrorMessage: "Phone has already been taken"
+          - shopifyEmailTakenError: ${shopifyHasErrorsInBody and "email" in shopifyCustomerResponse.body.errors and len(shopifyCustomerResponse.body.errors.email) > 0 and shopifyCustomerResponse.body.errors.email[0] == shopifyEmailTakenErrorMessage}
+          - shopifyPhoneTakenError: ${shopifyHasErrorsInBody and "phone" in shopifyCustomerResponse.body.errors and len(shopifyCustomerResponse.body.errors.phone) > 0 and shopifyCustomerResponse.body.errors.phone[0] == shopifyPhoneTakenErrorMessage}
+        next: handleShopifyCustomerResp
 
     - handleShopifyCustomerResp:
         switch:
-          - condition: ${shopifyCustomerResponse.body != null and "customer" in shopifyCustomerResponse.body}
+          # Case 1: Successful Shopify customer creation
+          - condition: ${shopifyResponseCode >= 200 and shopifyResponseCode < 300 and shopifyHasBody and "customer" in shopifyCustomerResponse.body}
             assign:
               - shopifyCustomerId: ${shopifyCustomerResponse.body.customer.id}
             next: createHubSpotContact
-          - condition: ${shopifyCustomerResponse.body != null and "errors" in shopifyCustomerResponse.body}
+
+          # Case 2: Shopify customer already exists (422 with specific error messages)
+          - condition: >-
+              ${shopifyResponseCode == 422 and shopifyHasBody and "errors" in shopifyCustomerResponse.body and (
+                shopifyEmailTakenError or
+                shopifyPhoneTakenError
+              )}
+            next: searchExistingShopifyCustomer # shopifyCustomerId will be assigned after searching
+
+          # Case 3: Other Shopify errors (including 422 without "taken", or other error codes)
+          - condition: ${shopifyHasBody and "errors" in shopifyCustomerResponse.body}
             assign:
-              - shopifyError: ${string(shopifyCustomerResponse.body.errors)}
-            next: shopifyError
+              - shopifyError: ${json.encode(shopifyCustomerResponse.body.errors)}
+            next: shopifyErrorGeneral
+
+          # Case 4: Fallback for other errors
           - condition: true
-            next: shopifyError
+            assign:
+              - shopifyError: >-
+                  ${"Unknown Shopify error or unexpected response. Code: " + string(shopifyResponseCode) + ". Body: " + json.encode(shopifyCustomerResponse.body)}
+            next: shopifyErrorGeneral
+
+    - searchExistingShopifyCustomer:
+        call: http.get
+        args:
+          url: ${ "https://" + shopifyStoreName + ".myshopify.com/admin/api/2025-04/customers/search.json?query=email:" + customerEmail }
+          headers:
+            X-Shopify-Access-Token: ${shopifyAdminToken}
+            Accept: "application/json"
+        result: shopifySearchResponse
+
+    - handleShopifySearchResponse:
+        switch:
+          - condition: ${shopifySearchResponse.code >= 200 and shopifySearchResponse.code < 300 and "body" in shopifySearchResponse and "customers" in shopifySearchResponse.body and len(shopifySearchResponse.body.customers) > 0}
+            assign:
+              - shopifyCustomerId: ${shopifySearchResponse.body.customers[0].id}
+            next: createHubSpotContact
+          - condition: true
+            assign:
+              - shopifyCustomerId: null
+              - shopifySearchError: >-
+                  ${"Shopify customer search failed or returned no results for email: " + customerEmail + ". Response code: " + string(shopifySearchResponse.code) + ". Body: " + json.encode(shopifySearchResponse.body)}
+            next: createHubSpotContact
 
     # ---------------------------------------------------------------
-    # ===  HUBSPOT CALLS  ===
-    # All share same headers with Bearer TOKEN
+    # ===  HUBSPOT CONTACT CREATION  ===
     # ---------------------------------------------------------------
     - createHubSpotContact:
         call: http.post
@@ -263,28 +361,30 @@ main:
             Content-Type: "application/json"
           body:
             properties:
+              # Standard HubSpot fields
               email: ${customerEmail}
               firstname: ${firstName}
               lastname: ${lastName}
               phone: ${phoneNumber}
-              state: ${state}
+              # Custom fields that exist in your HubSpot account
+              registration_date: ${text.split(timestamp, "T")[0]} # Convert to YYYY-MM-DD format
               date_of_birth: ${dateOfBirth}
-              insurance_provider: ${insuranceText}
-              insurance_member_id: ${insuranceMemberId}
-              insurance_group_number: ${groupNumber}
-              health_goals: ${string(formattedReasons)}
-              medical_conditions: ${string(formattedMedical)}
-              consent_provided: ${string(consent)}
-              shopify_customer_id: ${shopifyCustomerId} # Add Shopify customer ID to HubSpot contact
+              shopify_customer_id: ${shopifyCustomerId}
+              email_subscribed: ${string(consent)}
+              sms_subscribed: ${string(consent)}
+              has_account: "true"
+              # Telemedicine categories (confirmed to exist)
+              telemedicine_primary_category: ${reasonsText}
+              telemedicine_secondary_category: ${if(conditionsText != "", text.split(conditionsText, ",")[0], "")} # Only send first value for dropdown
         result: hubspotContactResponse
 
     - handleContactResp:
         switch:
-          - condition: ${hubspotContactResponse.statusCode >= 200 and hubspotContactResponse.statusCode < 300}
+          - condition: ${hubspotContactResponse.code >= 200 and hubspotContactResponse.code < 300}
             assign:
               - hubspotContactId: ${hubspotContactResponse.body.id}
-            next: createInsurancePlan
-          - condition: ${hubspotContactResponse.statusCode == 409}
+            next: returnSuccess
+          - condition: ${hubspotContactResponse.code == 409}
             next: getExistingContact
           - condition: true
             next: hubspotError
@@ -303,71 +403,40 @@ main:
         result: searchResp
 
     - assignExistingId:
-        assign:
-          - hubspotContactId: ${searchResp.body.results[0].id}
-        next: createInsurancePlan
-
-    # ---- Insurance Plan (replace `p2_insurance_plan` with your object type) ----
-    - createInsurancePlan:
-        call: http.post
-        args:
-          url: ${hubspotBaseUrl + "/crm/v3/objects/p2_insurance_plan"}
-          headers: { Authorization: '${"Bearer " + hubspotAccessToken}', Content-Type: "application/json" }
-          body:
-            properties:
-              insurance_provider: ${insuranceText}
-              member_id: ${insuranceMemberId}
-              group_number: ${groupNumber}
-              sessions_covered: ${eligibilityData.sessionsCovered}
-              deductible_amount: ${eligibilityData.deductible.individual}
-              eligibility_status: ${eligibilityData.eligibilityStatus}
-        result: insuranceResp
-
-    - checkInsuranceResp:
         switch:
-          - condition: ${insuranceResp.statusCode >= 200 and insuranceResp.statusCode < 300}
+          - condition: ${searchResp.code >= 200 and searchResp.code < 300 and "body" in searchResp and "results" in searchResp.body and len(searchResp.body.results) > 0}
             assign:
-              - insurancePlanId: ${insuranceResp.body.id}
-            next: associateContactToInsurance
+              - hubspotContactId: ${searchResp.body.results[0].id}
+            next: updateExistingContact
           - condition: true
             next: hubspotError
 
-    - associateContactToInsurance:
-        call: http.put
+    # Update existing contact with new information
+    - updateExistingContact:
+        call: http.patch
         args:
-          url: ${hubspotBaseUrl + "/crm/v3/objects/contacts/" + hubspotContactId + "/associations/p2_insurance_plan/" + insurancePlanId + "/insurance_contact"}
-          headers: { Authorization: '${"Bearer " + hubspotAccessToken}' }
-        result: assocInsuranceResp
-
-    # ---- Consultation (replace `p2_consultation`) ----
-    - createConsultation:
-        call: http.post
-        args:
-          url: ${hubspotBaseUrl + "/crm/v3/objects/p2_consultation"}
-          headers: { Authorization: '${"Bearer " + hubspotAccessToken}', Content-Type: "application/json" }
+          url: ${hubspotBaseUrl + "/crm/v3/objects/contacts/" + hubspotContactId}
+          headers:
+            Authorization: '${"Bearer " + hubspotAccessToken}'
+            Content-Type: "application/json"
           body:
             properties:
-              reason: ${string(formattedReasons)}
-              medical_conditions: ${string(formattedMedical)}
-              consultation_date: ${timestamp}
-              consultation_status: "Scheduled"
-        result: consultResp
-
-    - checkConsultResp:
-        switch:
-          - condition: ${consultResp.statusCode >= 200 and consultResp.statusCode < 300}
-            assign:
-              - consultationId: ${consultResp.body.id}
-            next: associateContactToConsultation
-          - condition: true
-            next: hubspotError
-
-    - associateContactToConsultation:
-        call: http.put
-        args:
-          url: ${hubspotBaseUrl + "/crm/v3/objects/contacts/" + hubspotContactId + "/associations/p2_consultation/" + consultationId + "/contact_consultation"}
-          headers: { Authorization: '${"Bearer " + hubspotAccessToken}' }
-        result: assocConsultResp
+              # Standard HubSpot fields
+              firstname: ${firstName}
+              lastname: ${lastName}
+              phone: ${phoneNumber}
+              # Custom fields that exist in your HubSpot account
+              registration_date: ${text.split(timestamp, "T")[0]} # Convert to YYYY-MM-DD format
+              date_of_birth: ${dateOfBirth}
+              shopify_customer_id: ${shopifyCustomerId}
+              email_subscribed: ${string(consent)}
+              sms_subscribed: ${string(consent)}
+              has_account: "true"
+              # Telemedicine categories (confirmed to exist)
+              telemedicine_primary_category: ${reasonsText}
+              telemedicine_secondary_category: ${if(conditionsText != "", text.split(conditionsText, ",")[0], "")} # Only send first value for dropdown
+        result: updateResp
+        next: returnSuccess
 
     # ---------------------------------------------------------------
     # 9.  Success response
@@ -383,14 +452,12 @@ main:
             eligibilityStatus: ${eligibilityData.eligibilityStatus}
             shopifyCustomerId: ${shopifyCustomerId}
             hubspotContactId: ${hubspotContactId}
-            insurancePlanId: ${insurancePlanId}
-            consultationId: ${consultationId}
             timestamp: ${timestamp}
 
     # ---------------------------------------------------------------
     # 10. Error handlers
     # ---------------------------------------------------------------
-    - shopifyError:
+    - shopifyErrorGeneral:
         return:
           statusCode: 500
           headers: ${corsHeaders}
@@ -406,7 +473,7 @@ main:
           headers: ${corsHeaders}
           body:
             success: false
-            error: ${if(hubspotContactResponse.body != null and "message" in hubspotContactResponse.body, hubspotContactResponse.body.message, if(insuranceResp.body != null and "message" in insuranceResp.body, insuranceResp.body.message, if(consultResp.body != null and "message" in consultResp.body, consultResp.body.message, "Unknown error")))}
-            statusCode: ${if(hubspotContactResponse.statusCode != null, hubspotContactResponse.statusCode, if(insuranceResp.statusCode != null, insuranceResp.statusCode, if(consultResp.statusCode != null, consultResp.statusCode, 500)))}
+            error: ${if(hubspotContactResponse.body != null and "message" in hubspotContactResponse.body, hubspotContactResponse.body.message, "Unknown HubSpot error")}
+            statusCode: ${if(hubspotContactResponse.code != null, hubspotContactResponse.code, 500)}
             quizId: ${quizId}
             timestamp: ${timestamp}
