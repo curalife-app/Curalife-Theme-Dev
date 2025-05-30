@@ -480,9 +480,13 @@ class ProductQuiz {
 	_attachStepEventListeners(step) {
 		if (!step.questions || step.questions.length === 0) return;
 
+		console.log("Attaching step event listeners for step:", step.id, "isFormStep:", this.isFormStep(step.id));
+
 		if (this.isFormStep(step.id)) {
+			console.log("This is a form step, attaching listeners to all questions");
 			// Attach listeners to all form questions
 			step.questions.forEach(question => {
+				console.log("Attaching form listener for question:", question.id, question.type);
 				this.attachFormQuestionListener(question);
 			});
 
@@ -499,9 +503,11 @@ class ProductQuiz {
 				formButton.addEventListener("click", this.formButtonHandler);
 			}
 		} else {
+			console.log("This is a wizard step, attaching listener to current question");
 			// Attach listener to current wizard question
 			const currentQuestion = step.questions[this.currentQuestionIndex];
 			if (currentQuestion) {
+				console.log("Attaching wizard listener for question:", currentQuestion.id, currentQuestion.type);
 				this.attachQuestionEventListeners(currentQuestion);
 			}
 		}
@@ -754,18 +760,36 @@ class ProductQuiz {
 				break;
 
 			case "dropdown":
+			case "date-part":
 				const dropdownInput = this.questionContainer.querySelector(`#question-${question.id}`);
 				if (!dropdownInput) {
 					console.warn(`Dropdown input not found for question ${question.id}`);
 					return;
 				}
 				dropdownInput.addEventListener("change", () => {
-					this.handleAnswer(dropdownInput.value);
+					this.handleFormAnswer(question.id, dropdownInput.value);
 					// Update dropdown color when value is selected
 					this._updateDropdownColor(dropdownInput);
+
+					// Clear error state if a valid option is selected
+					if (dropdownInput.value && dropdownInput.value !== "") {
+						const errorEl = this.questionContainer.querySelector(`#error-${question.id}`);
+						if (errorEl) {
+							dropdownInput.classList.remove("quiz-input-error");
+							dropdownInput.classList.add("quiz-input-valid");
+							errorEl.classList.add("quiz-error-hidden");
+							errorEl.classList.remove("quiz-error-visible");
+						}
+					}
+
+					// Note: No updateNavigation call since button is always enabled in forms
 				});
 				// Set initial color state
 				this._updateDropdownColor(dropdownInput);
+				break;
+
+			case "payer-search":
+				this._attachPayerSearchListeners(question);
 				break;
 
 			case "text":
@@ -1150,8 +1174,6 @@ class ProductQuiz {
 				const resp = this.responses.find(r => r.questionId === q.id);
 				const currentValue = resp ? resp.answer : null;
 
-				console.log(`Validating field ${q.id} (${q.type}):`, currentValue);
-
 				// Check if required field is empty
 				if (q.required) {
 					let isEmpty = false;
@@ -1160,63 +1182,63 @@ class ProductQuiz {
 						isEmpty = true;
 					} else if (q.type === "checkbox") {
 						isEmpty = !Array.isArray(currentValue) || currentValue.length === 0;
+					} else if (q.type === "payer-search") {
+						isEmpty = !currentValue || (typeof currentValue === "string" && currentValue.trim() === "");
 					} else if (typeof currentValue === "string") {
 						isEmpty = currentValue.trim() === "";
 					}
 
 					if (isEmpty) {
 						hasValidationErrors = true;
-						validationErrors.push({
-							questionId: q.id,
-							errorMessage: "This field is required"
-						});
-						console.log(`❌ Required field ${q.id} is empty`);
+						validationErrors.push({ questionId: q.id, message: "This field is required" });
 						continue;
 					}
 				}
 
-				// If field has a value, validate format for text inputs
-				if (currentValue && typeof currentValue === "string" && currentValue.trim() !== "") {
+				// For payer-search, if we have a value and it's required, validate it's a proper object
+				if (q.type === "payer-search" && currentValue) {
 					const validationResult = this._validateFieldValue(q, currentValue);
 					if (!validationResult.isValid) {
 						hasValidationErrors = true;
-						validationErrors.push({
-							questionId: q.id,
-							errorMessage: validationResult.errorMessage
-						});
-						console.log(`❌ Field ${q.id} has format error: ${validationResult.errorMessage}`);
-					} else {
-						console.log(`✅ Field ${q.id} is valid`);
+						validationErrors.push({ questionId: q.id, message: validationResult.errorMessage });
+						continue;
+					}
+				}
+
+				// For other field types, validate format
+				if (currentValue && q.type !== "payer-search") {
+					const validationResult = this._validateFieldValue(q, currentValue);
+					if (!validationResult.isValid) {
+						hasValidationErrors = true;
+						validationErrors.push({ questionId: q.id, message: validationResult.errorMessage });
+						continue;
 					}
 				}
 			}
 
-			// If there are validation errors, show them and don't proceed
 			if (hasValidationErrors) {
-				console.log("❌ Form has validation errors, showing error messages");
-
-				// Show error messages for each invalid field
+				// Show error messages for invalid fields
 				validationErrors.forEach(error => {
-					const input = this.questionContainer.querySelector(`#question-${error.questionId}`);
 					const errorEl = this.questionContainer.querySelector(`#error-${error.questionId}`);
+					const input = this.questionContainer.querySelector(`#question-${error.questionId}`);
 
-					if (input && errorEl) {
-						// Update input styling (works for both text inputs and selects)
-						input.classList.remove("quiz-input-valid");
+					if (input) {
 						input.classList.add("quiz-input-error");
+						input.classList.remove("quiz-input-valid");
+					}
 
+					if (errorEl) {
 						// Show error message
-						errorEl.textContent = error.errorMessage;
+						errorEl.textContent = error.message;
 						errorEl.classList.remove("quiz-error-hidden");
 						errorEl.classList.add("quiz-error-visible");
 					}
 				});
 
-				// Don't proceed to next step
-				return;
+				return; // Don't proceed to next step
 			}
 
-			console.log("✅ All form fields are valid, proceeding to next step");
+			// If we reach here, all validations passed
 
 			// All fields are valid, proceed to next step
 			if (this.currentStepIndex < this.quizData.steps.length - 1) {
@@ -1255,6 +1277,9 @@ class ProductQuiz {
 	}
 
 	async finishQuiz() {
+		// Get booking URL early so it's available in all error handling
+		const bookingUrl = this.container.getAttribute("data-booking-url") || "/appointment-booking";
+
 		try {
 			this.submitting = true;
 			this.nextButton.disabled = true;
@@ -1271,6 +1296,7 @@ class ProductQuiz {
 			let phoneNumber = "";
 			let state = "";
 			let insurance = "";
+			let insurancePrimaryPayerId = ""; // Add this for the workflow
 			let insuranceMemberId = "";
 			let groupNumber = "";
 			let mainReasons = [];
@@ -1289,7 +1315,24 @@ class ProductQuiz {
 				if (response.questionId === "q8") lastName = response.answer || "";
 				if (response.questionId === "q10") phoneNumber = response.answer || "";
 				if (response.questionId === "q5") state = response.answer || "";
-				if (response.questionId === "q3") insurance = response.answer || "";
+				if (response.questionId === "q3") {
+					// Handle payer data - send primaryPayerId directly to workflow
+					const insuranceResponse = response.answer;
+					if (typeof insuranceResponse === "string" && insuranceResponse) {
+						// New format: primaryPayerId is stored as the answer
+						// Send the primaryPayerId directly as the insurance value
+						insurance = insuranceResponse; // This is the primaryPayerId
+						insurancePrimaryPayerId = insuranceResponse;
+					} else if (typeof insuranceResponse === "object" && insuranceResponse !== null) {
+						// Legacy payer search format - extract primaryPayerId
+						insurance = insuranceResponse.primaryPayerId || insuranceResponse.stediId || "";
+						insurancePrimaryPayerId = insuranceResponse.primaryPayerId || insuranceResponse.stediId || "";
+					} else {
+						// Legacy format or fallback
+						insurance = insuranceResponse || "";
+						insurancePrimaryPayerId = insuranceResponse || "";
+					}
+				}
 				if (response.questionId === "q4") insuranceMemberId = response.answer || "";
 				if (response.questionId === "q4_group") groupNumber = response.answer || "";
 				if (response.questionId === "q1") mainReasons = response.answer || [];
@@ -1321,6 +1364,7 @@ class ProductQuiz {
 				dateOfBirth,
 				state,
 				insurance,
+				insurancePrimaryPayerId, // Add the primaryPayerId for workflow use
 				insuranceMemberId,
 				groupNumber,
 				mainReasons,
@@ -1347,7 +1391,6 @@ class ProductQuiz {
 
 			// Get webhook URL from data attribute
 			const webhookUrl = this.container.getAttribute("data-n8n-webhook");
-			const bookingUrl = this.container.getAttribute("data-booking-url") || "/appointment-booking";
 
 			// Temporary override: Force the new Cloud Function URL
 			const actualWebhookUrl = "https://us-central1-telemedicine-458913.cloudfunctions.net/telemedicine-webhook";
@@ -1398,7 +1441,6 @@ class ProductQuiz {
 				// Race the timeout against the fetch
 				console.log("Waiting for Cloud Function response...");
 				const response = await Promise.race([fetchPromise, timeoutPromise]);
-				console.log("✅ Cloud Function request completed");
 
 				// Check the response status
 				console.log("=== CLOUD FUNCTION RESPONSE ===");
@@ -1407,7 +1449,6 @@ class ProductQuiz {
 				console.log("===============================");
 
 				if (response.ok) {
-					console.log("✅ Cloud Function response ok:", response.status);
 					webhookSuccess = true;
 
 					try {
@@ -1420,7 +1461,6 @@ class ProductQuiz {
 						// The Cloud Function now returns the workflow result body directly
 						if (result && result.success === true && result.eligibilityData) {
 							eligibilityData = result.eligibilityData;
-							console.log("✅ Found eligibilityData:", eligibilityData);
 						} else if (result && result.success === false) {
 							console.error("❌ Workflow completed with error:", result);
 							console.error("Error message:", result.error || "Unknown error");
@@ -1435,16 +1475,13 @@ class ProductQuiz {
 								planBegin: "",
 								planEnd: ""
 							};
-							console.log("✅ Created error eligibility data:", eligibilityData);
 						}
 						// Handle the case where Cloud Function returns the HTTP response wrapper (before fix)
 						else if (result && result.body) {
-							console.log("🔄 Detected HTTP response wrapper, extracting body");
 							console.log("Body content:", result.body);
 
 							if (result.body.success === true && result.body.eligibilityData) {
 								eligibilityData = result.body.eligibilityData;
-								console.log("✅ Found eligibilityData in body:", eligibilityData);
 							} else if (result.body.success === false) {
 								console.error("❌ Workflow completed with error in body:", result.body);
 								eligibilityData = {
@@ -1456,7 +1493,6 @@ class ProductQuiz {
 									planBegin: "",
 									planEnd: ""
 								};
-								console.log("✅ Created error eligibility data from body:", eligibilityData);
 							} else {
 								console.warn("❌ No success/eligibilityData found in body");
 								console.log("Body structure:", result.body);
@@ -1465,26 +1501,21 @@ class ProductQuiz {
 						}
 						// Handle the old execution object response (fallback for old webhook URL)
 						else if (result && result.execution && result.execution.state) {
-							console.log("🔄 Detected old Google Cloud Workflows execution response");
 							console.log("Execution state:", result.execution.state);
 							console.log("Execution name:", result.execution.name);
 							console.warn("⚠️ This indicates you're using the old webhook URL. Please update to the new Cloud Function URL.");
 
 							if (result.execution.state === "SUCCEEDED") {
-								console.log("✅ Workflow completed successfully");
 								const workflowResult = this.extractResultFromExecution(result.execution);
 								if (workflowResult) {
 									eligibilityData = workflowResult;
-									console.log("✅ Extracted result from execution:", eligibilityData);
 								} else {
 									console.warn("⚠️ Workflow succeeded but no eligibility data found in result");
 									eligibilityData = this.createProcessingStatus();
 								}
 							} else if (result.execution.state === "ACTIVE") {
-								console.log("🔄 Workflow is still running - creating processing status");
 								eligibilityData = this.createProcessingStatus();
 							} else {
-								console.log("❌ Workflow failed with state:", result.execution.state);
 								eligibilityData = {
 									isEligible: false,
 									sessionsCovered: 0,
@@ -1501,7 +1532,6 @@ class ProductQuiz {
 							console.log("Received:", result);
 
 							// Create a fallback processing status
-							console.log("🔄 Creating fallback processing status");
 							eligibilityData = this.createProcessingStatus();
 						}
 					} catch (jsonError) {
@@ -1605,9 +1635,6 @@ class ProductQuiz {
 	// NOTE: This method was causing multiple workflow executions by making new webhook calls.
 	// It has been disabled to prevent this issue. Instead, we return a processing status immediately.
 	async pollWorkflowExecution(executionName, maxAttempts = 20, interval = 6000) {
-		console.log(`🔄 Workflow execution detected: ${executionName}`);
-		console.log(`⚠️ POLLING DISABLED: This method was creating multiple executions. Returning processing status instead.`);
-
 		// Return processing status immediately instead of polling
 		return this.createProcessingStatus();
 	}
@@ -1628,17 +1655,12 @@ class ProductQuiz {
 
 	// Helper method to extract result from workflow execution
 	extractResultFromExecution(execution) {
-		console.log("🔍 Extracting result from execution:", execution);
-
 		// Check if there's a result field
 		if (execution.result) {
-			console.log("✅ Found result in execution.result");
-
 			// Try to parse if it's a string
 			if (typeof execution.result === "string") {
 				try {
 					const parsed = JSON.parse(execution.result);
-					console.log("✅ Parsed result from string:", parsed);
 
 					// Look for eligibility data in various paths
 					if (parsed.eligibilityData) {
@@ -1652,8 +1674,6 @@ class ProductQuiz {
 					console.warn("Failed to parse execution result as JSON:", parseError);
 				}
 			} else if (typeof execution.result === "object") {
-				console.log("✅ Found object result:", execution.result);
-
 				// Look for eligibility data in various paths
 				if (execution.result.eligibilityData) {
 					return execution.result.eligibilityData;
@@ -1689,36 +1709,7 @@ class ProductQuiz {
 				errorMessage
 			});
 
-			resultsHTML = `
-				<div class="quiz-results-container">
-					<h2 class="quiz-results-title">Quiz Complete</h2>
-					<p class="quiz-results-subtitle">We've received your information.</p>
-
-					<div class="quiz-results-card" style="border-left: 4px solid #f56565; background-color: #fed7d7;">
-						<h3 class="quiz-results-card-title" style="color: #c53030;">
-							⚠️ Eligibility Check Error
-						</h3>
-						<p class="quiz-results-message" style="color: #c53030;">
-							There was an error checking your insurance eligibility. Please contact our support team for assistance.
-						</p>
-						<div style="margin-top: 16px; padding: 12px; background-color: #ffffff; border-radius: 6px;">
-							<p style="font-size: 14px; color: #4a5568; margin: 0;">
-								<strong>What to do next:</strong><br>
-								• Contact our support team<br>
-								• Have your insurance card ready<br>
-								• We'll verify your coverage manually
-							</p>
-						</div>
-					</div>
-
-					<div class="quiz-results-actions quiz-space-y-4">
-						<a href="${bookingUrl}" class="quiz-cta-button">
-							Continue to Support
-							<span class="quiz-button-spacing">→</span>
-						</a>
-					</div>
-				</div>
-			`;
+			resultsHTML = this._generateErrorResultsHTML(bookingUrl, errorMessage);
 		} else {
 			// Process successful eligibility data
 			const isEligible = eligibilityData.isEligible === true;
@@ -1726,140 +1717,286 @@ class ProductQuiz {
 			const deductible = eligibilityData.deductible?.individual || 0;
 			const copay = eligibilityData.copay || 0;
 			const eligibilityStatus = eligibilityData.eligibilityStatus || "UNKNOWN";
-			const userMessage = eligibilityData.userMessage || "Your eligibility check is complete.";
 
-			// Format plan dates if available
-			let coverageDates = "";
-			if (eligibilityData.planBegin && eligibilityData.planEnd) {
-				const formatDate = dateStr => {
-					if (!dateStr || dateStr.length !== 8) return "N/A";
-					const year = dateStr.substring(0, 4);
-					const month = dateStr.substring(4, 6);
-					const day = dateStr.substring(6, 8);
-					return `${month}/${day}/${year}`;
-				};
-
-				const beginDate = formatDate(eligibilityData.planBegin);
-				const endDate = formatDate(eligibilityData.planEnd);
-				coverageDates = `<p class="quiz-coverage-dates">Plan coverage period: ${beginDate} to ${endDate}</p>`;
-			}
-
-			// Determine card styling based on eligibility
-			let cardStyle = "";
-			let statusIcon = "ℹ️";
-			let titleColor = "#4a5568";
-
+			// Generate appropriate results based on eligibility status
 			if (isEligible && eligibilityStatus === "ELIGIBLE") {
-				cardStyle = "border-left: 4px solid #48bb78; background-color: #f0fff4;";
-				statusIcon = "✅";
-				titleColor = "#2f855a";
-			} else if (eligibilityStatus === "NOT_ELIGIBLE") {
-				cardStyle = "border-left: 4px solid #ed8936; background-color: #fffaf0;";
-				statusIcon = "⚠️";
-				titleColor = "#c05621";
-			} else if (eligibilityStatus === "PAYER_ERROR" || eligibilityStatus === "ERROR") {
-				cardStyle = "border-left: 4px solid #f56565; background-color: #fed7d7;";
-				statusIcon = "❌";
-				titleColor = "#c53030";
-			} else if (eligibilityStatus === "PROCESSING") {
-				cardStyle = "border-left: 4px solid #3182ce; background-color: #ebf8ff;";
-				statusIcon = "🔄";
-				titleColor = "#2c5282";
+				resultsHTML = this._generateFullCoverageHTML(sessionsCovered, copay, deductible, eligibilityData, bookingUrl);
+			} else {
+				resultsHTML = this._generatePartialOrNoEligibilityHTML(eligibilityData, bookingUrl, eligibilityStatus);
 			}
-
-			resultsHTML = `
-				<div class="quiz-results-container">
-					<h2 class="quiz-results-title">Thanks for completing the quiz!</h2>
-					<p class="quiz-results-subtitle">We're ready to connect you with a registered dietitian who can help guide your health journey.</p>
-
-					<div class="quiz-results-card" style="${cardStyle}">
-						<h3 class="quiz-results-card-title" style="color: ${titleColor};">
-							${statusIcon} Insurance Coverage Check
-						</h3>
-						<p class="quiz-results-message">${userMessage}</p>
-
-						${
-							isEligible && sessionsCovered > 0
-								? `
-							<div class="quiz-coverage-details">
-								<p class="quiz-font-medium">Your Coverage Benefits:</p>
-								<ul class="quiz-coverage-list">
-									<li class="quiz-coverage-item">
-										<span>Dietitian sessions covered:</span>
-										<span class="quiz-font-medium">${sessionsCovered} sessions</span>
-									</li>
-									${
-										deductible > 0
-											? `
-									<li class="quiz-coverage-item">
-										<span>Individual deductible:</span>
-										<span class="quiz-font-medium">$${deductible}</span>
-									</li>`
-											: ""
-									}
-									${
-										copay > 0
-											? `
-									<li class="quiz-coverage-item">
-										<span>Co-pay per session:</span>
-										<span class="quiz-font-medium">$${copay}</span>
-									</li>`
-											: `
-									<li class="quiz-coverage-item">
-										<span>Co-pay per session:</span>
-										<span class="quiz-font-medium" style="color: #2f855a;">$0</span>
-									</li>`
-									}
-								</ul>
-								${coverageDates}
-							</div>
-						`
-								: eligibilityStatus === "NOT_ELIGIBLE"
-									? `
-							<div style="margin-top: 16px; padding: 12px; background-color: #ffffff; border-radius: 6px;">
-								<p style="font-size: 14px; color: #4a5568; margin: 0;">
-									<strong>Don't worry!</strong> Even without full insurance coverage, we may still be able to help you access affordable dietitian services. Our team can discuss payment options and potential assistance programs.
-								</p>
-							</div>
-						`
-									: eligibilityStatus === "PAYER_ERROR" || eligibilityStatus === "ERROR"
-										? `
-							<div style="margin-top: 16px; padding: 12px; background-color: #ffffff; border-radius: 6px;">
-								<p style="font-size: 14px; color: #4a5568; margin: 0;">
-									<strong>Next steps:</strong><br>
-									• Our team will manually verify your coverage<br>
-									• We'll contact you within 24 hours<br>
-									• Have your insurance card ready
-								</p>
-							</div>
-						`
-										: eligibilityStatus === "PROCESSING"
-											? `
-							<div style="margin-top: 16px; padding: 12px; background-color: #ffffff; border-radius: 6px;">
-								<p style="font-size: 14px; color: #4a5568; margin: 0;">
-									<strong>Your setup is processing in the background.</strong><br>
-									• Insurance verification + account creation can take 2-3 minutes<br>
-									• Feel free to proceed with booking your appointment<br>
-									• We'll contact you with your exact coverage details<br>
-									• Most insurance plans cover dietitian sessions at $0 cost
-								</p>
-							</div>
-						`
-											: ""
-						}
-					</div>
-
-					<div class="quiz-results-actions quiz-space-y-4">
-						<a href="${bookingUrl}" class="quiz-cta-button">
-							${eligibilityStatus === "PROCESSING" ? "Continue - We'll Process in Background" : isEligible ? "Book Your Appointment" : "Continue with Next Steps"}
-							<span class="quiz-button-spacing">→</span>
-						</a>
-					</div>
-				</div>
-			`;
 		}
 
 		this.results.innerHTML = resultsHTML;
+
+		// Attach FAQ toggle functionality
+		this._attachFAQListeners();
+	}
+
+	_generateErrorResultsHTML(bookingUrl, errorMessage) {
+		return `
+			<div class="quiz-results-container">
+				<div class="quiz-results-header">
+					<h2 class="quiz-results-title">Quiz Complete</h2>
+					<p class="quiz-results-subtitle">We've received your information.</p>
+				</div>
+
+				<div class="quiz-coverage-card" style="border-left: 4px solid #f56565; background-color: #fed7d7;">
+					<h3 class="quiz-coverage-card-title" style="color: #c53030;">
+						⚠️ Eligibility Check Error
+					</h3>
+					<p style="color: #c53030; font-size: 18px; margin-bottom: 16px;">
+						There was an error checking your insurance eligibility. Please contact our support team for assistance.
+					</p>
+					<div style="margin-top: 16px; padding: 12px; background-color: #ffffff; border-radius: 6px;">
+						<p style="font-size: 14px; color: #4a5568; margin: 0;">
+							<strong>What to do next:</strong><br>
+							• Contact our support team<br>
+							• Have your insurance card ready<br>
+							• We'll verify your coverage manually
+						</p>
+					</div>
+				</div>
+
+				<a href="${bookingUrl}" class="quiz-booking-button">
+					Continue to Support
+				</a>
+			</div>
+		`;
+	}
+
+	_generateFullCoverageHTML(sessionsCovered, copay, deductible, eligibilityData, bookingUrl) {
+		// Format plan dates if available
+		let coverageExpiry = "Dec 31, 2025"; // Default
+		if (eligibilityData.planEnd) {
+			const endDate = eligibilityData.planEnd;
+			if (endDate.length === 8) {
+				const year = endDate.substring(0, 4);
+				const month = endDate.substring(4, 6);
+				const day = endDate.substring(6, 8);
+				const monthNames = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+				coverageExpiry = `${monthNames[parseInt(month)]} ${parseInt(day)}, ${year}`;
+			}
+		}
+
+		return `
+			<div class="quiz-results-container">
+				<div class="quiz-results-header">
+					<h2 class="quiz-results-title">Great news! You're covered</h2>
+					<p class="quiz-results-subtitle">As of today, your insurance fully covers your online dietitian consultations*</p>
+				</div>
+
+				<div class="quiz-coverage-card">
+					<h3 class="quiz-coverage-card-title">Here's Your Offer</h3>
+
+					<div class="quiz-coverage-pricing">
+						<div class="quiz-coverage-services">
+							<div class="quiz-coverage-service">Initial consultation – 60 minutes</div>
+							<div class="quiz-coverage-service">Follow-up consultation – 30 minutes</div>
+						</div>
+						<div class="quiz-coverage-costs">
+							<div class="quiz-coverage-cost">
+								<span class="quiz-coverage-copay">Co-pay: $${copay}*</span>
+								<span class="quiz-coverage-original-price">$100</span>
+							</div>
+							<div class="quiz-coverage-cost">
+								<span class="quiz-coverage-copay">Co-pay: $${copay}*</span>
+								<span class="quiz-coverage-original-price">$50</span>
+							</div>
+						</div>
+					</div>
+
+					<div class="quiz-coverage-divider"></div>
+
+					<div class="quiz-coverage-benefits">
+						<div class="quiz-coverage-benefit">
+							<svg class="quiz-coverage-benefit-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+								<path d="M7.08301 1.66663C7.08301 1.66663 10.833 1.66663 10.833 5.41663" stroke="#418865" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+								<path d="M3.33301 1.66663V18.3333" stroke="#418865" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+								<path d="M10 7.5L16.667 7.5" stroke="#418865" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+							</svg>
+							<span class="quiz-coverage-benefit-text">${sessionsCovered} covered sessions remaining</span>
+						</div>
+						<div class="quiz-coverage-benefit">
+							<svg class="quiz-coverage-benefit-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+								<path d="M10.833 11.6666H17.5" stroke="#418865" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+								<path d="M6.25 1.66663V5.41663" stroke="#418865" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+								<path d="M2.5 3.33329V18.3333" stroke="#418865" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+								<path d="M2.5 8.33329V18.3333" stroke="#418865" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+							</svg>
+							<span class="quiz-coverage-benefit-text">Coverage expires ${coverageExpiry}</span>
+						</div>
+					</div>
+				</div>
+
+				<div class="quiz-action-section">
+					<div class="quiz-action-content">
+						<div class="quiz-action-header">
+							<h3 class="quiz-action-title">Schedule your initial online consultation now</h3>
+						</div>
+
+						<div class="quiz-action-details">
+							<div class="quiz-action-info">
+								<svg class="quiz-action-info-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+									<path d="M4.58301 4.16663C4.58301 4.16663 10.833 1.66663 10.833 16.25" stroke="#418865" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+									<path d="M2.08301 1.66663V13.75" stroke="#418865" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+									<path d="M8.33301 16.25V2.08329" stroke="#418865" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+								</svg>
+								<span class="quiz-action-info-text">Our dietitians usually recommend minimum 6 consultations over 6 months, Today, just book your first.</span>
+							</div>
+
+							<div class="quiz-action-feature">
+								<svg class="quiz-action-feature-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+									<path d="M1.66699 2.5H18.3337" stroke="#418865" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+									<path d="M13.3337 1.66663V5.41663" stroke="#418865" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+									<path d="M6.66699 10.4166V18.3333" stroke="#418865" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+								</svg>
+								<span class="quiz-action-feature-text">Free cancellation up to 24h before</span>
+							</div>
+						</div>
+
+						<a href="${bookingUrl}" class="quiz-booking-button">
+							Proceed to booking
+						</a>
+					</div>
+				</div>
+
+				${this._generateFAQHTML()}
+			</div>
+		`;
+	}
+
+	_generatePartialOrNoEligibilityHTML(eligibilityData, bookingUrl, eligibilityStatus) {
+		const userMessage = eligibilityData.userMessage || "Your eligibility check is complete.";
+
+		// Determine styling based on status
+		let cardStyle = "";
+		let statusIcon = "ℹ️";
+		let titleColor = "#4a5568";
+
+		if (eligibilityStatus === "NOT_ELIGIBLE") {
+			cardStyle = "border-left: 4px solid #ed8936; background-color: #fffaf0;";
+			statusIcon = "⚠️";
+			titleColor = "#c05621";
+		} else if (eligibilityStatus === "PAYER_ERROR" || eligibilityStatus === "ERROR") {
+			cardStyle = "border-left: 4px solid #f56565; background-color: #fed7d7;";
+			statusIcon = "❌";
+			titleColor = "#c53030";
+		} else if (eligibilityStatus === "PROCESSING") {
+			cardStyle = "border-left: 4px solid #3182ce; background-color: #ebf8ff;";
+			statusIcon = "🔄";
+			titleColor = "#2c5282";
+		}
+
+		return `
+			<div class="quiz-results-container">
+				<div class="quiz-results-header">
+					<h2 class="quiz-results-title">Thanks for completing the quiz!</h2>
+					<p class="quiz-results-subtitle">We're ready to connect you with a registered dietitian who can help guide your health journey.</p>
+				</div>
+
+				<div class="quiz-coverage-card" style="${cardStyle}">
+					<h3 class="quiz-coverage-card-title" style="color: ${titleColor};">
+						${statusIcon} Insurance Coverage Check
+					</h3>
+					<p style="font-size: 18px; margin-bottom: 16px;">${userMessage}</p>
+				</div>
+
+				<a href="${bookingUrl}" class="quiz-booking-button">
+					${eligibilityStatus === "PROCESSING" ? "Continue - We'll Process in Background" : "Continue with Next Steps"}
+				</a>
+			</div>
+		`;
+	}
+
+	_generateFAQHTML() {
+		return `
+			<div class="quiz-faq-section">
+				<div class="quiz-faq-divider"></div>
+
+				<div class="quiz-faq-item expanded" data-faq="credit-card">
+					<div style="flex: 1;">
+						<div class="quiz-faq-question">Why do I need to provide my credit card?</div>
+						<div class="quiz-faq-answer">
+							You'll be able to attend your consultation right away, while the co-pay will be charged later, only after your insurance is billed. We require your card for this purpose. If you cancel or reschedule with less than 24 hours' notice, or miss your appointment, your card will be charged the full consultation fee.
+						</div>
+					</div>
+					<div class="quiz-faq-toggle">
+						<svg class="quiz-faq-toggle-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+							<path d="M4 12H20" stroke="#121212" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+						</svg>
+					</div>
+				</div>
+
+				<div class="quiz-faq-divider"></div>
+
+				<div class="quiz-faq-item" data-faq="coverage-change">
+					<div class="quiz-faq-question-collapsed">Can my coverage or co-pay change after booking?</div>
+					<div class="quiz-faq-toggle">
+						<svg class="quiz-faq-toggle-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+							<path d="M4 12H20" stroke="#454545" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+							<path d="M12 4V20" stroke="#454545" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+						</svg>
+					</div>
+				</div>
+
+				<div class="quiz-faq-divider"></div>
+			</div>
+		`;
+	}
+
+	_attachFAQListeners() {
+		const faqItems = this.results.querySelectorAll(".quiz-faq-item");
+
+		faqItems.forEach(item => {
+			item.addEventListener("click", () => {
+				const isExpanded = item.classList.contains("expanded");
+
+				// Collapse all other items
+				faqItems.forEach(otherItem => {
+					if (otherItem !== item) {
+						otherItem.classList.remove("expanded");
+						// Update question styling
+						const question = otherItem.querySelector(".quiz-faq-question, .quiz-faq-question-collapsed");
+						if (question) {
+							question.className = "quiz-faq-question-collapsed";
+						}
+						// Update icon
+						const icon = otherItem.querySelector(".quiz-faq-toggle-icon");
+						if (icon) {
+							icon.innerHTML =
+								'<path d="M4 12H20" stroke="#454545" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 4V20" stroke="#454545" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>';
+						}
+					}
+				});
+
+				if (!isExpanded) {
+					// Expand this item
+					item.classList.add("expanded");
+					const question = item.querySelector(".quiz-faq-question, .quiz-faq-question-collapsed");
+					if (question) {
+						question.className = "quiz-faq-question";
+					}
+					// Update icon to minus
+					const icon = item.querySelector(".quiz-faq-toggle-icon");
+					if (icon) {
+						icon.innerHTML = '<path d="M4 12H20" stroke="#121212" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>';
+					}
+				} else {
+					// Collapse this item
+					item.classList.remove("expanded");
+					const question = item.querySelector(".quiz-faq-question, .quiz-faq-question-collapsed");
+					if (question) {
+						question.className = "quiz-faq-question-collapsed";
+					}
+					// Update icon to plus
+					const icon = item.querySelector(".quiz-faq-toggle-icon");
+					if (icon) {
+						icon.innerHTML =
+							'<path d="M4 12H20" stroke="#454545" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 4V20" stroke="#454545" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>';
+					}
+				}
+			});
+		});
 	}
 
 	showError(title, message) {
@@ -1976,6 +2113,11 @@ class ProductQuiz {
 				});
 				break;
 
+			case "payer-search":
+				console.log("Attaching form payer search listeners for:", question.id);
+				this._attachPayerSearchFormListeners(question);
+				break;
+
 			default:
 				console.warn(`Unsupported form field type: ${question.type}`);
 		}
@@ -1991,8 +2133,6 @@ class ProductQuiz {
 			return;
 		}
 
-		console.log(`Handling form answer for question ${questionId}:`, answer);
-
 		// Find or create response for this question
 		const responseIndex = this.responses.findIndex(r => r.questionId === questionId);
 		if (responseIndex !== -1) {
@@ -2001,16 +2141,9 @@ class ProductQuiz {
 			this.responses.push({
 				stepId: step.id,
 				questionId: questionId,
-				answer
+				answer: answer
 			});
 		}
-
-		// Log all current responses for debugging
-		console.log("Current responses:", JSON.stringify(this.responses, null, 2));
-
-		// Note: The enabling/disabling of the next button is now solely handled by
-		// this.updateNavigation(), which should be called by the event listener
-		// after this function completes.
 	}
 
 	// Helper method to add legal text after navigation
@@ -2056,7 +2189,7 @@ class ProductQuiz {
 	_getTooltipContent(questionId) {
 		const tooltips = {
 			q3: "Select your primary insurance company. This helps us verify your coverage and find in-network dietitians.",
-			q4: "Enter your member ID exactly as it appears on your insurance card. This is typically found on the front of your card.",
+			q4: "This is the unique ID found on your insurance card.",
 			q5: "Select the state where you reside. Insurance coverage may vary by state."
 		};
 		return tooltips[questionId] || "";
@@ -2178,6 +2311,8 @@ class ProductQuiz {
 				return this.renderCheckbox(question, response);
 			case "dropdown":
 				return this.renderDropdown(question, response);
+			case "payer-search":
+				return this.renderPayerSearch(question, response);
 			case "text":
 				return this.renderTextInput(question, response);
 			case "date":
@@ -2206,6 +2341,30 @@ class ProductQuiz {
 
 	// Enhanced validation method according to PRD requirements
 	_validateFieldValue(question, value) {
+		// Special handling for payer-search type (insurance question)
+		if (question.type === "payer-search") {
+			if (question.required && (!value || (typeof value === "string" && value.trim() === ""))) {
+				return {
+					isValid: false,
+					errorMessage: "Please select an insurance plan"
+				};
+			}
+			// If we have a valid primaryPayerId string, it's valid
+			if (value && typeof value === "string" && value.trim() !== "") {
+				return {
+					isValid: true,
+					errorMessage: null
+				};
+			}
+			// If not required and no value, it's valid
+			if (!question.required && !value) {
+				return {
+					isValid: true,
+					errorMessage: null
+				};
+			}
+		}
+
 		// If field is required and empty/null
 		if (question.required && (!value || (typeof value === "string" && value.trim() === ""))) {
 			return {
@@ -2358,6 +2517,531 @@ class ProductQuiz {
 		console.log("Result:", result);
 
 		return result;
+	}
+
+	renderPayerSearch(question, response) {
+		const selectedPayer = response.answer;
+		const placeholder = question.placeholder || "Search for your insurance plan...";
+
+		console.log("Rendering payer search for question:", question.id, "selectedPayer:", selectedPayer);
+
+		// Build the search input HTML
+		let html = `
+			<div class="quiz-payer-search-container">
+				<input
+					type="text"
+					id="question-${question.id}"
+					class="quiz-payer-search-input"
+					placeholder="${placeholder}"
+					value=""
+					autocomplete="off"
+					aria-describedby="error-${question.id}"
+				>
+				<div class="quiz-payer-search-dropdown" id="search-dropdown-${question.id}" style="display: none;">
+					<!-- Search results will be populated here -->
+				</div>
+				<p id="error-${question.id}" class="quiz-error-text quiz-error-hidden"></p>
+		`;
+
+		// If there's a selected payer, show it
+		if (selectedPayer && typeof selectedPayer === "object") {
+			html += `
+				<div class="quiz-payer-search-selected">
+					<div class="quiz-payer-search-selected-name">${selectedPayer.displayName}</div>
+					<div class="quiz-payer-search-selected-details">
+						ID: ${selectedPayer.stediId || selectedPayer.primaryPayerId}
+						${selectedPayer.aliases && selectedPayer.aliases.length > 0 ? ` • Aliases: ${selectedPayer.aliases.slice(0, 3).join(", ")}` : ""}
+					</div>
+					<button type="button" class="quiz-payer-search-clear">Change selection</button>
+				</div>
+			`;
+		}
+
+		html += "</div>";
+		console.log("Generated payer search HTML for question:", question.id);
+		return html;
+	}
+
+	// Method to attach payer search listeners for wizard-style questions
+	_attachPayerSearchListeners(question) {
+		console.log("Attaching payer search listeners for wizard-style question:", question.id);
+		const searchInput = this.questionContainer.querySelector(`#question-${question.id}`);
+		const dropdown = this.questionContainer.querySelector(`#search-dropdown-${question.id}`);
+
+		if (!searchInput || !dropdown) {
+			console.warn(`Payer search elements not found for question ${question.id}`);
+			console.log("searchInput:", !!searchInput, "dropdown:", !!dropdown);
+			return;
+		}
+
+		console.log("Found payer search elements, setting up behavior");
+		this._setupPayerSearchBehavior(question, searchInput, dropdown, selectedPayer => {
+			console.log("Wizard-style payer selected:", selectedPayer);
+			this.handleAnswer(selectedPayer);
+		});
+	}
+
+	// Method to attach payer search listeners for form-style questions
+	_attachPayerSearchFormListeners(question) {
+		// Add a small delay to ensure DOM elements are available
+		setTimeout(() => {
+			const searchInput = this.questionContainer.querySelector(`#question-${question.id}`);
+			const dropdown = this.questionContainer.querySelector(`#search-dropdown-${question.id}`);
+
+			console.log("- searchInput selector: #question-" + question.id);
+			console.log("- dropdown selector: #search-dropdown-" + question.id);
+			console.log("- questionContainer:", !!this.questionContainer);
+			console.log("- searchInput found:", !!searchInput);
+			console.log("- dropdown found:", !!dropdown);
+
+			if (!searchInput || !dropdown) {
+				console.warn(`❌ Payer search elements not found for question ${question.id}`);
+
+				// Debug: log all inputs in the container
+				const allInputs = this.questionContainer.querySelectorAll("input");
+				console.log(
+					"🔍 All inputs found:",
+					Array.from(allInputs).map(input => ({ id: input.id, type: input.type, class: input.className }))
+				);
+
+				// Debug: log all divs with dropdown-like classes
+				const allDropdowns = this.questionContainer.querySelectorAll('[id*="dropdown"], .quiz-payer-search-dropdown');
+				console.log(
+					"🔍 All potential dropdowns found:",
+					Array.from(allDropdowns).map(div => ({ id: div.id, class: div.className }))
+				);
+
+				// Debug: log all inputs with payer-search class
+				const allPayerSearchInputs = this.questionContainer.querySelectorAll(".quiz-payer-search-input");
+				console.log(
+					"🔍 All payer search inputs found:",
+					Array.from(allPayerSearchInputs).map(input => ({ id: input.id, type: input.type, class: input.className }))
+				);
+
+				// Debug: dump the entire questionContainer HTML
+				return;
+			}
+
+			this._setupPayerSearchBehavior(question, searchInput, dropdown, selectedPayer => {
+				console.log(
+					"📊 Current responses before storing payer:",
+					this.responses.map(r => ({ questionId: r.questionId, answerType: typeof r.answer, hasStediId: r.answer?.stediId, hasDisplayName: r.answer?.displayName }))
+				);
+
+				// Ensure we call handleFormAnswer with the payer object
+				this.handleFormAnswer(question.id, selectedPayer);
+
+				// Add a small delay and then log the stored response
+				setTimeout(() => {
+					const storedResponse = this.responses.find(r => r.questionId === question.id);
+					console.log(
+						"📊 All responses after payer selection:",
+						this.responses.map(r => ({ questionId: r.questionId, answerType: typeof r.answer, hasStediId: r.answer?.stediId, hasDisplayName: r.answer?.displayName }))
+					);
+
+					// Force update navigation to reflect the change
+					this.updateNavigation();
+				}, 50);
+			});
+		}, 100); // 100ms delay
+	}
+
+	// Common payer search behavior setup
+	_setupPayerSearchBehavior(question, searchInput, dropdown, onSelectCallback) {
+		let searchTimeout;
+		let currentResults = [];
+		let selectedIndex = -1;
+
+		// Ensure dropdown starts hidden
+		this._hidePayerSearchDropdown(dropdown);
+
+		// Handle input changes with debouncing
+		const inputHandler = () => {
+			const query = searchInput.value.trim();
+
+			// Clear any previous selection when user types
+			if (searchInput.hasAttribute("data-selected-payer")) {
+				searchInput.removeAttribute("data-selected-payer");
+				searchInput.classList.remove("quiz-input-valid");
+				// Clear the stored response so validation fails until new selection
+				this.handleFormAnswer(question.id, null);
+			}
+
+			if (query.length < 2) {
+				this._hidePayerSearchDropdown(dropdown);
+				currentResults = [];
+				selectedIndex = -1;
+				return;
+			}
+
+			// Clear any previous timeout
+			if (searchTimeout) {
+				clearTimeout(searchTimeout);
+			}
+
+			// Debounce search by 300ms
+			searchTimeout = setTimeout(() => {
+				this._searchPayers(question, query, dropdown, onSelectCallback, results => {
+					currentResults = results;
+					selectedIndex = -1;
+				});
+			}, 300);
+		};
+
+		// Remove any existing event listeners to prevent duplicates
+		searchInput.removeEventListener("input", inputHandler);
+
+		// Add the input event listener
+		searchInput.addEventListener("input", inputHandler);
+
+		// Handle focus event to ensure dropdown is hidden when field gets focus
+		const focusHandler = () => {
+			// Only show dropdown if there's already a valid query
+			const query = searchInput.value.trim();
+			if (query.length < 2) {
+				this._hidePayerSearchDropdown(dropdown);
+			}
+		};
+
+		searchInput.addEventListener("focus", focusHandler);
+
+		// Handle keyboard navigation
+		searchInput.addEventListener("keydown", e => {
+			if (currentResults.length === 0) return;
+
+			switch (e.key) {
+				case "ArrowDown":
+					e.preventDefault();
+					selectedIndex = Math.min(selectedIndex + 1, currentResults.length - 1);
+					this._updateKeyboardSelection(dropdown, selectedIndex);
+					break;
+				case "ArrowUp":
+					e.preventDefault();
+					selectedIndex = Math.max(selectedIndex - 1, -1);
+					this._updateKeyboardSelection(dropdown, selectedIndex);
+					break;
+				case "Enter":
+					e.preventDefault();
+					if (selectedIndex >= 0 && currentResults[selectedIndex]) {
+						this._selectPayer(question, currentResults[selectedIndex], searchInput, dropdown, onSelectCallback);
+					}
+					break;
+				case "Escape":
+					this._hidePayerSearchDropdown(dropdown);
+					searchInput.blur();
+					break;
+			}
+		});
+
+		// Hide dropdown when clicking outside
+		document.addEventListener("click", e => {
+			if (!searchInput.contains(e.target) && !dropdown.contains(e.target)) {
+				this._hidePayerSearchDropdown(dropdown);
+			}
+		});
+
+		// Handle clear button if present
+		const clearButton = this.questionContainer.querySelector(".quiz-payer-search-clear");
+		if (clearButton) {
+			clearButton.addEventListener("click", () => {
+				searchInput.value = "";
+				searchInput.focus();
+				// Clear the selection
+				onSelectCallback(null);
+				// Re-render to remove the selected payer display
+				this.renderCurrentStep();
+			});
+		}
+	}
+
+	// Search payers using Stedi API
+	async _searchPayers(question, query, dropdown, onSelectCallback, onResultsCallback) {
+		try {
+			// Show loading state
+			dropdown.innerHTML = `
+				<div class="quiz-payer-search-loading">
+					<div class="quiz-payer-search-loading-spinner"></div>
+					Searching...
+				</div>
+			`;
+			dropdown.classList.add("visible");
+			dropdown.style.display = "block";
+
+			// Make API call to Stedi
+			const apiEndpoint = question.apiEndpoint || "https://healthcare.us.stedi.com/2024-04-01/payers/search";
+			const url = new URL(apiEndpoint);
+			url.searchParams.append("query", query);
+
+			// Real API call to Stedi
+			const response = await fetch(url, {
+				method: "GET",
+				headers: {
+					Authorization: "test_fsWwDEq.XvSAryFi2OujuV0n3mNPhFfE",
+					Accept: "application/json"
+				}
+			});
+
+			if (!response.ok) {
+				console.warn("⚠️ API request failed, falling back to demo data");
+				const data = this._generateDemoPayerResults(query);
+
+				const results = data.items || [];
+
+				this._renderSearchResults(results, query, dropdown, question, onSelectCallback, onResultsCallback);
+				return;
+			}
+
+			const data = await response.json();
+
+			const results = data.items || [];
+
+			this._renderSearchResults(results, query, dropdown, question, onSelectCallback, onResultsCallback);
+		} catch (error) {
+			console.error("❌ Payer search error:", error);
+
+			// Fallback to demo data on error
+			try {
+				const data = this._generateDemoPayerResults(query);
+				const results = data.items || [];
+				this._renderSearchResults(results, query, dropdown, question, onSelectCallback, onResultsCallback);
+			} catch (demoError) {
+				console.error("❌ Demo data fallback also failed:", demoError);
+				dropdown.innerHTML = `
+					<div class="quiz-payer-search-error">
+						Error searching for insurance plans. Please try again.
+					</div>
+				`;
+				dropdown.classList.add("visible");
+				onResultsCallback([]);
+			}
+		}
+	}
+
+	// Helper method to render search results
+	_renderSearchResults(results, query, dropdown, question, onSelectCallback, onResultsCallback) {
+		if (results.length === 0) {
+			dropdown.innerHTML = `
+				<div class="quiz-payer-search-no-results">
+					No insurance plans found for "${query}". Try searching with a different term.
+				</div>
+			`;
+		} else {
+			// Render results
+			const resultsHTML = results
+				.map((item, index) => {
+					const payer = item.payer;
+					return `
+					<div class="quiz-payer-search-item" data-index="${index}">
+						<div class="quiz-payer-search-item-name">${payer.displayName}</div>
+						<div class="quiz-payer-search-item-details">
+							<span class="quiz-payer-search-item-id">${payer.stediId}</span>
+							${payer.aliases && payer.aliases.length > 0 ? `• ${payer.aliases.slice(0, 2).join(", ")}` : ""}
+						</div>
+					</div>
+				`;
+				})
+				.join("");
+
+			dropdown.innerHTML = resultsHTML;
+
+			// Attach click listeners to results
+			const resultItems = dropdown.querySelectorAll(".quiz-payer-search-item");
+
+			resultItems.forEach((item, index) => {
+				item.addEventListener("click", () => {
+					this._selectPayer(question, results[index].payer, dropdown.parentElement.querySelector(".quiz-payer-search-input"), dropdown, onSelectCallback);
+				});
+			});
+		}
+
+		dropdown.classList.add("visible");
+		dropdown.style.display = "block";
+		onResultsCallback(results.map(item => item.payer));
+	}
+
+	// Generate demo results for testing (replace with real API in production)
+	_generateDemoPayerResults(query) {
+		const allPayers = [
+			{
+				payer: {
+					stediId: "AETNA",
+					displayName: "Aetna",
+					primaryPayerId: "60054",
+					aliases: ["AETNA", "60054", "AETNA_BETTER_HEALTH"],
+					transactionSupport: {
+						eligibilityCheck: "SUPPORTED",
+						claimStatus: "SUPPORTED"
+					}
+				},
+				score: 5.0
+			},
+			{
+				payer: {
+					stediId: "ANTHEM",
+					displayName: "Anthem Blue Cross Blue Shield",
+					primaryPayerId: "040",
+					aliases: ["ANTHEM", "BCBS", "BLUE_CROSS", "040"],
+					transactionSupport: {
+						eligibilityCheck: "SUPPORTED",
+						claimStatus: "SUPPORTED"
+					}
+				},
+				score: 4.8
+			},
+			{
+				payer: {
+					stediId: "CIGNA",
+					displayName: "Cigna Health",
+					primaryPayerId: "62308",
+					aliases: ["CIGNA", "62308", "CIGNA_HEALTHCARE"],
+					transactionSupport: {
+						eligibilityCheck: "SUPPORTED",
+						claimStatus: "SUPPORTED"
+					}
+				},
+				score: 4.9
+			},
+			{
+				payer: {
+					stediId: "UPICO",
+					displayName: "Blue Cross Blue Shield of North Carolina",
+					primaryPayerId: "BCSNC",
+					aliases: ["1411", "560894904", "61473", "BCBS-NC", "BCSNC"],
+					transactionSupport: {
+						eligibilityCheck: "SUPPORTED",
+						claimStatus: "SUPPORTED"
+					}
+				},
+				score: 4.7
+			},
+			{
+				payer: {
+					stediId: "HUMANA",
+					displayName: "Humana Inc",
+					primaryPayerId: "HUMANA",
+					aliases: ["HUMANA", "HUMANA_INC", "84977"],
+					transactionSupport: {
+						eligibilityCheck: "SUPPORTED",
+						claimStatus: "SUPPORTED"
+					}
+				},
+				score: 4.6
+			},
+			{
+				payer: {
+					stediId: "KAISER",
+					displayName: "Kaiser Permanente",
+					primaryPayerId: "KAISER",
+					aliases: ["KAISER", "KP", "KAISER_PERM"],
+					transactionSupport: {
+						eligibilityCheck: "SUPPORTED",
+						claimStatus: "SUPPORTED"
+					}
+				},
+				score: 4.5
+			},
+			{
+				payer: {
+					stediId: "UNITED",
+					displayName: "UnitedHealthcare",
+					primaryPayerId: "52133",
+					aliases: ["UHC", "UNITED", "UNITED_HEALTHCARE", "52133"],
+					transactionSupport: {
+						eligibilityCheck: "SUPPORTED",
+						claimStatus: "SUPPORTED"
+					}
+				},
+				score: 4.4
+			}
+		];
+
+		// Filter based on query
+		const lowerQuery = query.toLowerCase();
+
+		const filtered = allPayers.filter(item => {
+			const payer = item.payer;
+			const displayNameMatch = payer.displayName.toLowerCase().includes(lowerQuery);
+			const stediIdMatch = payer.stediId.toLowerCase().includes(lowerQuery);
+			const aliasMatch = payer.aliases.some(alias => alias.toLowerCase().includes(lowerQuery));
+
+			const matches = displayNameMatch || stediIdMatch || aliasMatch;
+
+			if (matches) {
+			}
+
+			return matches;
+		});
+
+		console.log(
+			"📋 Filtered payers:",
+			filtered.map(item => item.payer.displayName)
+		);
+
+		const result = {
+			items: filtered.slice(0, 5), // Limit to 5 results
+			stats: {
+				total: filtered.length
+			}
+		};
+
+		return result;
+	}
+
+	// Select a payer
+	_selectPayer(question, payer, searchInput, dropdown, onSelectCallback) {
+		// Update the input to show the selected payer name
+		if (searchInput) {
+			searchInput.value = payer.displayName;
+			// Store the selected payer data as a data attribute for reference
+			searchInput.setAttribute("data-selected-payer", JSON.stringify(payer));
+		}
+
+		// Hide dropdown
+		this._hidePayerSearchDropdown(dropdown);
+
+		// Clear any error states and add valid state
+		const errorEl = this.questionContainer.querySelector(`#error-${question.id}`);
+		if (searchInput) {
+			searchInput.classList.remove("quiz-input-error");
+			searchInput.classList.add("quiz-input-valid");
+		}
+
+		// Hide error message
+		if (errorEl) {
+			errorEl.classList.add("quiz-error-hidden");
+			errorEl.classList.remove("quiz-error-visible");
+			errorEl.textContent = "";
+		}
+
+		// Call the callback with the primaryPayerId (not the full payer object)
+		onSelectCallback(payer.primaryPayerId);
+	}
+
+	// Hide the payer search dropdown
+	_hidePayerSearchDropdown(dropdown) {
+		dropdown.classList.remove("visible");
+		dropdown.style.display = "none";
+	}
+
+	// Update keyboard selection highlighting
+	_updateKeyboardSelection(dropdown, selectedIndex) {
+		const items = dropdown.querySelectorAll(".quiz-payer-search-item");
+		items.forEach((item, index) => {
+			if (index === selectedIndex) {
+				item.classList.add("keyboard-highlighted");
+			} else {
+				item.classList.remove("keyboard-highlighted");
+			}
+		});
+	}
+
+	// Helper method to resolve primaryPayerId to displayName using demo data as fallback
+	_resolvePayerDisplayName(primaryPayerId) {
+		// Generate demo data to find the matching payer
+		const demoDataResult = this._generateDemoPayerResults("");
+		const demoItems = demoDataResult.items || [];
+		const matchingPayer = demoItems.find(item => item.payer.primaryPayerId === primaryPayerId);
+		return matchingPayer ? matchingPayer.payer.displayName : null;
 	}
 }
 
