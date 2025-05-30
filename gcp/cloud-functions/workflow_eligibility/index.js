@@ -44,12 +44,27 @@ exports.handler = async (req, res) => {
 
 		console.log(`Created execution: ${execution.name}`);
 
-		// Wait for execution to finish
-		const [result] = await workflowsClient.getExecution({
-			name: execution.name
-		});
+		// Wait for execution to complete with polling
+		let result;
+		let attempts = 0;
+		const maxAttempts = 30; // 30 seconds max wait time
 
-		console.log("Execution finished with state:", result.state);
+		do {
+			await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+			attempts++;
+
+			[result] = await workflowsClient.getExecution({
+				name: execution.name
+			});
+
+			console.log(`Attempt ${attempts}: Execution state: ${result.state}`);
+
+			if (result.state === "SUCCEEDED" || result.state === "FAILED") {
+				break;
+			}
+		} while (attempts < maxAttempts);
+
+		console.log("Final execution state:", result.state);
 
 		// Handle execution errors
 		if (result.state === "FAILED") {
@@ -62,9 +77,30 @@ exports.handler = async (req, res) => {
 			});
 		}
 
+		// Handle timeout
+		if (result.state !== "SUCCEEDED") {
+			console.error("Workflow execution timed out or is still running:", result.state);
+			return res.status(500).send({
+				success: false,
+				error: "Workflow execution timed out",
+				state: result.state,
+				receivedData: req.body
+			});
+		}
+
 		// Parse the result
 		let resultData = result.result ? JSON.parse(result.result) : {};
-		res.status(200).send(resultData);
+
+		console.log("Workflow result:", resultData);
+
+		// The workflow returns { statusCode, headers, body: { success, eligibilityData, ... } }
+		// We need to return just the body content for the telemedicine workflow
+		if (resultData && resultData.body) {
+			res.status(resultData.statusCode || 200).send(resultData.body);
+		} else {
+			// Fallback if structure is unexpected
+			res.status(200).send(resultData);
+		}
 	} catch (error) {
 		console.error("Error executing workflow:", error);
 		res.status(500).send({

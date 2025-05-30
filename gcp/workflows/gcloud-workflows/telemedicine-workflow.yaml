@@ -164,18 +164,15 @@ main:
 
     - extractResponseBody:
         try:
-          # The Cloud Function returns the eligibility workflow's output as its body.
-          # The eligibility workflow's output has its own "body" field containing success/eligibilityData.
+          # The Cloud Function returns { body: { success: true, eligibilityData: {...} } }
+          # We need to extract the inner body which contains success and eligibilityData
           switch:
-            - condition: ${"body" in eligibilityResponse and "body" in eligibilityResponse.body}
-              assign:
-                - eligibilityResponseBody: ${eligibilityResponse.body.body} # Access nested body
             - condition: ${"body" in eligibilityResponse}
               assign:
-                - eligibilityResponseBody: ${eligibilityResponse.body} # Direct body access
+                - eligibilityResponseBody: ${eligibilityResponse.body} # Extract the body which contains success and eligibilityData
             - condition: true
               assign:
-                - eligibilityResponseBody: ${eligibilityResponse} # Use response directly
+                - eligibilityResponseBody: ${eligibilityResponse} # Use response directly as fallback
         except:
           assign:
             - eligibilityResponseBody: ${emptyObject} # Fallback if structure is unexpected
@@ -239,6 +236,10 @@ main:
 
                     - tryAlternativeExtraction:
                         switch:
+                          # Check if we already have valid eligibility data
+                          - condition: ${hasSuccess and hasEligibilityData}
+                            next: setEligibilityData
+                          # Check if response itself has the data (alternative structure)
                           - condition: ${not hasSuccess and responseHasEligibilityData}
                             assign:
                               - eligibilityResponseBody: ${eligibilityResponse}
@@ -246,82 +247,17 @@ main:
                               - hasEligibilityData: ${eligibilityResponse != null and "eligibilityData" in eligibilityResponse}
                               - foundAlternativeData: true
                             next: setEligibilityData
-                          # Check if we already have valid eligibility data before falling back
-                          - condition: ${hasSuccess and hasEligibilityData}
-                            next: setEligibilityData
-                          # Only attempt fallback if we truly have no valid data
-                          - condition: ${not hasSuccess and not hasEligibilityData}
-                            assign:
-                              - attemptedFallback: true
-                            next: fallbackDirectCall
+                          # If we still don't have data, set empty object and let error handling deal with it
                           - condition: true
+                            assign:
+                              - eligibilityData: ${emptyObject}
                             next: setEligibilityData
-
-                    - fallbackDirectCall:
-                        try:
-                          steps:
-                            - callFallback:
-                                call: http.post
-                                args:
-                                  url: ${"https://us-central1-" + projectId + ".cloudfunctions.net/workflow_eligibility"}
-                                  headers:
-                                    Content-Type: "application/json"
-                                  body:
-                                    firstName: ${firstName}
-                                    lastName: ${lastName}
-                                    insurance: ${insurance}
-                                    insuranceMemberId: ${insuranceMemberId}
-                                    groupNumber: ${groupNumber}
-                                    dateOfBirth: ${dateOfBirth}
-                                    source: "telemedicine-workflow-fallback"
-                                result: fallbackResponse
-                            - debugFallbackResponse:
-                                assign:
-                                  # Debug the fallback response structure
-                                  - fallbackHasBody: ${"body" in fallbackResponse}
-                                  - fallbackHasStatusCode: ${"statusCode" in fallbackResponse}
-                                  - fallbackBodyHasSuccess: ${fallbackResponse.body != null and "success" in fallbackResponse.body}
-                                  - fallbackBodyHasEligibilityData: ${fallbackResponse.body != null and "eligibilityData" in fallbackResponse.body}
-                                next: processFallbackResponse
-
-                            - processFallbackResponse:
-                                switch:
-                                  - condition: ${fallbackResponse.body != null and "success" in fallbackResponse.body and fallbackResponse.body.success}
-                                    assign:
-                                      - eligibilityResponseBody: ${fallbackResponse.body}
-                                      - hasSuccess: true
-                                      - hasEligibilityData: ${"eligibilityData" in fallbackResponse.body}
-                                  # If fallback also failed, create demo data so the workflow can continue
-                                  - condition: true
-                                    assign:
-                                      - demo_data_map:
-                                          isEligible: true
-                                          sessionsCovered: 10
-                                          deductible: { individual: 250 }
-                                          eligibilityStatus: "DEMO_MODE"
-                                          userMessage: "Demo mode: Unable to verify eligibility with insurance provider. Using sample data for testing purposes."
-                                          planBegin: "20240101"
-                                          planEnd: "20241231"
-                                          demo: true
-                                      - eligibilityResponseBody: # Construct the response body for consistency
-                                          success: true
-                                          eligibilityData: ${demo_data_map}
-                                      - eligibilityData: ${demo_data_map} # Assign to top-level eligibilityData as well
-                                      - hasSuccess: true
-                                      - hasEligibilityData: true
-                        except:
-                          as: e_fallback
-                          assign:
-                            - hasSuccess: false # Fallback call failed
-                            - fallbackError: ${e_fallback}
-                        next: setEligibilityData
 
                     - setEligibilityData:
                         switch:
                           - condition: ${hasSuccess and hasEligibilityData}
                             assign:
                               - eligibilityData: ${eligibilityResponseBody.eligibilityData}
-                              - eligibilityResponseCode: ${if("statusCode" in eligibilityResponse, eligibilityResponse.statusCode, 200)}
                           - condition: true # Default if no eligibilityData found
                             assign:
                               - eligibilityData: ${emptyObject}
@@ -379,11 +315,6 @@ main:
                   internal_error_details: ${if(internal_error_details != null, internal_error_details, "No internal error details")}
                   attemptedFallback: ${if(attemptedFallback != null, attemptedFallback, false)}
                   foundAlternativeData: ${if(foundAlternativeData != null, foundAlternativeData, false)}
-                  fallbackDebug:
-                    fallbackHasBody: ${if(fallbackHasBody != null, fallbackHasBody, false)}
-                    fallbackHasStatusCode: ${if(fallbackHasStatusCode != null, fallbackHasStatusCode, false)}
-                    fallbackBodyHasSuccess: ${if(fallbackBodyHasSuccess != null, fallbackBodyHasSuccess, false)}
-                    fallbackBodyHasEligibilityData: ${if(fallbackBodyHasEligibilityData != null, fallbackBodyHasEligibilityData, false)}
                   responseStructure:
                     hasCode: ${responseHasCode}
                     hasStatusCode: ${responseHasStatusCode}

@@ -249,6 +249,9 @@ class ProductQuiz {
 				}
 			});
 
+			// Check for test mode and populate test data if enabled
+			this._checkAndApplyTestData();
+
 			// Hide loading indicator and show questions container, nav header, and progress section
 			this._hideElement(this.loading);
 			this._showElement(this.questions);
@@ -1458,6 +1461,20 @@ class ProductQuiz {
 						console.log("Result keys:", Object.keys(result || {}));
 						console.log("============================");
 
+						// Add detailed structure debugging
+						if (result && result.body) {
+							console.log("=== BODY STRUCTURE DEBUG ===");
+							console.log("Body keys:", Object.keys(result.body || {}));
+							if (result.body.details) {
+								console.log("Details keys:", Object.keys(result.body.details || {}));
+								if (result.body.details.eligibilityData) {
+									console.log("EligibilityData keys:", Object.keys(result.body.details.eligibilityData || {}));
+									console.log("EligibilityData content:", result.body.details.eligibilityData);
+								}
+							}
+							console.log("===========================");
+						}
+
 						// The Cloud Function now returns the workflow result body directly
 						if (result && result.success === true && result.eligibilityData) {
 							eligibilityData = result.eligibilityData;
@@ -1493,9 +1510,37 @@ class ProductQuiz {
 									planBegin: "",
 									planEnd: ""
 								};
+							}
+							// Handle the nested details structure from the current Cloud Function
+							else if (result.body.details && result.body.details.success === true && result.body.details.eligibilityData) {
+								console.log("✅ Found eligibility data in body.details structure");
+								eligibilityData = result.body.details.eligibilityData;
+							}
+							// Handle the case where details exists but with error
+							else if (result.body.details && result.body.details.success === false) {
+								console.error("❌ Workflow completed with error in body.details:", result.body.details);
+								eligibilityData = {
+									isEligible: false,
+									sessionsCovered: 0,
+									deductible: { individual: 0 },
+									eligibilityStatus: "ERROR",
+									userMessage: `There was an error processing your request: ${result.body.error || "Unknown error"}. Our team will contact you to manually verify your coverage.`,
+									planBegin: "",
+									planEnd: ""
+								};
 							} else {
 								console.warn("❌ No success/eligibilityData found in body");
 								console.log("Body structure:", result.body);
+
+								// Additional debugging for the current structure
+								if (result.body.details) {
+									console.log("Details structure found:", result.body.details);
+									console.log("Details keys:", Object.keys(result.body.details));
+									if (result.body.details.eligibilityData) {
+										console.log("EligibilityData found in details:", result.body.details.eligibilityData);
+									}
+								}
+
 								eligibilityData = this.createProcessingStatus();
 							}
 						}
@@ -1809,20 +1854,20 @@ class ProductQuiz {
 
 					<div class="quiz-coverage-benefits">
 						<div class="quiz-coverage-benefit">
-							<svg class="quiz-coverage-benefit-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-								<path d="M7.08301 1.66663C7.08301 1.66663 10.833 1.66663 10.833 5.41663" stroke="#418865" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-								<path d="M3.33301 1.66663V18.3333" stroke="#418865" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-								<path d="M10 7.5L16.667 7.5" stroke="#418865" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-							</svg>
+							<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
+  <path d="M10.4163 1.66663H7.08301L7.49967 2.49996H9.99967L10.4163 1.66663Z" stroke="#418865" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M14.1663 14.1666V17.0833C14.1663 17.7736 13.6067 18.3333 12.9163 18.3333H4.58301C3.89265 18.3333 3.33301 17.7736 3.33301 17.0833V2.91663C3.33301 2.22627 3.89265 1.66663 4.58301 1.66663H12.9163C13.6067 1.66663 14.1663 2.22627 14.1663 2.91663V5.83329" stroke="#418865" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M10 10.4167L12.0833 12.5L16.6667 7.5" stroke="#418865" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
 							<span class="quiz-coverage-benefit-text">${sessionsCovered} covered sessions remaining</span>
 						</div>
 						<div class="quiz-coverage-benefit">
-							<svg class="quiz-coverage-benefit-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-								<path d="M10.833 11.6666H17.5" stroke="#418865" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-								<path d="M6.25 1.66663V5.41663" stroke="#418865" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-								<path d="M2.5 3.33329V18.3333" stroke="#418865" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-								<path d="M2.5 8.33329V18.3333" stroke="#418865" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-							</svg>
+							<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
+  <path d="M15.2223 15.5842L14.1663 15V13.5556M17.4997 15C17.4997 16.8409 16.0073 18.3333 14.1663 18.3333C12.3254 18.3333 10.833 16.8409 10.833 15C10.833 13.159 12.3254 11.6666 14.1663 11.6666C16.0073 11.6666 17.4997 13.159 17.4997 15Z" stroke="#418865" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M13.75 1.66663V4.99996M6.25 1.66663V4.99996" stroke="#418865" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M17.5 10V5.00004C17.5 4.07957 16.7538 3.33337 15.8333 3.33337H4.16667C3.24619 3.33337 2.5 4.07957 2.5 5.00004V16.6667C2.5 17.5872 3.24619 18.3334 4.16667 18.3334H9.16667" stroke="#418865" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M2.5 8.33337H17.5" stroke="#418865" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
 							<span class="quiz-coverage-benefit-text">Coverage expires ${coverageExpiry}</span>
 						</div>
 					</div>
@@ -1836,20 +1881,20 @@ class ProductQuiz {
 
 						<div class="quiz-action-details">
 							<div class="quiz-action-info">
-								<svg class="quiz-action-info-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-									<path d="M4.58301 4.16663C4.58301 4.16663 10.833 1.66663 10.833 16.25" stroke="#418865" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-									<path d="M2.08301 1.66663V13.75" stroke="#418865" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-									<path d="M8.33301 16.25V2.08329" stroke="#418865" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-								</svg>
+								<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
+  <path d="M12.4214 14.5583C12.4709 14.3109 12.6316 14.1021 12.8477 13.972C14.3893 13.0437 15.4163 11.5305 15.4163 9.58378C15.4163 6.59224 12.9913 4.16711 9.99967 4.16711C7.00813 4.16711 4.58301 6.59224 4.58301 9.58378C4.58301 11.5305 5.60997 13.0437 7.15168 13.972C7.36778 14.1021 7.52844 14.3109 7.57791 14.5583L7.78236 15.5805C7.86027 15.97 8.20227 16.2504 8.59951 16.2504H11.3998C11.7971 16.2504 12.1391 15.97 12.217 15.5805L12.4214 14.5583Z" stroke="#418865" stroke-width="1.25" stroke-linejoin="round"/>
+  <path d="M17.4997 9.58378H17.9163M2.08301 9.58378H2.49967M15.3024 4.28048L15.597 3.98586M4.16634 15.4171L4.58301 15.0004M15.4163 15.0004L15.833 15.4171M4.40234 3.98644L4.69697 4.28106M9.99967 2.08378V1.66711" stroke="#418865" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M11.6663 16.25V17.5C11.6663 17.9602 11.2933 18.3333 10.833 18.3333H9.16634C8.70609 18.3333 8.33301 17.9602 8.33301 17.5V16.25" stroke="#418865" stroke-width="1.25" stroke-linejoin="round"/>
+</svg>
 								<span class="quiz-action-info-text">Our dietitians usually recommend minimum 6 consultations over 6 months, Today, just book your first.</span>
 							</div>
 
 							<div class="quiz-action-feature">
-								<svg class="quiz-action-feature-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-									<path d="M1.66699 2.5H18.3337" stroke="#418865" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-									<path d="M13.3337 1.66663V5.41663" stroke="#418865" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-									<path d="M6.66699 10.4166V18.3333" stroke="#418865" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-								</svg>
+								<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
+  <path d="M10.417 2.5031C9.67107 2.49199 8.92091 2.51074 8.19149 2.55923C4.70565 2.79094 1.929 5.60698 1.70052 9.14225C1.65582 9.83408 1.65582 10.5506 1.70052 11.2424C1.78374 12.53 2.35318 13.7222 3.02358 14.7288C3.41283 15.4336 3.15594 16.3132 2.7505 17.0815C2.45817 17.6355 2.312 17.9125 2.42936 18.1126C2.54672 18.3127 2.80887 18.3191 3.33318 18.3318C4.37005 18.3571 5.06922 18.0631 5.62422 17.6538C5.93899 17.4218 6.09638 17.3057 6.20486 17.2923C6.31332 17.279 6.5268 17.3669 6.95367 17.5427C7.33732 17.7007 7.78279 17.7982 8.19149 17.8254C9.37832 17.9043 10.6199 17.9045 11.8092 17.8254C15.295 17.5937 18.0717 14.7777 18.3002 11.2424C18.3354 10.6967 18.3428 10.1356 18.3225 9.58333" stroke="#418865" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M18.333 6.66663L13.333 1.66663M18.333 1.66663L13.333 6.66663" stroke="#418865" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M9.99658 10.4166H10.004M13.3262 10.4166H13.3337M6.66699 10.4166H6.67447" stroke="#418865" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
 								<span class="quiz-action-feature-text">Free cancellation up to 24h before</span>
 							</div>
 						</div>
@@ -1913,8 +1958,8 @@ class ProductQuiz {
 			<div class="quiz-faq-section">
 				<div class="quiz-faq-divider"></div>
 
-				<div class="quiz-faq-item expanded" data-faq="credit-card">
-					<div style="flex: 1;">
+				<div class="quiz-faq-item expanded" data-faq="credit-card" tabindex="0" role="button" aria-expanded="true">
+					<div class="quiz-faq-content">
 						<div class="quiz-faq-question">Why do I need to provide my credit card?</div>
 						<div class="quiz-faq-answer">
 							You'll be able to attend your consultation right away, while the co-pay will be charged later, only after your insurance is billed. We require your card for this purpose. If you cancel or reschedule with less than 24 hours' notice, or miss your appointment, your card will be charged the full consultation fee.
@@ -1929,8 +1974,30 @@ class ProductQuiz {
 
 				<div class="quiz-faq-divider"></div>
 
-				<div class="quiz-faq-item" data-faq="coverage-change">
-					<div class="quiz-faq-question-collapsed">Can my coverage or co-pay change after booking?</div>
+				<div class="quiz-faq-item" data-faq="coverage-change" tabindex="0" role="button" aria-expanded="false">
+					<div class="quiz-faq-content">
+						<div class="quiz-faq-question-collapsed">Can my coverage or co-pay change after booking?</div>
+						<div class="quiz-faq-answer">
+							Coverage details are verified at the time of booking and are generally locked in for your scheduled appointment. However, if there are changes to your insurance plan or if we receive updated information from your insurance provider, we'll notify you immediately of any changes to your co-pay or coverage status.
+						</div>
+					</div>
+					<div class="quiz-faq-toggle">
+						<svg class="quiz-faq-toggle-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+							<path d="M4 12H20" stroke="#454545" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+							<path d="M12 4V20" stroke="#454545" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+						</svg>
+					</div>
+				</div>
+
+				<div class="quiz-faq-divider"></div>
+
+				<div class="quiz-faq-item" data-faq="what-expect" tabindex="0" role="button" aria-expanded="false">
+					<div class="quiz-faq-content">
+						<div class="quiz-faq-question-collapsed">What should I expect during my consultation?</div>
+						<div class="quiz-faq-answer">
+							Your dietitian will conduct a comprehensive health assessment, review your medical history and goals, and create a personalized nutrition plan. You'll receive practical meal planning guidance, dietary recommendations, and ongoing support to help you achieve your health objectives.
+						</div>
+					</div>
 					<div class="quiz-faq-toggle">
 						<svg class="quiz-faq-toggle-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
 							<path d="M4 12H20" stroke="#454545" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -1946,6 +2013,11 @@ class ProductQuiz {
 
 	_attachFAQListeners() {
 		const faqItems = this.results.querySelectorAll(".quiz-faq-item");
+
+		if (faqItems.length === 0) {
+			console.warn("No FAQ items found");
+			return;
+		}
 
 		faqItems.forEach(item => {
 			item.addEventListener("click", () => {
@@ -1969,6 +2041,7 @@ class ProductQuiz {
 					}
 				});
 
+				// Toggle current item
 				if (!isExpanded) {
 					// Expand this item
 					item.classList.add("expanded");
@@ -2543,14 +2616,36 @@ class ProductQuiz {
 				<p id="error-${question.id}" class="quiz-error-text quiz-error-hidden"></p>
 		`;
 
-		// If there's a selected payer, show it
+		// Handle different types of selected payer data
+		let payerDisplayInfo = null;
+
 		if (selectedPayer && typeof selectedPayer === "object") {
+			// Full payer object from search selection
+			payerDisplayInfo = {
+				displayName: selectedPayer.displayName,
+				id: selectedPayer.stediId || selectedPayer.primaryPayerId,
+				aliases: selectedPayer.aliases
+			};
+		} else if (selectedPayer && typeof selectedPayer === "string") {
+			// Test data or primaryPayerId string - resolve to display name
+			const resolvedDisplayName = this._resolvePayerDisplayName(selectedPayer);
+			if (resolvedDisplayName) {
+				payerDisplayInfo = {
+					displayName: resolvedDisplayName,
+					id: selectedPayer,
+					aliases: []
+				};
+			}
+		}
+
+		// If we have payer display info, show the selected payer
+		if (payerDisplayInfo) {
 			html += `
 				<div class="quiz-payer-search-selected">
-					<div class="quiz-payer-search-selected-name">${selectedPayer.displayName}</div>
+					<div class="quiz-payer-search-selected-name">${payerDisplayInfo.displayName}</div>
 					<div class="quiz-payer-search-selected-details">
-						ID: ${selectedPayer.stediId || selectedPayer.primaryPayerId}
-						${selectedPayer.aliases && selectedPayer.aliases.length > 0 ? ` • Aliases: ${selectedPayer.aliases.slice(0, 3).join(", ")}` : ""}
+						ID: ${payerDisplayInfo.id}
+						${payerDisplayInfo.aliases && payerDisplayInfo.aliases.length > 0 ? ` • Aliases: ${payerDisplayInfo.aliases.slice(0, 3).join(", ")}` : ""}
 					</div>
 					<button type="button" class="quiz-payer-search-clear">Change selection</button>
 				</div>
@@ -3042,6 +3137,102 @@ class ProductQuiz {
 		const demoItems = demoDataResult.items || [];
 		const matchingPayer = demoItems.find(item => item.payer.primaryPayerId === primaryPayerId);
 		return matchingPayer ? matchingPayer.payer.displayName : null;
+	}
+
+	// Helper method to check URL parameters for test mode
+	_checkUrlParameter(paramName) {
+		const urlParams = new URLSearchParams(window.location.search);
+		return urlParams.get(paramName);
+	}
+
+	// Helper method to check for test mode and apply test data
+	_checkAndApplyTestData() {
+		const testMode = this._checkUrlParameter("test");
+
+		if (testMode === "true") {
+			console.log("%c🧪 TEST MODE ENABLED 🧪", "background: #4CAF50; color: white; padding: 8px 16px; border-radius: 4px; font-weight: bold; font-size: 14px;");
+			console.log("%cTest data will be automatically filled in all form fields", "color: #4CAF50; font-weight: bold;");
+			this._applyTestData();
+
+			// Add visual indicator on page if in development
+			if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+				this._addTestModeIndicator();
+			}
+		}
+	}
+
+	// Apply test data to responses for easier testing
+	_applyTestData() {
+		const testData = {
+			// Multiple choice questions (goals)
+			q1: ["opt1"], // Main reasons - select first option
+
+			// Checkbox questions (medical conditions)
+			q2: ["med2", "med4"], // Medical conditions - select diabetes and high blood pressure
+
+			// Insurance information
+			q3: "52133", // Insurance - UnitedHealthcare primaryPayerId
+			q4: "404404404", // Member ID
+			q4_group: "", // Group number (empty)
+			q5: "DC", // State - District of Columbia
+
+			// Date of birth parts
+			q6_month: "06",
+			q6_day: "28",
+			q6_year: "1969",
+
+			// Contact information
+			q7: "Beaver", // First name
+			q8: "Dent", // Last name
+			q9: "beaver.dent@example.com", // Email
+			q10: "(555) 123-4567" // Phone
+		};
+
+		// Apply test data to responses
+		Object.keys(testData).forEach(questionId => {
+			const responseIndex = this.responses.findIndex(r => r.questionId === questionId);
+			if (responseIndex !== -1) {
+				this.responses[responseIndex].answer = testData[questionId];
+				console.log(`✅ Applied test data for ${questionId}:`, testData[questionId]);
+			} else {
+				console.warn(`⚠️  Could not find response for question ${questionId}`);
+			}
+		});
+
+		console.log("🧪 Test data applied to all questions");
+	}
+
+	// Add visual test mode indicator
+	_addTestModeIndicator() {
+		// Only add if not already present
+		if (document.querySelector(".quiz-test-mode-indicator")) return;
+
+		const indicator = document.createElement("div");
+		indicator.className = "quiz-test-mode-indicator";
+		indicator.innerHTML = "🧪 TEST MODE";
+		indicator.style.cssText = `
+			position: fixed;
+			top: 10px;
+			right: 10px;
+			background: #4CAF50;
+			color: white;
+			padding: 8px 12px;
+			border-radius: 4px;
+			font-weight: bold;
+			font-size: 12px;
+			z-index: 9999;
+			box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+			font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+		`;
+
+		document.body.appendChild(indicator);
+
+		// Auto-remove after 5 seconds
+		setTimeout(() => {
+			if (indicator.parentNode) {
+				indicator.parentNode.removeChild(indicator);
+			}
+		}, 5000);
 	}
 }
 
