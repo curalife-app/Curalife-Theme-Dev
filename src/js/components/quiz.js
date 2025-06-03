@@ -337,6 +337,11 @@ class ProductQuiz {
 			return;
 		}
 
+		// Add step-specific classes to the question container
+		this.questionContainer.className = "quiz-question-container";
+		this.questionContainer.classList.add(`quiz-step-${this.currentStepIndex + 1}`);
+		this.questionContainer.classList.add(`quiz-step-${step.id}`);
+
 		// Update progress bar
 		this._updateProgressBar();
 
@@ -414,8 +419,9 @@ class ProductQuiz {
 		const buttonText = isLastStep ? step.ctaText || "Finish Quiz" : step.ctaText || "Continue";
 
 		return `
+			${step.info && step.info.formSubHeading ? `<h4 class="quiz-heading quiz-heading-mobile-outside">${step.info.formSubHeading}</h4>` : ""}
 			<div class="quiz-form-container">
-				${step.info && step.info.formSubHeading ? `<h4 class="quiz-heading">${step.info.formSubHeading}</h4>` : ""}
+				${step.info && step.info.formSubHeading ? `<h4 class="quiz-heading quiz-heading-desktop-inside">${step.info.formSubHeading}</h4>` : ""}
 				<div class="quiz-space-y-6">
 					${this._processFormQuestions(step.questions)}
 				</div>
@@ -1221,13 +1227,18 @@ class ProductQuiz {
 
 			if (hasValidationErrors) {
 				// Show error messages for invalid fields
-				validationErrors.forEach(error => {
+				let firstInvalidField = null;
+				validationErrors.forEach((error, index) => {
 					const errorEl = this.questionContainer.querySelector(`#error-${error.questionId}`);
 					const input = this.questionContainer.querySelector(`#question-${error.questionId}`);
 
 					if (input) {
 						input.classList.add("quiz-input-error");
 						input.classList.remove("quiz-input-valid");
+						// Store reference to first invalid field for scrolling
+						if (index === 0) {
+							firstInvalidField = input;
+						}
 					}
 
 					if (errorEl) {
@@ -1237,6 +1248,11 @@ class ProductQuiz {
 						errorEl.classList.add("quiz-error-visible");
 					}
 				});
+
+				// Scroll to first invalid field on mobile
+				if (firstInvalidField) {
+					this._scrollToInvalidField(firstInvalidField);
+				}
 
 				return; // Don't proceed to next step
 			}
@@ -1277,6 +1293,50 @@ class ProductQuiz {
 		this.currentQuestionIndex = 0; // Reset question index for the new step
 		this.renderCurrentStep();
 		this.updateNavigation();
+	}
+
+	_startDynamicLoader() {
+		// Array of loading messages to cycle through
+		const loadingMessages = [
+			"Checking your insurance coverage...",
+			"Analyzing your benefits...",
+			"Searching for in-network dietitians...",
+			"Calculating your estimated costs...",
+			"Verifying eligibility details...",
+			"Finding your perfect match...",
+			"Almost ready with your results..."
+		];
+
+		let currentMessageIndex = 0;
+
+		// Set initial loader
+		this.questionContainer.innerHTML = `
+			<div class="quiz-eligibility-check">
+				<div class="quiz-loading-spinner"></div>
+				<div class="quiz-loading-text" id="dynamic-loading-text">${loadingMessages[currentMessageIndex]}</div>
+			</div>
+		`;
+
+		// Start cycling through messages
+		this.loadingInterval = setInterval(() => {
+			currentMessageIndex = (currentMessageIndex + 1) % loadingMessages.length;
+			const textElement = document.getElementById("dynamic-loading-text");
+			if (textElement) {
+				// Add fade effect
+				textElement.style.opacity = "0.5";
+				setTimeout(() => {
+					textElement.textContent = loadingMessages[currentMessageIndex];
+					textElement.style.opacity = "1";
+				}, 200);
+			}
+		}, 2500); // Change message every 2.5 seconds
+	}
+
+	_stopDynamicLoader() {
+		if (this.loadingInterval) {
+			clearInterval(this.loadingInterval);
+			this.loadingInterval = null;
+		}
 	}
 
 	async finishQuiz() {
@@ -1388,18 +1448,12 @@ class ProductQuiz {
 				data: JSON.stringify(payload)
 			};
 
-			// Hide questions and show eligibility check indicator
-			// Instead of hiding questions completely, replace content with loading state
-			// This keeps the header and progress bar stable
-			this.questionContainer.innerHTML = `
-				<div class="quiz-eligibility-check">
-					<div class="quiz-loading-spinner"></div>
-					<div class="quiz-loading-text">Checking your eligibility and coverage details...</div>
-				</div>
-			`;
+			// Start dynamic loading experience
+			this._startDynamicLoader();
 
-			// Keep questions container visible but hide navigation
+			// Keep questions container visible but hide navigation and progress section
 			this._hideElement(this.navigation);
+			this._hideElement(this.progressSection);
 
 			// Get webhook URL from data attribute
 			const webhookUrl = this.container.getAttribute("data-n8n-webhook");
@@ -1745,12 +1799,16 @@ class ProductQuiz {
 
 	// New method to show results with booking URL
 	showResults(bookingUrl, webhookSuccess = true, eligibilityData = null, errorMessage = "") {
+		// Stop the dynamic loader
+		this._stopDynamicLoader();
+
 		// Instead of hiding questions and showing results container,
 		// replace the question content with results content
-		// This keeps the header and progress bar stable
+		// This keeps the header stable but hides the progress bar
 
-		// Hide navigation buttons since results page doesn't need them
+		// Hide navigation buttons and progress section since results page doesn't need them
 		this._hideElement(this.navigationButtons);
+		this._hideElement(this.progressSection);
 
 		// Log full eligibility data for debugging
 		console.log("Processing eligibility data:", eligibilityData);
@@ -1839,7 +1897,7 @@ class ProductQuiz {
 		return `
 			<div class="quiz-results-container">
 				<div class="quiz-results-header">
-					<h2 class="quiz-results-title">Great news! You're covered</h2>
+					<h2 class="quiz-results-title">Great news! <br class="mobile."> You're covered</h2>
 					<p class="quiz-results-subtitle">As of today, your insurance fully covers your online dietitian consultations*</p>
 				</div>
 
@@ -1847,15 +1905,15 @@ class ProductQuiz {
 					<h3 class="quiz-coverage-card-title">Here's Your Offer</h3>
 
 					<div class="quiz-coverage-pricing">
-						<div class="quiz-coverage-services">
+						<div class="quiz-coverage-service-item">
 							<div class="quiz-coverage-service">Initial consultation – 60 minutes</div>
-							<div class="quiz-coverage-service">Follow-up consultation – 30 minutes</div>
-						</div>
-						<div class="quiz-coverage-costs">
 							<div class="quiz-coverage-cost">
 								<span class="quiz-coverage-copay">Co-pay: $${copay}*</span>
 								<span class="quiz-coverage-original-price">$100</span>
 							</div>
+						</div>
+						<div class="quiz-coverage-service-item">
+							<div class="quiz-coverage-service">Follow-up consultation – 30 minutes</div>
 							<div class="quiz-coverage-cost">
 								<span class="quiz-coverage-copay">Co-pay: $${copay}*</span>
 								<span class="quiz-coverage-original-price">$50</span>
@@ -1971,28 +2029,11 @@ class ProductQuiz {
 			<div class="quiz-faq-section">
 				<div class="quiz-faq-divider"></div>
 
-				<div class="quiz-faq-item expanded" data-faq="credit-card" tabindex="0" role="button" aria-expanded="true">
+				<div class="quiz-faq-item" data-faq="credit-card" tabindex="0" role="button" aria-expanded="false">
 					<div class="quiz-faq-content">
-						<div class="quiz-faq-question">Why do I need to provide my credit card?</div>
+						<div class="quiz-faq-question-collapsed">Why do I need to provide my credit card?</div>
 						<div class="quiz-faq-answer">
 							You'll be able to attend your consultation right away, while the co-pay will be charged later, only after your insurance is billed. We require your card for this purpose. If you cancel or reschedule with less than 24 hours' notice, or miss your appointment, your card will be charged the full consultation fee.
-						</div>
-					</div>
-					<div class="quiz-faq-toggle">
-						<svg class="quiz-faq-toggle-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-							<path d="M4 12H20" stroke="#121212" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-							<path d="M12 4V20" stroke="#121212" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-						</svg>
-					</div>
-				</div>
-
-				<div class="quiz-faq-divider"></div>
-
-				<div class="quiz-faq-item" data-faq="coverage-change" tabindex="0" role="button" aria-expanded="false">
-					<div class="quiz-faq-content">
-						<div class="quiz-faq-question-collapsed">Can my coverage or co-pay change after booking?</div>
-						<div class="quiz-faq-answer">
-							Coverage details are verified at the time of booking and are generally locked in for your scheduled appointment. However, if there are changes to your insurance plan or if we receive updated information from your insurance provider, we'll notify you immediately of any changes to your co-pay or coverage status.
 						</div>
 					</div>
 					<div class="quiz-faq-toggle">
@@ -2005,11 +2046,11 @@ class ProductQuiz {
 
 				<div class="quiz-faq-divider"></div>
 
-				<div class="quiz-faq-item" data-faq="what-expect" tabindex="0" role="button" aria-expanded="false">
+				<div class="quiz-faq-item" data-faq="coverage-change" tabindex="0" role="button" aria-expanded="false">
 					<div class="quiz-faq-content">
-						<div class="quiz-faq-question-collapsed">What should I expect during my consultation?</div>
+						<div class="quiz-faq-question-collapsed">Can my coverage or co-pay change after booking?</div>
 						<div class="quiz-faq-answer">
-							Your dietitian will conduct a comprehensive health assessment, review your medical history and goals, and create a personalized nutrition plan. You'll receive practical meal planning guidance, dietary recommendations, and ongoing support to help you achieve your health objectives.
+							Coverage details are verified at the time of booking and are generally locked in for your scheduled appointment. However, if there are changes to your insurance plan or if we receive updated information from your insurance provider, we'll notify you immediately of any changes to your co-pay or coverage status.
 						</div>
 					</div>
 					<div class="quiz-faq-toggle">
@@ -2037,43 +2078,44 @@ class ProductQuiz {
 		faqItems.forEach(item => {
 			item.addEventListener("click", () => {
 				const isExpanded = item.classList.contains("expanded");
+				const toggle = item.querySelector(".quiz-faq-toggle");
 
-				// Collapse all other items with smooth animation
-				faqItems.forEach(otherItem => {
-					if (otherItem !== item) {
-						otherItem.classList.remove("expanded");
-						// Update question styling
-						const question = otherItem.querySelector(".quiz-faq-question, .quiz-faq-question-collapsed");
-						if (question) {
-							question.className = "quiz-faq-question-collapsed";
+				// Add rotating class for animation ONLY on the clicked item
+				if (toggle) {
+					toggle.classList.add("rotating");
+
+					// After rotation completes, remove rotating class and update content
+					setTimeout(() => {
+						toggle.classList.remove("rotating");
+
+						// Now handle the state change after rotation is complete
+						if (!isExpanded) {
+							// Expand this item
+							item.classList.add("expanded");
+							const question = item.querySelector(".quiz-faq-question, .quiz-faq-question-collapsed");
+							if (question) {
+								question.className = "quiz-faq-question";
+							}
+						} else {
+							// Collapse this item
+							item.classList.remove("expanded");
+							const question = item.querySelector(".quiz-faq-question, .quiz-faq-question-collapsed");
+							if (question) {
+								question.className = "quiz-faq-question-collapsed";
+							}
 						}
-						// Icon rotation is now handled by CSS
-					}
-				});
-
-				// Toggle current item with smooth animation
-				if (!isExpanded) {
-					// Expand this item
-					item.classList.add("expanded");
-					const question = item.querySelector(".quiz-faq-question, .quiz-faq-question-collapsed");
-					if (question) {
-						question.className = "quiz-faq-question";
-					}
-					// Icon rotation is now handled by CSS
-				} else {
-					// Collapse this item
-					item.classList.remove("expanded");
-					const question = item.querySelector(".quiz-faq-question, .quiz-faq-question-collapsed");
-					if (question) {
-						question.className = "quiz-faq-question-collapsed";
-					}
-					// Icon rotation is now handled by CSS
+					}, 400);
 				}
+
+				// Removed accordion behavior - allowing multiple items to be expanded simultaneously
 			});
 		});
 	}
 
 	showError(title, message) {
+		// Stop the dynamic loader if it's running
+		this._stopDynamicLoader();
+
 		this._hideElement(this.questions);
 		this._showElement(this.error);
 
@@ -2262,9 +2304,7 @@ class ProductQuiz {
 
 	_getTooltipContent(questionId) {
 		const tooltips = {
-			q3: "Select your primary insurance company. This helps us verify your coverage and find in-network dietitians.",
-			q4: "This is the unique ID found on your insurance card.",
-			q5: "Select the state where you reside. Insurance coverage may vary by state."
+			q4: "This is the unique ID found on your insurance card."
 		};
 		return tooltips[questionId] || "";
 	}
@@ -2593,6 +2633,39 @@ class ProductQuiz {
 		return result;
 	}
 
+	// Scroll to the first invalid field when validation fails
+	_scrollToInvalidField(fieldElement) {
+		if (!fieldElement) return;
+
+		// Check if we're on mobile (768px or less)
+		const isMobile = window.innerWidth <= 768;
+
+		if (isMobile) {
+			// Calculate scroll position with some offset for mobile
+			const fieldRect = fieldElement.getBoundingClientRect();
+			const offset = 100; // Offset from top to account for header and breathing room
+
+			// Get the current scroll position
+			const currentScrollY = window.pageYOffset || document.documentElement.scrollTop;
+
+			// Calculate the target scroll position
+			const targetScrollY = currentScrollY + fieldRect.top - offset;
+
+			// Smooth scroll to the field
+			window.scrollTo({
+				top: Math.max(0, targetScrollY), // Ensure we don't scroll above the page
+				behavior: "smooth"
+			});
+
+			// Optional: Focus the field after scrolling with a small delay
+			setTimeout(() => {
+				if (fieldElement.focus) {
+					fieldElement.focus();
+				}
+			}, 300); // Wait for scroll animation to complete
+		}
+	}
+
 	renderPayerSearch(question, response) {
 		const selectedPayer = response.answer;
 		const placeholder = question.placeholder || "Search for your insurance plan...";
@@ -2747,6 +2820,7 @@ class ProductQuiz {
 		let searchTimeout;
 		let currentResults = [];
 		let selectedIndex = -1;
+		let hasShownInitialList = false;
 
 		// Ensure dropdown starts hidden
 		this._hidePayerSearchDropdown(dropdown);
@@ -2763,25 +2837,32 @@ class ProductQuiz {
 				this.handleFormAnswer(question.id, null);
 			}
 
-			if (query.length < 2) {
-				this._hidePayerSearchDropdown(dropdown);
-				currentResults = [];
-				selectedIndex = -1;
-				return;
-			}
+			// If user has typed something, filter the results
+			if (query.length > 0) {
+				// Clear any previous timeout
+				if (searchTimeout) {
+					clearTimeout(searchTimeout);
+				}
 
-			// Clear any previous timeout
-			if (searchTimeout) {
-				clearTimeout(searchTimeout);
-			}
-
-			// Debounce search by 300ms
-			searchTimeout = setTimeout(() => {
-				this._searchPayers(question, query, dropdown, onSelectCallback, results => {
+				// Debounce search by 300ms
+				searchTimeout = setTimeout(() => {
+					this._searchPayers(question, query, dropdown, onSelectCallback, results => {
+						currentResults = results;
+						selectedIndex = -1;
+					});
+				}, 300);
+			} else if (hasShownInitialList) {
+				// If user clears the input but we've already shown the initial list, show it again
+				this._showInitialPayerList(question, dropdown, onSelectCallback, results => {
 					currentResults = results;
 					selectedIndex = -1;
 				});
-			}, 300);
+			} else {
+				// Hide dropdown if no input and haven't shown initial list yet
+				this._hidePayerSearchDropdown(dropdown);
+				currentResults = [];
+				selectedIndex = -1;
+			}
 		};
 
 		// Remove any existing event listeners to prevent duplicates
@@ -2790,16 +2871,22 @@ class ProductQuiz {
 		// Add the input event listener
 		searchInput.addEventListener("input", inputHandler);
 
-		// Handle focus event to ensure dropdown is hidden when field gets focus
+		// Handle focus/click event to show initial list
 		const focusHandler = () => {
-			// Only show dropdown if there's already a valid query
 			const query = searchInput.value.trim();
-			if (query.length < 2) {
-				this._hidePayerSearchDropdown(dropdown);
+
+			// If input is empty or no selection made yet, show initial list
+			if (query.length === 0 || !searchInput.hasAttribute("data-selected-payer")) {
+				hasShownInitialList = true;
+				this._showInitialPayerList(question, dropdown, onSelectCallback, results => {
+					currentResults = results;
+					selectedIndex = -1;
+				});
 			}
 		};
 
 		searchInput.addEventListener("focus", focusHandler);
+		searchInput.addEventListener("click", focusHandler);
 
 		// Handle keyboard navigation
 		searchInput.addEventListener("keydown", e => {
@@ -2833,6 +2920,7 @@ class ProductQuiz {
 		document.addEventListener("click", e => {
 			if (!searchInput.contains(e.target) && !dropdown.contains(e.target)) {
 				this._hidePayerSearchDropdown(dropdown);
+				hasShownInitialList = false; // Reset flag when dropdown is hidden
 			}
 		});
 
@@ -2847,6 +2935,36 @@ class ProductQuiz {
 				// Re-render to remove the selected payer display
 				this.renderCurrentStep();
 			});
+		}
+	}
+
+	// Show initial payer list with most common insurance plans
+	async _showInitialPayerList(question, dropdown, onSelectCallback, onResultsCallback) {
+		try {
+			// Show loading state briefly
+			dropdown.innerHTML = `
+				<div class="quiz-payer-search-loading">
+					<div class="quiz-payer-search-loading-spinner"></div>
+					Loading insurance plans...
+				</div>
+			`;
+			dropdown.classList.add("visible");
+			dropdown.style.display = "block";
+
+			// Generate initial list using demo data (most common plans)
+			const data = this._generateInitialPayerList();
+			const results = data.items || [];
+
+			this._renderSearchResults(results, "", dropdown, question, onSelectCallback, onResultsCallback);
+		} catch (error) {
+			console.error("❌ Error showing initial payer list:", error);
+			dropdown.innerHTML = `
+				<div class="quiz-payer-search-error">
+					Error loading insurance plans. Please try typing to search.
+				</div>
+			`;
+			dropdown.classList.add("visible");
+			onResultsCallback([]);
 		}
 	}
 
@@ -2916,9 +3034,10 @@ class ProductQuiz {
 	// Helper method to render search results
 	_renderSearchResults(results, query, dropdown, question, onSelectCallback, onResultsCallback) {
 		if (results.length === 0) {
+			const noResultsMessage = query ? `No insurance plans found for "${query}". Try searching with a different term.` : "No insurance plans available.";
 			dropdown.innerHTML = `
 				<div class="quiz-payer-search-no-results">
-					No insurance plans found for "${query}". Try searching with a different term.
+					${noResultsMessage}
 				</div>
 			`;
 		} else {
@@ -2938,7 +3057,19 @@ class ProductQuiz {
 				})
 				.join("");
 
-			dropdown.innerHTML = resultsHTML;
+			// Add search hint for initial list
+			const searchHint = !query
+				? `
+				<div class="quiz-payer-search-hint">
+					<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+						<path d="M7.333 12.667A5.333 5.333 0 1 0 7.333 2a5.333 5.333 0 0 0 0 10.667ZM14 14l-2.9-2.9" stroke="#64748b" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+					</svg>
+					Start typing to search for more plans...
+				</div>
+			`
+				: "";
+
+			dropdown.innerHTML = resultsHTML + searchHint;
 
 			// Attach click listeners to results
 			const resultItems = dropdown.querySelectorAll(".quiz-payer-search-item");
@@ -2956,6 +3087,97 @@ class ProductQuiz {
 	}
 
 	// Generate demo results for testing (replace with real API in production)
+	// Generate initial list of most common insurance plans (no filtering)
+	_generateInitialPayerList() {
+		const commonPayers = [
+			{
+				payer: {
+					stediId: "AETNA",
+					displayName: "Aetna",
+					primaryPayerId: "60054",
+					aliases: ["AETNA", "60054", "AETNA_BETTER_HEALTH"],
+					transactionSupport: {
+						eligibilityCheck: "SUPPORTED",
+						claimStatus: "SUPPORTED"
+					}
+				},
+				score: 5.0
+			},
+			{
+				payer: {
+					stediId: "ANTHEM",
+					displayName: "Anthem Blue Cross Blue Shield",
+					primaryPayerId: "040",
+					aliases: ["ANTHEM", "BCBS", "BLUE_CROSS", "040"],
+					transactionSupport: {
+						eligibilityCheck: "SUPPORTED",
+						claimStatus: "SUPPORTED"
+					}
+				},
+				score: 4.8
+			},
+			{
+				payer: {
+					stediId: "UNITED",
+					displayName: "UnitedHealthcare",
+					primaryPayerId: "52133",
+					aliases: ["UHC", "UNITED", "UNITED_HEALTHCARE", "52133"],
+					transactionSupport: {
+						eligibilityCheck: "SUPPORTED",
+						claimStatus: "SUPPORTED"
+					}
+				},
+				score: 4.9
+			},
+			{
+				payer: {
+					stediId: "CIGNA",
+					displayName: "Cigna Health",
+					primaryPayerId: "62308",
+					aliases: ["CIGNA", "62308", "CIGNA_HEALTHCARE"],
+					transactionSupport: {
+						eligibilityCheck: "SUPPORTED",
+						claimStatus: "SUPPORTED"
+					}
+				},
+				score: 4.7
+			},
+			{
+				payer: {
+					stediId: "HUMANA",
+					displayName: "Humana Inc",
+					primaryPayerId: "HUMANA",
+					aliases: ["HUMANA", "HUMANA_INC", "84977"],
+					transactionSupport: {
+						eligibilityCheck: "SUPPORTED",
+						claimStatus: "SUPPORTED"
+					}
+				},
+				score: 4.6
+			},
+			{
+				payer: {
+					stediId: "KAISER",
+					displayName: "Kaiser Permanente",
+					primaryPayerId: "KAISER",
+					aliases: ["KAISER", "KP", "KAISER_PERM"],
+					transactionSupport: {
+						eligibilityCheck: "SUPPORTED",
+						claimStatus: "SUPPORTED"
+					}
+				},
+				score: 4.5
+			}
+		];
+
+		return {
+			items: commonPayers,
+			stats: {
+				total: commonPayers.length
+			}
+		};
+	}
+
 	_generateDemoPayerResults(query) {
 		const allPayers = [
 			{
