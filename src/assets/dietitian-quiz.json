@@ -5,7 +5,131 @@
 	"config": {
 		"version": "1.0",
 		"totalSteps": 4,
-		"estimatedTime": "3-5 minutes"
+		"estimatedTime": "3-5 minutes",
+		"autoAdvanceDelay": 600,
+		"webhookTimeout": 8000,
+		"formSteps": ["step-insurance", "step-contact"],
+		"questionPairs": {
+			"memberIdFields": ["q4", "q4_group"],
+			"nameFields": ["q7", "q8"],
+			"contactFields": ["q9", "q10"],
+			"dateParts": ["q6_month", "q6_day", "q6_year"]
+		}
+	},
+	"ui": {
+		"loadingMessages": [
+			"Checking your insurance coverage...",
+			"Analyzing your benefits...",
+			"Searching for in-network dietitians...",
+			"Calculating your estimated costs...",
+			"Verifying eligibility details...",
+			"Finding your perfect match...",
+			"Almost ready with your results..."
+		],
+		"errorMessages": {
+			"networkError": "Network error: Please check your connection and try again, or contact our support team.",
+			"serverError": "Server error. Our team will contact you to manually verify your coverage.",
+			"processingError": "There was an error processing your request. Our team will contact you to manually verify your coverage.",
+			"validationRequired": "This field is required",
+			"validationEmail": "Enter valid email",
+			"validationPhone": "Enter valid phone",
+			"validationMemberId": "Minimum 6 characters",
+			"validationGroupNumber": "Minimum 5 characters",
+			"validationName": "Use only A–Z letters and spaces",
+			"validationInsurance": "Please select an insurance plan"
+		},
+		"resultMessages": {
+			"eligible": {
+				"title": "Great news! <br class=\"mobile.\"> You're covered",
+				"subtitle": "As of today, your insurance fully covers your online dietitian consultations*"
+			},
+			"processing": {
+				"title": "Thanks for completing the quiz!",
+				"subtitle": "We're ready to connect you with a registered dietitian who can help guide your health journey.",
+				"message": "Your eligibility check and account setup is still processing in the background. This can take up to 3 minutes for complex insurance verifications and account creation. Please proceed with booking - we'll contact you with your coverage details shortly."
+			},
+			"notEligible": {
+				"title": "Thanks for completing the quiz!",
+				"subtitle": "We're ready to connect you with a registered dietitian who can help guide your health journey."
+			}
+		},
+		"faq": [
+			{
+				"id": "credit-card",
+				"question": "Why do I need to provide my credit card?",
+				"answer": "You'll be able to attend your consultation right away, while the co-pay will be charged later, only after your insurance is billed. We require your card for this purpose. If you cancel or reschedule with less than 24 hours' notice, or miss your appointment, your card will be charged the full consultation fee."
+			},
+			{
+				"id": "coverage-change",
+				"question": "Can my coverage or co-pay change after booking?",
+				"answer": "Coverage details are verified at the time of booking and are generally locked in for your scheduled appointment. However, if there are changes to your insurance plan or if we receive updated information from your insurance provider, we'll notify you immediately of any changes to your co-pay or coverage status."
+			}
+		]
+	},
+	"commonPayers": [
+		{
+			"stediId": "AETNA",
+			"displayName": "Aetna",
+			"primaryPayerId": "60054",
+			"aliases": ["AETNA", "60054", "AETNA_BETTER_HEALTH"]
+		},
+		{
+			"stediId": "ANTHEM",
+			"displayName": "Anthem Blue Cross Blue Shield",
+			"primaryPayerId": "040",
+			"aliases": ["ANTHEM", "BCBS", "BLUE_CROSS", "040"]
+		},
+		{
+			"stediId": "UNITED",
+			"displayName": "UnitedHealthcare",
+			"primaryPayerId": "52133",
+			"aliases": ["UHC", "UNITED", "UNITED_HEALTHCARE", "52133"]
+		},
+		{
+			"stediId": "CIGNA",
+			"displayName": "Cigna Health",
+			"primaryPayerId": "62308",
+			"aliases": ["CIGNA", "62308", "CIGNA_HEALTHCARE"]
+		},
+		{
+			"stediId": "HUMANA",
+			"displayName": "Humana Inc",
+			"primaryPayerId": "HUMANA",
+			"aliases": ["HUMANA", "HUMANA_INC", "84977"]
+		},
+		{
+			"stediId": "KAISER",
+			"displayName": "Kaiser Permanente",
+			"primaryPayerId": "KAISER",
+			"aliases": ["KAISER", "KP", "KAISER_PERM"]
+		}
+	],
+	"validation": {
+		"patterns": {
+			"memberId": "^.{6,20}$",
+			"groupNumber": "^$|^.{5,15}$",
+			"name": "^[A-Za-z\\s]{1,100}$",
+			"email": "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$",
+			"phone": "^(\\+?1?\\s?)?\\(?[0-9]{3}\\)?[\\s\\-\\.]?[0-9]{3}[\\s\\-\\.]?[0-9]{4}$|^[0-9]{10}$|^\\+[0-9]{8,15}$"
+		},
+		"tooltips": {
+			"q4": "This is the unique ID found on your insurance card."
+		}
+	},
+	"testData": {
+		"q1": ["opt1"],
+		"q2": ["med2", "med4"],
+		"q3": "52133",
+		"q4": "404404404",
+		"q4_group": "",
+		"q5": "DC",
+		"q6_month": "06",
+		"q6_day": "28",
+		"q6_year": "1969",
+		"q7": "Beaver",
+		"q8": "Dent",
+		"q9": "beaver.dent@example.com",
+		"q10": "(555) 123-4567"
 	},
 	"steps": [
 		{
@@ -43,15 +167,14 @@
 					"id": "q2",
 					"text": "Choose as many as you want",
 					"type": "checkbox",
-					"required": true,
+					"required": false,
 					"options": [
 						{ "id": "med1", "text": "Type 1 Diabetes" },
 						{ "id": "med2", "text": "Type 2 Diabetes" },
 						{ "id": "med3", "text": "Prediabetes" },
 						{ "id": "med4", "text": "Insulin resistance" },
 						{ "id": "med5", "text": "High blood pressure" },
-						{ "id": "med6", "text": "PCOS" },
-						{ "id": "med7", "text": "None of the above" }
+						{ "id": "med6", "text": "PCOS" }
 					]
 				}
 			],
