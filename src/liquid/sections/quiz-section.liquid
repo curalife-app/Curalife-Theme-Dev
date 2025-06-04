@@ -2,11 +2,11 @@
 {{ 'quiz.css' | asset_url | stylesheet_tag }}
 
 <div
-	id="product-quiz"
+	id="quiz-container"
 	class="quiz-main-container"
-	data-quiz-url="{{ 'dietitian-quiz.json' | asset_url }}"
-	data-n8n-webhook="{{ section.settings.n8n_webhook_url }}"
-	data-booking-url="{{ section.settings.booking_url }}">
+	data-quiz-url="{{ section.settings.quiz_data_url | default: 'dietitian-quiz.json' | asset_url }}"
+	data-webhook-url="{{ section.settings.webhook_url }}"
+	data-result-url="{{ section.settings.result_url }}">
 	<!-- Quiz Intro -->
 	<div class="quiz-intro hidden">
 		<h2 class="quiz-intro-title">{{ section.settings.title }}</h2>
@@ -29,11 +29,11 @@
 		</button>
 	</div>
 
-	<!-- Eligibility Check Indicator -->
-	<div class="quiz-eligibility-check hidden">
+	<!-- Status Check Indicator -->
+	<div class="quiz-status-check hidden">
 		<div class="quiz-loading-spinner"></div>
-		<h3 class="quiz-eligibility-title">Checking Insurance Eligibility</h3>
-		<p class="quiz-eligibility-description">We're verifying your insurance coverage. This may take a moment...</p>
+		<h3 class="quiz-status-title">Processing</h3>
+		<p class="quiz-status-description">We're processing your request. This may take a moment...</p>
 	</div>
 
 	<!-- Error Message -->
@@ -99,19 +99,19 @@
 
 {% schema %}
 	{
-		"name": "Dietitian Quiz",
+		"name": "Modular Quiz",
 		"settings": [
 			{
 				"type": "text",
 				"id": "title",
 				"label": "Quiz Title",
-				"default": "Find Your Perfect Dietitian"
+				"default": "Take Our Quiz"
 			},
 			{
 				"type": "textarea",
 				"id": "description",
 				"label": "Quiz Description",
-				"default": "Answer a few quick questions so we can match you with the right registered dietitian, confirm your insurance benefits, and help you pay $0 out-of-pocket."
+				"default": "Answer a few quick questions to get personalized recommendations."
 			},
 			{
 				"type": "text",
@@ -121,22 +121,28 @@
 			},
 			{
 				"type": "text",
-				"id": "booking_url",
-				"label": "Appointment Booking URL",
-				"default": "/appointment-booking",
+				"id": "quiz_data_url",
+				"label": "Quiz Data JSON File",
+				"default": "dietitian-quiz.json",
+				"info": "Name of the JSON file containing quiz questions and configuration (stored in assets)"
+			},
+			{
+				"type": "text",
+				"id": "result_url",
+				"label": "Results/Completion URL",
+				"default": "/quiz-complete",
 				"info": "Where to send users after completing the quiz"
 			},
 			{
 				"type": "text",
-				"id": "n8n_webhook_url",
-				"label": "Webhook URL",
-				"default": "https://us-central1-telemedicine-458913.cloudfunctions.net/telemedicine-webhook",
-				"info": "URL to send quiz responses to the telemedicine workflow"
+				"id": "webhook_url",
+				"label": "Webhook URL (Optional)",
+				"info": "URL to send quiz responses for processing (leave empty if no backend processing needed)"
 			}
 		],
 		"presets": [
 			{
-				"name": "Dietitian Quiz",
+				"name": "Modular Quiz",
 				"category": "Interactive"
 			}
 		]
