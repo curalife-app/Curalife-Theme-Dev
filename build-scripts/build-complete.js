@@ -162,7 +162,7 @@ const optimizedTailwindBuild = async (progressTracker, cache, perf) => {
 
 	return new Promise((resolve, reject) => {
 		const { command, baseArgs } = getNpxCommand();
-		const args = [...baseArgs, "tailwindcss", "-i", "./src/styles/tailwind.css", "-o", "./Curalife-Theme-Build/assets/tailwind.css", "--minify"];
+		const args = [...baseArgs, "tailwindcss", "-i", "./src/styles/tailwind.css", "-o", "./Curalife-Theme-Build/assets/tailwind.css"];
 		const buildCommand = spawn(command, args);
 
 		// Enhanced progress simulation with real feedback
