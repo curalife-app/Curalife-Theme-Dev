@@ -74,6 +74,7 @@ export class ProgressTracker {
 		this.theme = theme;
 		this.currentProgress = 0;
 		this.currentStep = 0;
+		this.isCompleted = false;
 
 		// Define step weights (how much each step contributes to total progress)
 		this.stepWeights = {
@@ -110,7 +111,7 @@ export class ProgressTracker {
 						bar += chalk.hex("#50fa7b")("█");
 					}
 				} else {
-					// Build theme: Purple to Light Purple to Pink to Cyan
+					// Build theme: Purple to Pink gradient
 					if (i < barLength * 0.3) {
 						bar += chalk.hex("#9d4edd")("█");
 					} else if (i < barLength * 0.6) {
@@ -126,9 +127,8 @@ export class ProgressTracker {
 			}
 		}
 
-		// Get display text - use custom message if provided, otherwise show completion or default
-		const processText = this.theme === "watch" ? "Initializing..." : "Building...";
-		const displayText = customMessage || (percentage >= 100 ? "Complete!" : processText);
+		// Get display text - use custom message if provided
+		const displayText = customMessage || (percentage >= 100 ? "Complete!" : this.theme === "watch" ? "Initializing..." : "Building...");
 
 		// Add sparkle effect for completed sections
 		const sparkles = percentage >= 100 ? (this.theme === "watch" ? " 🌟" : " ✨") : "";
@@ -137,20 +137,30 @@ export class ProgressTracker {
 		const roundedPercentage = Math.round(percentage);
 		const percentageDisplay = percentage >= 100 ? chalk.hex("#50fa7b").bold(`${roundedPercentage.toString().padStart(3)}%`) : chalk.hex("#ffb86c").bold(`${roundedPercentage.toString().padStart(3)}%`);
 
-		// Create status text with icon
-		const pulseChar = percentage >= 100 ? (this.theme === "watch" ? "👀" : "◆") : this.theme === "watch" ? "👁️" : "⚡";
+		// Create status text with icon (avoid duplicate icons)
+		const pulseChar = percentage >= 100 ? (this.theme === "watch" ? "👀" : "✅") : this.theme === "watch" ? "👁️" : "⚡";
 
 		const statusText = `${chalk.hex("#ff79c6")(pulseChar)} ${chalk.hex("#f8f8f2")(displayText)}${sparkles}`;
 
 		// Create the progress line with bar at the start, then percentage, then status
 		const progressLine = `${bar} ${percentageDisplay} - ${statusText}`;
 
-		// Clear line and show progress
-		process.stdout.write(`\r\x1b[K${progressLine}`);
+		// More robust line clearing - clear entire line and return to beginning
+		process.stdout.write(`\x1b[2K\x1b[G${progressLine}`);
 
+		// Only add a new line when progress is truly complete (100%) and this is the final update
 		if (percentage >= 100) {
-			console.log(); // New line when complete
+			// Store that we've completed for future reference
+			this.isCompleted = true;
 		}
+	}
+
+	// Method to finalize progress bar with a new line
+	complete() {
+		if (!this.isCompleted) {
+			this.setProgress(100, "Complete!");
+		}
+		console.log(); // Add the new line only when explicitly completing
 	}
 
 	// Legacy method for backward compatibility - converts step-based to percentage
@@ -389,7 +399,7 @@ export const getNpxCommand = () => {
 // Show fancy file change notification
 export const showFileChangeNotification = (fileName, isDebugMode = false) => {
 	if (!isDebugMode) {
-		const changeIcon = ["🔥", "⚡", "✨", "🌟"][Math.floor(Math.random() * 4)];
+		const changeIcon = ["🔥", "⚡", "✨", "��"][Math.floor(Math.random() * 4)];
 		process.stdout.write(`\r\x1b[K${chalk.hex("#ff79c6")(changeIcon)} ${chalk.hex("#f8f8f2")("File changed:")} ${chalk.hex("#8be9fd")(fileName)}\n`);
 	}
 };

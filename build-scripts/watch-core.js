@@ -31,39 +31,40 @@ import {
 export class WatchCore {
 	constructor(config = {}) {
 		this.config = {
-			name: "Generic",
-			icon: "👁️",
-			theme: "watch",
+			name: "Build",
+			icon: "⚡",
+			theme: "build",
 			enableShopify: false,
 			enableStagewise: false,
 			customSteps: [],
+			debounceDelay: 300,
+			tailwindDebounce: 1000,
 			customHandlers: {},
-			debounceDelay: 150,
-			tailwindDebounce: 500,
 			...config
 		};
+
+		this.buildCache = new BuildCache();
+		this.performanceTracker = new PerformanceTracker();
+		this.parallelProcessor = new ParallelFileProcessor();
+		this.fileAnalyzer = new FileAnalyzer();
+		this.smartDebouncer = new SmartDebouncer();
+		this.childProcesses = [];
+
+		// Add initialization flag to prevent interference during progress display
+		this.isInitializing = true;
 
 		this.stats = {
 			startTime: new Date(),
 			filesCopied: 0,
 			filesSkipped: 0,
-			errors: 0,
 			cacheHits: 0,
-			timeSaved: 0,
-			lastChanges: [],
-			hotReloads: 0,
+			errors: 0,
 			changeDetections: 0,
-			shopifySync: 0
+			shopifySync: 0,
+			hotReloads: 0,
+			timeSaved: 0,
+			lastChanges: []
 		};
-
-		this.childProcesses = [];
-		this.smartDebouncer = new SmartDebouncer();
-
-		// Initialize systems
-		this.buildCache = new BuildCache();
-		this.performanceTracker = new PerformanceTracker();
-		this.fileAnalyzer = new FileAnalyzer();
-		this.parallelProcessor = new ParallelFileProcessor();
 	}
 
 	async initialize() {
@@ -90,30 +91,48 @@ export class WatchCore {
 		this.performanceTracker.start("total-watch-init");
 		this.performanceTracker.start("watcher-setup");
 
-		// Step 1: Initial file copy
-		progressTracker.setProgress(0, "Copying files...");
-		await this.optimizedInitialCopy(progressTracker);
-		progressTracker.setProgress(35, "Files ready!");
+		// Step 1: Initial file copy with smooth progress
+		progressTracker.setProgress(0, "🚀 Starting optimized watch initialization...");
+		await new Promise(resolve => setTimeout(resolve, 500)); // Slightly longer delay for visibility
+
+		const copyResult = await this.optimizedInitialCopy(progressTracker);
+		await new Promise(resolve => setTimeout(resolve, 300)); // Brief delay for visibility
 
 		// Step 2: Initial Tailwind build
-		progressTracker.setProgress(40, "Building styles...");
+		progressTracker.setProgress(40, "🎨 Building styles...");
+		await new Promise(resolve => setTimeout(resolve, 400)); // Slightly longer delay for visibility
 		await this.optimizedTailwindBuild();
-		progressTracker.setProgress(70, "Styles complete!");
+		progressTracker.setProgress(70, "✨ Styles complete!");
+		await new Promise(resolve => setTimeout(resolve, 300)); // Brief delay for visibility
 
 		// Custom steps (e.g., stagewise copy for Shopify)
 		if (this.config.enableStagewise) {
-			progressTracker.setProgress(75, "Setting up integrations...");
+			progressTracker.setProgress(75, "🔗 Setting up integrations...");
+			await new Promise(resolve => setTimeout(resolve, 400)); // Slightly longer delay for visibility
 			await this.runStagewiseFilesCopy();
-			progressTracker.setProgress(90, "Integrations ready!");
+			progressTracker.setProgress(90, "🎯 Integrations ready!");
+			await new Promise(resolve => setTimeout(resolve, 300)); // Brief delay for visibility
 		}
 
 		// Final step: Setup file watcher
-		progressTracker.setProgress(95, "Starting watchers...");
+		progressTracker.setProgress(95, "👁️ Starting watchers...");
+		await new Promise(resolve => setTimeout(resolve, 400)); // Slightly longer delay for visibility
 		const watcher = this.setupOptimizedWatcher();
-		progressTracker.setProgress(100, "Watchers active!");
+		progressTracker.setProgress(100, "👀 Watchers active! 🌟");
+		await new Promise(resolve => setTimeout(resolve, 400)); // Longer delay to show completion
+
+		// Complete the progress bar with a new line
+		progressTracker.complete();
+
+		// Mark initialization as complete
+		this.isInitializing = false;
 
 		// Final setup
 		const totalDuration = this.performanceTracker.end("total-watch-init");
+
+		// Add status message after progress bar completes
+		const watchStatusLine = `✓ 👀 Watching ${process.cwd().replace(/.*[\\\/]/, "")} for ${this.config.name.toLowerCase()} development (${totalDuration.toFixed(0)}ms setup)`;
+		console.log(chalk.hex("#50fa7b")(watchStatusLine));
 
 		// Show success message
 		createWatchSuccessBox(this.stats.errors === 0, totalDuration / 1000, this.stats.filesCopied, this.stats.filesSkipped, {
@@ -131,20 +150,20 @@ export class WatchCore {
 
 	async optimizedInitialCopy(progressTracker) {
 		const isDebugMode = process.argv.includes("--debug");
-		log("🚀 Starting optimized watch initialization...", "step");
 		this.performanceTracker.start("initial-copy");
 
 		try {
 			ensureDirectoryExists(BUILD_DIR);
 			const files = await import("glob").then(glob => glob.glob("**/*", { cwd: SRC_DIR, nodir: true }));
 
-			if (!isDebugMode) {
-				console.log(`  Found ${files.length} files to process`);
-			}
+			// Update progress with file count information
+			progressTracker.setProgress(5, `📁 Found ${files.length} files to process`);
+			await new Promise(resolve => setTimeout(resolve, 300)); // Brief delay for visibility
 
 			const filesToCopy = [];
 			const skippedFiles = [];
 
+			// Analyze which files need copying
 			for (const file of files) {
 				const fullPath = path.join(SRC_DIR, file);
 				if (this.buildCache.hasChanged(fullPath)) {
@@ -160,25 +179,21 @@ export class WatchCore {
 				const timeSaved = skippedFiles.length * 5;
 				this.stats.timeSaved += timeSaved;
 				this.performanceTracker.addOptimization("cache", `Skipped ${skippedFiles.length} unchanged files`, timeSaved);
-
-				if (isDebugMode) {
-					log(`⚡ Cache optimization: skipped ${skippedFiles.length} unchanged files`, "success");
-				}
 			}
 
 			this.stats.filesSkipped = skippedFiles.length;
 
 			if (filesToCopy.length === 0) {
-				if (!isDebugMode) {
-					console.log("  ✨ All files up to date!");
-				} else {
-					log("✨ All files up to date - starting watch mode!", "success");
-				}
+				progressTracker.setProgress(35, "✨ All files up to date!");
+				await new Promise(resolve => setTimeout(resolve, 500)); // Brief delay for visibility
 				this.performanceTracker.end("initial-copy");
 				return true;
 			}
 
-			// Process files without showing duplicate progress
+			// Process files with progress updates
+			progressTracker.setProgress(10, `📝 Copying ${filesToCopy.length} files...`);
+			await new Promise(resolve => setTimeout(resolve, 200)); // Brief delay for visibility
+
 			const copyOperation = async filePath => {
 				const { destPath, destFolder } = getDestination(filePath);
 				if (!destFolder) return { copied: false, reason: "no-destination" };
@@ -188,21 +203,26 @@ export class WatchCore {
 				return { copied: true, dest: destPath };
 			};
 
-			const results = await this.parallelProcessor.processFiles(filesToCopy, copyOperation);
+			// Use a callback to update progress during file processing
+			const progressCallback = (current, total) => {
+				const fileProgress = (current / total) * 25; // Files take 25% of total progress (10-35%)
+				progressTracker.setProgress(10 + fileProgress, `📝 Copying files... (${current}/${total})`);
+			};
+
+			const results = await this.parallelProcessor.processFiles(filesToCopy, copyOperation, progressCallback);
 			const successful = results.filter(r => r.success && r.result?.copied);
 			this.stats.filesCopied = successful.length;
 			this.stats.errors += results.filter(r => !r.success).length;
 
-			if (!isDebugMode) {
-				console.log(`  ✓ Copied ${successful.length} files`);
-			}
+			progressTracker.setProgress(35, `✓ Copied ${successful.length} files`);
+			await new Promise(resolve => setTimeout(resolve, 300)); // Brief delay for visibility
 
 			this.performanceTracker.end("initial-copy");
 			this.buildCache.saveCache();
 
 			return true;
 		} catch (error) {
-			log(`Optimized copy failed: ${error.message}`, "error");
+			progressTracker.setProgress(35, `❌ Copy failed: ${error.message}`);
 			return false;
 		}
 	}
@@ -233,10 +253,6 @@ export class WatchCore {
 			const timeSaved = 2000;
 			this.stats.timeSaved += timeSaved;
 			this.performanceTracker.addOptimization("tailwind-cache", "Skipped Tailwind rebuild - no changes detected", timeSaved);
-
-			if (isDebugMode) {
-				log("⚡ Tailwind CSS up to date - skipping rebuild", "success");
-			}
 			this.performanceTracker.end("tailwind-rebuild");
 			return;
 		}
@@ -260,20 +276,9 @@ export class WatchCore {
 				if (code === 0) {
 					const sizeMatch = output.match(/(\d+(?:\.\d+)?)\s*(KB|MB)/);
 					const size = sizeMatch ? `${sizeMatch[1]}${sizeMatch[2]}` : "unknown";
-
-					if (!isDebugMode) {
-						const prefix = this.config.enableShopify ? "Shopify rebuilt" : "Rebuilt";
-						showStyleRebuildNotification(`${prefix} (${size}, ${duration.toFixed(0)}ms)`);
-					} else {
-						log(`Tailwind CSS rebuilt - ${size} in ${duration.toFixed(0)}ms`, "success");
-					}
-
-					this.buildCache.saveCache();
 					resolve();
 				} else {
-					this.stats.errors++;
-					log(`Tailwind CSS build failed with code ${code}`, "error");
-					reject(new Error(`Tailwind CSS build failed`));
+					reject(new Error(`Tailwind build failed with code ${code}: ${output}`));
 				}
 			});
 		});
@@ -466,8 +471,15 @@ export class WatchCore {
 
 	async handleFileChange(filePath, event) {
 		const isDebugMode = process.argv.includes("--debug");
+
+		// Skip processing during initialization to prevent interference with progress bar
+		if (this.isInitializing) {
+			return;
+		}
+
 		this.stats.changeDetections++;
 
+		// Track recent changes for optimization hints
 		this.stats.lastChanges.push({
 			file: filePath,
 			event,
@@ -560,48 +572,26 @@ export class WatchCore {
 	}
 
 	setupOptimizedWatcher() {
-		const isDebugMode = process.argv.includes("--debug");
-		log("👁️ Setting up optimized file watcher...", "step");
+		this.performanceTracker.start("watcher-setup");
 
-		const watcherOptions = {
-			ignoreInitial: true,
+		const watcher = chokidar.watch(SRC_DIR, {
+			ignored: [/node_modules/, /\.git/, /Curalife-Theme-Build/],
 			persistent: true,
-			followSymlinks: false,
-			depth: 99,
-			interval: 100,
-			binaryInterval: 300,
-			alwaysStat: false,
-			atomic: true,
-			ignorePermissionErrors: true,
-			ignored: ["**/node_modules/**", "**/.git/**", "**/Curalife-Theme-Build/**", "**/build-scripts/cache/**", "**/.*"]
-		};
+			ignoreInitial: true,
+			awaitWriteFinish: {
+				stabilityThreshold: 200,
+				pollInterval: 100
+			}
+		});
 
-		const watcher = chokidar.watch(SRC_DIR, watcherOptions);
+		// Track watch events for performance
+		watcher.on("add", filePath => this.handleFileChange(filePath, "add"));
+		watcher.on("change", filePath => this.handleFileChange(filePath, "change"));
+		watcher.on("unlink", filePath => this.handleFileChange(filePath, "unlink"));
 
-		watcher
-			.on("change", filePath => this.handleFileChange(filePath, "changed"))
-			.on("add", filePath => this.handleFileChange(filePath, "added"))
-			.on("unlink", filePath => {
-				const destInfo = getDestination(filePath);
-				if (destInfo.destPath && fs.existsSync(destInfo.destPath)) {
-					try {
-						fs.unlinkSync(destInfo.destPath);
-						if (this.config.enableShopify) this.stats.shopifySync++;
-						if (!isDebugMode) {
-							showFileChangeNotification(path.basename(filePath), "deleted");
-						}
-					} catch (error) {
-						log(`Failed to delete ${path.basename(filePath)}: ${error.message}`, "error");
-					}
-				}
-			})
-			.on("error", error => {
-				log(`Watcher error: ${error.message}`, "error");
-			})
-			.on("ready", () => {
-				const duration = this.performanceTracker.end("watcher-setup");
-				log(`👀 Watching ${SRC_DIR} for ${this.config.name.toLowerCase()} development (${duration.toFixed(0)}ms setup)`, "success");
-			});
+		watcher.on("ready", () => {
+			this.performanceTracker.end("watcher-setup");
+		});
 
 		return watcher;
 	}

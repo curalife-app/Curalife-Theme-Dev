@@ -170,9 +170,17 @@ class ParallelFileProcessor {
 
 		const chunks = this.chunkArray(files, CONFIG.chunkSize);
 		const promises = [];
+		let completedChunks = 0;
+		const totalFiles = files.length;
 
 		for (const chunk of chunks) {
-			promises.push(this.processChunk(chunk, operation, progressCallback));
+			const chunkPromise = this.processChunk(chunk, operation).then(result => {
+				completedChunks++;
+				const completedFiles = Math.min(completedChunks * CONFIG.chunkSize, totalFiles);
+				progressCallback && progressCallback(completedFiles, totalFiles);
+				return result;
+			});
+			promises.push(chunkPromise);
 		}
 
 		const results = await Promise.allSettled(promises);
@@ -193,7 +201,7 @@ class ParallelFileProcessor {
 		return results;
 	}
 
-	async processChunk(chunk, operation, progressCallback) {
+	async processChunk(chunk, operation) {
 		return new Promise(resolve => {
 			const worker = new Worker(__filename, {
 				workerData: { chunk, operation: operation.toString() }
