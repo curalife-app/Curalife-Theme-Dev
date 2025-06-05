@@ -38,9 +38,19 @@ function main() {
 	}
 
 	// Spawn the real Shopify CLI
-	const shopifyProcess = spawn("shopify", args, {
+	const isWindows = process.platform === "win32";
+	let command, finalArgs;
+
+	if (isWindows) {
+		command = "cmd";
+		finalArgs = ["/c", "shopify", ...args];
+	} else {
+		command = "shopify";
+		finalArgs = args;
+	}
+
+	const shopifyProcess = spawn(command, finalArgs, {
 		stdio: "inherit",
-		shell: true,
 		env: process.env
 	});
 
