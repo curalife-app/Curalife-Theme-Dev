@@ -8,86 +8,171 @@
 {% comment %} Stagewise Development Toolbar - Only in development {% endcomment %}
 {% unless request.design_mode %}
 	<script>
-		// Only load stagewise in development environments
-		// Check for development indicators including Shopify dev servers
-		const isDevelopment =
-			window.location.hostname === 'localhost' ||
-			window.location.hostname.includes('127.0.0.1') ||
-			window.location.hostname.includes('.ngrok.') ||
-			window.location.hostname.includes('shopify.dev') ||
-			window.location.hostname.includes('.shopifypreview.com') ||
-			window.location.hostname.includes('.myshopify.com') ||
-			window.location.search.includes('preview_theme_id') ||
-			document.cookie.includes('_shopify_s=') ||
-			window.location.port;
+		(() => {
+			'use strict';
 
-		console.log('🎭 Hostname:', window.location.hostname);
-		console.log('🎭 Is development:', isDevelopment);
+			const STAGEWISE_DEBUG = false; // Set to true for verbose logging
 
-		if (isDevelopment) {
-			// Load stagewise CSS
-			const link = document.createElement('link');
-			link.rel = 'stylesheet';
-			link.href = '{{ "stagewise-toolbar.css" | asset_url }}';
-			document.head.appendChild(link);
+			const log = (message, data = null) => {
+				if (!STAGEWISE_DEBUG) return;
+				console.log(`🎭 ${message}`, data || '');
+			};
 
-			// Load stagewise JavaScript bundle
-			const script = document.createElement('script');
-			script.src = '{{ "stagewise-toolbar.js" | asset_url }}';
-			script.onload = () => {
-				try {
-					console.log('🎭 Stagewise script loaded');
-					console.log('🎭 Window.StagewiseToolbar:', window.StagewiseToolbar);
-					console.log('🎭 Available properties:', Object.keys(window.StagewiseToolbar || {}));
+			const warn = (message, error = null) => {
+				console.warn(`🎭 ${message}`, error || '');
+			};
 
-					// Check if stagewise is available globally (it's exposed as StagewiseToolbar, not Stagewise)
-					if (window.StagewiseToolbar && window.StagewiseToolbar.initToolbar) {
-						console.log('🎭 Initializing stagewise toolbar...');
+			// Robust development environment detection
+			const detectDevelopmentEnvironment = () => {
+				const { hostname, port, search } = window.location;
 
-						// Basic stagewise configuration
-						const stagewiseConfig = {
-							plugins: [],
-							debug: true,
-							position: 'top-right'
-						};
+				const developmentIndicators = [
+					hostname === 'localhost',
+					hostname.includes('127.0.0.1'),
+					hostname.includes('.ngrok.'),
+					hostname.includes('shopify.dev'),
+					hostname.includes('.shopifypreview.com'),
+					hostname.includes('.myshopify.com'),
+					search.includes('preview_theme_id'),
+					Boolean(port),
+					document.cookie.includes('_shopify_s=')
+				];
 
-						// Add connection status logging
-						console.log('🎭 Attempting to connect to Stagewise extension...');
+				const isDev = developmentIndicators.some(Boolean);
+				const isThemeEditor = window.Shopify?.designMode;
+				const isValidDev = isDev && !isThemeEditor;
 
-						// Check if extension is available (this will help diagnose connection issues)
-						setTimeout(() => {
-							console.log('🎭 Checking extension connection status...');
-							// The toolbar should automatically try to connect to the VS Code extension
-						}, 2000);
+				log('Environment detection:', {
+					hostname,
+					port,
+					isDev,
+					isThemeEditor,
+					shouldLoad: isValidDev
+				});
 
-						// Initialize the toolbar
-						window.StagewiseToolbar.initToolbar(stagewiseConfig);
-						console.log('🎭 Stagewise toolbar initialized for development');
+				return isValidDev;
+			};
+
+			// Optimized asset loader with error handling
+			const loadAsset = (type, src, integrity = null) => {
+				return new Promise((resolve, reject) => {
+					const element = document.createElement(type === 'css' ? 'link' : 'script');
+
+					if (type === 'css') {
+						element.rel = 'stylesheet';
+						element.href = src;
 					} else {
-						console.warn('🎭 Stagewise toolbar not found in global scope');
-						console.warn(
-							'🎭 Available on window:',
-							Object.keys(window).filter(k => k.toLowerCase().includes('stage'))
-						);
+						element.src = src;
+						element.async = true;
+					}
+
+					if (integrity) {
+						element.integrity = integrity;
+						element.crossOrigin = 'anonymous';
+					}
+
+					element.onload = () => {
+						log(`Loaded ${type}: ${src}`);
+						resolve(element);
+					};
+
+					element.onerror = () => {
+						const error = new Error(`Failed to load ${type}: ${src}`);
+						warn(error.message);
+						reject(error);
+					};
+
+					document.head.appendChild(element);
+				});
+			};
+
+			// Initialize Stagewise with proper error handling
+			const initializeStagewise = async () => {
+				try {
+					// Load CSS first (non-blocking)
+					loadAsset('css', '{{ "stagewise-toolbar.css" | asset_url }}').catch(() => {
+						warn('Stagewise CSS not available - styling may be affected');
+					});
+
+					// Load JavaScript
+					await loadAsset('script', '{{ "stagewise-toolbar.js" | asset_url }}');
+
+					// Wait for global object to be available
+					let attempts = 0;
+					const maxAttempts = 50; // 5 seconds max wait
+
+					const waitForStagewise = () => {
+						return new Promise((resolve, reject) => {
+							const checkGlobal = () => {
+								attempts++;
+
+								// Check for both possible global names
+								const stagewise = window.StagewiseToolbar || window.Stagewise;
+
+								if (stagewise?.initToolbar) {
+									log('Stagewise global found', Object.keys(stagewise));
+									resolve(stagewise);
+									return;
+								}
+
+								if (attempts >= maxAttempts) {
+									reject(new Error('Stagewise initialization timeout'));
+									return;
+								}
+
+								setTimeout(checkGlobal, 100);
+							};
+
+							checkGlobal();
+						});
+					};
+
+					const stagewise = await waitForStagewise();
+
+					// Configuration
+					const config = {
+						debug: STAGEWISE_DEBUG,
+						position: 'top-right',
+						plugins: [],
+						theme: 'auto'
+					};
+
+					// Initialize toolbar
+					stagewise.initToolbar(config);
+					log('Stagewise initialized successfully');
+
+					// Optional: Add connection status monitoring
+					if (STAGEWISE_DEBUG) {
+						setTimeout(() => {
+							log('Checking Stagewise connection status...');
+						}, 2000);
 					}
 				} catch (error) {
-					console.warn('Failed to initialize stagewise toolbar:', error);
+					warn('Stagewise initialization failed:', error);
 				}
 			};
-			script.onerror = () => {
-				console.warn('Failed to load stagewise toolbar script');
-			};
-			document.head.appendChild(script);
-		} else {
-			console.log('🎭 Stagewise skipped - not in development environment');
-			console.log('🎭 To force enable, add ?stagewise=1 to URL');
 
-			// Allow forcing stagewise with URL parameter
-			if (window.location.search.includes('stagewise=1')) {
-				console.log('🎭 Force enabling stagewise via URL parameter');
-				window.location.reload();
+			// Main execution
+			if (detectDevelopmentEnvironment()) {
+				// Force enable option via URL parameter
+				const forceEnable = window.location.search.includes('stagewise=1');
+
+				if (forceEnable) {
+					log('Force enabling Stagewise via URL parameter');
+				}
+
+				log('Loading Stagewise in development environment');
+
+				// Initialize when DOM is ready
+				if (document.readyState === 'loading') {
+					document.addEventListener('DOMContentLoaded', initializeStagewise);
+				} else {
+					initializeStagewise();
+				}
+			} else {
+				log('Stagewise skipped - not in development environment');
 			}
-		}
+		})();
 	</script>
 {% endunless %}
 

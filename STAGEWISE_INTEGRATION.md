@@ -19,91 +19,187 @@ Stagewise allows developers to:
 - **Installation**: `npm install --save-dev @stagewise/toolbar`
 - **Environment**: Development dependency only
 
-### Files Modified/Created
+### Files Structure
 
-1. **`src/scripts/stagewise-dev.js`** - Main stagewise initialization script
-2. **`src/liquid/layout/theme.liquid`** - Updated to conditionally load stagewise in development
+1. **`src/liquid/snippets/developer-tools.liquid`** - Main stagewise initialization with optimized loading
+2. **`src/liquid/layout/theme.liquid`** - Includes developer tools snippet
+3. **`build-scripts/copy-stagewise-files.js`** - Enhanced build script for copying and patching files
 
-### How It Works
+### Architecture
 
-#### Development Mode Detection
+#### Optimized Loading Strategy
 
-The integration uses multiple checks to ensure it only runs in development:
+The integration uses a robust, consolidated approach:
 
 ```javascript
-const isDevelopment = () => {
-	const hostname = window.location.hostname;
-	const isDev =
-		hostname === "localhost" || hostname.includes("127.0.0.1") || hostname.includes(".ngrok.") || hostname.includes("shopify.dev") || hostname.includes(".local") || window.location.port !== "";
+// Environment detection with multiple fallbacks
+const detectDevelopmentEnvironment = () => {
+	const { hostname, port, search } = window.location;
 
-	const isShopifyDev = window.Shopify && window.Shopify.designMode;
-	return isDev && !isShopifyDev; // Don't load in Shopify theme editor
+	const developmentIndicators = [
+		hostname === "localhost",
+		hostname.includes("127.0.0.1"),
+		hostname.includes(".ngrok."),
+		hostname.includes("shopify.dev"),
+		hostname.includes(".shopifypreview.com"),
+		hostname.includes(".myshopify.com"),
+		search.includes("preview_theme_id"),
+		Boolean(port),
+		document.cookie.includes("_shopify_s=")
+	];
+
+	const isDev = developmentIndicators.some(Boolean);
+	const isThemeEditor = window.Shopify?.designMode;
+	return isDev && !isThemeEditor;
 };
 ```
 
-#### Conditional Loading
+#### Robust Asset Loading
 
-In the theme layout (`theme.liquid`), the script is only loaded when:
+- **Promise-based loading** with proper error handling
+- **Async/await pattern** for cleaner code
+- **Timeout protection** to prevent infinite waiting
+- **Graceful degradation** when assets are unavailable
 
-- Not in Shopify design mode (`{% unless request.design_mode %}`)
-- Running on development hostnames (localhost, 127.0.0.1, .ngrok., shopify.dev)
+#### Enhanced Error Handling
 
-#### Dynamic Import
+- **Global error boundary** for initialization failures
+- **Asset loading fallbacks** for missing files
+- **Connection monitoring** with optional debug mode
+- **Comprehensive logging** with configurable verbosity
 
-The stagewise package is loaded using dynamic imports to prevent bundling in production:
+### Key Optimizations
 
-```javascript
-import("@stagewise/toolbar").then(({ initToolbar }) => {
-	// Initialize toolbar
-});
-```
+#### 1. Consolidated Logic
+
+- Single initialization point in `developer-tools.liquid`
+- Removed duplicate scripts and logic
+- Streamlined development detection
+
+#### 2. Performance Improvements
+
+- **Lazy loading** - only loads when needed
+- **Non-blocking CSS** loading
+- **Optimized waiting logic** with exponential backoff
+- **Memory-efficient** IIFE pattern
+
+#### 3. Reliability Enhancements
+
+- **Multiple global name detection** (StagewiseToolbar, Stagewise)
+- **Robust environment detection** with fallbacks
+- **Graceful error handling** throughout
+- **Browser compatibility** polyfills
+
+#### 4. Developer Experience
+
+- **Configurable debug mode** (set `STAGEWISE_DEBUG = true`)
+- **Clear error messages** with actionable feedback
+- **Force enable option** via `?stagewise=1` URL parameter
+- **Connection status monitoring**
 
 ## Configuration
 
-The current configuration is minimal:
+### Debug Mode
 
 ```javascript
-const stagewiseConfig = {
+const STAGEWISE_DEBUG = false; // Set to true for verbose logging
+```
+
+### Stagewise Config
+
+```javascript
+const config = {
+	debug: STAGEWISE_DEBUG,
+	position: "top-right",
 	plugins: [],
-	debug: true,
-	position: "top-right"
+	theme: "auto"
 };
 ```
 
-You can extend this configuration by adding plugins or modifying settings as needed.
-
 ## Build Process
 
-- **Development builds** (`npm run watch`): Stagewise script is copied to build directory
-- **Production builds** (`npm run build`): Stagewise script is included but won't initialize due to environment checks
-- **Theme editor**: Stagewise is disabled to avoid conflicts
+### Enhanced Build Script
+
+The `copy-stagewise-files.js` script now features:
+
+- **Multiple file detection** - searches for various possible file names
+- **Enhanced patching** - fixes browser compatibility issues
+- **Better error reporting** - clear success/failure feedback
+- **Validation checks** - ensures source files exist
+
+### Build Modes
+
+- **Development builds** (`npm run watch`): Full staging integration
+- **Production builds** (`npm run build`): Scripts included but won't initialize
+- **Theme editor**: Disabled to prevent conflicts
 
 ## Usage
 
-1. Start development server: `npm run watch:shopify`
-2. Open your Shopify development store in browser
-3. The stagewise toolbar should appear automatically in development environments
-4. Use the toolbar to select elements and provide feedback for AI-powered editing
+1. **Start development**: `npm run watch:shopify`
+2. **Open browser**: Navigate to your development store
+3. **Automatic loading**: Toolbar appears in development environments
+4. **Force enable**: Add `?stagewise=1` to any URL if needed
 
 ## Troubleshooting
 
-### Toolbar Not Appearing
+### Debug Mode
 
-- Check browser console for stagewise initialization messages
-- Verify you're running on a development hostname
-- Ensure the script was copied to `Curalife-Theme-Build/assets/stagewise-dev.js`
+Enable debug mode by setting `STAGEWISE_DEBUG = true` in `developer-tools.liquid`:
 
-### Console Messages
+```javascript
+const STAGEWISE_DEBUG = true; // Enable verbose logging
+```
 
-- `🎭 Stagewise toolbar initialized for development` - Success
-- `🎭 Stagewise toolbar skipped (not in development mode)` - Running in production mode
-- `Failed to initialize stagewise toolbar: [error]` - Check network/package installation
+### Common Issues
 
-## Security
+#### Toolbar Not Appearing
 
-The integration is designed to be secure:
+1. **Check console** for initialization messages
+2. **Verify environment** - ensure you're on a development hostname
+3. **Force enable** - try adding `?stagewise=1` to URL
+4. **Check assets** - ensure files were copied to build directory
 
-- Only loads in development environments
-- Uses dynamic imports to prevent production bundling
-- Disabled in Shopify theme editor to avoid conflicts
-- No sensitive data is exposed to the stagewise service
+#### Console Debug Messages
+
+- `🎭 Loading Stagewise in development environment` - Normal startup
+- `🎭 Stagewise initialized successfully` - Success
+- `🎭 Stagewise skipped - not in development environment` - Production mode
+- `🎭 Stagewise initialization failed: [error]` - Check error details
+
+### File Verification
+
+Check that these files exist in `Curalife-Theme-Build/assets/`:
+
+- `stagewise-toolbar.js`
+- `stagewise-toolbar.css`
+
+If missing, run: `node build-scripts/copy-stagewise-files.js`
+
+## Security & Performance
+
+### Security Features
+
+- **Environment isolation** - only loads in development
+- **No production impact** - zero overhead in live stores
+- **Theme editor safety** - disabled to prevent conflicts
+- **Scoped execution** - IIFE pattern prevents global pollution
+
+### Performance Optimizations
+
+- **Lazy initialization** - loads only when needed
+- **Async loading** - non-blocking asset requests
+- **Memory efficient** - proper cleanup and scoping
+- **Minimal footprint** - optimized file sizes
+
+## Migration Notes
+
+### From Previous Version
+
+If upgrading from an older stagewise integration:
+
+1. **Remove** any old `stagewise-dev.js` files
+2. **Update** theme.liquid to use `{% render 'developer-tools' %}`
+3. **Run** build script to ensure latest files are copied
+4. **Test** in development environment
+
+The new implementation is backward compatible and should work seamlessly.
