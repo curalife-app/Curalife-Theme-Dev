@@ -1,0 +1,101 @@
+{% comment %}
+	Developer Tools Snippet
+
+	This snippet contains all development-specific tools and scripts that should only
+	load in development environments. This keeps the main theme.liquid clean.
+{% endcomment %}
+
+{% comment %} Stagewise Development Toolbar - Only in development {% endcomment %}
+{% unless request.design_mode %}
+	<script>
+		// Only load stagewise in development environments
+		// Check for development indicators including Shopify dev servers
+		const isDevelopment =
+			window.location.hostname === 'localhost' ||
+			window.location.hostname.includes('127.0.0.1') ||
+			window.location.hostname.includes('.ngrok.') ||
+			window.location.hostname.includes('shopify.dev') ||
+			window.location.hostname.includes('.shopifypreview.com') ||
+			window.location.hostname.includes('.myshopify.com') ||
+			window.location.search.includes('preview_theme_id') ||
+			document.cookie.includes('_shopify_s=') ||
+			window.location.port;
+
+		console.log('🎭 Hostname:', window.location.hostname);
+		console.log('🎭 Is development:', isDevelopment);
+
+		if (isDevelopment) {
+			// Load stagewise CSS
+			const link = document.createElement('link');
+			link.rel = 'stylesheet';
+			link.href = '{{ "stagewise-toolbar.css" | asset_url }}';
+			document.head.appendChild(link);
+
+			// Load stagewise JavaScript bundle
+			const script = document.createElement('script');
+			script.src = '{{ "stagewise-toolbar.js" | asset_url }}';
+			script.onload = () => {
+				try {
+					console.log('🎭 Stagewise script loaded');
+					console.log('🎭 Window.StagewiseToolbar:', window.StagewiseToolbar);
+					console.log('🎭 Available properties:', Object.keys(window.StagewiseToolbar || {}));
+
+					// Check if stagewise is available globally (it's exposed as StagewiseToolbar, not Stagewise)
+					if (window.StagewiseToolbar && window.StagewiseToolbar.initToolbar) {
+						console.log('🎭 Initializing stagewise toolbar...');
+
+						// Basic stagewise configuration
+						const stagewiseConfig = {
+							plugins: [],
+							debug: true,
+							position: 'top-right'
+						};
+
+						// Add connection status logging
+						console.log('🎭 Attempting to connect to Stagewise extension...');
+
+						// Check if extension is available (this will help diagnose connection issues)
+						setTimeout(() => {
+							console.log('🎭 Checking extension connection status...');
+							// The toolbar should automatically try to connect to the VS Code extension
+						}, 2000);
+
+						// Initialize the toolbar
+						window.StagewiseToolbar.initToolbar(stagewiseConfig);
+						console.log('🎭 Stagewise toolbar initialized for development');
+					} else {
+						console.warn('🎭 Stagewise toolbar not found in global scope');
+						console.warn(
+							'🎭 Available on window:',
+							Object.keys(window).filter(k => k.toLowerCase().includes('stage'))
+						);
+					}
+				} catch (error) {
+					console.warn('Failed to initialize stagewise toolbar:', error);
+				}
+			};
+			script.onerror = () => {
+				console.warn('Failed to load stagewise toolbar script');
+			};
+			document.head.appendChild(script);
+		} else {
+			console.log('🎭 Stagewise skipped - not in development environment');
+			console.log('🎭 To force enable, add ?stagewise=1 to URL');
+
+			// Allow forcing stagewise with URL parameter
+			if (window.location.search.includes('stagewise=1')) {
+				console.log('🎭 Force enabling stagewise via URL parameter');
+				window.location.reload();
+			}
+		}
+	</script>
+{% endunless %}
+
+{% comment %} Add other development tools here as needed {% endcomment %}
+{% comment %}
+	Future development tools can be added here, such as:
+	- Performance monitoring scripts
+	- Debug overlays
+	- Development-specific analytics
+	- A/B testing tools
+{% endcomment %}

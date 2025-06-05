@@ -944,6 +944,12 @@ export default defineConfig(({ command, mode }) => {
 		root: path.resolve(__dirname, "src"),
 		base: "/",
 
+		// Define global variables for Node.js compatibility in browser
+		define: {
+			process: JSON.stringify({ env: { NODE_ENV: isProduction ? "production" : "development" } }),
+			global: "globalThis"
+		},
+
 		// Build configuration
 		build: {
 			outDir: path.resolve(__dirname, "Curalife-Theme-Build"),

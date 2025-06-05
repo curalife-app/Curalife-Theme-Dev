@@ -65,17 +65,16 @@ const isWindows = process.platform === "win32";
 const shopifyCommand = isWindows ? "shopify.cmd" : "shopify";
 
 // Shopify CLI arguments for theme development
-const args = ["theme", "dev", "--live-reload=hot-reload", "--host=127.0.0.1", "--port=9293"];
+const args = ["theme", "dev", "--path", `"${buildDir}"`, "--live-reload=hot-reload", "--host=127.0.0.1", "--port=9293", "--nodelete"];
 
 log("Starting Shopify theme development server...", "shopify");
 log(`Command: ${shopifyCommand} ${args.join(" ")}`, "shopify");
 log(`Working directory: ${buildDir}`, "shopify");
 
-// Spawn the Shopify CLI process with explicit working directory
+// Spawn the Shopify CLI process
 const shopifyProcess = spawn(shopifyCommand, args, {
 	stdio: ["inherit", "pipe", "pipe"], // Pipe stdout and stderr to capture and display
 	shell: true,
-	cwd: buildDir, // Explicitly set the working directory to the build folder
 	env: {
 		...process.env,
 		// Ensure Shopify CLI uses the correct environment

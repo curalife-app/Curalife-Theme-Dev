@@ -70,7 +70,7 @@ This is the recommended workflow for local development:
 
     This command starts the Shopify CLI dev server, pointing to the `Curalife-Theme-Build/` directory. It provides a local preview URL with live theme updates pushed from the build directory.
 
-    _(Note: Changes made via `npm run watch:shopify` are copied to `Curalife-Theme-Build/`, and `shopify theme dev` picks them up. Some changes, especially complex Liquid or schema updates, might occasionally require a manual browser refresh.)_
+    _(Note: Changes made via `npm run watch:shopify` are copied to `Curalife-Theme-Build/`, and `shopify theme dev --path Curalife-Theme-Build` picks them up. Some changes, especially complex Liquid or schema updates, might occasionally require a manual browser refresh.)_
 
 ### Production Build
 

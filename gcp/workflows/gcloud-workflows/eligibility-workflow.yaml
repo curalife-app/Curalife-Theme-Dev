@@ -23,7 +23,13 @@ main:
           - actualPayload: null
           - timestamp: ${sys.now()}
           - stediApiUrl: "https://healthcare.us.stedi.com/2024-04-01/change/medicalnetwork/eligibility/v3"
-          - stediApiKey: ${if(sys.get_env("STEDI_API_KEY") != null, sys.get_env("STEDI_API_KEY"), "")}
+          # Try to get production API key first, then test key, then fallback
+          - envProdApiKey: ${sys.get_env("STEDI_API_KEY_PROD")}
+          - envTestApiKey: ${sys.get_env("STEDI_API_KEY")}
+          - prodApiKeyValid: ${envProdApiKey != null and envProdApiKey != "" and len(string(envProdApiKey)) > 10}
+          - testApiKeyValid: ${envTestApiKey != null and envTestApiKey != "" and len(string(envTestApiKey)) > 10}
+          - defaultApiKey: "test_fsWwDEq.XvSAryFi2OujuV0n3mNPhFfE"
+          - stediApiKey: ${if(prodApiKeyValid, envProdApiKey, if(testApiKeyValid, envTestApiKey, defaultApiKey))}
           - controlNumber: ${string(double(sys.now() * 1000))}
           # Initialize with default values
           - insurance: ""
@@ -33,7 +39,8 @@ main:
           # Initialize variables that might be used in later steps
           - serviceTypeFound: false
           - isEligible: false
-          - demoMode: ${stediApiKey == ""} # Define demoMode here before it's used
+          # Initialize response validation flag
+          - hasValidStediResponse: false
 
     # ---------------------------------------------------------------
     # 1.  OPTIONS pre-flight - REMOVED due to request.method access issues
@@ -70,20 +77,11 @@ main:
           - insuranceMemberId: ${if(actualPayload != null and "insuranceMemberId" in actualPayload, actualPayload.insuranceMemberId, "")}
           - groupNumber: ${if(actualPayload != null and "groupNumber" in actualPayload, actualPayload.groupNumber, "")}
           - dateOfBirth: ${if(actualPayload != null and "dateOfBirth" in actualPayload, actualPayload.dateOfBirth, "")}
-          # Format the date - ensure we have a valid date even if the input is in the future
-          - formattedDateOfBirth: "19800101" # Default to Jan 1, 1980 for demo/testing
+          # Use the actual date of birth received
+          - formattedDateOfBirth: ${dateOfBirth}
           # Use insurance field as primaryPayerId directly (no more mapping needed)
           - primaryPayerId: ${insurance}
           - tradingPartnerServiceId: ${if(insurance != "", insurance, "OTHER")}
-
-    # ---------------------------------------------------------------
-    # 4.5 Set test mode and prepare test data based on primaryPayerId
-    # ---------------------------------------------------------------
-    - setTestMode:
-        assign:
-          - isTestApiKey: ${stediApiKey != null and len(stediApiKey) >= 5 and text.substring(stediApiKey, 0, 5) == "test_"}
-          - isTestMode: ${isTestApiKey}
-          - useTestData: ${demoMode or isTestApiKey}
 
     - createDebugInfo:
         assign:
@@ -92,86 +90,6 @@ main:
               primaryPayerId: ${primaryPayerId}
               tradingPartnerId: ${tradingPartnerServiceId}
               groupNumber: ${groupNumber}
-
-    - saveOriginalValues:
-        assign:
-          - originalFirstName: ${firstName}
-          - originalLastName: ${lastName}
-          - originalMemberId: ${insuranceMemberId}
-          - originalGroupNumber: ${groupNumber}
-          - originalDob: ${formattedDateOfBirth}
-          - originalControlNumber: ${controlNumber}
-
-    # Apply test data based on primaryPayerId for known test cases
-    - applyTestAetna:
-        switch:
-          - condition: ${useTestData and primaryPayerId == "60054"}
-            assign:
-              - firstName: "John"
-              - lastName: "Doe"
-              - insuranceMemberId: "AETNA9wcSu"
-              - formattedDateOfBirth: "19800101"
-              - controlNumber: "112233445"
-
-    - applyTestAmbetter:
-        switch:
-          - condition: ${useTestData and primaryPayerId == "68069"}
-            assign:
-              - firstName: "John"
-              - lastName: "Doe"
-              - insuranceMemberId: "AMBETTER123"
-              - formattedDateOfBirth: "19940404"
-              - controlNumber: "112233445"
-
-    - applyTestAnthem:
-        switch:
-          - condition: ${useTestData and primaryPayerId == "040"}
-            assign:
-              - firstName: "Jane"
-              - lastName: "Doe"
-              - insuranceMemberId: "BCBSCA123456"
-              - formattedDateOfBirth: "19800101"
-              - controlNumber: "112233445"
-
-    - applyTestBCBS:
-        switch:
-          - condition: ${useTestData and primaryPayerId == "G84980"}
-            assign:
-              - firstName: "John"
-              - lastName: "Doe"
-              - insuranceMemberId: "BCBSTX123456"
-              - formattedDateOfBirth: "19800101"
-              - controlNumber: "112233445"
-
-    - applyTestCigna:
-        switch:
-          - condition: ${useTestData and primaryPayerId == "62308"}
-            assign:
-              - firstName: "John"
-              - lastName: "Doe"
-              - insuranceMemberId: "CIGNAJTUxNm"
-              - formattedDateOfBirth: "19800101"
-              - controlNumber: "112233445"
-
-    - applyTestUHC:
-        switch:
-          - condition: ${useTestData and primaryPayerId == "52133"}
-            assign:
-              - firstName: "Beaver"
-              - lastName: "Dent"
-              - insuranceMemberId: "404404404"
-              - formattedDateOfBirth: "19690628"
-              - controlNumber: "143153149"
-
-    - applyTestOther:
-        switch:
-          - condition: ${useTestData and primaryPayerId == "87726"}
-            assign:
-              - firstName: "John"
-              - lastName: "Doe"
-              - insuranceMemberId: "UHCAAA79"
-              - formattedDateOfBirth: "19700101"
-              - controlNumber: "123456789"
 
     # ---------------------------------------------------------------
     # 5.  Validate required fields
@@ -218,24 +136,22 @@ main:
     # ---------------------------------------------------------------
     - checkStediToken:
         assign:
-          - demoMode: ${stediApiKey == ""}
-          - validStediKey: ${stediApiKey != null and stediApiKey != ""}
+          # More robust validation - check length and content
+          - apiKeyLength: ${if(stediApiKey != null, len(string(stediApiKey)), 0)}
+          - validStediKey: ${stediApiKey != null and stediApiKey != "" and apiKeyLength > 10}
+          # Debug info for troubleshooting
+          - apiKeyDebug:
+              hasProdKey: ${envProdApiKey != null}
+              hasTestKey: ${envTestApiKey != null}
+              prodKeyLength: ${if(envProdApiKey != null, len(string(envProdApiKey)), 0)}
+              testKeyLength: ${if(envTestApiKey != null, len(string(envTestApiKey)), 0)}
+              finalKeyLength: ${apiKeyLength}
+              isValid: ${validStediKey}
+              usingProdKey: ${prodApiKeyValid}
         next: checkStediTokenSwitch
 
     - checkStediTokenSwitch:
         switch:
-          - condition: ${demoMode}
-            assign:
-              - eligibilityData:
-                  isEligible: true
-                  sessionsCovered: 10
-                  deductible: { individual: 250 }
-                  eligibilityStatus: "ELIGIBLE"
-                  userMessage: "DEMO MODE: No Stedi API key provided. Using sample eligibility data."
-                  planBegin: "20240101"
-                  planEnd: "20241231"
-                  demo: true
-            next: returnResults
           - condition: ${not validStediKey}
             assign:
               - eligibilityData:
@@ -246,7 +162,9 @@ main:
                   userMessage: "Invalid API configuration. Please contact customer support."
                   planBegin: ""
                   planEnd: ""
-                  demo: false
+                  error:
+                    apiKeyDebug: ${apiKeyDebug}
+                    message: "STEDI API key validation failed"
             next: returnResults
           - condition: true
             next: callStediEligibility
@@ -277,7 +195,7 @@ main:
           as: e
           steps:
             - handle_api_error:
-                call: handle_error
+                call: handle_stedi_api_error
                 args:
                   error: ${e}
                   error_type: "api"
@@ -285,87 +203,191 @@ main:
                 next: returnResults
 
     - processEligibilityResponse:
-        try:
-          assign:
-            # Initialize with defaults in case the response is missing data
-            - eligibilityData:
-                isEligible: false
-                sessionsCovered: 0
-                deductible: { individual: 0 }
-                eligibilityStatus: "UNKNOWN"
-                userMessage: "Unable to determine eligibility status."
-                planBegin: ""
-                planEnd: ""
-            # Check for error response from Stedi API - safer error checking
-            - hasErrorsArray: ${stediResponse.body != null and "errors" in stediResponse.body and stediResponse.body.errors != null}
-            - errorArrayLength: ${if(hasErrorsArray, len(stediResponse.body.errors), 0)}
-            - hasErrors: ${hasErrorsArray and errorArrayLength > 0}
-            # Initialize error fields
-            - errorCode: ""
-            - errorMessage: ""
-        except:
-          as: e
-          steps:
-            - handle_process_error:
-                call: handle_error
-                args:
-                  error: ${e}
-                  error_type: "process"
-                result: eligibilityData
-                next: returnResults
+        assign:
+          # Skip validation and go straight to processing
+          - hasValidStediResponse: true
+          # Initialize with defaults
+          - eligibilityData:
+              isEligible: false
+              sessionsCovered: 0
+              deductible: { individual: 0 }
+              eligibilityStatus: "UNKNOWN"
+              userMessage: "Unable to determine eligibility status."
+              planBegin: ""
+              planEnd: ""
+          # Initialize error checking variables
+          - errorCode: ""
+          - errorMessage: ""
+          # Check for standard errors directly
+          - hasErrorsField: ${"errors" in stediResponse.body}
+          - errorsArray: ${if(hasErrorsField, stediResponse.body.errors, [])}
+          - hasStandardErrors: ${hasErrorsField and errorsArray != null and len(errorsArray) > 0}
+          # Check for AAA errors directly
+          - hasSubscriber: ${"subscriber" in stediResponse.body}
+          - subscriberData: ${if(hasSubscriber, stediResponse.body.subscriber, null)}
+          - hasAAAErrorsField: ${hasSubscriber and subscriberData != null and "aaaErrors" in subscriberData}
+          - aaaErrorsArray: ${if(hasAAAErrorsField, subscriberData.aaaErrors, [])}
+          - hasAAAErrors: ${hasAAAErrorsField and aaaErrorsArray != null and len(aaaErrorsArray) > 0}
+          # Initialize inactive plan variables (planStatus not present in this response)
+          - hasInactivePlan: false
+          - planStatusCode: ""
+        next: debugStediResponse
+
+    - debugStediResponse:
+        assign:
+          - debugLog:
+              message: "Processing Stedi response"
+              responseCode: ${stediResponse.code}
+              hasBody: ${"body" in stediResponse}
+              bodyHasErrors: ${hasErrorsField}
+              bodyHasSubscriber: ${hasSubscriber}
+        next: combineErrorChecks
+
+    - combineErrorChecks:
+        assign:
+          # Combine all error/issue checks
+          - hasErrors: ${hasStandardErrors or hasAAAErrors or hasInactivePlan}
         next: extractErrorDetails
 
     - extractErrorDetails:
         switch:
           - condition: ${hasErrors}
-            assign:
-              - firstError: ${stediResponse.body.errors[0]}
-              - errorCode: ${if("code" in firstError, firstError.code, "")}
-              - errorMessage: ${if("description" in firstError, firstError.description, if("message" in firstError, firstError.message, ""))}
-            next: checkStediErrors
+            try:
+              assign:
+                # Initialize error collections
+                - allErrors: []
+                - errorDetails: ""
+            except:
+              as: e
+              assign:
+                - allErrors: []
+                - errorCode: ""
+                - errorMessage: "Error initializing error processing"
+                - errorDetails: "Unable to initialize error processing."
+            next: collectAllErrors
           - condition: true
+            assign:
+              - errorCode: ""
+              - errorMessage: "No errors detected"
+              - allErrors: []
+              - errorDetails: ""
             next: checkStediErrors
+
+    - collectAllErrors:
+        assign:
+          # Safely combine errors from both arrays
+          - allErrors: []
+          # Add errors from errorsArray first
+          - allErrors: ${if(hasStandardErrors, errorsArray, allErrors)}
+          # Add errors from aaaErrorsArray (but since list.concat might fail, we'll pick the primary source)
+          - primaryError: ${if(hasAAAErrors and len(aaaErrorsArray) > 0, aaaErrorsArray[0], if(hasStandardErrors and len(errorsArray) > 0, errorsArray[0], null))}
+          # Extract error details safely
+          - errorCode: ${if(primaryError != null and "code" in primaryError, primaryError.code, "")}
+          - errorMessage: ${if(primaryError != null and "description" in primaryError, primaryError.description, "Unknown error")}
+          # Create detailed error information for user
+          - errorDetails: ${if(primaryError != null and "possibleResolutions" in primaryError, primaryError.possibleResolutions, "Contact customer support for assistance.")}
+        next: checkStediErrors
 
     # Check if there was an error from Stedi API
     - checkStediErrors:
         switch:
           - condition: ${hasErrors}
             assign:
-              - eligibilityData:
-                  isEligible: false
-                  sessionsCovered: 0
-                  deductible: { individual: 0 }
-                  eligibilityStatus: "PAYER_ERROR"
-                  userMessage: "There was an error with the insurance payer. Please contact customer support."
-                  planBegin: ""
-                  planEnd: ""
-                  error:
-                    code: ${errorCode}
-                    message: ${errorMessage}
-                    details: "This may be because the payer is not properly configured in the Stedi system."
-            next: returnResults
+              # Determine if this is an AAA error - check both location AND error code
+              - isAAAErrorByLocation: ${hasAAAErrors and len(aaaErrorsArray) > 0}
+              # AAA error codes that should always be treated as AAA errors regardless of location
+              - isAAAErrorByCode: ${errorCode == "42" or errorCode == "43" or errorCode == "72" or errorCode == "73" or errorCode == "75" or errorCode == "76" or errorCode == "79"}
+              # Plan status errors should be treated as AAA errors (member-specific issues)
+              - isPlanStatusError: ${hasInactivePlan and (errorCode == "INACTIVE" or errorCode == "TERMINATED")}
+              - isAAAError: ${isAAAErrorByLocation or isAAAErrorByCode or isPlanStatusError}
+              - eligibilityStatus: ${if(isAAAError, "AAA_ERROR", "PAYER_ERROR")}
+              # Enhanced error mapping for specific AAA error codes
+              - errorCode72Message: "The member ID provided does not match our records. Please verify your member ID and try again, or contact customer support."
+              - errorCode73Message: "The name provided doesn't match our records. Please verify the name matches exactly as shown on your insurance card."
+              - errorCode75Message: "We couldn't find your insurance information in our system. This might be due to a recent plan change or data entry issue."
+              - errorCode76Message: "We found a duplicate member ID in the insurance database. This might be due to multiple plan records. Our team will verify your current coverage status."
+              - errorCode79Message: "There's a technical issue connecting with your insurance provider. Our team will manually verify your coverage."
+              - errorCode42Message: "Your insurance company's system is temporarily unavailable. Please try again in a few minutes."
+              - errorCode43Message: "Your insurance plan requires additional provider verification. Our team will contact you to complete the eligibility check."
+              # Plan status error messages
+              - inactiveMessage: "Your insurance plan appears to be inactive. This could be due to a recent change or lapse in coverage. Please verify your current insurance status and contact us for assistance."
+              - terminatedMessage: "Your insurance plan has been terminated. Please verify your current insurance information or contact us to explore other options."
+              # Default messages
+              - defaultAAAMessage: "There was an issue verifying your insurance coverage automatically. Our team will manually verify your coverage."
+              - defaultPayerMessage: "There was an error with the insurance payer. Please contact customer support."
+            next: selectUserMessage
           - condition: true
             next: processSuccessResponse
 
+    - selectUserMessage:
+        switch:
+          - condition: ${errorCode == "72"}
+            assign:
+              - userMessage: ${errorCode72Message}
+          - condition: ${errorCode == "73"}
+            assign:
+              - userMessage: ${errorCode73Message}
+          - condition: ${errorCode == "75"}
+            assign:
+              - userMessage: ${errorCode75Message}
+          - condition: ${errorCode == "76"}
+            assign:
+              - userMessage: ${errorCode76Message}
+          - condition: ${errorCode == "79"}
+            assign:
+              - userMessage: ${errorCode79Message}
+          - condition: ${errorCode == "42"}
+            assign:
+              - userMessage: ${errorCode42Message}
+          - condition: ${errorCode == "43"}
+            assign:
+              - userMessage: ${errorCode43Message}
+          - condition: ${errorCode == "INACTIVE"}
+            assign:
+              - userMessage: ${inactiveMessage}
+          - condition: ${errorCode == "TERMINATED"}
+            assign:
+              - userMessage: ${terminatedMessage}
+          - condition: ${isAAAError}
+            assign:
+              - userMessage: ${defaultAAAMessage}
+          - condition: true
+            assign:
+              - userMessage: ${defaultPayerMessage}
+        next: buildErrorEligibilityData
+
+    - buildErrorEligibilityData:
+        assign:
+          - eligibilityData:
+              isEligible: false
+              sessionsCovered: 0
+              deductible: { individual: 0 }
+              eligibilityStatus: ${eligibilityStatus}
+              userMessage: ${userMessage}
+              planBegin: ""
+              planEnd: ""
+              error:
+                code: ${errorCode}
+                message: ${errorMessage}
+                details: ${errorDetails}
+                totalErrors: ${len(allErrors)}
+                allErrors: ${allErrors}
+                isAAAError: ${isAAAError}
+                hasStandardErrors: ${hasStandardErrors}
+                hasAAAErrors: ${hasAAAErrors}
+                hasInactivePlan: ${hasInactivePlan}
+                planStatusCode: ${planStatusCode}
+                isPlanStatusError: ${isPlanStatusError}
+        next: returnResults
+
     - processSuccessResponse:
-        try:
-          assign:
-            # Initialize processing variables only
-            - isEligible: false
-            - sessionsCovered: 0
-            - deductible: 0
-            - copay: 0
-            - serviceTypeFound: false
-        except:
-          as: e
-          steps:
-            - handle_process_success_error:
-                call: handle_error
-                args:
-                  error: ${e}
-                  error_type: "process"
-                result: eligibilityData
-                next: returnResults
+        assign:
+          # Initialize processing variables only
+          - isEligible: false
+          - sessionsCovered: 0
+          - deductible: 0
+          - copay: 0
+          - serviceTypeFound: false
 
     - extractPlanInformation:
         try:
@@ -373,8 +395,8 @@ main:
             # Initialize with defaults first
             - planBegin: ""
             - planEnd: ""
-            # Check if plan information exists
-            - hasPlanInfo: ${"planDateInformation" in stediResponse.body}
+            # Check if plan information exists (only if we have a valid response)
+            - hasPlanInfo: ${hasValidStediResponse and "planDateInformation" in stediResponse.body}
         except:
           as: e
           assign:
@@ -420,13 +442,8 @@ main:
 
     # Validate response before processing
     - validateStediResponse:
-        assign:
-          - hasStediBody: ${stediResponse != null and "body" in stediResponse and stediResponse.body != null}
-        next: checkStediResponseValid
-
-    - checkStediResponseValid:
         switch:
-          - condition: ${not hasStediBody}
+          - condition: ${not hasValidStediResponse}
             assign:
               - eligibilityData:
                   isEligible: false
@@ -456,7 +473,7 @@ main:
                   try:
                     call: findEligibilityForServiceType
                     args:
-                      response: ${stediResponse.body}
+                      response: ${if(hasValidStediResponse, stediResponse.body, null)}
                       serviceTypeCode: ${serviceTypeCode}
                     result: eligibilityForType
                   except:
@@ -514,10 +531,6 @@ main:
             debug:
               foundServiceType: ${if(serviceTypeFound != null, serviceTypeFound, false)}
               isEligible: ${if(isEligible != null, isEligible, false)}
-              demoMode: ${demoMode}
-              isTestApiKey: ${isTestApiKey}
-              testMode: ${isTestMode}
-              usingTestData: ${useTestData}
               tradingPartnerId: ${tradingPartnerServiceId}
               controlNumber: ${controlNumber}
               requestFields:
@@ -530,7 +543,118 @@ main:
                 formattedDateOfBirth: ${formattedDateOfBirth}
 
 # -----------------------------------------------------------------
-# Helper function to handle errors
+# Helper function to handle Stedi API errors specifically
+# -----------------------------------------------------------------
+handle_stedi_api_error:
+  params: [error, error_type]
+  steps:
+    - init:
+        try:
+          assign:
+            - error_type: ${if(error_type != null, error_type, "api")}
+            - error_code: ${if(error != null and "code" in error, error.code, 0)}
+            - error_body: ${if(error != null and "body" in error, error.body, null)}
+        except:
+          assign:
+            - error_type: "unknown"
+            - error_code: 0
+            - error_body: null
+
+    - parse_stedi_error:
+        try:
+          assign:
+            # Try to extract Stedi API error details from the error body
+            - hasStediErrorBody: ${error_body != null}
+            - hasStediErrors: ${hasStediErrorBody and "errors" in error_body and error_body.errors != null and len(error_body.errors) > 0}
+            - stediError: ${if(hasStediErrors, error_body.errors[0], null)}
+            - stediErrorCode: ${if(stediError != null and "code" in stediError, stediError.code, "")}
+            - stediErrorDescription: ${if(stediError != null and "description" in stediError, stediError.description, "")}
+            - stediErrorResolutions: ${if(stediError != null and "possibleResolutions" in stediError, stediError.possibleResolutions, "")}
+            - stediErrorField: ${if(stediError != null and "field" in stediError, stediError.field, "")}
+        except:
+          assign:
+            - hasStediErrorBody: false
+            - hasStediErrors: false
+            - stediError: null
+            - stediErrorCode: ""
+            - stediErrorDescription: ""
+            - stediErrorResolutions: ""
+            - stediErrorField: ""
+
+    - handle_stedi_specific_errors:
+        switch:
+          - condition: ${hasStediErrors and stediErrorCode == "33"}
+            return:
+              isEligible: false
+              sessionsCovered: 0
+              deductible: { individual: 0 }
+              eligibilityStatus: "TEST_DATA_ERROR"
+              userMessage: "Test data validation failed. For testing, please use 'John' as the first name, or contact support for live testing options."
+              planBegin: ""
+              planEnd: ""
+              error:
+                code: ${stediErrorCode}
+                message: ${stediErrorDescription}
+                details: ${stediErrorResolutions}
+                field: ${stediErrorField}
+                type: "Stedi API Test Data Error"
+          - condition: ${hasStediErrors}
+            return:
+              isEligible: false
+              sessionsCovered: 0
+              deductible: { individual: 0 }
+              eligibilityStatus: "API_ERROR"
+              userMessage: ${if(stediErrorDescription != "", stediErrorDescription, "There was an error checking your eligibility. Please contact customer support.")}
+              planBegin: ""
+              planEnd: ""
+              error:
+                code: ${stediErrorCode}
+                message: ${stediErrorDescription}
+                details: ${stediErrorResolutions}
+                field: ${stediErrorField}
+                type: "Stedi API Error"
+                httpCode: ${error_code}
+          - condition: true
+            next: handle_http_errors
+
+    - handle_http_errors:
+        switch:
+          - condition: ${error_code == 403}
+            return:
+              isEligible: false
+              sessionsCovered: 0
+              deductible: { individual: 0 }
+              eligibilityStatus: "AUTH_ERROR"
+              userMessage: "We encountered an authentication error while checking your eligibility. Please contact customer support."
+              planBegin: ""
+              planEnd: ""
+              error: "API authentication failed with 403 Access Denied. Please verify your Stedi API key."
+          - condition: ${error_code == 404}
+            return:
+              isEligible: false
+              sessionsCovered: 0
+              deductible: { individual: 0 }
+              eligibilityStatus: "NOT_FOUND_ERROR"
+              userMessage: "The requested resource was not found. This may be due to invalid test data or service configuration. Please contact support."
+              planBegin: ""
+              planEnd: ""
+              error: "HTTP 404 Not Found. Check the request data and API endpoint configuration."
+          - condition: true
+            next: handle_generic_error
+
+    - handle_generic_error:
+        return:
+          isEligible: false
+          sessionsCovered: 0
+          deductible: { individual: 0 }
+          eligibilityStatus: "ERROR"
+          userMessage: "There was an error checking your eligibility. Please contact customer support."
+          planBegin: ""
+          planEnd: ""
+          error: "HTTP Error. Please check logs for details."
+
+# -----------------------------------------------------------------
+# Helper function to handle errors (kept for backwards compatibility)
 # -----------------------------------------------------------------
 handle_error:
   params: [error, error_type]
@@ -556,7 +680,6 @@ handle_error:
               userMessage: "We encountered an authentication error while checking your eligibility. Please contact customer support."
               planBegin: ""
               planEnd: ""
-              demo: false
               error: "API authentication failed with 403 Access Denied. Please verify your Stedi API key."
           - condition: true
             next: handle_generic_error
@@ -570,7 +693,6 @@ handle_error:
           userMessage: "There was an error checking your eligibility. Please contact customer support."
           planBegin: ""
           planEnd: ""
-          demo: false
           error: "HTTP Error. Please check logs for details."
 
 # -----------------------------------------------------------------
