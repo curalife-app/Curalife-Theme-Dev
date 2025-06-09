@@ -47,7 +47,8 @@ main:
           - actualPayload: null
           - hubspotBaseUrl: "https://api.hubapi.com"
           - shopifyStoreName: ${if(sys.get_env("SHOPIFY_STORE_NAME") != null, sys.get_env("SHOPIFY_STORE_NAME"), "curalife-commerce")}
-          - shopifyAdminUrl: ${"https://" + shopifyStoreName + ".myshopify.com/admin/api/2025-04/customers.json"}
+          - shopifyGraphQLUrl: ${"https://" + shopifyStoreName + ".myshopify.com/admin/api/2025-04/graphql.json"}
+          - shopifySearchUrl: ${"https://" + shopifyStoreName + ".myshopify.com/admin/api/2025-04/customers/search.json"}
           - hubspotAccessToken: ${if(sys.get_env("HUBSPOT_ACCESS_TOKEN") != null, sys.get_env("HUBSPOT_ACCESS_TOKEN"), "")}
           - shopifyAdminToken: ${if(sys.get_env("SHOPIFY_ADMIN_TOKEN") != null, sys.get_env("SHOPIFY_ADMIN_TOKEN"), "")}
           - timestamp: ${sys.now()}
@@ -214,7 +215,7 @@ main:
     - validateEmail:
         switch:
           - condition: ${customerEmail != ""}
-            next: generatePassword
+            next: tryCreateShopifyCustomer
           - condition: true
             return:
               statusCode: 400
@@ -225,32 +226,23 @@ main:
                 reason: "Invalid email address"
                 attemptedEmail: ${customerEmail}
 
-    # ---------------------------------------------------------------
-    # 7. Generate temporary password
-    # ---------------------------------------------------------------
-    - generatePassword:
-        assign:
-          - tempPassword: "Auto123456" # Simple static password for initial account creation
-        next: tryCreateShopifyCustomer
-
     - tryCreateShopifyCustomer:
         try:
           call: http.post
           args:
-            url: ${shopifyAdminUrl}
+            url: ${shopifyGraphQLUrl}
             headers:
               X-Shopify-Access-Token: ${shopifyAdminToken}
               Content-Type: "application/json"
               Accept: "application/json"
             body:
-              customer:
-                first_name: ${firstName}
-                last_name: ${lastName}
-                email: ${customerEmail}
-                phone: ${phoneNumber}
-                password: ${tempPassword}
-                password_confirmation: ${tempPassword}
-                accepts_marketing: ${consent}
+              query: "mutation customerCreateMutation($input: CustomerInput!) { customerCreate(input: $input) { customer { id } userErrors { field message } } }"
+              variables:
+                input:
+                  email: ${customerEmail}
+                  firstName: ${firstName}
+                  lastName: ${lastName}
+                  phone: ${phoneNumber}
           result: shopifyCustomerResponse
         except:
           as: e
@@ -258,98 +250,137 @@ main:
             - assignErrorToResponse:
                 assign:
                   - shopifyCustomerResponse: ${e}
-        next: prepareShopifyErrorChecks
+        next: logShopifyResponse
 
-    - prepareShopifyErrorChecks:
+    - logShopifyResponse:
+        call: sys.log
+        args:
+          data: ${shopifyCustomerResponse}
+          severity: INFO
+        next: checkShopifyResponse
+
+    - checkShopifyResponse:
         assign:
           - shopifyResponseCode: ${shopifyCustomerResponse.code}
           - shopifyHasBody: ${"body" in shopifyCustomerResponse}
-          - shopifyHasErrorsInBody: ${shopifyHasBody and "errors" in shopifyCustomerResponse.body}
-          - shopifyEmailTakenErrorMessage: "has already been taken"
-          - shopifyPhoneTakenErrorMessage: "Phone has already been taken"
-          - shopifyEmailTakenError: ${shopifyHasErrorsInBody and "email" in shopifyCustomerResponse.body.errors and len(shopifyCustomerResponse.body.errors.email) > 0 and shopifyCustomerResponse.body.errors.email[0] == shopifyEmailTakenErrorMessage}
-          - shopifyPhoneTakenError: ${shopifyHasErrorsInBody and "phone" in shopifyCustomerResponse.body.errors and len(shopifyCustomerResponse.body.errors.phone) > 0 and shopifyCustomerResponse.body.errors.phone[0] == shopifyPhoneTakenErrorMessage}
-        next: handleShopifyCustomerResp
+          - shopifyHasData: ${shopifyHasBody and "data" in shopifyCustomerResponse.body}
+          - shopifyHasCustomerCreate: ${shopifyHasData and "customerCreate" in shopifyCustomerResponse.body.data}
+          - shopifyHasUserErrors: ${shopifyHasCustomerCreate and "userErrors" in shopifyCustomerResponse.body.data.customerCreate and len(shopifyCustomerResponse.body.data.customerCreate.userErrors) > 0}
+          - shopifyHasCustomer: ${shopifyHasCustomerCreate and "customer" in shopifyCustomerResponse.body.data.customerCreate and shopifyCustomerResponse.body.data.customerCreate.customer != null}
+          - shopifyEmailTakenError: false
+          - shopifyPhoneTakenError: false
+        next: checkGraphQLUserErrors
+
+    - checkGraphQLUserErrors:
+        switch:
+          - condition: ${shopifyHasUserErrors}
+            assign:
+              - userErrors: ${shopifyCustomerResponse.body.data.customerCreate.userErrors}
+              - shopifyEmailTakenError: true
+              - shopifyPhoneTakenError: true
+            next: handleShopifyCustomerResp
+          - condition: true
+            next: handleShopifyCustomerResp
 
     - handleShopifyCustomerResp:
         switch:
-          # Case 1: Successful Shopify customer creation
-          - condition: ${shopifyResponseCode >= 200 and shopifyResponseCode < 300 and shopifyHasBody and "customer" in shopifyCustomerResponse.body}
+          # Case 1: Successful GraphQL customer creation
+          - condition: ${shopifyResponseCode >= 200 and shopifyResponseCode < 300 and shopifyHasCustomer}
             assign:
-              - shopifyCustomerId: ${shopifyCustomerResponse.body.customer.id}
+              - shopifyCustomerId: ${shopifyCustomerResponse.body.data.customerCreate.customer.id}
             next: createHubSpotContact
 
-          # Case 2: Shopify customer already exists (422 with specific error messages)
+          # Case 2: GraphQL customer already exists (userErrors with "taken" messages)
           - condition: >-
-              ${shopifyResponseCode == 422 and shopifyHasBody and "errors" in shopifyCustomerResponse.body and (
+              ${shopifyResponseCode >= 200 and shopifyResponseCode < 300 and shopifyHasUserErrors and (
                 shopifyEmailTakenError or
                 shopifyPhoneTakenError
               )}
-            next: searchExistingShopifyCustomer # shopifyCustomerId will be assigned after searching
+            next: searchExistingShopifyCustomer
 
-          # Case 3: Other Shopify errors (including 422 without "taken", or other error codes)
-          - condition: ${shopifyHasBody and "errors" in shopifyCustomerResponse.body}
+          # Case 3: Other GraphQL userErrors (validation errors)
+          - condition: ${shopifyResponseCode >= 200 and shopifyResponseCode < 300 and shopifyHasUserErrors}
             assign:
-              - shopifyError: ${json.encode(shopifyCustomerResponse.body.errors)}
+              - shopifyError: "Shopify validation errors occurred. Phone or email may be invalid."
             next: shopifyErrorGeneral
 
-          # Case 4: Fallback for other errors
+          # Case 4: GraphQL errors in response
+          - condition: ${shopifyHasBody and "errors" in shopifyCustomerResponse.body}
+            assign:
+              - shopifyError: "GraphQL Error: See workflow logs for details"
+            next: shopifyErrorGeneral
+
+          # Case 5: Fallback for other errors
           - condition: true
             assign:
-              - shopifyError: >-
-                  ${"Unknown Shopify error or unexpected response. Code: " + string(shopifyResponseCode) + ". Body: " + json.encode(shopifyCustomerResponse.body)}
+              - shopifyError: "Call failed with unknown status"
             next: shopifyErrorGeneral
 
     - searchExistingShopifyCustomer:
-        call: http.get
+        call: http.post
         args:
-          url: ${ "https://" + shopifyStoreName + ".myshopify.com/admin/api/2025-04/customers/search.json?query=email:" + customerEmail }
+          url: ${shopifyGraphQLUrl}
           headers:
             X-Shopify-Access-Token: ${shopifyAdminToken}
+            Content-Type: "application/json"
             Accept: "application/json"
+          body:
+            query: "query customerSearchQuery($query: String!) { customers(first: 1, query: $query) { edges { node { id } } } }"
+            variables:
+              query: ${"email:" + customerEmail}
         result: shopifySearchResponse
 
     - handleShopifySearchResponse:
         switch:
-          - condition: ${shopifySearchResponse.code >= 200 and shopifySearchResponse.code < 300 and "body" in shopifySearchResponse and "customers" in shopifySearchResponse.body and len(shopifySearchResponse.body.customers) > 0}
+          - condition: ${shopifySearchResponse.code >= 200 and shopifySearchResponse.code < 300 and "body" in shopifySearchResponse and "data" in shopifySearchResponse.body and "customers" in shopifySearchResponse.body.data and "edges" in shopifySearchResponse.body.data.customers and len(shopifySearchResponse.body.data.customers.edges) > 0}
             assign:
-              - shopifyCustomerId: ${shopifySearchResponse.body.customers[0].id}
+              - shopifyCustomerId: ${shopifySearchResponse.body.data.customers.edges[0].node.id}
             next: createHubSpotContact
           - condition: true
             assign:
               - shopifyCustomerId: null
-              - shopifySearchError: >-
-                  ${"Shopify customer search failed or returned no results for email: " + customerEmail + ". Response code: " + string(shopifySearchResponse.code) + ". Body: " + json.encode(shopifySearchResponse.body)}
+              - shopifySearchError: "Shopify customer search failed"
             next: createHubSpotContact
 
     # ---------------------------------------------------------------
     # ===  HUBSPOT CONTACT CREATION  ===
     # ---------------------------------------------------------------
     - createHubSpotContact:
-        call: http.post
-        args:
-          url: ${hubspotBaseUrl + "/crm/v3/objects/contacts"}
-          headers:
-            Authorization: '${"Bearer " + hubspotAccessToken}'
-            Content-Type: "application/json"
-          body:
-            properties:
-              # Standard HubSpot fields
-              email: ${customerEmail}
-              firstname: ${firstName}
-              lastname: ${lastName}
-              phone: ${phoneNumber}
-              # Custom fields that exist in your HubSpot account
-              registration_date: ${text.split(timestamp, "T")[0]} # Convert to YYYY-MM-DD format
-              date_of_birth: ${dateOfBirth}
-              shopify_customer_id: ${shopifyCustomerId}
-              email_subscribed: ${string(consent)}
-              sms_subscribed: ${string(consent)}
-              has_account: "true"
-              # Telemedicine categories (confirmed to exist)
-              telemedicine_primary_category: ${reasonsText}
-              telemedicine_secondary_category: ${if(conditionsText != "", text.split(conditionsText, ",")[0], "")} # Only send first value for dropdown
-        result: hubspotContactResponse
+        try:
+          call: http.post
+          args:
+            url: ${hubspotBaseUrl + "/crm/v3/objects/contacts"}
+            headers:
+              Authorization: '${"Bearer " + hubspotAccessToken}'
+              Content-Type: "application/json"
+            body:
+              properties:
+                # Standard HubSpot fields
+                email: ${customerEmail}
+                firstname: ${firstName}
+                lastname: ${lastName}
+                phone: ${phoneNumber}
+                # Custom fields that exist in your HubSpot account
+                registration_date: ${text.split(timestamp, "T")[0]} # Convert to YYYY-MM-DD format
+                date_of_birth: ${dateOfBirth}
+                shopify_customer_id: ${shopifyCustomerId}
+                email_subscribed: ${string(consent)}
+                sms_subscribed: ${string(consent)}
+                has_account: "true"
+                # Telemedicine categories (confirmed to exist)
+                telemedicine_primary_category: ${reasonsText}
+                telemedicine_secondary_category: ${if(conditionsText != "", text.split(conditionsText, ",")[0], "")} # Only send first value for dropdown
+          result: hubspotContactResponse
+        except:
+          as: e
+          assign:
+            # Create a response object that mimics the successful HTTP response format
+            # This allows the existing error handling logic to work properly
+            - hubspotContactResponse:
+                code: ${e.code}
+                body: ${e.body}
+                headers: ${if("headers" in e, e.headers, {})}
+        next: handleContactResp
 
     - handleContactResp:
         switch:

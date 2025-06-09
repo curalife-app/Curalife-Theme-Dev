@@ -31,6 +31,12 @@ class ModularQuiz {
 		this.submitting = false;
 		this.loadingInterval = null;
 
+		// New state for background processing
+		this.eligibilityWorkflowPromise = null;
+		this.eligibilityWorkflowResult = null;
+		this.eligibilityWorkflowError = null;
+		this.userCreationWorkflowPromise = null;
+
 		this.init();
 	}
 
@@ -231,6 +237,76 @@ class ModularQuiz {
         `;
 		document.body.appendChild(indicator);
 		setTimeout(() => indicator.remove(), 5000);
+	}
+
+	_showBackgroundProcessNotification(text, type = "info") {
+		// Only show notifications if we have a container
+		if (!this.questionContainer) return;
+
+		// Create or get notification container
+		let notificationContainer = document.querySelector(".quiz-background-notifications");
+		if (!notificationContainer) {
+			notificationContainer = document.createElement("div");
+			notificationContainer.className = "quiz-background-notifications";
+			notificationContainer.style.cssText = `
+				position: fixed;
+				top: 20px;
+				right: 20px;
+				z-index: 1000;
+				max-width: 400px;
+				pointer-events: none;
+			`;
+			document.body.appendChild(notificationContainer);
+		}
+
+		// Create notification element
+		const notification = document.createElement("div");
+		notification.className = `quiz-notification quiz-notification-${type}`;
+		notification.style.cssText = `
+			background: ${type === "success" ? "#10b981" : type === "error" ? "#ef4444" : "#3b82f6"};
+			color: white;
+			padding: 12px 16px;
+			margin-bottom: 8px;
+			border-radius: 8px;
+			box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+			font-size: 14px;
+			line-height: 1.4;
+			opacity: 0;
+			transform: translateX(100%);
+			transition: all 0.3s ease;
+			pointer-events: auto;
+			cursor: pointer;
+		`;
+		notification.innerHTML = text;
+
+		// Add click to dismiss
+		notification.addEventListener("click", () => {
+			notification.style.opacity = "0";
+			notification.style.transform = "translateX(100%)";
+			setTimeout(() => notification.remove(), 300);
+		});
+
+		notificationContainer.appendChild(notification);
+
+		// Animate in
+		setTimeout(() => {
+			notification.style.opacity = "1";
+			notification.style.transform = "translateX(0)";
+		}, 100);
+
+		// Auto remove after delay (except for persistent test mode notifications)
+		if (!text.includes("TEST MODE")) {
+			setTimeout(
+				() => {
+					if (notification.parentNode) {
+						notification.style.opacity = "0";
+						notification.style.transform = "translateX(100%)";
+						setTimeout(() => notification.remove(), 300);
+					}
+				},
+				type === "error" ? 8000 : 4000
+			);
+		}
 	}
 
 	getCurrentStep() {
@@ -614,6 +690,19 @@ class ModularQuiz {
 
 		if (this.isFormStep(currentStep.id)) {
 			if (!this._validateFormStep(currentStep)) return;
+
+			// Check if this is the insurance step completion
+			if (currentStep.id === "step-insurance") {
+				this._triggerEligibilityWorkflow();
+			}
+
+			// Check if this is the contact step completion
+			if (currentStep.id === "step-contact") {
+				// Trigger eligibility workflow now that we have all required data
+				this._triggerUserCreationWorkflow();
+				this.finishQuiz();
+				return;
+			}
 
 			if (this.currentStepIndex < this.quizData.steps.length - 1) {
 				this.currentStepIndex++;
@@ -1212,40 +1301,449 @@ class ModularQuiz {
 			this.nextButton.disabled = true;
 			this.nextButton.innerHTML = `<div class="quiz-spinner"></div>Processing...`;
 
-			const payload = this._buildSubmissionPayload();
-
 			this._toggleElement(this.navigationButtons, false);
 			this._toggleElement(this.progressSection, false);
-			this._startLoadingMessages();
 
-			// Check if quiz has webhook processing
-			const webhookUrl = this.container.getAttribute("data-webhook-url") || this.quizData.config?.webhookUrl;
-			let resultData = null;
-
-			// Always call real webhook/API if configured
-			if (webhookUrl) {
-				resultData = await this._submitToWebhook(webhookUrl, payload);
+			// Check if eligibility workflow is complete
+			let eligibilityResult = null;
+			if (this.eligibilityWorkflowPromise) {
+				if (this.eligibilityWorkflowResult) {
+					// Already completed
+					eligibilityResult = this.eligibilityWorkflowResult;
+					console.log("Using cached eligibility result:", eligibilityResult);
+				} else {
+					// Still running - wait for it
+					try {
+						eligibilityResult = await this.eligibilityWorkflowPromise;
+						console.log("Waited for eligibility result:", eligibilityResult);
+					} catch (error) {
+						console.error("Eligibility workflow failed:", error);
+						eligibilityResult = this._createErrorEligibilityData("Eligibility check failed");
+					}
+				}
+			} else {
+				// No eligibility check was triggered - use default processing status
+				eligibilityResult = this._createProcessingEligibilityData();
+				console.log("No eligibility workflow, using processing status");
 			}
 
-			this._stopLoadingMessages();
-			const webhookSuccess = !resultData || resultData.eligibilityStatus !== "ERROR";
-			this.showResults(resultUrl, webhookSuccess, resultData);
+			// Process the result consistently
+			const finalResult = eligibilityResult ? this._processWebhookResult(eligibilityResult) : this._createProcessingEligibilityData();
+			console.log("Processing eligibility result in finishQuiz:", {
+				eligibilityResult: finalResult,
+				hasError: !!finalResult?.error,
+				status: finalResult?.eligibilityStatus,
+				isEligible: finalResult?.isEligible
+			});
 
-			if (window.analytics?.track) {
-				window.analytics.track("Quiz Completed", {
-					quizId: this.quizData?.id || "quiz",
-					quizType: this.quizData?.type || "general",
-					successfullySubmitted: webhookSuccess
+			// Test mode comprehensive finish notification
+			if (this.isTestMode) {
+				const workflowStatus = this.eligibilityWorkflowPromise ? (this.eligibilityWorkflowResult ? "✅ Completed" : "⏳ In Progress") : "❌ Not Started";
+
+				const userCreationStatus = this.userCreationWorkflowPromise ? "✅ Started" : "❌ Not Started";
+
+				this._showBackgroundProcessNotification(
+					`
+					🧪 TEST MODE - Quiz Completion Status<br>
+					• Eligibility Workflow: ${workflowStatus}<br>
+					• User Creation: ${userCreationStatus}<br>
+					• Final Status: ${finalResult?.eligibilityStatus || "Unknown"}<br>
+					• Is Eligible: ${finalResult?.isEligible}<br>
+					• Result URL: ${resultUrl}<br>
+					• Total Responses: ${this.responses?.length || 0}
+				`,
+					"info"
+				);
+			}
+
+			console.log("Showing results with data:", {
+				resultData: finalResult,
+				eligibilityStatus: finalResult?.eligibilityStatus,
+				webhookSuccess: true
+			});
+
+			this.showResults(resultUrl, true, finalResult);
+		} catch (error) {
+			console.error("Error finishing quiz:", error);
+
+			// Test mode error notification
+			if (this.isTestMode) {
+				this._showBackgroundProcessNotification(
+					`
+					🧪 TEST MODE - Quiz Finish Error<br>
+					❌ ${error.message}<br>
+					• Check console for details
+				`,
+					"error"
+				);
+			}
+
+			this.showResults(resultUrl, false, null, error.message);
+		}
+	}
+
+	_triggerEligibilityWorkflow() {
+		try {
+			const eligibilityPayload = this._buildEligibilityPayload();
+			const webhookUrl = this.container.getAttribute("data-webhook-url") || this.quizData.config?.webhookUrl;
+
+			if (webhookUrl) {
+				console.log("🔍 Starting eligibility check in background...", {
+					firstName: eligibilityPayload.firstName,
+					lastName: eligibilityPayload.lastName,
+					insurance: eligibilityPayload.insurance,
+					insuranceMemberId: eligibilityPayload.insuranceMemberId,
+					fullPayload: eligibilityPayload
 				});
+
+				// Show notifications
+				this._showBackgroundProcessNotification("🔍 Checking your insurance coverage in the background...");
+
+				// Test mode detailed notification
+				if (this.isTestMode) {
+					this._showBackgroundProcessNotification(
+						`
+						🧪 TEST MODE - Eligibility Workflow Started<br>
+						• URL: ${webhookUrl}<br>
+						• Name: ${eligibilityPayload.firstName} ${eligibilityPayload.lastName}<br>
+						• Insurance: ${eligibilityPayload.insurance}<br>
+						• Member ID: ${eligibilityPayload.insuranceMemberId}<br>
+						• Responses: ${this.responses?.length || 0} collected
+					`,
+						"info"
+					);
+				}
+
+				this.eligibilityWorkflowPromise = this._submitEligibilityToWebhook(webhookUrl, eligibilityPayload);
+
+				// Handle completion in background
+				this.eligibilityWorkflowPromise
+					.then(result => {
+						console.log("✅ Eligibility check completed in background", {
+							success: result?.success,
+							eligibilityStatus: result?.eligibilityStatus,
+							isEligible: result?.isEligible
+						});
+						this.eligibilityWorkflowResult = result;
+
+						const statusIcon = result?.eligibilityStatus === "AAA_ERROR" ? "⚠️" : result?.eligibilityStatus === "ELIGIBLE" ? "✅" : result?.eligibilityStatus === "NOT_COVERED" ? "❌" : "⏳";
+
+						this._showBackgroundProcessNotification("✅ Insurance coverage check complete!", "success");
+
+						// Test mode detailed result notification
+						if (this.isTestMode) {
+							this._showBackgroundProcessNotification(
+								`
+								🧪 TEST MODE - Eligibility Result<br>
+								${statusIcon} Status: ${result?.eligibilityStatus || "Unknown"}<br>
+								• Eligible: ${result?.isEligible}<br>
+								• Sessions: ${result?.sessionsCovered || 0}<br>
+								• Error Code: ${result?.error?.code || result?.aaaErrorCode || "None"}<br>
+								• Message: ${(result?.userMessage || "").substring(0, 100)}${result?.userMessage?.length > 100 ? "..." : ""}
+							`,
+								result?.eligibilityStatus === "AAA_ERROR" ? "error" : "success"
+							);
+						}
+					})
+					.catch(error => {
+						console.error("❌ Eligibility check failed in background", error);
+						this.eligibilityWorkflowError = error;
+
+						this._showBackgroundProcessNotification("❌ Eligibility check failed", "error");
+
+						// Test mode error notification
+						if (this.isTestMode) {
+							this._showBackgroundProcessNotification(
+								`
+								🧪 TEST MODE - Eligibility Error<br>
+								❌ ${error.message}<br>
+								• Check console for details
+							`,
+								"error"
+							);
+						}
+					});
+			} else {
+				console.warn("No webhook URL configured for eligibility check");
+				if (this.isTestMode) {
+					this._showBackgroundProcessNotification(
+						`
+						🧪 TEST MODE - Configuration Error<br>
+						❌ No webhook URL found<br>
+						• Check data-webhook-url attribute
+					`,
+						"error"
+					);
+				}
 			}
 		} catch (error) {
-			this._stopLoadingMessages();
-			this.showResults(resultUrl, false, null, error.message);
-		} finally {
-			this.submitting = false;
-			this.nextButton.disabled = false;
-			this.nextButton.innerHTML = "Next";
+			console.error("Failed to trigger eligibility workflow:", error);
+			if (this.isTestMode) {
+				this._showBackgroundProcessNotification(
+					`
+					🧪 TEST MODE - Trigger Error<br>
+					❌ ${error.message}
+				`,
+					"error"
+				);
+			}
 		}
+	}
+
+	_triggerUserCreationWorkflow() {
+		try {
+			// Wait for eligibility to complete before starting user creation
+			// This maintains the dependency while still being non-blocking for UI
+			if (this.eligibilityWorkflowPromise) {
+				this.eligibilityWorkflowPromise
+					.then(eligibilityResult => {
+						this._startUserCreationWithEligibilityData(eligibilityResult);
+					})
+					.catch(error => {
+						console.error("❌ Eligibility failed, starting user creation without eligibility data", error);
+						this._startUserCreationWithEligibilityData(null);
+					});
+			} else {
+				// No eligibility workflow running, start user creation without eligibility data
+				this._startUserCreationWithEligibilityData(null);
+			}
+		} catch (error) {
+			console.error("Failed to trigger user creation workflow:", error);
+		}
+	}
+
+	_startUserCreationWithEligibilityData(eligibilityData) {
+		try {
+			const userPayload = this._buildUserCreationPayload(eligibilityData);
+			const userCreationUrl =
+				this.container.getAttribute("data-user-creation-url") ||
+				(this.container.getAttribute("data-webhook-url") && this.container.getAttribute("data-webhook-url").replace("/eligibility", "/user-creation"));
+
+			if (userCreationUrl) {
+				console.log("👤 Starting user creation with eligibility data...", {
+					hasEligibilityData: !!eligibilityData,
+					eligibilityStatus: eligibilityData?.eligibilityStatus || "none"
+				});
+
+				// Test mode detailed notification
+				if (this.isTestMode) {
+					this._showBackgroundProcessNotification(
+						`
+						🧪 TEST MODE - User Creation Started<br>
+						• URL: ${userCreationUrl}<br>
+						• Customer: ${userPayload.customerEmail}<br>
+						• Eligibility Status: ${eligibilityData?.eligibilityStatus || "None"}<br>
+						• Payload Size: ${JSON.stringify(userPayload).length} chars<br>
+						• All Responses: ${userPayload.allResponses?.length || 0} items
+					`,
+						"info"
+					);
+				}
+
+				this.userCreationWorkflowPromise = this._submitUserCreationToWebhook(userCreationUrl, userPayload);
+
+				// Handle completion in background (optional - doesn't block UI)
+				this.userCreationWorkflowPromise
+					.then(result => {
+						console.log("✅ User creation completed in background", result);
+
+						// Test mode detailed result notification
+						if (this.isTestMode) {
+							const success = result?.success;
+							const shopifyId = result?.body?.shopifyCustomerId || result?.shopifyCustomerId;
+							const hubspotId = result?.body?.hubspotContactId || result?.hubspotContactId;
+
+							this._showBackgroundProcessNotification(
+								`
+								🧪 TEST MODE - User Creation Result<br>
+								${success ? "✅" : "❌"} Success: ${success}<br>
+								• Shopify ID: ${shopifyId || "Not created"}<br>
+								• HubSpot ID: ${hubspotId || "Not created"}<br>
+								• Execution: ${result?.executionName ? "✅ Complete" : "❌ Failed"}<br>
+								• Status Code: ${result?.statusCode || "Unknown"}
+							`,
+								success ? "success" : "error"
+							);
+						}
+					})
+					.catch(error => {
+						console.error("❌ User creation failed in background", error);
+
+						// Test mode error notification
+						if (this.isTestMode) {
+							const commonIssues = [];
+
+							// Analyze common error causes
+							if (error.status === 500) {
+								// Parse the error text to understand the root cause
+								if (error.message.includes("409") || error.message.includes("CONFLICT")) {
+									commonIssues.push("🔄 HubSpot Contact Already Exists");
+									commonIssues.push("• This is expected when re-running the quiz");
+									commonIssues.push("• The workflow has handling for this (lines 355-380)");
+									commonIssues.push("• Issue: Error thrown before handling logic");
+									commonIssues.push("• Fix: Modify workflow to catch HTTP 409 properly");
+									commonIssues.push("• Current: Error in 'createHubSpotContact' step");
+									commonIssues.push("• Solution: Add try/except around HTTP call");
+								} else if (error.message.includes("Shopify")) {
+									commonIssues.push("🛒 Shopify API Issue");
+									commonIssues.push("• Check Shopify customer creation");
+									commonIssues.push("• Verify API permissions");
+								} else if (error.message.includes("HTTP server responded with error code")) {
+									const httpCode = error.message.match(/error code (\d+)/)?.[1];
+									commonIssues.push(`🌐 HTTP Error ${httpCode || "Unknown"}`);
+									commonIssues.push("• External API call failed");
+									commonIssues.push("• Check API credentials and endpoints");
+								} else {
+									commonIssues.push("• Server-side workflow execution error");
+
+									// Check for potential data issues
+									if (!userPayload.customerEmail?.includes("@")) {
+										commonIssues.push("• Invalid email format in payload");
+									}
+									if (!userPayload.allResponses || userPayload.allResponses.length === 0) {
+										commonIssues.push("• Missing allResponses array");
+									}
+									if (!userPayload.eligibilityData) {
+										commonIssues.push("• Missing eligibilityData object");
+									}
+								}
+
+								commonIssues.push("• Check Google Cloud Function logs");
+								commonIssues.push("• Check user creation workflow YAML");
+							}
+
+							// Determine notification type based on error severity
+							const notificationType = error.message.includes("CONFLICT") || error.message.includes("409") ? "info" : "error";
+							const statusIcon = notificationType === "info" ? "🔄" : "❌";
+
+							this._showBackgroundProcessNotification(
+								`
+								🧪 TEST MODE - User Creation Analysis<br>
+								${statusIcon} ${response.status} ${response.statusText}<br>
+								• Error: ${errorText.substring(0, 300)}${errorText.length > 300 ? "..." : ""}<br>
+								<br>Analysis:<br>
+								${commonIssues.join("<br>")}
+							`,
+								notificationType
+							);
+						}
+					});
+			} else {
+				console.warn("No user creation URL configured");
+				if (this.isTestMode) {
+					this._showBackgroundProcessNotification(
+						`
+							🧪 TEST MODE - User Creation Config Error<br>
+							❌ No user creation URL found<br>
+							• Check data-user-creation-url attribute
+						`,
+						"error"
+					);
+				}
+			}
+		} catch (error) {
+			console.error("Failed to start user creation with eligibility data:", error);
+			if (this.isTestMode) {
+				this._showBackgroundProcessNotification(
+					`
+					🧪 TEST MODE - User Creation Trigger Error<br>
+					❌ ${error.message}
+				`,
+					"error"
+				);
+			}
+		}
+	}
+
+	_buildEligibilityPayload() {
+		const extractedData = this._extractResponseData();
+
+		console.log("Building eligibility payload with extracted data:", {
+			extractedData,
+			responsesCount: this.responses?.length || 0,
+			responses: this.responses
+		});
+
+		return {
+			quizId: this.quizData.id,
+			quizTitle: this.quizData.title,
+			workflowType: "eligibility",
+			triggeredAt: new Date().toISOString(),
+			// Only include data needed for eligibility
+			customerEmail: extractedData.customerEmail,
+			firstName: extractedData.firstName,
+			lastName: extractedData.lastName,
+			phoneNumber: extractedData.phoneNumber,
+			state: extractedData.state,
+			insurance: extractedData.insurance,
+			insurancePrimaryPayerId: extractedData.insurancePrimaryPayerId,
+			insuranceMemberId: extractedData.insuranceMemberId,
+			groupNumber: extractedData.groupNumber,
+			dateOfBirth: extractedData.dateOfBirth,
+			mainReasons: extractedData.mainReasons,
+			medicalConditions: extractedData.medicalConditions
+		};
+	}
+
+	_buildUserCreationPayload(eligibilityData = null) {
+		const extractedData = this._extractResponseData();
+		const allResponses =
+			this.responses?.map(response => ({
+				questionId: response.questionId,
+				answer: response.answer,
+				value: response.answer
+			})) || [];
+
+		const payload = {
+			...this._buildSubmissionPayload(),
+			...extractedData,
+			allResponses,
+			eligibilityData: eligibilityData || this._createProcessingEligibilityData(),
+			completedAt: new Date().toISOString(),
+			workflowType: "user_creation"
+		};
+
+		// Test mode payload validation
+		if (this.isTestMode) {
+			const issues = [];
+
+			// Check required fields
+			if (!payload.customerEmail || !payload.customerEmail.includes("@")) {
+				issues.push("❌ Invalid email");
+			}
+			if (!payload.firstName) issues.push("❌ Missing firstName");
+			if (!payload.lastName) issues.push("❌ Missing lastName");
+			if (!payload.quizId) issues.push("❌ Missing quizId");
+
+			// Check payload structure
+			if (!Array.isArray(payload.allResponses)) {
+				issues.push("❌ allResponses not array");
+			}
+			if (!payload.eligibilityData || typeof payload.eligibilityData !== "object") {
+				issues.push("❌ Invalid eligibilityData");
+			}
+
+			// Check for invalid characters that might cause JSON issues
+			const jsonString = JSON.stringify(payload);
+			if (jsonString.includes("\u0000")) {
+				issues.push("❌ Contains null characters");
+			}
+
+			this._showBackgroundProcessNotification(
+				`
+				🧪 TEST MODE - User Creation Payload Validation<br>
+				• Total size: ${jsonString.length} chars<br>
+				• Email: ${payload.customerEmail}<br>
+				• Name: ${payload.firstName} ${payload.lastName}<br>
+				• Responses: ${payload.allResponses?.length || 0} items<br>
+				• Eligibility Status: ${payload.eligibilityData?.eligibilityStatus}<br>
+				${issues.length > 0 ? `• Issues: ${issues.join(", ")}` : "• ✅ All validations passed"}
+			`,
+				issues.length > 0 ? "error" : "info"
+			);
+		}
+
+		return payload;
 	}
 
 	_buildSubmissionPayload() {
@@ -1296,387 +1794,353 @@ class ModularQuiz {
 
 		const dobParts = {};
 
-		this.responses.forEach(response => {
-			const mapping = fieldMapping[response.questionId];
-			if (mapping) {
-				const fields = Array.isArray(mapping) ? mapping : [mapping];
-				fields.forEach(field => (data[field] = response.answer || (Array.isArray(data[field]) ? [] : "")));
-			} else if (response.questionId.startsWith("q6_")) {
-				dobParts[response.questionId.split("_")[1]] = response.answer || "";
-			}
-		});
+		console.log("Extracting response data from responses:", this.responses);
 
+		// Test mode detailed extraction notification
+		if (this.isTestMode) {
+			const responsesSummary = this.responses?.map(r => `${r.questionId}: ${Array.isArray(r.answer) ? r.answer.join(",") : r.answer}`).join("<br>• ") || "None";
+
+			this._showBackgroundProcessNotification(
+				`
+				🧪 TEST MODE - Data Extraction<br>
+				• Total responses: ${this.responses?.length || 0}<br>
+				• Expected questions: ${Object.keys(fieldMapping).join(", ")}<br>
+				• Responses:<br>• ${responsesSummary}
+			`,
+				"info"
+			);
+		}
+
+		// Process responses
+		if (this.responses && Array.isArray(this.responses)) {
+			for (const response of this.responses) {
+				const questionId = response.questionId;
+				const answer = response.answer;
+
+				// Handle date of birth parts
+				if (questionId && (questionId.startsWith("q11_") || questionId.includes("birth") || questionId.includes("dob"))) {
+					if (questionId.includes("month")) dobParts.month = answer;
+					if (questionId.includes("day")) dobParts.day = answer;
+					if (questionId.includes("year")) dobParts.year = answer;
+					continue;
+				}
+
+				// Handle mapped fields
+				const fieldName = fieldMapping[questionId];
+				if (fieldName) {
+					if (Array.isArray(fieldName)) {
+						// Handle payer search (q3) mapping to both insurance and insurancePrimaryPayerId
+						data[fieldName[0]] = answer;
+						data[fieldName[1]] = answer;
+					} else {
+						data[fieldName] = answer;
+					}
+				}
+			}
+		}
+
+		// Construct date of birth
 		if (dobParts.month && dobParts.day && dobParts.year) {
-			data.dateOfBirth = `${dobParts.year}${dobParts.month.padStart(2, "0")}${dobParts.day.padStart(2, "0")}`;
+			const month = String(dobParts.month).padStart(2, "0");
+			const day = String(dobParts.day).padStart(2, "0");
+			data.dateOfBirth = `${dobParts.year}${month}${day}`;
+		}
+
+		console.log("Extracted response data:", data);
+
+		// Test mode extraction result notification
+		if (this.isTestMode) {
+			const missingFields = Object.entries(data)
+				.filter(([key, value]) => !value && !["mainReasons", "medicalConditions", "consent"].includes(key))
+				.map(([key]) => key);
+
+			this._showBackgroundProcessNotification(
+				`
+				🧪 TEST MODE - Extraction Result<br>
+				• Email: ${data.customerEmail || "❌ Missing"}<br>
+				• Name: ${data.firstName} ${data.lastName}<br>
+				• Insurance: ${data.insurance || "❌ Missing"}<br>
+				• Member ID: ${data.insuranceMemberId || "❌ Missing"}<br>
+				• Missing fields: ${missingFields.length ? missingFields.join(", ") : "None"}
+			`,
+				missingFields.length > 0 ? "error" : "success"
+			);
 		}
 
 		return data;
 	}
 
-	async _submitToWebhook(webhookUrl, payload) {
+	async _submitEligibilityToWebhook(webhookUrl, payload) {
 		try {
-			const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Request timed out")), 35000));
+			console.log("Submitting eligibility payload to webhook:", {
+				url: webhookUrl,
+				payload
+			});
+
+			// Test mode notification
+			if (this.isTestMode) {
+				this._showBackgroundProcessNotification(
+					`
+					🧪 TEST MODE - Sending Eligibility Request<br>
+					• Payload keys: ${Object.keys(payload).join(", ")}<br>
+					• Request timeout: 45s
+				`,
+					"info"
+				);
+			}
+
+			const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Eligibility request timed out")), 45000));
 
 			const fetchPromise = fetch(webhookUrl, {
 				method: "POST",
 				mode: "cors",
 				headers: {
 					"Content-Type": "application/json",
-					Accept: "application/json"
+					Accept: "application/json",
+					"X-Workflow-Type": "eligibility"
 				},
 				body: JSON.stringify(payload)
 			});
 
 			const response = await Promise.race([fetchPromise, timeoutPromise]);
 
+			console.log("Raw webhook response:", {
+				ok: response.ok,
+				status: response.status,
+				statusText: response.statusText,
+				headers: Object.fromEntries(response.headers.entries())
+			});
+
 			if (response.ok) {
 				const result = await response.json();
-				return this._processWebhookResult(result);
+				console.log("Parsed webhook response:", result);
+
+				// Test mode response structure notification
+				if (this.isTestMode) {
+					const hasBody = "body" in result;
+					const hasEligibilityData = result?.eligibilityData || result?.body?.eligibilityData;
+					const status = hasEligibilityData ? (hasBody ? result.body.eligibilityData.eligibilityStatus : result.eligibilityData.eligibilityStatus) : "No eligibility data";
+
+					this._showBackgroundProcessNotification(
+						`
+						🧪 TEST MODE - Response Structure<br>
+						• Status: ${response.status} ${response.statusText}<br>
+						• Has body: ${hasBody}<br>
+						• Has eligibilityData: ${!!hasEligibilityData}<br>
+						• Eligibility Status: ${status}<br>
+						• Top-level keys: ${Object.keys(result).join(", ")}
+					`,
+						"info"
+					);
+				}
+
+				const processedResult = this._processWebhookResult(result);
+				console.log("Processed webhook result:", processedResult);
+
+				// Test mode processing result notification
+				if (this.isTestMode) {
+					this._showBackgroundProcessNotification(
+						`
+						🧪 TEST MODE - Processing Result<br>
+						• Final status: ${processedResult?.eligibilityStatus || "Unknown"}<br>
+						• Is eligible: ${processedResult?.isEligible}<br>
+						• Has error: ${!!processedResult?.error}<br>
+						• Error code: ${processedResult?.error?.code || processedResult?.aaaErrorCode || "None"}
+					`,
+						processedResult?.eligibilityStatus === "AAA_ERROR" ? "error" : "info"
+					);
+				}
+
+				return processedResult;
 			} else {
-				throw new Error(`Server returned status ${response.status}`);
+				console.error("Webhook request failed:", response.status, response.statusText);
+
+				if (this.isTestMode) {
+					this._showBackgroundProcessNotification(
+						`
+						🧪 TEST MODE - HTTP Error<br>
+						❌ ${response.status} ${response.statusText}<br>
+						• Check server logs for details
+					`,
+						"error"
+					);
+				}
+
+				throw new Error(`Eligibility server returned status ${response.status}`);
 			}
 		} catch (error) {
+			console.error("Webhook submission error:", error);
+
+			if (this.isTestMode) {
+				this._showBackgroundProcessNotification(
+					`
+					🧪 TEST MODE - Request Failed<br>
+					❌ ${error.message}<br>
+					• Network or timeout issue
+				`,
+					"error"
+				);
+			}
+
 			const errorMessages = this.quizData.ui?.errorMessages || {};
-			return this._createErrorEligibilityData(error.message.includes("timeout") ? errorMessages.networkError || "Network timeout" : errorMessages.serverError || "Server error");
+			return this._createErrorEligibilityData(
+				error.message.includes("timeout") ? errorMessages.networkError || "Eligibility check timed out" : errorMessages.serverError || "Eligibility server error"
+			);
 		}
 	}
 
-	_processWebhookResult(result) {
-		if (result?.success === true && result.eligibilityData) {
-			// Check if this is an AAA error from the workflow response
-			const eligibilityData = result.eligibilityData;
+	async _submitUserCreationToWebhook(webhookUrl, payload) {
+		try {
+			console.log("Submitting user creation payload to webhook:", {
+				url: webhookUrl,
+				payloadKeys: Object.keys(payload),
+				payloadSize: JSON.stringify(payload).length
+			});
 
-			// Handle AAA_ERROR status from workflow
-			if (eligibilityData.eligibilityStatus === "AAA_ERROR") {
-				const errorCode = eligibilityData.error?.code;
-				return this._createAAAErrorEligibilityData(errorCode, eligibilityData.userMessage);
+			// Test mode notification
+			if (this.isTestMode) {
+				this._showBackgroundProcessNotification(
+					`
+					🧪 TEST MODE - Sending User Creation Request<br>
+					• URL: ${webhookUrl}<br>
+					• Payload size: ${JSON.stringify(payload).length} chars<br>
+					• Customer: ${payload.customerEmail}<br>
+					• Has eligibility data: ${!!payload.eligibilityData}
+				`,
+					"info"
+				);
 			}
 
-			// Handle PAYER_ERROR status - check if it's actually an AAA error
-			if (eligibilityData.eligibilityStatus === "PAYER_ERROR" && eligibilityData.error?.isAAAError) {
-				const errorCode = eligibilityData.error?.code;
-				return this._createAAAErrorEligibilityData(errorCode, eligibilityData.userMessage);
-			}
+			const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("User creation request timed out")), 45000));
 
-			return eligibilityData;
-		} else if (result?.success === false) {
-			// Handle legacy AAA errors specifically (for backwards compatibility)
-			if (result.aaaError) {
-				return this._createAAAErrorEligibilityData(result.aaaError, result.error);
-			}
-			return this._createErrorEligibilityData(result.error || "Processing error");
-		}
+			const fetchPromise = fetch(webhookUrl, {
+				method: "POST",
+				mode: "cors",
+				headers: {
+					"Content-Type": "application/json",
+					Accept: "application/json",
+					"X-Workflow-Type": "user_creation"
+				},
+				body: JSON.stringify(payload)
+			});
 
-		return this._createProcessingEligibilityData();
-	}
+			const response = await Promise.race([fetchPromise, timeoutPromise]);
 
-	_createErrorEligibilityData(message) {
-		return {
-			isEligible: false,
-			sessionsCovered: 0,
-			deductible: { individual: 0 },
-			eligibilityStatus: "ERROR",
-			userMessage: message,
-			planBegin: "",
-			planEnd: ""
-		};
-	}
+			console.log("User creation webhook response:", {
+				ok: response.ok,
+				status: response.status,
+				statusText: response.statusText,
+				headers: Object.fromEntries(response.headers.entries())
+			});
 
-	_createAAAErrorEligibilityData(aaaError, errorMessage) {
-		const aaaErrorMappings = {
-			42: {
-				title: "Service Temporarily Unavailable",
-				message: "Your insurance company's system is temporarily unavailable. Please try again in a few minutes, or we can manually verify your coverage.",
-				actionTitle: "Alternative Options",
-				actionText: "Our team can verify your coverage manually while the system is down."
-			},
-			43: {
-				title: "Provider Registration Issue",
-				message: "Your insurance plan requires additional provider verification. Our team will contact you to complete the eligibility check.",
-				actionTitle: "Manual Verification Required",
-				actionText: "We'll verify your provider status and coverage details manually."
-			},
-			72: {
-				title: "Member ID Verification Needed",
-				message: "We couldn't verify your member ID. Please double-check the information on your insurance card, or our team can help verify manually.",
-				actionTitle: "Verification Support",
-				actionText: "Our team can help verify your member ID and check your coverage details."
-			},
-			73: {
-				title: "Name Verification Needed",
-				message: "We couldn't match the name provided with your insurance records. Please verify the name matches exactly as shown on your insurance card.",
-				actionTitle: "Name Verification Support",
-				actionText: "Our team can help verify your information and check your coverage details."
-			},
-			75: {
-				title: "Subscriber Not Found",
-				message: "We couldn't find your insurance information in the system. This might be due to a recent plan change or data entry issue.",
-				actionTitle: "Manual Coverage Verification",
-				actionText: "Our team will manually verify your coverage and help get you connected with a dietitian."
-			},
-			79: {
-				title: "System Connection Issue",
-				message: "There's a technical issue connecting with your insurance provider. Our team will manually verify your coverage.",
-				actionTitle: "Technical Support",
-				actionText: "We'll resolve this technical issue and verify your coverage manually."
-			}
-		};
+			if (response.ok) {
+				const result = await response.json();
+				console.log("User creation webhook success:", result);
 
-		const errorInfo = aaaErrorMappings[aaaError] || {
-			title: `Insurance Verification Error (${aaaError})`,
-			message: errorMessage || "There was an issue verifying your insurance coverage.",
-			actionTitle: "Coverage Verification",
-			actionText: "Our team will manually verify your coverage and contact you with the results."
-		};
+				// Test mode success notification
+				if (this.isTestMode) {
+					const success = result?.success;
+					const shopifyId = result?.body?.shopifyCustomerId || result?.shopifyCustomerId;
+					const hubspotId = result?.body?.hubspotContactId || result?.hubspotContactId;
 
-		return {
-			isEligible: false,
-			sessionsCovered: 0,
-			deductible: { individual: 0 },
-			eligibilityStatus: "AAA_ERROR",
-			aaaErrorCode: aaaError,
-			userMessage: errorInfo.message,
-			errorTitle: errorInfo.title,
-			actionTitle: errorInfo.actionTitle,
-			actionText: errorInfo.actionText,
-			planBegin: "",
-			planEnd: ""
-		};
-	}
-
-	_createProcessingEligibilityData() {
-		const messages = this.quizData.ui?.resultMessages?.processing || {};
-		return {
-			isEligible: null,
-			sessionsCovered: 0,
-			deductible: { individual: 0 },
-			eligibilityStatus: "PROCESSING",
-			userMessage: messages.message || "Processing your request...",
-			planBegin: "",
-			planEnd: ""
-		};
-	}
-
-	_startLoadingMessages() {
-		const loadingMessages = this.quizData.ui?.loadingMessages || ["Processing your request...", "Please wait..."];
-
-		let currentMessageIndex = 0;
-
-		this.questionContainer.innerHTML = `
-            <div class="quiz-status-check">
-                <div class="quiz-loading-spinner"></div>
-                <div class="quiz-loading-text" id="loading-messages-text">${loadingMessages[currentMessageIndex]}</div>
-            </div>
-        `;
-
-		this.loadingInterval = setInterval(() => {
-			currentMessageIndex = (currentMessageIndex + 1) % loadingMessages.length;
-			const textElement = document.getElementById("loading-messages-text");
-			if (textElement) {
-				textElement.style.opacity = "0.5";
-				setTimeout(() => {
-					textElement.textContent = loadingMessages[currentMessageIndex];
-					textElement.style.opacity = "1";
-				}, 200);
-			}
-		}, 2500);
-	}
-
-	_stopLoadingMessages() {
-		if (this.loadingInterval) {
-			clearInterval(this.loadingInterval);
-			this.loadingInterval = null;
-		}
-	}
-
-	showResults(resultUrl, webhookSuccess = true, resultData = null, errorMessage = "") {
-		this._stopLoadingMessages();
-		this._toggleElement(this.navigationButtons, false);
-		this._toggleElement(this.progressSection, false);
-
-		// Keep nav header visible for back button functionality
-		this._toggleElement(this.navHeader, true);
-
-		const quizType = this.quizData?.type || "general";
-		const resultsHTML = webhookSuccess ? this._generateResultsHTML(quizType, resultData, resultUrl) : this._generateErrorResultsHTML(resultUrl, errorMessage);
-
-		this.questionContainer.innerHTML = resultsHTML;
-		this._attachFAQListeners();
-	}
-
-	_generateResultsHTML(quizType, resultData, resultUrl) {
-		const isEligibilityQuiz = this._isEligibilityQuiz(quizType, resultData);
-
-		if (isEligibilityQuiz) {
-			return this._generateInsuranceResultsHTML(resultData, resultUrl);
-		}
-
-		switch (quizType) {
-			case "eligibility":
-			case "insurance":
-				return this._generateInsuranceResultsHTML(resultData, resultUrl);
-			case "assessment":
-			case "health":
-				return this._generateAssessmentResultsHTML(resultData, resultUrl);
-			case "recommendation":
-				return this._generateRecommendationResultsHTML(resultData, resultUrl);
-			default:
-				return this._generateGenericResultsHTML(resultData, resultUrl);
-		}
-	}
-
-	_isEligibilityQuiz(quizType, resultData) {
-		if (quizType === "eligibility" || quizType === "insurance") {
-			return true;
-		}
-
-		if (
-			resultData &&
-			(resultData.hasOwnProperty("isEligible") || resultData.hasOwnProperty("eligibilityStatus") || resultData.hasOwnProperty("sessionsCovered") || resultData.hasOwnProperty("copay"))
-		) {
-			return true;
-		}
-
-		if (this.quizData?.config?.features?.payerSearch === true) {
-			return true;
-		}
-
-		const hasPayerSearch = this.quizData?.steps?.some(step => step.questions?.some(q => q.type === "payer-search"));
-		if (hasPayerSearch) {
-			return true;
-		}
-
-		return false;
-	}
-
-	_generateGenericResultsHTML(resultData, resultUrl) {
-		const messages = this.quizData.ui?.resultMessages?.complete || {};
-
-		return `
-			<div class="quiz-results-container">
-				<div class="quiz-results-header">
-					<h2 class="quiz-results-title">${messages.title || "Quiz Complete!"}</h2>
-					<p class="quiz-results-subtitle">${messages.subtitle || "Thank you for completing the quiz."}</p>
-				</div>
-				<div class="quiz-action-section">
-					<div class="quiz-action-content">
-						<div class="quiz-action-header">
-							<h3 class="quiz-action-title">${messages.actionTitle || "What's next?"}</h3>
-						</div>
-						<div class="quiz-action-details">
-							<div class="quiz-action-info">
-								<svg class="quiz-action-info-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-									<path d="M10 18.3333C14.6023 18.3333 18.3333 14.6023 18.3333 9.99996C18.3333 5.39759 14.6023 1.66663 10 1.66663C5.39762 1.66663 1.66666 5.39759 1.66666 9.99996C1.66666 14.6023 5.39762 18.3333 10 18.3333Z" stroke="#306E51" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-									<path d="M7.5 9.99996L9.16667 11.6666L12.5 8.33329" stroke="#306E51" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-								</svg>
-								<div class="quiz-action-info-text">${messages.actionText || "We'll be in touch with your personalized results soon."}</div>
-							</div>
-						</div>
-						<a href="${resultUrl}" class="quiz-booking-button">${messages.buttonText || "Continue"}</a>
-					</div>
-				</div>
-				${this._generateFAQHTML()}
-			</div>
-		`;
-	}
-
-	_generateAssessmentResultsHTML(resultData, resultUrl) {
-		const messages = this.quizData.ui?.resultMessages?.assessment || {};
-		const score = resultData?.score || 0;
-		const level = resultData?.level || "intermediate";
-
-		return `
-			<div class="quiz-results-container">
-				<div class="quiz-results-header">
-					<h2 class="quiz-results-title">${messages.title || "Your Assessment Results"}</h2>
-					<p class="quiz-results-subtitle">${messages.subtitle || "Here's your personalized assessment."}</p>
-				</div>
-				<div class="quiz-coverage-card">
-					<h3 class="quiz-coverage-card-title">Your Score: ${score}%</h3>
-					<p>Assessment Level: <strong>${level.charAt(0).toUpperCase() + level.slice(1)}</strong></p>
-					${resultData?.feedback ? `<p>${resultData.feedback}</p>` : ""}
-				</div>
-				<div class="quiz-action-section">
-					<div class="quiz-action-content">
-						<div class="quiz-action-header">
-							<h3 class="quiz-action-title">${messages.actionTitle || "Next Steps"}</h3>
-						</div>
-						<a href="${resultUrl}" class="quiz-booking-button">${messages.buttonText || "View Detailed Results"}</a>
-					</div>
-				</div>
-				${this._generateFAQHTML()}
-			</div>
-		`;
-	}
-
-	_generateRecommendationResultsHTML(resultData, resultUrl) {
-		const messages = this.quizData.ui?.resultMessages?.recommendation || {};
-		const recommendations = resultData?.recommendations || [];
-
-		return `
-			<div class="quiz-results-container">
-				<div class="quiz-results-header">
-					<h2 class="quiz-results-title">${messages.title || "Your Recommendations"}</h2>
-					<p class="quiz-results-subtitle">${messages.subtitle || "Based on your responses, here are our recommendations."}</p>
-				</div>
-				${
-					recommendations.length > 0
-						? `
-					<div class="quiz-coverage-card">
-						<h3 class="quiz-coverage-card-title">Recommended for You</h3>
-						<div class="quiz-coverage-benefits">
-							${recommendations
-								.map(
-									rec => `
-								<div class="quiz-coverage-benefit">
-									<svg class="quiz-coverage-benefit-icon" width="20" height="20" viewBox="0 0 20 20" fill="none">
-										<path d="M7.5 9.99996L9.16667 11.6666L12.5 8.33329" stroke="#418865" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-									</svg>
-									<span class="quiz-coverage-benefit-text">${rec}</span>
-								</div>
-							`
-								)
-								.join("")}
-						</div>
-					</div>
-				`
-						: ""
+					this._showBackgroundProcessNotification(
+						`
+						🧪 TEST MODE - User Creation Success<br>
+						✅ Status: ${response.status}<br>
+						• Success: ${success}<br>
+						• Shopify ID: ${shopifyId || "Not created"}<br>
+						• HubSpot ID: ${hubspotId || "Not created"}
+					`,
+						"success"
+					);
 				}
-				<div class="quiz-action-section">
-					<div class="quiz-action-content">
-						<div class="quiz-action-header">
-							<h3 class="quiz-action-title">${messages.actionTitle || "Get Started"}</h3>
-						</div>
-						<a href="${resultUrl}" class="quiz-booking-button">${messages.buttonText || "Continue"}</a>
-					</div>
-				</div>
-				${this._generateFAQHTML()}
-			</div>
-		`;
+
+				return result;
+			} else {
+				// Enhanced error handling for server errors
+				let errorBody = null;
+				let errorText = "";
+
+				try {
+					// Try to get the error response body
+					errorBody = await response.json();
+					errorText = errorBody?.error || errorBody?.message || JSON.stringify(errorBody);
+				} catch (e) {
+					// If JSON parsing fails, try to get text
+					try {
+						errorText = await response.text();
+					} catch (e2) {
+						errorText = `HTTP ${response.status} ${response.statusText}`;
+					}
+				}
+
+				console.error("User creation webhook error details:", {
+					status: response.status,
+					statusText: response.statusText,
+					errorBody,
+					errorText
+				});
+
+				// Test mode detailed error notification
+				if (this.isTestMode) {
+					const commonIssues = [];
+
+					// Analyze common 500 error causes
+					if (response.status === 500) {
+						commonIssues.push("• Server-side workflow execution error");
+
+						// Check for potential data issues
+						if (!payload.customerEmail?.includes("@")) {
+							commonIssues.push("• Invalid email format in payload");
+						}
+						if (!payload.allResponses || payload.allResponses.length === 0) {
+							commonIssues.push("• Missing allResponses array");
+						}
+						if (!payload.eligibilityData) {
+							commonIssues.push("• Missing eligibilityData object");
+						}
+
+						commonIssues.push("• Check Google Cloud Function logs");
+						commonIssues.push("• Check user creation workflow YAML");
+					}
+
+					this._showBackgroundProcessNotification(
+						`
+						🧪 TEST MODE - User Creation Server Error<br>
+						❌ ${response.status} ${response.statusText}<br>
+						• Error: ${errorText.substring(0, 200)}${errorText.length > 200 ? "..." : ""}<br>
+						<br>Potential causes:<br>
+						${commonIssues.join("<br>")}
+					`,
+						"error"
+					);
+				}
+
+				throw new Error(`User creation server returned status ${response.status}: ${errorText}`);
+			}
+		} catch (error) {
+			console.error("User creation webhook error:", error);
+
+			// Test mode error notification
+			if (this.isTestMode) {
+				this._showBackgroundProcessNotification(
+					`
+					🧪 TEST MODE - User Creation Request Error<br>
+					❌ ${error.message}<br>
+					• Check network and server status
+				`,
+					"error"
+				);
+			}
+
+			throw error;
+		}
 	}
 
-	_generateInsuranceResultsHTML(resultData, resultUrl) {
-		if (!resultData) {
-			return this._generateGenericResultsHTML(resultData, resultUrl);
-		}
-
-		const isEligible = resultData.isEligible === true;
-		const eligibilityStatus = resultData.eligibilityStatus || "UNKNOWN";
-
-		if (isEligible && eligibilityStatus === "ELIGIBLE") {
-			return this._generateEligibleInsuranceResultsHTML(resultData, resultUrl);
-		} else if (resultData.isEligible === false && eligibilityStatus === "NOT_COVERED") {
-			return this._generateNotCoveredInsuranceResultsHTML(resultData, resultUrl);
-		} else if (eligibilityStatus === "AAA_ERROR") {
-			return this._generateAAAErrorResultsHTML(resultData, resultUrl);
-		} else if (eligibilityStatus === "PAYER_ERROR" && resultData.error?.isAAAError) {
-			// Handle PAYER_ERROR that contains AAA error information
-			return this._generateAAAErrorResultsHTML(resultData, resultUrl);
-		} else if (eligibilityStatus === "TEST_DATA_ERROR") {
-			return this._generateTestDataErrorResultsHTML(resultData, resultUrl);
-		} else {
-			return this._generateIneligibleInsuranceResultsHTML(resultData, resultUrl);
-		}
+	async _submitToWebhook(webhookUrl, payload) {
+		// This method is deprecated - use specific webhook methods instead
+		console.warn("_submitToWebhook is deprecated. Use _submitEligibilityToWebhook or _submitUserCreationToWebhook instead.");
+		throw new Error("Method deprecated");
 	}
 
 	_generateErrorResultsHTML(resultUrl, errorMessage) {
@@ -2701,6 +3165,295 @@ class ModularQuiz {
 
 		if (errorTitle) errorTitle.textContent = title;
 		if (errorMessage) errorMessage.textContent = message;
+	}
+
+	_processWebhookResult(result) {
+		console.log("Processing webhook result:", {
+			result,
+			hasSuccess: "success" in result,
+			hasBody: "body" in result,
+			hasEligibilityData: result?.eligibilityData || result?.body?.eligibilityData,
+			resultKeys: Object.keys(result || {}),
+			bodyKeys: result?.body ? Object.keys(result.body) : "no body"
+		});
+
+		// Handle nested response format (like from Google Cloud Function)
+		if (result?.body && typeof result.body === "object") {
+			console.log("Processing nested response format with body");
+			const bodyResult = result.body;
+
+			if (bodyResult?.success === true && bodyResult.eligibilityData) {
+				const eligibilityData = bodyResult.eligibilityData;
+
+				// Handle AAA_ERROR status from workflow
+				if (eligibilityData.eligibilityStatus === "AAA_ERROR") {
+					// Try multiple ways to extract the error code
+					const errorCode = eligibilityData.error?.code || eligibilityData.aaaErrorCode || eligibilityData.error?.allErrors?.[0]?.code || "Unknown";
+
+					console.log("Processing AAA_ERROR with code:", errorCode, "from eligibilityData:", eligibilityData);
+					return this._createAAAErrorEligibilityData(errorCode, eligibilityData.userMessage);
+				}
+
+				return eligibilityData;
+			}
+		}
+
+		// Handle direct response format
+		if (result?.success === true && result.eligibilityData) {
+			// Check if this is an AAA error from the workflow response
+			const eligibilityData = result.eligibilityData;
+
+			// Handle AAA_ERROR status from workflow
+			if (eligibilityData.eligibilityStatus === "AAA_ERROR") {
+				// Try multiple ways to extract the error code
+				const errorCode = eligibilityData.error?.code || eligibilityData.aaaErrorCode || eligibilityData.error?.allErrors?.[0]?.code || "Unknown";
+
+				console.log("Processing AAA_ERROR with code:", errorCode, "from eligibilityData:", eligibilityData);
+				return this._createAAAErrorEligibilityData(errorCode, eligibilityData.userMessage);
+			}
+
+			return eligibilityData;
+		}
+
+		// Handle error cases
+		if (result?.success === false) {
+			const errorMessage = result.error || result.message || "Unknown error from eligibility service";
+			return this._createErrorEligibilityData(errorMessage);
+		}
+
+		// Fallback for unknown formats
+		console.warn("Unknown webhook result format:", result);
+		return this._createProcessingEligibilityData();
+	}
+
+	_createErrorEligibilityData(message) {
+		return {
+			isEligible: false,
+			sessionsCovered: 0,
+			deductible: { individual: 0 },
+			eligibilityStatus: "ERROR",
+			userMessage: message || "There was an error checking your eligibility. Please contact customer support.",
+			planBegin: "",
+			planEnd: ""
+		};
+	}
+
+	_createAAAErrorEligibilityData(aaaError, errorMessage) {
+		const aaaErrorMappings = {
+			42: {
+				title: "Service Temporarily Unavailable",
+				message: "Your insurance company's system is temporarily unavailable. Please try again in a few minutes, or we can manually verify your coverage.",
+				actionTitle: "Alternative Options",
+				actionText: "Our team can verify your coverage manually while the system is down."
+			},
+			43: {
+				title: "Provider Registration Issue",
+				message: "Your insurance plan requires additional provider verification. Our team will contact you to complete the eligibility check.",
+				actionTitle: "Manual Verification Required",
+				actionText: "We'll verify your provider status and coverage details manually."
+			},
+			72: {
+				title: "Member ID Not Found",
+				message: "The member ID provided does not match our records. Please verify your member ID and try again.",
+				actionTitle: "ID Verification Required",
+				actionText: "Double-check your member ID matches exactly what's on your insurance card."
+			},
+			73: {
+				title: "Name Mismatch",
+				message: "The name provided doesn't match our records. Please verify the name matches exactly as shown on your insurance card.",
+				actionTitle: "Name Verification Required",
+				actionText: "Ensure the name matches exactly as it appears on your insurance card."
+			},
+			75: {
+				title: "Member Not Found",
+				message: "We couldn't find your insurance information in our system. This might be due to a recent plan change.",
+				actionTitle: "Manual Verification Required",
+				actionText: "Our team will manually verify your current insurance status."
+			},
+			76: {
+				title: "Duplicate Member ID",
+				message: "We found a duplicate member ID in the insurance database. This might be due to multiple plan records.",
+				actionTitle: "Account Verification Required",
+				actionText: "Our team will verify your current coverage status and resolve any account duplicates."
+			},
+			79: {
+				title: "System Connection Issue",
+				message: "There's a technical issue connecting with your insurance provider. Our team will manually verify your coverage.",
+				actionTitle: "Manual Verification",
+				actionText: "We'll process your eligibility manually and contact you with results."
+			}
+		};
+
+		// Convert error code to number for lookup
+		const numericErrorCode = parseInt(aaaError) || aaaError;
+		const errorInfo = aaaErrorMappings[numericErrorCode] || aaaErrorMappings[String(numericErrorCode)];
+
+		const finalMessage = errorMessage || errorInfo?.message || "There was an issue verifying your insurance coverage automatically. Our team will manually verify your coverage.";
+
+		return {
+			isEligible: false,
+			sessionsCovered: 0,
+			deductible: { individual: 0 },
+			eligibilityStatus: "AAA_ERROR",
+			userMessage: finalMessage,
+			planBegin: "",
+			planEnd: "",
+			aaaErrorCode: String(aaaError),
+			error: {
+				code: String(aaaError),
+				message: finalMessage,
+				isAAAError: true,
+				...errorInfo
+			}
+		};
+	}
+
+	_createProcessingEligibilityData() {
+		const processingMessages = this.quizData?.ui?.statusMessages?.processing || {};
+
+		return {
+			isEligible: null,
+			sessionsCovered: 0,
+			deductible: { individual: 0 },
+			eligibilityStatus: "PROCESSING",
+			userMessage:
+				processingMessages.userMessage ||
+				"Your eligibility check and account setup is still processing in the background. This can take up to 3 minutes for complex insurance verifications and account creation. Please proceed with booking - we'll contact you with your coverage details shortly.",
+			planBegin: "",
+			planEnd: ""
+		};
+	}
+
+	showResults(resultUrl, webhookSuccess = true, resultData = null, errorMessage = "") {
+		console.log("showResults called with:", {
+			webhookSuccess,
+			resultData,
+			eligibilityStatus: resultData?.eligibilityStatus,
+			isEligible: resultData?.isEligible,
+			errorMessage
+		});
+
+		this._stopLoadingMessages();
+		this._toggleElement(this.navigationButtons, false);
+		this._toggleElement(this.progressSection, false);
+
+		// Keep nav header visible for back button functionality
+		this._toggleElement(this.navHeader, true);
+
+		const quizType = this.quizData?.type || "general";
+		const resultsHTML = webhookSuccess ? this._generateResultsHTML(quizType, resultData, resultUrl) : this._generateErrorResultsHTML(resultUrl, errorMessage);
+
+		this.questionContainer.innerHTML = resultsHTML;
+		this._attachFAQListeners();
+
+		// Scroll to top of results
+		window.scrollTo({ top: 0, behavior: "smooth" });
+	}
+
+	_stopLoadingMessages() {
+		// Clear any loading intervals
+		if (this.loadingInterval) {
+			clearInterval(this.loadingInterval);
+			this.loadingInterval = null;
+		}
+	}
+
+	_generateResultsHTML(quizType, resultData, resultUrl) {
+		// Determine if this quiz should show insurance results
+		if (this._isEligibilityQuiz(quizType, resultData)) {
+			return this._generateInsuranceResultsHTML(resultData, resultUrl);
+		}
+
+		// For other quiz types, generate appropriate results
+		switch (quizType) {
+			case "assessment":
+				return this._generateAssessmentResultsHTML(resultData, resultUrl);
+			case "recommendation":
+				return this._generateRecommendationResultsHTML(resultData, resultUrl);
+			default:
+				return this._generateGenericResultsHTML(resultData, resultUrl);
+		}
+	}
+
+	_isEligibilityQuiz(quizType, resultData) {
+		// Check if this quiz has eligibility data or is specifically an eligibility quiz
+		return !!(resultData?.eligibilityStatus || resultData?.isEligible !== undefined || quizType === "eligibility" || this.quizData?.features?.eligibilityCheck);
+	}
+
+	_generateInsuranceResultsHTML(resultData, resultUrl) {
+		console.log("_generateInsuranceResultsHTML called with:", {
+			resultData,
+			isEligible: resultData?.isEligible,
+			eligibilityStatus: resultData?.eligibilityStatus,
+			hasError: !!resultData?.error
+		});
+
+		if (!resultData) {
+			console.log("No resultData, using generic results");
+			return this._generateGenericResultsHTML(resultData, resultUrl);
+		}
+
+		const isEligible = resultData.isEligible === true;
+		const eligibilityStatus = resultData.eligibilityStatus || "UNKNOWN";
+
+		console.log("Processing eligibility status:", eligibilityStatus, "isEligible:", isEligible);
+
+		if (isEligible && eligibilityStatus === "ELIGIBLE") {
+			console.log("Generating eligible insurance results");
+			return this._generateEligibleInsuranceResultsHTML(resultData, resultUrl);
+		}
+
+		if (eligibilityStatus === "AAA_ERROR") {
+			console.log("Generating AAA error results");
+			return this._generateAAAErrorResultsHTML(resultData, resultUrl);
+		}
+
+		if (eligibilityStatus === "TEST_DATA_ERROR") {
+			console.log("Generating test data error results");
+			return this._generateTestDataErrorResultsHTML(resultData, resultUrl);
+		}
+
+		if (eligibilityStatus === "NOT_COVERED" || (resultData.isEligible === false && eligibilityStatus === "ELIGIBLE")) {
+			console.log("Generating not covered insurance results");
+			return this._generateNotCoveredInsuranceResultsHTML(resultData, resultUrl);
+		}
+
+		console.log("Generating ineligible insurance results (fallback)");
+		return this._generateIneligibleInsuranceResultsHTML(resultData, resultUrl);
+	}
+
+	_generateGenericResultsHTML(resultData, resultUrl) {
+		return `
+			<div class="quiz-results-container">
+				<div class="quiz-results-header">
+					<h2 class="quiz-results-title">Quiz Complete</h2>
+					<p class="quiz-results-subtitle">Thank you for completing the assessment.</p>
+				</div>
+				<div class="quiz-action-section">
+					<div class="quiz-action-content">
+						<div class="quiz-action-header">
+							<h3 class="quiz-action-title">Next Steps</h3>
+						</div>
+						<div class="quiz-action-details">
+							<div class="quiz-action-info">
+								<div class="quiz-action-info-text">We've received your information and will be in touch soon with your personalized recommendations.</div>
+							</div>
+						</div>
+						<a href="${resultUrl}" class="quiz-booking-button">Continue</a>
+					</div>
+				</div>
+			</div>
+		`;
+	}
+
+	_generateAssessmentResultsHTML(resultData, resultUrl) {
+		// Implementation for assessment results
+		return this._generateGenericResultsHTML(resultData, resultUrl);
+	}
+
+	_generateRecommendationResultsHTML(resultData, resultUrl) {
+		// Implementation for recommendation results
+		return this._generateGenericResultsHTML(resultData, resultUrl);
 	}
 }
 
