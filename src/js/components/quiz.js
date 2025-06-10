@@ -64,7 +64,7 @@ class ModularQuiz {
 			this.notificationManager = new NotificationManager({
 				containerSelector: ".notification-container",
 				position: "top-right",
-				autoCollapse: true,
+				autoCollapse: false, // Disabled auto-collapse for better user control
 				maxNotifications: 50,
 				defaultDuration: 0, // Don't auto-remove notifications by default
 				enableFiltering: true,
