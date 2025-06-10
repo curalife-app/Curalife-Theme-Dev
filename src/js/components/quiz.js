@@ -1299,10 +1299,12 @@ class ModularQuiz {
 		try {
 			this.submitting = true;
 			this.nextButton.disabled = true;
-			this.nextButton.innerHTML = `<div class="quiz-spinner"></div>Processing...`;
 
 			this._toggleElement(this.navigationButtons, false);
 			this._toggleElement(this.progressSection, false);
+
+			// Start the comprehensive loading sequence
+			await this._showComprehensiveLoadingSequence();
 
 			// Check if eligibility workflow is complete
 			let eligibilityResult = null;
@@ -1328,7 +1330,24 @@ class ModularQuiz {
 			}
 
 			// Process the result consistently
-			const finalResult = eligibilityResult ? this._processWebhookResult(eligibilityResult) : this._createProcessingEligibilityData();
+			let finalResult;
+			if (eligibilityResult) {
+				// Check if this is already processed eligibility data or a raw webhook response
+				if (eligibilityResult.eligibilityStatus && typeof eligibilityResult.eligibilityStatus === "string") {
+					// This is already processed eligibility data - use it directly
+					finalResult = eligibilityResult;
+					console.log("Using eligibility result directly (already processed):", finalResult);
+				} else {
+					// This is a raw webhook response - process it
+					finalResult = this._processWebhookResult(eligibilityResult);
+					console.log("Processed webhook result:", finalResult);
+				}
+			} else {
+				// No eligibility check was run - use default processing status
+				finalResult = this._createProcessingEligibilityData();
+				console.log("No eligibility result, using processing status");
+			}
+
 			console.log("Processing eligibility result in finishQuiz:", {
 				eligibilityResult: finalResult,
 				hasError: !!finalResult?.error,
@@ -1379,6 +1398,82 @@ class ModularQuiz {
 			}
 
 			this.showResults(resultUrl, false, null, error.message);
+		}
+	}
+
+	// Comprehensive loading sequence with animated status updates
+	async _showComprehensiveLoadingSequence() {
+		// Show the loading screen with progress steps
+		this._showLoadingScreen();
+
+		const loadingSteps = [
+			{ title: "Processing Your Answers", description: "Analyzing your health information..." },
+			{ title: "Checking Insurance Coverage", description: "Verifying your benefits..." },
+			{ title: "Finding Your Dietitian", description: "Matching you with the right expert..." },
+			{ title: "Preparing Your Results", description: "Finalizing your personalized plan..." }
+		];
+
+		for (let i = 0; i < loadingSteps.length; i++) {
+			const step = loadingSteps[i];
+			this._updateLoadingStep(step);
+
+			// Wait between steps for realistic loading feel
+			await new Promise(resolve => setTimeout(resolve, 900));
+		}
+
+		// Final completion step
+		this._updateLoadingStep({ title: "Almost Ready!", description: "Preparing your personalized results..." });
+
+		// Final wait before showing results
+		await new Promise(resolve => setTimeout(resolve, 800));
+	}
+
+	_showLoadingScreen() {
+		// Hide quiz content and show loading screen
+		this._toggleElement(this.questions, false);
+		this._toggleElement(this.results, false);
+		this._toggleElement(this.error, false);
+
+		// Show loading container (using the correct property name 'loading')
+		if (this.loading) {
+			this.loading.innerHTML = `
+				<div class="quiz-comprehensive-loading">
+					<div class="quiz-loading-content">
+						<div class="quiz-loading-icon">
+							<div class="quiz-loading-spinner-large"></div>
+						</div>
+						<div class="quiz-loading-step">
+							<h3 class="quiz-loading-step-title">Starting...</h3>
+							<p class="quiz-loading-step-description">Preparing to process your information</p>
+						</div>
+					</div>
+				</div>
+			`;
+			this._toggleElement(this.loading, true);
+		} else {
+			// Fallback: update next button
+			this.nextButton.innerHTML = `<div class="quiz-spinner"></div>Processing...`;
+		}
+	}
+
+	_updateLoadingStep(step) {
+		const titleElement = document.querySelector(".quiz-loading-step-title");
+		const descriptionElement = document.querySelector(".quiz-loading-step-description");
+
+		if (titleElement && descriptionElement) {
+			// Animate out
+			titleElement.style.opacity = "0";
+			descriptionElement.style.opacity = "0";
+
+			setTimeout(() => {
+				// Update content
+				titleElement.textContent = step.title;
+				descriptionElement.textContent = step.description;
+
+				// Animate in
+				titleElement.style.opacity = "1";
+				descriptionElement.style.opacity = "1";
+			}, 300);
 		}
 	}
 
@@ -1818,7 +1913,7 @@ class ModularQuiz {
 				const answer = response.answer;
 
 				// Handle date of birth parts
-				if (questionId && (questionId.startsWith("q11_") || questionId.includes("birth") || questionId.includes("dob"))) {
+				if (questionId && (questionId.startsWith("q6_") || questionId.startsWith("q11_") || questionId.includes("birth") || questionId.includes("dob"))) {
 					if (questionId.includes("month")) dobParts.month = answer;
 					if (questionId.includes("day")) dobParts.day = answer;
 					if (questionId.includes("year")) dobParts.year = answer;
@@ -2529,8 +2624,7 @@ class ModularQuiz {
 
 					<!-- Main Error Message -->
 					<div class="quiz-error-main-message">
-						<p class="quiz-error-primary-text">${errorMessage}</p>
-						${eligibilityData.userMessage ? `<p class="quiz-error-secondary-text">${eligibilityData.userMessage}</p>` : ""}
+						<p class="quiz-error-primary-text">${eligibilityData.userMessage || errorMessage}</p>
 					</div>
 
 					${errorDetailsHTML}
@@ -2585,15 +2679,14 @@ class ModularQuiz {
 
 		// Add error metadata if available
 		const metadata = [];
-		if (error.isAAAError) metadata.push("AAA Error Type");
-		if (error.hasStandardErrors) metadata.push("Standard Error Present");
-		if (error.hasAAAErrors) metadata.push("AAA Error Present");
-		if (hasMultipleErrors) metadata.push(`${error.totalErrors} Total Errors`);
+		if (error.isAAAError) metadata.push("Verification Issue");
+		if (hasMultipleErrors) metadata.push(`Multiple Issues (${error.totalErrors})`);
+		if (errorCode && errorCode !== "Unknown") metadata.push(`Error Code: ${errorCode}`);
 
 		if (metadata.length > 0) {
 			detailsHTML += `
 				<div class="quiz-error-metadata-section">
-					<p class="quiz-error-section-title"><strong>Error Classification:</strong></p>
+					<p class="quiz-error-section-title"><strong>Issue Details:</strong></p>
 					<div class="quiz-error-metadata-badges">
 						${metadata.map(item => `<span class="quiz-error-badge">${item}</span>`).join("")}
 					</div>
@@ -2622,6 +2715,7 @@ class ModularQuiz {
 			72: "Member ID Verification Needed",
 			73: "Name Verification Needed",
 			75: "Subscriber Not Found",
+			76: "Duplicate Member ID Found",
 			79: "System Connection Issue"
 		};
 
@@ -2635,6 +2729,7 @@ class ModularQuiz {
 			72: "The member ID entered doesn't match records. Please verify the ID exactly as shown on your insurance card, including any letters or special characters.",
 			73: "The name entered doesn't match your insurance records. Make sure the name matches exactly as it appears on your insurance card.",
 			75: "Your insurance information wasn't found in the system. This could be due to a recent plan change, new enrollment, or data sync delay.",
+			76: "Your member ID appears multiple times in the insurance database. This often happens when you have multiple plan types or recent changes. Our team will identify your current active plan.",
 			79: "There's a temporary technical issue connecting with your insurance provider's verification system. This is typically resolved quickly."
 		};
 
@@ -3185,6 +3280,14 @@ class ModularQuiz {
 			if (bodyResult?.success === true && bodyResult.eligibilityData) {
 				const eligibilityData = bodyResult.eligibilityData;
 
+				// Handle generic ERROR status first
+				if (eligibilityData.eligibilityStatus === "ERROR") {
+					const errorMessage =
+						eligibilityData.userMessage || eligibilityData.error?.message || eligibilityData.error || "There was an error checking your eligibility. Please contact customer support.";
+					console.log("Processing generic ERROR status with message:", errorMessage);
+					return this._createErrorEligibilityData(errorMessage);
+				}
+
 				// Handle AAA_ERROR status from workflow
 				if (eligibilityData.eligibilityStatus === "AAA_ERROR") {
 					// Try multiple ways to extract the error code
@@ -3202,6 +3305,13 @@ class ModularQuiz {
 		if (result?.success === true && result.eligibilityData) {
 			// Check if this is an AAA error from the workflow response
 			const eligibilityData = result.eligibilityData;
+
+			// Handle generic ERROR status first
+			if (eligibilityData.eligibilityStatus === "ERROR") {
+				const errorMessage = eligibilityData.userMessage || eligibilityData.error?.message || eligibilityData.error || "There was an error checking your eligibility. Please contact customer support.";
+				console.log("Processing generic ERROR status with message:", errorMessage);
+				return this._createErrorEligibilityData(errorMessage);
+			}
 
 			// Handle AAA_ERROR status from workflow
 			if (eligibilityData.eligibilityStatus === "AAA_ERROR") {
@@ -3334,6 +3444,10 @@ class ModularQuiz {
 		});
 
 		this._stopLoadingMessages();
+
+		// Hide loading screen and show results
+		this._toggleElement(this.loading, false);
+		this._toggleElement(this.questions, true);
 		this._toggleElement(this.navigationButtons, false);
 		this._toggleElement(this.progressSection, false);
 
@@ -3411,6 +3525,11 @@ class ModularQuiz {
 		if (eligibilityStatus === "TEST_DATA_ERROR") {
 			console.log("Generating test data error results");
 			return this._generateTestDataErrorResultsHTML(resultData, resultUrl);
+		}
+
+		if (eligibilityStatus === "ERROR") {
+			console.log("Generating generic error results");
+			return this._generateErrorResultsHTML(resultUrl, resultData.userMessage || resultData.error || "There was an error checking your eligibility. Please contact customer support.");
 		}
 
 		if (eligibilityStatus === "NOT_COVERED" || (resultData.isEligible === false && eligibilityStatus === "ELIGIBLE")) {
