@@ -258,11 +258,13 @@ main:
     - processBelugaResponse:
         assign:
           - responseBody: ${if(belugaResponse != null and "body" in belugaResponse, belugaResponse.body, null)}
+          - responseCode: ${if(belugaResponse != null and "code" in belugaResponse, belugaResponse.code, 0)}
           - hasValidResponse: ${responseBody != null}
 
     - checkBelugaSuccess:
         switch:
-          - condition: ${hasValidResponse and "status" in responseBody and responseBody.status == 200}
+          # Success case - Beluga returns 200 with status: 200 in body
+          - condition: ${responseCode == 200 and hasValidResponse and "status" in responseBody and responseBody.status == 200}
             assign:
               - schedulingData:
                   success: true
@@ -271,19 +273,53 @@ main:
                   scheduleLink: ${if("scheduleLink" in responseBody, responseBody.scheduleLink, "")}
                   message: "Appointment successfully scheduled"
             next: returnResults
-          - condition: ${hasValidResponse and "status" in responseBody and responseBody.status == 400}
+          # Validation error - Beluga returns 200 with status: 400 in body (common pattern)
+          - condition: ${responseCode == 200 and hasValidResponse and "status" in responseBody and responseBody.status == 400}
             call: handle_beluga_validation_error
             args:
               response: ${responseBody}
             result: schedulingData
             next: returnResults
+          # Validation error - Beluga returns HTTP 400 with error details
+          - condition: ${responseCode == 400 and hasValidResponse}
+            call: handle_beluga_validation_error
+            args:
+              response: ${responseBody}
+            result: schedulingData
+            next: returnResults
+          # Authentication/API key error - usually 401 or 403
+          - condition: ${responseCode == 401 or responseCode == 403}
+            assign:
+              - schedulingData:
+                  success: false
+                  status: "AUTH_ERROR"
+                  message: "Authentication failed with scheduling service. Please contact customer support."
+                  error: "API authentication failed"
+                  responseCode: ${responseCode}
+                  responseBody: ${responseBody}
+            next: returnResults
+          # Server error - 500s
+          - condition: ${responseCode >= 500}
+            assign:
+              - schedulingData:
+                  success: false
+                  status: "SERVER_ERROR"
+                  message: "Scheduling service temporarily unavailable. Please try again later."
+                  error: "Server error from scheduling service"
+                  responseCode: ${responseCode}
+                  responseBody: ${responseBody}
+            next: returnResults
+          # Any other response code
           - condition: true
             assign:
               - schedulingData:
                   success: false
-                  status: "ERROR"
-                  message: "Unexpected response from scheduling service"
-                  error: ${if(hasValidResponse, responseBody, "No response body")}
+                  status: "UNKNOWN_ERROR"
+                  message: "Something went wrong with scheduling. Please contact customer support."
+                  error: "Unexpected response from scheduling service"
+                  responseCode: ${responseCode}
+                  responseBody: ${responseBody}
+                  hasValidResponse: ${hasValidResponse}
             next: returnResults
 
     # ---------------------------------------------------------------
@@ -450,6 +486,12 @@ handle_beluga_validation_error:
               success: false
               status: "CONFIG_ERROR"
               message: "Visit type not supported. Please contact customer support."
+              error: ${errorType}
+          - condition: ${errorType == "Something went wrong, please check all data"}
+            return:
+              success: false
+              status: "VALIDATION_ERROR"
+              message: "There was an issue with the information provided. This is likely due to using test API keys. Please verify all fields or contact customer support."
               error: ${errorType}
           - condition: true
             return:
