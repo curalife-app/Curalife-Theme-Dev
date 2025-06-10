@@ -1,53 +1,70 @@
 #!/usr/bin/env node
 
 /**
- * Memory Management & Resource Monitoring for Curalife Theme Build
+ * 🧠 Optimized Memory Monitor - ENHANCED
  *
- * Features:
- * - Real-time memory usage tracking
- * - Automatic garbage collection when needed
- * - Resource leak detection
- * - Performance bottleneck identification
- * - Build health monitoring
+ * Lightweight, efficient memory monitoring with minimal performance impact
+ * Features smart sampling, automatic optimization, and performance-aware scaling
  */
 
 import os from "os";
 import chalk from "chalk";
-import config from "./config.js";
+import config from "./config/unified-config.js";
 
-class MemoryMonitor {
-	constructor() {
-		this.isEnabled = config.isMemoryMonitoringEnabled();
-		this.memoryThreshold = config.get("performance.memoryThreshold");
-		this.gcInterval = config.get("performance.gcInterval");
-		this.samples = [];
-		this.maxSamples = 100;
-		this.warnings = [];
+class OptimizedMemoryMonitor {
+	constructor(options = {}) {
+		this.isEnabled = config.get("monitoring.enableMemoryMonitoring", true);
+		this.memoryThreshold = config.get("performance.memoryThreshold", 512 * 1024 * 1024);
+		this.gcInterval = config.get("performance.gcInterval", 30000);
+
+		// Optimized sampling
+		this.samples = new CircularBuffer(20); // Only keep last 20 samples
+		this.warnings = new CircularBuffer(10); // Only keep last 10 warnings
+
 		this.isMonitoring = false;
 		this.intervalId = null;
 		this.startTime = Date.now();
 		this.peakMemory = 0;
 		this.gcCount = 0;
+		this.lastGC = 0;
+
+		// Performance optimization
+		this.sampleInterval = this.calculateOptimalInterval();
+		this.warningThrottle = new Map(); // Throttle repeated warnings
+	}
+
+	calculateOptimalInterval() {
+		const memoryGB = os.totalmem() / (1024 * 1024 * 1024);
+		const cpuCount = os.cpus().length;
+
+		// Adjust monitoring frequency based on system capabilities
+		if (memoryGB < 4 || cpuCount < 4) return 10000; // 10s for low-end systems
+		if (config.isProduction()) return 5000; // 5s for production
+		return 3000; // 3s for development
 	}
 
 	start() {
 		if (!this.isEnabled || this.isMonitoring) return;
 
 		this.isMonitoring = true;
-		console.log(chalk.hex("#bd93f9")("🧠 Memory monitor started"));
 
-		// Start periodic monitoring
+		// Only show startup message in debug mode
+		if (config.isDebugMode()) {
+			console.log(chalk.hex("#8be9fd")("🧠 Memory monitor active"));
+		}
+
+		// Lightweight periodic monitoring
 		this.intervalId = setInterval(() => {
-			this.collectSample();
-		}, 5000); // Every 5 seconds
+			this.collectOptimizedSample();
+		}, this.sampleInterval);
 
-		// Setup automatic GC trigger
+		// Smart GC trigger
 		setInterval(() => {
-			this.checkGarbageCollection();
+			this.smartGarbageCollection();
 		}, this.gcInterval);
 
-		// Setup process handlers
-		process.on("exit", () => this.generateFinalReport());
+		// Cleanup on exit
+		process.once("exit", () => this.stop());
 	}
 
 	stop() {
@@ -59,276 +76,199 @@ class MemoryMonitor {
 			this.intervalId = null;
 		}
 
-		this.generateFinalReport();
-		console.log(chalk.hex("#bd93f9")("🧠 Memory monitor stopped"));
+		// Only generate report in debug mode or if there were issues
+		if (config.isDebugMode() || this.warnings.length > 0) {
+			this.generateFinalReport();
+		}
 	}
 
-	collectSample() {
+	collectOptimizedSample() {
+		// Use more efficient memory usage collection
 		const usage = process.memoryUsage();
-		const system = {
-			totalMemory: os.totalmem(),
-			freeMemory: os.freemem(),
-			usedMemory: os.totalmem() - os.freemem(),
-			loadAverage: os.loadavg()[0]
-		};
+		const now = Date.now();
 
 		const sample = {
-			timestamp: Date.now(),
-			heap: {
-				used: usage.heapUsed,
-				total: usage.heapTotal,
-				utilization: (usage.heapUsed / usage.heapTotal) * 100
-			},
-			external: usage.external,
-			arrayBuffers: usage.arrayBuffers || 0,
+			timestamp: now,
+			heapUsed: usage.heapUsed,
+			heapTotal: usage.heapTotal,
 			rss: usage.rss,
-			system: system,
-			uptime: Date.now() - this.startTime
+			uptime: now - this.startTime
 		};
 
 		this.samples.push(sample);
 
-		// Keep only recent samples
-		if (this.samples.length > this.maxSamples) {
-			this.samples = this.samples.slice(-this.maxSamples);
+		// Track peak memory efficiently
+		if (sample.heapUsed > this.peakMemory) {
+			this.peakMemory = sample.heapUsed;
 		}
 
-		// Track peak memory
-		if (sample.heap.used > this.peakMemory) {
-			this.peakMemory = sample.heap.used;
-		}
-
-		// Check for issues
-		this.analyzeSample(sample);
+		// Quick analysis for critical issues only
+		this.quickAnalysis(sample);
 	}
 
-	analyzeSample(sample) {
-		const warnings = [];
+	quickAnalysis(sample) {
+		const heapUtilization = (sample.heapUsed / sample.heapTotal) * 100;
+		const now = Date.now();
 
-		// Memory threshold warning
-		if (sample.heap.used > this.memoryThreshold) {
-			warnings.push({
-				type: "HIGH_MEMORY",
-				message: `Memory usage ${this.formatBytes(sample.heap.used)} exceeds threshold ${this.formatBytes(this.memoryThreshold)}`,
-				severity: "warning"
-			});
-		}
-
-		// High heap utilization
-		if (sample.heap.utilization > 90) {
-			warnings.push({
-				type: "HIGH_HEAP_UTILIZATION",
-				message: `Heap utilization at ${sample.heap.utilization.toFixed(1)}%`,
-				severity: "warning"
-			});
-		}
-
-		// System memory pressure
-		const systemUtilization = (sample.system.usedMemory / sample.system.totalMemory) * 100;
-		if (systemUtilization > 85) {
-			warnings.push({
-				type: "SYSTEM_MEMORY_PRESSURE",
-				message: `System memory usage at ${systemUtilization.toFixed(1)}%`,
-				severity: "critical"
-			});
-		}
-
-		// High load average
-		if (sample.system.loadAverage > os.cpus().length * 1.5) {
-			warnings.push({
-				type: "HIGH_LOAD",
-				message: `Load average ${sample.system.loadAverage.toFixed(2)} is high`,
-				severity: "warning"
-			});
-		}
-
-		// Memory leak detection
-		if (this.detectMemoryLeak()) {
-			warnings.push({
-				type: "MEMORY_LEAK",
-				message: "Potential memory leak detected - memory usage trending upward",
-				severity: "critical"
-			});
-		}
-
-		// Store warnings and optionally alert
-		warnings.forEach(warning => {
-			this.warnings.push({ ...warning, timestamp: sample.timestamp });
-
-			if (config.isDebugMode()) {
-				const color = warning.severity === "critical" ? "#ff5555" : "#ffb86c";
-				console.log(chalk.hex(color)(`⚠️ ${warning.message}`));
+		// Only warn about critical issues and throttle warnings
+		if (sample.heapUsed > this.memoryThreshold) {
+			if (!this.warningThrottle.has("HIGH_MEMORY") || now - this.warningThrottle.get("HIGH_MEMORY") > 30000) {
+				this.addWarning("HIGH_MEMORY", `Memory usage ${this.formatBytes(sample.heapUsed)} exceeds threshold`);
+				this.warningThrottle.set("HIGH_MEMORY", now);
 			}
+		}
+
+		// Detect rapid memory growth (potential leak)
+		if (this.samples.length >= 5) {
+			const recentSamples = this.samples.getLast(5);
+			const growth = recentSamples[4].heapUsed - recentSamples[0].heapUsed;
+			const growthRate = growth / (recentSamples[4].timestamp - recentSamples[0].timestamp);
+
+			// Warn if memory is growing rapidly (>10MB/minute)
+			if (growthRate > (10 * 1024 * 1024) / 60000) {
+				if (!this.warningThrottle.has("MEMORY_LEAK") || now - this.warningThrottle.get("MEMORY_LEAK") > 60000) {
+					this.addWarning("MEMORY_LEAK", "Rapid memory growth detected");
+					this.warningThrottle.set("MEMORY_LEAK", now);
+				}
+			}
+		}
+	}
+
+	addWarning(type, message) {
+		this.warnings.push({
+			type,
+			message,
+			timestamp: Date.now()
 		});
-	}
 
-	detectMemoryLeak() {
-		if (this.samples.length < 10) return false;
-
-		// Get recent samples (last 10)
-		const recentSamples = this.samples.slice(-10);
-		const oldSamples = this.samples.slice(-20, -10);
-
-		if (oldSamples.length < 10) return false;
-
-		// Calculate average memory usage
-		const recentAvg = recentSamples.reduce((sum, s) => sum + s.heap.used, 0) / recentSamples.length;
-		const oldAvg = oldSamples.reduce((sum, s) => sum + s.heap.used, 0) / oldSamples.length;
-
-		// Memory leak if recent usage is 20% higher than old usage
-		const increase = (recentAvg - oldAvg) / oldAvg;
-		return increase > 0.2;
-	}
-
-	checkGarbageCollection() {
-		if (!this.isEnabled) return;
-
-		const currentSample = this.samples[this.samples.length - 1];
-		if (!currentSample) return;
-
-		// Trigger GC if memory is high and heap utilization is high
-		if (currentSample.heap.used > this.memoryThreshold && currentSample.heap.utilization > 80) {
-			this.forceGarbageCollection();
+		// Only log critical warnings in debug mode
+		if (config.isDebugMode() && type === "MEMORY_LEAK") {
+			console.log(chalk.hex("#ff5555")(`⚠️ ${message}`));
 		}
 	}
 
-	forceGarbageCollection() {
-		if (global.gc) {
-			const beforeGC = process.memoryUsage().heapUsed;
-			global.gc();
-			const afterGC = process.memoryUsage().heapUsed;
-			const freed = beforeGC - afterGC;
+	smartGarbageCollection() {
+		if (!this.isEnabled || !global.gc) return;
 
-			this.gcCount++;
+		const lastSample = this.samples.getLast(1)[0];
+		if (!lastSample) return;
 
-			if (config.isDebugMode()) {
-				console.log(chalk.hex("#8be9fd")(`🗑️ GC freed ${this.formatBytes(freed)} (${this.gcCount} total GCs)`));
-			}
-		} else {
-			if (config.isDebugMode()) {
-				console.log(chalk.hex("#ff5555")("⚠️ GC not available - run with --expose-gc"));
-			}
+		const heapUtilization = (lastSample.heapUsed / lastSample.heapTotal) * 100;
+		const timeSinceLastGC = Date.now() - this.lastGC;
+
+		// Smart GC triggering
+		const shouldTriggerGC =
+			lastSample.heapUsed > this.memoryThreshold && heapUtilization > 85 && timeSinceLastGC > 10000; // At least 10s since last GC
+
+		if (shouldTriggerGC) {
+			this.performGC();
 		}
 	}
 
-	getMemoryStats() {
+	performGC() {
+		if (!global.gc) return;
+
+		const beforeGC = process.memoryUsage().heapUsed;
+		const startTime = performance.now();
+
+		global.gc();
+
+		const afterGC = process.memoryUsage().heapUsed;
+		const gcDuration = performance.now() - startTime;
+		const freed = beforeGC - afterGC;
+
+		this.gcCount++;
+		this.lastGC = Date.now();
+
+		// Only log significant GC events
+		if (config.isDebugMode() && freed > 50 * 1024 * 1024) {
+			// >50MB freed
+			console.log(chalk.hex("#8be9fd")(`🗑️ GC freed ${this.formatBytes(freed)} in ${gcDuration.toFixed(1)}ms`));
+		}
+	}
+
+	getOptimizedStats() {
 		if (this.samples.length === 0) return null;
 
-		const currentSample = this.samples[this.samples.length - 1];
-		const firstSample = this.samples[0];
+		const currentSample = this.samples.getLast(1)[0];
+		const firstSample = this.samples.buffer[0];
 
 		return {
 			current: {
-				heap: currentSample.heap,
-				rss: currentSample.rss,
-				external: currentSample.external
+				heapUsed: currentSample.heapUsed,
+				heapTotal: currentSample.heapTotal,
+				rss: currentSample.rss
 			},
-			peak: {
-				heap: this.peakMemory
-			},
-			trends: {
-				memoryGrowth: currentSample.heap.used - firstSample.heap.used,
-				averageUtilization: this.samples.reduce((sum, s) => sum + s.heap.utilization, 0) / this.samples.length
-			},
+			peak: this.peakMemory,
+			growth: currentSample.heapUsed - firstSample.heapUsed,
 			warnings: this.warnings.length,
 			gcCount: this.gcCount,
-			uptime: Date.now() - this.startTime
+			uptime: Date.now() - this.startTime,
+			efficiency: this.calculateEfficiency()
 		};
 	}
 
-	generateReport() {
-		if (!this.isEnabled || this.samples.length === 0) return null;
+	calculateEfficiency() {
+		if (this.samples.length < 2) return 100;
 
-		const stats = this.getMemoryStats();
-		const currentSample = this.samples[this.samples.length - 1];
+		const samples = this.samples.getAll();
+		const avgUtilization = (samples.reduce((sum, s) => sum + s.heapUsed / s.heapTotal, 0) / samples.length) * 100;
 
-		console.log("\n" + chalk.hex("#bd93f9")("┌─ 🧠 MEMORY & RESOURCE REPORT ───────────────────────────────────┐"));
+		// Efficiency score based on utilization and stability
+		const stabilityScore = this.calculateStabilityScore(samples);
+		return Math.round((100 - avgUtilization) * 0.7 + stabilityScore * 0.3);
+	}
 
-		// Current memory usage
-		console.log(chalk.hex("#f8f8f2")("│ ") + chalk.hex("#50fa7b")("📊 Current Memory Usage:"));
-		console.log(
-			chalk.hex("#f8f8f2")("│   ") +
-				`Heap: ${chalk.hex("#ffb86c")(this.formatBytes(stats.current.heap.used))} / ${chalk.hex("#8be9fd")(this.formatBytes(stats.current.heap.total))} (${chalk.hex("#ff79c6")(stats.current.heap.utilization.toFixed(1))}%)`
-		);
-		console.log(chalk.hex("#f8f8f2")("│   ") + `RSS: ${chalk.hex("#ffb86c")(this.formatBytes(stats.current.rss))}, External: ${chalk.hex("#8be9fd")(this.formatBytes(stats.current.external))}`);
+	calculateStabilityScore(samples) {
+		if (samples.length < 3) return 100;
 
-		// System resources
-		console.log(chalk.hex("#f8f8f2")("│ ") + chalk.hex("#ff79c6")("💻 System Resources:"));
-		const systemUtil = (currentSample.system.usedMemory / currentSample.system.totalMemory) * 100;
-		console.log(
-			chalk.hex("#f8f8f2")("│   ") +
-				`System Memory: ${chalk.hex("#ffb86c")(systemUtil.toFixed(1))}% used (${chalk.hex("#8be9fd")(this.formatBytes(currentSample.system.usedMemory))} / ${this.formatBytes(currentSample.system.totalMemory)})`
-		);
-		console.log(chalk.hex("#f8f8f2")("│   ") + `Load Average: ${chalk.hex("#ff79c6")(currentSample.system.loadAverage.toFixed(2))}, CPU Cores: ${chalk.hex("#50fa7b")(os.cpus().length)}`);
+		// Calculate variance in memory usage
+		const values = samples.map(s => s.heapUsed);
+		const mean = values.reduce((sum, v) => sum + v, 0) / values.length;
+		const variance = values.reduce((sum, v) => sum + Math.pow(v - mean, 2), 0) / values.length;
+		const stdDev = Math.sqrt(variance);
 
-		// Performance metrics
-		console.log(chalk.hex("#f8f8f2")("│ ") + chalk.hex("#8be9fd")("⚡ Performance:"));
-		console.log(chalk.hex("#f8f8f2")("│   ") + `Peak Memory: ${chalk.hex("#ffb86c")(this.formatBytes(stats.peak.heap))}, Growth: ${this.formatBytes(stats.trends.memoryGrowth)}`);
-		console.log(chalk.hex("#f8f8f2")("│   ") + `Avg Utilization: ${chalk.hex("#ff79c6")(stats.trends.averageUtilization.toFixed(1))}%, GC Runs: ${chalk.hex("#50fa7b")(stats.gcCount)}`);
+		// Lower variance = higher stability score
+		const normalizedStdDev = stdDev / mean;
+		return Math.max(0, Math.min(100, (1 - normalizedStdDev) * 100));
+	}
 
-		// Warnings
-		if (stats.warnings > 0) {
-			console.log(chalk.hex("#f8f8f2")("│ ") + chalk.hex("#ff5555")("⚠️ Warnings:"));
-			const recentWarnings = this.warnings.slice(-3);
-			recentWarnings.forEach(warning => {
-				const color = warning.severity === "critical" ? "#ff5555" : "#ffb86c";
-				console.log(chalk.hex("#f8f8f2")("│   ") + chalk.hex(color)("•") + ` ${warning.message}`);
-			});
+	generateQuickReport() {
+		if (!this.isEnabled) return null;
+
+		const stats = this.getOptimizedStats();
+		if (!stats) return null;
+
+		// Compact report for performance
+		const report = {
+			memory: this.formatBytes(stats.current.heapUsed),
+			peak: this.formatBytes(stats.peak),
+			efficiency: `${stats.efficiency}%`,
+			warnings: stats.warnings,
+			uptime: this.formatDuration(stats.uptime)
+		};
+
+		// Only show full report in debug mode
+		if (config.isDebugMode()) {
+			console.log(chalk.hex("#bd93f9")("🧠 Memory:"), `${report.memory} (peak: ${report.peak}, efficiency: ${report.efficiency})`);
 		}
 
-		// Health recommendations
-		const recommendations = this.generateRecommendations();
-		if (recommendations.length > 0) {
-			console.log(chalk.hex("#f8f8f2")("│ ") + chalk.hex("#f1fa8c")("💡 Recommendations:"));
-			recommendations.slice(0, 2).forEach(rec => {
-				console.log(chalk.hex("#f8f8f2")("│   ") + chalk.hex("#ff79c6")("•") + ` ${rec}`);
-			});
-		}
-
-		console.log(chalk.hex("#bd93f9")("└─────────────────────────────────────────────────────────────────┘"));
-
-		return stats;
+		return report;
 	}
 
 	generateFinalReport() {
-		if (!this.isEnabled) return;
+		const stats = this.getOptimizedStats();
+		if (!stats) return;
 
-		console.log("\n" + chalk.hex("#bd93f9")("🧠 Final Memory Report:"));
-		const stats = this.getMemoryStats();
+		console.log(chalk.hex("#bd93f9")("🧠 Memory Summary:"));
+		console.log(`  Peak: ${this.formatBytes(stats.peak)}`);
+		console.log(`  Growth: ${this.formatBytes(stats.growth)}`);
+		console.log(`  Efficiency: ${stats.efficiency}%`);
+		console.log(`  GC Count: ${stats.gcCount}`);
 
-		if (stats) {
-			console.log(`  Peak Memory: ${this.formatBytes(stats.peak.heap)}`);
-			console.log(`  Memory Growth: ${this.formatBytes(stats.trends.memoryGrowth)}`);
-			console.log(`  Total Warnings: ${stats.warnings}`);
-			console.log(`  GC Collections: ${stats.gcCount}`);
-			console.log(`  Session Duration: ${this.formatDuration(stats.uptime)}`);
+		if (stats.warnings > 0) {
+			console.log(chalk.hex("#ff5555")(`  Warnings: ${stats.warnings}`));
 		}
-	}
-
-	generateRecommendations() {
-		const recommendations = [];
-		const stats = this.getMemoryStats();
-
-		if (!stats) return recommendations;
-
-		if (stats.trends.averageUtilization > 80) {
-			recommendations.push("Consider increasing heap size with --max-old-space-size");
-		}
-
-		if (stats.trends.memoryGrowth > 100 * 1024 * 1024) {
-			// 100MB growth
-			recommendations.push("Memory growth detected - check for potential leaks");
-		}
-
-		if (stats.gcCount > 20) {
-			recommendations.push("Frequent GC detected - optimize object creation");
-		}
-
-		if (this.warnings.filter(w => w.type === "HIGH_MEMORY").length > 5) {
-			recommendations.push("Reduce parallel processing or chunk size");
-		}
-
-		return recommendations;
 	}
 
 	formatBytes(bytes) {
@@ -344,31 +284,83 @@ class MemoryMonitor {
 		const minutes = Math.floor(seconds / 60);
 		const hours = Math.floor(minutes / 60);
 
-		if (hours > 0) return `${hours}h ${minutes % 60}m`;
-		if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
+		if (hours > 0) return `${hours}h${minutes % 60}m`;
+		if (minutes > 0) return `${minutes}m${seconds % 60}s`;
 		return `${seconds}s`;
 	}
 
-	// Memory optimization helpers
-	clearCache() {
-		this.samples = this.samples.slice(-10); // Keep only recent samples
-		this.warnings = this.warnings.slice(-10); // Keep only recent warnings
+	// Public API
+	getMemoryStats() {
+		return this.getOptimizedStats();
 	}
-
-	optimizeMemory() {
-		this.clearCache();
-		this.forceGarbageCollection();
+	clearCache() {
+		this.samples.clear();
+		this.warnings.clear();
+	}
+	forceGC() {
+		this.performGC();
 	}
 }
 
-// Global memory monitor instance
+// 🔄 Circular Buffer for efficient memory management
+class CircularBuffer {
+	constructor(size) {
+		this.size = size;
+		this.buffer = new Array(size);
+		this.index = 0;
+		this.length = 0;
+	}
+
+	push(item) {
+		this.buffer[this.index] = item;
+		this.index = (this.index + 1) % this.size;
+		if (this.length < this.size) this.length++;
+	}
+
+	getLast(count) {
+		if (count <= 0 || this.length === 0) return [];
+
+		const result = [];
+		const actualCount = Math.min(count, this.length);
+
+		for (let i = 0; i < actualCount; i++) {
+			const idx = (this.index - 1 - i + this.size) % this.size;
+			if (this.buffer[idx] !== undefined) {
+				result.unshift(this.buffer[idx]);
+			}
+		}
+
+		return result;
+	}
+
+	getAll() {
+		if (this.length === 0) return [];
+
+		const result = [];
+		for (let i = 0; i < this.length; i++) {
+			const idx = (this.index - this.length + i + this.size) % this.size;
+			if (this.buffer[idx] !== undefined) {
+				result.push(this.buffer[idx]);
+			}
+		}
+		return result;
+	}
+
+	clear() {
+		this.buffer.fill(undefined);
+		this.index = 0;
+		this.length = 0;
+	}
+}
+
+// 🌍 Global monitor instance with lazy initialization
 let globalMonitor = null;
 
-export function startMemoryMonitoring() {
+export function startMemoryMonitoring(options = {}) {
 	if (!globalMonitor) {
-		globalMonitor = new MemoryMonitor();
-		globalMonitor.start();
+		globalMonitor = new OptimizedMemoryMonitor(options);
 	}
+	globalMonitor.start();
 	return globalMonitor;
 }
 
@@ -379,15 +371,12 @@ export function stopMemoryMonitoring() {
 	}
 }
 
-export function getMemoryMonitor() {
-	return globalMonitor;
+export function getMemoryStats() {
+	return globalMonitor ? globalMonitor.getMemoryStats() : null;
 }
 
 export function generateMemoryReport() {
-	if (globalMonitor) {
-		return globalMonitor.generateReport();
-	}
-	return null;
+	return globalMonitor ? globalMonitor.generateQuickReport() : null;
 }
 
-export { MemoryMonitor };
+export { OptimizedMemoryMonitor };
