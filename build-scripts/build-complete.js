@@ -13,6 +13,15 @@
  * - Intelligent error recovery
  */
 
+// Suppress Node.js deprecation warnings related to argument concatenation
+process.removeAllListeners("warning");
+process.on("warning", warning => {
+	// Only suppress specific deprecation warnings about argument concatenation
+	if (warning.name !== "DeprecationWarning" || !warning.message.includes("arguments are not escaped")) {
+		console.warn(warning);
+	}
+});
+
 import { spawn } from "child_process";
 import { glob } from "glob";
 import { fileURLToPath } from "url";
@@ -163,7 +172,9 @@ const optimizedTailwindBuild = async (progressTracker, cache, perf) => {
 	return new Promise((resolve, reject) => {
 		const { command, baseArgs } = getNpxCommand();
 		const args = [...baseArgs, "tailwindcss", "-i", "./src/styles/tailwind.css", "-o", "./Curalife-Theme-Build/assets/tailwind.css"];
-		const buildCommand = spawn(command, args);
+		const buildCommand = spawn(command, args, {
+			shell: false // Ensure no shell mode to prevent argument concatenation
+		});
 
 		// Enhanced progress simulation with real feedback
 		let progressTimer;
@@ -219,7 +230,10 @@ const optimizedViteBuild = async (progressTracker, perf) => {
 
 		const { command, baseArgs } = getNpxCommand();
 		const args = [...baseArgs, "vite", "build"];
-		const viteCommand = spawn(command, args, { env });
+		const viteCommand = spawn(command, args, {
+			env,
+			shell: false // Ensure no shell mode to prevent argument concatenation
+		});
 
 		let progressTimer;
 		if (!isDebugMode) {

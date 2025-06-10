@@ -4,6 +4,10 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
+	"os/signal"
+	"runtime"
+	"syscall"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -36,70 +40,71 @@ const (
 	settingsMode
 )
 
-// Analytics tabs
-type analyticsTab int
+// Application states
+type AppState int
 
 const (
-	overviewTab analyticsTab = iota
-	performanceTab
-	systemTab
-	cacheTab
+	StateMenu AppState = iota
+	StateBuild
+	StateWatch
 )
-
-// MenuItem represents a menu option
-type MenuItem struct {
-	Key         string
-	Title       string
-	Description string
-	Icon        string
-}
 
 // Model represents the application state
 type Model struct {
-	// Navigation
-	currentMode     mode
-	cursor          int
-	analyticsTab    analyticsTab
-	showHelp        bool
-	width           int
-	height          int
-
-	// Menu items
-	menuItems []MenuItem
-
-	// Backend integration
-	backend *Backend
-	ctx     context.Context
-	cancel  context.CancelFunc
-
-	// State data
-	buildProgress    float64
-	buildStep        string
-	watchStatus      WatchStatus
-	analyticsData    AnalyticsData
-	logs             []LogEntry
-	settings         Settings
-
-	// Process management
-	currentProcess   *ProcessInfo
-	isRunning        bool
-	lastUpdate       time.Time
+	state      AppState
+	cursor     int
+	backend    *Backend
+	menuItems  []string
+	lastUpdate time.Time
+	ctx        context.Context
+	cancel     context.CancelFunc
 }
 
-// WatchStatus represents the current watch state
-type WatchStatus struct {
-	IsActive     bool      `json:"is_active"`
-	FilesWatched int       `json:"files_watched"`
-	ChangeCount  int       `json:"change_count"`
-	LastChange   string    `json:"last_change"`
-	LastChangeAt time.Time `json:"last_change_at"`
-	ShopifyURL   string    `json:"shopify_url"`
-	PreviewURL   string    `json:"preview_url"`
-	CacheHits    int       `json:"cache_hits"`
-	HotReloads   int       `json:"hot_reloads"`
-	TimeSaved    int       `json:"time_saved"`
-	Uptime       int64     `json:"uptime"`
-	Mode         string    `json:"mode"`
+// Messages for handling async operations
+type WatchStatusMsg struct {
+	IsActive bool
+}
+
+type BuildStatusMsg struct {
+	IsRunning bool
+}
+
+type WatchUpdateMsg struct {
+	FilesWatched int
+	ChangeCount  int
+	LastChange   string
+	IsActive     bool
+}
+
+type TickMsg time.Time
+
+// Message types for async operations
+type BuildProgressMsg struct {
+	Progress int
+}
+
+type BuildCompleteMsg struct {
+	Success bool
+	Message string
+}
+
+type AnalyticsMsg struct {
+	Data AnalyticsData
+}
+
+type LogsMsg struct {
+	Logs []LogEntry
+}
+
+type ProcessOutputMsg struct {
+	Output string
+	Level  string
+}
+
+type ProcessInfo struct {
+	PID     int
+	Command string
+	Status  string
 }
 
 // AnalyticsData represents analytics information
@@ -164,231 +169,383 @@ type Settings struct {
 	DefaultMode      string `json:"default_mode"`
 }
 
+// Initialize the model
 func initialModel() Model {
-	backend := NewBackend()
-	ctx, cancel := context.WithCancel(context.Background())
-
-	m := Model{
-		currentMode:  menuMode,
-		cursor:       0,
-		analyticsTab: overviewTab,
-		showHelp:     false,
-		backend:      backend,
-		ctx:          ctx,
-		cancel:       cancel,
-		menuItems: []MenuItem{
-			{Key: "b", Title: "Build", Description: "Run production build", Icon: "🔨"},
-			{Key: "w", Title: "Watch", Description: "Start file watcher", Icon: "👁️"},
-			{Key: "s", Title: "Shopify Watch", Description: "Watch with Shopify dev", Icon: "🛍️"},
-			{Key: "a", Title: "Analytics", Description: "View build analytics", Icon: "📊"},
-			{Key: "l", Title: "Logs", Description: "View build logs", Icon: "📄"},
-			{Key: "c", Title: "Settings", Description: "Configure options", Icon: "⚙️"},
-		},
-		settings: Settings{
-			Theme:           "dracula",
-			AutoWatch:       false,
-			ShowTimestamps:  true,
-			EnableSound:     false,
-			AutoRefresh:     true,
-			RefreshInterval: 5,
-			MaxLogEntries:   100,
-			DefaultMode:     "menu",
+	return Model{
+		state:   StateMenu,
+		cursor:  0,
+		backend: NewBackend(),
+		menuItems: []string{
+			"🔨 Build Theme",
+			"👁️  Watch Mode",
+			"📊 Build with Report",
+			"🛍️  Shopify Watch",
+			"❌ Exit",
 		},
 		lastUpdate: time.Now(),
 	}
-
-	return m
 }
 
+// Bubble Tea methods
 func (m Model) Init() tea.Cmd {
-	return tea.Batch(
-		tea.EnterAltScreen,
-		func() tea.Msg {
-			return tickMsg(time.Now())
-		},
-	)
-}
-
-// Messages
-type tickMsg time.Time
-
-func tickCmd() tea.Cmd {
 	return tea.Tick(time.Second, func(t time.Time) tea.Msg {
-		return tickMsg(t)
+		return TickMsg(t)
 	})
 }
 
-type buildStartMsg struct{}
-type buildCompleteMsg struct{}
-type watchStartMsg struct{}
-type watchStopMsg struct{}
-
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.WindowSizeMsg:
-		m.width = msg.Width
-		m.height = msg.Height
-		return m, nil
-
 	case tea.KeyMsg:
-		switch msg.String() {
-		case "ctrl+c", "q":
-			if m.cancel != nil {
-				m.cancel()
-			}
-			return m, tea.Quit
-
-		case "esc":
-			if m.currentMode != menuMode {
-				m.currentMode = menuMode
-				m.cursor = 0
-				return m, nil
-			}
-
-		case "?":
-			m.showHelp = !m.showHelp
-			return m, nil
-
-		case "up", "k":
-			if m.currentMode == menuMode {
-				if m.cursor > 0 {
-					m.cursor--
-				}
-			}
-
-		case "down", "j":
-			if m.currentMode == menuMode {
-				if m.cursor < len(m.menuItems)-1 {
-					m.cursor++
-				}
-			}
-
-		case "left", "h":
-			if m.currentMode == analyticsMode {
-				if m.analyticsTab > 0 {
-					m.analyticsTab--
-				}
-			}
-
-		case "right", "l":
-			if m.currentMode == analyticsMode {
-				if m.analyticsTab < cacheTab {
-					m.analyticsTab++
-				}
-			}
-
-		case "enter", " ":
-			if m.currentMode == menuMode {
-				return m.handleMenuAction()
-			}
-
-		// Quick navigation keys
-		case "b":
-			if m.currentMode == menuMode {
-				m.cursor = 0
-				return m.handleMenuAction()
-			}
-		case "w":
-			if m.currentMode == menuMode {
-				m.cursor = 1
-				return m.handleMenuAction()
-			}
-		case "s":
-			if m.currentMode == menuMode {
-				m.cursor = 2
-				return m.handleMenuAction()
-			}
-		case "a":
-			if m.currentMode == menuMode {
-				m.cursor = 3
-				return m.handleMenuAction()
-			}
-		}
-
-	case tickMsg:
+		return m.handleKeyPress(msg)
+	case TickMsg:
 		m.lastUpdate = time.Time(msg)
-		return m, tickCmd()
-
-	case buildStartMsg:
-		m.currentMode = buildMode
-		m.isRunning = true
-		m.buildProgress = 0
-		m.buildStep = "Starting build..."
+		return m, tea.Tick(time.Second, func(t time.Time) tea.Msg {
+			return TickMsg(t)
+		})
+	case WatchStatusMsg:
 		return m, nil
-
-	case buildCompleteMsg:
-		m.isRunning = false
-		m.buildProgress = 100
-		m.buildStep = "Build completed!"
+	case BuildStatusMsg:
 		return m, nil
-
-	case watchStartMsg:
-		m.currentMode = watchMode
-		m.watchStatus.IsActive = true
-		return m, nil
-
-	case watchStopMsg:
-		m.watchStatus.IsActive = false
+	case WatchUpdateMsg:
 		return m, nil
 	}
 
 	return m, nil
 }
 
-func (m Model) handleMenuAction() (Model, tea.Cmd) {
-	if m.cursor >= len(m.menuItems) {
-		return m, nil
+func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch m.state {
+	case StateMenu:
+		return m.handleMenuKeys(msg)
+	case StateBuild:
+		return m.handleBuildKeys(msg)
+	case StateWatch:
+		return m.handleWatchKeys(msg)
 	}
+	return m, nil
+}
 
-	item := m.menuItems[m.cursor]
-	switch item.Key {
-	case "b":
-		return m, func() tea.Msg { return buildStartMsg{} }
-	case "w":
-		return m, func() tea.Msg { return watchStartMsg{} }
+func (m Model) handleMenuKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "ctrl+c", "q":
+		return m, tea.Quit
+	case "up", "k":
+		if m.cursor > 0 {
+			m.cursor--
+		}
+	case "down", "j":
+		if m.cursor < len(m.menuItems)-1 {
+			m.cursor++
+		}
+	case "enter", " ":
+		switch m.cursor {
+		case 0: // Build Theme
+			m.state = StateBuild
+			go func() {
+				m.backend.StartBuild()
+			}()
+		case 1: // Watch Mode
+			m.state = StateWatch
+			go func() {
+				m.backend.StartWatch(false)
+			}()
+		case 2: // Build with Report
+			m.state = StateBuild
+			go func() {
+				m.backend.StartBuild()
+			}()
+		case 3: // Shopify Watch
+			m.state = StateWatch
+			go func() {
+				m.backend.StartWatch(true)
+			}()
+		case 4: // Exit
+			return m, tea.Quit
+		}
+	}
+	return m, nil
+}
+
+func (m Model) handleBuildKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "ctrl+c", "q":
+		return m, tea.Quit
+	case "esc":
+		m.state = StateMenu
+	}
+	return m, nil
+}
+
+func (m Model) handleWatchKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "ctrl+c", "q":
+		// Clean shutdown
+		m.backend.Cleanup()
+		return m, tea.Quit
+	case "esc":
+		m.backend.StopWatch()
+		m.state = StateMenu
 	case "s":
-		return m, func() tea.Msg { return watchStartMsg{} }
-	case "a":
-		m.currentMode = analyticsMode
-		return m, nil
-	case "l":
-		m.currentMode = logsMode
-		return m, nil
-	case "c":
-		m.currentMode = settingsMode
-		return m, nil
+		m.backend.StopWatch()
+	case "r":
+		// Restart watch - determine if it was Shopify mode
+		watchStatus := m.backend.GetWatchStatus()
+		isShopify := watchStatus.Mode == "shopify"
+		m.backend.StopWatch()
+		time.Sleep(time.Millisecond * 500) // Brief pause
+		m.backend.StartWatch(isShopify)
 	}
-
 	return m, nil
 }
 
 func (m Model) View() string {
-	if m.width == 0 {
-		return "Loading..."
+	switch m.state {
+	case StateMenu:
+		return m.renderMenu()
+	case StateBuild:
+		return m.renderBuild()
+	case StateWatch:
+		return m.renderWatch()
 	}
-
-	switch m.currentMode {
-	case menuMode:
-		return renderMenu(m)
-	case buildMode:
-		return renderBuild(m)
-	case watchMode:
-		return renderWatch(m)
-	case analyticsMode:
-		return renderAnalytics(m)
-	case logsMode:
-		return renderLogs(m)
-	case settingsMode:
-		return renderSettings(m)
-	default:
-		return renderMenu(m)
-	}
+	return ""
 }
 
+func (m Model) renderMenu() string {
+	s := "\n"
+	s += titleStyle.Render("🎨 CURALIFE THEME TUI") + "\n\n"
+
+	for i, item := range m.menuItems {
+		if i == m.cursor {
+			s += selectedStyle.Render("> "+item) + "\n"
+		} else {
+			s += normalStyle.Render("  "+item) + "\n"
+		}
+	}
+
+	s += "\n" + helpStyle.Render("↑/↓: navigate • enter: select • q: quit") + "\n"
+	return s
+}
+
+func (m Model) renderBuild() string {
+	buildStatus := m.backend.GetBuildStatus()
+	s := "\n"
+	s += titleStyle.Render("🔨 BUILD MODE") + "\n\n"
+
+	// Progress bar
+	progress := buildStatus.Progress
+	bar := ""
+	for i := 0; i < 20; i++ {
+		if i < progress/5 {
+			bar += "█"
+		} else {
+			bar += "░"
+		}
+	}
+
+	s += progressStyle.Render(fmt.Sprintf("[%s] %d%%", bar, progress)) + "\n\n"
+
+	// Status information
+	status := "🔄 Running"
+	if !buildStatus.IsRunning {
+		if progress >= 100 {
+			status = "✅ Completed"
+		} else {
+			status = "❌ Failed"
+		}
+	}
+
+	s += statusStyle.Render(status) + "\n"
+	s += infoStyle.Render(fmt.Sprintf("Step: %s", buildStatus.CurrentStep)) + "\n"
+	s += infoStyle.Render(fmt.Sprintf("Message: %s", buildStatus.Message)) + "\n\n"
+
+	// Build statistics
+	if buildStatus.FilesCopied > 0 || buildStatus.CacheHits > 0 {
+		s += statsStyle.Render("📊 Statistics:") + "\n"
+		if buildStatus.FilesCopied > 0 {
+			s += detailStyle.Render(fmt.Sprintf("  Files copied: %d", buildStatus.FilesCopied)) + "\n"
+		}
+		if buildStatus.CacheHits > 0 {
+			s += detailStyle.Render(fmt.Sprintf("  Cache hits: %d", buildStatus.CacheHits)) + "\n"
+		}
+		if buildStatus.Optimizations > 0 {
+			s += detailStyle.Render(fmt.Sprintf("  Optimizations: %d", buildStatus.Optimizations)) + "\n"
+		}
+		if buildStatus.Duration > 0 {
+			s += detailStyle.Render(fmt.Sprintf("  Duration: %dms", buildStatus.Duration)) + "\n"
+		}
+		s += "\n"
+	}
+
+	s += helpStyle.Render("esc: return to menu • ctrl+c: exit") + "\n"
+	return s
+}
+
+func (m Model) renderWatch() string {
+	watchStatus := m.backend.GetWatchStatus()
+	s := "\n"
+
+	// Title with mode indicator
+	modeIcon := "👁️"
+	if watchStatus.Mode == "shopify" {
+		modeIcon = "🛍️"
+	}
+	s += titleStyle.Render(fmt.Sprintf("%s WATCH MODE", modeIcon)) + "\n\n"
+
+	// Status
+	status := "⏸️ NOT WATCHING"
+	if watchStatus.IsActive {
+		status = "✅ WATCHING"
+	}
+	s += statusStyle.Render(status) + "\n\n"
+
+	// Watch statistics
+	s += statsStyle.Render("📊 Statistics:") + "\n"
+
+	// Show file count with better messaging
+	fileCountText := "Files watched: "
+	if watchStatus.FilesWatched == 0 {
+		if watchStatus.IsActive {
+			fileCountText += "Detecting..."
+		} else {
+			fileCountText += "0"
+		}
+	} else {
+		fileCountText += fmt.Sprintf("%d", watchStatus.FilesWatched)
+	}
+	s += detailStyle.Render(fileCountText) + "\n"
+	s += detailStyle.Render(fmt.Sprintf("Changes: %d", watchStatus.ChangeCount)) + "\n"
+
+	lastChange := "--"
+	if watchStatus.LastChange != "" {
+		lastChange = watchStatus.LastChange
+		if watchStatus.LastChangeAt != nil {
+			lastChange += fmt.Sprintf(" (%s)", watchStatus.LastChangeAt.Format("15:04:05"))
+		}
+	}
+	s += detailStyle.Render(fmt.Sprintf("Last change: %s", lastChange)) + "\n"
+
+	if watchStatus.Mode != "" {
+		s += detailStyle.Render(fmt.Sprintf("Mode: %s", watchStatus.Mode)) + "\n"
+	}
+
+	// Performance stats
+	if watchStatus.CacheHits > 0 || watchStatus.HotReloads > 0 {
+		s += "\n" + statsStyle.Render("⚡ Performance:") + "\n"
+		if watchStatus.CacheHits > 0 {
+			s += detailStyle.Render(fmt.Sprintf("  Cache hits: %d", watchStatus.CacheHits)) + "\n"
+		}
+		if watchStatus.HotReloads > 0 {
+			s += detailStyle.Render(fmt.Sprintf("  Hot reloads: %d", watchStatus.HotReloads)) + "\n"
+		}
+		if watchStatus.TimeSaved > 0 {
+			s += detailStyle.Render(fmt.Sprintf("  Time saved: %dms", watchStatus.TimeSaved)) + "\n"
+		}
+	}
+
+	// Shopify URLs
+	if watchStatus.Mode == "shopify" && (watchStatus.ShopifyURL != "" || watchStatus.PreviewURL != "") {
+		s += "\n" + statsStyle.Render("🛍️ Shopify URLs:") + "\n"
+		if watchStatus.ShopifyURL != "" {
+			s += detailStyle.Render(fmt.Sprintf("  Local: %s", watchStatus.ShopifyURL)) + "\n"
+		}
+		if watchStatus.PreviewURL != "" {
+			s += detailStyle.Render(fmt.Sprintf("  Preview: %s", watchStatus.PreviewURL)) + "\n"
+		}
+	}
+
+	s += "\n"
+
+	// Help text with controls
+	helpText := "s: stop watch • r: restart watch • esc: return to menu • q: quit and cleanup"
+	s += helpStyle.Render(helpText) + "\n"
+
+	return s
+}
+
+// Styles using lipgloss
+var (
+	titleStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#FF79C6")).
+			Bold(true).
+			Padding(0, 1)
+
+	selectedStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#50FA7B")).
+			Bold(true)
+
+	normalStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#F8F8F2"))
+
+	statusStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#8BE9FD")).
+			Bold(true)
+
+	progressStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#BD93F9"))
+
+	statsStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#FFB86C")).
+			Bold(true)
+
+	infoStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#F8F8F2"))
+
+	detailStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#6272A4"))
+
+	helpStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#6272A4")).
+			Italic(true)
+)
+
 func main() {
-	p := tea.NewProgram(initialModel(), tea.WithAltScreen())
+	// Initialize backend
+	backend := NewBackend()
+
+	// Enhanced cleanup function
+	cleanup := func() {
+		fmt.Println("\n🧹 Cleaning up processes...")
+		backend.Cleanup()
+
+		// Additional cleanup - kill any remaining Node processes
+		if runtime.GOOS == "windows" {
+			// Try to kill any remaining watch processes
+			exec.Command("taskkill", "/f", "/im", "node.exe", "/fi", "WINDOWTITLE eq npm*").Run()
+		}
+
+		fmt.Println("✅ Cleanup completed")
+	}
+
+	// Setup signal handlers with enhanced cleanup
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go func() {
+		sigChan := make(chan os.Signal, 1)
+		signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+		<-sigChan
+
+		fmt.Println("\n⚠️ Received interrupt signal")
+		cleanup()
+		cancel()
+		os.Exit(0)
+	}()
+
+	// Create and run the Bubble Tea app
+	model := initialModel()
+	model.backend = backend
+	model.ctx = ctx
+	model.cancel = cancel
+
+	// Configure the program with cleanup
+	p := tea.NewProgram(model, tea.WithAltScreen())
+
+	// Enhanced key handler in the program
+	defer cleanup()
+
 	if err := p.Start(); err != nil {
-		fmt.Printf("Error running program: %v\n", err)
+		cleanup()
+		fmt.Printf("Error running TUI: %v\n", err)
 		os.Exit(1)
 	}
 }

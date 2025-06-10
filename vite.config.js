@@ -957,6 +957,7 @@ export default defineConfig(({ command, mode }) => {
 			assetsDir: "assets",
 			sourcemap: !isProduction,
 			minify: isProduction,
+			cssMinify: false, // Disable CSS minification - we handle it manually for .min.css only
 			cssCodeSplit: true,
 
 			// Output CSS to assets directory with flattened structure
@@ -1045,25 +1046,7 @@ export default defineConfig(({ command, mode }) => {
 		// CSS configuration
 		css: {
 			postcss: {
-				plugins: [
-					postcssImport(),
-					autoprefixer(),
-					...(isProduction
-						? [
-								cssnano({
-									preset: [
-										"default",
-										{
-											discardComments: {
-												removeAll: true
-											},
-											normalizeWhitespace: false
-										}
-									]
-								})
-							]
-						: [])
-				]
+				plugins: [postcssImport(), autoprefixer()]
 			}
 		},
 

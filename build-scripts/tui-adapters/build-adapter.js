@@ -8,6 +8,15 @@
  * existing functionality and optimizations.
  */
 
+// Suppress Node.js deprecation warnings related to argument concatenation
+process.removeAllListeners("warning");
+process.on("warning", warning => {
+	// Only suppress specific deprecation warnings about argument concatenation
+	if (warning.name !== "DeprecationWarning" || !warning.message.includes("arguments are not escaped")) {
+		console.warn(warning);
+	}
+});
+
 import { spawn } from "child_process";
 import { EventEmitter } from "events";
 import path from "path";
@@ -91,12 +100,19 @@ class TUIBuildAdapter extends EventEmitter {
 			this.outputClean("Starting optimized build process...");
 			this.outputProgress("init", 0, "running", "Initializing build system");
 
-			// Determine the build command
-			const args = withReport ? ["run", "build:report"] : ["run", "build"];
+			// Determine the build command with proper cross-platform handling
+			let command, args;
+			if (process.platform === "win32") {
+				command = "cmd";
+				args = withReport ? ["/c", "npm", "run", "build:report"] : ["/c", "npm", "run", "build"];
+			} else {
+				command = "npm";
+				args = withReport ? ["run", "build:report"] : ["run", "build"];
+			}
 
-			const buildProcess = spawn("npm", args, {
+			const buildProcess = spawn(command, args, {
 				stdio: ["pipe", "pipe", "pipe"],
-				shell: process.platform === "win32"
+				shell: false // Always use shell=false to avoid argument concatenation
 			});
 
 			if (!buildProcess) {

@@ -387,7 +387,7 @@ export const copyFile = async (filePath, isDebugMode = false) => {
 	}
 };
 
-// Get appropriate npx command for platform
+// Get appropriate npx command for platform (with proper argument escaping)
 export const getNpxCommand = () => {
 	if (process.platform === "win32") {
 		return { command: "cmd", baseArgs: ["/c", "npx"] };

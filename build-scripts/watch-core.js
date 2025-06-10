@@ -7,6 +7,15 @@
  * that can be extended for different environments (standard, Shopify, etc.)
  */
 
+// Suppress Node.js deprecation warnings related to argument concatenation
+process.removeAllListeners("warning");
+process.on("warning", warning => {
+	// Only suppress specific deprecation warnings about argument concatenation
+	if (warning.name !== "DeprecationWarning" || !warning.message.includes("arguments are not escaped")) {
+		console.warn(warning);
+	}
+});
+
 import { spawn } from "child_process";
 import chokidar from "chokidar";
 import fs from "fs";
@@ -260,7 +269,9 @@ export class WatchCore {
 		return new Promise((resolve, reject) => {
 			const { command, baseArgs } = getNpxCommand();
 			const args = [...baseArgs, "tailwindcss", "-i", "./src/styles/tailwind.css", "-o", "./Curalife-Theme-Build/assets/tailwind.css"];
-			const buildCommand = spawn(command, args);
+			const buildCommand = spawn(command, args, {
+				shell: false // Ensure no shell mode to prevent argument concatenation
+			});
 
 			let output = "";
 			buildCommand.stdout.on("data", data => {
@@ -297,7 +308,9 @@ export class WatchCore {
 
 			const { command, baseArgs } = getNpxCommand();
 			const args = [...baseArgs, "node", "build-scripts/build-utilities/copy-stagewise-files.js"];
-			const copyProcess = spawn(command, args);
+			const copyProcess = spawn(command, args, {
+				shell: false // Ensure no shell mode to prevent argument concatenation
+			});
 
 			this.childProcesses.push(copyProcess);
 
@@ -339,11 +352,11 @@ export class WatchCore {
 		console.log("");
 
 		return new Promise(resolve => {
-			// Use --path parameter like the working package.json commands
+			// Use proper command structure for Shopify CLI
 			let command, args;
 
 			if (process.platform === "win32") {
-				command = "cmd.exe";
+				command = "cmd";
 				args = ["/c", "shopify", "theme", "dev", "--path", "Curalife-Theme-Build"];
 			} else {
 				command = "shopify";
@@ -351,7 +364,8 @@ export class WatchCore {
 			}
 
 			const shopifyProcess = spawn(command, args, {
-				shell: false // Use shell=false with cmd.exe directly
+				shell: false, // Always use shell=false to avoid argument concatenation
+				stdio: ["pipe", "pipe", "pipe"] // Ensure proper stdio handling
 			});
 
 			this.childProcesses.push(shopifyProcess);
