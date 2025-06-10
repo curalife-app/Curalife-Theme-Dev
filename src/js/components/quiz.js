@@ -1889,7 +1889,12 @@ class ModularQuiz {
 			q4: "insuranceMemberId",
 			q4_group: "groupNumber",
 			q1: "mainReasons",
-			q2: "medicalConditions"
+			q2: "medicalConditions",
+			// New address fields for Beluga scheduling
+			q11: "address",
+			q12: "city",
+			q13: "zip",
+			q14: "sex"
 		};
 
 		const data = {
@@ -1905,7 +1910,12 @@ class ModularQuiz {
 			mainReasons: [],
 			medicalConditions: [],
 			dateOfBirth: "",
-			consent: true
+			consent: true,
+			// New address fields for Beluga scheduling
+			address: "",
+			city: "",
+			zip: "",
+			sex: ""
 		};
 
 		const dobParts = {};
@@ -3278,6 +3288,344 @@ class ModularQuiz {
 		navContainer.appendChild(legalElement);
 	}
 
+	// ---------------------------------------------------------------
+	// Scheduling Methods
+	// ---------------------------------------------------------------
+
+	_attachBookingButtonListeners() {
+		const bookingButtons = this.questionContainer.querySelectorAll(".quiz-booking-button");
+		bookingButtons.forEach(button => {
+			button.addEventListener("click", this._handleBookingButtonClick.bind(this));
+		});
+	}
+
+	async _handleBookingButtonClick(event) {
+		event.preventDefault();
+		const button = event.currentTarget;
+
+		console.log("Booking button clicked");
+
+		// Show loading state
+		this._showBookingLoadingState(button);
+
+		try {
+			// Get scheduling URL
+			const schedulingUrl = this.container.getAttribute("data-scheduling-url");
+			if (!schedulingUrl) {
+				throw new Error("Scheduling URL not configured");
+			}
+
+			// Trigger scheduling workflow
+			const schedulingResult = await this._triggerSchedulingWorkflow(schedulingUrl);
+
+			// Show scheduling results
+			this._showSchedulingResults(schedulingResult);
+		} catch (error) {
+			console.error("Scheduling error:", error);
+
+			// Test mode error notification
+			if (this.isTestMode) {
+				this._showBackgroundProcessNotification(
+					`
+					🧪 TEST MODE - Scheduling Error<br>
+					❌ ${error.message}<br>
+					• Check console for details
+				`,
+					"error"
+				);
+			}
+
+			this._showSchedulingError(error.message);
+		}
+	}
+
+	_showBookingLoadingState(button) {
+		// Store original button content
+		if (!button.dataset.originalContent) {
+			button.dataset.originalContent = button.innerHTML;
+		}
+
+		// Show loading state
+		button.innerHTML = `
+			<div class="quiz-spinner" style="width: 20px; height: 20px; margin-right: 8px;"></div>
+			Setting up your appointment...
+		`;
+		button.disabled = true;
+		button.style.cursor = "not-allowed";
+	}
+
+	async _triggerSchedulingWorkflow(schedulingUrl) {
+		console.log("Triggering scheduling workflow...");
+
+		// Extract all required data
+		const extractedData = this._extractResponseData(this.isTestMode);
+		const payload = this._buildSchedulingPayload(extractedData);
+
+		console.log("Scheduling payload:", payload);
+
+		// Test mode notification
+		if (this.isTestMode) {
+			this._showBackgroundProcessNotification(
+				`
+				🧪 TEST MODE - Scheduling Request<br>
+				• URL: ${schedulingUrl}<br>
+				• Required fields: ${Object.keys(payload)
+					.filter(k => k !== "allResponses")
+					.join(", ")}<br>
+				• Address: ${payload.address || "❌ Missing"}<br>
+				• City: ${payload.city || "❌ Missing"}<br>
+				• ZIP: ${payload.zip || "❌ Missing"}<br>
+				• Sex: ${payload.sex || "❌ Missing"}
+			`,
+				"info"
+			);
+		}
+
+		const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Scheduling request timed out")), 45000));
+
+		const fetchPromise = fetch(schedulingUrl, {
+			method: "POST",
+			mode: "cors",
+			headers: {
+				"Content-Type": "application/json",
+				Accept: "application/json",
+				"X-Workflow-Type": "scheduling"
+			},
+			body: JSON.stringify(payload)
+		});
+
+		const response = await Promise.race([fetchPromise, timeoutPromise]);
+
+		console.log("Raw scheduling response:", {
+			ok: response.ok,
+			status: response.status,
+			statusText: response.statusText
+		});
+
+		if (response.ok) {
+			const result = await response.json();
+			console.log("Parsed scheduling response:", result);
+
+			// Test mode response notification
+			if (this.isTestMode) {
+				const schedulingData = result?.schedulingData;
+				this._showBackgroundProcessNotification(
+					`
+					🧪 TEST MODE - Scheduling Response<br>
+					• Status: ${response.status} ${response.statusText}<br>
+					• Success: ${result?.success}<br>
+					• Scheduling Status: ${schedulingData?.status || "Unknown"}<br>
+					• Has Schedule Link: ${!!schedulingData?.scheduleLink}<br>
+					• Message: ${schedulingData?.message || "No message"}
+				`,
+					result?.success ? "success" : "error"
+				);
+			}
+
+			return result;
+		} else {
+			const errorText = await response.text();
+			throw new Error(`HTTP ${response.status}: ${errorText}`);
+		}
+	}
+
+	_buildSchedulingPayload(extractedData = null) {
+		const data = extractedData || this._extractResponseData();
+
+		return {
+			// Basic info
+			firstName: data.firstName,
+			lastName: data.lastName,
+			customerEmail: data.customerEmail,
+			phoneNumber: data.phoneNumber,
+			dateOfBirth: data.dateOfBirth,
+			state: data.state,
+
+			// Address fields required by Beluga
+			address: data.address,
+			city: data.city,
+			zip: data.zip,
+			sex: data.sex,
+
+			// Quiz responses
+			mainReasons: data.mainReasons,
+			medicalConditions: data.medicalConditions,
+			allResponses: this.responses,
+
+			// Metadata
+			workflowType: "scheduling",
+			testMode: this.isTestMode,
+			triggeredAt: new Date().toISOString(),
+			quizId: this.quizData?.id || "dietitian-quiz",
+			quizTitle: this.quizData?.title || "Find Your Perfect Dietitian"
+		};
+	}
+
+	_showSchedulingResults(result) {
+		const schedulingData = result?.schedulingData;
+
+		if (result?.success && schedulingData?.status === "SCHEDULED") {
+			// Success - show scheduling success page
+			const successHTML = this._generateSchedulingSuccessHTML(schedulingData);
+			this.questionContainer.innerHTML = successHTML;
+		} else {
+			// Error - show scheduling error page
+			const errorMessage = schedulingData?.message || "Unknown scheduling error";
+			this._showSchedulingError(errorMessage, schedulingData);
+		}
+	}
+
+	_showSchedulingError(errorMessage, schedulingData = null) {
+		const errorHTML = this._generateSchedulingErrorHTML(errorMessage, schedulingData);
+		this.questionContainer.innerHTML = errorHTML;
+	}
+
+	_generateSchedulingSuccessHTML(schedulingData) {
+		const scheduleLink = schedulingData?.scheduleLink || "#";
+		const masterId = schedulingData?.masterId || "";
+
+		return `
+			<div class="quiz-results-container">
+				<div class="quiz-results-header">
+					<h2 class="quiz-results-title">🎉 You're all set!</h2>
+					<p class="quiz-results-subtitle">Your appointment request has been successfully submitted.</p>
+				</div>
+
+				<div class="quiz-action-section">
+					<div class="quiz-action-content">
+						<div class="quiz-action-header">
+							<h3 class="quiz-action-title">Next Steps</h3>
+						</div>
+						<div class="quiz-action-details">
+							<div class="quiz-action-info">
+								<div class="quiz-action-info-text">
+									Click the button below to access your personalized scheduling portal and choose your preferred appointment time.
+								</div>
+							</div>
+							<div class="quiz-action-feature">
+								<svg class="quiz-action-feature-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+									<path d="M6.66666 2.5V5.83333M13.3333 2.5V5.83333M2.5 9.16667H17.5M4.16666 3.33333H15.8333C16.7538 3.33333 17.5 4.07952 17.5 5V16.6667C17.5 17.5871 16.7538 18.3333 15.8333 18.3333H4.16666C3.24619 18.3333 2.5 17.5871 2.5 16.6667V5C2.5 4.07952 3.24619 3.33333 4.16666 3.33333Z" stroke="#306E51" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+								</svg>
+								<div class="quiz-action-feature-text">Choose from available appointment times</div>
+							</div>
+							<div class="quiz-action-feature">
+								<svg class="quiz-action-feature-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+									<path d="M18.3333 14.1667C18.3333 15.0871 17.5871 15.8333 16.6667 15.8333H5.83333L1.66666 20V3.33333C1.66666 2.41286 2.41285 1.66667 3.33333 1.66667H16.6667C17.5871 1.66667 18.3333 2.41286 18.3333 3.33333V14.1667Z" stroke="#306E51" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+								</svg>
+								<div class="quiz-action-feature-text">Meet with a registered dietitian</div>
+							</div>
+							<div class="quiz-action-feature">
+								<svg class="quiz-action-feature-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+									<path d="M16.6667 17.5L10 10.8333L3.33334 17.5" stroke="#306E51" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+									<path d="M16.6667 2.5L10 9.16667L3.33334 2.5" stroke="#306E51" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+								</svg>
+								<div class="quiz-action-feature-text">Get personalized nutrition guidance</div>
+							</div>
+						</div>
+						<a href="${scheduleLink}" target="_blank" class="quiz-booking-button">
+							Schedule Your Appointment
+						</a>
+						${masterId ? `<p class="quiz-text-xs" style="margin-top: 16px; color: #666;">Reference ID: ${masterId}</p>` : ""}
+					</div>
+				</div>
+
+				<div class="quiz-action-section" style="background-color: #f8f9fa;">
+					<div class="quiz-action-content">
+						<div class="quiz-action-header">
+							<h3 class="quiz-action-title">Need Help?</h3>
+						</div>
+						<div class="quiz-action-details">
+							<div class="quiz-action-info">
+								<div class="quiz-action-info-text">
+									If you have any questions or need assistance with scheduling, our support team is here to help.
+								</div>
+							</div>
+						</div>
+						<a href="mailto:support@curalife.com" class="quiz-booking-button" style="background-color: #6c757d;">
+							Contact Support
+						</a>
+					</div>
+				</div>
+			</div>
+		`;
+	}
+
+	_generateSchedulingErrorHTML(errorMessage, schedulingData = null) {
+		const errorStatus = schedulingData?.status || "ERROR";
+		const isValidationError = errorStatus === "VALIDATION_ERROR";
+		const isDuplicateError = errorStatus === "DUPLICATE_ERROR";
+
+		return `
+			<div class="quiz-results-container">
+				<div class="quiz-results-header">
+					<h2 class="quiz-results-title">${isDuplicateError ? "Already Scheduled" : "Scheduling Issue"}</h2>
+					<p class="quiz-results-subtitle">${errorMessage}</p>
+				</div>
+
+				<div class="quiz-action-section">
+					<div class="quiz-action-content">
+						<div class="quiz-action-header">
+							<h3 class="quiz-action-title">${isDuplicateError ? "What's Next?" : "How to Proceed"}</h3>
+						</div>
+						<div class="quiz-action-details">
+							${
+								isValidationError
+									? `
+								<div class="quiz-action-info">
+									<div class="quiz-action-info-text">
+										Please review your information and try again, or contact our support team for assistance.
+									</div>
+								</div>
+								<div class="quiz-action-feature">
+									<svg class="quiz-action-feature-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+										<path d="M10 18.3333C14.6024 18.3333 18.3333 14.6024 18.3333 10C18.3333 5.39763 14.6024 1.66667 10 1.66667C5.39763 1.66667 1.66667 5.39763 1.66667 10C1.66667 14.6024 5.39763 18.3333 10 18.3333Z" stroke="#306E51" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+										<path d="M7.5 10L10 12.5L12.5 10" stroke="#306E51" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+									</svg>
+									<div class="quiz-action-feature-text">Check your form information</div>
+								</div>
+								<button onclick="window.location.reload()" class="quiz-booking-button">
+									Try Again
+								</button>
+							`
+									: isDuplicateError
+										? `
+								<div class="quiz-action-info">
+									<div class="quiz-action-info-text">
+										It looks like you already have an appointment scheduled. Check your email for scheduling details.
+									</div>
+								</div>
+								<div class="quiz-action-feature">
+									<svg class="quiz-action-feature-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+										<path d="M18.3333 5.83333L10 11.6667L1.66666 5.83333" stroke="#306E51" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+										<path d="M1.66666 5.83333H18.3333V15C18.3333 15.442 18.1577 15.866 17.8452 16.1785C17.5327 16.491 17.1087 16.6667 16.6667 16.6667H3.33333C2.89131 16.6667 2.46738 16.491 2.15482 16.1785C1.84226 15.866 1.66666 15.442 1.66666 15V5.83333Z" stroke="#306E51" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+									</svg>
+									<div class="quiz-action-feature-text">Check your email for existing appointment details</div>
+								</div>
+							`
+										: `
+								<div class="quiz-action-info">
+									<div class="quiz-action-info-text">
+										Our team will contact you within 24 hours to manually schedule your appointment.
+									</div>
+								</div>
+								<div class="quiz-action-feature">
+									<svg class="quiz-action-feature-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+										<path d="M18.3333 14.1667C18.3333 15.0871 17.5871 15.8333 16.6667 15.8333H5.83333L1.66666 20V3.33333C1.66666 2.41286 2.41285 1.66667 3.33333 1.66667H16.6667C17.5871 1.66667 18.3333 2.41286 18.3333 3.33333V14.1667Z" stroke="#306E51" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+									</svg>
+									<div class="quiz-action-feature-text">We'll contact you within 24 hours</div>
+								</div>
+							`
+							}
+						</div>
+						<a href="mailto:support@curalife.com" class="quiz-booking-button" style="background-color: #6c757d;">
+							Contact Support
+						</a>
+					</div>
+				</div>
+			</div>
+		`;
+	}
+
 	showError(title, message) {
 		this._stopLoadingMessages();
 		this._toggleElement(this.questions, false);
@@ -3487,6 +3835,7 @@ class ModularQuiz {
 
 		this.questionContainer.innerHTML = resultsHTML;
 		this._attachFAQListeners();
+		this._attachBookingButtonListeners();
 
 		// Scroll to top of results
 		window.scrollTo({ top: 0, behavior: "smooth" });

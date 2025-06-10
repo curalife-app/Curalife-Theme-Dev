@@ -1,0 +1,459 @@
+# ==================================================================
+#  Beluga Appointment Scheduling Workflow
+# ==================================================================
+
+main:
+  params: [request]
+
+  steps:
+    # ---------------------------------------------------------------
+    # 0. Load configuration & CORS headers
+    # ---------------------------------------------------------------
+    - setup:
+        assign:
+          - corsHeaders:
+              Access-Control-Allow-Origin: "*"
+              Access-Control-Allow-Methods: "POST, GET, OPTIONS"
+              Access-Control-Allow-Headers: "Content-Type, Authorization, X-Requested-With"
+              Access-Control-Allow-Credentials: "true"
+              Access-Control-Max-Age: "3600"
+              Content-Type: "application/json"
+          - rawData: ${request}
+          - parsedData: null
+          - actualPayload: null
+          - timestamp: ${sys.now()}
+          - timestampMs: ${double(sys.now() * 1000)}
+          # Beluga API configuration
+          - envProdApiKey: ${sys.get_env("BELUGA_API_KEY_PROD")}
+          - envTestApiKey: ${sys.get_env("BELUGA_API_KEY_TEST")}
+          - prodApiKeyValid: ${envProdApiKey != null and envProdApiKey != "" and len(string(envProdApiKey)) > 10}
+          - testApiKeyValid: ${envTestApiKey != null and envTestApiKey != "" and len(string(envTestApiKey)) > 10}
+          - defaultApiKey: ""
+          - belugaApiKey: ""
+          - belugaBaseUrl: ""
+          - prodBaseUrl: "https://api.belugahealth.com"
+          - stagingBaseUrl: "https://api-staging.belugahealth.com"
+
+    # ---------------------------------------------------------------
+    # 1. Parse JSON request
+    # ---------------------------------------------------------------
+    - parseJson:
+        assign:
+          - parsedData: ${rawData}
+
+    # ---------------------------------------------------------------
+    # 2. Resolve nested data field if present
+    # ---------------------------------------------------------------
+    - resolveDataField:
+        switch:
+          - condition: ${parsedData != null and "data" in parsedData}
+            try:
+              assign:
+                - actualPayload: ${json.decode(parsedData.data)}
+            except:
+              assign:
+                - actualPayload: ${parsedData.data}
+          - condition: true
+            assign:
+              - actualPayload: ${parsedData}
+
+    # ---------------------------------------------------------------
+    # 3. Extract required fields for Beluga
+    # ---------------------------------------------------------------
+    - extractFields:
+        assign:
+          # Extract basic info
+          - firstName: ${if(actualPayload != null and "firstName" in actualPayload, actualPayload.firstName, "")}
+          - lastName: ${if(actualPayload != null and "lastName" in actualPayload, actualPayload.lastName, "")}
+          - email: ${if(actualPayload != null and "customerEmail" in actualPayload, actualPayload.customerEmail, "")}
+          - phone: ${if(actualPayload != null and "phoneNumber" in actualPayload, actualPayload.phoneNumber, "")}
+          - dateOfBirth: ${if(actualPayload != null and "dateOfBirth" in actualPayload, actualPayload.dateOfBirth, "")}
+          - state: ${if(actualPayload != null and "state" in actualPayload, actualPayload.state, "")}
+          # Extract new address fields
+          - address: ${if(actualPayload != null and "address" in actualPayload, actualPayload.address, "")}
+          - city: ${if(actualPayload != null and "city" in actualPayload, actualPayload.city, "")}
+          - zip: ${if(actualPayload != null and "zip" in actualPayload, actualPayload.zip, "")}
+          - sex: ${if(actualPayload != null and "sex" in actualPayload, actualPayload.sex, "")}
+          # Extract quiz responses
+          - mainReasons: ${if(actualPayload != null and "mainReasons" in actualPayload, actualPayload.mainReasons, [])}
+          - medicalConditions: ${if(actualPayload != null and "medicalConditions" in actualPayload, actualPayload.medicalConditions, [])}
+          - allResponses: ${if(actualPayload != null and "allResponses" in actualPayload, actualPayload.allResponses, [])}
+          # Extract test mode indicator
+          - testMode: ${if(actualPayload != null and "testMode" in actualPayload, actualPayload.testMode, false)}
+
+    # ---------------------------------------------------------------
+    # 4. Select API configuration based on test mode
+    # ---------------------------------------------------------------
+    - selectApiConfig:
+        assign:
+          - belugaApiKey: ${if(testMode, if(testApiKeyValid, envTestApiKey, defaultApiKey), if(prodApiKeyValid, envProdApiKey, if(testApiKeyValid, envTestApiKey, defaultApiKey)))}
+          - belugaBaseUrl: ${if(testMode, stagingBaseUrl, prodBaseUrl)}
+
+    # ---------------------------------------------------------------
+    # 5. Validate required fields
+    # ---------------------------------------------------------------
+    - validateFields:
+        assign:
+          - missingFields: []
+          # Check required fields
+          - firstNameMissing: ${firstName == ""}
+          - lastNameMissing: ${lastName == ""}
+          - emailMissing: ${email == ""}
+          - phoneMissing: ${phone == ""}
+          - dobMissing: ${dateOfBirth == ""}
+          - addressMissing: ${address == ""}
+          - cityMissing: ${city == ""}
+          - stateMissing: ${state == ""}
+          - zipMissing: ${zip == ""}
+          - sexMissing: ${sex == ""}
+          - hasMissingFields: ${firstNameMissing or lastNameMissing or emailMissing or phoneMissing or dobMissing or addressMissing or cityMissing or stateMissing or zipMissing or sexMissing}
+
+    - checkRequiredFields:
+        switch:
+          - condition: ${hasMissingFields}
+            return:
+              statusCode: 400
+              headers: ${corsHeaders}
+              body:
+                success: false
+                error: "Missing required fields for appointment scheduling"
+                missingFields:
+                  - ${if(firstNameMissing, "firstName", null)}
+                  - ${if(lastNameMissing, "lastName", null)}
+                  - ${if(emailMissing, "email", null)}
+                  - ${if(phoneMissing, "phone", null)}
+                  - ${if(dobMissing, "dateOfBirth", null)}
+                  - ${if(addressMissing, "address", null)}
+                  - ${if(cityMissing, "city", null)}
+                  - ${if(stateMissing, "state", null)}
+                  - ${if(zipMissing, "zip", null)}
+                  - ${if(sexMissing, "sex", null)}
+                timestamp: ${timestamp}
+          - condition: true
+            next: transformDateOfBirth
+
+    # ---------------------------------------------------------------
+    # 6. Transform data to Beluga format
+    # ---------------------------------------------------------------
+    - transformDateOfBirth:
+        assign:
+          # Convert YYYYMMDD to MM/DD/YYYY format required by Beluga
+          - dobYear: ${if(len(dateOfBirth) >= 4, text.substring(dateOfBirth, 0, 4), "")}
+          - dobMonth: ${if(len(dateOfBirth) >= 6, text.substring(dateOfBirth, 4, 6), "")}
+          - dobDay: ${if(len(dateOfBirth) >= 8, text.substring(dateOfBirth, 6, 8), "")}
+          - formattedDob: ${dobMonth + "/" + dobDay + "/" + dobYear}
+
+    - transformPhone:
+        assign:
+          # Transform phone to 10-digit format (remove all non-digits)
+          - cleanPhone: ${text.replace_all(text.replace_all(text.replace_all(text.replace_all(text.replace_all(phone, "(", ""), ")", ""), "-", ""), " ", ""), "+1", "")}
+          - formattedPhone: ${if(len(cleanPhone) >= 10, text.substring(cleanPhone, 0, 10), cleanPhone)}
+
+    - convertArraysToStrings:
+        assign:
+          # Convert mainReasons array to semicolon-separated string
+          - q1Answer: ""
+          - q2Answer: ""
+
+    - processMainReasons:
+        for:
+          value: reason
+          in: ${mainReasons}
+          steps:
+            - append_reason:
+                assign:
+                  - q1Answer: ${if(q1Answer == "", reason, q1Answer + "; " + reason)}
+
+    - processMedicalConditions:
+        for:
+          value: condition
+          in: ${medicalConditions}
+          steps:
+            - append_condition:
+                assign:
+                  - q2Answer: ${if(q2Answer == "", condition, q2Answer + "; " + condition)}
+
+    - buildQuizQuestions:
+        assign:
+          # Build Q1 (Visit Goals) in Beluga format
+          - q1Options: "Weight Loss; Blood Sugar Health; Supplements Advice; Blood Pressure Health"
+          - q1Text: '${"Visit goals: POSSIBLE ANSWERS: " + q1Options}'
+          # Build Q2 (Medical Conditions) in Beluga format
+          - q2Options: "Type 1 Diabetes; Type 2 Diabetes; Prediabetes; Insulin resistance; High blood pressure; PCOS"
+          - q2Text: '${"Medical conditions: POSSIBLE ANSWERS: " + q2Options}'
+
+    - generateMasterId:
+        assign:
+          # Generate unique masterId: curalife_timestamp_randomSuffix
+          - randomSuffix: ${string(int(timestampMs) % 10000)}
+          - masterId: '${"curalife_" + string(int(timestampMs)) + "_" + randomSuffix}'
+
+    # ---------------------------------------------------------------
+    # 7. Build Beluga API payload
+    # ---------------------------------------------------------------
+    - buildBelugaPayload:
+        assign:
+          - belugaPayload:
+              formObj:
+                consentsSigned: true
+                firstName: ${firstName}
+                lastName: ${lastName}
+                dob: ${formattedDob}
+                phone: ${formattedPhone}
+                email: ${email}
+                address: ${address}
+                city: ${city}
+                state: ${state}
+                zip: ${zip}
+                sex: ${sex}
+                Q1: ${q1Text}
+                A1: ${q1Answer}
+                Q2: ${q2Text}
+                A2: ${q2Answer}
+              masterId: ${masterId}
+              company: "curalife"
+              visitType: "nutrition"
+
+    # ---------------------------------------------------------------
+    # 8. Call Beluga API
+    # ---------------------------------------------------------------
+    - checkBelugaApiKey:
+        switch:
+          - condition: ${belugaApiKey == ""}
+            assign:
+              - schedulingData:
+                  success: false
+                  status: "CONFIG_ERROR"
+                  message: "Beluga API key not configured for this environment"
+                  error: "Missing API key"
+            next: returnResults
+          - condition: true
+            next: callBelugaApi
+
+    - callBelugaApi:
+        try:
+          call: http.post
+          args:
+            url: ${belugaBaseUrl + "/visit/createSyncNoRx"}
+            headers:
+              Authorization: '${"Bearer " + belugaApiKey}'
+              Content-Type: "application/json"
+            body: ${belugaPayload}
+          result: belugaResponse
+        except:
+          as: e
+          steps:
+            - handle_api_error:
+                call: handle_beluga_api_error
+                args:
+                  error: ${e}
+                  error_type: "api"
+                result: schedulingData
+                next: returnResults
+        next: processBelugaResponse
+
+    # ---------------------------------------------------------------
+    # 9. Process Beluga response
+    # ---------------------------------------------------------------
+    - processBelugaResponse:
+        assign:
+          - responseBody: ${if(belugaResponse != null and "body" in belugaResponse, belugaResponse.body, null)}
+          - hasValidResponse: ${responseBody != null}
+
+    - checkBelugaSuccess:
+        switch:
+          - condition: ${hasValidResponse and "status" in responseBody and responseBody.status == 200}
+            assign:
+              - schedulingData:
+                  success: true
+                  status: "SCHEDULED"
+                  masterId: ${if("data" in responseBody, responseBody.data, masterId)}
+                  scheduleLink: ${if("scheduleLink" in responseBody, responseBody.scheduleLink, "")}
+                  message: "Appointment successfully scheduled"
+            next: returnResults
+          - condition: ${hasValidResponse and "status" in responseBody and responseBody.status == 400}
+            call: handle_beluga_validation_error
+            args:
+              response: ${responseBody}
+            result: schedulingData
+            next: returnResults
+          - condition: true
+            assign:
+              - schedulingData:
+                  success: false
+                  status: "ERROR"
+                  message: "Unexpected response from scheduling service"
+                  error: ${if(hasValidResponse, responseBody, "No response body")}
+            next: returnResults
+
+    # ---------------------------------------------------------------
+    # 10. Return scheduling results
+    # ---------------------------------------------------------------
+    - returnResults:
+        return:
+          statusCode: ${if(schedulingData.success, 200, 400)}
+          headers: ${corsHeaders}
+          body:
+            success: ${schedulingData.success}
+            schedulingData: ${schedulingData}
+            timestamp: ${timestamp}
+            debug:
+              masterId: ${masterId}
+              belugaBaseUrl: ${belugaBaseUrl}
+              testMode: ${testMode}
+              formattedDob: ${formattedDob}
+              formattedPhone: ${formattedPhone}
+
+# -----------------------------------------------------------------
+# Helper function to handle Beluga API errors
+# -----------------------------------------------------------------
+handle_beluga_api_error:
+  params: [error, error_type]
+  steps:
+    - init:
+        try:
+          assign:
+            - error_type: ${if(error_type != null, error_type, "api")}
+            - error_code: ${if(error != null and "code" in error, error.code, 0)}
+            - error_body: ${if(error != null and "body" in error, error.body, null)}
+        except:
+          assign:
+            - error_type: "unknown"
+            - error_code: 0
+            - error_body: null
+
+    - handle_http_errors:
+        switch:
+          - condition: ${error_code == 401 or error_code == 403}
+            return:
+              success: false
+              status: "AUTH_ERROR"
+              message: "Authentication failed with Beluga API. Please contact customer support."
+              error: "API authentication failed"
+          - condition: ${error_code == 404}
+            return:
+              success: false
+              status: "SERVICE_ERROR"
+              message: "Scheduling service temporarily unavailable. Please try again later."
+              error: "Service endpoint not found"
+          - condition: ${error_code >= 500}
+            return:
+              success: false
+              status: "SERVER_ERROR"
+              message: "Scheduling service temporarily unavailable. Please try again later."
+              error: "Server error from Beluga API"
+          - condition: true
+            return:
+              success: false
+              status: "NETWORK_ERROR"
+              message: "Network error occurred. Please check your connection and try again."
+              error: "Network or connectivity issue"
+
+# -----------------------------------------------------------------
+# Helper function to handle Beluga validation errors
+# -----------------------------------------------------------------
+handle_beluga_validation_error:
+  params: [response]
+  steps:
+    - parse_error:
+        assign:
+          - errorType: ${if(response != null and "error" in response, response.error, "Unknown error")}
+
+    - map_error_message:
+        switch:
+          - condition: ${errorType == "Missing metadata"}
+            return:
+              success: false
+              status: "VALIDATION_ERROR"
+              message: "Missing required information. Please complete all fields and try again."
+              error: ${errorType}
+          - condition: ${errorType == "Missing values"}
+            return:
+              success: false
+              status: "VALIDATION_ERROR"
+              message: "Some required fields are empty. Please check your information and try again."
+              error: ${errorType}
+          - condition: ${errorType == "Duplicate masterId"}
+            return:
+              success: false
+              status: "DUPLICATE_ERROR"
+              message: "This appointment has already been scheduled. Redirecting to your existing booking..."
+              error: ${errorType}
+          - condition: ${errorType == "consentsSigned must be true"}
+            return:
+              success: false
+              status: "CONSENT_ERROR"
+              message: "Consent is required to schedule an appointment. Please accept the terms and try again."
+              error: ${errorType}
+          - condition: ${errorType == "firstName or lastName error"}
+            return:
+              success: false
+              status: "VALIDATION_ERROR"
+              message: "Please verify your first and last name and try again."
+              error: ${errorType}
+          - condition: ${errorType == "Phone number error"}
+            return:
+              success: false
+              status: "VALIDATION_ERROR"
+              message: "Please verify your phone number format and try again."
+              error: ${errorType}
+          - condition: ${errorType == "Email error"}
+            return:
+              success: false
+              status: "VALIDATION_ERROR"
+              message: "Please verify your email address and try again."
+              error: ${errorType}
+          - condition: ${errorType == "Dob error"}
+            return:
+              success: false
+              status: "VALIDATION_ERROR"
+              message: "Please verify your date of birth and try again."
+              error: ${errorType}
+          - condition: ${errorType == "Sex error"}
+            return:
+              success: false
+              status: "VALIDATION_ERROR"
+              message: "Please select your sex/gender and try again."
+              error: ${errorType}
+          - condition: ${errorType == "Address error"}
+            return:
+              success: false
+              status: "VALIDATION_ERROR"
+              message: "Please verify your street address and try again."
+              error: ${errorType}
+          - condition: ${errorType == "City error"}
+            return:
+              success: false
+              status: "VALIDATION_ERROR"
+              message: "Please verify your city and try again."
+              error: ${errorType}
+          - condition: ${errorType == "State error"}
+            return:
+              success: false
+              status: "VALIDATION_ERROR"
+              message: "Please verify your state and try again."
+              error: ${errorType}
+          - condition: ${errorType == "Zip error"}
+            return:
+              success: false
+              status: "VALIDATION_ERROR"
+              message: "Please verify your ZIP code and try again."
+              error: ${errorType}
+          - condition: ${errorType == "No company found"}
+            return:
+              success: false
+              status: "CONFIG_ERROR"
+              message: "Service configuration error. Please contact customer support."
+              error: ${errorType}
+          - condition: ${errorType == "Company does not have that visit type"}
+            return:
+              success: false
+              status: "CONFIG_ERROR"
+              message: "Visit type not supported. Please contact customer support."
+              error: ${errorType}
+          - condition: true
+            return:
+              success: false
+              status: "UNKNOWN_ERROR"
+              message: "Something went wrong with scheduling. Please contact customer support."
+              error: ${errorType}

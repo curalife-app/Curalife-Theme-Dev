@@ -26,6 +26,7 @@ async function getProjectId() {
 const LOCATION = process.env.WORKFLOW_LOCATION || "us-central1";
 const ELIGIBILITY_WORKFLOW_NAME = process.env.ELIGIBILITY_WORKFLOW_NAME || "eligibility-workflow";
 const USER_CREATION_WORKFLOW_NAME = process.env.USER_CREATION_WORKFLOW_NAME || "user-creation-workflow";
+const SCHEDULING_WORKFLOW_NAME = process.env.SCHEDULING_WORKFLOW_NAME || "scheduling-workflow";
 
 exports.processWorkflow = async (req, res) => {
 	// Set CORS headers
@@ -70,6 +71,11 @@ exports.processWorkflow = async (req, res) => {
 			case "user_creation":
 				workflowName = USER_CREATION_WORKFLOW_NAME;
 				processedData = processUserCreationData(requestData);
+				break;
+
+			case "scheduling":
+				workflowName = SCHEDULING_WORKFLOW_NAME;
+				processedData = processSchedulingData(requestData);
 				break;
 
 			default:
@@ -299,6 +305,45 @@ function processUserCreationData(data) {
 		// Tracking
 		workflowType: "user_creation",
 		triggeredAt: sanitizeValue(data.triggeredAt, new Date().toISOString())
+	};
+}
+
+function processSchedulingData(data) {
+	// Sanitize phone number for Beluga (10 digits only)
+	const sanitizedPhone = sanitizePhoneNumber(data.phoneNumber);
+
+	return {
+		// Required fields for Beluga API
+		firstName: sanitizeValue(data.firstName, "John"),
+		lastName: sanitizeValue(data.lastName, "Doe"),
+		customerEmail: sanitizeValue(data.customerEmail, `test-${Date.now()}@curalife-test.com`),
+		phoneNumber: sanitizedPhone,
+		dateOfBirth: sanitizeValue(data.dateOfBirth, "19710101"), // YYYYMMDD format
+		state: sanitizeValue(data.state, "NY"),
+
+		// New address fields for Beluga
+		address: sanitizeValue(data.address, "123 Main Street"),
+		city: sanitizeValue(data.city, "New York"),
+		zip: sanitizeValue(data.zip, "10001"),
+		sex: sanitizeValue(data.sex, "Other"),
+
+		// Quiz responses for Q&A format
+		mainReasons: sanitizeArray(data.mainReasons, []),
+		medicalConditions: sanitizeArray(data.medicalConditions, []),
+		allResponses: Array.isArray(data.allResponses)
+			? data.allResponses.map(response => ({
+					questionId: sanitizeValue(response?.questionId, ""),
+					answer: sanitizeValue(response?.answer, ""),
+					value: sanitizeValue(response?.value, "")
+				}))
+			: [],
+
+		// Tracking and metadata
+		workflowType: "scheduling",
+		testMode: Boolean(data.testMode),
+		triggeredAt: sanitizeValue(data.triggeredAt, new Date().toISOString()),
+		quizId: sanitizeValue(data.quizId, "dietitian-quiz"),
+		quizTitle: sanitizeValue(data.quizTitle, "Find Your Perfect Dietitian")
 	};
 }
 

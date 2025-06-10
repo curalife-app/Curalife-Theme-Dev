@@ -10,12 +10,13 @@
 		top: 20px;
 		right: 20px;
 		z-index: 1000;
-		max-width: 380px;
+		max-width: 450px;
 		max-height: calc(100vh - 40px);
 		pointer-events: none;
 		overflow-y: auto;
 		overflow-x: hidden;
 		scrollbar-width: thin;
+		padding-left: 20px;
 		scrollbar-color: rgba(255, 255, 255, 0.4) transparent;
 	}
 
@@ -54,11 +55,11 @@
 		font-size: 14px;
 		line-height: 1.5;
 		opacity: 0;
-		transform: translateX(100%);
+		transform: translateX(120%) scale(0.85);
 		transition:
-			opacity 0.4s cubic-bezier(0.23, 1, 0.32, 1),
-			transform 0.4s cubic-bezier(0.23, 1, 0.32, 1),
-			box-shadow 0.3s cubic-bezier(0.23, 1, 0.32, 1),
+			opacity 0.6s cubic-bezier(0.23, 1, 0.32, 1),
+			transform 0.6s cubic-bezier(0.23, 1, 0.32, 1),
+			box-shadow 0.4s cubic-bezier(0.23, 1, 0.32, 1),
 			background 0.3s ease,
 			filter 0.3s ease;
 		pointer-events: auto;
@@ -72,6 +73,8 @@
 		width: 100%;
 		max-width: 100%;
 		box-sizing: border-box;
+		perspective: 1000px;
+		transform-style: preserve-3d;
 	}
 
 	.notification::before {
@@ -100,62 +103,114 @@
 	}
 
 	.notification.animate-in {
-		opacity: 1;
-		transform: translateX(0);
-		animation: notificationSlideIn 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+		opacity: 1 !important;
+		transform: translateX(0) scale(1) !important;
+		animation: notificationReveal 0.8s cubic-bezier(0.23, 1, 0.32, 1) !important;
 	}
 
-	@keyframes notificationSlideIn {
+	@keyframes notificationReveal {
 		0% {
 			opacity: 0;
-			transform: translateX(100%) scale(0.95);
+			transform: translateX(120%) scale(0.85);
+			filter: blur(6px) brightness(0.6);
 		}
-		60% {
-			transform: translateX(-4px) scale(1.01);
+		25% {
+			opacity: 0.3;
+			transform: translateX(60%) scale(0.92);
+			filter: blur(3px) brightness(0.8);
+		}
+		50% {
+			opacity: 0.7;
+			transform: translateX(20%) scale(0.98);
+			filter: blur(1px) brightness(0.95);
+		}
+		75% {
+			opacity: 0.9;
+			transform: translateX(-8px) scale(1.02);
+			filter: blur(0px) brightness(1.05);
 		}
 		100% {
 			opacity: 1;
 			transform: translateX(0) scale(1);
+			filter: blur(0px) brightness(1);
 		}
 	}
 
 	.notification.animate-in .notification-shimmer {
 		left: 100%;
-		animation: shimmerEffect 1.2s ease-out;
+		animation: enhancedShimmer 1.5s ease-out 0.3s;
 	}
 
-	@keyframes shimmerEffect {
+	@keyframes enhancedShimmer {
 		0% {
-			left: -100%;
+			left: -120%;
 			opacity: 0;
+			transform: skewX(-20deg) scale(0.8);
+		}
+		25% {
+			opacity: 0.3;
+			transform: skewX(-15deg) scale(0.9);
 		}
 		50% {
 			opacity: 1;
+			transform: skewX(-10deg) scale(1);
+		}
+		75% {
+			opacity: 0.7;
+			transform: skewX(-5deg) scale(1.05);
 		}
 		100% {
-			left: 100%;
+			left: 120%;
 			opacity: 0;
+			transform: skewX(0deg) scale(1);
 		}
 	}
 
 	.notification.animate-out {
-		opacity: 0;
-		transform: translateX(120%) scale(0.92) rotate(1deg);
-		animation: notificationSlideOut 0.4s cubic-bezier(0.55, 0, 0.74, 0.2);
+		animation: notificationHide 0.6s cubic-bezier(0.55, 0, 0.74, 0.2) forwards !important;
+		pointer-events: none !important;
 	}
 
-	@keyframes notificationSlideOut {
+	@keyframes notificationHide {
 		0% {
 			opacity: 1;
-			transform: translateX(0) rotate(0deg) scale(1);
+			transform: translateX(0) scale(1);
+			filter: blur(0px) brightness(1);
+			margin-bottom: 12px;
+			max-height: 500px;
+		}
+		25% {
+			opacity: 0.8;
+			transform: translateX(30%) scale(0.98);
+			filter: blur(1px) brightness(1.05);
+			margin-bottom: 12px;
+			max-height: 500px;
+		}
+		50% {
+			opacity: 0.4;
+			transform: translateX(80%) scale(0.92);
+			filter: blur(3px) brightness(1.2);
+			margin-bottom: 8px;
+			max-height: 300px;
+		}
+		75% {
+			opacity: 0.1;
+			transform: translateX(120%) scale(0.85);
+			filter: blur(5px) brightness(0.8);
+			margin-bottom: 4px;
+			max-height: 100px;
 		}
 		100% {
 			opacity: 0;
-			transform: translateX(120%) scale(0.92) rotate(1deg);
+			transform: translateX(150%) scale(0.75);
+			filter: blur(6px) brightness(0.5);
+			margin-bottom: 0;
+			max-height: 0;
+			padding: 0;
 		}
 	}
 
-	.notification.filter-hidden {
+	.notification.filter-hidden:not(.animate-out) {
 		opacity: 0 !important;
 		transform: translateY(-15px) scale(0.95) !important;
 		display: none !important;
@@ -164,7 +219,7 @@
 			transform 0.3s cubic-bezier(0.55, 0, 0.74, 0.2) !important;
 	}
 
-	.notification.filter-visible {
+	.notification.filter-visible:not(.animate-out):not(.animate-in) {
 		opacity: 1 !important;
 		transform: translateY(0) scale(1) !important;
 		display: block !important;
@@ -484,14 +539,25 @@
 	.notification-shimmer {
 		position: absolute;
 		top: 0;
-		left: -100%;
-		width: 100%;
+		left: -120%;
+		width: 120%;
 		height: 100%;
-		background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.05) 25%, rgba(255, 255, 255, 0.2) 50%, rgba(255, 255, 255, 0.05) 75%, transparent 100%);
-		transition: left 0.8s cubic-bezier(0.23, 1, 0.32, 1);
+		background: linear-gradient(
+			90deg,
+			transparent 0%,
+			rgba(255, 255, 255, 0.08) 20%,
+			rgba(255, 255, 255, 0.25) 40%,
+			rgba(255, 255, 255, 0.35) 50%,
+			rgba(255, 255, 255, 0.25) 60%,
+			rgba(255, 255, 255, 0.08) 80%,
+			transparent 100%
+		);
+		transition: left 1s cubic-bezier(0.23, 1, 0.32, 1);
 		pointer-events: none;
 		border-radius: inherit;
 		z-index: 1;
+		transform: skewX(-20deg);
+		filter: blur(0.5px);
 	}
 
 	/* Enhanced control buttons with sophisticated design */
@@ -896,6 +962,95 @@
 		50% {
 			transform: scale(1.02);
 			filter: brightness(1.1);
+		}
+	}
+
+	/* Enhanced stagger effects for notification interactions */
+	.notification.stagger-effect {
+		animation: staggerBounce 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+	}
+
+	@keyframes staggerBounce {
+		0% {
+			transform: translateX(0) scale(1);
+		}
+		25% {
+			transform: translateX(-3px) scale(1.008);
+		}
+		50% {
+			transform: translateX(-2px) scale(1.005);
+		}
+		75% {
+			transform: translateX(-1px) scale(1.002);
+		}
+		100% {
+			transform: translateX(0) scale(1);
+		}
+	}
+
+	.notification.slide-up {
+		animation: slideUpSmooth 0.5s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+	}
+
+	@keyframes slideUpSmooth {
+		0% {
+			transform: translateY(0) scale(1);
+		}
+		40% {
+			transform: translateY(-8px) scale(1.01);
+		}
+		70% {
+			transform: translateY(-3px) scale(1.005);
+		}
+		100% {
+			transform: translateY(0) scale(1);
+		}
+	}
+
+	.notification.removal-effect {
+		animation: removalShift 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+	}
+
+	@keyframes removalShift {
+		0% {
+			transform: translateY(0) scale(1);
+		}
+		30% {
+			transform: translateY(-8px) scale(0.995);
+		}
+		60% {
+			transform: translateY(-3px) scale(0.998);
+		}
+		100% {
+			transform: translateY(0) scale(1);
+		}
+	}
+
+	/* Enhanced reveal sequence animation for multiple notifications */
+	.notification.reveal-sequence {
+		animation: revealSequence 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+	}
+
+	@keyframes revealSequence {
+		0% {
+			opacity: 0;
+			transform: translateX(100%) scale(0.9) rotateY(10deg);
+			filter: blur(4px);
+		}
+		40% {
+			opacity: 0.6;
+			transform: translateX(30%) scale(0.96) rotateY(4deg);
+			filter: blur(2px);
+		}
+		70% {
+			opacity: 0.9;
+			transform: translateX(-5px) scale(1.01) rotateY(-1deg);
+			filter: blur(0px);
+		}
+		100% {
+			opacity: 1;
+			transform: translateX(0) scale(1) rotateY(0deg);
+			filter: blur(0px);
 		}
 	}
 }
