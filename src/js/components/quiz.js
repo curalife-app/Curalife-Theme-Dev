@@ -2,6 +2,9 @@
  * Modular Quiz System for Shopify
  */
 
+// Remove static import and use dynamic import instead
+// import { NotificationManager } from '../utils/notifications.js';
+
 const ELEMENT_SELECTORS = {
 	MAIN_CONTAINER: "#quiz-container",
 	QUESTIONS: ".quiz-questions",
@@ -37,7 +40,55 @@ class ModularQuiz {
 		this.eligibilityWorkflowError = null;
 		this.userCreationWorkflowPromise = null;
 
-		this.init();
+		// Initialize the modular notification system asynchronously
+		this._initializeNotificationManager().then(() => {
+			this.init();
+		});
+	}
+
+	async _initializeNotificationManager() {
+		try {
+			// Get the notifications.js URL from the data attribute set by Liquid
+			const notificationsUrl = this.container.getAttribute("data-notifications-url");
+
+			if (!notificationsUrl) {
+				throw new Error("Notifications asset URL not found");
+			}
+
+			console.log("🔗 Loading notification system from:", notificationsUrl);
+
+			// Dynamic import of the NotificationManager using the asset URL
+			const { NotificationManager } = await import(notificationsUrl);
+
+			// Configure the notification manager for quiz component using generic classes
+			this.notificationManager = new NotificationManager({
+				containerSelector: ".notification-container",
+				position: "top-right",
+				autoCollapse: true,
+				maxNotifications: 50,
+				defaultDuration: 0, // Don't auto-remove notifications by default
+				enableFiltering: true,
+				enableCopy: true
+				// Using generic notification classes - no custom mapping needed
+			});
+
+			console.log("✅ Notification system loaded successfully");
+			return true;
+		} catch (error) {
+			console.error("❌ Failed to load notification system:", error);
+
+			// Fallback: Create a simple notification function
+			this.notificationManager = {
+				show: (text, type = "info", priority = null) => {
+					console.log(`📢 Notification (${type}):`, text);
+					return null;
+				},
+				clear: () => console.log("🧹 Clear notifications"),
+				exportNotifications: () => console.log("📤 Export notifications")
+			};
+
+			return false;
+		}
 	}
 
 	_initializeDOMElements() {
@@ -239,8 +290,8 @@ class ModularQuiz {
 		setTimeout(() => indicator.remove(), 5000);
 	}
 
-	_showBackgroundProcessNotification(text, type = "info") {
-		console.log("📢 Creating notification:", { text: text.substring(0, 50) + "...", type });
+	_showBackgroundProcessNotification(text, type = "info", priority = null) {
+		console.log("📢 Creating notification:", { text: text.substring(0, 50) + "...", type, priority });
 
 		// Only show notifications if we have a container
 		if (!this.questionContainer) {
@@ -248,338 +299,16 @@ class ModularQuiz {
 			return;
 		}
 
-		// Create or get notification container
-		let notificationContainer = document.querySelector(".quiz-background-notifications");
-		if (!notificationContainer) {
-			console.log("🆕 Creating new notification container");
-			notificationContainer = document.createElement("div");
-			notificationContainer.className = "quiz-background-notifications";
-			document.body.appendChild(notificationContainer);
-
-			// Add floating copy button (only once)
-			this._addNotificationCopyButton();
-		} else {
-			console.log("📦 Using existing notification container");
-		}
-
-		// Parse text to extract title and details for test mode notifications
-		const isTestMode = text.includes("TEST MODE");
-		let notificationTitle = "";
-		let notificationDetails = "";
-
-		if (isTestMode && text.includes("<br>")) {
-			const parts = text.split("<br>");
-			// Clean the title - remove emojis and "TEST MODE" text
-			notificationTitle = parts[0]
-				.trim()
-				.replace(/🧪/g, "")
-				.replace(/✓/g, "")
-				.replace(/❌/g, "")
-				.replace(/⚠️/g, "")
-				.replace(/ℹ️/g, "")
-				.replace(/📡/g, "")
-				.replace(/🔄/g, "")
-				.replace(/TEST MODE\s*[-:]\s*/gi, "")
-				.trim();
-			notificationDetails = parts.slice(1).join("<br>").trim();
-		} else {
-			// Clean simple notifications too - remove all icons and test mode text
-			notificationTitle = text
-				.replace(/🧪/g, "")
-				.replace(/✓/g, "")
-				.replace(/❌/g, "")
-				.replace(/⚠️/g, "")
-				.replace(/ℹ️/g, "")
-				.replace(/📡/g, "")
-				.replace(/🔄/g, "")
-				.replace(/TEST MODE\s*[-:]\s*/gi, "")
-				.trim();
-		}
-
-		// Create notification element
-		const notification = document.createElement("div");
-		notification.className = `quiz-notification quiz-notification-${type}`;
-
-		// Add shimmer effect
-		const shimmer = document.createElement("div");
-		shimmer.className = "quiz-notification-shimmer";
-		notification.appendChild(shimmer);
-
-		// Create collapsible structure for test mode notifications
-		if (isTestMode && notificationDetails) {
-			notification.innerHTML = `
-				<div class="quiz-notification-shimmer"></div>
-				<div class="quiz-notification-header">
-					<div class="quiz-notification-content">
-						<div class="quiz-notification-icon">🧪</div>
-						<span class="quiz-notification-title">${notificationTitle}</span>
-					</div>
-					<div class="quiz-notification-toggle">
-						<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-							<path d="M7.41 8.84L12 13.42l4.59-4.58L18 10.25l-6 6-6-6z"/>
-						</svg>
-					</div>
-				</div>
-				<div class="quiz-notification-details">
-					<div class="quiz-notification-details-content">
-						${notificationDetails}
-					</div>
-				</div>
-			`;
-
-			// Add enhanced toggle functionality
-			const toggleButton = notification.querySelector(".quiz-notification-toggle");
-			const toggleIcon = toggleButton.querySelector("svg");
-			const details = notification.querySelector(".quiz-notification-details");
-			const header = notification.querySelector(".quiz-notification-header");
-			let isExpanded = false;
-
-			header.addEventListener("click", e => {
-				e.stopPropagation();
-				isExpanded = !isExpanded;
-
-				if (isExpanded) {
-					// First set classes to apply expanded styles
-					details.classList.add("expanded");
-					toggleButton.classList.add("expanded");
-
-					// Use requestAnimationFrame to ensure DOM has updated
-					requestAnimationFrame(() => {
-						// Get the content element to measure its height
-						const content = details.querySelector(".quiz-notification-details-content");
-
-						// Temporarily set details to auto height to measure
-						const originalMaxHeight = details.style.maxHeight;
-						details.style.maxHeight = "auto";
-
-						// Calculate total height needed including padding and borders
-						const contentHeight = content ? content.scrollHeight : details.scrollHeight;
-						const paddingTop = parseInt(getComputedStyle(details).paddingTop) || 0;
-						const paddingBottom = parseInt(getComputedStyle(details).paddingBottom) || 0;
-						const borderTop = parseInt(getComputedStyle(details).borderTopWidth) || 0;
-						const borderBottom = parseInt(getComputedStyle(details).borderBottomWidth) || 0;
-
-						const totalHeight = contentHeight + paddingTop + paddingBottom + borderTop + borderBottom + 24; // Add 24px buffer
-
-						// Reset and animate
-						details.style.maxHeight = "0";
-						requestAnimationFrame(() => {
-							details.style.maxHeight = totalHeight + "px";
-						});
-					});
-				} else {
-					details.style.maxHeight = "0";
-					details.classList.remove("expanded");
-					toggleButton.classList.remove("expanded");
-				}
-			});
-
-			// Add enhanced close button
-			const closeButton = document.createElement("div");
-			closeButton.className = "quiz-notification-close";
-			closeButton.innerHTML = `
-				<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-					<path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-				</svg>
-			`;
-
-			closeButton.addEventListener("click", e => {
-				e.stopPropagation();
-				notification.classList.add("animate-out");
-				setTimeout(() => notification.remove(), 400);
-			});
-			notification.appendChild(closeButton);
-		} else {
-			// Enhanced simple notification
-			notification.innerHTML = `
-				<div class="quiz-notification-shimmer"></div>
-				<div class="quiz-notification-simple">
-					<div class="quiz-notification-simple-icon">${type === "success" ? "✓" : type === "error" ? "!" : "ℹ"}</div>
-					<span class="quiz-notification-simple-text">${notificationTitle}</span>
-				</div>
-			`;
-
-			// Add click to dismiss for non-test mode notifications
-			notification.addEventListener("click", () => {
-				notification.classList.add("animate-out");
-				setTimeout(() => notification.remove(), 400);
-			});
-		}
-
-		notificationContainer.appendChild(notification);
-		console.log("✅ Notification added to DOM. Total notifications:", notificationContainer.children.length);
-
-		// Animate in with enhanced effects
-		setTimeout(() => {
-			notification.classList.add("animate-in");
-
-			// Trigger shimmer effect
-			const shimmerElement = notification.querySelector(".quiz-notification-shimmer");
-			if (shimmerElement) {
-				setTimeout(() => {
-					shimmerElement.style.left = "100%";
-				}, 200);
-			}
-		}, 100);
-
-		// Auto remove after delay (except for persistent test mode notifications)
-		if (!isTestMode) {
-			setTimeout(
-				() => {
-					if (notification.parentNode) {
-						notification.classList.add("animate-out");
-						setTimeout(() => notification.remove(), 400);
-					}
-				},
-				type === "error" ? 8000 : 4000
-			);
-		}
+		// Delegate completely to the modular notification system
+		return this.notificationManager.show(text, type, priority);
 	}
 
-	_addNotificationCopyButton() {
-		// Check if button already exists
-		if (document.querySelector(".quiz-notification-copy-button")) {
-			return;
-		}
-
-		// Create floating copy button
-		const copyButton = document.createElement("div");
-		copyButton.className = "quiz-notification-copy-button";
-		copyButton.title = "Copy all notifications to clipboard";
-		copyButton.innerHTML = `
-			<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-				<path d="M16 1H4C2.9 1 2 1.9 2 3v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
-			</svg>
-		`;
-
-		// Add click handler for copying
-		copyButton.addEventListener("click", () => {
-			this._copyAllNotificationsToClipboard(copyButton);
-		});
-
-		// Add the button directly to the body for fixed positioning
-		document.body.appendChild(copyButton);
-
-		console.log("🔧 Copy button added to page");
+	clearNotifications() {
+		return this.notificationManager.clear();
 	}
 
-	_copyAllNotificationsToClipboard(copyButton) {
-		try {
-			// Gather all notification text
-			const notifications = document.querySelectorAll(".quiz-notification");
-			const notificationTexts = [];
-
-			notifications.forEach((notification, index) => {
-				let notificationText = `--- Notification ${index + 1} ---\n`;
-
-				// Get title
-				const title = notification.querySelector(".quiz-notification-title");
-				const simpleText = notification.querySelector(".quiz-notification-simple-text");
-
-				if (title) {
-					notificationText += `Title: ${title.textContent.trim()}\n`;
-				} else if (simpleText) {
-					notificationText += `Text: ${simpleText.textContent.trim()}\n`;
-				}
-
-				// Get details if expanded or available
-				const details = notification.querySelector(".quiz-notification-details-content");
-				if (details) {
-					const detailsText = details.textContent.trim();
-					if (detailsText) {
-						notificationText += `Details:\n${detailsText}\n`;
-					}
-				}
-
-				// Get type
-				const type = notification.classList.contains("quiz-notification-success") ? "SUCCESS" : notification.classList.contains("quiz-notification-error") ? "ERROR" : "INFO";
-				notificationText += `Type: ${type}\n`;
-
-				notificationTexts.push(notificationText);
-			});
-
-			// Combine all notifications
-			const allText = [
-				"=== QUIZ NOTIFICATIONS EXPORT ===",
-				`Exported at: ${new Date().toISOString()}`,
-				`Total notifications: ${notifications.length}`,
-				"",
-				...notificationTexts,
-				"=== END OF EXPORT ==="
-			].join("\n");
-
-			// Copy to clipboard
-			navigator.clipboard
-				.writeText(allText)
-				.then(() => {
-					// Show success feedback
-					this._showCopyFeedback(copyButton, true);
-				})
-				.catch(err => {
-					console.error("Failed to copy to clipboard:", err);
-
-					// Fallback for older browsers
-					this._fallbackCopyToClipboard(allText, copyButton);
-				});
-		} catch (error) {
-			console.error("Error copying notifications:", error);
-			this._showCopyFeedback(copyButton, false);
-		}
-	}
-
-	_fallbackCopyToClipboard(text, copyButton) {
-		try {
-			// Create temporary textarea
-			const textarea = document.createElement("textarea");
-			textarea.value = text;
-			textarea.style.position = "fixed";
-			textarea.style.left = "-9999px";
-			document.body.appendChild(textarea);
-
-			// Select and copy
-			textarea.select();
-			textarea.setSelectionRange(0, 99999);
-			const successful = document.execCommand("copy");
-
-			// Clean up
-			document.body.removeChild(textarea);
-
-			this._showCopyFeedback(copyButton, successful);
-		} catch (err) {
-			console.error("Fallback copy failed:", err);
-			this._showCopyFeedback(copyButton, false);
-		}
-	}
-
-	_showCopyFeedback(copyButton, success) {
-		// Update button appearance
-		const originalHTML = copyButton.innerHTML;
-		const originalTitle = copyButton.title;
-
-		if (success) {
-			copyButton.innerHTML = `
-				<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-					<path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-				</svg>
-			`;
-			copyButton.title = "Copied to clipboard!";
-			copyButton.classList.add("success");
-		} else {
-			copyButton.innerHTML = `
-				<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-					<path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-				</svg>
-			`;
-			copyButton.title = "Copy failed - try again";
-			copyButton.classList.add("error");
-		}
-
-		// Reset after 2 seconds
-		setTimeout(() => {
-			copyButton.innerHTML = originalHTML;
-			copyButton.title = originalTitle;
-			copyButton.classList.remove("success", "error");
-		}, 2000);
+	exportNotifications(format = "text", filter = "all") {
+		return this.notificationManager.exportNotifications(format, filter);
 	}
 
 	getCurrentStep() {
@@ -1814,14 +1543,18 @@ class ModularQuiz {
 
 						// Test mode detailed result notification
 						if (this.isTestMode) {
+							const sessionsText = result?.sessionsCovered ? `${result.sessionsCovered} covered dietitian sessions` : "No sessions covered";
+
+							const fullMessage = result?.userMessage || "";
+
 							this._showBackgroundProcessNotification(
 								`
 								🧪 TEST MODE - Eligibility Result<br>
 								${statusIcon} Status: ${result?.eligibilityStatus || "Unknown"}<br>
 								• Eligible: ${result?.isEligible}<br>
-								• Sessions: ${result?.sessionsCovered || 0}<br>
+								• Sessions: ${sessionsText}<br>
 								• Error Code: ${result?.error?.code || result?.aaaErrorCode || "None"}<br>
-								• Message: ${(result?.userMessage || "").substring(0, 100)}${result?.userMessage?.length > 100 ? "..." : ""}
+								• Message: ${fullMessage.substring(0, 120)}${fullMessage.length > 120 ? "..." : ""}
 							`,
 								result?.eligibilityStatus === "AAA_ERROR" ? "error" : "success"
 							);
@@ -2038,7 +1771,7 @@ class ModularQuiz {
 	}
 
 	_buildEligibilityPayload() {
-		const extractedData = this._extractResponseData();
+		const extractedData = this._extractResponseData(true);
 
 		console.log("Building eligibility payload with extracted data:", {
 			extractedData,
@@ -2069,7 +1802,7 @@ class ModularQuiz {
 	}
 
 	_buildUserCreationPayload(eligibilityData = null) {
-		const extractedData = this._extractResponseData();
+		const extractedData = this._extractResponseData(false);
 		const allResponses =
 			this.responses?.map(response => ({
 				questionId: response.questionId,
@@ -2078,7 +1811,7 @@ class ModularQuiz {
 			})) || [];
 
 		const payload = {
-			...this._buildSubmissionPayload(),
+			...this._buildSubmissionPayload(extractedData),
 			...extractedData,
 			allResponses,
 			eligibilityData: eligibilityData || this._createProcessingEligibilityData(),
@@ -2129,14 +1862,14 @@ class ModularQuiz {
 		return payload;
 	}
 
-	_buildSubmissionPayload() {
-		const extractedData = this._extractResponseData();
+	_buildSubmissionPayload(extractedData = null) {
+		const data = extractedData || this._extractResponseData(false);
 
 		return {
 			quizId: this.quizData.id,
 			quizTitle: this.quizData.title,
 			completedAt: new Date().toISOString(),
-			...extractedData,
+			...data,
 			allResponses: this.responses.map(r => ({
 				stepId: r.stepId,
 				questionId: r.questionId,
@@ -2145,7 +1878,7 @@ class ModularQuiz {
 		};
 	}
 
-	_extractResponseData() {
+	_extractResponseData(showNotifications = false) {
 		const fieldMapping = {
 			q9: "customerEmail",
 			q7: "firstName",
@@ -2179,8 +1912,8 @@ class ModularQuiz {
 
 		console.log("Extracting response data from responses:", this.responses);
 
-		// Test mode detailed extraction notification
-		if (this.isTestMode) {
+		// Test mode detailed extraction notification - only show if requested
+		if (this.isTestMode && showNotifications) {
 			const responsesSummary = this.responses?.map(r => `${r.questionId}: ${Array.isArray(r.answer) ? r.answer.join(",") : r.answer}`).join("<br>• ") || "None";
 
 			this._showBackgroundProcessNotification(
@@ -2231,11 +1964,17 @@ class ModularQuiz {
 
 		console.log("Extracted response data:", data);
 
-		// Test mode extraction result notification
-		if (this.isTestMode) {
+		// Test mode extraction result notification - only show if requested
+		if (this.isTestMode && showNotifications) {
+			// groupNumber is optional, so exclude it from required field checks
 			const missingFields = Object.entries(data)
-				.filter(([key, value]) => !value && !["mainReasons", "medicalConditions", "consent"].includes(key))
+				.filter(([key, value]) => !value && !["mainReasons", "medicalConditions", "consent", "groupNumber"].includes(key))
 				.map(([key]) => key);
+
+			const optionalFields = [];
+			if (!data.groupNumber) {
+				optionalFields.push("groupNumber");
+			}
 
 			this._showBackgroundProcessNotification(
 				`
@@ -2244,7 +1983,8 @@ class ModularQuiz {
 				• Name: ${data.firstName} ${data.lastName}<br>
 				• Insurance: ${data.insurance || "❌ Missing"}<br>
 				• Member ID: ${data.insuranceMemberId || "❌ Missing"}<br>
-				• Missing fields: ${missingFields.length ? missingFields.join(", ") : "None"}
+				• Missing required: ${missingFields.length ? missingFields.join(", ") : "None"}<br>
+				• Optional fields: ${optionalFields.length ? optionalFields.join(", ") : "All present"}
 			`,
 				missingFields.length > 0 ? "error" : "success"
 			);
@@ -3868,39 +3608,57 @@ class ModularQuiz {
 		return testParam !== null && testParam !== "false";
 	}
 
-	// Debug method to manually test notifications and copy button
+	// Debug method to manually test the enhanced notification system
 	_testNotificationSystem() {
-		console.log("🧪 Testing notification system...");
+		console.log("🎯 Testing SMART notification system...");
 
 		// Force create a questionContainer if it doesn't exist (for testing)
 		if (!this.questionContainer) {
 			console.log("🔧 Creating temporary questionContainer for testing");
 			this.questionContainer = document.createElement("div");
+			this.questionContainer.style.display = "none";
+			document.body.appendChild(this.questionContainer);
 		}
 
-		this._showBackgroundProcessNotification("Test notification to verify copy button appears", "info");
+		// Test notifications that demonstrate the smart filtering/collapsing
+		// Mix of simple and detailed notifications to show smart behavior
+
+		console.log("📝 Creating test notifications...");
+
+		// Simple notifications (no details to collapse)
+		this._showBackgroundProcessNotification("Starting process...", "info");
+		this._showBackgroundProcessNotification("Connected successfully", "success");
+		this._showBackgroundProcessNotification("Authentication failed", "error");
 
 		setTimeout(() => {
+			// Detailed notifications (can be auto-collapsed)
+			this._showBackgroundProcessNotification("Extraction Result<br>• Email: jane.humana@example.com<br>• Name: Jane Doe<br>• Missing fields: groupNumber", "info", "WARNING");
+
+			this._showBackgroundProcessNotification("Processing Result<br>• Final status: ELIGIBLE<br>• Is eligible: true<br>• Has error: false", "info");
+
 			this._showBackgroundProcessNotification(
-				`
-				Test Notification with Details<br>
-				• This is a test notification<br>
-				• It has multiple lines<br>
-				• To test the copy functionality<br>
-				• Button should appear after first notification
-			`,
+				"Eligibility Result<br>✅ Status: ELIGIBLE<br>• Eligible: true<br>• Sessions: 10<br>• Message: Good news! Based on your insurance information, you are eligible for dietitian sessions.",
 				"success"
 			);
+		}, 500);
+
+		setTimeout(() => {
+			// Critical notification (always stays expanded)
+			this._showBackgroundProcessNotification("Critical system failure detected!<br>• Database: Offline<br>• Immediate action required<br>• Contact IT support", "error", "CRITICAL");
 		}, 1000);
 
-		// Check if copy button exists after creation
 		setTimeout(() => {
-			const copyButton = document.querySelector(".quiz-notification-copy-button");
-			console.log("🔍 Copy button check:", copyButton ? "✅ Found" : "❌ Not found");
-			if (copyButton) {
-				console.log("📍 Copy button position:", copyButton.getBoundingClientRect());
-			}
-		}, 2000);
+			console.log("✅ Test complete! Enhanced notification system features:");
+			console.log("   🔍 Filter buttons: Show only relevant notification types");
+			console.log("   📦 Show All: Restores ALL notifications (even auto-removed ones)");
+			console.log("   📱 Auto-collapse: Only affects detailed notifications");
+			console.log("   ⚡ Simple notifications: Always visible (no collapse needed)");
+			console.log("   🚨 Critical/Error: Always stay expanded");
+			console.log("   🛡️ Smart prevention: Auto-removal disabled when 'Show All' is active");
+			console.log("");
+			console.log("🧪 Try filtering to 'Show All' to see all notifications restored!");
+			console.log("   testNotifications() - Run this test again");
+		}, 1500);
 	}
 }
 
