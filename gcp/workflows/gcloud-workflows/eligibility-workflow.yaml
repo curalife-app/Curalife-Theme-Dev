@@ -29,7 +29,8 @@ main:
           - prodApiKeyValid: ${envProdApiKey != null and envProdApiKey != "" and len(string(envProdApiKey)) > 10}
           - testApiKeyValid: ${envTestApiKey != null and envTestApiKey != "" and len(string(envTestApiKey)) > 10}
           - defaultApiKey: "test_fsWwDEq.XvSAryFi2OujuV0n3mNPhFfE"
-          - stediApiKey: ${if(prodApiKeyValid, envProdApiKey, if(testApiKeyValid, envTestApiKey, defaultApiKey))}
+          # API key selection will be done after extracting testMode from payload
+          - stediApiKey: ""
           - controlNumber: ${string(double(sys.now() * 1000))}
           # Initialize with default values
           - insurance: ""
@@ -77,11 +78,18 @@ main:
           - insuranceMemberId: ${if(actualPayload != null and "insuranceMemberId" in actualPayload, actualPayload.insuranceMemberId, "")}
           - groupNumber: ${if(actualPayload != null and "groupNumber" in actualPayload, actualPayload.groupNumber, "")}
           - dateOfBirth: ${if(actualPayload != null and "dateOfBirth" in actualPayload, actualPayload.dateOfBirth, "")}
+          # Extract test mode indicator
+          - testMode: ${if(actualPayload != null and "testMode" in actualPayload, actualPayload.testMode, false)}
           # Use the actual date of birth received
           - formattedDateOfBirth: ${dateOfBirth}
           # Use insurance field as primaryPayerId directly (no more mapping needed)
           - primaryPayerId: ${insurance}
           - tradingPartnerServiceId: ${if(insurance != "", insurance, "OTHER")}
+
+    - selectApiKey:
+        assign:
+          # Force test API key when testMode is true, otherwise use production priority
+          - stediApiKey: ${if(testMode, if(testApiKeyValid, envTestApiKey, defaultApiKey), if(prodApiKeyValid, envProdApiKey, if(testApiKeyValid, envTestApiKey, defaultApiKey)))}
 
     - createDebugInfo:
         assign:
@@ -90,6 +98,8 @@ main:
               primaryPayerId: ${primaryPayerId}
               tradingPartnerId: ${tradingPartnerServiceId}
               groupNumber: ${groupNumber}
+              testMode: ${testMode}
+              selectedApiKeyType: ${if(testMode, "test (forced)", if(prodApiKeyValid and stediApiKey == envProdApiKey, "production", if(testApiKeyValid and stediApiKey == envTestApiKey, "test", "default")))}
 
     # ---------------------------------------------------------------
     # 5.  Validate required fields
@@ -147,7 +157,10 @@ main:
               testKeyLength: ${if(envTestApiKey != null, len(string(envTestApiKey)), 0)}
               finalKeyLength: ${apiKeyLength}
               isValid: ${validStediKey}
-              usingProdKey: ${prodApiKeyValid}
+              usingProdKey: ${prodApiKeyValid and not testMode}
+              testModeForced: ${testMode}
+              forcedTestKey: ${testMode and testApiKeyValid}
+              forcedDefaultKey: ${testMode and not testApiKeyValid}
         next: checkStediTokenSwitch
 
     - checkStediTokenSwitch:
