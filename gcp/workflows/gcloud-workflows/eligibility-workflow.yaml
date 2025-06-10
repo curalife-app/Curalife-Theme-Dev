@@ -78,7 +78,7 @@ main:
           - insuranceMemberId: ${if(actualPayload != null and "insuranceMemberId" in actualPayload, actualPayload.insuranceMemberId, "")}
           - groupNumber: ${if(actualPayload != null and "groupNumber" in actualPayload, actualPayload.groupNumber, "")}
           - dateOfBirth: ${if(actualPayload != null and "dateOfBirth" in actualPayload, actualPayload.dateOfBirth, "")}
-          # Extract test mode indicator
+          # Extract test mode indicator (safely handle missing field)
           - testMode: ${if(actualPayload != null and "testMode" in actualPayload, actualPayload.testMode, false)}
           # Use the actual date of birth received
           - formattedDateOfBirth: ${dateOfBirth}
@@ -88,6 +88,12 @@ main:
 
     - selectApiKey:
         assign:
+          # Re-evaluate API key variables in this scope
+          - envProdApiKey: ${sys.get_env("STEDI_API_KEY_PROD")}
+          - envTestApiKey: ${sys.get_env("STEDI_API_KEY")}
+          - prodApiKeyValid: ${envProdApiKey != null and envProdApiKey != "" and len(string(envProdApiKey)) > 10}
+          - testApiKeyValid: ${envTestApiKey != null and envTestApiKey != "" and len(string(envTestApiKey)) > 10}
+          - defaultApiKey: "test_fsWwDEq.XvSAryFi2OujuV0n3mNPhFfE"
           # Force test API key when testMode is true, otherwise use production priority
           - stediApiKey: ${if(testMode, if(testApiKeyValid, envTestApiKey, defaultApiKey), if(prodApiKeyValid, envProdApiKey, if(testApiKeyValid, envTestApiKey, defaultApiKey)))}
 
@@ -99,7 +105,7 @@ main:
               tradingPartnerId: ${tradingPartnerServiceId}
               groupNumber: ${groupNumber}
               testMode: ${testMode}
-              selectedApiKeyType: ${if(testMode, "test (forced)", if(prodApiKeyValid and stediApiKey == envProdApiKey, "production", if(testApiKeyValid and stediApiKey == envTestApiKey, "test", "default")))}
+              selectedApiKeyType: ${if(testMode, "test (forced)", "production or test")}
 
     # ---------------------------------------------------------------
     # 5.  Validate required fields
@@ -149,6 +155,11 @@ main:
           # More robust validation - check length and content
           - apiKeyLength: ${if(stediApiKey != null, len(string(stediApiKey)), 0)}
           - validStediKey: ${stediApiKey != null and stediApiKey != "" and apiKeyLength > 10}
+          # Re-evaluate API key variables for debug info
+          - envProdApiKey: ${sys.get_env("STEDI_API_KEY_PROD")}
+          - envTestApiKey: ${sys.get_env("STEDI_API_KEY")}
+          - prodApiKeyValid: ${envProdApiKey != null and envProdApiKey != "" and len(string(envProdApiKey)) > 10}
+          - testApiKeyValid: ${envTestApiKey != null and envTestApiKey != "" and len(string(envTestApiKey)) > 10}
           # Debug info for troubleshooting
           - apiKeyDebug:
               hasProdKey: ${envProdApiKey != null}
@@ -214,11 +225,18 @@ main:
                   error_type: "api"
                 result: eligibilityData
                 next: returnResults
+        next: initializeResponseProcessing
+
+    - initializeResponseProcessing:
+        assign:
+          # Initialize safe response body reference for use throughout the workflow
+          - responseBody: ${if(stediResponse != null and "body" in stediResponse, stediResponse.body, null)}
+          - hasValidStediResponse: ${responseBody != null}
 
     - processEligibilityResponse:
         assign:
           # Skip validation and go straight to processing
-          - hasValidStediResponse: true
+          # hasValidStediResponse is now set in initializeResponseProcessing
           # Initialize with defaults
           - eligibilityData:
               isEligible: false
@@ -231,19 +249,38 @@ main:
           # Initialize error checking variables
           - errorCode: ""
           - errorMessage: ""
-          # Check for standard errors directly
-          - hasErrorsField: ${"errors" in stediResponse.body}
-          - errorsArray: ${if(hasErrorsField, stediResponse.body.errors, [])}
+          # Check for standard errors directly with safe access
+          # responseBody is now available from initializeResponseProcessing
+          - hasErrorsField: ${responseBody != null and "errors" in responseBody}
+          - errorsArray: ${if(hasErrorsField, responseBody.errors, [])}
           - hasStandardErrors: ${hasErrorsField and errorsArray != null and len(errorsArray) > 0}
-          # Check for AAA errors directly
-          - hasSubscriber: ${"subscriber" in stediResponse.body}
-          - subscriberData: ${if(hasSubscriber, stediResponse.body.subscriber, null)}
-          - hasAAAErrorsField: ${hasSubscriber and subscriberData != null and "aaaErrors" in subscriberData}
-          - aaaErrorsArray: ${if(hasAAAErrorsField, subscriberData.aaaErrors, [])}
-          - hasAAAErrors: ${hasAAAErrorsField and aaaErrorsArray != null and len(aaaErrorsArray) > 0}
+          # Check for AAA errors directly with ultra-safe access
+          - hasSubscriber: ${responseBody != null and "subscriber" in responseBody}
+          - subscriberData: ${if(hasSubscriber, responseBody.subscriber, null)}
+          # Ultra-safe check: wrap aaaErrors check in conditional to prevent KeyError
+          - hasAAAErrorsField: false
+          - aaaErrorsArray: []
+          - hasAAAErrors: false
+
           # Initialize inactive plan variables (planStatus not present in this response)
           - hasInactivePlan: false
           - planStatusCode: ""
+        next: checkForAAAErrors
+
+    - checkForAAAErrors:
+        try:
+          assign:
+            # Safely check for AAA errors if subscriber data exists
+            - hasAAAErrorsField: ${hasSubscriber and subscriberData != null and "aaaErrors" in subscriberData}
+            - aaaErrorsArray: ${if(hasAAAErrorsField, subscriberData.aaaErrors, [])}
+            - hasAAAErrors: ${hasAAAErrorsField and aaaErrorsArray != null and len(aaaErrorsArray) > 0}
+        except:
+          as: e
+          assign:
+            # If any error occurs, assume no AAA errors
+            - hasAAAErrorsField: false
+            - aaaErrorsArray: []
+            - hasAAAErrors: false
         next: debugStediResponse
 
     - debugStediResponse:
@@ -251,7 +288,7 @@ main:
           - debugLog:
               message: "Processing Stedi response"
               responseCode: ${stediResponse.code}
-              hasBody: ${"body" in stediResponse}
+              hasBody: ${responseBody != null}
               bodyHasErrors: ${hasErrorsField}
               bodyHasSubscriber: ${hasSubscriber}
         next: combineErrorChecks
@@ -409,7 +446,7 @@ main:
             - planBegin: ""
             - planEnd: ""
             # Check if plan information exists (only if we have a valid response)
-            - hasPlanInfo: ${hasValidStediResponse and "planDateInformation" in stediResponse.body}
+            - hasPlanInfo: ${hasValidStediResponse and responseBody != null and "planDateInformation" in responseBody}
         except:
           as: e
           assign:
@@ -419,18 +456,18 @@ main:
 
     - setPlanBeginDate:
         switch:
-          - condition: ${hasPlanInfo and "planBegin" in stediResponse.body.planDateInformation}
+          - condition: ${hasPlanInfo and "planBegin" in responseBody.planDateInformation}
             assign:
-              - planBegin: ${stediResponse.body.planDateInformation.planBegin}
+              - planBegin: ${responseBody.planDateInformation.planBegin}
           - condition: true
             assign:
               - planBegin: ""
 
     - setPlanEndDate:
         switch:
-          - condition: ${hasPlanInfo and "planEnd" in stediResponse.body.planDateInformation}
+          - condition: ${hasPlanInfo and "planEnd" in responseBody.planDateInformation}
             assign:
-              - planEnd: ${stediResponse.body.planDateInformation.planEnd}
+              - planEnd: ${responseBody.planDateInformation.planEnd}
           - condition: true
             assign:
               - planEnd: ""
@@ -486,7 +523,7 @@ main:
                   try:
                     call: findEligibilityForServiceType
                     args:
-                      response: ${if(hasValidStediResponse, stediResponse.body, null)}
+                      response: ${if(hasValidStediResponse, responseBody, null)}
                       serviceTypeCode: ${serviceTypeCode}
                     result: eligibilityForType
                   except:
