@@ -1,0 +1,400 @@
+# ==================================================================
+#  Insurance Plan Creation Workflow (HubSpot)
+# ==================================================================
+
+main:
+  params: [request]
+
+  steps:
+    # ---------------------------------------------------------------
+    # 0. Load configuration & CORS headers
+    # ---------------------------------------------------------------
+    - setup:
+        assign:
+          - corsHeaders:
+              Access-Control-Allow-Origin: "*"
+              Access-Control-Allow-Methods: "POST, GET, OPTIONS"
+              Access-Control-Allow-Headers: "Content-Type, Authorization, X-Requested-With"
+              Access-Control-Allow-Credentials: "true"
+              Access-Control-Max-Age: "3600"
+              Content-Type: "application/json"
+          - rawData: ${request}
+          - parsedData: null
+          - actualPayload: null
+          - hubspotBaseUrl: "https://api.hubapi.com"
+          - hubspotAccessToken: ${if(sys.get_env("HUBSPOT_ACCESS_TOKEN") != null, sys.get_env("HUBSPOT_ACCESS_TOKEN"), "")}
+          - timestamp: ${sys.now()}
+          - timestampFormatted: ${text.split(timestamp, "T")[0]} # YYYY-MM-DD format
+          # Initialize variables for insurance plan
+          - insurancePlanObjectType: "2-39594776" # HubSpot custom object type ID for insurance plans
+
+    # ---------------------------------------------------------------
+    # 1. Validate token
+    # ---------------------------------------------------------------
+    - validateToken:
+        switch:
+          - condition: ${hubspotAccessToken == ""}
+            return:
+              statusCode: 500
+              headers: ${corsHeaders}
+              body:
+                success: false
+                error: "Missing HUBSPOT_ACCESS_TOKEN environment variable"
+                timestamp: ${timestamp}
+          - condition: true
+            next: parseJson
+
+    # ---------------------------------------------------------------
+    # 2. Parse JSON payload
+    # ---------------------------------------------------------------
+    - parseJson:
+        assign:
+          - parsedData: ${rawData}
+
+    # ---------------------------------------------------------------
+    # 3. If payload has nested "data" field → parse again
+    # ---------------------------------------------------------------
+    - resolveDataField:
+        switch:
+          - condition: ${parsedData != null and "data" in parsedData}
+            try:
+              assign:
+                - actualPayload: ${json.decode(parsedData.data)}
+            except:
+              assign:
+                - actualPayload: ${parsedData.data}
+          - condition: true
+            assign:
+              - actualPayload: ${parsedData}
+
+    # ---------------------------------------------------------------
+    # 4. Initialize variables from payload
+    # ---------------------------------------------------------------
+    - initializeVars:
+        assign:
+          # Extract basic info from payload
+          - customerEmail: ${if(actualPayload != null and "customerEmail" in actualPayload, actualPayload.customerEmail, "")}
+          - firstName: ${if(actualPayload != null and "firstName" in actualPayload, actualPayload.firstName, "")}
+          - lastName: ${if(actualPayload != null and "lastName" in actualPayload, actualPayload.lastName, "")}
+          - phoneNumber: ${if(actualPayload != null and "phoneNumber" in actualPayload, actualPayload.phoneNumber, "")}
+          - state: ${if(actualPayload != null and "state" in actualPayload, actualPayload.state, "")}
+          - insurance: ${if(actualPayload != null and "insurance" in actualPayload, actualPayload.insurance, "")}
+          - insuranceMemberId: ${if(actualPayload != null and "insuranceMemberId" in actualPayload, actualPayload.insuranceMemberId, "")}
+          - groupNumber: ${if(actualPayload != null and "groupNumber" in actualPayload, actualPayload.groupNumber, "")}
+          - dateOfBirth: ${if(actualPayload != null and "dateOfBirth" in actualPayload, actualPayload.dateOfBirth, "")}
+          # Extract contact ID from payload (passed from user creation workflow)
+          - hubspotContactId: ${if(actualPayload != null and "hubspotContactId" in actualPayload, actualPayload.hubspotContactId, "")}
+          # Extract eligibility data
+          - eligibilityDataRaw: ${if(actualPayload != null and "eligibilityData" in actualPayload, actualPayload.eligibilityData, null)}
+          # Extract Stedi API response if available
+          - stediResponse: ${if(actualPayload != null and "stediResponse" in actualPayload, actualPayload.stediResponse, null)}
+          # Extract telemedicine categories
+          - mainReasons: ${if(actualPayload != null and "mainReasons" in actualPayload, actualPayload.mainReasons, [])}
+          - medicalConditions: ${if(actualPayload != null and "medicalConditions" in actualPayload, actualPayload.medicalConditions, [])}
+
+    # ---------------------------------------------------------------
+    # 5. Process eligibility data
+    # ---------------------------------------------------------------
+    - processEligibilityData:
+        assign:
+          # Extract eligibility fields with safe defaults
+          - isEligible: ${if(eligibilityDataRaw != null and "isEligible" in eligibilityDataRaw, eligibilityDataRaw.isEligible, false)}
+          - sessionsCovered: ${if(eligibilityDataRaw != null and "sessionsCovered" in eligibilityDataRaw, eligibilityDataRaw.sessionsCovered, 0)}
+          - eligibilityStatus: ${if(eligibilityDataRaw != null and "eligibilityStatus" in eligibilityDataRaw, eligibilityDataRaw.eligibilityStatus, "UNKNOWN")}
+          - copay: ${if(eligibilityDataRaw != null and "copay" in eligibilityDataRaw, eligibilityDataRaw.copay, 0)}
+          - planBegin: ${if(eligibilityDataRaw != null and "planBegin" in eligibilityDataRaw, eligibilityDataRaw.planBegin, "")}
+          - planEnd: ${if(eligibilityDataRaw != null and "planEnd" in eligibilityDataRaw, eligibilityDataRaw.planEnd, "")}
+          - deductible: ${if(eligibilityDataRaw != null and "deductible" in eligibilityDataRaw and eligibilityDataRaw.deductible != null and "individual" in eligibilityDataRaw.deductible, eligibilityDataRaw.deductible.individual, 0)}
+
+    # ---------------------------------------------------------------
+    # 6. Format dates
+    # ---------------------------------------------------------------
+    - formatDates:
+        assign:
+          # Convert YYYYMMDD to MM/DD/YYYY for HubSpot
+          - formBirthdayFormatted: ${if(len(dateOfBirth) == 8, text.substring(dateOfBirth, 4, 6) + "/" + text.substring(dateOfBirth, 6, 8) + "/" + text.substring(dateOfBirth, 0, 4), dateOfBirth)}
+          # Convert plan dates from YYYYMMDD to MM/DD/YYYY
+          - coverageStartFormatted: ${if(len(planBegin) == 8, text.substring(planBegin, 4, 6) + "/" + text.substring(planBegin, 6, 8) + "/" + text.substring(planBegin, 0, 4), planBegin)}
+          - coverageEndFormatted: ${if(len(planEnd) == 8, text.substring(planEnd, 4, 6) + "/" + text.substring(planEnd, 6, 8) + "/" + text.substring(planEnd, 0, 4), planEnd)}
+
+    # ---------------------------------------------------------------
+    # 7. Process telemedicine categories
+    # ---------------------------------------------------------------
+    - processCategories:
+        assign:
+          # Convert arrays to strings
+          - primaryCategoryText: ${if(len(mainReasons) > 0, mainReasons[0], "")}
+          - secondaryCategoriesText: ${if(len(medicalConditions) > 0, string(medicalConditions), "")}
+
+    # ---------------------------------------------------------------
+    # 8. Extract Stedi API response data (if available)
+    # ---------------------------------------------------------------
+    - extractStediData:
+        assign:
+          # Initialize with defaults
+          - subscriberData: ${if(stediResponse != null and "subscriber" in stediResponse, stediResponse.subscriber, null)}
+          - planInformation: ${if(stediResponse != null and "planInformation" in stediResponse, stediResponse.planInformation, null)}
+          - planStatus: ${if(stediResponse != null and "planStatus" in stediResponse, stediResponse.planStatus, null)}
+          - benefitsInformation: ${if(stediResponse != null and "benefitsInformation" in stediResponse, stediResponse.benefitsInformation, [])}
+          # Extract subscriber details
+          - subscriberMiddleName: ${if(subscriberData != null and "middleName" in subscriberData, subscriberData.middleName, "")}
+          - subscriberGender: ${if(subscriberData != null and "gender" in subscriberData, subscriberData.gender, "")}
+          - subscriberAddress: ${if(subscriberData != null and "address" in subscriberData and subscriberData.address != null and "address1" in subscriberData.address, subscriberData.address.address1, "")}
+          - subscriberCity: ${if(subscriberData != null and "address" in subscriberData and subscriberData.address != null and "city" in subscriberData.address, subscriberData.address.city, "")}
+          - subscriberState: ${if(subscriberData != null and "address" in subscriberData and subscriberData.address != null and "state" in subscriberData.address, subscriberData.address.state, state)}
+          - subscriberZip: ${if(subscriberData != null and "address" in subscriberData and subscriberData.address != null and "postalCode" in subscriberData.address, subscriberData.address.postalCode, "")}
+          # Extract plan details
+          - planName: ${if(planInformation != null and "groupDescription" in planInformation, planInformation.groupDescription, "")}
+          - planGroupId: ${if(planInformation != null and "groupNumber" in planInformation, planInformation.groupNumber, groupNumber)}
+          - planSubtype: ${if(planStatus != null and "planDetails" in planStatus, planStatus.planDetails, "")}
+          - coverageStatus: ${if(planStatus != null and "status" in planStatus, planStatus.status, "Unknown")}
+          - serviceTypeCodes: ${if(planStatus != null and "serviceTypeCodes" in planStatus, string(planStatus.serviceTypeCodes), "")}
+
+    # ---------------------------------------------------------------
+    # 9. Create unique insurance plan ID
+    # ---------------------------------------------------------------
+    - createInsurancePlanId:
+        assign:
+          # Create unique ID: memberID_planID_timestamp
+          - insurancePlanId: ${insuranceMemberId + "_" + insurance + "_" + string(int(double(sys.now() * 1000)))}
+
+    # ---------------------------------------------------------------
+    # 10. Build HubSpot insurance plan payload
+    # ---------------------------------------------------------------
+    - buildInsurancePlanPayload:
+        assign:
+          - insurancePlanPayload:
+              properties:
+                # Primary identifier
+                insurance_plan_id: ${insurancePlanId}
+
+                # Eligibility fields from current check
+                initial_eligibility: ${string(isEligible)}
+                initial_eligibility_expiration_date: ${coverageEndFormatted}
+                initial_eligibility_co_pay: ${string(copay)}
+                initial_eligibility_co_pay_type: "amount" # Default to amount
+                initial_checked_at: ${timestampFormatted}
+
+                # Last eligibility (same as initial for first time)
+                last_eligibility: ${string(isEligible)}
+                last_eligibility_expiration_date: ${coverageEndFormatted}
+                last_eligibility_co_pay: ${string(copay)}
+                last_eligibility_co_pay_type: "amount"
+                last_checked_at: ${timestampFormatted}
+
+                # Form data fields
+                form_insurance_plan: ${insurance}
+                form_member_id: ${insuranceMemberId}
+                form_state: ${state}
+                form_birthday: ${formBirthdayFormatted}
+                form_first_name: ${firstName}
+                form_last_name: ${lastName}
+                full_name: ${firstName + " " + lastName}
+                email: ${customerEmail}
+
+                # Insurance API fields
+                first_name: ${firstName}
+                last_name: ${lastName}
+                middle_name: ${subscriberMiddleName}
+                date_of_birth: ${formBirthdayFormatted}
+                gender: ${subscriberGender}
+                member_id: ${insuranceMemberId}
+                subscriber_group_id: ${groupNumber}
+                street_address: ${subscriberAddress}
+                city: ${subscriberCity}
+                state: ${subscriberState}
+                zip_code: ${subscriberZip}
+
+                # Coverage dates
+                coverage_start_date: ${coverageStartFormatted}
+                coverage_end_date: ${coverageEndFormatted}
+                initial_eligibility_date: ${coverageStartFormatted}
+
+                # Plan information
+                coverage_status: ${coverageStatus}
+                plan_subtype: ${planSubtype}
+                plan_stc_codes: ${serviceTypeCodes}
+                plan_name: ${planName}
+                plan_group_id: ${planGroupId}
+
+                # Benefits information (simplified for now)
+                benefit_category: "Dietitian Services"
+                coverage_level: "Individual"
+                in_network_indicator: ${if(isEligible, "Yes", "No")}
+                benefit_service_types: "Nutrition Counseling"
+                benefit_amount: ${string(copay)}
+                coinsurance_percentage: "0" # Default
+                visits_remaining: ${string(sessionsCovered)}
+                benefit_period: "Service Year"
+                prior_auth_required_: "N" # Default
+                plan_coverage_tier: "Standard" # Default
+                place_of_service_code: "02" # Telehealth
+
+                # Telemedicine categories
+                telemedicine_primary_category: ${primaryCategoryText}
+                telemedicine_secondary_category: ${secondaryCategoriesText}
+
+    # ---------------------------------------------------------------
+    # 11. Create insurance plan in HubSpot
+    # ---------------------------------------------------------------
+    - createInsurancePlan:
+        try:
+          call: http.post
+          args:
+            url: ${hubspotBaseUrl + "/crm/v3/objects/" + insurancePlanObjectType}
+            headers:
+              Authorization: '${"Bearer " + hubspotAccessToken}'
+              Content-Type: "application/json"
+            body: ${insurancePlanPayload}
+          result: insurancePlanResponse
+        except:
+          as: e
+          steps:
+            - assignErrorToResponse:
+                assign:
+                  - insurancePlanResponse: ${e}
+        next: checkInsurancePlanResponse
+
+    # ---------------------------------------------------------------
+    # 12. Check response and handle errors
+    # ---------------------------------------------------------------
+    - checkInsurancePlanResponse:
+        switch:
+          # Success case
+          - condition: ${insurancePlanResponse.code >= 200 and insurancePlanResponse.code < 300}
+            assign:
+              - insurancePlanObjectId: ${insurancePlanResponse.body.id}
+            next: associateWithContact
+          # Conflict (409) - Insurance plan already exists
+          - condition: ${insurancePlanResponse.code == 409}
+            next: searchExistingInsurancePlan
+          # Other errors
+          - condition: true
+            next: insurancePlanError
+
+    # ---------------------------------------------------------------
+    # 13. Search for existing insurance plan (if 409 conflict)
+    # ---------------------------------------------------------------
+    - searchExistingInsurancePlan:
+        call: http.post
+        args:
+          url: ${hubspotBaseUrl + "/crm/v3/objects/" + insurancePlanObjectType + "/search"}
+          headers:
+            Authorization: '${"Bearer " + hubspotAccessToken}'
+            Content-Type: "application/json"
+          body:
+            filterGroups:
+              - filters:
+                  - propertyName: "insurance_plan_id"
+                    operator: "EQ"
+                    value: ${insurancePlanId}
+        result: searchResp
+
+    - handleExistingPlan:
+        switch:
+          - condition: ${searchResp.code >= 200 and searchResp.code < 300 and "body" in searchResp and "results" in searchResp.body and len(searchResp.body.results) > 0}
+            assign:
+              - insurancePlanObjectId: ${searchResp.body.results[0].id}
+            next: updateExistingInsurancePlan
+          - condition: true
+            # Fallback: create with modified ID
+            assign:
+              - insurancePlanId: ${insurancePlanId + "_" + string(int(double(sys.now() * 1000000)))}
+              - insurancePlanPayload:
+                  properties: ${insurancePlanPayload.properties}
+            next: retryCreateInsurancePlan
+
+    # ---------------------------------------------------------------
+    # 14. Update existing insurance plan
+    # ---------------------------------------------------------------
+    - updateExistingInsurancePlan:
+        call: http.patch
+        args:
+          url: ${hubspotBaseUrl + "/crm/v3/objects/" + insurancePlanObjectType + "/" + insurancePlanObjectId}
+          headers:
+            Authorization: '${"Bearer " + hubspotAccessToken}'
+            Content-Type: "application/json"
+          body:
+            properties:
+              # Update last eligibility fields
+              last_eligibility: ${string(isEligible)}
+              last_eligibility_expiration_date: ${coverageEndFormatted}
+              last_eligibility_co_pay: ${string(copay)}
+              last_eligibility_co_pay_type: "amount"
+              last_checked_at: ${timestampFormatted}
+        result: updateResp
+        next: associateWithContact
+
+    # ---------------------------------------------------------------
+    # 15. Retry creating insurance plan with modified ID
+    # ---------------------------------------------------------------
+    - retryCreateInsurancePlan:
+        call: http.post
+        args:
+          url: ${hubspotBaseUrl + "/crm/v3/objects/" + insurancePlanObjectType}
+          headers:
+            Authorization: '${"Bearer " + hubspotAccessToken}'
+            Content-Type: "application/json"
+          body: ${insurancePlanPayload}
+        result: retryResponse
+        next: checkRetryResponse
+
+    - checkRetryResponse:
+        switch:
+          - condition: ${retryResponse.code >= 200 and retryResponse.code < 300}
+            assign:
+              - insurancePlanObjectId: ${retryResponse.body.id}
+            next: associateWithContact
+          - condition: true
+            next: insurancePlanError
+
+    # ---------------------------------------------------------------
+    # 16. Associate insurance plan with contact
+    # ---------------------------------------------------------------
+    - associateWithContact:
+        switch:
+          - condition: ${hubspotContactId != ""}
+            try:
+              call: http.put
+              args:
+                url: ${hubspotBaseUrl + "/crm/v3/objects/" + insurancePlanObjectType + "/" + insurancePlanObjectId + "/associations/contacts/" + hubspotContactId + "/insurance_plan_to_contact"}
+                headers:
+                  Authorization: '${"Bearer " + hubspotAccessToken}'
+                  Content-Type: "application/json"
+              result: associationResp
+            except:
+              as: e
+              assign:
+                - associationResp: ${e}
+            next: returnSuccess
+          - condition: true
+            next: returnSuccess
+
+    # ---------------------------------------------------------------
+    # 17. Return success response
+    # ---------------------------------------------------------------
+    - returnSuccess:
+        return:
+          statusCode: 200
+          headers: ${corsHeaders}
+          body:
+            success: true
+            insurancePlanId: ${insurancePlanId}
+            insurancePlanObjectId: ${insurancePlanObjectId}
+            hubspotContactId: ${hubspotContactId}
+            eligibilityStatus: ${eligibilityStatus}
+            isEligible: ${isEligible}
+            timestamp: ${timestamp}
+
+    # ---------------------------------------------------------------
+    # 18. Error handlers
+    # ---------------------------------------------------------------
+    - insurancePlanError:
+        return:
+          statusCode: 500
+          headers: ${corsHeaders}
+          body:
+            success: false
+            error: ${if(insurancePlanResponse.body != null and "message" in insurancePlanResponse.body, insurancePlanResponse.body.message, "Unknown HubSpot error creating insurance plan")}
+            statusCode: ${if(insurancePlanResponse.code != null, insurancePlanResponse.code, 500)}
+            timestamp: ${timestamp}

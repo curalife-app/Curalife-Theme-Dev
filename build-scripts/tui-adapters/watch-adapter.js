@@ -185,7 +185,7 @@ class TUIWatchAdapter extends EventEmitter {
 			// Parse stdout for watch information
 			watchProcess.stdout.on("data", data => {
 				const output = data.toString();
-				console.log(`[DEBUG] Raw stdout received: ${output.slice(0, 200)}...`); // Log first 200 chars
+
 				// Only parse for TUI data in TUI mode, show clean output otherwise
 				if (this.isTUIMode) {
 					this.parseWatchOutput(output);
@@ -197,7 +197,7 @@ class TUIWatchAdapter extends EventEmitter {
 			// Parse stderr for errors
 			watchProcess.stderr.on("data", data => {
 				const output = data.toString();
-				console.log(`[DEBUG] Raw stderr received: ${output.slice(0, 200)}...`); // Log first 200 chars
+
 				if (this.isTUIMode) {
 					this.parseWatchError(output);
 				} else {
@@ -286,28 +286,6 @@ class TUIWatchAdapter extends EventEmitter {
 		// Remove ANSI codes for parsing
 		const cleanOutput = output.replace(/\x1b\[[0-9;]*m/g, "");
 
-		// Debug: Log all output to see what we're getting (ALWAYS log in debug mode)
-		if (cleanOutput.trim()) {
-			const lines = cleanOutput.split("\n").filter(line => line.trim().length > 5);
-			for (const line of lines) {
-				// Always log significant lines so we can see what's happening (write to stderr so it's always visible)
-				console.error(`[DEBUG] Watch output: ${line.trim()}`);
-
-				// Enhanced debugging for file change detection - log ALL lines to see what we're missing
-				console.error(`[DEBUG] Testing line for file change: "${line.trim()}"`);
-
-				if (this.isTUIMode) {
-					this.outputLog("debug", `Watch output: ${line.trim()}`, "watch");
-				}
-
-				// Enhanced debugging for file count detection
-				if (line.toLowerCase().includes("watch") || line.toLowerCase().includes("file") || /\d+/.test(line)) {
-					console.error(`[DEBUG] Potential file count line: ${line.trim()}`);
-					this.outputLog("debug", `Potential file count line: ${line.trim()}`, "watch");
-				}
-			}
-		}
-
 		// Look for file watching status - enhanced patterns for Shopify CLI and Vite
 		const watchingPatterns = [
 			/watching\s+(\d+)\s+files?/i,
@@ -332,12 +310,9 @@ class TUIWatchAdapter extends EventEmitter {
 			const match = cleanOutput.match(pattern);
 			if (match) {
 				const count = parseInt(match[1]);
-				console.error(`[DEBUG] Pattern matched: ${pattern.source} -> count: ${count}`);
 				if (count > 0 && count < 100000) {
 					// Sanity check
 					this.stats.filesWatched = count;
-					console.error(`[DEBUG] Files watched count updated to: ${this.stats.filesWatched}`);
-					this.outputLog("info", `Files watched count updated: ${this.stats.filesWatched}`, "watch");
 					this.outputWatchStatus();
 					break;
 				}
@@ -349,9 +324,7 @@ class TUIWatchAdapter extends EventEmitter {
 			const timeElapsed = Date.now() - this.startTime;
 			if (timeElapsed > 10000) {
 				// After 10 seconds
-				console.error(`[DEBUG] Fallback: Setting estimated file count`);
 				this.stats.filesWatched = 150; // Reasonable estimate for a theme project
-				this.outputLog("info", `Estimated files watched: ${this.stats.filesWatched}`, "watch");
 				this.outputWatchStatus();
 			}
 		}
@@ -359,25 +332,17 @@ class TUIWatchAdapter extends EventEmitter {
 		// Look for URLs (Shopify development) - enhanced detection with aggressive patterns
 		const urlMatches = cleanOutput.match(/https?:\/\/[^\s\n\r\t]+/g);
 		if (urlMatches) {
-			console.error(`[DEBUG] Found URL matches: ${urlMatches.join(", ")}`);
-			this.outputLog("debug", `Found URL matches: ${urlMatches.join(", ")}`, "watch");
 			for (const url of urlMatches) {
 				// Clean up URLs (remove trailing punctuation)
 				const cleanUrl = url.replace(/[.,;!?]+$/, "");
-				console.error(`[DEBUG] Processing URL: ${cleanUrl}`);
 
 				if (cleanUrl.includes("127.0.0.1") || cleanUrl.includes("localhost")) {
 					this.stats.shopifyUrl = cleanUrl;
-					console.error(`[DEBUG] Shopify local URL set: ${cleanUrl}`);
 					this.outputClean(`Local development server: ${cleanUrl}`, "success");
-					this.outputLog("info", `Shopify local URL detected: ${cleanUrl}`, "watch");
 				} else if (cleanUrl.includes("myshopify.com")) {
-					console.error(`[DEBUG] Shopify domain URL found: ${cleanUrl}`);
 					if (cleanUrl.includes("preview_theme_id")) {
 						this.stats.previewUrl = cleanUrl;
-						console.error(`[DEBUG] Shopify preview URL set: ${cleanUrl}`);
 						this.outputClean(`Store preview: ${cleanUrl}`, "success");
-						this.outputLog("info", `Shopify preview URL detected: ${cleanUrl}`, "watch");
 					}
 				}
 			}
@@ -412,19 +377,13 @@ class TUIWatchAdapter extends EventEmitter {
 		for (const { pattern, type } of shopifyPatterns) {
 			const match = cleanOutput.match(pattern);
 			if (match) {
-				console.error(`[DEBUG] Shopify pattern matched (${type}): ${pattern.source}`);
 				const rawUrl = match[1] || match[0]; // Some patterns might not have capture groups
 				const cleanUrl = rawUrl.replace(/[.,;!?│┃]+$/, ""); // Also remove box drawing chars
-				console.error(`[DEBUG] Extracted URL: ${cleanUrl}`);
 
 				if (type === "local" || (type === "auto" && (cleanUrl.includes("127.0.0.1") || cleanUrl.includes("localhost")))) {
 					this.stats.shopifyUrl = cleanUrl;
-					console.error(`[DEBUG] Set shopifyUrl: ${this.stats.shopifyUrl}`);
-					this.outputLog("info", `Shopify URL from ${type} pattern: ${this.stats.shopifyUrl}`, "watch");
 				} else if (type === "preview" || (type === "auto" && cleanUrl.includes("myshopify.com"))) {
 					this.stats.previewUrl = cleanUrl;
-					console.error(`[DEBUG] Set previewUrl: ${this.stats.previewUrl}`);
-					this.outputLog("info", `Preview URL from ${type} pattern: ${this.stats.previewUrl}`, "watch");
 				}
 				this.outputWatchStatus();
 			}
@@ -497,56 +456,32 @@ class TUIWatchAdapter extends EventEmitter {
 			/(?:update|change|sync|upload).*\w+\.(liquid|js|css|json)/i
 		];
 
-		// Debug every line to see what we're missing
-		const lines = cleanOutput.split("\n").filter(line => line.trim().length > 0);
-		for (const line of lines) {
-			console.error(`[DEBUG] Analyzing line for changes: "${line.trim()}"`);
-
-			// Test for any URLs in this line
-			const urlTest = line.match(/https?:\/\/[^\s]+/g);
-			if (urlTest) {
-				console.error(`[DEBUG] *** URL FOUND IN LINE: ${urlTest.join(", ")} ***`);
-			}
-		}
-
 		let matchedPattern = null;
 		let hasChange = false;
 
 		// Only check for file changes if this is NOT a status message
 		if (!isStatusMessage) {
-			// Test each pattern and show which ones are being tested
 			for (const pattern of changePatterns) {
-				const matches = pattern.test(cleanOutput);
-				console.error(`[DEBUG] Testing pattern: ${pattern.source} - Match: ${matches}`);
-				if (matches) {
+				if (pattern.test(cleanOutput)) {
 					hasChange = true;
 					matchedPattern = pattern.source;
-					console.error(`[DEBUG] *** FILE CHANGE PATTERN MATCHED: ${pattern.source} ***`);
 					break;
 				}
 			}
-		} else {
-			console.error(`[DEBUG] Excluded as status message: "${cleanOutput.split("\n")[0]}"`);
 		}
-
-		console.error(`[DEBUG] File change detection - hasChange: ${hasChange}, matched pattern: ${matchedPattern}, isStatusMessage: ${isStatusMessage}`);
 
 		// Look for cached files count as a better indicator of total files
 		const cachedMatch = cleanOutput.match(/(\d+)\s+cached/i);
 		if (cachedMatch && this.stats.filesWatched === 0) {
 			const count = parseInt(cachedMatch[1]);
-			console.error(`[DEBUG] Found cached files count: ${count}`);
 			if (count > 10 && count < 10000) {
 				// Use cached files + 1 as estimate of total files being watched
 				this.stats.filesWatched = count + 1;
-				console.error(`[DEBUG] Files watched updated from cached count: ${this.stats.filesWatched}`);
-				this.outputLog("info", `Files watched estimated from cache: ${this.stats.filesWatched}`, "watch");
 				this.outputWatchStatus();
 			}
 		}
 
 		if (hasChange) {
-			console.error(`[DEBUG] File change detected! Processing...`);
 			this.stats.changeCount++;
 			this.stats.lastChangeAt = Date.now();
 			this.stats.hotReloads++;
@@ -849,7 +784,6 @@ class TUIWatchAdapter extends EventEmitter {
 		// Send periodic status updates every 2 seconds to keep TUI responsive
 		this.statusUpdateInterval = setInterval(() => {
 			if (this.isTUIMode) {
-				console.error(`[DEBUG] Periodic update - Changes: ${this.stats.changeCount}, Hot reloads: ${this.stats.hotReloads}`);
 				this.outputWatchStatus();
 			}
 		}, 2000); // Faster updates for better responsiveness

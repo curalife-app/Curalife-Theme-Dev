@@ -69,13 +69,23 @@ const optimizedCopyFiles = async (progressTracker, cache, perf, analyzer) => {
 
 		for (const file of files) {
 			const fullPath = path.join(SRC_DIR, file);
-			if (cache.hasChanged(fullPath)) {
+			const { destPath } = getDestination(fullPath);
+
+			if (cache.hasChanged(fullPath, destPath)) {
 				filesToCopy.push(fullPath);
 				analyzer.analyzeFile(fullPath);
 			} else {
 				skippedFiles.push(fullPath);
 				stats.cacheHits++;
 			}
+		}
+
+		// Debug logging
+		if (isDebugMode) {
+			console.log(`📊 File analysis complete:`);
+			console.log(`   - Total files found: ${files.length}`);
+			console.log(`   - Files to copy: ${filesToCopy.length}`);
+			console.log(`   - Files skipped (cached): ${skippedFiles.length}`);
 		}
 
 		if (skippedFiles.length > 0) {
@@ -95,9 +105,17 @@ const optimizedCopyFiles = async (progressTracker, cache, perf, analyzer) => {
 			return true;
 		}
 
+		if (isDebugMode) {
+			console.log(`🔄 Starting copy operation for ${filesToCopy.length} files...`);
+		}
+
 		// Use parallel processing for large batches
 		const processor = new ParallelFileProcessor();
 		const progressBar = new OptimizedProgressTracker("build");
+
+		if (isDebugMode) {
+			console.log(`🔄 Using ParallelFileProcessor for ${filesToCopy.length} files...`);
+		}
 
 		const copyOperation = async filePath => {
 			const { destPath, destFolder } = getDestination(filePath);
@@ -114,13 +132,42 @@ const optimizedCopyFiles = async (progressTracker, cache, perf, analyzer) => {
 			progressBar.update(current, total, "Copying files...");
 		};
 
-		// Process files with parallel operations
-		const results = await processor.processFiles(filesToCopy, copyOperation, progressCallback);
+		// Process files - force sequential processing as workaround for parallel processor bug
+		if (isDebugMode) {
+			console.log(`🔄 About to process ${filesToCopy.length} files (using sequential processing)...`);
+		}
+
+		// Use sequential processing as workaround since parallel processor is broken
+		const results = [];
+		for (let i = 0; i < filesToCopy.length; i++) {
+			try {
+				const result = await copyOperation(filesToCopy[i]);
+				results.push({ success: true, file: filesToCopy[i], result });
+				if (progressCallback) progressCallback(i + 1, filesToCopy.length);
+			} catch (error) {
+				results.push({ success: false, file: filesToCopy[i], error: error.message });
+			}
+		}
+
+		if (isDebugMode) {
+			console.log(`🔄 Received ${results.length} results from sequential processing`);
+		}
 
 		// Count successful operations
 		const successful = results.filter(r => r.success && r.result.copied);
+		const failed = results.filter(r => !r.success);
+		const noDest = results.filter(r => r.success && !r.result.copied && r.result.reason === "no-destination");
+
 		stats.filesCopied = successful.length;
-		stats.errors += results.filter(r => !r.success).length;
+		stats.errors += failed.length;
+
+		if (isDebugMode) {
+			console.log(`📊 Copy operation results:`);
+			console.log(`   - Successful copies: ${successful.length}`);
+			console.log(`   - Failed copies: ${failed.length}`);
+			console.log(`   - No destination: ${noDest.length}`);
+			console.log(`   - Total results: ${results.length}`);
+		}
 
 		// Final progress update
 		progressBar.update(filesToCopy.length, filesToCopy.length, "Complete!");

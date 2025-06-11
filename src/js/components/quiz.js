@@ -290,6 +290,706 @@ class ModularQuiz {
 		setTimeout(() => indicator.remove(), 5000);
 	}
 
+	// HIPAA COMPLIANCE: This method has been removed to prevent PHI data from being sent directly to eligibility workflow from browser
+	// Eligibility checking is now handled server-side within the user creation workflow
+	_triggerEligibilityWorkflow() {
+		console.warn("⚠️ HIPAA COMPLIANCE: Direct eligibility workflow calls from browser are disabled. Eligibility will be checked server-side.");
+		// Show user-friendly notification
+		this._showBackgroundProcessNotification("🔒 Insurance verification will be processed securely server-side", "info");
+	}
+
+	async finishQuiz() {
+		const resultUrl = this.container.getAttribute("data-result-url") || this.container.getAttribute("data-booking-url") || "/quiz-complete";
+
+		try {
+			this.submitting = true;
+			this.nextButton.disabled = true;
+
+			this._toggleElement(this.navigationButtons, false);
+			this._toggleElement(this.progressSection, false);
+
+			// Start the comprehensive loading sequence
+			await this._showComprehensiveLoadingSequence();
+
+			// Check if eligibility workflow is complete
+			let eligibilityResult = null;
+			if (this.eligibilityWorkflowPromise) {
+				if (this.eligibilityWorkflowResult) {
+					// Already completed
+					eligibilityResult = this.eligibilityWorkflowResult;
+					console.log("Using cached eligibility result:", eligibilityResult);
+				} else {
+					// Still running - wait for it
+					try {
+						eligibilityResult = await this.eligibilityWorkflowPromise;
+						console.log("Waited for eligibility result:", eligibilityResult);
+					} catch (error) {
+						console.error("Eligibility workflow failed:", error);
+						eligibilityResult = this._createErrorEligibilityData("Eligibility check failed");
+					}
+				}
+			} else {
+				// No eligibility check was triggered - use default processing status
+				eligibilityResult = this._createProcessingEligibilityData();
+				console.log("No eligibility workflow, using processing status");
+			}
+
+			// Process the result consistently
+			let finalResult;
+			if (eligibilityResult) {
+				// Check if this is already processed eligibility data or a raw webhook response
+				if (eligibilityResult.eligibilityStatus && typeof eligibilityResult.eligibilityStatus === "string") {
+					// This is already processed eligibility data - use it directly
+					finalResult = eligibilityResult;
+					console.log("Using eligibility result directly (already processed):", finalResult);
+				} else {
+					// This is a raw webhook response - process it
+					finalResult = this._processWebhookResult(eligibilityResult);
+					console.log("Processed webhook result:", finalResult);
+				}
+			} else {
+				// No eligibility check was run - use default processing status
+				finalResult = this._createProcessingEligibilityData();
+				console.log("No eligibility result, using processing status");
+			}
+
+			console.log("Processing eligibility result in finishQuiz:", {
+				eligibilityResult: finalResult,
+				hasError: !!finalResult?.error,
+				status: finalResult?.eligibilityStatus,
+				isEligible: finalResult?.isEligible
+			});
+
+			// Test mode comprehensive finish notification
+			if (this.isTestMode) {
+				const workflowStatus = this.eligibilityWorkflowPromise ? (this.eligibilityWorkflowResult ? "✅ Completed" : "⏳ In Progress") : "❌ Not Started";
+
+				const userCreationStatus = this.userCreationWorkflowPromise ? "✅ Started" : "❌ Not Started";
+
+				this._showBackgroundProcessNotification(
+					`
+					🧪 TEST MODE - Quiz Completion Status<br>
+					• Eligibility Workflow: ${workflowStatus}<br>
+					• User Creation: ${userCreationStatus}<br>
+					• Final Status: ${finalResult?.eligibilityStatus || "Unknown"}<br>
+					• Is Eligible: ${finalResult?.isEligible}<br>
+					• Result URL: ${resultUrl}<br>
+					• Total Responses: ${this.responses?.length || 0}
+				`,
+					"info"
+				);
+			}
+
+			console.log("Showing results with data:", {
+				resultData: finalResult,
+				eligibilityStatus: finalResult?.eligibilityStatus,
+				webhookSuccess: true
+			});
+
+			this.showResults(resultUrl, true, finalResult);
+		} catch (error) {
+			console.error("Error finishing quiz:", error);
+
+			// Test mode error notification
+			if (this.isTestMode) {
+				this._showBackgroundProcessNotification(
+					`
+					🧪 TEST MODE - Quiz Finish Error<br>
+					❌ ${error.message}<br>
+					• Check console for details
+				`,
+					"error"
+				);
+			}
+
+			this.showResults(resultUrl, false, null, error.message);
+		}
+	}
+
+	// Comprehensive loading sequence with animated status updates
+	async _showComprehensiveLoadingSequence() {
+		// Show the loading screen with progress steps
+		this._showLoadingScreen();
+
+		const loadingSteps = [
+			{ title: "Processing Your Answers", description: "Analyzing your health information..." },
+			{ title: "Checking Insurance Coverage", description: "Verifying your benefits..." },
+			{ title: "Finding Your Dietitian", description: "Matching you with the right expert..." },
+			{ title: "Preparing Your Results", description: "Finalizing your personalized plan..." }
+		];
+
+		for (let i = 0; i < loadingSteps.length; i++) {
+			const step = loadingSteps[i];
+			this._updateLoadingStep(step);
+
+			// Wait between steps for realistic loading feel
+			await new Promise(resolve => setTimeout(resolve, 900));
+		}
+
+		// Final completion step
+		this._updateLoadingStep({ title: "Almost Ready!", description: "Preparing your personalized results..." });
+
+		// Final wait before showing results
+		await new Promise(resolve => setTimeout(resolve, 800));
+	}
+
+	_showLoadingScreen() {
+		// Hide quiz content and show loading screen
+		this._toggleElement(this.questions, false);
+		this._toggleElement(this.results, false);
+		this._toggleElement(this.error, false);
+
+		// Show loading container (using the correct property name 'loading')
+		if (this.loading) {
+			this.loading.innerHTML = `
+				<div class="quiz-comprehensive-loading">
+					<div class="quiz-loading-content">
+						<div class="quiz-loading-icon">
+							<div class="quiz-loading-spinner-large"></div>
+						</div>
+						<div class="quiz-loading-step">
+							<h3 class="quiz-loading-step-title">Starting...</h3>
+							<p class="quiz-loading-step-description">Preparing to process your information</p>
+						</div>
+					</div>
+				</div>
+			`;
+			this._toggleElement(this.loading, true);
+		} else {
+			// Fallback: update next button
+			this.nextButton.innerHTML = `<div class="quiz-spinner"></div>Processing...`;
+		}
+	}
+
+	_updateLoadingStep(step) {
+		const titleElement = document.querySelector(".quiz-loading-step-title");
+		const descriptionElement = document.querySelector(".quiz-loading-step-description");
+
+		if (titleElement && descriptionElement) {
+			// Animate out
+			titleElement.style.opacity = "0";
+			descriptionElement.style.opacity = "0";
+
+			setTimeout(() => {
+				// Update content
+				titleElement.textContent = step.title;
+				descriptionElement.textContent = step.description;
+
+				// Animate in
+				titleElement.style.opacity = "1";
+				descriptionElement.style.opacity = "1";
+			}, 300);
+		}
+	}
+
+	_triggerUserCreationWorkflow() {
+		try {
+			// HIPAA COMPLIANT: Start orchestrator workflow with status tracking
+			console.log("🔒 Starting HIPAA-compliant orchestrator workflow with status tracking");
+
+			// Store the orchestrator promise so finishQuiz can wait for it
+			this.orchestratorWorkflowPromise = this._startOrchestratorWorkflow();
+
+			return this.orchestratorWorkflowPromise;
+		} catch (error) {
+			console.error("Failed to trigger orchestrator workflow:", error);
+			throw error;
+		}
+	}
+
+	// =======================================================================
+	// Orchestrator Workflow Methods (HIPAA Compliant)
+	// =======================================================================
+
+	/**
+	 * Starts the orchestrator workflow (simplified version)
+	 * This method triggers the orchestrator cloud function which coordinates
+	 * all workflows while maintaining HIPAA compliance.
+	 */
+	_startOrchestratorWorkflow() {
+		const orchestratorUrl = this._getOrchestratorUrl();
+		const payload = this._extractResponseData();
+
+		console.log("🚀 Starting orchestrator workflow...", { orchestratorUrl, payload });
+
+		// Return the promise so finishQuiz can wait for completion
+		const orchestratorPromise = this._submitOrchestratorToWebhook(orchestratorUrl, payload)
+			.then(result => {
+				console.log("✅ Orchestrator workflow completed:", result);
+				this.orchestratorWorkflowResult = result;
+				return result;
+			})
+			.catch(error => {
+				console.error("❌ Orchestrator workflow failed:", error);
+				this.orchestratorWorkflowError = error;
+				throw error;
+			});
+
+		// Start status polling if we have a statusTrackingId
+		if (payload.statusTrackingId || this.statusTrackingId) {
+			const trackingId = payload.statusTrackingId || this.statusTrackingId;
+			this._startStatusPolling(trackingId);
+		}
+
+		return orchestratorPromise;
+	}
+
+	/**
+	 * Handles successful workflow completion
+	 */
+	_handleWorkflowCompletion(result) {
+		console.log("Processing workflow completion result:", result);
+
+		// Stop loading messages
+		this._stopLoadingMessages();
+
+		// Show results based on the orchestrator response
+		if (result && result.success) {
+			const resultData = result.data || result;
+			this.showResults(
+				this.config.resultUrl,
+				true, // webhookSuccess
+				resultData,
+				result.message || "Account creation completed successfully!"
+			);
+		} else {
+			this.showResults(
+				this.config.resultUrl,
+				false, // webhookSuccess
+				null,
+				result.error || "There was an error processing your request."
+			);
+		}
+	}
+
+	/**
+	 * Handles workflow errors
+	 */
+	_handleWorkflowError(error) {
+		console.error("Handling workflow error:", error);
+
+		// Stop loading messages and status polling
+		this._stopLoadingMessages();
+		this._stopStatusPolling();
+
+		// Create proper error result data instead of null
+		const errorResultData = {
+			eligibilityStatus: "ERROR",
+			isEligible: false,
+			userMessage: error.message || error.error || "There was an error processing your request.",
+			error: error
+		};
+
+		// Show error results
+		this.showResults(
+			this.config.resultUrl,
+			false, // webhookSuccess
+			errorResultData,
+			error.message || error.error || "There was an error processing your request."
+		);
+	}
+
+	/**
+	 * Gets the orchestrator URL
+	 */
+	_getOrchestratorUrl() {
+		const container = document.getElementById("quiz-container");
+		return container?.dataset?.orchestratorUrl || "https://workflow-orchestrator-xxn52lyizq-uc.a.run.app";
+	}
+
+	// =======================================================================
+	// Status Polling Methods (Simplified - Mock Implementation)
+	// =======================================================================
+
+	/**
+	 * Start mock status polling for enhanced user experience
+	 * This provides visual feedback while the orchestrator runs
+	 */
+	_startStatusPolling(statusTrackingId) {
+		console.log("🔄 Starting mock status polling for:", statusTrackingId);
+
+		this.statusTrackingId = statusTrackingId;
+		this.pollingAttempts = 0;
+		this.maxPollingAttempts = 20; // 40 seconds max
+
+		// Show initial status message
+		this._showBackgroundProcessNotification("🚀 Starting user creation process...", "info");
+
+		// Start polling every 2 seconds for visual feedback
+		this.statusPollingInterval = setInterval(() => {
+			this._pollWorkflowStatus();
+		}, 2000);
+	}
+
+	/**
+	 * Mock status polling to provide user feedback
+	 */
+	async _pollWorkflowStatus() {
+		if (!this.statusTrackingId) {
+			this._stopStatusPolling();
+			return;
+		}
+
+		this.pollingAttempts++;
+
+		try {
+			const statusUrl = this._getStatusPollingUrl();
+			const response = await fetch(statusUrl, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json"
+				},
+				body: JSON.stringify({
+					statusTrackingId: this.statusTrackingId
+				})
+			});
+
+			if (response.ok) {
+				const statusData = await response.json();
+				console.log("📊 Status update:", statusData);
+
+				if (statusData.success && statusData.statusData) {
+					this._updateWorkflowStatus(statusData.statusData);
+
+					// Stop polling when completed or max attempts reached
+					if (statusData.statusData.completed || this.pollingAttempts >= this.maxPollingAttempts) {
+						this._stopStatusPolling();
+					}
+				}
+			} else {
+				console.warn("Status polling failed:", response.status);
+				// Continue polling on failures (non-critical)
+			}
+		} catch (error) {
+			console.warn("Status polling error:", error);
+			// Continue polling on errors (non-critical)
+		}
+
+		// Stop if we've reached max attempts
+		if (this.pollingAttempts >= this.maxPollingAttempts) {
+			this._stopStatusPolling();
+		}
+	}
+
+	/**
+	 * Update UI with mock status information
+	 */
+	_updateWorkflowStatus(statusData) {
+		if (!statusData) return;
+
+		console.log("📱 Updating UI with status:", statusData);
+
+		// Update loading progress if available
+		if (statusData.progress !== undefined) {
+			this._updateLoadingProgress(statusData.progress);
+		}
+
+		// Show status message to user
+		if (statusData.message) {
+			this._showBackgroundProcessNotification(statusData.message, "info");
+		}
+
+		// Handle completion
+		if (statusData.completed) {
+			console.log("✅ Workflow completed according to status");
+			// The actual workflow completion will be handled by the orchestrator response
+		}
+	}
+
+	/**
+	 * Stop status polling
+	 */
+	_stopStatusPolling() {
+		if (this.statusPollingInterval) {
+			clearInterval(this.statusPollingInterval);
+			this.statusPollingInterval = null;
+			console.log("⏹️ Status polling stopped");
+		}
+	}
+
+	/**
+	 * Get the status polling URL
+	 */
+	_getStatusPollingUrl() {
+		const container = document.getElementById("quiz-container");
+		return container?.dataset?.statusPollingUrl || "https://workflow-status-polling-xxn52lyizq-uc.a.run.app";
+	}
+
+	/**
+	 * Update loading progress indicator
+	 */
+	_updateLoadingProgress(progress) {
+		// Find progress elements and update them
+		const progressBars = document.querySelectorAll(".loading-progress-bar, .progress-bar");
+		const progressTexts = document.querySelectorAll(".loading-progress-text, .progress-text");
+
+		progressBars.forEach(bar => {
+			bar.style.width = `${progress}%`;
+		});
+
+		progressTexts.forEach(text => {
+			text.textContent = `${progress}%`;
+		});
+	}
+
+	// =======================================================================
+	// Orchestrator Helper Methods
+	// =======================================================================
+
+	_extractResponseData(showNotifications = false) {
+		const fieldMapping = {
+			q9: "customerEmail",
+			q7: "firstName",
+			q8: "lastName",
+			q10: "phoneNumber",
+			q5: "state",
+			q3: ["insurance", "insurancePrimaryPayerId"],
+			q4: "insuranceMemberId",
+			q4_group: "groupNumber",
+			q1: "mainReasons",
+			q2: "medicalConditions",
+			// New address fields for Beluga scheduling
+			q11: "address",
+			q12: "city",
+			q13: "zip",
+			q14: "sex"
+		};
+
+		const data = {
+			customerEmail: "",
+			firstName: "",
+			lastName: "",
+			phoneNumber: "",
+			state: "",
+			insurance: "",
+			insurancePrimaryPayerId: "",
+			insuranceMemberId: "",
+			groupNumber: "",
+			mainReasons: [],
+			medicalConditions: [],
+			dateOfBirth: "",
+			consent: true,
+			// New address fields for Beluga scheduling
+			address: "",
+			city: "",
+			zip: "",
+			sex: ""
+		};
+
+		const dobParts = {};
+
+		console.log("Extracting response data from responses:", this.responses);
+
+		// Test mode detailed extraction notification - only show if requested
+		if (this.isTestMode && showNotifications) {
+			const responsesSummary = this.responses?.map(r => `${r.questionId}: ${Array.isArray(r.answer) ? r.answer.join(",") : r.answer}`).join("<br>• ") || "None";
+
+			this._showBackgroundProcessNotification(
+				`
+				🧪 TEST MODE - Data Extraction<br>
+				• Total responses: ${this.responses?.length || 0}<br>
+				• Expected questions: ${Object.keys(fieldMapping).join(", ")}<br>
+				• Responses:<br>• ${responsesSummary}
+			`,
+				"info"
+			);
+		}
+
+		// Process responses
+		if (this.responses && Array.isArray(this.responses)) {
+			for (const response of this.responses) {
+				const questionId = response.questionId;
+				const answer = response.answer;
+
+				// Handle date of birth parts
+				if (questionId && (questionId.startsWith("q6_") || questionId.startsWith("q11_") || questionId.includes("birth") || questionId.includes("dob"))) {
+					if (questionId.includes("month")) dobParts.month = answer;
+					if (questionId.includes("day")) dobParts.day = answer;
+					if (questionId.includes("year")) dobParts.year = answer;
+					continue;
+				}
+
+				// Handle mapped fields
+				const fieldName = fieldMapping[questionId];
+				if (fieldName) {
+					if (Array.isArray(fieldName)) {
+						// Handle payer search (q3) mapping to both insurance and insurancePrimaryPayerId
+						data[fieldName[0]] = answer;
+						data[fieldName[1]] = answer;
+					} else {
+						data[fieldName] = answer;
+					}
+				}
+			}
+		}
+
+		// Construct date of birth
+		if (dobParts.month && dobParts.day && dobParts.year) {
+			const month = String(dobParts.month).padStart(2, "0");
+			const day = String(dobParts.day).padStart(2, "0");
+			data.dateOfBirth = `${dobParts.year}${month}${day}`;
+		}
+
+		console.log("Extracted response data:", data);
+
+		// Test mode extraction result notification - only show if requested
+		if (this.isTestMode && showNotifications) {
+			// groupNumber is optional, so exclude it from required field checks
+			const missingFields = Object.entries(data)
+				.filter(([key, value]) => !value && !["mainReasons", "medicalConditions", "consent", "groupNumber"].includes(key))
+				.map(([key]) => key);
+
+			const optionalFields = [];
+			if (!data.groupNumber) {
+				optionalFields.push("groupNumber");
+			}
+
+			this._showBackgroundProcessNotification(
+				`
+				🧪 TEST MODE - Extraction Result<br>
+				• Email: ${data.customerEmail || "❌ Missing"}<br>
+				• Name: ${data.firstName} ${data.lastName}<br>
+				• Insurance: ${data.insurance || "❌ Missing"}<br>
+				• Member ID: ${data.insuranceMemberId || "❌ Missing"}<br>
+				• Missing required: ${missingFields.length ? missingFields.join(", ") : "None"}<br>
+				• Optional fields: ${optionalFields.length ? optionalFields.join(", ") : "All present"}
+			`,
+				missingFields.length > 0 ? "error" : "success"
+			);
+		}
+
+		return data;
+	}
+
+	/**
+	 * Build payload for the orchestrator workflow
+	 */
+	_buildWorkflowPayload() {
+		const payload = {
+			timestamp: Date.now(),
+			hasInsurance: this._hasInsurance(),
+			customerEmail: this._getResponseValue("customer_email"),
+			responses: this.responses || []
+		};
+
+		// Add form data if available
+		const formData = this._collectFormData();
+		if (formData && Object.keys(formData).length > 0) {
+			payload.formData = formData;
+		}
+
+		// Add insurance data if user has insurance
+		if (payload.hasInsurance) {
+			const insuranceData = this._collectInsuranceData();
+			if (insuranceData) {
+				payload.insuranceData = insuranceData;
+			}
+		}
+
+		console.log("Built workflow payload:", payload);
+		return payload;
+	}
+
+	/**
+	 * Submit orchestrator payload to webhook
+	 */
+	async _submitOrchestratorToWebhook(url, payload) {
+		try {
+			console.log("Submitting to orchestrator:", { url, payload });
+
+			const response = await fetch(url, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json"
+				},
+				body: JSON.stringify(payload)
+			});
+
+			if (!response.ok) {
+				throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+			}
+
+			const result = await response.json();
+			console.log("Orchestrator response:", result);
+
+			return result;
+		} catch (error) {
+			console.error("Orchestrator submission failed:", error);
+			throw error;
+		}
+	}
+
+	/**
+	 * Check if user has insurance
+	 */
+	_hasInsurance() {
+		const insuranceResponse = this._getResponseValue("has_insurance");
+		return insuranceResponse === "yes" || insuranceResponse === true || insuranceResponse === "Yes";
+	}
+
+	/**
+	 * Get response value by question ID
+	 */
+	_getResponseValue(questionId) {
+		const response = this.responses.find(r => r.questionId === questionId);
+		return response ? response.answer : null;
+	}
+
+	/**
+	 * Collect form data from responses
+	 */
+	_collectFormData() {
+		const formData = {};
+
+		// Map common form fields
+		const fieldMappings = {
+			customer_first_name: "firstName",
+			customer_last_name: "lastName",
+			customer_email: "email",
+			customer_phone: "phone",
+			customer_address: "address",
+			customer_city: "city",
+			customer_state: "state",
+			customer_zip: "zipCode",
+			date_of_birth_month: "birthMonth",
+			date_of_birth_day: "birthDay",
+			date_of_birth_year: "birthYear"
+		};
+
+		this.responses.forEach(response => {
+			const mappedField = fieldMappings[response.questionId];
+			if (mappedField) {
+				formData[mappedField] = response.answer;
+			}
+		});
+
+		return formData;
+	}
+
+	/**
+	 * Collect insurance data from responses
+	 */
+	_collectInsuranceData() {
+		const insuranceData = {};
+
+		// Map insurance fields
+		const insuranceFieldMappings = {
+			insurance_provider: "provider",
+			form_member_id: "memberId",
+			subscriber_group_id: "groupId",
+			plan_group_id: "planGroupId"
+		};
+
+		this.responses.forEach(response => {
+			const mappedField = insuranceFieldMappings[response.questionId];
+			if (mappedField) {
+				insuranceData[mappedField] = response.answer;
+			}
+		});
+
+		return Object.keys(insuranceData).length > 0 ? insuranceData : null;
+	}
+
 	_showBackgroundProcessNotification(text, type = "info", priority = null) {
 		console.log("📢 Creating notification:", { text: text.substring(0, 50) + "...", type, priority });
 
@@ -424,6 +1124,135 @@ class ModularQuiz {
 		`;
 	}
 
+	_processFormQuestions(questions) {
+		let html = "";
+		let i = 0;
+
+		while (i < questions.length) {
+			const processed = this._tryProcessQuestionGroup(questions, i);
+			if (processed.html) {
+				html += processed.html;
+				i += processed.skip;
+			} else {
+				html += this._generateSingleFormQuestion(questions[i]);
+				i++;
+			}
+		}
+
+		return html;
+	}
+
+	_tryProcessQuestionGroup(questions, index) {
+		const question = questions[index];
+		const pairs = this.config.questionPairs || {};
+		const getResponse = q => this.responses.find(r => r.questionId === q.id) || { answer: null };
+
+		// Check for paired fields
+		const pairChecks = [
+			{ fields: pairs.memberIdFields, skip: 2 },
+			{ fields: pairs.nameFields, skip: 2 },
+			{ fields: pairs.contactFields, skip: 2 }
+		];
+
+		for (const pair of pairChecks) {
+			if (question.id === pair.fields?.[0] && questions[index + 1]?.id === pair.fields[1]) {
+				return {
+					html: this._generateFormFieldPair(question, questions[index + 1], getResponse(question), getResponse(questions[index + 1])),
+					skip: pair.skip
+				};
+			}
+		}
+
+		// Check for date group
+		if (question.type === "date-part" && question.part === "month") {
+			const [dayQ, yearQ] = [questions[index + 1], questions[index + 2]];
+			if (dayQ?.type === "date-part" && dayQ.part === "day" && yearQ?.type === "date-part" && yearQ.part === "year") {
+				return {
+					html: this._generateDateGroup(question, dayQ, yearQ),
+					skip: 3
+				};
+			}
+		}
+
+		return { html: null, skip: 0 };
+	}
+
+	_generateSingleFormQuestion(question) {
+		const response = this.responses.find(r => r.questionId === question.id) || { answer: null };
+		const helpIcon = this._getHelpIcon(question.id);
+
+		return `
+            <div class="quiz-question-section">
+                <label class="quiz-label" for="question-${question.id}">
+                    ${question.text}${helpIcon}
+                </label>
+                ${question.helpText ? `<p class="quiz-text-sm">${question.helpText}</p>` : ""}
+                ${this._renderQuestionByType(question, response)}
+            </div>
+        `;
+	}
+
+	_generateFormFieldPair(leftQuestion, rightQuestion, leftResponse, rightResponse) {
+		const generateField = (question, response) => ({
+			input: this._renderQuestionByType(question, response),
+			helpIcon: this._getHelpIcon(question.id),
+			label: question.text,
+			id: question.id
+		});
+
+		const [left, right] = [generateField(leftQuestion, leftResponse), generateField(rightQuestion, rightResponse)];
+
+		return `
+            <div class="quiz-grid-2-form">
+                ${[left, right]
+									.map(
+										field => `
+                    <div>
+                        <label class="quiz-label" for="question-${field.id}">
+                            ${field.label}${field.helpIcon}
+                        </label>
+                        ${field.input}
+                    </div>
+                `
+									)
+									.join("")}
+            </div>
+        `;
+	}
+
+	_getHelpIcon(questionId) {
+		const tooltip = this.quizData.validation?.tooltips?.[questionId];
+		return tooltip ? this._generateHelpIcon(questionId, tooltip) : "";
+	}
+
+	_generateDateGroup(monthQ, dayQ, yearQ) {
+		const monthResponse = this.responses.find(r => r.questionId === monthQ.id) || { answer: null };
+		const dayResponse = this.responses.find(r => r.questionId === dayQ.id) || { answer: null };
+		const yearResponse = this.responses.find(r => r.questionId === yearQ.id) || { answer: null };
+
+		return `
+            <div class="quiz-question-section">
+                <label class="quiz-label">${monthQ.text}</label>
+                <div class="quiz-grid-3">
+                    ${this.renderDatePart(monthQ, monthResponse)}
+                    ${this.renderDatePart(dayQ, dayResponse)}
+                    ${this.renderDatePart(yearQ, yearResponse)}
+                </div>
+            </div>
+        `;
+	}
+
+	_generateHelpIcon(questionId, tooltipContent) {
+		const escapedTooltip = tooltipContent.replace(/"/g, "&quot;");
+		return `<span class="quiz-help-icon-container" data-tooltip="${escapedTooltip}">
+            <svg class="quiz-help-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M14.6668 8.00004C14.6668 4.31814 11.682 1.33337 8.00016 1.33337C4.31826 1.33337 1.3335 4.31814 1.3335 8.00004C1.3335 11.6819 4.31826 14.6667 8.00016 14.6667C11.682 14.6667 14.6668 11.6819 14.6668 8.00004Z" stroke="#121212"/>
+                <path d="M8.1613 11.3334V8.00004C8.1613 7.68577 8.1613 7.52864 8.06363 7.43097C7.96603 7.33337 7.8089 7.33337 7.49463 7.33337" stroke="#121212" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M7.99463 5.33337H8.00063" stroke="#121212" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </span>`;
+	}
+
 	_generateWizardStepHTML(step) {
 		const question = step.questions[this.currentQuestionIndex];
 		const response = this.getResponseForCurrentQuestion();
@@ -519,9 +1348,9 @@ class ModularQuiz {
 					<div class="quiz-option-button ${selected ? "selected" : ""}">
 						<div class="quiz-option-text">
 							<div class="quiz-option-text-content">${option.text}</div>
-						</div>
+				</div>
 						${selected ? this._getCheckmarkSVG() : ""}
-					</div>
+				</div>
 				</label>
 			`;
 		});
@@ -535,8 +1364,8 @@ class ModularQuiz {
 				<div class="quiz-checkbox-container">
 					<input type="checkbox" id="${option.id}" name="question-${question.id}" value="${option.id}" class="quiz-checkbox-input" ${selectedOptions.includes(option.id) ? "checked" : ""}>
 					<label class="quiz-checkbox-label" for="${option.id}">${option.text}</label>
-				</div>
-			`;
+			</div>
+		`;
 		});
 		return html + "</div>";
 	}
@@ -565,7 +1394,7 @@ class ModularQuiz {
 					value="${response.answer || ""}"
 					aria-describedby="error-${question.id}">
 				${this._getErrorElement(question.id)}
-			</div>
+				</div>
 		`;
 	}
 
@@ -626,7 +1455,7 @@ class ModularQuiz {
 			<div class="quiz-question-section">
 				<textarea id="question-${question.id}" class="quiz-textarea" rows="4"
 					placeholder="${question.placeholder || "Type your answer here..."}">${response.answer || ""}</textarea>
-			</div>
+				</div>
 		`;
 	}
 
@@ -637,8 +1466,8 @@ class ModularQuiz {
 					min="1" max="10" step="1" value="${response.answer || 5}">
 				<div class="quiz-range-labels">
                     <span>1</span><span>5</span><span>10</span>
-				</div>
-			</div>
+							</div>
+							</div>
 		`;
 	}
 
@@ -651,8 +1480,68 @@ class ModularQuiz {
                     aria-describedby="error-${question.id}">
                 ${this._getErrorElement(question.id)}
                 ${question.helpText ? `<p class="quiz-text-sm">${question.helpText}</p>` : ""}
+			</div>
+		`;
+	}
+
+	renderPayerSearch(question, response) {
+		const selectedPayer = response.answer;
+		const placeholder = question.placeholder || "Start typing to search for your insurance plan...";
+		let selectedDisplayName = "";
+
+		if (selectedPayer && typeof selectedPayer === "string") {
+			selectedDisplayName = this._resolvePayerDisplayName(selectedPayer) || "";
+		}
+
+		return `
+			<div class="quiz-payer-search-container">
+                <div class="quiz-payer-search-input-wrapper">
+                    <input type="text" id="question-${question.id}" class="quiz-payer-search-input"
+                           placeholder="${placeholder}"
+                           value="${selectedDisplayName}"
+                           autocomplete="off"
+                           aria-describedby="error-${question.id}">
+                    <svg class="quiz-payer-search-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18" fill="none">
+  <path d="M13.1667 13.1667L16.5 16.5M14.8333 8.16667C14.8333 4.48477 11.8486 1.5 8.16667 1.5C4.48477 1.5 1.5 4.48477 1.5 8.16667C1.5 11.8486 4.48477 14.8333 8.16667 14.8333C11.8486 14.8333 14.8333 11.8486 14.8333 8.16667Z" stroke="#121212" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+                </div>
+				<div class="quiz-payer-search-dropdown" id="search-dropdown-${question.id}" style="display: none;">
+                    <div class="quiz-payer-search-dropdown-header">
+                        <span class="quiz-payer-search-dropdown-title">Suggestions</span>
+                        <button class="quiz-payer-search-close-btn" type="button" aria-label="Close dropdown">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M12 4L4 12M4 4L12 12" stroke="#6B7280" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="quiz-payer-search-results"></div>
+				</div>
+				<p id="error-${question.id}" class="quiz-error-text quiz-error-hidden"></p>
             </div>
         `;
+	}
+
+	_renderCommonPayers(question) {
+		const commonPayers = this.quizData.commonPayers || [];
+		return commonPayers
+			.map(
+				payer => `
+			<button
+				type="button"
+				class="quiz-option-card quiz-payer-common-button"
+				data-payer-id="${payer.stediId}"
+				data-payer-name="${payer.displayName}"
+				data-question-id="${question.id}"
+			>
+				<div class="quiz-option-button">
+					<div class="quiz-option-text">
+						<div class="quiz-option-text-content">${payer.displayName}</div>
+					</div>
+				</div>
+			</button>
+		`
+			)
+			.join("");
 	}
 
 	_getCheckmarkSVG() {
@@ -695,13 +1584,21 @@ class ModularQuiz {
 
 			// Check if this is the insurance step completion
 			if (currentStep.id === "step-insurance") {
-				this._triggerEligibilityWorkflow();
+				// HIPAA COMPLIANT: No longer calling eligibility workflow directly from browser
+				// Eligibility will be checked server-side by the user creation workflow
+				console.log("📋 Insurance information collected - will be processed server-side for HIPAA compliance");
 			}
 
 			// Check if this is the contact step completion
 			if (currentStep.id === "step-contact") {
-				// Trigger eligibility workflow now that we have all required data
-				this._triggerUserCreationWorkflow();
+				// HIPAA COMPLIANT: Only call user creation workflow
+				// This will handle eligibility checking server-side to keep PHI data secure
+				console.log("👤 Starting HIPAA-compliant user creation workflow (includes server-side eligibility check)");
+				try {
+					this._triggerUserCreationWorkflow();
+				} catch (error) {
+					console.error("Failed to start orchestrator workflow:", error);
+				}
 				this.finishQuiz();
 				return;
 			}
@@ -1061,6 +1958,285 @@ class ModularQuiz {
 		events.forEach(event => element.removeEventListener(event, element[`_${event}Handler`]));
 	}
 
+	_attachPayerSearchListeners(question) {
+		const searchInput = this.questionContainer.querySelector(`#question-${question.id}`);
+		const dropdown = this.questionContainer.querySelector(`#search-dropdown-${question.id}`);
+
+		if (searchInput && dropdown) {
+			this._setupPayerSearchBehavior(question, searchInput, dropdown, selectedPayer => {
+				this.handleAnswer(selectedPayer);
+			});
+		}
+	}
+
+	_attachPayerSearchFormListeners(question) {
+		setTimeout(() => {
+			const searchInput = this.questionContainer.querySelector(`#question-${question.id}`);
+			const dropdown = this.questionContainer.querySelector(`#search-dropdown-${question.id}`);
+
+			if (searchInput && dropdown) {
+				this._setupPayerSearchBehavior(question, searchInput, dropdown, selectedPayer => {
+					this.handleFormAnswer(question.id, selectedPayer);
+					this.updateNavigation();
+				});
+			}
+		}, 100);
+	}
+
+	_setupPayerSearchBehavior(question, searchInput, dropdown, onSelectCallback) {
+		let isOpen = false;
+		let searchTimeout = null;
+		const container = searchInput.closest(".quiz-payer-search-container");
+
+		searchInput.addEventListener("focus", () => {
+			if (!isOpen) {
+				this._openPayerSearchDropdown(dropdown, container, searchInput);
+				isOpen = true;
+				this._showInitialPayerList(dropdown, onSelectCallback);
+			}
+		});
+
+		searchInput.addEventListener("click", () => {
+			if (!isOpen) {
+				this._openPayerSearchDropdown(dropdown, container, searchInput);
+				isOpen = true;
+				this._showInitialPayerList(dropdown, onSelectCallback);
+			}
+		});
+
+		searchInput.addEventListener("input", () => {
+			if (!isOpen) {
+				this._openPayerSearchDropdown(dropdown, container, searchInput);
+				isOpen = true;
+			}
+
+			const query = searchInput.value.trim();
+
+			if (searchTimeout) {
+				clearTimeout(searchTimeout);
+			}
+
+			if (query.length > 0) {
+				searchTimeout = setTimeout(() => {
+					const currentQuery = searchInput.value.trim();
+					this._searchPayers(currentQuery, dropdown, onSelectCallback);
+				}, 300);
+			} else {
+				this._showInitialPayerList(dropdown, onSelectCallback);
+			}
+		});
+
+		// Handle close button click
+		const closeButton = dropdown.querySelector(".quiz-payer-search-close-btn");
+		if (closeButton) {
+			closeButton.addEventListener("click", e => {
+				e.preventDefault();
+				e.stopPropagation();
+				this._closePayerSearchDropdown(dropdown, container, searchInput);
+				isOpen = false;
+			});
+		}
+
+		// Close dropdown when clicking outside
+		document.addEventListener("click", e => {
+			if (!container.contains(e.target)) {
+				this._closePayerSearchDropdown(dropdown, container, searchInput);
+				isOpen = false;
+			}
+		});
+	}
+
+	_showInitialPayerList(dropdown, onSelectCallback) {
+		const commonPayers = this.quizData.commonPayers || [];
+		const results = commonPayers.map(payer => ({ payer }));
+		this._renderSearchResults(results, "", dropdown, onSelectCallback);
+	}
+
+	async _searchPayers(query, dropdown, onSelectCallback) {
+		const resultsContainer = dropdown.querySelector(".quiz-payer-search-results");
+		if (!resultsContainer) return;
+
+		// Show loading state
+		resultsContainer.innerHTML = `
+			<div class="quiz-payer-search-loading">
+				<div class="quiz-payer-search-loading-spinner"></div>
+				Searching insurance plans...
+			</div>
+		`;
+
+		try {
+			const apiResults = await this._searchPayersAPI(query);
+			if (apiResults && apiResults.length > 0) {
+				this._renderSearchResults(apiResults, query, dropdown, onSelectCallback);
+				return;
+			}
+		} catch (error) {
+			console.warn("API search failed, falling back to local search:", error);
+		}
+
+		try {
+			const localResults = this._filterCommonPayers(query);
+			this._renderSearchResults(localResults, query, dropdown, onSelectCallback);
+		} catch (error) {
+			console.error("Payer search error:", error);
+			resultsContainer.innerHTML = `<div class="quiz-payer-search-error">Error searching. Please try again.</div>`;
+		}
+	}
+
+	async _searchPayersAPI(query) {
+		const config = this.quizData.config?.apiConfig || {};
+		const apiKey = config.stediApiKey;
+
+		if (!apiKey || apiKey.trim() === "") {
+			console.warn("Stedi API key not configured or empty, using local search only");
+			return null;
+		}
+
+		const baseUrl = "https://healthcare.us.stedi.com/2024-04-01/payers/search";
+		const params = new URLSearchParams({
+			query: query,
+			pageSize: "10",
+			eligibilityCheck: "SUPPORTED"
+		});
+
+		const url = `${baseUrl}?${params}`;
+
+		const response = await fetch(url, {
+			method: "GET",
+			headers: {
+				Authorization: apiKey,
+				Accept: "application/json"
+			}
+		});
+
+		if (!response.ok) {
+			const errorText = await response.text();
+			throw new Error(`API request failed: ${response.status} - ${errorText}`);
+		}
+
+		const data = await response.json();
+
+		const transformedResults =
+			data.items?.map(item => ({
+				payer: {
+					stediId: item.payer.stediId,
+					displayName: item.payer.displayName,
+					primaryPayerId: item.payer.primaryPayerId,
+					aliases: item.payer.aliases || [],
+					score: item.score
+				}
+			})) || [];
+
+		return transformedResults;
+	}
+
+	_filterCommonPayers(query) {
+		const commonPayers = this.quizData.commonPayers || [];
+		if (!query || query.length === 0) {
+			return commonPayers.map(payer => ({ payer }));
+		}
+
+		const lowerQuery = query.toLowerCase();
+		const filtered = commonPayers.filter(payer => payer.displayName.toLowerCase().includes(lowerQuery) || (payer.aliases && payer.aliases.some(alias => alias.toLowerCase().includes(lowerQuery))));
+
+		return filtered.map(payer => ({ payer }));
+	}
+
+	_renderSearchResults(results, query, dropdown, onSelectCallback) {
+		const resultsContainer = dropdown.querySelector(".quiz-payer-search-results");
+		if (!resultsContainer) return;
+
+		if (results.length === 0) {
+			resultsContainer.innerHTML = `<div class="quiz-payer-search-no-results">No insurance plans found. Try a different search term.</div>`;
+		} else {
+			const resultsHTML = results
+				.map((item, index) => {
+					const payer = item.payer;
+					const highlightedName = this._highlightSearchTerm(payer.displayName, query);
+					const isApiResult = payer.score !== undefined;
+
+					return `
+					<div class="quiz-payer-search-item" data-index="${index}">
+                        <div class="quiz-payer-search-item-name">
+							${highlightedName}
+						</div>
+						<div class="quiz-payer-search-item-details">
+							<span class="quiz-payer-search-item-id">${payer.stediId}</span>
+                            ${payer.aliases?.length > 0 ? `• ${payer.aliases.slice(0, 2).join(", ")}` : ""}
+							${isApiResult && payer.score ? `• Score: ${payer.score.toFixed(1)}` : ""}
+						</div>
+					</div>
+				`;
+				})
+				.join("");
+
+			resultsContainer.innerHTML = resultsHTML;
+
+			const resultItems = resultsContainer.querySelectorAll(".quiz-payer-search-item");
+			const container = dropdown.closest(".quiz-payer-search-container");
+			const searchInput = container.querySelector(".quiz-payer-search-input");
+
+			resultItems.forEach((item, index) => {
+				item.addEventListener("click", () => {
+					this._selectPayer(results[index].payer, searchInput, dropdown, onSelectCallback);
+				});
+			});
+		}
+
+		dropdown.classList.add("visible");
+		dropdown.style.display = "block";
+	}
+
+	_selectPayer(payer, searchInput, dropdown, onSelectCallback) {
+		// Update the search input with the selected payer name
+		searchInput.value = payer.displayName;
+		searchInput.classList.add("quiz-input-valid");
+
+		const container = searchInput.closest(".quiz-payer-search-container");
+		this._closePayerSearchDropdown(dropdown, container, searchInput);
+
+		onSelectCallback(payer.primaryPayerId);
+	}
+
+	_openPayerSearchDropdown(dropdown, container, searchInput) {
+		dropdown.classList.add("visible");
+		dropdown.style.display = "block";
+		container.classList.add("open");
+
+		const isMobile = window.innerWidth <= 768;
+		if (isMobile) {
+			setTimeout(() => {
+				const inputRect = searchInput.getBoundingClientRect();
+				const offset = 20;
+				const currentScrollY = window.pageYOffset || document.documentElement.scrollTop;
+				const targetScrollY = currentScrollY + inputRect.top - offset;
+
+				window.scrollTo({
+					top: Math.max(0, targetScrollY),
+					behavior: "smooth"
+				});
+			}, 100);
+		}
+	}
+
+	_closePayerSearchDropdown(dropdown, container, searchInput) {
+		dropdown.classList.remove("visible");
+		dropdown.style.display = "none";
+		container.classList.remove("open");
+	}
+
+	_highlightSearchTerm(text, searchTerm) {
+		if (!searchTerm || !text) return text;
+		const regex = new RegExp(`(${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi");
+		return text.replace(regex, '<span class="quiz-payer-search-highlight">$1</span>');
+	}
+
+	_resolvePayerDisplayName(primaryPayerId) {
+		const commonPayers = this.quizData.commonPayers || [];
+		const matchingPayer = commonPayers.find(payer => payer.primaryPayerId === primaryPayerId);
+		return matchingPayer?.displayName || null;
+	}
+
 	_attachFormQuestionListener(question) {
 		const formHandlers = {
 			dropdown: () => this._attachDropdownListeners(question),
@@ -1403,2069 +2579,6 @@ class ModularQuiz {
 		}
 	}
 
-	// Comprehensive loading sequence with animated status updates
-	async _showComprehensiveLoadingSequence() {
-		// Show the loading screen with progress steps
-		this._showLoadingScreen();
-
-		const loadingSteps = [
-			{ title: "Processing Your Answers", description: "Analyzing your health information..." },
-			{ title: "Checking Insurance Coverage", description: "Verifying your benefits..." },
-			{ title: "Finding Your Dietitian", description: "Matching you with the right expert..." },
-			{ title: "Preparing Your Results", description: "Finalizing your personalized plan..." }
-		];
-
-		for (let i = 0; i < loadingSteps.length; i++) {
-			const step = loadingSteps[i];
-			this._updateLoadingStep(step);
-
-			// Wait between steps for realistic loading feel
-			await new Promise(resolve => setTimeout(resolve, 900));
-		}
-
-		// Final completion step
-		this._updateLoadingStep({ title: "Almost Ready!", description: "Preparing your personalized results..." });
-
-		// Final wait before showing results
-		await new Promise(resolve => setTimeout(resolve, 800));
-	}
-
-	_showLoadingScreen() {
-		// Hide quiz content and show loading screen
-		this._toggleElement(this.questions, false);
-		this._toggleElement(this.results, false);
-		this._toggleElement(this.error, false);
-
-		// Show loading container (using the correct property name 'loading')
-		if (this.loading) {
-			this.loading.innerHTML = `
-				<div class="quiz-comprehensive-loading">
-					<div class="quiz-loading-content">
-						<div class="quiz-loading-icon">
-							<div class="quiz-loading-spinner-large"></div>
-						</div>
-						<div class="quiz-loading-step">
-							<h3 class="quiz-loading-step-title">Starting...</h3>
-							<p class="quiz-loading-step-description">Preparing to process your information</p>
-						</div>
-					</div>
-				</div>
-			`;
-			this._toggleElement(this.loading, true);
-		} else {
-			// Fallback: update next button
-			this.nextButton.innerHTML = `<div class="quiz-spinner"></div>Processing...`;
-		}
-	}
-
-	_updateLoadingStep(step) {
-		const titleElement = document.querySelector(".quiz-loading-step-title");
-		const descriptionElement = document.querySelector(".quiz-loading-step-description");
-
-		if (titleElement && descriptionElement) {
-			// Animate out
-			titleElement.style.opacity = "0";
-			descriptionElement.style.opacity = "0";
-
-			setTimeout(() => {
-				// Update content
-				titleElement.textContent = step.title;
-				descriptionElement.textContent = step.description;
-
-				// Animate in
-				titleElement.style.opacity = "1";
-				descriptionElement.style.opacity = "1";
-			}, 300);
-		}
-	}
-
-	_triggerEligibilityWorkflow() {
-		try {
-			const eligibilityPayload = this._buildEligibilityPayload();
-			let webhookUrl = this.container.getAttribute("data-webhook-url") || this.quizData.config?.webhookUrl;
-
-			// Use test webhook URL when in test mode
-			if (this.isTestMode) {
-				const testWebhookUrl =
-					this.container.getAttribute("data-test-webhook-url") || (webhookUrl ? webhookUrl.replace(/\/[^\/]*$/, "/test-eligibility") : null) || this.quizData.config?.testWebhookUrl;
-
-				if (testWebhookUrl) {
-					webhookUrl = testWebhookUrl;
-					console.log("🧪 Test mode detected - using test webhook URL:", webhookUrl);
-				} else {
-					console.log("🧪 Test mode detected but no test webhook URL configured - using production URL with test mode indicator");
-				}
-			}
-
-			if (webhookUrl) {
-				console.log("🔍 Starting eligibility check in background...", {
-					firstName: eligibilityPayload.firstName,
-					lastName: eligibilityPayload.lastName,
-					insurance: eligibilityPayload.insurance,
-					insuranceMemberId: eligibilityPayload.insuranceMemberId,
-					testMode: this.isTestMode,
-					fullPayload: eligibilityPayload
-				});
-
-				// Show notifications
-				this._showBackgroundProcessNotification("🔍 Checking your insurance coverage in the background...");
-
-				// Test mode detailed notification
-				if (this.isTestMode) {
-					this._showBackgroundProcessNotification(
-						`
-						🧪 TEST MODE - Eligibility Workflow Started<br>
-						• URL: ${webhookUrl}<br>
-						• Name: ${eligibilityPayload.firstName} ${eligibilityPayload.lastName}<br>
-						• Insurance: ${eligibilityPayload.insurance}<br>
-						• Member ID: ${eligibilityPayload.insuranceMemberId}<br>
-						• Responses: ${this.responses?.length || 0} collected
-					`,
-						"info"
-					);
-				}
-
-				this.eligibilityWorkflowPromise = this._submitEligibilityToWebhook(webhookUrl, eligibilityPayload);
-
-				// Handle completion in background
-				this.eligibilityWorkflowPromise
-					.then(result => {
-						console.log("✅ Eligibility check completed in background", {
-							success: result?.success,
-							eligibilityStatus: result?.eligibilityStatus,
-							isEligible: result?.isEligible
-						});
-						this.eligibilityWorkflowResult = result;
-
-						const statusIcon = result?.eligibilityStatus === "AAA_ERROR" ? "⚠️" : result?.eligibilityStatus === "ELIGIBLE" ? "✅" : result?.eligibilityStatus === "NOT_COVERED" ? "❌" : "⏳";
-
-						this._showBackgroundProcessNotification("✅ Insurance coverage check complete!", "success");
-
-						// Test mode detailed result notification
-						if (this.isTestMode) {
-							const sessionsText = result?.sessionsCovered ? `${result.sessionsCovered} covered dietitian sessions` : "No sessions covered";
-
-							const fullMessage = result?.userMessage || "";
-
-							this._showBackgroundProcessNotification(
-								`
-								🧪 TEST MODE - Eligibility Result<br>
-								${statusIcon} Status: ${result?.eligibilityStatus || "Unknown"}<br>
-								• Eligible: ${result?.isEligible}<br>
-								• Sessions: ${sessionsText}<br>
-								• Error Code: ${result?.error?.code || result?.aaaErrorCode || "None"}<br>
-								• Message: ${fullMessage.substring(0, 120)}${fullMessage.length > 120 ? "..." : ""}
-							`,
-								result?.eligibilityStatus === "AAA_ERROR" ? "error" : "success"
-							);
-						}
-					})
-					.catch(error => {
-						console.error("❌ Eligibility check failed in background", error);
-						this.eligibilityWorkflowError = error;
-
-						this._showBackgroundProcessNotification("❌ Eligibility check failed", "error");
-
-						// Test mode error notification
-						if (this.isTestMode) {
-							this._showBackgroundProcessNotification(
-								`
-								🧪 TEST MODE - Eligibility Error<br>
-								❌ ${error.message}<br>
-								• Check console for details
-							`,
-								"error"
-							);
-						}
-					});
-			} else {
-				console.warn("No webhook URL configured for eligibility check");
-				if (this.isTestMode) {
-					this._showBackgroundProcessNotification(
-						`
-						🧪 TEST MODE - Configuration Error<br>
-						❌ No webhook URL found<br>
-						• Check data-webhook-url attribute
-					`,
-						"error"
-					);
-				}
-			}
-		} catch (error) {
-			console.error("Failed to trigger eligibility workflow:", error);
-			if (this.isTestMode) {
-				this._showBackgroundProcessNotification(
-					`
-					🧪 TEST MODE - Trigger Error<br>
-					❌ ${error.message}
-				`,
-					"error"
-				);
-			}
-		}
-	}
-
-	_triggerUserCreationWorkflow() {
-		try {
-			// Wait for eligibility to complete before starting user creation
-			// This maintains the dependency while still being non-blocking for UI
-			if (this.eligibilityWorkflowPromise) {
-				this.eligibilityWorkflowPromise
-					.then(eligibilityResult => {
-						this._startUserCreationWithEligibilityData(eligibilityResult);
-					})
-					.catch(error => {
-						console.error("❌ Eligibility failed, starting user creation without eligibility data", error);
-						this._startUserCreationWithEligibilityData(null);
-					});
-			} else {
-				// No eligibility workflow running, start user creation without eligibility data
-				this._startUserCreationWithEligibilityData(null);
-			}
-		} catch (error) {
-			console.error("Failed to trigger user creation workflow:", error);
-		}
-	}
-
-	_startUserCreationWithEligibilityData(eligibilityData) {
-		try {
-			const userPayload = this._buildUserCreationPayload(eligibilityData);
-			const userCreationUrl =
-				this.container.getAttribute("data-user-creation-url") ||
-				(this.container.getAttribute("data-webhook-url") && this.container.getAttribute("data-webhook-url").replace("/eligibility", "/user-creation"));
-
-			if (userCreationUrl) {
-				console.log("👤 Starting user creation with eligibility data...", {
-					hasEligibilityData: !!eligibilityData,
-					eligibilityStatus: eligibilityData?.eligibilityStatus || "none"
-				});
-
-				// Test mode detailed notification
-				if (this.isTestMode) {
-					this._showBackgroundProcessNotification(
-						`
-						🧪 TEST MODE - User Creation Started<br>
-						• URL: ${userCreationUrl}<br>
-						• Customer: ${userPayload.customerEmail}<br>
-						• Eligibility Status: ${eligibilityData?.eligibilityStatus || "None"}<br>
-						• Payload Size: ${JSON.stringify(userPayload).length} chars<br>
-						• All Responses: ${userPayload.allResponses?.length || 0} items
-					`,
-						"info"
-					);
-				}
-
-				this.userCreationWorkflowPromise = this._submitUserCreationToWebhook(userCreationUrl, userPayload);
-
-				// Handle completion in background (optional - doesn't block UI)
-				this.userCreationWorkflowPromise
-					.then(result => {
-						console.log("✅ User creation completed in background", result);
-
-						// Test mode detailed result notification
-						if (this.isTestMode) {
-							const success = result?.success;
-							const shopifyId = result?.body?.shopifyCustomerId || result?.shopifyCustomerId;
-							const hubspotId = result?.body?.hubspotContactId || result?.hubspotContactId;
-
-							this._showBackgroundProcessNotification(
-								`
-								🧪 TEST MODE - User Creation Result<br>
-								${success ? "✅" : "❌"} Success: ${success}<br>
-								• Shopify ID: ${shopifyId || "Not created"}<br>
-								• HubSpot ID: ${hubspotId || "Not created"}<br>
-								• Execution: ${result?.executionName ? "✅ Complete" : "❌ Failed"}<br>
-								• Status Code: ${result?.statusCode || "Unknown"}
-							`,
-								success ? "success" : "error"
-							);
-						}
-					})
-					.catch(error => {
-						console.error("❌ User creation failed in background", error);
-
-						// Test mode error notification
-						if (this.isTestMode) {
-							const commonIssues = [];
-
-							// Analyze common error causes
-							if (error.status === 500) {
-								// Parse the error text to understand the root cause
-								if (error.message.includes("409") || error.message.includes("CONFLICT")) {
-									commonIssues.push("🔄 HubSpot Contact Already Exists");
-									commonIssues.push("• This is expected when re-running the quiz");
-									commonIssues.push("• The workflow has handling for this (lines 355-380)");
-									commonIssues.push("• Issue: Error thrown before handling logic");
-									commonIssues.push("• Fix: Modify workflow to catch HTTP 409 properly");
-									commonIssues.push("• Current: Error in 'createHubSpotContact' step");
-									commonIssues.push("• Solution: Add try/except around HTTP call");
-								} else if (error.message.includes("Shopify")) {
-									commonIssues.push("🛒 Shopify API Issue");
-									commonIssues.push("• Check Shopify customer creation");
-									commonIssues.push("• Verify API permissions");
-								} else if (error.message.includes("HTTP server responded with error code")) {
-									const httpCode = error.message.match(/error code (\d+)/)?.[1];
-									commonIssues.push(`🌐 HTTP Error ${httpCode || "Unknown"}`);
-									commonIssues.push("• External API call failed");
-									commonIssues.push("• Check API credentials and endpoints");
-								} else {
-									commonIssues.push("• Server-side workflow execution error");
-
-									// Check for potential data issues
-									if (!userPayload.customerEmail?.includes("@")) {
-										commonIssues.push("• Invalid email format in payload");
-									}
-									if (!userPayload.allResponses || userPayload.allResponses.length === 0) {
-										commonIssues.push("• Missing allResponses array");
-									}
-									if (!userPayload.eligibilityData) {
-										commonIssues.push("• Missing eligibilityData object");
-									}
-								}
-
-								commonIssues.push("• Check Google Cloud Function logs");
-								commonIssues.push("• Check user creation workflow YAML");
-							}
-
-							// Determine notification type based on error severity
-							const notificationType = error.message.includes("CONFLICT") || error.message.includes("409") ? "info" : "error";
-							const statusIcon = notificationType === "info" ? "🔄" : "❌";
-
-							this._showBackgroundProcessNotification(
-								`
-								🧪 TEST MODE - User Creation Analysis<br>
-								${statusIcon} ${response.status} ${response.statusText}<br>
-								• Error: ${errorText.substring(0, 300)}${errorText.length > 300 ? "..." : ""}<br>
-								<br>Analysis:<br>
-								${commonIssues.join("<br>")}
-							`,
-								notificationType
-							);
-						}
-					});
-			} else {
-				console.warn("No user creation URL configured");
-				if (this.isTestMode) {
-					this._showBackgroundProcessNotification(
-						`
-							🧪 TEST MODE - User Creation Config Error<br>
-							❌ No user creation URL found<br>
-							• Check data-user-creation-url attribute
-						`,
-						"error"
-					);
-				}
-			}
-		} catch (error) {
-			console.error("Failed to start user creation with eligibility data:", error);
-			if (this.isTestMode) {
-				this._showBackgroundProcessNotification(
-					`
-					🧪 TEST MODE - User Creation Trigger Error<br>
-					❌ ${error.message}
-				`,
-					"error"
-				);
-			}
-		}
-	}
-
-	_buildEligibilityPayload() {
-		const extractedData = this._extractResponseData(true);
-
-		console.log("Building eligibility payload with extracted data:", {
-			extractedData,
-			responsesCount: this.responses?.length || 0,
-			responses: this.responses
-		});
-
-		return {
-			quizId: this.quizData.id,
-			quizTitle: this.quizData.title,
-			workflowType: "eligibility",
-			triggeredAt: new Date().toISOString(),
-			testMode: this.isTestMode,
-			// Only include data needed for eligibility
-			customerEmail: extractedData.customerEmail,
-			firstName: extractedData.firstName,
-			lastName: extractedData.lastName,
-			phoneNumber: extractedData.phoneNumber,
-			state: extractedData.state,
-			insurance: extractedData.insurance,
-			insurancePrimaryPayerId: extractedData.insurancePrimaryPayerId,
-			insuranceMemberId: extractedData.insuranceMemberId,
-			groupNumber: extractedData.groupNumber,
-			dateOfBirth: extractedData.dateOfBirth,
-			mainReasons: extractedData.mainReasons,
-			medicalConditions: extractedData.medicalConditions
-		};
-	}
-
-	_buildUserCreationPayload(eligibilityData = null) {
-		const extractedData = this._extractResponseData(false);
-		const allResponses =
-			this.responses?.map(response => ({
-				questionId: response.questionId,
-				answer: response.answer,
-				value: response.answer
-			})) || [];
-
-		const payload = {
-			...this._buildSubmissionPayload(extractedData),
-			...extractedData,
-			allResponses,
-			eligibilityData: eligibilityData || this._createProcessingEligibilityData(),
-			completedAt: new Date().toISOString(),
-			workflowType: "user_creation"
-		};
-
-		// Test mode payload validation
-		if (this.isTestMode) {
-			const issues = [];
-
-			// Check required fields
-			if (!payload.customerEmail || !payload.customerEmail.includes("@")) {
-				issues.push("❌ Invalid email");
-			}
-			if (!payload.firstName) issues.push("❌ Missing firstName");
-			if (!payload.lastName) issues.push("❌ Missing lastName");
-			if (!payload.quizId) issues.push("❌ Missing quizId");
-
-			// Check payload structure
-			if (!Array.isArray(payload.allResponses)) {
-				issues.push("❌ allResponses not array");
-			}
-			if (!payload.eligibilityData || typeof payload.eligibilityData !== "object") {
-				issues.push("❌ Invalid eligibilityData");
-			}
-
-			// Check for invalid characters that might cause JSON issues
-			const jsonString = JSON.stringify(payload);
-			if (jsonString.includes("\u0000")) {
-				issues.push("❌ Contains null characters");
-			}
-
-			this._showBackgroundProcessNotification(
-				`
-				🧪 TEST MODE - User Creation Payload Validation<br>
-				• Total size: ${jsonString.length} chars<br>
-				• Email: ${payload.customerEmail}<br>
-				• Name: ${payload.firstName} ${payload.lastName}<br>
-				• Responses: ${payload.allResponses?.length || 0} items<br>
-				• Eligibility Status: ${payload.eligibilityData?.eligibilityStatus}<br>
-				${issues.length > 0 ? `• Issues: ${issues.join(", ")}` : "• ✅ All validations passed"}
-			`,
-				issues.length > 0 ? "error" : "info"
-			);
-		}
-
-		return payload;
-	}
-
-	_buildSubmissionPayload(extractedData = null) {
-		const data = extractedData || this._extractResponseData(false);
-
-		return {
-			quizId: this.quizData.id,
-			quizTitle: this.quizData.title,
-			completedAt: new Date().toISOString(),
-			...data,
-			allResponses: this.responses.map(r => ({
-				stepId: r.stepId,
-				questionId: r.questionId,
-				answer: r.answer
-			}))
-		};
-	}
-
-	_extractResponseData(showNotifications = false) {
-		const fieldMapping = {
-			q9: "customerEmail",
-			q7: "firstName",
-			q8: "lastName",
-			q10: "phoneNumber",
-			q5: "state",
-			q3: ["insurance", "insurancePrimaryPayerId"],
-			q4: "insuranceMemberId",
-			q4_group: "groupNumber",
-			q1: "mainReasons",
-			q2: "medicalConditions",
-			// New address fields for Beluga scheduling
-			q11: "address",
-			q12: "city",
-			q13: "zip",
-			q14: "sex"
-		};
-
-		const data = {
-			customerEmail: "",
-			firstName: "",
-			lastName: "",
-			phoneNumber: "",
-			state: "",
-			insurance: "",
-			insurancePrimaryPayerId: "",
-			insuranceMemberId: "",
-			groupNumber: "",
-			mainReasons: [],
-			medicalConditions: [],
-			dateOfBirth: "",
-			consent: true,
-			// New address fields for Beluga scheduling
-			address: "",
-			city: "",
-			zip: "",
-			sex: ""
-		};
-
-		const dobParts = {};
-
-		console.log("Extracting response data from responses:", this.responses);
-
-		// Test mode detailed extraction notification - only show if requested
-		if (this.isTestMode && showNotifications) {
-			const responsesSummary = this.responses?.map(r => `${r.questionId}: ${Array.isArray(r.answer) ? r.answer.join(",") : r.answer}`).join("<br>• ") || "None";
-
-			this._showBackgroundProcessNotification(
-				`
-				🧪 TEST MODE - Data Extraction<br>
-				• Total responses: ${this.responses?.length || 0}<br>
-				• Expected questions: ${Object.keys(fieldMapping).join(", ")}<br>
-				• Responses:<br>• ${responsesSummary}
-			`,
-				"info"
-			);
-		}
-
-		// Process responses
-		if (this.responses && Array.isArray(this.responses)) {
-			for (const response of this.responses) {
-				const questionId = response.questionId;
-				const answer = response.answer;
-
-				// Handle date of birth parts
-				if (questionId && (questionId.startsWith("q6_") || questionId.startsWith("q11_") || questionId.includes("birth") || questionId.includes("dob"))) {
-					if (questionId.includes("month")) dobParts.month = answer;
-					if (questionId.includes("day")) dobParts.day = answer;
-					if (questionId.includes("year")) dobParts.year = answer;
-					continue;
-				}
-
-				// Handle mapped fields
-				const fieldName = fieldMapping[questionId];
-				if (fieldName) {
-					if (Array.isArray(fieldName)) {
-						// Handle payer search (q3) mapping to both insurance and insurancePrimaryPayerId
-						data[fieldName[0]] = answer;
-						data[fieldName[1]] = answer;
-					} else {
-						data[fieldName] = answer;
-					}
-				}
-			}
-		}
-
-		// Construct date of birth
-		if (dobParts.month && dobParts.day && dobParts.year) {
-			const month = String(dobParts.month).padStart(2, "0");
-			const day = String(dobParts.day).padStart(2, "0");
-			data.dateOfBirth = `${dobParts.year}${month}${day}`;
-		}
-
-		console.log("Extracted response data:", data);
-
-		// Test mode extraction result notification - only show if requested
-		if (this.isTestMode && showNotifications) {
-			// groupNumber is optional, so exclude it from required field checks
-			const missingFields = Object.entries(data)
-				.filter(([key, value]) => !value && !["mainReasons", "medicalConditions", "consent", "groupNumber"].includes(key))
-				.map(([key]) => key);
-
-			const optionalFields = [];
-			if (!data.groupNumber) {
-				optionalFields.push("groupNumber");
-			}
-
-			this._showBackgroundProcessNotification(
-				`
-				🧪 TEST MODE - Extraction Result<br>
-				• Email: ${data.customerEmail || "❌ Missing"}<br>
-				• Name: ${data.firstName} ${data.lastName}<br>
-				• Insurance: ${data.insurance || "❌ Missing"}<br>
-				• Member ID: ${data.insuranceMemberId || "❌ Missing"}<br>
-				• Missing required: ${missingFields.length ? missingFields.join(", ") : "None"}<br>
-				• Optional fields: ${optionalFields.length ? optionalFields.join(", ") : "All present"}
-			`,
-				missingFields.length > 0 ? "error" : "success"
-			);
-		}
-
-		return data;
-	}
-
-	async _submitEligibilityToWebhook(webhookUrl, payload) {
-		try {
-			console.log("Submitting eligibility payload to webhook:", {
-				url: webhookUrl,
-				payload
-			});
-
-			// Test mode notification
-			if (this.isTestMode) {
-				this._showBackgroundProcessNotification(
-					`
-					🧪 TEST MODE - Sending Eligibility Request<br>
-					• Payload keys: ${Object.keys(payload).join(", ")}<br>
-					• Request timeout: 45s
-				`,
-					"info"
-				);
-			}
-
-			const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Eligibility request timed out")), 45000));
-
-			const fetchPromise = fetch(webhookUrl, {
-				method: "POST",
-				mode: "cors",
-				headers: {
-					"Content-Type": "application/json",
-					Accept: "application/json",
-					"X-Workflow-Type": "eligibility"
-				},
-				body: JSON.stringify(payload)
-			});
-
-			const response = await Promise.race([fetchPromise, timeoutPromise]);
-
-			console.log("Raw webhook response:", {
-				ok: response.ok,
-				status: response.status,
-				statusText: response.statusText,
-				headers: Object.fromEntries(response.headers.entries())
-			});
-
-			if (response.ok) {
-				const result = await response.json();
-				console.log("Parsed webhook response:", result);
-
-				// Test mode response structure notification
-				if (this.isTestMode) {
-					const hasBody = "body" in result;
-					const hasEligibilityData = result?.eligibilityData || result?.body?.eligibilityData;
-					const status = hasEligibilityData ? (hasBody ? result.body.eligibilityData.eligibilityStatus : result.eligibilityData.eligibilityStatus) : "No eligibility data";
-
-					this._showBackgroundProcessNotification(
-						`
-						🧪 TEST MODE - Response Structure<br>
-						• Status: ${response.status} ${response.statusText}<br>
-						• Has body: ${hasBody}<br>
-						• Has eligibilityData: ${!!hasEligibilityData}<br>
-						• Eligibility Status: ${status}<br>
-						• Top-level keys: ${Object.keys(result).join(", ")}
-					`,
-						"info"
-					);
-				}
-
-				const processedResult = this._processWebhookResult(result);
-				console.log("Processed webhook result:", processedResult);
-
-				// Test mode processing result notification
-				if (this.isTestMode) {
-					this._showBackgroundProcessNotification(
-						`
-						🧪 TEST MODE - Processing Result<br>
-						• Final status: ${processedResult?.eligibilityStatus || "Unknown"}<br>
-						• Is eligible: ${processedResult?.isEligible}<br>
-						• Has error: ${!!processedResult?.error}<br>
-						• Error code: ${processedResult?.error?.code || processedResult?.aaaErrorCode || "None"}
-					`,
-						processedResult?.eligibilityStatus === "AAA_ERROR" ? "error" : "info"
-					);
-				}
-
-				return processedResult;
-			} else {
-				console.error("Webhook request failed:", response.status, response.statusText);
-
-				if (this.isTestMode) {
-					this._showBackgroundProcessNotification(
-						`
-						🧪 TEST MODE - HTTP Error<br>
-						❌ ${response.status} ${response.statusText}<br>
-						• Check server logs for details
-					`,
-						"error"
-					);
-				}
-
-				throw new Error(`Eligibility server returned status ${response.status}`);
-			}
-		} catch (error) {
-			console.error("Webhook submission error:", error);
-
-			if (this.isTestMode) {
-				this._showBackgroundProcessNotification(
-					`
-					🧪 TEST MODE - Request Failed<br>
-					❌ ${error.message}<br>
-					• Network or timeout issue
-				`,
-					"error"
-				);
-			}
-
-			const errorMessages = this.quizData.ui?.errorMessages || {};
-			return this._createErrorEligibilityData(
-				error.message.includes("timeout") ? errorMessages.networkError || "Eligibility check timed out" : errorMessages.serverError || "Eligibility server error"
-			);
-		}
-	}
-
-	async _submitUserCreationToWebhook(webhookUrl, payload) {
-		try {
-			console.log("Submitting user creation payload to webhook:", {
-				url: webhookUrl,
-				payloadKeys: Object.keys(payload),
-				payloadSize: JSON.stringify(payload).length
-			});
-
-			// Test mode notification
-			if (this.isTestMode) {
-				this._showBackgroundProcessNotification(
-					`
-					🧪 TEST MODE - Sending User Creation Request<br>
-					• URL: ${webhookUrl}<br>
-					• Payload size: ${JSON.stringify(payload).length} chars<br>
-					• Customer: ${payload.customerEmail}<br>
-					• Has eligibility data: ${!!payload.eligibilityData}
-				`,
-					"info"
-				);
-			}
-
-			const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("User creation request timed out")), 45000));
-
-			const fetchPromise = fetch(webhookUrl, {
-				method: "POST",
-				mode: "cors",
-				headers: {
-					"Content-Type": "application/json",
-					Accept: "application/json",
-					"X-Workflow-Type": "user_creation"
-				},
-				body: JSON.stringify(payload)
-			});
-
-			const response = await Promise.race([fetchPromise, timeoutPromise]);
-
-			console.log("User creation webhook response:", {
-				ok: response.ok,
-				status: response.status,
-				statusText: response.statusText,
-				headers: Object.fromEntries(response.headers.entries())
-			});
-
-			if (response.ok) {
-				const result = await response.json();
-				console.log("User creation webhook success:", result);
-
-				// Test mode success notification
-				if (this.isTestMode) {
-					const success = result?.success;
-					const shopifyId = result?.body?.shopifyCustomerId || result?.shopifyCustomerId;
-					const hubspotId = result?.body?.hubspotContactId || result?.hubspotContactId;
-
-					this._showBackgroundProcessNotification(
-						`
-						🧪 TEST MODE - User Creation Success<br>
-						✅ Status: ${response.status}<br>
-						• Success: ${success}<br>
-						• Shopify ID: ${shopifyId || "Not created"}<br>
-						• HubSpot ID: ${hubspotId || "Not created"}
-					`,
-						"success"
-					);
-				}
-
-				return result;
-			} else {
-				// Enhanced error handling for server errors
-				let errorBody = null;
-				let errorText = "";
-
-				try {
-					// Try to get the error response body
-					errorBody = await response.json();
-					errorText = errorBody?.error || errorBody?.message || JSON.stringify(errorBody);
-				} catch (e) {
-					// If JSON parsing fails, try to get text
-					try {
-						errorText = await response.text();
-					} catch (e2) {
-						errorText = `HTTP ${response.status} ${response.statusText}`;
-					}
-				}
-
-				console.error("User creation webhook error details:", {
-					status: response.status,
-					statusText: response.statusText,
-					errorBody,
-					errorText
-				});
-
-				// Test mode detailed error notification
-				if (this.isTestMode) {
-					const commonIssues = [];
-
-					// Analyze common 500 error causes
-					if (response.status === 500) {
-						commonIssues.push("• Server-side workflow execution error");
-
-						// Check for potential data issues
-						if (!payload.customerEmail?.includes("@")) {
-							commonIssues.push("• Invalid email format in payload");
-						}
-						if (!payload.allResponses || payload.allResponses.length === 0) {
-							commonIssues.push("• Missing allResponses array");
-						}
-						if (!payload.eligibilityData) {
-							commonIssues.push("• Missing eligibilityData object");
-						}
-
-						commonIssues.push("• Check Google Cloud Function logs");
-						commonIssues.push("• Check user creation workflow YAML");
-					}
-
-					this._showBackgroundProcessNotification(
-						`
-						🧪 TEST MODE - User Creation Server Error<br>
-						❌ ${response.status} ${response.statusText}<br>
-						• Error: ${errorText.substring(0, 200)}${errorText.length > 200 ? "..." : ""}<br>
-						<br>Potential causes:<br>
-						${commonIssues.join("<br>")}
-					`,
-						"error"
-					);
-				}
-
-				throw new Error(`User creation server returned status ${response.status}: ${errorText}`);
-			}
-		} catch (error) {
-			console.error("User creation webhook error:", error);
-
-			// Test mode error notification
-			if (this.isTestMode) {
-				this._showBackgroundProcessNotification(
-					`
-					🧪 TEST MODE - User Creation Request Error<br>
-					❌ ${error.message}<br>
-					• Check network and server status
-				`,
-					"error"
-				);
-			}
-
-			throw error;
-		}
-	}
-
-	async _submitToWebhook(webhookUrl, payload) {
-		// This method is deprecated - use specific webhook methods instead
-		console.warn("_submitToWebhook is deprecated. Use _submitEligibilityToWebhook or _submitUserCreationToWebhook instead.");
-		throw new Error("Method deprecated");
-	}
-
-	_generateErrorResultsHTML(resultUrl, errorMessage) {
-		return `
-			<div class="quiz-results-container">
-				<div class="quiz-results-header">
-					<h2 class="quiz-results-title">Quiz Complete</h2>
-					<p class="quiz-results-subtitle">We've received your information.</p>
-				</div>
-				<div class="quiz-coverage-card" style="border-left: 4px solid #f56565; background-color: #fed7d7;">
-                    <h3 class="quiz-coverage-card-title" style="color: #c53030;">⚠️ Eligibility Check Error</h3>
-                    <p style="color: #c53030;">There was an error checking your insurance eligibility.</p>
-				</div>
-				<div class="quiz-action-section">
-					<div class="quiz-action-content">
-						<div class="quiz-action-header">
-							<h3 class="quiz-action-title">Need assistance?</h3>
-						</div>
-						<div class="quiz-action-details">
-							<div class="quiz-action-info">
-								<svg class="quiz-action-info-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-									<path d="M10 18.3333C14.6023 18.3333 18.3333 14.6023 18.3333 9.99996C18.3333 5.39759 14.6023 1.66663 10 1.66663C5.39762 1.66663 1.66666 5.39759 1.66666 9.99996C1.66666 14.6023 5.39762 18.3333 10 18.3333Z" stroke="#306E51" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-									<path d="M7.5 9.99996L9.16667 11.6666L12.5 8.33329" stroke="#306E51" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-								</svg>
-								<div class="quiz-action-info-text">Our support team will manually verify your insurance coverage and help you get connected with the right dietitian.</div>
-							</div>
-							<div class="quiz-action-feature">
-								<svg class="quiz-action-feature-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-									<path d="M18.3333 14.1667C18.3333 15.0871 17.5871 15.8333 16.6667 15.8333H5.83333L1.66666 20V3.33333C1.66666 2.41286 2.41285 1.66667 3.33333 1.66667H16.6667C17.5871 1.66667 18.3333 2.41286 18.3333 3.33333V14.1667Z" stroke="#306E51" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-								</svg>
-								<div class="quiz-action-feature-text">Direct support to help resolve any coverage questions</div>
-							</div>
-							<div class="quiz-action-feature">
-								<svg class="quiz-action-feature-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-									<path d="M6.66666 2.5V5.83333M13.3333 2.5V5.83333M2.5 9.16667H17.5M4.16666 3.33333H15.8333C16.7538 3.33333 17.5 4.07952 17.5 5V16.6667C17.5 17.5871 16.7538 18.3333 15.8333 18.3333H4.16666C3.24619 18.3333 2.5 17.5871 2.5 16.6667V5C2.5 4.07952 3.24619 3.33333 4.16666 3.33333Z" stroke="#306E51" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-								</svg>
-								<div class="quiz-action-feature-text">Quick resolution to get you scheduled with a dietitian</div>
-							</div>
-						</div>
-						<a href="${resultUrl}" class="quiz-booking-button">Continue to Support</a>
-					</div>
-				</div>
-			</div>
-		`;
-	}
-
-	_generateEligibleInsuranceResultsHTML(eligibilityData, resultUrl) {
-		const messages = this.quizData.ui?.resultMessages?.eligible || {};
-		const sessionsCovered = parseInt(eligibilityData.sessionsCovered || "0", 10);
-		const copay = eligibilityData.copay || 0;
-
-		let coverageExpiry = "Dec 31, 2025";
-		if (eligibilityData.planEnd) {
-			const endDate = eligibilityData.planEnd;
-			if (endDate.length === 8) {
-				const year = endDate.substring(0, 4);
-				const month = endDate.substring(4, 6);
-				const day = endDate.substring(6, 8);
-				const monthNames = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-				coverageExpiry = `${monthNames[parseInt(month)]} ${parseInt(day)}, ${year}`;
-			}
-		}
-
-		return `
-			<div class="quiz-results-container">
-				<div class="quiz-results-header">
-                    <h2 class="quiz-results-title">${messages.title || "Great news! You're covered"}</h2>
-                    <p class="quiz-results-subtitle">${messages.subtitle || "Your insurance covers your consultations"}</p>
-				</div>
-				<div class="quiz-coverage-card">
-					<h3 class="quiz-coverage-card-title">Here's Your Offer</h3>
-					<div class="quiz-coverage-pricing">
-						<div class="quiz-coverage-service-item">
-							<div class="quiz-coverage-service">Initial consultation – 60 minutes</div>
-							<div class="quiz-coverage-cost">
-								<span class="quiz-coverage-copay">Co-pay: $${copay}*</span>
-								<span class="quiz-coverage-original-price">$100</span>
-							</div>
-						</div>
-						<div class="quiz-coverage-service-item">
-							<div class="quiz-coverage-service">Follow-up consultation – 30 minutes</div>
-							<div class="quiz-coverage-cost">
-								<span class="quiz-coverage-copay">Co-pay: $${copay}*</span>
-								<span class="quiz-coverage-original-price">$50</span>
-							</div>
-						</div>
-					</div>
-					<div class="quiz-coverage-divider"></div>
-					<div class="quiz-coverage-benefits">
-						<div class="quiz-coverage-benefit">
-							<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
-								<path d="M10.4163 1.66663H7.08301L7.49967 2.49996H9.99967L10.4163 1.66663Z" stroke="#418865" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-								<path d="M14.1663 14.1666V17.0833C14.1663 17.7736 13.6067 18.3333 12.9163 18.3333H4.58301C3.89265 18.3333 3.33301 17.7736 3.33301 17.0833V2.91663C3.33301 2.22627 3.89265 1.66663 4.58301 1.66663H12.9163C13.6067 1.66663 14.1663 2.22627 14.1663 2.91663V5.83329" stroke="#418865" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-								<path d="M10 10.4167L12.0833 12.5L16.6667 7.5" stroke="#418865" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-							</svg>
-							<span class="quiz-coverage-benefit-text">${sessionsCovered} covered sessions remaining</span>
-						</div>
-						<div class="quiz-coverage-benefit">
-							<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
-								<path d="M15.2223 15.5842L14.1663 15V13.5556M17.4997 15C17.4997 16.8409 16.0073 18.3333 14.1663 18.3333C12.3254 18.3333 10.833 16.8409 10.833 15C10.833 13.159 12.3254 11.6666 14.1663 11.6666C16.0073 11.6666 17.4997 13.159 17.4997 15Z" stroke="#418865" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-								<path d="M13.75 1.66663V4.99996M6.25 1.66663V4.99996" stroke="#418865" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-								<path d="M17.5 10V5.00004C17.5 4.07957 16.7538 3.33337 15.8333 3.33337H4.16667C3.24619 3.33337 2.5 4.07957 2.5 5.00004V16.6667C2.5 17.5872 3.24619 18.3334 4.16667 18.3334H9.16667" stroke="#418865" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-								<path d="M2.5 8.33337H17.5" stroke="#418865" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-							</svg>
-							<span class="quiz-coverage-benefit-text">Coverage expires ${coverageExpiry}</span>
-						</div>
-					</div>
-				</div>
-				<div class="quiz-action-section">
-					<div class="quiz-action-content">
-						<div class="quiz-action-header">
-							<h3 class="quiz-action-title">Schedule your initial online consultation now</h3>
-						</div>
-
-						<div class="quiz-action-details">
-							<div class="quiz-action-info">
-								<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
-									<path d="M12.4214 14.5583C12.4709 14.3109 12.6316 14.1021 12.8477 13.972C14.3893 13.0437 15.4163 11.5305 15.4163 9.58378C15.4163 6.59224 12.9913 4.16711 9.99967 4.16711C7.00813 4.16711 4.58301 6.59224 4.58301 9.58378C4.58301 11.5305 5.60997 13.0437 7.15168 13.972C7.36778 14.1021 7.52844 14.3109 7.57791 14.5583L7.78236 15.5805C7.86027 15.97 8.20227 16.2504 8.59951 16.2504H11.3998C11.7971 16.2504 12.1391 15.97 12.217 15.5805L12.4214 14.5583Z" stroke="#418865" stroke-width="1.25" stroke-linejoin="round"/>
-									<path d="M17.4997 9.58378H17.9163M2.08301 9.58378H2.49967M15.3024 4.28048L15.597 3.98586M4.16634 15.4171L4.58301 15.0004M15.4163 15.0004L15.833 15.4171M4.40234 3.98644L4.69697 4.28106M9.99967 2.08378V1.66711" stroke="#418865" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-									<path d="M11.6663 16.25V17.5C11.6663 17.9602 11.2933 18.3333 10.833 18.3333H9.16634C8.70609 18.3333 8.33301 17.9602 8.33301 17.5V16.25" stroke="#418865" stroke-width="1.25" stroke-linejoin="round"/>
-								</svg>
-								<span class="quiz-action-info-text">Our dietitians usually recommend minimum 6 consultations over 6 months, Today, just book your first.</span>
-							</div>
-
-							<div class="quiz-action-feature">
-								<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
-									<path d="M10.417 2.5031C9.67107 2.49199 8.92091 2.51074 8.19149 2.55923C4.70565 2.79094 1.929 5.60698 1.70052 9.14225C1.65582 9.83408 1.65582 10.5506 1.70052 11.2424C1.78374 12.53 2.35318 13.7222 3.02358 14.7288C3.41283 15.4336 3.15594 16.3132 2.7505 17.0815C2.45817 17.6355 2.312 17.9125 2.42936 18.1126C2.54672 18.3127 2.80887 18.3191 3.33318 18.3318C4.37005 18.3571 5.06922 18.0631 5.62422 17.6538C5.93899 17.4218 6.09638 17.3057 6.20486 17.2923C6.31332 17.279 6.5268 17.3669 6.95367 17.5427C7.33732 17.7007 7.78279 17.7982 8.19149 17.8254C9.37832 17.9043 10.6199 17.9045 11.8092 17.8254C15.295 17.5937 18.0717 14.7777 18.3002 11.2424C18.3354 10.6967 18.3428 10.1356 18.3225 9.58333" stroke="#418865" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-									<path d="M18.333 6.66663L13.333 1.66663M18.333 1.66663L13.333 6.66663" stroke="#418865" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-									<path d="M9.99658 10.4166H10.004M13.3262 10.4166H13.3337M6.66699 10.4166H6.67447" stroke="#418865" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-								</svg>
-								<span class="quiz-action-feature-text">Free cancellation up to 24h before</span>
-							</div>
-						</div>
-
-						<a href="${resultUrl}" class="quiz-booking-button">
-							Proceed to booking
-						</a>
-					</div>
-				</div>
-				${this._generateFAQHTML()}
-			</div>
-		`;
-	}
-
-	_generateNotCoveredInsuranceResultsHTML(eligibilityData, resultUrl) {
-		const messages = this.quizData.ui?.resultMessages?.notCovered || {};
-
-		return `
-			<div class="quiz-results-container">
-				<div class="quiz-results-header">
-                    <h2 class="quiz-results-title">${messages.title || "You're not covered, but we've got a deal for you"}</h2>
-                    <p class="quiz-results-subtitle">${messages.subtitle || "Get expert dietitian support at a special discounted rate"}</p>
-				</div>
-				<div class="quiz-coverage-card">
-					<h3 class="quiz-coverage-card-title">Here's Your Offer</h3>
-					<div class="quiz-coverage-pricing">
-						<div class="quiz-coverage-service-item">
-							<div class="quiz-coverage-service">Initial consultation – 60 minutes</div>
-							<div class="quiz-coverage-cost">
-								<span class="quiz-coverage-copay">Co-pay: $80*</span>
-								<span class="quiz-coverage-original-price">$100</span>
-							</div>
-						</div>
-						<div class="quiz-coverage-service-item">
-							<div class="quiz-coverage-service">Follow-up consultation – 30 minutes</div>
-							<div class="quiz-coverage-cost">
-								<span class="quiz-coverage-copay">Co-pay: $20*</span>
-								<span class="quiz-coverage-original-price">$50</span>
-							</div>
-						</div>
-					</div>
-				</div>
-				<div class="quiz-action-section">
-					<div class="quiz-action-content">
-						<div class="quiz-action-header">
-							<h3 class="quiz-action-title">Schedule your initial online consultation now</h3>
-						</div>
-
-						<div class="quiz-action-details">
-							<div class="quiz-action-info">
-								<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
-									<path d="M12.4214 14.5583C12.4709 14.3109 12.6316 14.1021 12.8477 13.972C14.3893 13.0437 15.4163 11.5305 15.4163 9.58378C15.4163 6.59224 12.9913 4.16711 9.99967 4.16711C7.00813 4.16711 4.58301 6.59224 4.58301 9.58378C4.58301 11.5305 5.60997 13.0437 7.15168 13.972C7.36778 14.1021 7.52844 14.3109 7.57791 14.5583L7.78236 15.5805C7.86027 15.97 8.20227 16.2504 8.59951 16.2504H11.3998C11.7971 16.2504 12.1391 15.97 12.217 15.5805L12.4214 14.5583Z" stroke="#418865" stroke-width="1.25" stroke-linejoin="round"/>
-									<path d="M17.4997 9.58378H17.9163M2.08301 9.58378H2.49967M15.3024 4.28048L15.597 3.98586M4.16634 15.4171L4.58301 15.0004M15.4163 15.0004L15.833 15.4171M4.40234 3.98644L4.69697 4.28106M9.99967 2.08378V1.66711" stroke="#418865" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-									<path d="M11.6663 16.25V17.5C11.6663 17.9602 11.2933 18.3333 10.833 18.3333H9.16634C8.70609 18.3333 8.33301 17.9602 8.33301 17.5V16.25" stroke="#418865" stroke-width="1.25" stroke-linejoin="round"/>
-								</svg>
-								<span class="quiz-action-info-text">Our dietitians usually recommend minimum 6 consultations over 6 months, Today, just book your first.</span>
-							</div>
-
-							<div class="quiz-action-feature">
-								<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
-									<path d="M10.417 2.5031C9.67107 2.49199 8.92091 2.51074 8.19149 2.55923C4.70565 2.79094 1.929 5.60698 1.70052 9.14225C1.65582 9.83408 1.65582 10.5506 1.70052 11.2424C1.78374 12.53 2.35318 13.7222 3.02358 14.7288C3.41283 15.4336 3.15594 16.3132 2.7505 17.0815C2.45817 17.6355 2.312 17.9125 2.42936 18.1126C2.54672 18.3127 2.80887 18.3191 3.33318 18.3318C4.37005 18.3571 5.06922 18.0631 5.62422 17.6538C5.93899 17.4218 6.09638 17.3057 6.20486 17.2923C6.31332 17.279 6.5268 17.3669 6.95367 17.5427C7.33732 17.7007 7.78279 17.7982 8.19149 17.8254C9.37832 17.9043 10.6199 17.9045 11.8092 17.8254C15.295 17.5937 18.0717 14.7777 18.3002 11.2424C18.3354 10.6967 18.3428 10.1356 18.3225 9.58333" stroke="#418865" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-									<path d="M18.333 6.66663L13.333 1.66663M18.333 1.66663L13.333 6.66663" stroke="#418865" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-									<path d="M9.99658 10.4166H10.004M13.3262 10.4166H13.3337M6.66699 10.4166H6.67447" stroke="#418865" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-								</svg>
-								<span class="quiz-action-feature-text">Free cancellation up to 24h before</span>
-							</div>
-						</div>
-
-						<a href="${resultUrl}" class="quiz-booking-button">
-							Proceed to booking
-						</a>
-					</div>
-				</div>
-				${this._generateFAQHTML()}
-			</div>
-		`;
-	}
-
-	_generateIneligibleInsuranceResultsHTML(eligibilityData, resultUrl) {
-		const messages = this.quizData.ui?.resultMessages?.notEligible || {};
-		const userMessage = eligibilityData.userMessage || "Your eligibility check is complete.";
-		const error = eligibilityData.error || {};
-		const errorCode = error.code || "Unknown";
-		const errorMessage = error.message || "";
-		const errorDetails = error.details || "";
-
-		// Check if this is actually an error scenario that needs detailed display
-		const hasDetailedError = error.code || error.message || error.details;
-		const isErrorScenario = eligibilityData.eligibilityStatus === "PAYER_ERROR" || hasDetailedError;
-
-		// Generate detailed error information if available
-		const errorDetailsHTML = hasDetailedError ? this._generateErrorDetailsHTML(error, errorCode, errorMessage, errorDetails, false) : "";
-
-		return `
-			<div class="quiz-results-container">
-				<div class="quiz-results-header">
-                    <h2 class="quiz-results-title">${messages.title || "Thanks for completing the quiz!"}</h2>
-                    <p class="quiz-results-subtitle">${messages.subtitle || "We're ready to help you."}</p>
-				</div>
-                <div class="quiz-coverage-card ${isErrorScenario ? "quiz-error-card" : ""}">
-                    <h3 class="quiz-coverage-card-title ${isErrorScenario ? "quiz-error-card-title" : ""}">${isErrorScenario ? "⚠️ " : ""}Insurance Coverage Check${errorCode !== "Unknown" ? ` (Error ${errorCode})` : ""}</h3>
-
-					${
-						isErrorScenario && errorMessage
-							? `
-						<div class="quiz-error-main-message">
-							<p class="quiz-error-primary-text">${errorMessage}</p>
-							<p class="quiz-error-secondary-text">${userMessage}</p>
-						</div>
-						${errorDetailsHTML}
-					`
-							: `<p>${userMessage}</p>`
-					}
-				</div>
-				<div class="quiz-action-section">
-					<div class="quiz-action-content">
-						<div class="quiz-action-header">
-							<h3 class="quiz-action-title">What's next?</h3>
-						</div>
-						<div class="quiz-action-details">
-							<div class="quiz-action-info">
-								<svg class="quiz-action-info-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-									<path d="M10 18.3333C14.6023 18.3333 18.3333 14.6023 18.3333 9.99996C18.3333 5.39759 14.6023 1.66663 10 1.66663C5.39762 1.66663 1.66666 5.39759 1.66666 9.99996C1.66666 14.6023 5.39762 18.3333 10 18.3333Z" stroke="#306E51" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-									<path d="M7.5 9.99996L9.16667 11.6666L12.5 8.33329" stroke="#306E51" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-								</svg>
-								<div class="quiz-action-info-text">We'll help you connect with a registered dietitian and explore your options for coverage and consultation.</div>
-							</div>
-							<div class="quiz-action-feature">
-								<svg class="quiz-action-feature-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-									<path d="M18.3333 14.1667C18.3333 15.0871 17.5871 15.8333 16.6667 15.8333H5.83333L1.66666 20V3.33333C1.66666 2.41286 2.41285 1.66667 3.33333 1.66667H16.6667C17.5871 1.66667 18.3333 2.41286 18.3333 3.33333V14.1667Z" stroke="#306E51" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-								</svg>
-								<div class="quiz-action-feature-text">Personal consultation to review your coverage options</div>
-							</div>
-							<div class="quiz-action-feature">
-								<svg class="quiz-action-feature-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-									<path d="M6.66666 2.5V5.83333M13.3333 2.5V5.83333M2.5 9.16667H17.5M4.16666 3.33333H15.8333C16.7538 3.33333 17.5 4.07952 17.5 5V16.6667C17.5 17.5871 16.7538 18.3333 15.8333 18.3333H4.16666C3.24619 18.3333 2.5 17.5871 2.5 16.6667V5C2.5 4.07952 3.24619 3.33333 4.16666 3.33333Z" stroke="#306E51" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-								</svg>
-								<div class="quiz-action-feature-text">Flexible scheduling that works with your availability</div>
-							</div>
-						</div>
-						<a href="${resultUrl}" class="quiz-booking-button">Continue with Next Steps</a>
-					</div>
-				</div>
-			</div>
-		`;
-	}
-
-	_generateTestDataErrorResultsHTML(resultData, resultUrl) {
-		const error = resultData.error || {};
-		const errorCode = error.code || "33";
-		const errorMessage = error.message || "Test data validation failed";
-		const errorDetails = error.details || "";
-		const errorField = error.field || "";
-
-		return `
-			<div class="quiz-results-container">
-				<div class="quiz-results-header">
-                    <h2 class="quiz-results-title">Test Data Issue Detected</h2>
-                    <p class="quiz-results-subtitle">We noticed you're using test data that needs to be adjusted.</p>
-				</div>
-
-				<div class="quiz-coverage-card quiz-error-card">
-                    <h3 class="quiz-coverage-card-title quiz-error-card-title">🧪 Test Data Error (Code ${errorCode})</h3>
-
-					<div class="quiz-error-main-message">
-						<p class="quiz-error-primary-text">${errorMessage}</p>
-						<p class="quiz-error-secondary-text">${resultData.userMessage}</p>
-					</div>
-
-					${
-						errorDetails
-							? `
-						<div class="quiz-error-guidance-section">
-							<p class="quiz-error-section-title"><strong>How to Fix:</strong></p>
-							<p class="quiz-error-guidance-text">${errorDetails}</p>
-						</div>
-					`
-							: ""
-					}
-
-					${
-						errorField
-							? `
-						<div class="quiz-error-metadata-section">
-							<p class="quiz-error-section-title"><strong>Field with Issue:</strong></p>
-							<div class="quiz-error-metadata-badges">
-								<span class="quiz-error-badge">${errorField}</span>
-							</div>
-						</div>
-					`
-							: ""
-					}
-				</div>
-
-				<div class="quiz-action-section">
-					<div class="quiz-action-content">
-						<div class="quiz-action-header">
-							<h3 class="quiz-action-title">Testing Options</h3>
-						</div>
-						<div class="quiz-action-details">
-							<div class="quiz-action-info">
-								<svg class="quiz-action-info-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-									<path d="M10 18.3333C14.6023 18.3333 18.3333 14.6023 18.3333 9.99996C18.3333 5.39759 14.6023 1.66663 10 1.66663C5.39762 1.66663 1.66666 5.39759 1.66666 9.99996C1.66666 14.6023 5.39762 18.3333 10 18.3333Z" stroke="#306E51" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-									<path d="M7.5 9.99996L9.16667 11.6666L12.5 8.33329" stroke="#306E51" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-								</svg>
-								<div class="quiz-action-info-text">For testing the eligibility system, please use "John" as the first name with the test insurance data provided.</div>
-							</div>
-							<div class="quiz-action-feature">
-								<svg class="quiz-action-feature-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-									<path d="M18.3333 14.1667C18.3333 15.0871 17.5871 15.8333 16.6667 15.8333H5.83333L1.66666 20V3.33333C1.66666 2.41286 2.41285 1.66667 3.33333 1.66667H16.6667C17.5871 1.66667 18.3333 2.41286 18.3333 3.33333V14.1667Z" stroke="#306E51" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-								</svg>
-								<div class="quiz-action-feature-text">Contact support to set up live testing with real insurance data</div>
-							</div>
-							<div class="quiz-action-feature">
-								<svg class="quiz-action-feature-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-									<path d="M6.66666 2.5V5.83333M13.3333 2.5V5.83333M2.5 9.16667H17.5M4.16666 3.33333H15.8333C16.7538 3.33333 17.5 4.07952 17.5 5V16.6667C17.5 17.5871 16.7538 18.3333 15.8333 18.3333H4.16666C3.24619 18.3333 2.5 17.5871 2.5 16.6667V5C2.5 4.07952 3.24619 3.33333 4.16666 3.33333Z" stroke="#306E51" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-								</svg>
-								<div class="quiz-action-feature-text">Try again with the correct test data format</div>
-							</div>
-						</div>
-						<a href="${resultUrl}" class="quiz-booking-button">Continue</a>
-					</div>
-				</div>
-				${this._generateFAQHTML()}
-			</div>
-		`;
-	}
-
-	_generateAAAErrorResultsHTML(eligibilityData, resultUrl) {
-		// Extract comprehensive error information from the response
-		const error = eligibilityData.error || {};
-		const errorCode = error.code || eligibilityData.aaaErrorCode || "Unknown";
-		const errorMessage = error.message || "Unknown error occurred";
-		const errorDetails = error.details || "";
-		const totalErrors = error.totalErrors || 0;
-		const hasMultipleErrors = totalErrors > 1;
-
-		// Use enhanced error titles and messaging if available
-		const errorTitle = eligibilityData.errorTitle || this._getErrorTitle(errorCode);
-		const actionTitle = eligibilityData.actionTitle || "Manual Verification Required";
-		const actionText = eligibilityData.actionText || "Our team will manually verify your coverage and contact you with results.";
-
-		// Generate detailed error information display
-		const errorDetailsHTML = this._generateErrorDetailsHTML(error, errorCode, errorMessage, errorDetails, hasMultipleErrors);
-
-		return `
-			<div class="quiz-results-container">
-				<div class="quiz-results-header">
-                    <h2 class="quiz-results-title">${errorTitle}</h2>
-                    <p class="quiz-results-subtitle">We encountered an issue verifying your insurance coverage automatically.</p>
-				</div>
-
-				<!-- Enhanced Error Details Card -->
-				<div class="quiz-coverage-card quiz-error-card">
-                    <h3 class="quiz-coverage-card-title quiz-error-card-title">⚠️ Verification Issue${errorCode !== "Unknown" ? ` (Error ${errorCode})` : ""}</h3>
-
-					<!-- Main Error Message -->
-					<div class="quiz-error-main-message">
-						<p class="quiz-error-primary-text">${eligibilityData.userMessage || errorMessage}</p>
-					</div>
-
-					${errorDetailsHTML}
-				</div>
-
-				<div class="quiz-action-section">
-					<div class="quiz-action-content">
-						<div class="quiz-action-header">
-							<h3 class="quiz-action-title">${actionTitle}</h3>
-						</div>
-						<div class="quiz-action-details">
-							<div class="quiz-action-info">
-								<svg class="quiz-action-info-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-									<path d="M10 18.3333C14.6023 18.3333 18.3333 14.6023 18.3333 9.99996C18.3333 5.39759 14.6023 1.66663 10 1.66663C5.39762 1.66663 1.66666 5.39759 1.66666 9.99996C1.66666 14.6023 5.39762 18.3333 10 18.3333Z" stroke="#306E51" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-									<path d="M7.5 9.99996L9.16667 11.6666L12.5 8.33329" stroke="#306E51" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-								</svg>
-								<div class="quiz-action-info-text">${actionText}</div>
-							</div>
-							<div class="quiz-action-feature">
-								<svg class="quiz-action-feature-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-									<path d="M18.3333 14.1667C18.3333 15.0871 17.5871 15.8333 16.6667 15.8333H5.83333L1.66666 20V3.33333C1.66666 2.41286 2.41285 1.66667 3.33333 1.66667H16.6667C17.5871 1.66667 18.3333 2.41286 18.3333 3.33333V14.1667Z" stroke="#306E51" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-								</svg>
-								<div class="quiz-action-feature-text">We'll contact you within 24 hours with your coverage details</div>
-							</div>
-							<div class="quiz-action-feature">
-								<svg class="quiz-action-feature-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-									<path d="M6.66666 2.5V5.83333M13.3333 2.5V5.83333M2.5 9.16667H17.5M4.16666 3.33333H15.8333C16.7538 3.33333 17.5 4.07952 17.5 5V16.6667C17.5 17.5871 16.7538 18.3333 15.8333 18.3333H4.16666C3.24619 18.3333 2.5 17.5871 2.5 16.6667V5C2.5 4.07952 3.24619 3.33333 4.16666 3.33333Z" stroke="#306E51" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-								</svg>
-								<div class="quiz-action-feature-text">You can still proceed with booking a consultation</div>
-							</div>
-						</div>
-						<a href="${resultUrl}" class="quiz-booking-button">Continue to Booking</a>
-					</div>
-				</div>
-				${this._generateFAQHTML()}
-			</div>
-		`;
-	}
-
-	_generateErrorDetailsHTML(error, errorCode, errorMessage, errorDetails, hasMultipleErrors) {
-		let detailsHTML = "";
-
-		// Add technical details if available
-		if (errorDetails && errorDetails !== errorMessage) {
-			detailsHTML += `
-				<div class="quiz-error-technical-section">
-					<p class="quiz-error-section-title"><strong>Technical Details:</strong></p>
-					<p class="quiz-error-details-text">${errorDetails}</p>
-				</div>
-			`;
-		}
-
-		// Add error metadata if available
-		const metadata = [];
-		if (error.isAAAError) metadata.push("Verification Issue");
-		if (hasMultipleErrors) metadata.push(`Multiple Issues (${error.totalErrors})`);
-		if (errorCode && errorCode !== "Unknown") metadata.push(`Error Code: ${errorCode}`);
-
-		if (metadata.length > 0) {
-			detailsHTML += `
-				<div class="quiz-error-metadata-section">
-					<p class="quiz-error-section-title"><strong>Issue Details:</strong></p>
-					<div class="quiz-error-metadata-badges">
-						${metadata.map(item => `<span class="quiz-error-badge">${item}</span>`).join("")}
-					</div>
-				</div>
-			`;
-		}
-
-		// Add specific guidance based on error code
-		const guidance = this._getErrorGuidance(errorCode);
-		if (guidance) {
-			detailsHTML += `
-				<div class="quiz-error-guidance-section">
-					<p class="quiz-error-section-title"><strong>What This Means:</strong></p>
-					<p class="quiz-error-guidance-text">${guidance}</p>
-				</div>
-			`;
-		}
-
-		return detailsHTML;
-	}
-
-	_getErrorTitle(errorCode) {
-		const errorTitles = {
-			42: "Service Temporarily Unavailable",
-			43: "Provider Registration Issue",
-			72: "Member ID Verification Needed",
-			73: "Name Verification Needed",
-			75: "Subscriber Not Found",
-			76: "Duplicate Member ID Found",
-			79: "System Connection Issue"
-		};
-
-		return errorTitles[errorCode] || "Insurance Verification Issue";
-	}
-
-	_getErrorGuidance(errorCode) {
-		const errorGuidance = {
-			42: "Your insurance company's system is temporarily down for maintenance. This is usually resolved within a few hours.",
-			43: "Your insurance plan requires our provider to be specifically registered. We'll handle this registration process for you.",
-			72: "The member ID entered doesn't match records. Please verify the ID exactly as shown on your insurance card, including any letters or special characters.",
-			73: "The name entered doesn't match your insurance records. Make sure the name matches exactly as it appears on your insurance card.",
-			75: "Your insurance information wasn't found in the system. This could be due to a recent plan change, new enrollment, or data sync delay.",
-			76: "Your member ID appears multiple times in the insurance database. This often happens when you have multiple plan types or recent changes. Our team will identify your current active plan.",
-			79: "There's a temporary technical issue connecting with your insurance provider's verification system. This is typically resolved quickly."
-		};
-
-		return errorGuidance[errorCode] || null;
-	}
-
-	_generateFAQHTML() {
-		const faqData = this.quizData.ui?.faq || [];
-		if (faqData.length === 0) return "";
-
-		return `
-			<div class="quiz-faq-section">
-				<div class="quiz-faq-divider"></div>
-                ${faqData
-									.map(
-										faq => `
-                    <div class="quiz-faq-item" data-faq="${faq.id}" tabindex="0" role="button" aria-expanded="false">
-					<div class="quiz-faq-content">
-                            <div class="quiz-faq-question-collapsed">${faq.question}</div>
-                            <div class="quiz-faq-answer">${faq.answer}</div>
-					</div>
-					<div class="quiz-faq-toggle">
-                            <svg class="quiz-faq-toggle-icon" width="24" height="24" viewBox="0 0 24 24" fill="none">
-							<path d="M4 12H20" stroke="#4f4f4f" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-							<path d="M12 4V20" stroke="#4f4f4f" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-						</svg>
-					</div>
-				</div>
-				<div class="quiz-faq-divider"></div>
-                `
-									)
-									.join("")}
-			</div>
-		`;
-	}
-
-	_attachFAQListeners() {
-		const faqItems = this.questionContainer.querySelectorAll(".quiz-faq-item");
-		faqItems.forEach(item => {
-			item.addEventListener("click", () => {
-				const isExpanded = item.classList.contains("expanded");
-
-				// Toggle expanded state immediately for smooth animation
-				if (!isExpanded) {
-					item.classList.add("expanded");
-					const question = item.querySelector(".quiz-faq-question, .quiz-faq-question-collapsed");
-					if (question) question.className = "quiz-faq-question";
-				} else {
-					item.classList.remove("expanded");
-					const question = item.querySelector(".quiz-faq-question, .quiz-faq-question-collapsed");
-					if (question) question.className = "quiz-faq-question-collapsed";
-				}
-			});
-		});
-	}
-
-	renderPayerSearch(question, response) {
-		const selectedPayer = response.answer;
-		const placeholder = question.placeholder || "Start typing to search for your insurance plan...";
-		let selectedDisplayName = "";
-
-		if (selectedPayer && typeof selectedPayer === "string") {
-			selectedDisplayName = this._resolvePayerDisplayName(selectedPayer) || "";
-		}
-
-		return `
-			<div class="quiz-payer-search-container">
-                <div class="quiz-payer-search-input-wrapper">
-                    <input type="text" id="question-${question.id}" class="quiz-payer-search-input"
-                           placeholder="${placeholder}"
-                           value="${selectedDisplayName}"
-                           autocomplete="off"
-                           aria-describedby="error-${question.id}">
-                    <svg class="quiz-payer-search-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18" fill="none">
-  <path d="M13.1667 13.1667L16.5 16.5M14.8333 8.16667C14.8333 4.48477 11.8486 1.5 8.16667 1.5C4.48477 1.5 1.5 4.48477 1.5 8.16667C1.5 11.8486 4.48477 14.8333 8.16667 14.8333C11.8486 14.8333 14.8333 11.8486 14.8333 8.16667Z" stroke="#121212" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-</svg>
-                </div>
-				<div class="quiz-payer-search-dropdown" id="search-dropdown-${question.id}" style="display: none;">
-                    <div class="quiz-payer-search-dropdown-header">
-                        <span class="quiz-payer-search-dropdown-title">Suggestions</span>
-                        <button class="quiz-payer-search-close-btn" type="button" aria-label="Close dropdown">
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M12 4L4 12M4 4L12 12" stroke="#6B7280" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                            </svg>
-                        </button>
-                    </div>
-                    <div class="quiz-payer-search-results"></div>
-				</div>
-				<p id="error-${question.id}" class="quiz-error-text quiz-error-hidden"></p>
-            </div>
-        `;
-	}
-
-	_attachPayerSearchListeners(question) {
-		const searchInput = this.questionContainer.querySelector(`#question-${question.id}`);
-		const dropdown = this.questionContainer.querySelector(`#search-dropdown-${question.id}`);
-
-		if (searchInput && dropdown) {
-			this._setupPayerSearchBehavior(question, searchInput, dropdown, selectedPayer => {
-				this.handleAnswer(selectedPayer);
-			});
-		}
-	}
-
-	_attachPayerSearchFormListeners(question) {
-		setTimeout(() => {
-			const searchInput = this.questionContainer.querySelector(`#question-${question.id}`);
-			const dropdown = this.questionContainer.querySelector(`#search-dropdown-${question.id}`);
-
-			if (searchInput && dropdown) {
-				this._setupPayerSearchBehavior(question, searchInput, dropdown, selectedPayer => {
-					this.handleFormAnswer(question.id, selectedPayer);
-					this.updateNavigation();
-				});
-			}
-		}, 100);
-	}
-
-	_setupPayerSearchBehavior(question, searchInput, dropdown, onSelectCallback) {
-		let isOpen = false;
-		let searchTimeout = null;
-		const container = searchInput.closest(".quiz-payer-search-container");
-
-		searchInput.addEventListener("focus", () => {
-			if (!isOpen) {
-				this._openPayerSearchDropdown(dropdown, container, searchInput);
-				isOpen = true;
-				this._showInitialPayerList(dropdown, onSelectCallback);
-			}
-		});
-
-		searchInput.addEventListener("click", () => {
-			if (!isOpen) {
-				this._openPayerSearchDropdown(dropdown, container, searchInput);
-				isOpen = true;
-				this._showInitialPayerList(dropdown, onSelectCallback);
-			}
-		});
-
-		searchInput.addEventListener("input", () => {
-			if (!isOpen) {
-				this._openPayerSearchDropdown(dropdown, container, searchInput);
-				isOpen = true;
-			}
-
-			const query = searchInput.value.trim();
-
-			if (searchTimeout) {
-				clearTimeout(searchTimeout);
-			}
-
-			if (query.length > 0) {
-				searchTimeout = setTimeout(() => {
-					const currentQuery = searchInput.value.trim();
-					this._searchPayers(currentQuery, dropdown, onSelectCallback);
-				}, 300);
-			} else {
-				this._showInitialPayerList(dropdown, onSelectCallback);
-			}
-		});
-
-		// Handle close button click
-		const closeButton = dropdown.querySelector(".quiz-payer-search-close-btn");
-		if (closeButton) {
-			closeButton.addEventListener("click", e => {
-				e.preventDefault();
-				e.stopPropagation();
-				this._closePayerSearchDropdown(dropdown, container, searchInput);
-				isOpen = false;
-			});
-		}
-
-		// Close dropdown when clicking outside
-		document.addEventListener("click", e => {
-			if (!container.contains(e.target)) {
-				this._closePayerSearchDropdown(dropdown, container, searchInput);
-				isOpen = false;
-			}
-		});
-	}
-
-	_showInitialPayerList(dropdown, onSelectCallback) {
-		const commonPayers = this.quizData.commonPayers || [];
-		const results = commonPayers.map(payer => ({ payer }));
-		this._renderSearchResults(results, "", dropdown, onSelectCallback);
-	}
-
-	async _searchPayers(query, dropdown, onSelectCallback) {
-		const resultsContainer = dropdown.querySelector(".quiz-payer-search-results");
-		if (!resultsContainer) return;
-
-		// Show loading state
-		resultsContainer.innerHTML = `
-			<div class="quiz-payer-search-loading">
-				<div class="quiz-payer-search-loading-spinner"></div>
-				Searching insurance plans...
-			</div>
-		`;
-
-		try {
-			const apiResults = await this._searchPayersAPI(query);
-			if (apiResults && apiResults.length > 0) {
-				this._renderSearchResults(apiResults, query, dropdown, onSelectCallback);
-				return;
-			}
-		} catch (error) {
-			console.warn("API search failed, falling back to local search:", error);
-		}
-
-		try {
-			const localResults = this._filterCommonPayers(query);
-			this._renderSearchResults(localResults, query, dropdown, onSelectCallback);
-		} catch (error) {
-			console.error("Payer search error:", error);
-			resultsContainer.innerHTML = `<div class="quiz-payer-search-error">Error searching. Please try again.</div>`;
-		}
-	}
-
-	async _searchPayersAPI(query) {
-		const config = this.quizData.config?.apiConfig || {};
-		const apiKey = config.stediApiKey;
-
-		if (!apiKey || apiKey.trim() === "") {
-			console.warn("Stedi API key not configured or empty, using local search only");
-			return null;
-		}
-
-		const baseUrl = "https://healthcare.us.stedi.com/2024-04-01/payers/search";
-		const params = new URLSearchParams({
-			query: query,
-			pageSize: "10",
-			eligibilityCheck: "SUPPORTED" // Filter for payers that support eligibility checks
-		});
-
-		const url = `${baseUrl}?${params}`;
-
-		const response = await fetch(url, {
-			method: "GET",
-			headers: {
-				Authorization: apiKey,
-				Accept: "application/json"
-			}
-		});
-
-		if (!response.ok) {
-			const errorText = await response.text();
-			throw new Error(`API request failed: ${response.status} - ${errorText}`);
-		}
-
-		const data = await response.json();
-
-		const transformedResults =
-			data.items?.map(item => ({
-				payer: {
-					stediId: item.payer.stediId,
-					displayName: item.payer.displayName,
-					primaryPayerId: item.payer.primaryPayerId,
-					aliases: item.payer.aliases || [],
-					score: item.score
-				}
-			})) || [];
-
-		return transformedResults;
-	}
-
-	_filterCommonPayers(query) {
-		const commonPayers = this.quizData.commonPayers || [];
-		const lowerQuery = query.toLowerCase();
-
-		const filtered = commonPayers
-			.filter(payer => {
-				const matches =
-					payer.displayName.toLowerCase().includes(lowerQuery) || payer.stediId.toLowerCase().includes(lowerQuery) || payer.aliases?.some(alias => alias.toLowerCase().includes(lowerQuery));
-				return matches;
-			})
-			.map(payer => ({ payer }))
-			.slice(0, 5);
-
-		return filtered;
-	}
-
-	_renderSearchResults(results, query, dropdown, onSelectCallback) {
-		const resultsContainer = dropdown.querySelector(".quiz-payer-search-results");
-		if (!resultsContainer) return;
-
-		if (results.length === 0) {
-			resultsContainer.innerHTML = `<div class="quiz-payer-search-no-results">No insurance plans found. Try a different search term.</div>`;
-		} else {
-			const resultsHTML = results
-				.map((item, index) => {
-					const payer = item.payer;
-					const highlightedName = this._highlightSearchTerm(payer.displayName, query);
-					const isApiResult = payer.score !== undefined;
-
-					return `
-					<div class="quiz-payer-search-item" data-index="${index}">
-                        <div class="quiz-payer-search-item-name">
-							${highlightedName}
-						</div>
-						<div class="quiz-payer-search-item-details">
-							<span class="quiz-payer-search-item-id">${payer.stediId}</span>
-                            ${payer.aliases?.length > 0 ? `• ${payer.aliases.slice(0, 2).join(", ")}` : ""}
-							${isApiResult && payer.score ? `• Score: ${payer.score.toFixed(1)}` : ""}
-						</div>
-					</div>
-				`;
-				})
-				.join("");
-
-			resultsContainer.innerHTML = resultsHTML;
-
-			const resultItems = resultsContainer.querySelectorAll(".quiz-payer-search-item");
-			const container = dropdown.closest(".quiz-payer-search-container");
-			const searchInput = container.querySelector(".quiz-payer-search-input");
-
-			resultItems.forEach((item, index) => {
-				item.addEventListener("click", () => {
-					this._selectPayer(results[index].payer, searchInput, dropdown, onSelectCallback);
-				});
-			});
-		}
-
-		dropdown.classList.add("visible");
-		dropdown.style.display = "block";
-	}
-
-	_selectPayer(payer, searchInput, dropdown, onSelectCallback) {
-		// Update the search input with the selected payer name
-		searchInput.value = payer.displayName;
-		searchInput.classList.add("quiz-input-valid");
-
-		const container = searchInput.closest(".quiz-payer-search-container");
-		this._closePayerSearchDropdown(dropdown, container, searchInput);
-
-		onSelectCallback(payer.primaryPayerId);
-	}
-
-	_openPayerSearchDropdown(dropdown, container, searchInput) {
-		dropdown.classList.add("visible");
-		dropdown.style.display = "block";
-		container.classList.add("open");
-
-		const isMobile = window.innerWidth <= 768;
-		if (isMobile) {
-			setTimeout(() => {
-				const inputRect = searchInput.getBoundingClientRect();
-				const offset = 20; // Small offset from top
-				const currentScrollY = window.pageYOffset || document.documentElement.scrollTop;
-				const targetScrollY = currentScrollY + inputRect.top - offset;
-
-				window.scrollTo({
-					top: Math.max(0, targetScrollY),
-					behavior: "smooth"
-				});
-			}, 100);
-		}
-	}
-
-	_closePayerSearchDropdown(dropdown, container, searchInput) {
-		dropdown.classList.remove("visible");
-		dropdown.style.display = "none";
-		container.classList.remove("open");
-	}
-
-	_highlightSearchTerm(text, searchTerm) {
-		if (!searchTerm || !text) return text;
-		const regex = new RegExp(`(${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi");
-		return text.replace(regex, '<span class="quiz-payer-search-highlight">$1</span>');
-	}
-
-	_resolvePayerDisplayName(primaryPayerId) {
-		const commonPayers = this.quizData.commonPayers || [];
-		const matchingPayer = commonPayers.find(payer => payer.primaryPayerId === primaryPayerId);
-		return matchingPayer?.displayName || null;
-	}
-
-	_processFormQuestions(questions) {
-		let html = "";
-		let i = 0;
-
-		while (i < questions.length) {
-			const processed = this._tryProcessQuestionGroup(questions, i);
-			if (processed.html) {
-				html += processed.html;
-				i += processed.skip;
-			} else {
-				html += this._generateSingleFormQuestion(questions[i]);
-				i++;
-			}
-		}
-
-		return html;
-	}
-
-	_tryProcessQuestionGroup(questions, index) {
-		const question = questions[index];
-		const pairs = this.config.questionPairs || {};
-		const getResponse = q => this.responses.find(r => r.questionId === q.id) || { answer: null };
-
-		// Check for paired fields
-		const pairChecks = [
-			{ fields: pairs.memberIdFields, skip: 2 },
-			{ fields: pairs.nameFields, skip: 2 },
-			{ fields: pairs.contactFields, skip: 2 }
-		];
-
-		for (const pair of pairChecks) {
-			if (question.id === pair.fields?.[0] && questions[index + 1]?.id === pair.fields[1]) {
-				return {
-					html: this._generateFormFieldPair(question, questions[index + 1], getResponse(question), getResponse(questions[index + 1])),
-					skip: pair.skip
-				};
-			}
-		}
-
-		// Check for date group
-		if (question.type === "date-part" && question.part === "month") {
-			const [dayQ, yearQ] = [questions[index + 1], questions[index + 2]];
-			if (dayQ?.type === "date-part" && dayQ.part === "day" && yearQ?.type === "date-part" && yearQ.part === "year") {
-				return {
-					html: this._generateDateGroup(question, dayQ, yearQ),
-					skip: 3
-				};
-			}
-		}
-
-		return { html: null, skip: 0 };
-	}
-
-	_generateSingleFormQuestion(question) {
-		const response = this.responses.find(r => r.questionId === question.id) || { answer: null };
-		const helpIcon = this._getHelpIcon(question.id);
-
-		return `
-            <div class="quiz-question-section">
-                <label class="quiz-label" for="question-${question.id}">
-                    ${question.text}${helpIcon}
-                </label>
-                ${question.helpText ? `<p class="quiz-text-sm">${question.helpText}</p>` : ""}
-                ${this._renderQuestionByType(question, response)}
-            </div>
-        `;
-	}
-
-	_generateFormFieldPair(leftQuestion, rightQuestion, leftResponse, rightResponse) {
-		const generateField = (question, response) => ({
-			input: this._renderQuestionByType(question, response),
-			helpIcon: this._getHelpIcon(question.id),
-			label: question.text,
-			id: question.id
-		});
-
-		const [left, right] = [generateField(leftQuestion, leftResponse), generateField(rightQuestion, rightResponse)];
-
-		return `
-            <div class="quiz-grid-2-form">
-                ${[left, right]
-									.map(
-										field => `
-                    <div>
-                        <label class="quiz-label" for="question-${field.id}">
-                            ${field.label}${field.helpIcon}
-                        </label>
-                        ${field.input}
-                    </div>
-                `
-									)
-									.join("")}
-            </div>
-        `;
-	}
-
-	_getHelpIcon(questionId) {
-		const tooltip = this.quizData.validation?.tooltips?.[questionId];
-		return tooltip ? this._generateHelpIcon(questionId, tooltip) : "";
-	}
-
-	_generateDateGroup(monthQ, dayQ, yearQ) {
-		const monthResponse = this.responses.find(r => r.questionId === monthQ.id) || { answer: null };
-		const dayResponse = this.responses.find(r => r.questionId === dayQ.id) || { answer: null };
-		const yearResponse = this.responses.find(r => r.questionId === yearQ.id) || { answer: null };
-
-		return `
-            <div class="quiz-question-section">
-                <label class="quiz-label">${monthQ.text}</label>
-                <div class="quiz-grid-3">
-                    ${this.renderDatePart(monthQ, monthResponse)}
-                    ${this.renderDatePart(dayQ, dayResponse)}
-                    ${this.renderDatePart(yearQ, yearResponse)}
-                </div>
-            </div>
-        `;
-	}
-
-	_generateHelpIcon(questionId, tooltipContent) {
-		const escapedTooltip = tooltipContent.replace(/"/g, "&quot;");
-		return `<span class="quiz-help-icon-container" data-tooltip="${escapedTooltip}">
-            <svg class="quiz-help-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <path d="M14.6668 8.00004C14.6668 4.31814 11.682 1.33337 8.00016 1.33337C4.31826 1.33337 1.3335 4.31814 1.3335 8.00004C1.3335 11.6819 4.31826 14.6667 8.00016 14.6667C11.682 14.6667 14.6668 11.6819 14.6668 8.00004Z" stroke="#121212"/>
-                <path d="M8.1613 11.3334V8.00004C8.1613 7.68577 8.1613 7.52864 8.06363 7.43097C7.96603 7.33337 7.8089 7.33337 7.49463 7.33337" stroke="#121212" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M7.99463 5.33337H8.00063" stroke="#121212" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-        </span>`;
-	}
-
-	_addLegalTextAfterNavigation(legalText) {
-		const navContainer = this.navigationButtons;
-		if (!navContainer) return;
-
-		const existingLegal = navContainer.querySelector(".quiz-legal-after-nav");
-		if (existingLegal) {
-			existingLegal.remove();
-		}
-
-		const legalElement = document.createElement("p");
-		legalElement.className = "quiz-text-xs quiz-legal-after-nav";
-		legalElement.innerHTML = legalText;
-		navContainer.appendChild(legalElement);
-	}
-
-	// ---------------------------------------------------------------
-	// Scheduling Methods
-	// ---------------------------------------------------------------
-
-	_attachBookingButtonListeners() {
-		const bookingButtons = this.questionContainer.querySelectorAll(".quiz-booking-button");
-		bookingButtons.forEach(button => {
-			button.addEventListener("click", this._handleBookingButtonClick.bind(this));
-		});
-	}
-
-	async _handleBookingButtonClick(event) {
-		event.preventDefault();
-		const button = event.currentTarget;
-
-		console.log("Booking button clicked");
-
-		// Show loading state
-		this._showBookingLoadingState(button);
-
-		try {
-			// Get scheduling URL
-			const schedulingUrl = this.container.getAttribute("data-scheduling-url");
-			if (!schedulingUrl) {
-				throw new Error("Scheduling URL not configured");
-			}
-
-			// Trigger scheduling workflow
-			const schedulingResult = await this._triggerSchedulingWorkflow(schedulingUrl);
-
-			// Show scheduling results
-			this._showSchedulingResults(schedulingResult);
-		} catch (error) {
-			console.error("Scheduling error:", error);
-
-			// Test mode error notification
-			if (this.isTestMode) {
-				this._showBackgroundProcessNotification(
-					`
-					🧪 TEST MODE - Scheduling Error<br>
-					❌ ${error.message}<br>
-					• Check console for details
-				`,
-					"error"
-				);
-			}
-
-			this._showSchedulingError(error.message);
-		}
-	}
-
-	_showBookingLoadingState(button) {
-		// Store original button content
-		if (!button.dataset.originalContent) {
-			button.dataset.originalContent = button.innerHTML;
-		}
-
-		// Show loading state
-		button.innerHTML = `
-			<div class="quiz-spinner" style="width: 20px; height: 20px; margin-right: 8px;"></div>
-			Setting up your appointment...
-		`;
-		button.disabled = true;
-		button.style.cursor = "not-allowed";
-	}
-
-	async _triggerSchedulingWorkflow(schedulingUrl) {
-		console.log("Triggering scheduling workflow...");
-
-		// Extract all required data
-		const extractedData = this._extractResponseData(this.isTestMode);
-		const payload = this._buildSchedulingPayload(extractedData);
-
-		console.log("Scheduling payload:", payload);
-
-		// Test mode notification
-		if (this.isTestMode) {
-			this._showBackgroundProcessNotification(
-				`
-				🧪 TEST MODE - Scheduling Request<br>
-				• URL: ${schedulingUrl}<br>
-				• Required fields: ${Object.keys(payload)
-					.filter(k => k !== "allResponses")
-					.join(", ")}<br>
-				• Address: ${payload.address || "❌ Missing"}<br>
-				• City: ${payload.city || "❌ Missing"}<br>
-				• ZIP: ${payload.zip || "❌ Missing"}<br>
-				• Sex: ${payload.sex || "❌ Missing"}
-			`,
-				"info"
-			);
-		}
-
-		const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Scheduling request timed out")), 45000));
-
-		const fetchPromise = fetch(schedulingUrl, {
-			method: "POST",
-			mode: "cors",
-			headers: {
-				"Content-Type": "application/json",
-				Accept: "application/json",
-				"X-Workflow-Type": "scheduling"
-			},
-			body: JSON.stringify(payload)
-		});
-
-		const response = await Promise.race([fetchPromise, timeoutPromise]);
-
-		console.log("Raw scheduling response:", {
-			ok: response.ok,
-			status: response.status,
-			statusText: response.statusText
-		});
-
-		if (response.ok) {
-			const result = await response.json();
-			console.log("Parsed scheduling response:", result);
-
-			// Test mode response notification
-			if (this.isTestMode) {
-				const schedulingData = result?.schedulingData;
-				const workflowSuccess = result?.success;
-				const schedulingSuccess = schedulingData?.success;
-
-				this._showBackgroundProcessNotification(
-					`
-					🧪 TEST MODE - Scheduling Response<br>
-					• HTTP Status: ${response.status} ${response.statusText}<br>
-					• Workflow Success: ${workflowSuccess}<br>
-					• Scheduling Success: ${schedulingSuccess}<br>
-					• Scheduling Status: ${schedulingData?.status || "Unknown"}<br>
-					• Has Schedule Link: ${!!schedulingData?.scheduleLink}<br>
-					• Message: ${schedulingData?.message || "No message"}<br>
-					• Error: ${schedulingData?.error || "None"}
-				`,
-					schedulingSuccess ? "success" : "error"
-				);
-			}
-
-			return result;
-		} else {
-			const errorText = await response.text();
-			throw new Error(`HTTP ${response.status}: ${errorText}`);
-		}
-	}
-
-	_buildSchedulingPayload(extractedData = null) {
-		const data = extractedData || this._extractResponseData();
-
-		return {
-			// Basic info
-			firstName: data.firstName,
-			lastName: data.lastName,
-			customerEmail: data.customerEmail,
-			phoneNumber: data.phoneNumber,
-			dateOfBirth: data.dateOfBirth,
-			state: data.state,
-
-			// Address fields required by Beluga
-			address: data.address,
-			city: data.city,
-			zip: data.zip,
-			sex: data.sex,
-
-			// Quiz responses
-			mainReasons: data.mainReasons,
-			medicalConditions: data.medicalConditions,
-			allResponses: this.responses,
-
-			// Metadata
-			workflowType: "scheduling",
-			testMode: this.isTestMode,
-			triggeredAt: new Date().toISOString(),
-			quizId: this.quizData?.id || "dietitian-quiz",
-			quizTitle: this.quizData?.title || "Find Your Perfect Dietitian"
-		};
-	}
-
 	_showSchedulingResults(result) {
 		const schedulingData = result?.schedulingData;
 
@@ -3486,118 +2599,125 @@ class ModularQuiz {
 	}
 
 	_generateSchedulingSuccessHTML(schedulingData) {
-		const scheduleLink = schedulingData?.scheduleLink || "#";
-		const masterId = schedulingData?.masterId || "";
+		// Fallback for ES5 compatibility - using regular variables and string concatenation
+		var scheduleLink = schedulingData && schedulingData.scheduleLink ? schedulingData.scheduleLink : "#";
+		var masterId = schedulingData && schedulingData.masterId ? schedulingData.masterId : "";
+		var referenceHtml = masterId ? '<p class="quiz-text-xs" style="margin-top: 16px; color: #666; font-family: monospace;">Reference ID: ' + masterId + "</p>" : "";
 
-		return `
-			<div class="quiz-results-container">
-				<div class="quiz-results-header">
-					<h2 class="quiz-results-title">🎉 Appointment Request Submitted!</h2>
-					<p class="quiz-results-subtitle">Great news! Your request has been successfully processed and your dietitian appointment is ready to be scheduled.</p>
-				</div>
+		var html = "";
+		html += '<div class="quiz-results-container">';
+		html += '<div class="quiz-results-header">';
+		html += '<h2 class="quiz-results-title">🎉 Appointment Request Submitted!</h2>';
+		html += '<p class="quiz-results-subtitle">Great news! Your request has been successfully processed and your dietitian appointment is ready to be scheduled.</p>';
+		html += "</div>";
+		html += '<div class="quiz-action-section">';
+		html += '<div class="quiz-action-content">';
+		html += '<div class="quiz-action-header">';
+		html += '<h3 class="quiz-action-title">Next: Choose Your Appointment Time</h3>';
+		html += "</div>";
+		html += '<div class="quiz-action-details">';
+		html += '<div class="quiz-action-info">';
+		html += '<div class="quiz-action-info-text">';
+		html += "Click below to access your personalized scheduling portal where you can select from available appointment times that work best for your schedule.";
+		html += "</div>";
+		html += "</div>";
+		html += '<a href="' + scheduleLink + '" target="_blank" class="quiz-booking-button">';
+		html += '<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">';
+		html +=
+			'<path d="M6.66666 2.5V5.83333M13.3333 2.5V5.83333M2.5 9.16667H17.5M4.16666 3.33333H15.8333C16.7538 3.33333 17.5 4.07952 17.5 5V16.6667C17.5 17.5871 16.7538 18.3333 15.8333 18.3333H4.16666C3.24619 18.3333 2.5 17.5871 2.5 16.6667V5C2.5 4.07952 3.24619 3.33333 4.16666 3.33333Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>';
+		html += "</svg>";
+		html += "Schedule Your Appointment";
+		html += "</a>";
+		html += referenceHtml;
+		html += "</div>";
+		html += "</div>";
+		html += "</div>";
+		html += '<div class="quiz-coverage-card">';
+		html += '<div class="quiz-coverage-card-title">What to Expect</div>';
+		html += '<div class="quiz-coverage-benefits">';
+		html += '<div class="quiz-coverage-benefit">';
+		html += '<div class="quiz-coverage-benefit-icon">';
+		html += '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">';
+		html += '<path d="M12 8V12L15 15" stroke="#306E51" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
+		html += '<circle cx="12" cy="12" r="9" stroke="#306E51" stroke-width="2"/>';
+		html += "</svg>";
+		html += "</div>";
+		html += '<div class="quiz-coverage-benefit-text">';
+		html += "<strong>30-60 Minutes</strong><br/>";
+		html += "Comprehensive nutrition consultation tailored to your specific health goals";
+		html += "</div>";
+		html += "</div>";
+		html += '<div class="quiz-coverage-benefit">';
+		html += '<div class="quiz-coverage-benefit-icon">';
+		html += '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">';
+		html +=
+			'<path d="M17 3V0M12 3V0M7 3V0M3 7H21M5 21H19C20.1046 21 21 20.1046 21 19V7C21 5.89543 20.1046 5 19 5H5C3.89543 5 3 5.89543 3 7V19C3 20.1046 3.89543 21 5 21Z" stroke="#306E51" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
+		html += "</svg>";
+		html += "</div>";
+		html += '<div class="quiz-coverage-benefit-text">';
+		html += "<strong>Flexible Scheduling</strong><br/>";
+		html += "Choose from morning, afternoon, or evening slots that fit your lifestyle";
+		html += "</div>";
+		html += "</div>";
+		html += '<div class="quiz-coverage-benefit">';
+		html += '<div class="quiz-coverage-benefit-icon">';
+		html += '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">';
+		html +=
+			'<path d="M9 12L11 14L22 3M21 12V19C21 20.1046 20.1046 21 19 21H5C3.89543 21 3 20.1046 3 19V5C3.89543 3 5 3 5 3H16" stroke="#306E51" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
+		html += "</svg>";
+		html += "</div>";
+		html += '<div class="quiz-coverage-benefit-text">';
+		html += "<strong>Personalized Plan</strong><br/>";
+		html += "Receive a custom nutrition plan based on your quiz responses and health profile";
+		html += "</div>";
+		html += "</div>";
+		html += '<div class="quiz-coverage-benefit">';
+		html += '<div class="quiz-coverage-benefit-icon">';
+		html += '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">';
+		html +=
+			'<path d="M18.3333 14.1667C18.3333 15.0871 17.5871 15.8333 16.6667 15.8333H5.83333L1.66666 20V3.33333C1.66666 2.41286 2.41285 1.66667 3.33333 1.66667H16.6667C17.5871 1.66667 18.3333 2.41286 18.3333 3.33333V14.1667Z" stroke="#306E51" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>';
+		html += "</svg>";
+		html += "</div>";
+		html += '<div class="quiz-coverage-benefit-text">';
+		html += "<strong>Ongoing Support</strong><br/>";
+		html += "Follow-up resources and support to help you achieve your health goals";
+		html += "</div>";
+		html += "</div>";
+		html += "</div>";
+		html += "</div>";
+		html += '<div class="quiz-action-section" style="background-color: #f8f9fa;">';
+		html += '<div class="quiz-action-content">';
+		html += '<div class="quiz-action-header">';
+		html += '<h3 class="quiz-action-title">Need Assistance?</h3>';
+		html += "</div>";
+		html += '<div class="quiz-action-details">';
+		html += '<div class="quiz-action-info">';
+		html += '<div class="quiz-action-info-text">';
+		html += "Our support team is here to help if you have any questions about scheduling or preparing for your appointment.";
+		html += "</div>";
+		html += "</div>";
+		html += '<div class="quiz-action-feature">';
+		html += '<svg class="quiz-action-feature-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">';
+		html += '<path d="M18.3333 5.83333L10 11.6667L1.66666 5.83333" stroke="#306E51" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>';
+		html +=
+			'<path d="M1.66666 5.83333H18.3333V15C18.3333 15.442 18.1577 15.866 17.8452 16.1785C17.5327 16.491 17.1087 16.6667 16.6667 16.6667H3.33333C2.89131 16.6667 2.46738 16.491 2.15482 16.1785C1.84226 15.866 1.66666 15.442 1.66666 15V5.83333Z" stroke="#306E51" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>';
+		html += "</svg>";
+		html += '<div class="quiz-action-feature-text">Email: support@curalife.com</div>';
+		html += "</div>";
+		html += '<div class="quiz-action-feature">';
+		html += '<svg class="quiz-action-feature-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">';
+		html +=
+			'<path d="M18.3081 14.2233C17.1569 14.2233 16.0346 14.0397 14.9845 13.6971C14.6449 13.5878 14.2705 13.6971 14.0579 13.9427L12.8372 15.6772C10.3023 14.4477 8.55814 12.7138 7.32326 10.1581L9.10465 8.89535C9.34884 8.68372 9.45814 8.30233 9.34884 7.96279C9.00581 6.91628 8.82209 5.79186 8.82209 4.64535C8.82209 4.28953 8.53256 4 8.17674 4H4.64535C4.28953 4 4 4.28953 4 4.64535C4 12.1715 10.1831 18.3953 17.6628 18.3953C18.0186 18.3953 18.3081 18.1058 18.3081 17.75V14.2233Z" stroke="#306E51" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>';
+		html += "</svg>";
+		html += '<div class="quiz-action-feature-text">Phone: 1-800-CURALIFE</div>';
+		html += "</div>";
+		html += "</div>";
+		html += "</div>";
+		html += "</div>";
+		html += "</div>";
+		html += "</div>";
 
-				<div class="quiz-action-section">
-					<div class="quiz-action-content">
-						<div class="quiz-action-header">
-							<h3 class="quiz-action-title">Next: Choose Your Appointment Time</h3>
-						</div>
-						<div class="quiz-action-details">
-							<div class="quiz-action-info">
-								<div class="quiz-action-info-text">
-									Click below to access your personalized scheduling portal where you can select from available appointment times that work best for your schedule.
-								</div>
-							</div>
-							<a href="${scheduleLink}" target="_blank" class="quiz-booking-button">
-								<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-									<path d="M6.66666 2.5V5.83333M13.3333 2.5V5.83333M2.5 9.16667H17.5M4.16666 3.33333H15.8333C16.7538 3.33333 17.5 4.07952 17.5 5V16.6667C17.5 17.5871 16.7538 18.3333 15.8333 18.3333H4.16666C3.24619 18.3333 2.5 17.5871 2.5 16.6667V5C2.5 4.07952 3.24619 3.33333 4.16666 3.33333Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-								</svg>
-								Schedule Your Appointment
-							</a>
-							${masterId ? `<p class="quiz-text-xs" style="margin-top: 16px; color: #666; font-family: monospace;">Reference ID: ${masterId}</p>` : ""}
-						</div>
-					</div>
-				</div>
-
-				<div class="quiz-coverage-card">
-					<div class="quiz-coverage-card-title">What to Expect</div>
-					<div class="quiz-coverage-benefits">
-						<div class="quiz-coverage-benefit">
-							<div class="quiz-coverage-benefit-icon">
-								<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-									<path d="M12 8V12L15 15" stroke="#306E51" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-									<circle cx="12" cy="12" r="9" stroke="#306E51" stroke-width="2"/>
-								</svg>
-							</div>
-							<div class="quiz-coverage-benefit-text">
-								<strong>30-60 Minutes</strong><br>
-								Comprehensive nutrition consultation tailored to your specific health goals
-							</div>
-						</div>
-						<div class="quiz-coverage-benefit">
-							<div class="quiz-coverage-benefit-icon">
-								<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-									<path d="M17 3V0M12 3V0M7 3V0M3 7H21M5 21H19C20.1046 21 21 20.1046 21 19V7C21 5.89543 20.1046 5 19 5H5C3.89543 5 3 5.89543 3 7V19C3 20.1046 3.89543 21 5 21Z" stroke="#306E51" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-								</svg>
-							</div>
-							<div class="quiz-coverage-benefit-text">
-								<strong>Flexible Scheduling</strong><br>
-								Choose from morning, afternoon, or evening slots that fit your lifestyle
-							</div>
-						</div>
-						<div class="quiz-coverage-benefit">
-							<div class="quiz-coverage-benefit-icon">
-								<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-									<path d="M9 12L11 14L22 3M21 12V19C21 20.1046 20.1046 21 19 21H5C3.89543 21 3 20.1046 3 19V5C3.89543 3 5 3 5 3H16" stroke="#306E51" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-								</svg>
-							</div>
-							<div class="quiz-coverage-benefit-text">
-								<strong>Personalized Plan</strong><br>
-								Receive a custom nutrition plan based on your quiz responses and health profile
-							</div>
-						</div>
-						<div class="quiz-coverage-benefit">
-							<div class="quiz-coverage-benefit-icon">
-								<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-									<path d="M18.3333 14.1667C18.3333 15.0871 17.5871 15.8333 16.6667 15.8333H5.83333L1.66666 20V3.33333C1.66666 2.41286 2.41285 1.66667 3.33333 1.66667H16.6667C17.5871 1.66667 18.3333 2.41286 18.3333 3.33333V14.1667Z" stroke="#306E51" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-								</svg>
-							</div>
-							<div class="quiz-coverage-benefit-text">
-								<strong>Ongoing Support</strong><br>
-								Follow-up resources and support to help you achieve your health goals
-							</div>
-						</div>
-					</div>
-				</div>
-
-				<div class="quiz-action-section" style="background-color: #f8f9fa;">
-					<div class="quiz-action-content">
-						<div class="quiz-action-header">
-							<h3 class="quiz-action-title">Need Assistance?</h3>
-						</div>
-						<div class="quiz-action-details">
-							<div class="quiz-action-info">
-								<div class="quiz-action-info-text">
-									Our support team is here to help if you have any questions about scheduling or preparing for your appointment.
-								</div>
-							</div>
-							<div class="quiz-action-feature">
-								<svg class="quiz-action-feature-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-									<path d="M18.3333 5.83333L10 11.6667L1.66666 5.83333" stroke="#306E51" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-									<path d="M1.66666 5.83333H18.3333V15C18.3333 15.442 18.1577 15.866 17.8452 16.1785C17.5327 16.491 17.1087 16.6667 16.6667 16.6667H3.33333C2.89131 16.6667 2.46738 16.491 2.15482 16.1785C1.84226 15.866 1.66666 15.442 1.66666 15V5.83333Z" stroke="#306E51" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-								</svg>
-								<div class="quiz-action-feature-text">Email: support@curalife.com</div>
-							</div>
-							<div class="quiz-action-feature">
-								<svg class="quiz-action-feature-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-									<path d="M18.3081 14.2233C17.1569 14.2233 16.0346 14.0397 14.9845 13.6971C14.6449 13.5878 14.2705 13.6971 14.0579 13.9427L12.8372 15.6772C10.3023 14.4477 8.55814 12.7138 7.32326 10.1581L9.10465 8.89535C9.34884 8.68372 9.45814 8.30233 9.34884 7.96279C9.00581 6.91628 8.82209 5.79186 8.82209 4.64535C8.82209 4.28953 8.53256 4 8.17674 4H4.64535C4.28953 4 4 4.28953 4 4.64535C4 12.1715 10.1831 18.3953 17.6628 18.3953C18.0186 18.3953 18.3081 18.1058 18.3081 17.75V14.2233Z" stroke="#306E51" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-								</svg>
-								<div class="quiz-action-feature-text">Phone: 1-800-CURALIFE</div>
-							</div>
-						</div>
-					</div>
-				</div>
-			</div>
-		`;
+		return html; // Proper return statement
 	}
 
 	_generateSchedulingErrorHTML(errorMessage, schedulingData = null) {
@@ -3627,7 +2747,7 @@ class ModularQuiz {
 									</svg>
 								</div>
 								<div class="quiz-coverage-benefit-text">
-									<strong>Check Your Email</strong><br>
+									<strong>Check Your Email</strong><br/>
 									Your appointment confirmation and scheduling details have been sent to your email address
 								</div>
 							</div>
@@ -3638,7 +2758,7 @@ class ModularQuiz {
 									</svg>
 								</div>
 								<div class="quiz-coverage-benefit-text">
-									<strong>Reschedule if Needed</strong><br>
+									<strong>Reschedule if Needed</strong><br/>
 									If you need to change your appointment time, use the link in your confirmation email
 								</div>
 							</div>
@@ -4105,7 +3225,7 @@ class ModularQuiz {
 		const isEligible = resultData.isEligible === true;
 		const eligibilityStatus = resultData.eligibilityStatus || "UNKNOWN";
 
-		console.log("Processing eligibility status:", eligibilityStatus, "isEligible:", isEligible);
+		console.log("Processing eligibility status:", eligibilityStatus, "isEligible:", isEligible, "raw isEligible:", resultData.isEligible);
 
 		if (isEligible && eligibilityStatus === "ELIGIBLE") {
 			console.log("Generating eligible insurance results");
@@ -4120,6 +3240,11 @@ class ModularQuiz {
 		if (eligibilityStatus === "TEST_DATA_ERROR") {
 			console.log("Generating test data error results");
 			return this._generateTestDataErrorResultsHTML(resultData, resultUrl);
+		}
+
+		if (eligibilityStatus === "PROCESSING") {
+			console.log("Generating processing insurance results");
+			return this._generateProcessingInsuranceResultsHTML(resultData, resultUrl);
 		}
 
 		if (eligibilityStatus === "ERROR") {
@@ -4168,6 +3293,464 @@ class ModularQuiz {
 	_generateRecommendationResultsHTML(resultData, resultUrl) {
 		// Implementation for recommendation results
 		return this._generateGenericResultsHTML(resultData, resultUrl);
+	}
+
+	_generateErrorResultsHTML(resultUrl, errorMessage) {
+		return `
+			<div class="quiz-results-container">
+				<div class="quiz-results-header">
+					<h2 class="quiz-results-title">Quiz Complete</h2>
+					<p class="quiz-results-subtitle">We've received your information.</p>
+				</div>
+				<div class="quiz-coverage-card" style="border-left: 4px solid #f56565; background-color: #fed7d7;">
+                    <h3 class="quiz-coverage-card-title" style="color: #c53030;">⚠️ Eligibility Check Error</h3>
+                    <p style="color: #c53030;">There was an error checking your insurance eligibility.</p>
+				</div>
+				<div class="quiz-action-section">
+					<div class="quiz-action-content">
+						<div class="quiz-action-header">
+							<h3 class="quiz-action-title">Need assistance?</h3>
+						</div>
+						<div class="quiz-action-details">
+							<div class="quiz-action-info">
+								<svg class="quiz-action-info-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+									<path d="M10 18.3333C14.6023 18.3333 18.3333 14.6023 18.3333 9.99996C18.3333 5.39759 14.6023 1.66663 10 1.66663C5.39762 1.66663 1.66666 5.39759 1.66666 9.99996C1.66666 14.6023 5.39762 18.3333 10 18.3333Z" stroke="#306E51" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+									<path d="M7.5 9.99996L9.16667 11.6666L12.5 8.33329" stroke="#306E51" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+								</svg>
+								<div class="quiz-action-info-text">Our support team will manually verify your insurance coverage and help you get connected with the right dietitian.</div>
+							</div>
+							<div class="quiz-action-feature">
+								<svg class="quiz-action-feature-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+									<path d="M18.3333 14.1667C18.3333 15.0871 17.5871 15.8333 16.6667 15.8333H5.83333L1.66666 20V3.33333C1.66666 2.41286 2.41285 1.66667 3.33333 1.66667H16.6667C17.5871 1.66667 18.3333 2.41286 18.3333 3.33333V14.1667Z" stroke="#306E51" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+								</svg>
+								<div class="quiz-action-feature-text">Direct support to help resolve any coverage questions</div>
+							</div>
+							<div class="quiz-action-feature">
+								<svg class="quiz-action-feature-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+									<path d="M6.66666 2.5V5.83333M13.3333 2.5V5.83333M2.5 9.16667H17.5M4.16666 3.33333H15.8333C16.7538 3.33333 17.5 4.07952 17.5 5V16.6667C17.5 17.5871 16.7538 18.3333 15.8333 18.3333H4.16666C3.24619 18.3333 2.5 17.5871 2.5 16.6667V5C2.5 4.07952 3.24619 3.33333 4.16666 3.33333Z" stroke="#306E51" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+								</svg>
+								<div class="quiz-action-feature-text">Quick resolution to get you scheduled with a dietitian</div>
+							</div>
+						</div>
+						<a href="${resultUrl}" class="quiz-booking-button">Continue to Support</a>
+					</div>
+				</div>
+			</div>
+		`;
+	}
+
+	_generateProcessingInsuranceResultsHTML(resultData, resultUrl) {
+		const messages = this.quizData.ui?.resultMessages?.processing || {};
+		const userMessage =
+			resultData.userMessage ||
+			"Your eligibility check and account setup is still processing in the background. This can take up to 3 minutes for complex insurance verifications and account creation. Please proceed with booking - we'll contact you with your coverage details shortly.";
+
+		return `
+			<div class="quiz-results-container">
+				<div class="quiz-results-header">
+					<h2 class="quiz-results-title">${messages.title || "Thanks for completing the quiz!"}</h2>
+					<p class="quiz-results-subtitle">${messages.subtitle || "We're processing your information."}</p>
+				</div>
+				<div class="quiz-coverage-card" style="border-left: 4px solid #3182ce; background-color: #ebf8ff;">
+					<h3 class="quiz-coverage-card-title" style="color: #2c5282;">⏳ Processing Your Information</h3>
+					<p style="color: #2c5282;">${userMessage}</p>
+				</div>
+				<div class="quiz-action-section">
+					<div class="quiz-action-content">
+						<div class="quiz-action-header">
+							<h3 class="quiz-action-title">What's happening now?</h3>
+						</div>
+						<div class="quiz-action-details">
+							<div class="quiz-action-info">
+								<svg class="quiz-action-info-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+									<path d="M10 18.3333C14.6023 18.3333 18.3333 14.6023 18.3333 9.99996C18.3333 5.39759 14.6023 1.66663 10 1.66663C5.39762 1.66663 1.66666 5.39759 1.66666 9.99996C1.66666 14.6023 5.39762 18.3333 10 18.3333Z" stroke="#306E51" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+									<path d="M7.5 9.99996L9.16667 11.6666L12.5 8.33329" stroke="#306E51" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+								</svg>
+								<div class="quiz-action-info-text">We're verifying your insurance coverage and setting up your account in the background.</div>
+							</div>
+							<div class="quiz-action-feature">
+								<svg class="quiz-action-feature-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+									<path d="M18.3333 14.1667C18.3333 15.0871 17.5871 15.8333 16.6667 15.8333H5.83333L1.66666 20V3.33333C1.66666 2.41286 2.41285 1.66667 3.33333 1.66667H16.6667C17.5871 1.66667 18.3333 2.41286 18.3333 3.33333V14.1667Z" stroke="#306E51" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+								</svg>
+								<div class="quiz-action-feature-text">You'll receive an update with your coverage details shortly</div>
+							</div>
+							<div class="quiz-action-feature">
+								<svg class="quiz-action-feature-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+									<path d="M6.66666 2.5V5.83333M13.3333 2.5V5.83333M2.5 9.16667H17.5M4.16666 3.33333H15.8333C16.7538 3.33333 17.5 4.07952 17.5 5V16.6667C17.5 17.5871 16.7538 18.3333 15.8333 18.3333H4.16666C3.24619 18.3333 2.5 17.5871 2.5 16.6667V5C2.5 4.07952 3.24619 3.33333 4.16666 3.33333Z" stroke="#306E51" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+								</svg>
+								<div class="quiz-action-feature-text">You can proceed with booking while we complete the verification</div>
+							</div>
+						</div>
+						<a href="${resultUrl}" class="quiz-booking-button">Continue to Booking</a>
+					</div>
+				</div>
+			</div>
+		`;
+	}
+
+	_generateIneligibleInsuranceResultsHTML(eligibilityData, resultUrl) {
+		const messages = this.quizData.ui?.resultMessages?.notEligible || {};
+		const userMessage = eligibilityData.userMessage || "Your eligibility check is complete.";
+		const error = eligibilityData.error || {};
+		const errorCode = error.code || "Unknown";
+		const errorMessage = error.message || "";
+		const errorDetails = error.details || "";
+
+		// Check if this is actually an error scenario that needs detailed display
+		const hasDetailedError = error.code || error.message || error.details;
+		const isErrorScenario = eligibilityData.eligibilityStatus === "PAYER_ERROR" || hasDetailedError;
+
+		// Generate detailed error information if available
+		const errorDetailsHTML = hasDetailedError ? this._generateErrorDetailsHTML(error, errorCode, errorMessage, errorDetails, false) : "";
+
+		return `
+			<div class="quiz-results-container">
+				<div class="quiz-results-header">
+                    <h2 class="quiz-results-title">${messages.title || "Thanks for completing the quiz!"}</h2>
+                    <p class="quiz-results-subtitle">${messages.subtitle || "We're ready to help you."}</p>
+				</div>
+                <div class="quiz-coverage-card ${isErrorScenario ? "quiz-error-card" : ""}">
+                    <h3 class="quiz-coverage-card-title ${isErrorScenario ? "quiz-error-card-title" : ""}">${isErrorScenario ? "⚠️ " : ""}Insurance Coverage Check${errorCode !== "Unknown" ? ` (Error ${errorCode})` : ""}</h3>
+
+					${
+						isErrorScenario && errorMessage
+							? `
+						<div class="quiz-error-main-message">
+							<p class="quiz-error-primary-text">${errorMessage}</p>
+							<p class="quiz-error-secondary-text">${userMessage}</p>
+						</div>
+						${errorDetailsHTML}
+					`
+							: `<p>${userMessage}</p>`
+					}
+				</div>
+				<div class="quiz-action-section">
+					<div class="quiz-action-content">
+						<div class="quiz-action-header">
+							<h3 class="quiz-action-title">What's next?</h3>
+						</div>
+						<div class="quiz-action-details">
+							<div class="quiz-action-info">
+								<svg class="quiz-action-info-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+									<path d="M10 18.3333C14.6023 18.3333 18.3333 14.6023 18.3333 9.99996C18.3333 5.39759 14.6023 1.66663 10 1.66663C5.39762 1.66663 1.66666 5.39759 1.66666 9.99996C1.66666 14.6023 5.39762 18.3333 10 18.3333Z" stroke="#306E51" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+									<path d="M7.5 9.99996L9.16667 11.6666L12.5 8.33329" stroke="#306E51" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+								</svg>
+								<div class="quiz-action-info-text">We'll help you connect with a registered dietitian and explore your options for coverage and consultation.</div>
+							</div>
+							<div class="quiz-action-feature">
+								<svg class="quiz-action-feature-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+									<path d="M18.3333 14.1667C18.3333 15.0871 17.5871 15.8333 16.6667 15.8333H5.83333L1.66666 20V3.33333C1.66666 2.41286 2.41285 1.66667 3.33333 1.66667H16.6667C17.5871 1.66667 18.3333 2.41286 18.3333 3.33333V14.1667Z" stroke="#306E51" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+								</svg>
+								<div class="quiz-action-feature-text">Personal consultation to review your coverage options</div>
+							</div>
+							<div class="quiz-action-feature">
+								<svg class="quiz-action-feature-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+									<path d="M6.66666 2.5V5.83333M13.3333 2.5V5.83333M2.5 9.16667H17.5M4.16666 3.33333H15.8333C16.7538 3.33333 17.5 4.07952 17.5 5V16.6667C17.5 17.5871 16.7538 18.3333 15.8333 18.3333H4.16666C3.24619 18.3333 2.5 17.5871 2.5 16.6667V5C2.5 4.07952 3.24619 3.33333 4.16666 3.33333Z" stroke="#306E51" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+								</svg>
+								<div class="quiz-action-feature-text">Flexible scheduling that works with your availability</div>
+							</div>
+						</div>
+						<a href="${resultUrl}" class="quiz-booking-button">Continue with Next Steps</a>
+					</div>
+				</div>
+			</div>
+		`;
+	}
+
+	_generateErrorDetailsHTML(error, errorCode, errorMessage, errorDetails, hasMultipleErrors) {
+		let detailsHTML = "";
+
+		// Add technical details if available
+		if (errorDetails && errorDetails !== errorMessage) {
+			detailsHTML += `
+				<div class="quiz-error-technical-section">
+					<p class="quiz-error-section-title"><strong>Technical Details:</strong></p>
+					<p class="quiz-error-details-text">${errorDetails}</p>
+				</div>
+			`;
+		}
+
+		// Add error metadata if available
+		const metadata = [];
+		if (error.isAAAError) metadata.push("Verification Issue");
+		if (hasMultipleErrors) metadata.push(`Multiple Issues (${error.totalErrors})`);
+		if (errorCode && errorCode !== "Unknown") metadata.push(`Error Code: ${errorCode}`);
+
+		if (metadata.length > 0) {
+			detailsHTML += `
+				<div class="quiz-error-metadata-section">
+					<p class="quiz-error-section-title"><strong>Issue Details:</strong></p>
+					<div class="quiz-error-metadata-badges">
+						${metadata.map(item => `<span class="quiz-error-badge">${item}</span>`).join("")}
+					</div>
+				</div>
+			`;
+		}
+
+		// Add specific guidance based on error code
+		const guidance = this._getErrorGuidance(errorCode);
+		if (guidance) {
+			detailsHTML += `
+				<div class="quiz-error-guidance-section">
+					<p class="quiz-error-section-title"><strong>What This Means:</strong></p>
+					<p class="quiz-error-guidance-text">${guidance}</p>
+				</div>
+			`;
+		}
+
+		return detailsHTML;
+	}
+
+	_getErrorTitle(errorCode) {
+		const errorTitles = {
+			42: "Service Temporarily Unavailable",
+			43: "Provider Registration Issue",
+			72: "Member ID Verification Needed",
+			73: "Name Verification Needed",
+			75: "Subscriber Not Found",
+			76: "Duplicate Member ID Found",
+			79: "System Connection Issue"
+		};
+
+		return errorTitles[errorCode] || "Insurance Verification Issue";
+	}
+
+	_getErrorGuidance(errorCode) {
+		const errorGuidance = {
+			42: "Your insurance company's system is temporarily down for maintenance. This is usually resolved within a few hours.",
+			43: "Your insurance plan requires our provider to be specifically registered. We'll handle this registration process for you.",
+			72: "The member ID entered doesn't match records. Please verify the ID exactly as shown on your insurance card, including any letters or special characters.",
+			73: "The name entered doesn't match your insurance records. Make sure the name matches exactly as it appears on your insurance card.",
+			75: "Your insurance information wasn't found in the system. This could be due to a recent plan change, new enrollment, or data sync delay.",
+			76: "Your member ID appears multiple times in the insurance database. This often happens when you have multiple plan types or recent changes. Our team will identify your current active plan.",
+			79: "There's a temporary technical issue connecting with your insurance provider's verification system. This is typically resolved quickly."
+		};
+
+		return errorGuidance[errorCode] || null;
+	}
+
+	_generateFAQHTML() {
+		const faqData = this.quizData.ui?.faq || [];
+		if (faqData.length === 0) return "";
+
+		return `
+			<div class="quiz-faq-section">
+				<div class="quiz-faq-divider"></div>
+                ${faqData
+									.map(
+										faq => `
+                    <div class="quiz-faq-item" data-faq="${faq.id}" tabindex="0" role="button" aria-expanded="false">
+					<div class="quiz-faq-content">
+                            <div class="quiz-faq-question-collapsed">${faq.question}</div>
+                            <div class="quiz-faq-answer">${faq.answer}</div>
+					</div>
+					<div class="quiz-faq-toggle">
+                            <svg class="quiz-faq-toggle-icon" width="24" height="24" viewBox="0 0 24 24" fill="none">
+							<path d="M4 12H20" stroke="#4f4f4f" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+							<path d="M12 4V20" stroke="#4f4f4f" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+						</svg>
+					</div>
+				</div>
+				<div class="quiz-faq-divider"></div>
+                `
+									)
+									.join("")}
+			</div>
+		`;
+	}
+
+	_attachFAQListeners() {
+		const faqItems = this.questionContainer.querySelectorAll(".quiz-faq-item");
+		faqItems.forEach(item => {
+			item.addEventListener("click", () => {
+				const isExpanded = item.classList.contains("expanded");
+
+				// Toggle expanded state immediately for smooth animation
+				if (!isExpanded) {
+					item.classList.add("expanded");
+					const question = item.querySelector(".quiz-faq-question, .quiz-faq-question-collapsed");
+					if (question) question.className = "quiz-faq-question";
+				} else {
+					item.classList.remove("expanded");
+					const question = item.querySelector(".quiz-faq-question, .quiz-faq-question-collapsed");
+					if (question) question.className = "quiz-faq-question-collapsed";
+				}
+			});
+		});
+	}
+
+	_attachBookingButtonListeners() {
+		const bookingButtons = this.questionContainer.querySelectorAll(".quiz-booking-button");
+		bookingButtons.forEach(button => {
+			button.addEventListener("click", this._handleBookingButtonClick.bind(this));
+		});
+	}
+
+	async _handleBookingButtonClick(event) {
+		event.preventDefault();
+		const button = event.currentTarget;
+
+		console.log("Booking button clicked");
+
+		// Show loading state
+		this._showBookingLoadingState(button);
+
+		try {
+			// Get scheduling URL
+			const schedulingUrl = this.container.getAttribute("data-scheduling-url");
+			if (!schedulingUrl) {
+				throw new Error("Scheduling URL not configured");
+			}
+
+			// Trigger scheduling workflow
+			const schedulingResult = await this._triggerSchedulingWorkflow(schedulingUrl);
+
+			// Show scheduling results
+			this._showSchedulingResults(schedulingResult);
+		} catch (error) {
+			console.error("Scheduling error:", error);
+
+			// Test mode error notification
+			if (this.isTestMode) {
+				this._showBackgroundProcessNotification(
+					`
+					🧪 TEST MODE - Scheduling Error<br>
+					❌ ${error.message}<br>
+					• Check console for details
+				`,
+					"error"
+				);
+			}
+
+			this._showSchedulingError(error.message);
+		}
+	}
+
+	_showBookingLoadingState(button) {
+		// Store original button content
+		if (!button.dataset.originalContent) {
+			button.dataset.originalContent = button.innerHTML;
+		}
+
+		// Show loading state
+		button.innerHTML = `
+			<div class="quiz-spinner" style="width: 20px; height: 20px; margin-right: 8px;"></div>
+			Setting up your appointment...
+		`;
+		button.disabled = true;
+		button.style.cursor = "not-allowed";
+	}
+
+	async _triggerSchedulingWorkflow(schedulingUrl) {
+		console.log("Triggering scheduling workflow...");
+
+		// Extract all required data
+		const extractedData = this._extractResponseData(this.isTestMode);
+		const payload = this._buildSchedulingPayload(extractedData);
+
+		console.log("Scheduling payload:", payload);
+
+		// Test mode notification
+		if (this.isTestMode) {
+			this._showBackgroundProcessNotification(
+				`
+				🧪 TEST MODE - Scheduling Request<br>
+				• URL: ${schedulingUrl}<br>
+				• Required fields: ${Object.keys(payload)
+					.filter(k => k !== "allResponses")
+					.join(", ")}<br>
+				• Address: ${payload.address || "❌ Missing"}<br>
+				• City: ${payload.city || "❌ Missing"}<br>
+				• ZIP: ${payload.zip || "❌ Missing"}<br>
+				• Sex: ${payload.sex || "❌ Missing"}
+			`,
+				"info"
+			);
+		}
+
+		const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Scheduling request timed out")), 45000));
+
+		const fetchPromise = fetch(schedulingUrl, {
+			method: "POST",
+			mode: "cors",
+			headers: {
+				"Content-Type": "application/json",
+				Accept: "application/json",
+				"X-Workflow-Type": "scheduling"
+			},
+			body: JSON.stringify(payload)
+		});
+
+		const response = await Promise.race([fetchPromise, timeoutPromise]);
+
+		console.log("Raw scheduling response:", {
+			ok: response.ok,
+			status: response.status,
+			statusText: response.statusText
+		});
+
+		if (response.ok) {
+			const result = await response.json();
+			console.log("Parsed scheduling response:", result);
+
+			// Test mode response notification
+			if (this.isTestMode) {
+				const schedulingData = result?.schedulingData;
+				const workflowSuccess = result?.success;
+				const schedulingSuccess = schedulingData?.success;
+
+				this._showBackgroundProcessNotification(
+					`
+					🧪 TEST MODE - Scheduling Response<br>
+					• HTTP Status: ${response.status} ${response.statusText}<br>
+					• Workflow Success: ${workflowSuccess}<br>
+					• Scheduling Success: ${schedulingSuccess}<br>
+					• Scheduling Status: ${schedulingData?.status || "Unknown"}<br>
+					• Has Schedule Link: ${!!schedulingData?.scheduleLink}<br>
+					• Message: ${schedulingData?.message || "No message"}<br>
+					• Error: ${schedulingData?.error || "None"}
+				`,
+					schedulingSuccess ? "success" : "error"
+				);
+			}
+
+			return result;
+		} else {
+			const errorText = await response.text();
+			throw new Error(`HTTP ${response.status}: ${errorText}`);
+		}
+	}
+
+	_buildSchedulingPayload(extractedData = null) {
+		const data = extractedData || this._extractResponseData();
+
+		return {
+			// Basic info
+			firstName: data.firstName,
+			lastName: data.lastName,
+			customerEmail: data.customerEmail,
+			phoneNumber: data.phoneNumber,
+			dateOfBirth: data.dateOfBirth,
+			state: data.state,
+
+			// Address fields required by Beluga
+			address: data.address,
+			city: data.city,
+			zip: data.zip,
+			sex: data.sex,
+
+			// Quiz responses
+			mainReasons: data.mainReasons,
+			medicalConditions: data.medicalConditions,
+			allResponses: this.responses,
+
+			// Metadata
+			workflowType: "scheduling",
+			testMode: this.isTestMode,
+			triggeredAt: new Date().toISOString(),
+			quizId: this.quizData?.id || "dietitian-quiz",
+			quizTitle: this.quizData?.title || "Find Your Perfect Dietitian"
+		};
 	}
 
 	get isTestMode() {

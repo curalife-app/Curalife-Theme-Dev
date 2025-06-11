@@ -172,6 +172,70 @@ const paths = {
 	}
 };
 
+// Source directory mappings for watch mode
+const sourceDirectories = [
+	{
+		dir: path.join(__dirname, "src/liquid/layout"),
+		destDir: paths.build.layout,
+		pattern: "**/*"
+	},
+	{
+		dir: path.join(__dirname, "src/liquid/sections"),
+		destDir: paths.build.sections,
+		pattern: "**/*.liquid"
+	},
+	{
+		dir: path.join(__dirname, "src/liquid/snippets"),
+		destDir: paths.build.snippets,
+		pattern: "**/*.liquid"
+	},
+	{
+		dir: path.join(__dirname, "src/liquid/blocks"),
+		destDir: paths.build.blocks,
+		pattern: "**/*.liquid"
+	},
+	{
+		dir: path.join(__dirname, "src/liquid/templates"),
+		destDir: paths.build.templates,
+		pattern: "**/*.liquid"
+	},
+	{
+		dir: path.join(__dirname, "src/images"),
+		destDir: paths.build.assets,
+		pattern: "**/*.{png,jpg,jpeg,gif,svg}"
+	},
+	{
+		dir: path.join(__dirname, "src/fonts"),
+		destDir: paths.build.assets,
+		pattern: "**/*.{woff,woff2,eot,ttf,otf}"
+	},
+	{
+		dir: path.join(__dirname, "src/styles/css"),
+		destDir: paths.build.assets,
+		pattern: "**/*"
+	},
+	{
+		dir: path.join(__dirname, "src/js"),
+		destDir: paths.build.assets,
+		pattern: "**/*.js"
+	},
+	{
+		dir: path.join(__dirname, "src/assets"),
+		destDir: paths.build.assets,
+		pattern: "**/*"
+	},
+	{
+		dir: path.join(__dirname, "src/config"),
+		destDir: paths.build.config,
+		pattern: "**/*.json"
+	},
+	{
+		dir: path.join(__dirname, "src/locales"),
+		destDir: paths.build.locales,
+		pattern: "**/*.json"
+	}
+];
+
 // Enhanced logging function with improved visual styling
 const log = (message, type = "info", importance = "normal") => {
 	// Skip detailed logs if not in verbose mode, unless they are important
@@ -393,6 +457,73 @@ const createProgressBar = (total, title) => {
 	};
 };
 
+// Custom file change processing for watch mode
+const processFileChange = async (filePath, event, cacheManager) => {
+	const fileName = path.basename(filePath);
+	const fileExt = path.extname(filePath);
+
+	console.log(`${THEME.info}${STYLES.symbols.file} ${STYLES.reset}${STYLES.bold}${event.toUpperCase()}:${STYLES.reset} ${fileName}`);
+
+	// Handle file deletion
+	if (event === "unlink") {
+		try {
+			const relativePath = path.relative(path.resolve(__dirname, "src"), filePath);
+			// Find which directory pattern this file belongs to
+			for (const { dir, destDir } of sourceDirectories) {
+				const dirRelative = path.relative(path.resolve(__dirname, "src"), dir);
+				if (relativePath.startsWith(dirRelative)) {
+					const destPath = path.join(destDir, fileName);
+					if (fs.existsSync(destPath)) {
+						fs.unlinkSync(destPath);
+						console.log(`${THEME.success}   ✓ Removed from build: ${fileName}${STYLES.reset}`);
+					}
+					break;
+				}
+			}
+		} catch (err) {
+			console.error(`${THEME.error}Error processing deletion: ${err.message}${STYLES.reset}`);
+		}
+		return;
+	}
+
+	// For add/change events, copy the file to appropriate destination
+	try {
+		const relativePath = path.relative(path.resolve(__dirname, "src"), filePath);
+		let copied = false;
+
+		// Find the appropriate source directory and copy file
+		for (const { dir, destDir, pattern } of sourceDirectories) {
+			const dirRelative = path.relative(path.resolve(__dirname, "src"), dir);
+			if (relativePath.startsWith(dirRelative)) {
+				// Create destination directory if needed
+				fs.mkdirSync(destDir, { recursive: true });
+
+				// Copy with flattened structure (just filename)
+				const destPath = path.join(destDir, fileName);
+				fs.copyFileSync(filePath, destPath);
+				copied = true;
+
+				console.log(`${THEME.success}   ✓ Copied to: ${path.relative(__dirname, destPath)}${STYLES.reset}`);
+				break;
+			}
+		}
+
+		if (!copied) {
+			console.log(`${THEME.warning}   ! No destination found for: ${fileName}${STYLES.reset}`);
+		}
+
+		// Handle style rebuilds for CSS/Tailwind changes
+		const needsStyleRebuild = fileExt === ".css" || filePath.includes("tailwind") || filePath.includes("styles") || fileExt.match(/\.(liquid|js|html)$/);
+
+		if (needsStyleRebuild) {
+			console.log(`${THEME.accent}   🎨 Triggering style rebuild...${STYLES.reset}`);
+			// The Vite dev server will handle CSS rebuilds automatically
+		}
+	} catch (error) {
+		console.error(`${THEME.error}Error copying ${fileName}: ${error.message}${STYLES.reset}`);
+	}
+};
+
 // Custom plugin for file copying
 const createCopyPlugin = () => {
 	// Store the start time and file counter
@@ -534,12 +665,14 @@ const createCopyPlugin = () => {
 						const progressBar = createProgressBar(scriptFiles.length, "Scripts");
 
 						for (const file of scriptFiles) {
-							// Flatten the path - just use the filename
-							const flatFile = flattenPath(file);
-							const destPath = path.join(paths.build.assets, flatFile);
+							if (fs.statSync(file).isFile()) {
+								// Flatten the path - just use the filename
+								const flatFile = flattenPath(file);
+								const destPath = path.join(paths.build.assets, flatFile);
 
-							fs.copyFileSync(file, destPath);
-							progressBar.increment();
+								fs.copyFileSync(file, destPath);
+								progressBar.increment();
+							}
 						}
 						progressBar.finish();
 					}
@@ -955,7 +1088,7 @@ export default defineConfig(({ command, mode }) => {
 			outDir: path.resolve(__dirname, "Curalife-Theme-Build"),
 			emptyOutDir: false, // We'll handle directory cleaning ourselves
 			assetsDir: "assets",
-			sourcemap: !isProduction,
+			sourcemap: false, // Disable source maps to reduce build output
 			minify: isProduction,
 			cssMinify: false, // Disable CSS minification - we handle it manually for .min.css only
 			cssCodeSplit: true,
@@ -963,11 +1096,12 @@ export default defineConfig(({ command, mode }) => {
 			// Output CSS to assets directory with flattened structure
 			rollupOptions: {
 				input: {
+					// CSS entry point
 					tailwind: path.resolve(__dirname, "src/styles/tailwind.css")
 				},
 				output: {
 					entryFileNames: "assets/[name].js",
-					chunkFileNames: "assets/[name].js",
+					chunkFileNames: "assets/[name]-chunk.js",
 					assetFileNames: "assets/[name].[ext]"
 				},
 				// Add a plugin to preserve specific directories during the build process
@@ -1055,6 +1189,7 @@ export default defineConfig(({ command, mode }) => {
 			tailwind({
 				config: path.resolve(__dirname, "tailwind.config.js")
 			}),
+
 			createCopyPlugin(),
 			createWatchPlugin() // Add our custom watch plugin
 		],

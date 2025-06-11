@@ -333,13 +333,14 @@ export class VisualEngine {
 	// 👁️ Watch mode display
 	showWatchReady(stats = {}) {
 		const isShopify = stats.shopifyMode;
+		const hotReloadEnabled = stats.hotReload !== false; // Default to true unless explicitly disabled
 		const title = isShopify ? "🛍️ SHOPIFY DEVELOPMENT ACTIVE" : "👁️ WATCH MODE ACTIVE";
 		const titleGradient = gradient(this.colors.success, isShopify ? this.colors.accent : this.colors.secondary);
 
 		let content =
 			`${titleGradient(title)}\n\n` +
 			`${figures.play} Monitoring: ${chalk.hex(this.colors.primary)(stats.filesWatched || "all files")}\n` +
-			`${figures.info} Hot Reload: ${chalk.hex(this.colors.success)("enabled")}\n` +
+			`${figures.info} Hot Reload: ${chalk.hex(hotReloadEnabled ? this.colors.success : this.colors.warning)(hotReloadEnabled ? "enabled" : "disabled")}\n` +
 			`${figures.pointer} Cache: ${chalk.hex(this.colors.warning)(stats.cacheEnabled ? "enabled" : "disabled")}\n`;
 
 		if (isShopify) {

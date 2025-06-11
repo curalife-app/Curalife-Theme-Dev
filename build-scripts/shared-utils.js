@@ -309,9 +309,11 @@ export const getDestination = sourcePath => {
 	const relativePath = path.relative(SRC_DIR, sourcePath);
 	const fileName = path.basename(sourcePath);
 
+	// Normalize relative path for cross-platform compatibility
+	const normalizedRelativePath = relativePath.replace(/\\/g, "/");
+
 	// Find which source directory this file belongs to
 	let destDir = null;
-	const normalizedRelativePath = relativePath.replace(/\\/g, "/");
 
 	for (const srcDir of Object.keys(dirMappings)) {
 		const normalizedSrcDir = srcDir.replace(/\\/g, "/");
@@ -398,10 +400,10 @@ export const getNpxCommand = () => {
 
 // Show fancy file change notification
 export const showFileChangeNotification = (fileName, isDebugMode = false) => {
-        if (!isDebugMode) {
-                const changeIcon = ["🔥", "⚡", "✨", "💥"][Math.floor(Math.random() * 4)];
-                process.stdout.write(`\r\x1b[K${chalk.hex("#ff79c6")(changeIcon)} ${chalk.hex("#f8f8f2")("File changed:")} ${chalk.hex("#8be9fd")(fileName)}\n`);
-        }
+	if (!isDebugMode) {
+		const changeIcon = ["🔥", "⚡", "✨", "💥"][Math.floor(Math.random() * 4)];
+		process.stdout.write(`\r\x1b[K${chalk.hex("#ff79c6")(changeIcon)} ${chalk.hex("#f8f8f2")("File changed:")} ${chalk.hex("#8be9fd")(fileName)}\n`);
+	}
 };
 
 // Show style rebuild notification

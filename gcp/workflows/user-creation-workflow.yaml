@@ -23,7 +23,7 @@ manualJoin:
         return: ${joinedString}
 
 # ==================================================================
-#  User Creation Workflow (Shopify & HubSpot)
+#  User Creation Workflow (Shopify & HubSpot) - HIPAA Compliant
 # ==================================================================
 
 main:
@@ -52,6 +52,8 @@ main:
           - hubspotAccessToken: ${if(sys.get_env("HUBSPOT_ACCESS_TOKEN") != null, sys.get_env("HUBSPOT_ACCESS_TOKEN"), "")}
           - shopifyAdminToken: ${if(sys.get_env("SHOPIFY_ADMIN_TOKEN") != null, sys.get_env("SHOPIFY_ADMIN_TOKEN"), "")}
           - timestamp: ${sys.now()}
+          # Eligibility workflow endpoint for server-side calls
+          - eligibilityWorkflowUrl: "https://us-central1-telemedicine-458913.cloudfunctions.net/workflow_eligibility"
 
     # ---------------------------------------------------------------
     # 1.  Validate tokens
@@ -124,26 +126,13 @@ main:
           - emptyMap: {}
           - emptyArray: []
           - responses: ${if(actualPayload != null and "allResponses" in actualPayload, actualPayload.allResponses, emptyArray)}
-          # Extract eligibility data - check if exists first
-          - eligibilityDataRaw: ${if(actualPayload != null and "eligibilityData" in actualPayload, actualPayload.eligibilityData, emptyMap)}
-
-    # Set up eligibility data with defaults
-    - setupEligibilityData:
-        assign:
-          # Safely extract deductible individual value with proper null checking
-          - eligibilityDeductibleIndividual: ${if("deductible" in eligibilityDataRaw and eligibilityDataRaw.deductible != null and "individual" in eligibilityDataRaw.deductible, eligibilityDataRaw.deductible.individual, 0)}
-          - eligibilityData:
-              isEligible: ${if("isEligible" in eligibilityDataRaw, eligibilityDataRaw.isEligible, false)}
-              sessionsCovered: ${if("sessionsCovered" in eligibilityDataRaw, eligibilityDataRaw.sessionsCovered, 0)}
-              deductible:
-                individual: ${eligibilityDeductibleIndividual}
-              eligibilityStatus: ${if("eligibilityStatus" in eligibilityDataRaw, eligibilityDataRaw.eligibilityStatus, "UNKNOWN")}
-              userMessage: ${if("userMessage" in eligibilityDataRaw, eligibilityDataRaw.userMessage, "Eligibility data not provided")}
-              planBegin: ${if("planBegin" in eligibilityDataRaw, eligibilityDataRaw.planBegin, "")}
-              planEnd: ${if("planEnd" in eligibilityDataRaw, eligibilityDataRaw.planEnd, "")}
+          # Initialize eligibility data containers
+          - eligibilityDataRaw: ${emptyMap}
+          - eligibilityData: ${emptyMap}
+          - stediResponse: null
 
     # ---------------------------------------------------------------
-    # 5.  Extract values directly from the payload + backup from responses
+    # 5.  Extract values directly from the payload
     # ---------------------------------------------------------------
     - extractFields:
         assign:
@@ -157,9 +146,10 @@ main:
           - groupNumber: ${if(actualPayload != null and "groupNumber" in actualPayload, actualPayload.groupNumber, "")}
           - dateOfBirth: ${if(actualPayload != null and "dateOfBirth" in actualPayload, actualPayload.dateOfBirth, "")}
           - consent: ${if(actualPayload != null and "consent" in actualPayload, actualPayload.consent, false)}
+          - testMode: ${if(actualPayload != null and "testMode" in actualPayload, actualPayload.testMode, false)}
 
     # ---------------------------------------------------------------
-    # 5a. Parse mainReasons - handle both arrays and strings
+    # 5a. Parse mainReasons and medicalConditions
     # ---------------------------------------------------------------
     - parseMainReasons:
         assign:
@@ -170,22 +160,28 @@ main:
           - condition: ${_mr_raw == null}
             assign:
               - reasonsText: ""
+              - mainReasons: []
           - condition: true
             try:
-              # Try to use len() - if it works, it's an array
+              # Try to use as array first
               call: manualJoin
               args:
                 listToJoin: ${_mr_raw}
                 separator: ", "
               result: reasonsText
             except:
-              # If len() fails in manualJoin, it's a string
+              # If it fails, it's a string
               assign:
                 - reasonsText: ${_mr_raw}
+                - mainReasons:
+                    - ${_mr_raw}
+            next: setMainReasonsArray
 
-    # ---------------------------------------------------------------
-    # 5b. Parse medicalConditions - handle both arrays and strings
-    # ---------------------------------------------------------------
+    - setMainReasonsArray:
+        assign:
+          - mainReasons: ${_mr_raw}
+        next: parseMedicalConditions
+
     - parseMedicalConditions:
         assign:
           - _mc_raw: ${if(actualPayload != null and "medicalConditions" in actualPayload, actualPayload.medicalConditions, null)}
@@ -195,27 +191,35 @@ main:
           - condition: ${_mc_raw == null}
             assign:
               - conditionsText: ""
+              - medicalConditions: []
           - condition: true
             try:
-              # Try to use len() - if it works, it's an array
+              # Try to use as array first
               call: manualJoin
               args:
                 listToJoin: ${_mc_raw}
                 separator: ", "
               result: conditionsText
             except:
-              # If len() fails in manualJoin, it's a string
+              # If it fails, it's a string
               assign:
                 - conditionsText: ${_mc_raw}
+                - medicalConditions:
+                    - ${_mc_raw}
+            next: setMedicalConditionsArray
+
+    - setMedicalConditionsArray:
+        assign:
+          - medicalConditions: ${_mc_raw}
         next: validateEmail
 
     # ---------------------------------------------------------------
-    # 6.  Validate email (using insurance payerId directly)
+    # 6. Validate email and insurance info
     # ---------------------------------------------------------------
     - validateEmail:
         switch:
           - condition: ${customerEmail != ""}
-            next: tryCreateShopifyCustomer
+            next: checkInsuranceEligibility
           - condition: true
             return:
               statusCode: 400
@@ -226,6 +230,84 @@ main:
                 reason: "Invalid email address"
                 attemptedEmail: ${customerEmail}
 
+    # ---------------------------------------------------------------
+    # 7. Check insurance eligibility server-side (HIPAA compliant)
+    # ---------------------------------------------------------------
+    - checkInsuranceEligibility:
+        switch:
+          # Only check eligibility if we have insurance information
+          - condition: ${insurance != "" and insuranceMemberId != "" and firstName != "" and lastName != ""}
+            next: callEligibilityWorkflow
+          - condition: true
+            # Skip eligibility check if insurance info is missing
+            assign:
+              - eligibilityData:
+                  isEligible: false
+                  sessionsCovered: 0
+                  deductible: { individual: 0 }
+                  eligibilityStatus: "NO_INSURANCE_INFO"
+                  userMessage: "Insurance information not provided"
+                  planBegin: ""
+                  planEnd: ""
+              - eligibilityDataRaw: ${eligibilityData}
+            next: tryCreateShopifyCustomer
+
+    - callEligibilityWorkflow:
+        try:
+          call: http.post
+          args:
+            url: ${eligibilityWorkflowUrl}
+            headers:
+              Content-Type: "application/json"
+              X-Workflow-Type: "eligibility"
+            body:
+              firstName: ${firstName}
+              lastName: ${lastName}
+              insurance: ${insurance}
+              insuranceMemberId: ${insuranceMemberId}
+              groupNumber: ${groupNumber}
+              dateOfBirth: ${dateOfBirth}
+              testMode: ${testMode}
+          result: eligibilityResponse
+        except:
+          as: e
+          assign:
+            - eligibilityResponse: ${e}
+        next: processEligibilityResponse
+
+    - processEligibilityResponse:
+        switch:
+          - condition: ${eligibilityResponse.code >= 200 and eligibilityResponse.code < 300 and "body" in eligibilityResponse and "success" in eligibilityResponse.body and eligibilityResponse.body.success}
+            assign:
+              - eligibilityDataRaw: ${eligibilityResponse.body.eligibilityData}
+              - stediResponse: ${if("debug" in eligibilityResponse.body, eligibilityResponse.body.debug, null)}
+              # Extract safe fields for contact creation
+              - eligibilityData:
+                  isEligible: ${eligibilityDataRaw.isEligible}
+                  sessionsCovered: ${eligibilityDataRaw.sessionsCovered}
+                  deductible: ${eligibilityDataRaw.deductible}
+                  eligibilityStatus: ${eligibilityDataRaw.eligibilityStatus}
+                  userMessage: ${eligibilityDataRaw.userMessage}
+                  planBegin: ${eligibilityDataRaw.planBegin}
+                  planEnd: ${eligibilityDataRaw.planEnd}
+            next: tryCreateShopifyCustomer
+          - condition: true
+            # Eligibility check failed, but continue with user creation
+            assign:
+              - eligibilityData:
+                  isEligible: false
+                  sessionsCovered: 0
+                  deductible: { individual: 0 }
+                  eligibilityStatus: "ELIGIBILITY_CHECK_FAILED"
+                  userMessage: "Unable to verify insurance eligibility at this time"
+                  planBegin: ""
+                  planEnd: ""
+              - eligibilityDataRaw: ${eligibilityData}
+            next: tryCreateShopifyCustomer
+
+    # ---------------------------------------------------------------
+    # 8. Create Shopify customer
+    # ---------------------------------------------------------------
     - tryCreateShopifyCustomer:
         try:
           call: http.post
@@ -343,7 +425,7 @@ main:
             next: createHubSpotContact
 
     # ---------------------------------------------------------------
-    # ===  HUBSPOT CONTACT CREATION  ===
+    # 9. Create HubSpot Contact
     # ---------------------------------------------------------------
     - createHubSpotContact:
         try:
@@ -387,7 +469,7 @@ main:
           - condition: ${hubspotContactResponse.code >= 200 and hubspotContactResponse.code < 300}
             assign:
               - hubspotContactId: ${hubspotContactResponse.body.id}
-            next: returnSuccess
+            next: createInsurancePlan
           - condition: ${hubspotContactResponse.code == 409}
             next: getExistingContact
           - condition: true
@@ -440,26 +522,177 @@ main:
               telemedicine_primary_category: ${reasonsText}
               telemedicine_secondary_category: ${if(conditionsText != "", text.split(conditionsText, ",")[0], "")} # Only send first value for dropdown
         result: updateResp
-        next: returnSuccess
+        next: createInsurancePlan
 
     # ---------------------------------------------------------------
-    # 8.  Success response
+    # 10. Create Insurance Plan in HubSpot (only if insurance data exists)
     # ---------------------------------------------------------------
+    - createInsurancePlan:
+        switch:
+          # Only create insurance plan if we have insurance information and eligibility data
+          - condition: ${insurance != "" and insuranceMemberId != "" and eligibilityDataRaw != null}
+            next: callInsurancePlanWorkflow
+          - condition: true
+            # No insurance information, skip insurance plan creation
+            next: returnSuccessNoInsurance
+
+    - callInsurancePlanWorkflow:
+        try:
+          call: http.post
+          args:
+            url: ${eligibilityWorkflowUrl}
+            headers:
+              Content-Type: "application/json"
+              X-Workflow-Type: "insurance_plan"
+            body:
+              # Pass all the original data plus the hubspotContactId
+              customerEmail: ${customerEmail}
+              firstName: ${firstName}
+              lastName: ${lastName}
+              phoneNumber: ${phoneNumber}
+              state: ${state}
+              insurance: ${insurance}
+              insuranceMemberId: ${insuranceMemberId}
+              groupNumber: ${groupNumber}
+              dateOfBirth: ${dateOfBirth}
+              hubspotContactId: ${hubspotContactId}
+              eligibilityData: ${eligibilityDataRaw}
+              stediResponse: ${stediResponse}
+              mainReasons: ${mainReasons}
+              medicalConditions: ${medicalConditions}
+          result: insurancePlanResponse
+        except:
+          as: e
+          assign:
+            - insurancePlanResponse: ${e}
+        next: handleInsurancePlanResponse
+
+    - handleInsurancePlanResponse:
+        switch:
+          - condition: ${insurancePlanResponse.code >= 200 and insurancePlanResponse.code < 300}
+            assign:
+              - insurancePlanSuccess: true
+              - insurancePlanId: ${if("body" in insurancePlanResponse and "insurancePlanId" in insurancePlanResponse.body, insurancePlanResponse.body.insurancePlanId, "")}
+              - insurancePlanObjectId: ${if("body" in insurancePlanResponse and "insurancePlanObjectId" in insurancePlanResponse.body, insurancePlanResponse.body.insurancePlanObjectId, "")}
+            next: returnSuccess
+          - condition: true
+            # Log the error but continue - don't fail the entire workflow
+            call: sys.log
+            args:
+              data:
+                message: "Insurance plan creation failed but continuing"
+                error: ${insurancePlanResponse}
+              severity: WARNING
+            next: returnSuccessWithInsuranceWarning
+
+        # ---------------------------------------------------------------
+    # 11. Success responses
+    # ---------------------------------------------------------------
+    - prepareSuccessResponse:
+        assign:
+          - responseBody:
+              success: true
+              quizId: ${quizId}
+              customerEmail: ${customerEmail}
+              shopifyCustomerId: ${shopifyCustomerId}
+              hubspotContactId: ${hubspotContactId}
+              timestamp: ${timestamp}
+              eligibilityStatus: ${eligibilityData.eligibilityStatus}
+              isEligible: ${eligibilityData.isEligible}
+              eligibilityMessage: ${eligibilityData.userMessage}
+          - eligibilityResponseData:
+              eligibilityStatus: ${eligibilityData.eligibilityStatus}
+              isEligible: ${eligibilityData.isEligible}
+              userMessage: ${eligibilityData.userMessage}
+              sessionsCovered: ${if(eligibilityDataRaw != null and "sessionsCovered" in eligibilityDataRaw, eligibilityDataRaw.sessionsCovered, 0)}
+              copay: ${if(eligibilityDataRaw != null and "copay" in eligibilityDataRaw, eligibilityDataRaw.copay, 0)}
+              planBegin: ${if(eligibilityDataRaw != null and "planBegin" in eligibilityDataRaw, eligibilityDataRaw.planBegin, "")}
+              planEnd: ${if(eligibilityDataRaw != null and "planEnd" in eligibilityDataRaw, eligibilityDataRaw.planEnd, "")}
+          - insurancePlanInfo:
+              success: ${if(insurancePlanSuccess != null, insurancePlanSuccess, false)}
+              insurancePlanId: ${if(insurancePlanId != null, insurancePlanId, "")}
+              insurancePlanObjectId: ${if(insurancePlanObjectId != null, insurancePlanObjectId, "")}
+        next: addDeductibleInfo
+
+    - addDeductibleInfo:
+        assign:
+          - eligibilityResponseData.deductible: ${if(eligibilityDataRaw != null and "deductible" in eligibilityDataRaw, eligibilityDataRaw.deductible, emptyMap)}
+        next: returnSuccess
+
     - returnSuccess:
+        assign:
+          - responseBody.eligibilityData: ${eligibilityResponseData}
+          - responseBody.insurancePlan: ${insurancePlanInfo}
+        next: sendSuccessResponse
+
+    - sendSuccessResponse:
         return:
           statusCode: 200
           headers: ${corsHeaders}
-          body:
-            success: true
-            quizId: ${quizId}
-            customerEmail: ${customerEmail}
-            eligibilityStatus: ${eligibilityData.eligibilityStatus}
-            shopifyCustomerId: ${shopifyCustomerId}
-            hubspotContactId: ${hubspotContactId}
-            timestamp: ${timestamp}
+          body: ${responseBody}
+
+    - returnSuccessWithInsuranceWarning:
+        assign:
+          - warningResponseBody:
+              success: true
+              quizId: ${quizId}
+              customerEmail: ${customerEmail}
+              shopifyCustomerId: ${shopifyCustomerId}
+              hubspotContactId: ${hubspotContactId}
+              timestamp: ${timestamp}
+              eligibilityStatus: ${eligibilityData.eligibilityStatus}
+              isEligible: ${eligibilityData.isEligible}
+              eligibilityMessage: ${eligibilityData.userMessage}
+              eligibilityData: ${eligibilityResponseData}
+              insurancePlan:
+                success: false
+                error: "Insurance plan creation failed - see logs"
+                insurancePlanId: ""
+                insurancePlanObjectId: ""
+        next: sendWarningResponse
+
+    - sendWarningResponse:
+        return:
+          statusCode: 200
+          headers: ${corsHeaders}
+          body: ${warningResponseBody}
+
+    - returnSuccessNoInsurance:
+        assign:
+          - noInsuranceResponseBody:
+              success: true
+              quizId: ${quizId}
+              customerEmail: ${customerEmail}
+              shopifyCustomerId: ${shopifyCustomerId}
+              hubspotContactId: ${hubspotContactId}
+              timestamp: ${timestamp}
+              eligibilityStatus: "NO_INSURANCE_INFO"
+              isEligible: false
+              eligibilityMessage: "No insurance information provided"
+              eligibilityData:
+                eligibilityStatus: "NO_INSURANCE_INFO"
+                isEligible: false
+                userMessage: "No insurance information provided"
+                sessionsCovered: 0
+                copay: 0
+                planBegin: ""
+                planEnd: ""
+                deductible: ${emptyMap}
+              insurancePlan:
+                success: false
+                error: "No insurance information provided"
+                insurancePlanId: ""
+                insurancePlanObjectId: ""
+        next: sendNoInsuranceResponse
+
+    - sendNoInsuranceResponse:
+        return:
+          statusCode: 200
+          headers: ${corsHeaders}
+          body: ${noInsuranceResponseBody}
 
     # ---------------------------------------------------------------
-    # 9. Error handlers
+    # 12. Error handlers
     # ---------------------------------------------------------------
     - shopifyErrorGeneral:
         return:

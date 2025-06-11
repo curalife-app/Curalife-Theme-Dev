@@ -127,7 +127,7 @@ const DEFAULT_CONFIG = {
 	// Security Settings
 	security: {
 		enableFileValidation: true,
-		allowedFileTypes: [".js", ".css", ".liquid", ".json", ".md", ".txt", ".svg", ".png", ".jpg", ".jpeg", ".webp"],
+		allowedFileTypes: [".js", ".css", ".liquid", ".json", ".md", ".txt", ".svg", ".png", ".jpg", ".jpeg", ".webp", ".woff", ".woff2", ".ttf", ".otf", ".eot"],
 		maxFileSize: 50 * 1024 * 1024, // 50MB
 		enableIntegrityChecks: true
 	}

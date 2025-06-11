@@ -5,14 +5,21 @@ $REGION = "us-central1"
 # Deploy the eligibility workflow
 Write-Host "Deploying eligibility workflow..." -ForegroundColor Cyan
 gcloud workflows deploy eligibility-workflow `
-  --source=workflows/gcloud-workflows/eligibility-workflow.yaml `
+  --source=workflows/eligibility-workflow.yaml `
   --location=$REGION `
   --project=$PROJECT_ID
 
 # Deploy the user creation workflow
 Write-Host "Deploying user creation workflow..." -ForegroundColor Cyan
 gcloud workflows deploy user-creation-workflow `
-  --source=workflows/gcloud-workflows/user-creation-workflow.yaml `
+  --source=workflows/user-creation-workflow.yaml `
+  --location=$REGION `
+  --project=$PROJECT_ID
+
+# Deploy the insurance plan workflow
+Write-Host "Deploying insurance plan workflow..." -ForegroundColor Cyan
+gcloud workflows deploy insurance-plan-workflow `
+  --source=workflows/insurance-plan-workflow.yaml `
   --location=$REGION `
   --project=$PROJECT_ID
 
@@ -29,6 +36,7 @@ Write-Host "Creating Cloud Functions to call the workflows..." -ForegroundColor 
 # Create a temporary directory for the Cloud Function code
 mkdir -p cloud-functions/workflow_eligibility
 mkdir -p cloud-functions/workflow_user_creation
+mkdir -p cloud-functions/workflow_insurance_plan
 
 # Create the Cloud Function code for eligibility workflow
 @"
@@ -52,7 +60,7 @@ exports.handler = async (req, res) => {
 
     console.log('Executing eligibility workflow');
     const execution = await workflowsClient.executeWorkflow({
-      name: `projects/\${projectId}/locations/\${location}/workflows/\${workflowId}`,
+      name: `projects/${projectId}/locations/${location}/workflows/${workflowId}`,
       argument: JSON.stringify(req.body || {}),
     });
 
@@ -93,7 +101,7 @@ exports.handler = async (req, res) => {
 
     console.log('Executing user creation workflow');
     const execution = await workflowsClient.executeWorkflow({
-      name: `projects/\${projectId}/locations/\${location}/workflows/\${workflowId}`,
+      name: `projects/${projectId}/locations/${location}/workflows/${workflowId}`,
       argument: JSON.stringify(req.body || {}),
     });
 
@@ -112,6 +120,47 @@ exports.handler = async (req, res) => {
 };
 "@ | Out-File -FilePath "cloud-functions/workflow_user_creation/index.js" -Encoding utf8
 
+# Create the Cloud Function code for insurance plan workflow
+@"
+const {workflowsClient} = require('./workflow-client');
+
+exports.handler = async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+
+  if (req.method === 'OPTIONS') {
+    res.set('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.set('Access-Control-Max-Age', '3600');
+    res.status(204).send('');
+    return;
+  }
+
+  try {
+    const projectId = process.env.GCP_PROJECT || 'telemedicine-458913';
+    const location = 'us-central1';
+    const workflowId = 'insurance-plan-workflow';
+
+    console.log('Executing insurance plan workflow');
+    const execution = await workflowsClient.executeWorkflow({
+      name: `projects/${projectId}/locations/${location}/workflows/${workflowId}`,
+      argument: JSON.stringify(req.body || {}),
+    });
+
+    console.log('Execution finished');
+    console.log(execution);
+
+    res.status(200).send(execution.result || {});
+  } catch (error) {
+    console.error('Error executing workflow:', error);
+    res.status(500).send({
+      success: false,
+      error: 'Failed to execute insurance plan workflow',
+      details: error.message
+    });
+  }
+};
+"@ | Out-File -FilePath "cloud-functions/workflow_insurance_plan/index.js" -Encoding utf8
+
 # Create the shared workflow client module
 @"
 const {ExecutionsClient} = require('@google-cloud/workflows');
@@ -122,6 +171,7 @@ const workflowsClient = new ExecutionsClient();
 module.exports = { workflowsClient };
 "@ | Out-File -FilePath "cloud-functions/workflow_eligibility/workflow-client.js" -Encoding utf8
 Copy-Item "cloud-functions/workflow_eligibility/workflow-client.js" "cloud-functions/workflow_user_creation/workflow-client.js"
+Copy-Item "cloud-functions/workflow_eligibility/workflow-client.js" "cloud-functions/workflow_insurance_plan/workflow-client.js"
 
 # Create package.json files for the Cloud Functions
 @"
@@ -148,6 +198,18 @@ Copy-Item "cloud-functions/workflow_eligibility/workflow-client.js" "cloud-funct
 }
 "@ | Out-File -FilePath "cloud-functions/workflow_user_creation/package.json" -Encoding utf8
 
+@"
+{
+  "name": "workflow-insurance-plan-function",
+  "version": "1.0.0",
+  "description": "Cloud Function to call the insurance plan workflow",
+  "main": "index.js",
+  "dependencies": {
+    "@google-cloud/workflows": "^2.0.0"
+  }
+}
+"@ | Out-File -FilePath "cloud-functions/workflow_insurance_plan/package.json" -Encoding utf8
+
 # Deploy the Cloud Functions
 Write-Host "Deploying eligibility workflow Cloud Function..." -ForegroundColor Cyan
 gcloud functions deploy workflow_eligibility `
@@ -169,8 +231,19 @@ gcloud functions deploy workflow_user_creation `
   --region=$REGION `
   --project=$PROJECT_ID
 
+Write-Host "Deploying insurance plan workflow Cloud Function..." -ForegroundColor Cyan
+gcloud functions deploy workflow_insurance_plan `
+  --runtime=nodejs20 `
+  --trigger-http `
+  --allow-unauthenticated `
+  --entry-point=handler `
+  --source=cloud-functions/workflow_insurance_plan `
+  --region=$REGION `
+  --project=$PROJECT_ID
+
 Write-Host "Deployment completed!" -ForegroundColor Green
 Write-Host "New endpoints:"
 Write-Host "- Eligibility: https://$REGION-$PROJECT_ID.cloudfunctions.net/workflow_eligibility" -ForegroundColor Yellow
 Write-Host "- User Creation: https://$REGION-$PROJECT_ID.cloudfunctions.net/workflow_user_creation" -ForegroundColor Yellow
+Write-Host "- Insurance Plan: https://$REGION-$PROJECT_ID.cloudfunctions.net/workflow_insurance_plan" -ForegroundColor Yellow
 Write-Host "- Main Workflow: https://$REGION-$PROJECT_ID.cloudfunctions.net/telemedicine-workflow" -ForegroundColor Yellow

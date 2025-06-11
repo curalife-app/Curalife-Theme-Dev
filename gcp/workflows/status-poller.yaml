@@ -1,0 +1,86 @@
+# ==================================================================
+#  Status Poller - Returns workflow status from Cloud Storage
+# ==================================================================
+
+main:
+  params: [request]
+
+  steps:
+    # ---------------------------------------------------------------
+    # 0. Load configuration & CORS headers
+    # ---------------------------------------------------------------
+    - setup:
+        assign:
+          - corsHeaders:
+              Access-Control-Allow-Origin: "*"
+              Access-Control-Allow-Methods: "GET, OPTIONS"
+              Access-Control-Allow-Headers: "Content-Type, Authorization, X-Requested-With"
+              Access-Control-Allow-Credentials: "true"
+              Access-Control-Max-Age: "3600"
+              Content-Type: "application/json"
+          - bucketName: "curalife-workflow-status"
+
+    # ---------------------------------------------------------------
+    # 1. Extract status tracking ID from request
+    # ---------------------------------------------------------------
+    - extractStatusId:
+        assign:
+          - statusTrackingId: ${if(request != null and "statusTrackingId" in request, request.statusTrackingId, "")}
+        next: validateStatusId
+
+    - validateStatusId:
+        switch:
+          - condition: ${statusTrackingId == ""}
+            return:
+              statusCode: 400
+              headers: ${corsHeaders}
+              body:
+                success: false
+                error: "statusTrackingId is required"
+          - condition: true
+            next: getStatus
+
+    # ---------------------------------------------------------------
+    # 2. Retrieve status from Cloud Storage
+    # ---------------------------------------------------------------
+    - getStatus:
+        try:
+          call: googleapis.storage.v1.objects.get
+          args:
+            bucket: ${bucketName}
+            object: ${"status/" + statusTrackingId + ".json"}
+            alt: "media"
+          result: statusResponse
+        except:
+          as: e
+          steps:
+            - handleNotFound:
+                switch:
+                  - condition: ${e.code == 404}
+                    return:
+                      statusCode: 404
+                      headers: ${corsHeaders}
+                      body:
+                        success: false
+                        error: "Status tracking ID not found"
+                        statusTrackingId: ${statusTrackingId}
+                  - condition: true
+                    return:
+                      statusCode: 500
+                      headers: ${corsHeaders}
+                      body:
+                        success: false
+                        error: "Failed to retrieve status"
+                        details: ${e}
+
+    # ---------------------------------------------------------------
+    # 3. Return status data
+    # ---------------------------------------------------------------
+    - returnStatus:
+        return:
+          statusCode: 200
+          headers: ${corsHeaders}
+          body:
+            success: true
+            statusData: ${statusResponse.body}
+            statusTrackingId: ${statusTrackingId}

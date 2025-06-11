@@ -28,8 +28,8 @@ const CONFIG = {
 	chunkSize: 50, // Files per worker
 	cacheFile: "build-scripts/cache/.build-cache.json",
 	performanceLog: "build-scripts/cache/.build-performance.json",
-	enableCache: true,
-	enableParallel: true,
+	enableCache: !process.argv.includes("--no-cache"),
+	enableParallel: !process.argv.includes("--no-parallel"),
 	enableOptimizations: true
 };
 
@@ -74,11 +74,20 @@ class BuildCache {
 		}
 	}
 
-	hasChanged(filePath) {
+	hasChanged(filePath, destPath = null) {
 		if (!CONFIG.enableCache) return true;
 
 		const currentHash = this.getFileHash(filePath);
 		const cachedHash = this.cache.files[filePath];
+
+		// If destination file doesn't exist, always consider it changed
+		if (destPath && !fs.existsSync(destPath)) {
+			this.stats.misses++;
+			if (currentHash) {
+				this.cache.files[filePath] = currentHash;
+			}
+			return true;
+		}
 
 		if (currentHash && currentHash === cachedHash) {
 			this.stats.hits++;
@@ -163,6 +172,11 @@ class ParallelFileProcessor {
 	}
 
 	async processFiles(files, operation, progressCallback) {
+		// Force sequential processing for now since worker threads are causing issues
+		// TODO: Fix worker thread implementation later
+		return this.processSequential(files, operation, progressCallback);
+
+		/* Original parallel code - disabled due to worker issues
 		if (!CONFIG.enableParallel || files.length < 10) {
 			// Use sequential processing for small batches
 			return this.processSequential(files, operation, progressCallback);
@@ -185,6 +199,7 @@ class ParallelFileProcessor {
 
 		const results = await Promise.allSettled(promises);
 		return this.combineResults(results);
+		*/
 	}
 
 	async processSequential(files, operation, progressCallback) {

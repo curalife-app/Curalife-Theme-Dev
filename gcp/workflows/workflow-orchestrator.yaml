@@ -1,0 +1,469 @@
+# ==================================================================
+#  Workflow Orchestrator - HIPAA Compliant Process Manager
+# ==================================================================
+
+main:
+  params: [request]
+
+  steps:
+    # ---------------------------------------------------------------
+    # 0. Load configuration & CORS headers
+    # ---------------------------------------------------------------
+    - setup:
+        assign:
+          - corsHeaders:
+              Access-Control-Allow-Origin: "*"
+              Access-Control-Allow-Methods: "POST, GET, OPTIONS"
+              Access-Control-Allow-Headers: "Content-Type, Authorization, X-Requested-With"
+              Access-Control-Allow-Credentials: "true"
+              Access-Control-Max-Age: "3600"
+              Content-Type: "application/json"
+          - rawData: ${request}
+          - timestamp: ${sys.now()}
+          # Status tracking configuration
+          - statusTrackingId: ${text.replace_all(text.replace_all(string(timestamp), ".", ""), ":", "")}
+          - bucketName: "curalife-workflow-status"
+          - statusObjectName: ${"status/" + statusTrackingId + ".json"}
+          # Workflow endpoints
+          - userCreationWorkflowUrl: "https://us-central1-telemedicine-458913.cloudfunctions.net/workflow_user_creation"
+          - eligibilityWorkflowUrl: "https://us-central1-telemedicine-458913.cloudfunctions.net/workflow_eligibility"
+          - insurancePlanWorkflowUrl: "https://us-central1-telemedicine-458913.cloudfunctions.net/workflow_insurance_plan"
+
+    # ---------------------------------------------------------------
+    # 0a. Initialize status tracking
+    # ---------------------------------------------------------------
+    - initializeStatus:
+        call: googleapis.storage.v1.objects.insert
+        args:
+          bucket: ${bucketName}
+          name: ${statusObjectName}
+          uploadType: "media"
+          body:
+            statusTrackingId: ${statusTrackingId}
+            currentStep: "initializing"
+            progress: 0
+            message: "🚀 Starting user creation process..."
+            timestamp: ${timestamp}
+            completed: false
+            error: false
+        result: statusInitResult
+        next: validatePayload
+
+    # ---------------------------------------------------------------
+    # 1. Validate payload structure
+    # ---------------------------------------------------------------
+    - validatePayload:
+        assign:
+          - customerEmail: ${if(rawData != null and "customerEmail" in rawData, rawData.customerEmail, "")}
+          - firstName: ${if(rawData != null and "firstName" in rawData, rawData.firstName, "")}
+          - lastName: ${if(rawData != null and "lastName" in rawData, rawData.lastName, "")}
+          - insurance: ${if(rawData != null and "insurance" in rawData, rawData.insurance, "")}
+          - insuranceMemberId: ${if(rawData != null and "insuranceMemberId" in rawData, rawData.insuranceMemberId, "")}
+        next: updateStatusValidating
+
+    # ---------------------------------------------------------------
+    # 2. Update status: Validating
+    # ---------------------------------------------------------------
+    - updateStatusValidating:
+        call: googleapis.storage.v1.objects.insert
+        args:
+          bucket: ${bucketName}
+          name: ${statusObjectName}
+          uploadType: "media"
+          body:
+            statusTrackingId: ${statusTrackingId}
+            currentStep: "validating"
+            progress: 10
+            message: "📋 Validating information..."
+            timestamp: ${sys.now()}
+            completed: false
+            error: false
+        result: statusValidatingResult
+        next: validateRequired
+
+    - validateRequired:
+        switch:
+          - condition: ${customerEmail == ""}
+            next: updateStatusError
+          - condition: true
+            next: determineWorkflowPath
+
+    # ---------------------------------------------------------------
+    # 3. Determine workflow path based on insurance info
+    # ---------------------------------------------------------------
+    - determineWorkflowPath:
+        switch:
+          # Full workflow: Has insurance info, needs eligibility check
+          - condition: ${insurance != "" and insuranceMemberId != "" and firstName != "" and lastName != ""}
+            next: updateStatusEligibility
+          # Simple workflow: No insurance info, skip eligibility
+          - condition: true
+            next: updateStatusUserCreation
+
+    # ---------------------------------------------------------------
+    # 4. FULL WORKFLOW PATH: Check insurance eligibility first
+    # ---------------------------------------------------------------
+    - updateStatusEligibility:
+        call: googleapis.storage.v1.objects.insert
+        args:
+          bucket: ${bucketName}
+          name: ${statusObjectName}
+          uploadType: "media"
+          body:
+            statusTrackingId: ${statusTrackingId}
+            currentStep: "eligibility"
+            progress: 25
+            message: "🔍 Checking insurance eligibility..."
+            timestamp: ${sys.now()}
+            completed: false
+            error: false
+        result: statusEligibilityResult
+        next: callEligibilityWorkflow
+
+    - callEligibilityWorkflow:
+        try:
+          call: http.post
+          args:
+            url: ${eligibilityWorkflowUrl}
+            headers:
+              Content-Type: "application/json"
+              X-Workflow-Type: "eligibility"
+            body: ${rawData}
+          result: eligibilityResponse
+        except:
+          as: e
+          assign:
+            - eligibilityResponse: ${e}
+        next: processEligibilityResponse
+
+    - processEligibilityResponse:
+        switch:
+          - condition: ${eligibilityResponse.code >= 200 and eligibilityResponse.code < 300}
+            assign:
+              - eligibilityData: ${eligibilityResponse.body}
+            next: updateStatusUserCreationWithEligibility
+          - condition: true
+            # Continue without eligibility data if check failed
+            assign:
+              - eligibilityData: null
+            next: updateStatusUserCreationWithEligibility
+
+    # ---------------------------------------------------------------
+    # 5. Update status: Creating user account (after eligibility)
+    # ---------------------------------------------------------------
+    - updateStatusUserCreationWithEligibility:
+        call: googleapis.storage.v1.objects.insert
+        args:
+          bucket: ${bucketName}
+          name: ${statusObjectName}
+          uploadType: "media"
+          body:
+            statusTrackingId: ${statusTrackingId}
+            currentStep: "user_creation"
+            progress: 50
+            message: "🛍️ Creating user accounts..."
+            timestamp: ${sys.now()}
+            completed: false
+            error: false
+        result: statusUserCreationResult
+        next: callUserCreationWorkflowWithEligibility
+
+    - callUserCreationWorkflowWithEligibility:
+        try:
+          call: http.post
+          args:
+            url: ${userCreationWorkflowUrl}
+            headers:
+              Content-Type: "application/json"
+            body: ${rawData}
+          result: userCreationResponse
+        except:
+          as: e
+          assign:
+            - userCreationResponse: ${e}
+        next: processUserCreationResponseWithEligibility
+
+    - processUserCreationResponseWithEligibility:
+        switch:
+          - condition: ${userCreationResponse.code >= 200 and userCreationResponse.code < 300}
+            assign:
+              - userCreationData: ${userCreationResponse.body}
+              - hubspotContactId: ${userCreationData.hubspotContactId}
+            next: updateStatusInsurancePlan
+          - condition: true
+            # User creation failed
+            next: updateStatusUserCreationError
+
+    # ---------------------------------------------------------------
+    # 6. Update status: Creating insurance plan
+    # ---------------------------------------------------------------
+    - updateStatusInsurancePlan:
+        call: googleapis.storage.v1.objects.insert
+        args:
+          bucket: ${bucketName}
+          name: ${statusObjectName}
+          uploadType: "media"
+          body:
+            statusTrackingId: ${statusTrackingId}
+            currentStep: "insurance_plan"
+            progress: 75
+            message: "🏥 Processing insurance plan details..."
+            timestamp: ${sys.now()}
+            completed: false
+            error: false
+        result: statusInsurancePlanResult
+        next: callInsurancePlanWorkflow
+
+    - callInsurancePlanWorkflow:
+        try:
+          call: http.post
+          args:
+            url: ${insurancePlanWorkflowUrl}
+            headers:
+              Content-Type: "application/json"
+            body:
+              customerEmail: ${customerEmail}
+              firstName: ${firstName}
+              lastName: ${lastName}
+              phoneNumber: ${if(rawData != null and "phoneNumber" in rawData, rawData.phoneNumber, "")}
+              state: ${if(rawData != null and "state" in rawData, rawData.state, "")}
+              insurance: ${insurance}
+              insuranceMemberId: ${insuranceMemberId}
+              groupNumber: ${if(rawData != null and "groupNumber" in rawData, rawData.groupNumber, "")}
+              dateOfBirth: ${if(rawData != null and "dateOfBirth" in rawData, rawData.dateOfBirth, "")}
+              hubspotContactId: ${hubspotContactId}
+              eligibilityData: ${if(eligibilityData != null and "eligibilityData" in eligibilityData, eligibilityData.eligibilityData, null)}
+              stediResponse: ${if(eligibilityData != null and "debug" in eligibilityData, eligibilityData.debug, null)}
+              mainReasons: ${if(rawData != null and "mainReasons" in rawData, rawData.mainReasons, [])}
+              medicalConditions: ${if(rawData != null and "medicalConditions" in rawData, rawData.medicalConditions, [])}
+          result: insurancePlanResponse
+        except:
+          as: e
+          assign:
+            - insurancePlanResponse: ${e}
+        next: processInsurancePlanResponse
+
+    - processInsurancePlanResponse:
+        switch:
+          - condition: ${insurancePlanResponse.code >= 200 and insurancePlanResponse.code < 300}
+            assign:
+              - insurancePlanData: ${insurancePlanResponse.body}
+            next: updateStatusCompletedFull
+          - condition: true
+            # Insurance plan creation failed, but continue
+            assign:
+              - insurancePlanData:
+                  success: false
+                  error: "Insurance plan creation failed"
+            next: updateStatusCompletedWithWarning
+
+    # ---------------------------------------------------------------
+    # 7. SIMPLE WORKFLOW PATH: No insurance info
+    # ---------------------------------------------------------------
+    - updateStatusUserCreation:
+        call: googleapis.storage.v1.objects.insert
+        args:
+          bucket: ${bucketName}
+          name: ${statusObjectName}
+          uploadType: "media"
+          body:
+            statusTrackingId: ${statusTrackingId}
+            currentStep: "user_creation"
+            progress: 50
+            message: "🛍️ Creating user accounts..."
+            timestamp: ${sys.now()}
+            completed: false
+            error: false
+        result: statusUserCreationSimpleResult
+        next: callUserCreationWorkflow
+
+    - callUserCreationWorkflow:
+        try:
+          call: http.post
+          args:
+            url: ${userCreationWorkflowUrl}
+            headers:
+              Content-Type: "application/json"
+            body: ${rawData}
+          result: userCreationSimpleResponse
+        except:
+          as: e
+          assign:
+            - userCreationSimpleResponse: ${e}
+        next: processUserCreationResponse
+
+    - processUserCreationResponse:
+        switch:
+          - condition: ${userCreationSimpleResponse.code >= 200 and userCreationSimpleResponse.code < 300}
+            assign:
+              - userCreationData: ${userCreationSimpleResponse.body}
+            next: updateStatusCompletedSimple
+          - condition: true
+            next: updateStatusUserCreationError
+
+    # ---------------------------------------------------------------
+    # 8. SUCCESS RESPONSES
+    # ---------------------------------------------------------------
+    - updateStatusCompletedFull:
+        call: googleapis.storage.v1.objects.insert
+        args:
+          bucket: ${bucketName}
+          name: ${statusObjectName}
+          uploadType: "media"
+          body:
+            statusTrackingId: ${statusTrackingId}
+            currentStep: "completed"
+            progress: 100
+            message: "✅ Account creation completed successfully!"
+            timestamp: ${sys.now()}
+            completed: true
+            error: false
+            finalData:
+              userCreation: ${userCreationData}
+              eligibility: ${eligibilityData}
+              insurancePlan: ${insurancePlanData}
+        result: statusCompletedFullResult
+        next: returnSuccessFull
+
+    - returnSuccessFull:
+        return:
+          statusCode: 200
+          headers: ${corsHeaders}
+          body:
+            success: true
+            statusTrackingId: ${statusTrackingId}
+            message: "Account creation completed successfully"
+            data:
+              userCreation: ${userCreationData}
+              eligibility: ${eligibilityData}
+              insurancePlan: ${insurancePlanData}
+            timestamp: ${sys.now()}
+
+    - updateStatusCompletedWithWarning:
+        call: googleapis.storage.v1.objects.insert
+        args:
+          bucket: ${bucketName}
+          name: ${statusObjectName}
+          uploadType: "media"
+          body:
+            statusTrackingId: ${statusTrackingId}
+            currentStep: "completed"
+            progress: 100
+            message: "⚠️ Account created but insurance plan processing failed"
+            timestamp: ${sys.now()}
+            completed: true
+            error: false
+            hasWarning: true
+            finalData:
+              userCreation: ${userCreationData}
+              eligibility: ${eligibilityData}
+              insurancePlan: ${insurancePlanData}
+        result: statusCompletedWarningResult
+        next: returnSuccessWithWarning
+
+    - returnSuccessWithWarning:
+        return:
+          statusCode: 200
+          headers: ${corsHeaders}
+          body:
+            success: true
+            statusTrackingId: ${statusTrackingId}
+            message: "Account created but insurance plan processing failed"
+            hasWarning: true
+            data:
+              userCreation: ${userCreationData}
+              eligibility: ${eligibilityData}
+              insurancePlan: ${insurancePlanData}
+            timestamp: ${sys.now()}
+
+    - updateStatusCompletedSimple:
+        call: googleapis.storage.v1.objects.insert
+        args:
+          bucket: ${bucketName}
+          name: ${statusObjectName}
+          uploadType: "media"
+          body:
+            statusTrackingId: ${statusTrackingId}
+            currentStep: "completed"
+            progress: 100
+            message: "✅ Account creation completed (no insurance coverage)"
+            timestamp: ${sys.now()}
+            completed: true
+            error: false
+            finalData:
+              userCreation: ${userCreationData}
+        result: statusCompletedSimpleResult
+        next: returnSuccessSimple
+
+    - returnSuccessSimple:
+        return:
+          statusCode: 200
+          headers: ${corsHeaders}
+          body:
+            success: true
+            statusTrackingId: ${statusTrackingId}
+            message: "Account creation completed (no insurance coverage)"
+            data:
+              userCreation: ${userCreationData}
+            timestamp: ${sys.now()}
+
+    # ---------------------------------------------------------------
+    # 9. ERROR HANDLERS
+    # ---------------------------------------------------------------
+    - updateStatusError:
+        call: googleapis.storage.v1.objects.insert
+        args:
+          bucket: ${bucketName}
+          name: ${statusObjectName}
+          uploadType: "media"
+          body:
+            statusTrackingId: ${statusTrackingId}
+            currentStep: "error"
+            progress: 0
+            message: "❌ Invalid email address"
+            timestamp: ${sys.now()}
+            completed: true
+            error: true
+            errorDetails: "Invalid email address"
+        result: statusErrorResult
+        next: returnValidationError
+
+    - returnValidationError:
+        return:
+          statusCode: 400
+          headers: ${corsHeaders}
+          body:
+            success: false
+            statusTrackingId: ${statusTrackingId}
+            error: "Invalid email address"
+            timestamp: ${sys.now()}
+
+    - updateStatusUserCreationError:
+        call: googleapis.storage.v1.objects.insert
+        args:
+          bucket: ${bucketName}
+          name: ${statusObjectName}
+          uploadType: "media"
+          body:
+            statusTrackingId: ${statusTrackingId}
+            currentStep: "error"
+            progress: 0
+            message: "❌ Failed to create user accounts"
+            timestamp: ${sys.now()}
+            completed: true
+            error: true
+            errorType: "user_creation"
+            errorDetails: ${if(userCreationResponse != null and "body" in userCreationResponse, userCreationResponse.body, "Unknown error")}
+        result: statusUserCreationErrorResult
+        next: returnUserCreationError
+
+    - returnUserCreationError:
+        return:
+          statusCode: 500
+          headers: ${corsHeaders}
+          body:
+            success: false
+            statusTrackingId: ${statusTrackingId}
+            error: "Failed to create user accounts"
+            details: ${if(userCreationResponse != null and "body" in userCreationResponse, userCreationResponse.body, "Unknown error")}
+            timestamp: ${sys.now()}

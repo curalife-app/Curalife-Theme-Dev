@@ -21,10 +21,18 @@ The system consists of three separate workflows that work together:
    - Returns eligibility data to the main workflow
 
 3. **User Creation Workflow** (`user-creation-workflow.yaml`):
+
    - Creates the user in both Shopify and HubSpot
    - Receives eligibility data from the main workflow
-   - Creates linked insurance and consultation records in HubSpot
+   - Automatically triggers the Insurance Plan Workflow after contact creation
    - Returns consolidated user creation results
+
+4. **Insurance Plan Workflow** (`insurance-plan-workflow.yaml`):
+   - Creates insurance plan objects in HubSpot with all eligibility data
+   - Maps all fields from the Insurance Plan Mapping CSV
+   - Associates insurance plans with the created contact
+   - Handles duplicate plan detection and updates
+   - Stores both form data and API response data from eligibility checks
 
 ## Workflow Data Flow
 
@@ -77,15 +85,19 @@ If you prefer to deploy each component manually:
 
 ```bash
 gcloud workflows deploy eligibility-workflow \
-  --source=workflows/gcloud-workflows/eligibility-workflow.yaml \
+  --source=workflows/eligibility-workflow.yaml \
   --location=us-central1
 
 gcloud workflows deploy user-creation-workflow \
-  --source=workflows/gcloud-workflows/user-creation-workflow.yaml \
+  --source=workflows/user-creation-workflow.yaml \
+  --location=us-central1
+
+gcloud workflows deploy insurance-plan-workflow \
+  --source=workflows/insurance-plan-workflow.yaml \
   --location=us-central1
 
 gcloud workflows deploy telemedicine-workflow \
-  --source=workflows/gcloud-workflows/telemedicine-workflow.yaml \
+  --source=workflows/telemedicine-workflow.yaml \
   --location=us-central1
 ```
 

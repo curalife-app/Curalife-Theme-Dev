@@ -67,8 +67,6 @@ program
 	.command("watch")
 	.description("👁️ Watch for changes")
 	.option("--shopify", "Enable Shopify development mode")
-	.option("--no-shopify", "Disable Shopify integration")
-	.option("--no-hot", "Disable hot reload")
 	.action(async options => {
 		const watchMode = options.shopify ? "shopify-watch" : "watch";
 		visual.showWelcomeBanner(watchMode, options);
@@ -132,7 +130,8 @@ program
 				visual.showWatchReady({
 					filesWatched: "all files",
 					cacheEnabled: config.get("performance.cache"),
-					shopifyMode: data?.shopify || false
+					shopifyMode: data?.shopify || options.shopify || false,
+					hotReload: options.shopify || data?.shopify || false // Hot reload only enabled for Shopify mode
 				});
 
 				// Provide manual URL check option
@@ -141,51 +140,10 @@ program
 
 			await engine.execute("watch", {
 				...options,
-				shopify: (options.shopify && !options.noShopify) || config.isShopify()
+				shopify: options.shopify || config.isShopify()
 			});
 		} catch (error) {
 			visual.showError(error, { operation: watchMode });
-			process.exit(1);
-		}
-	});
-
-program
-	.command("watch-only")
-	.description("👁️ Watch files without Shopify integration")
-	.option("--no-hot", "Disable hot reload")
-	.action(async options => {
-		visual.showWelcomeBanner("watch", { ...options, noShopify: true });
-
-		try {
-			// Set up file change notifications
-			engine.on("log", log => {
-				if (log.message.includes("📁")) {
-					const parts = log.message.split(": ");
-					if (parts.length >= 2) {
-						const action = parts[0].split(" ")[1];
-						const fileName = parts[1];
-						visual.showFileChange(fileName, action);
-					}
-				} else if (log.message.includes("✅ Updated:")) {
-					const fileName = log.message.split("Updated: ")[1];
-					visual.showFileChange(fileName, "copied");
-				}
-			});
-
-			engine.on("watch:ready", () => {
-				visual.showWatchReady({
-					filesWatched: "all files",
-					cacheEnabled: config.get("performance.cache"),
-					shopifyMode: false
-				});
-			});
-
-			await engine.execute("watch", {
-				...options,
-				shopify: false
-			});
-		} catch (error) {
-			visual.showError(error, { operation: "watch" });
 			process.exit(1);
 		}
 	});
@@ -268,11 +226,12 @@ program
 				console.log(`${typeIcon} Syncing to Shopify...`);
 			});
 
-			engine.on("watch:ready", () => {
+			engine.on("watch:ready", data => {
 				visual.showWatchReady({
 					filesWatched: "all files",
 					cacheEnabled: config.get("performance.cache"),
-					shopifyMode: true
+					shopifyMode: true, // Always true for Shopify command
+					hotReload: true // Hot reload always enabled for Shopify mode
 				});
 
 				// Provide manual URL check option
@@ -325,7 +284,9 @@ program
 				engine.on("watch:ready", () => {
 					visual.showWatchReady({
 						filesWatched: "all files",
-						cacheEnabled: config.get("performance.cache")
+						cacheEnabled: config.get("performance.cache"),
+						shopifyMode: options.shopify || false,
+						hotReload: options.shopify || false // Hot reload only for Shopify mode
 					});
 				});
 
@@ -385,7 +346,7 @@ program
 	.command("shopify-urls")
 	.description("🔍 Check Shopify development URLs")
 	.action(async options => {
-		console.log("🔍 Checking Shopify development URLs...\n");
+		console.log("Checking Shopify development URLs...\n");
 
 		try {
 			const result = await engine.checkShopifyStatus();
@@ -403,10 +364,9 @@ program
 		console.log("📋 Current Configuration:");
 		console.log("━━━━━━━━━━━━━━━━━━━━━━━━━");
 		console.log(`Environment: ${config.environment}`);
-		console.log(`Theme: ${config.getTheme()}`);
-		console.log(`Performance: ${JSON.stringify(config.getPerformanceConfig(), null, 2)}`);
-		console.log(`Watch: ${JSON.stringify(config.getWatchConfig(), null, 2)}`);
-		console.log(`Build: ${JSON.stringify(config.getBuildConfig(), null, 2)}`);
+		console.log(`Performance: ${JSON.stringify(config.get("performance"), null, 2)}`);
+		console.log(`Watch: ${JSON.stringify(config.get("watch"), null, 2)}`);
+		console.log(`Build: ${JSON.stringify(config.get("build"), null, 2)}`);
 	});
 
 // 🧹 Cleanup commands

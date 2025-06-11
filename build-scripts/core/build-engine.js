@@ -220,7 +220,7 @@ export class BuildEngine extends EventEmitter {
 		const files = await glob("**/*", { cwd: SRC_DIR, nodir: true });
 
 		// Pre-filter files by type for better performance
-		const allowedExtensions = new Set([".js", ".css", ".liquid", ".json", ".md", ".txt", ".svg", ".png", ".jpg", ".jpeg", ".webp"]);
+		const allowedExtensions = new Set([".js", ".css", ".liquid", ".json", ".md", ".txt", ".svg", ".png", ".jpg", ".jpeg", ".webp", ".woff", ".woff2", ".ttf", ".otf", ".eot"]);
 		const validFiles = files.filter(file => {
 			const ext = path.extname(file).toLowerCase();
 			return allowedExtensions.has(ext) || !ext; // Include files without extension
@@ -228,12 +228,29 @@ export class BuildEngine extends EventEmitter {
 
 		const filesToCopy = [];
 		const skippedFiles = [];
+		const noDestinationFiles = [];
+
+		// Debug: Show first few files being processed
+		this.emit("log", { level: "info", message: `Analyzing ${validFiles.length} files (total: ${files.length})...` });
+		if (validFiles.length > 0) {
+			this.emit("log", { level: "info", message: `Sample files: ${validFiles.slice(0, 5).join(", ")}` });
+		}
 
 		// Batch process file change detection for better performance
 		for (const file of validFiles) {
 			const fullPath = path.join(SRC_DIR, file);
 			try {
-				if (this.cache.hasChanged(fullPath)) {
+				// Get destination path to check if it exists
+				const { destPath } = getDestination(fullPath);
+
+				// Skip files that have no destination (like bundled JS files)
+				if (!destPath) {
+					noDestinationFiles.push(fullPath);
+					continue;
+				}
+
+				// Pass both source and destination paths to cache check
+				if (this.cache.hasChanged(fullPath, destPath)) {
 					filesToCopy.push(fullPath);
 					this.fileAnalyzer.analyzeFile(fullPath);
 				} else {
@@ -247,6 +264,18 @@ export class BuildEngine extends EventEmitter {
 
 		this.performance.end("file-analysis");
 		this.stats.filesSkipped = skippedFiles.length;
+
+		// Debug output
+		this.emit("log", { level: "info", message: `File analysis: ${filesToCopy.length} to copy, ${skippedFiles.length} cached, ${noDestinationFiles.length} skipped (no destination)` });
+		if (noDestinationFiles.length > 0) {
+			this.emit("log", {
+				level: "info",
+				message: `No destination files: ${noDestinationFiles
+					.slice(0, 3)
+					.map(f => path.basename(f))
+					.join(", ")}${noDestinationFiles.length > 3 ? "..." : ""}`
+			});
+		}
 
 		if (filesToCopy.length === 0) {
 			this.emit("log", { level: "success", message: "✨ All files up to date - nothing to copy!" });
@@ -276,6 +305,7 @@ export class BuildEngine extends EventEmitter {
 		};
 
 		const results = await processor.processFiles(filesToCopy, copyOperation, progressCallback);
+
 		const successful = results.filter(r => r.success && r.result.copied);
 		const failed = results.filter(r => !r.success || !r.result.copied);
 

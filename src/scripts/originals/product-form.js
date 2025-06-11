@@ -127,37 +127,7 @@ if (!customElements.get("product-form")) {
 	);
 }
 
-const ON_CHANGE_DEBOUNCE_TIMER = 300;
-
-const PUB_SUB_EVENTS = {
-	cartUpdate: "cart-update",
-	quantityUpdate: "quantity-update",
-	variantChange: "variant-change"
-};
-
-let subscribers = {};
-
-function subscribe(eventName, callback) {
-	if (subscribers[eventName] === undefined) {
-		subscribers[eventName] = [];
-	}
-
-	subscribers[eventName] = [...subscribers[eventName], callback];
-
-	return function unsubscribe() {
-		subscribers[eventName] = subscribers[eventName].filter(cb => {
-			return cb !== callback;
-		});
-	};
-}
-
-function publish(eventName, data) {
-	if (subscribers[eventName]) {
-		subscribers[eventName].forEach(callback => {
-			callback(data);
-		});
-	}
-}
+// Constants and pubsub functions moved to constants.js and pubsub.js
 
 class QuantityInput extends HTMLElement {
 	constructor() {
@@ -211,17 +181,6 @@ class QuantityInput extends HTMLElement {
 
 customElements.define("quantity-input", QuantityInput);
 
-function debounce(fn, wait) {
-	let t;
-	return (...args) => {
-		clearTimeout(t);
-		t = setTimeout(() => fn.apply(this, args), wait);
-	};
-}
+// debounce function moved to constants.js
 
-function fetchConfig(type = "json") {
-	return {
-		method: "POST",
-		headers: { "Content-Type": "application/json", Accept: `application/${type}` }
-	};
-}
+// fetchConfig function moved to constants.js
