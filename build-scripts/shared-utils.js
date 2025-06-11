@@ -398,10 +398,10 @@ export const getNpxCommand = () => {
 
 // Show fancy file change notification
 export const showFileChangeNotification = (fileName, isDebugMode = false) => {
-	if (!isDebugMode) {
-		const changeIcon = ["🔥", "⚡", "✨", "��"][Math.floor(Math.random() * 4)];
-		process.stdout.write(`\r\x1b[K${chalk.hex("#ff79c6")(changeIcon)} ${chalk.hex("#f8f8f2")("File changed:")} ${chalk.hex("#8be9fd")(fileName)}\n`);
-	}
+        if (!isDebugMode) {
+                const changeIcon = ["🔥", "⚡", "✨", "💥"][Math.floor(Math.random() * 4)];
+                process.stdout.write(`\r\x1b[K${chalk.hex("#ff79c6")(changeIcon)} ${chalk.hex("#f8f8f2")("File changed:")} ${chalk.hex("#8be9fd")(fileName)}\n`);
+        }
 };
 
 // Show style rebuild notification
