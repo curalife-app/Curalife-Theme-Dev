@@ -120,12 +120,12 @@ main:
           - medicalConditions: []
           - dateOfBirth: ""
           - consent: false
-          - quizId: ${if(actualPayload != null and "quizId" in actualPayload, actualPayload.quizId, "unknown")}
-          - quizTitle: ${if(actualPayload != null and "quizTitle" in actualPayload, actualPayload.quizTitle, "Unknown Quiz")}
-          - timestamp: ${if(actualPayload != null and "completedAt" in actualPayload, actualPayload.completedAt, sys.now())}
+          - quizId: ${default(map.get(actualPayload, "quizId"), "unknown")}
+          - quizTitle: ${default(map.get(actualPayload, "quizTitle"), "Unknown Quiz")}
+          - timestamp: ${default(map.get(actualPayload, "completedAt"), sys.now())}
           - emptyMap: {}
           - emptyArray: []
-          - responses: ${if(actualPayload != null and "allResponses" in actualPayload, actualPayload.allResponses, emptyArray)}
+          - responses: ${default(map.get(actualPayload, "allResponses"), emptyArray)}
           # Initialize eligibility data containers
           - eligibilityDataRaw: ${emptyMap}
           - eligibilityData: ${emptyMap}
@@ -136,24 +136,39 @@ main:
     # ---------------------------------------------------------------
     - extractFields:
         assign:
-          - customerEmail: ${if(actualPayload != null and "customerEmail" in actualPayload, actualPayload.customerEmail, "")}
-          - firstName: ${if(actualPayload != null and "firstName" in actualPayload, actualPayload.firstName, "")}
-          - lastName: ${if(actualPayload != null and "lastName" in actualPayload, actualPayload.lastName, "")}
-          - phoneNumber: ${if(actualPayload != null and "phoneNumber" in actualPayload, actualPayload.phoneNumber, "")}
-          - state: ${if(actualPayload != null and "state" in actualPayload, actualPayload.state, "")}
-          - insurance: ${if(actualPayload != null and "insurance" in actualPayload, actualPayload.insurance, "")}
-          - insuranceMemberId: ${if(actualPayload != null and "insuranceMemberId" in actualPayload, actualPayload.insuranceMemberId, "")}
-          - groupNumber: ${if(actualPayload != null and "groupNumber" in actualPayload, actualPayload.groupNumber, "")}
-          - dateOfBirth: ${if(actualPayload != null and "dateOfBirth" in actualPayload, actualPayload.dateOfBirth, "")}
-          - consent: ${if(actualPayload != null and "consent" in actualPayload, actualPayload.consent, false)}
-          - testMode: ${if(actualPayload != null and "testMode" in actualPayload, actualPayload.testMode, false)}
+          - customerEmail: ${default(map.get(actualPayload, "customerEmail"), "")}
+          - firstName: ${default(map.get(actualPayload, "firstName"), "")}
+          - lastName: ${default(map.get(actualPayload, "lastName"), "")}
+          - phoneNumber: ${default(map.get(actualPayload, "phoneNumber"), "")}
+          - state: ${default(map.get(actualPayload, "state"), "")}
+          - insurance: ${default(map.get(actualPayload, "insurance"), "")}
+          - insuranceMemberId: ${default(map.get(actualPayload, "insuranceMemberId"), "")}
+          - groupNumber: ${default(map.get(actualPayload, "groupNumber"), "")}
+          - dateOfBirth: ${default(map.get(actualPayload, "dateOfBirth"), "")}
+          - consent: ${default(map.get(actualPayload, "consent"), false)}
+          - testMode: ${default(map.get(actualPayload, "testMode"), false)}
 
     # ---------------------------------------------------------------
-    # 5a. Parse mainReasons and medicalConditions
+    # 5a. Resolve testMode field with proper fallback logic
+    # ---------------------------------------------------------------
+    - resolveTestMode:
+        switch:
+          - condition: ${actualPayload != null and "testMode" in actualPayload}
+            assign:
+              - testMode: ${actualPayload.testMode}
+          - condition: ${rawData != null and "testMode" in rawData}
+            assign:
+              - testMode: ${rawData.testMode}
+          - condition: true
+            assign:
+              - testMode: false
+
+    # ---------------------------------------------------------------
+    # 5b. Parse mainReasons and medicalConditions
     # ---------------------------------------------------------------
     - parseMainReasons:
         assign:
-          - _mr_raw: ${if(actualPayload != null and "mainReasons" in actualPayload, actualPayload.mainReasons, null)}
+          - _mr_raw: ${default(map.get(actualPayload, "mainReasons"), null)}
 
     - processMainReasons:
         switch:
@@ -184,7 +199,7 @@ main:
 
     - parseMedicalConditions:
         assign:
-          - _mc_raw: ${if(actualPayload != null and "medicalConditions" in actualPayload, actualPayload.medicalConditions, null)}
+          - _mc_raw: ${default(map.get(actualPayload, "medicalConditions"), null)}
 
     - processMedicalConditions:
         switch:
@@ -443,7 +458,7 @@ main:
                 lastname: ${lastName}
                 phone: ${phoneNumber}
                 # Custom fields that exist in your HubSpot account
-                registration_date: ${text.split(timestamp, "T")[0]} # Convert to YYYY-MM-DD format
+                registration_date: ${int((int(timestamp) - (int(timestamp) % 86400)) * 1000)} # Convert to midnight timestamp in milliseconds
                 date_of_birth: ${dateOfBirth}
                 shopify_customer_id: ${shopifyCustomerId}
                 email_subscribed: ${string(consent)}
@@ -459,19 +474,24 @@ main:
             # Create a response object that mimics the successful HTTP response format
             # This allows the existing error handling logic to work properly
             - hubspotContactResponse:
-                code: ${e.code}
-                body: ${e.body}
-                headers: ${if("headers" in e, e.headers, null)}
+                code: ${default(map.get(e, "code"), 500)}
+                body: ${default(map.get(e, "body"), e)}
+                headers: ${default(map.get(e, "headers"), null)}
         next: handleContactResp
 
     - handleContactResp:
         switch:
-          - condition: ${hubspotContactResponse.code >= 200 and hubspotContactResponse.code < 300}
+          - condition: ${"code" in hubspotContactResponse and hubspotContactResponse.code >= 200 and hubspotContactResponse.code < 300}
             assign:
               - hubspotContactId: ${hubspotContactResponse.body.id}
             next: createInsurancePlan
-          - condition: ${hubspotContactResponse.code == 409}
+          - condition: ${"code" in hubspotContactResponse and hubspotContactResponse.code == 409}
             next: getExistingContact
+          - condition: ${"id" in hubspotContactResponse}
+            # Successful response (no code field means success)
+            assign:
+              - hubspotContactId: ${hubspotContactResponse.id}
+            next: createInsurancePlan
           - condition: true
             next: hubspotError
 
@@ -490,9 +510,14 @@ main:
 
     - assignExistingId:
         switch:
-          - condition: ${searchResp.code >= 200 and searchResp.code < 300 and "body" in searchResp and "results" in searchResp.body and len(searchResp.body.results) > 0}
+          - condition: ${"code" in searchResp and searchResp.code >= 200 and searchResp.code < 300 and "body" in searchResp and "results" in searchResp.body and len(searchResp.body.results) > 0}
             assign:
               - hubspotContactId: ${searchResp.body.results[0].id}
+            next: updateExistingContact
+          - condition: ${"results" in searchResp and len(searchResp.results) > 0}
+            # Successful response (no code field means success)
+            assign:
+              - hubspotContactId: ${searchResp.results[0].id}
             next: updateExistingContact
           - condition: true
             next: hubspotError
@@ -512,7 +537,7 @@ main:
               lastname: ${lastName}
               phone: ${phoneNumber}
               # Custom fields that exist in your HubSpot account
-              registration_date: ${text.split(timestamp, "T")[0]} # Convert to YYYY-MM-DD format
+              registration_date: ${int((int(timestamp) - (int(timestamp) % 86400)) * 1000)} # Convert to midnight timestamp in milliseconds
               date_of_birth: ${dateOfBirth}
               shopify_customer_id: ${shopifyCustomerId}
               email_subscribed: ${string(consent)}
@@ -710,7 +735,7 @@ main:
           headers: ${corsHeaders}
           body:
             success: false
-            error: ${if(hubspotContactResponse.body != null and "message" in hubspotContactResponse.body, hubspotContactResponse.body.message, "Unknown HubSpot error")}
-            statusCode: ${if(hubspotContactResponse.code != null, hubspotContactResponse.code, 500)}
+            error: ${default(map.get(map.get(hubspotContactResponse, "body"), "message"), default(map.get(hubspotContactResponse, "message"), "Unknown HubSpot error"))}
+            statusCode: ${default(map.get(hubspotContactResponse, "code"), 500)}
             quizId: ${quizId}
             timestamp: ${timestamp}

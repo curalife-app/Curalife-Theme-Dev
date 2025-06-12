@@ -25,10 +25,16 @@ def workflow_status_polling(request):
 
         # Get request data
         if request.method not in ['POST', 'GET']:
-            return jsonify({
+            headers = {
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'POST, GET',
+                'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+                'Content-Type': 'application/json'
+            }
+            return (jsonify({
                 'success': False,
                 'error': 'Only POST and GET methods are allowed'
-            }), 405
+            }), 405, headers)
 
         # Extract status tracking ID
         status_tracking_id = None
@@ -40,10 +46,16 @@ def workflow_status_polling(request):
             status_tracking_id = request.args.get('statusTrackingId')
 
         if not status_tracking_id:
-            return jsonify({
+            headers = {
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'POST, GET',
+                'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+                'Content-Type': 'application/json'
+            }
+            return (jsonify({
                 'success': False,
                 'error': 'statusTrackingId is required'
-            }), 400
+            }), 400, headers)
 
         logger.info(f"Reading actual status for tracking ID: {status_tracking_id}")
 
@@ -59,11 +71,17 @@ def workflow_status_polling(request):
 
             if not blob.exists():
                 logger.warning(f"Status file not found: {object_name}")
-                return jsonify({
+                headers = {
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Methods': 'POST, GET',
+                    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+                    'Content-Type': 'application/json'
+                }
+                return (jsonify({
                     'success': False,
                     'error': f'Status not found for tracking ID: {status_tracking_id}',
                     'statusTrackingId': status_tracking_id
-                }), 404
+                }), 404, headers)
 
             # Download and parse the status data
             status_content = blob.download_as_text()
@@ -90,19 +108,31 @@ def workflow_status_polling(request):
 
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse status JSON for {status_tracking_id}: {str(e)}")
-            return jsonify({
+            headers = {
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'POST, GET',
+                'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+                'Content-Type': 'application/json'
+            }
+            return (jsonify({
                 'success': False,
                 'error': 'Invalid status data format',
                 'statusTrackingId': status_tracking_id
-            }), 500
+            }), 500, headers)
 
         except Exception as e:
             logger.error(f"Failed to read status from Cloud Storage: {str(e)}")
-            return jsonify({
+            headers = {
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'POST, GET',
+                'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+                'Content-Type': 'application/json'
+            }
+            return (jsonify({
                 'success': False,
                 'error': f'Failed to read status: {str(e)}',
                 'statusTrackingId': status_tracking_id
-            }), 500
+            }), 500, headers)
 
     except Exception as e:
         logger.error(f"Status polling function error: {str(e)}")

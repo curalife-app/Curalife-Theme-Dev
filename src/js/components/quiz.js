@@ -464,8 +464,17 @@ class ModularQuiz {
 
 		console.log("🚀 Starting orchestrator workflow (initial request)...", { orchestratorUrl, payload });
 
+		// Ensure any previous workflow state is cleaned up
+		this._stopStatusPolling();
+		this._stopFallbackChecking();
+
 		// Return a new Promise that will resolve when the workflow truly completes
 		return new Promise(async (resolve, reject) => {
+			// Clear any existing resolvers before setting new ones
+			if (this.workflowCompletionResolve || this.workflowCompletionReject) {
+				console.warn("⚠️ Replacing existing workflow completion resolvers");
+			}
+
 			this.workflowCompletionResolve = resolve;
 			this.workflowCompletionReject = reject;
 
@@ -524,6 +533,14 @@ class ModularQuiz {
 		// Stop loading messages and status polling
 		this._stopLoadingMessages();
 		this._stopStatusPolling();
+		this._stopFallbackChecking();
+
+		// Reject the workflow promise if it's still pending
+		if (this.workflowCompletionReject) {
+			this.workflowCompletionReject(error);
+			this.workflowCompletionReject = null;
+			this.workflowCompletionResolve = null;
+		}
 
 		// Create proper error result data
 		const errorResultData = {
@@ -547,7 +564,7 @@ class ModularQuiz {
 	 */
 	_getOrchestratorUrl() {
 		const container = document.getElementById("quiz-container");
-		return container?.dataset?.orchestratorUrl || "https://workflow-orchestrator-xxn52lyizq-uc.a.run.app";
+		return container?.dataset?.orchestratorUrl || "https://us-central1-telemedicine-458913.cloudfunctions.net/workflow_orchestrator";
 	}
 
 	// =======================================================================
@@ -782,6 +799,19 @@ class ModularQuiz {
 						console.log("⏭️ Skip Reason:", statusData.statusData.debug.skipReason);
 					}
 
+					// Enhanced timeout and warning detection
+					if (statusData.statusData.debug.eligibilityTimeout) {
+						console.warn("⏰ ELIGIBILITY TIMEOUT DETECTED - Workflow continuing without eligibility data");
+					}
+
+					if (statusData.statusData.debug.warnings) {
+						console.warn("⚠️ Workflow Warnings:", statusData.statusData.debug.warnings);
+					}
+
+					if (statusData.statusData.warning) {
+						console.warn("⚠️ Status Warning Flag:", statusData.statusData.warning);
+					}
+
 					console.groupEnd();
 				}
 
@@ -812,7 +842,9 @@ class ModularQuiz {
 							this.workflowCompletionResolve(finalResult);
 							this.workflowCompletionResolve = null; // Prevent multiple resolutions
 						} else {
-							console.error("WorkflowCompletionResolve not set, cannot resolve promise.");
+							console.warn("WorkflowCompletionResolve not set - workflow may have already completed or been reset. Stopping polling.");
+							// Stop polling since we can't resolve the promise anyway
+							this._stopStatusPolling();
 						}
 					}
 				} else {
@@ -894,6 +926,14 @@ class ModularQuiz {
 		this.statusTrackingId = null;
 		this.pollingAttempts = 0;
 		this._lastStatusMessage = "";
+
+		// Clear workflow completion resolvers to prevent memory leaks and errors
+		// Note: These should already be null if the workflow completed successfully
+		if (this.workflowCompletionResolve || this.workflowCompletionReject) {
+			console.log("⚠️ Clearing workflow completion resolvers during polling stop");
+			this.workflowCompletionResolve = null;
+			this.workflowCompletionReject = null;
+		}
 	}
 
 	/**
@@ -902,7 +942,7 @@ class ModularQuiz {
 	_getStatusPollingUrl() {
 		const container = document.getElementById("quiz-container");
 		// Ensure this points to your actual backend status polling endpoint
-		return container?.dataset?.statusPollingUrl || "https://workflow-status-polling-xxn52lyizq-uc.a.run.app";
+		return container?.dataset?.statusPollingUrl || "https://us-central1-telemedicine-458913.cloudfunctions.net/workflow_status_polling";
 	}
 
 	/**
@@ -2789,6 +2829,7 @@ class ModularQuiz {
 			'<path d="M18.3081 14.2233C17.1569 14.2233 16.0346 14.0397 14.9845 13.6971C14.6449 13.5878 14.2705 13.6971 14.0579 13.9427L12.8372 15.6772C10.3023 14.4477 8.55814 12.7138 7.32326 10.1581L9.10465 8.89535C9.34884 8.68372 9.45814 8.30233 9.34884 7.96279C9.00581 6.91628 8.82209 5.79186 8.82209 4.64535C8.82209 4.28953 8.53256 4 8.17674 4H4.64535C4.28953 4 4 4.28953 4 4.64535C4 12.1715 10.1831 18.3953 17.6628 18.3953C18.0186 18.3953 18.3081 18.1058 18.3081 17.75V14.2233Z" stroke="#306E51" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>';
 		html += "</svg>";
 		html += '<div class="quiz-action-feature-text">Phone: 1-800-CURALIFE</div>';
+		html += "</div>";
 		html += "</div>";
 		html += "</div>";
 		html += "</div>";
