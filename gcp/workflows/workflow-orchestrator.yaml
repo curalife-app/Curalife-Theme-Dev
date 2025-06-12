@@ -151,23 +151,70 @@ main:
               Content-Type: "application/json"
               X-Workflow-Type: "eligibility"
             body: ${rawData}
+            timeout: 300
           result: eligibilityResponse
         except:
           as: e
-          assign:
-            - eligibilityResponse: ${e}
+          steps:
+            - logEligibilityError:
+                call: googleapis.storage.v1.objects.insert
+                args:
+                  bucket: ${bucketName}
+                  name: ${"debug/eligibility-error-" + statusTrackingId + ".json"}
+                  uploadType: "media"
+                  body:
+                    statusTrackingId: ${statusTrackingId}
+                    step: "callEligibilityWorkflow"
+                    error: ${e}
+                    timestamp: ${sys.now()}
+                result: errorLogResult
+            - assignEligibilityError:
+                assign:
+                  - eligibilityResponse:
+                      error: true
+                      message: ${e.message}
+                      exception: ${e}
+                      errorCode: "http_error"
+                      isTimeout: ${if("message" in e, e.message == "upstream request timeout" or e.message == "timeout", false)}
         next: processEligibilityResponse
 
     - processEligibilityResponse:
         switch:
-          - condition: ${eligibilityResponse.code >= 200 and eligibilityResponse.code < 300}
+          - condition: ${eligibilityResponse != null and "body" in eligibilityResponse and eligibilityResponse.body != null}
             assign:
               - eligibilityData: ${eligibilityResponse.body}
+              - eligibilitySuccess: true
+            next: updateStatusUserCreationWithEligibility
+          - condition: ${eligibilityResponse != null and "statusCode" in eligibilityResponse and eligibilityResponse.statusCode >= 200 and eligibilityResponse.statusCode < 300}
+            assign:
+              - eligibilityData: ${eligibilityResponse}
+              - eligibilitySuccess: true
+            next: updateStatusUserCreationWithEligibility
+          - condition: ${eligibilityResponse != null and "code" in eligibilityResponse and eligibilityResponse.code >= 200 and eligibilityResponse.code < 300}
+            assign:
+              - eligibilityData: ${eligibilityResponse}
+              - eligibilitySuccess: true
+            next: updateStatusUserCreationWithEligibility
+          - condition: ${eligibilityResponse != null and "error" in eligibilityResponse and "isTimeout" in eligibilityResponse and eligibilityResponse.isTimeout == true}
+            # Handle timeout - continue workflow but mark eligibility as processing
+            assign:
+              - eligibilityData:
+                  eligibilityData:
+                    eligibilityStatus: "PROCESSING"
+                    isEligible: false
+                    userMessage: "Insurance eligibility check is processing. We'll update your account once verification is complete."
+                    isProcessing: true
+                  debug:
+                    timeoutOccurred: true
+                    originalError: ${eligibilityResponse.exception}
+                    fallbackApplied: true
+              - eligibilitySuccess: true
             next: updateStatusUserCreationWithEligibility
           - condition: true
             # Continue without eligibility data if check failed
             assign:
               - eligibilityData: null
+              - eligibilitySuccess: false
             next: updateStatusUserCreationWithEligibility
 
     # ---------------------------------------------------------------
@@ -191,8 +238,8 @@ main:
               workflowPath: "full_workflow_with_insurance"
               userCreationWorkflowUrl: ${userCreationWorkflowUrl}
               eligibilityCompleted: true
-              eligibilitySuccess: ${eligibilityResponse.code >= 200 and eligibilityResponse.code < 300}
-              eligibilityResponseCode: ${if(eligibilityResponse != null and "code" in eligibilityResponse, eligibilityResponse.code, "unknown")}
+              eligibilitySuccess: ${eligibilitySuccess}
+              eligibilityResponseCode: "completed"
               elapsedTime: ${sys.now() - timestamp}
         result: statusUserCreationResult
         next: callUserCreationWorkflowWithEligibility
@@ -204,23 +251,62 @@ main:
             url: ${userCreationWorkflowUrl}
             headers:
               Content-Type: "application/json"
-            body: ${rawData}
+            body:
+              customerEmail: ${customerEmail}
+              firstName: ${firstName}
+              lastName: ${lastName}
+              phoneNumber: ${if(rawData != null and "phoneNumber" in rawData, rawData.phoneNumber, "")}
+              state: ${if(rawData != null and "state" in rawData, rawData.state, "")}
+              zip: ${if(rawData != null and "zip" in rawData, rawData.zip, "")}
+              city: ${if(rawData != null and "city" in rawData, rawData.city, "")}
+              address: ${if(rawData != null and "address" in rawData, rawData.address, "")}
+              sex: ${if(rawData != null and "sex" in rawData, rawData.sex, "")}
+              dateOfBirth: ${if(rawData != null and "dateOfBirth" in rawData, rawData.dateOfBirth, "")}
+              insurance: ${insurance}
+              insuranceMemberId: ${insuranceMemberId}
+              insurancePrimaryPayerId: ${if(rawData != null and "insurancePrimaryPayerId" in rawData, rawData.insurancePrimaryPayerId, "")}
+              groupNumber: ${if(rawData != null and "groupNumber" in rawData, rawData.groupNumber, "")}
+              mainReasons: ${if(rawData != null and "mainReasons" in rawData, rawData.mainReasons, "")}
+              medicalConditions: ${if(rawData != null and "medicalConditions" in rawData, rawData.medicalConditions, [])}
+              consent: ${if(rawData != null and "consent" in rawData, rawData.consent, true)}
+              testMode: false
+              statusTrackingId: ${statusTrackingId}
+            timeout: 120
           result: userCreationResponse
         except:
           as: e
           assign:
-            - userCreationResponse: ${e}
+            - userCreationResponse:
+                error: true
+                message: ${e.message}
+                exception: ${e}
+                errorCode: "http_error"
         next: processUserCreationResponseWithEligibility
 
     - processUserCreationResponseWithEligibility:
         switch:
-          - condition: ${userCreationResponse.code >= 200 and userCreationResponse.code < 300}
+          - condition: ${userCreationResponse != null and "body" in userCreationResponse and userCreationResponse.body != null}
             assign:
               - userCreationData: ${userCreationResponse.body}
-              - hubspotContactId: ${userCreationData.hubspotContactId}
+              - hubspotContactId: ${if("hubspotContactId" in userCreationResponse.body, userCreationResponse.body.hubspotContactId, "not_found")}
+              - userCreationSuccess: true
+            next: updateStatusInsurancePlan
+          - condition: ${userCreationResponse != null and "statusCode" in userCreationResponse and userCreationResponse.statusCode >= 200 and userCreationResponse.statusCode < 300}
+            assign:
+              - userCreationData: ${userCreationResponse}
+              - hubspotContactId: ${if("hubspotContactId" in userCreationResponse, userCreationResponse.hubspotContactId, "not_found")}
+              - userCreationSuccess: true
+            next: updateStatusInsurancePlan
+          - condition: ${userCreationResponse != null and "code" in userCreationResponse and userCreationResponse.code >= 200 and userCreationResponse.code < 300}
+            assign:
+              - userCreationData: ${userCreationResponse}
+              - hubspotContactId: ${if("hubspotContactId" in userCreationResponse, userCreationResponse.hubspotContactId, "not_found")}
+              - userCreationSuccess: true
             next: updateStatusInsurancePlan
           - condition: true
             # User creation failed
+            assign:
+              - userCreationSuccess: false
             next: updateStatusUserCreationError
 
     # ---------------------------------------------------------------
@@ -244,9 +330,9 @@ main:
               workflowPath: "full_workflow_with_insurance"
               insurancePlanWorkflowUrl: ${insurancePlanWorkflowUrl}
               userCreationCompleted: true
-              userCreationSuccess: ${userCreationResponse.code >= 200 and userCreationResponse.code < 300}
-              userCreationResponseCode: ${if(userCreationResponse != null and "code" in userCreationResponse, userCreationResponse.code, "unknown")}
-              hubspotContactId: ${if(userCreationData != null and "hubspotContactId" in userCreationData, userCreationData.hubspotContactId, "not_created")}
+              userCreationSuccess: ${userCreationSuccess}
+              userCreationResponseCode: "pending"
+              hubspotContactId: ${hubspotContactId}
               elapsedTime: ${sys.now() - timestamp}
         result: statusInsurancePlanResult
         next: callInsurancePlanWorkflow
@@ -273,18 +359,34 @@ main:
               stediResponse: ${if(eligibilityData != null and "debug" in eligibilityData, eligibilityData.debug, null)}
               mainReasons: ${if(rawData != null and "mainReasons" in rawData, rawData.mainReasons, [])}
               medicalConditions: ${if(rawData != null and "medicalConditions" in rawData, rawData.medicalConditions, [])}
+            timeout: 180
           result: insurancePlanResponse
         except:
           as: e
           assign:
-            - insurancePlanResponse: ${e}
+            - insurancePlanResponse:
+                error: true
+                message: ${e.message}
+                exception: ${e}
+                errorCode: "http_error"
         next: processInsurancePlanResponse
 
     - processInsurancePlanResponse:
         switch:
-          - condition: ${insurancePlanResponse.code >= 200 and insurancePlanResponse.code < 300}
+          - condition: ${insurancePlanResponse != null and "body" in insurancePlanResponse and insurancePlanResponse.body != null}
             assign:
               - insurancePlanData: ${insurancePlanResponse.body}
+              - insurancePlanSuccess: true
+            next: updateStatusCompletedFull
+          - condition: ${insurancePlanResponse != null and "statusCode" in insurancePlanResponse and insurancePlanResponse.statusCode >= 200 and insurancePlanResponse.statusCode < 300}
+            assign:
+              - insurancePlanData: ${insurancePlanResponse}
+              - insurancePlanSuccess: true
+            next: updateStatusCompletedFull
+          - condition: ${insurancePlanResponse != null and "code" in insurancePlanResponse and insurancePlanResponse.code >= 200 and insurancePlanResponse.code < 300}
+            assign:
+              - insurancePlanData: ${insurancePlanResponse}
+              - insurancePlanSuccess: true
             next: updateStatusCompletedFull
           - condition: true
             # Insurance plan creation failed, but continue
@@ -292,6 +394,7 @@ main:
               - insurancePlanData:
                   success: false
                   error: "Insurance plan creation failed"
+              - insurancePlanSuccess: false
             next: updateStatusCompletedWithWarning
 
     # ---------------------------------------------------------------
@@ -326,21 +429,55 @@ main:
             url: ${userCreationWorkflowUrl}
             headers:
               Content-Type: "application/json"
-            body: ${rawData}
+            body:
+              customerEmail: ${customerEmail}
+              firstName: ${firstName}
+              lastName: ${lastName}
+              phoneNumber: ${if(rawData != null and "phoneNumber" in rawData, rawData.phoneNumber, "")}
+              state: ${if(rawData != null and "state" in rawData, rawData.state, "")}
+              zip: ${if(rawData != null and "zip" in rawData, rawData.zip, "")}
+              city: ${if(rawData != null and "city" in rawData, rawData.city, "")}
+              address: ${if(rawData != null and "address" in rawData, rawData.address, "")}
+              sex: ${if(rawData != null and "sex" in rawData, rawData.sex, "")}
+              dateOfBirth: ${if(rawData != null and "dateOfBirth" in rawData, rawData.dateOfBirth, "")}
+              insurance: ${if(rawData != null and "insurance" in rawData, rawData.insurance, "")}
+              insuranceMemberId: ${if(rawData != null and "insuranceMemberId" in rawData, rawData.insuranceMemberId, "")}
+              insurancePrimaryPayerId: ${if(rawData != null and "insurancePrimaryPayerId" in rawData, rawData.insurancePrimaryPayerId, "")}
+              groupNumber: ${if(rawData != null and "groupNumber" in rawData, rawData.groupNumber, "")}
+              mainReasons: ${if(rawData != null and "mainReasons" in rawData, rawData.mainReasons, "")}
+              medicalConditions: ${if(rawData != null and "medicalConditions" in rawData, rawData.medicalConditions, [])}
+              consent: ${if(rawData != null and "consent" in rawData, rawData.consent, true)}
+              testMode: false
+              statusTrackingId: ${statusTrackingId}
+            timeout: 120
           result: userCreationSimpleResponse
         except:
           as: e
           assign:
-            - userCreationSimpleResponse: ${e}
+            - userCreationSimpleResponse:
+                error: true
+                message: ${e.message}
+                exception: ${e}
+                errorCode: "http_error"
         next: processUserCreationResponse
 
     - processUserCreationResponse:
         switch:
-          - condition: ${userCreationSimpleResponse.code >= 200 and userCreationSimpleResponse.code < 300}
+          - condition: ${userCreationSimpleResponse != null and "body" in userCreationSimpleResponse and userCreationSimpleResponse.body != null}
             assign:
               - userCreationData: ${userCreationSimpleResponse.body}
             next: updateStatusCompletedSimple
+          - condition: ${userCreationSimpleResponse != null and "statusCode" in userCreationSimpleResponse and userCreationSimpleResponse.statusCode >= 200 and userCreationSimpleResponse.statusCode < 300}
+            assign:
+              - userCreationData: ${userCreationSimpleResponse}
+            next: updateStatusCompletedSimple
+          - condition: ${userCreationSimpleResponse != null and "code" in userCreationSimpleResponse and userCreationSimpleResponse.code >= 200 and userCreationSimpleResponse.code < 300}
+            assign:
+              - userCreationData: ${userCreationSimpleResponse}
+            next: updateStatusCompletedSimple
           - condition: true
+            assign:
+              - userCreationResponse: ${userCreationSimpleResponse}
             next: updateStatusUserCreationError
 
     # ---------------------------------------------------------------
@@ -368,13 +505,13 @@ main:
               workflowPath: "full_workflow_with_insurance"
               totalElapsedTime: ${sys.now() - timestamp}
               completionSummary:
-                eligibilitySuccess: ${eligibilityResponse.code >= 200 and eligibilityResponse.code < 300}
-                userCreationSuccess: ${userCreationResponse.code >= 200 and userCreationResponse.code < 300}
-                insurancePlanSuccess: ${insurancePlanResponse.code >= 200 and insurancePlanResponse.code < 300}
+                eligibilitySuccess: ${eligibilitySuccess}
+                userCreationSuccess: ${userCreationSuccess}
+                insurancePlanSuccess: ${insurancePlanSuccess}
               responseCodes:
-                eligibility: ${if(eligibilityResponse != null and "code" in eligibilityResponse, eligibilityResponse.code, "unknown")}
-                userCreation: ${if(userCreationResponse != null and "code" in userCreationResponse, userCreationResponse.code, "unknown")}
-                insurancePlan: ${if(insurancePlanResponse != null and "code" in insurancePlanResponse, insurancePlanResponse.code, "unknown")}
+                eligibility: ${if(eligibilitySuccess, "success", "failed")}
+                userCreation: ${if(userCreationSuccess, "success", "failed")}
+                insurancePlan: ${if(insurancePlanSuccess, "success", "failed")}
         result: statusCompletedFullResult
         next: returnSuccessFull
 
@@ -506,7 +643,7 @@ main:
             completed: true
             error: true
             errorType: "user_creation"
-            errorDetails: ${if(userCreationResponse != null and "body" in userCreationResponse, userCreationResponse.body, "Unknown error")}
+            errorDetails: ${if(userCreationResponse != null and "message" in userCreationResponse, userCreationResponse.message, "User creation workflow failed")}
         result: statusUserCreationErrorResult
         next: returnUserCreationError
 
@@ -518,5 +655,5 @@ main:
             success: false
             statusTrackingId: ${statusTrackingId}
             error: "Failed to create user accounts"
-            details: ${if(userCreationResponse != null and "body" in userCreationResponse, userCreationResponse.body, "Unknown error")}
+            details: ${if(userCreationResponse != null and "message" in userCreationResponse, userCreationResponse.message, "User creation workflow failed")}
             timestamp: ${sys.now()}
