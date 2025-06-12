@@ -20,8 +20,8 @@ main:
               Content-Type: "application/json"
           - rawData: ${request}
           - timestamp: ${sys.now()}
-          # Status tracking configuration
-          - statusTrackingId: ${text.replace_all(text.replace_all(string(timestamp), ".", ""), ":", "")}
+          # Status tracking configuration - use provided ID or generate new one
+          - statusTrackingId: ${if("statusTrackingId" in request, request.statusTrackingId, text.replace_all(text.replace_all(string(timestamp), ".", ""), ":", ""))}
           - bucketName: "curalife-workflow-status"
           - statusObjectName: ${"status/" + statusTrackingId + ".json"}
           # Workflow endpoints
@@ -46,6 +46,12 @@ main:
             timestamp: ${timestamp}
             completed: false
             error: false
+            debug:
+              workflowStartTime: ${timestamp}
+              customerEmail: ${if(rawData != null and "customerEmail" in rawData, rawData.customerEmail, "unknown")}
+              hasInsurance: ${if(rawData != null and "insurance" in rawData and rawData.insurance != "", true, false)}
+              hasMemberId: ${if(rawData != null and "insuranceMemberId" in rawData and rawData.insuranceMemberId != "", true, false)}
+              workflowPath: "determining..."
         result: statusInitResult
         next: validatePayload
 
@@ -78,6 +84,14 @@ main:
             timestamp: ${sys.now()}
             completed: false
             error: false
+            debug:
+              validationChecks:
+                emailProvided: ${customerEmail != ""}
+                firstNameProvided: ${firstName != ""}
+                lastNameProvided: ${lastName != ""}
+                insuranceProvided: ${insurance != ""}
+                memberIdProvided: ${insuranceMemberId != ""}
+              elapsedTime: ${sys.now() - timestamp}
         result: statusValidatingResult
         next: validateRequired
 
@@ -117,6 +131,14 @@ main:
             timestamp: ${sys.now()}
             completed: false
             error: false
+            debug:
+              workflowPath: "full_workflow_with_insurance"
+              eligibilityWorkflowUrl: ${eligibilityWorkflowUrl}
+              insuranceInfo:
+                provider: ${insurance}
+                hasMemberId: ${insuranceMemberId != ""}
+                hasGroupNumber: ${if(rawData != null and "groupNumber" in rawData and rawData.groupNumber != "", true, false)}
+              elapsedTime: ${sys.now() - timestamp}
         result: statusEligibilityResult
         next: callEligibilityWorkflow
 
@@ -165,6 +187,13 @@ main:
             timestamp: ${sys.now()}
             completed: false
             error: false
+            debug:
+              workflowPath: "full_workflow_with_insurance"
+              userCreationWorkflowUrl: ${userCreationWorkflowUrl}
+              eligibilityCompleted: true
+              eligibilitySuccess: ${eligibilityResponse.code >= 200 and eligibilityResponse.code < 300}
+              eligibilityResponseCode: ${if(eligibilityResponse != null and "code" in eligibilityResponse, eligibilityResponse.code, "unknown")}
+              elapsedTime: ${sys.now() - timestamp}
         result: statusUserCreationResult
         next: callUserCreationWorkflowWithEligibility
 
@@ -211,6 +240,14 @@ main:
             timestamp: ${sys.now()}
             completed: false
             error: false
+            debug:
+              workflowPath: "full_workflow_with_insurance"
+              insurancePlanWorkflowUrl: ${insurancePlanWorkflowUrl}
+              userCreationCompleted: true
+              userCreationSuccess: ${userCreationResponse.code >= 200 and userCreationResponse.code < 300}
+              userCreationResponseCode: ${if(userCreationResponse != null and "code" in userCreationResponse, userCreationResponse.code, "unknown")}
+              hubspotContactId: ${if(userCreationData != null and "hubspotContactId" in userCreationData, userCreationData.hubspotContactId, "not_created")}
+              elapsedTime: ${sys.now() - timestamp}
         result: statusInsurancePlanResult
         next: callInsurancePlanWorkflow
 
@@ -274,6 +311,11 @@ main:
             timestamp: ${sys.now()}
             completed: false
             error: false
+            debug:
+              workflowPath: "simple_workflow_no_insurance"
+              userCreationWorkflowUrl: ${userCreationWorkflowUrl}
+              skipReason: "no_insurance_info_provided"
+              elapsedTime: ${sys.now() - timestamp}
         result: statusUserCreationSimpleResult
         next: callUserCreationWorkflow
 
@@ -322,6 +364,17 @@ main:
               userCreation: ${userCreationData}
               eligibility: ${eligibilityData}
               insurancePlan: ${insurancePlanData}
+            debug:
+              workflowPath: "full_workflow_with_insurance"
+              totalElapsedTime: ${sys.now() - timestamp}
+              completionSummary:
+                eligibilitySuccess: ${eligibilityResponse.code >= 200 and eligibilityResponse.code < 300}
+                userCreationSuccess: ${userCreationResponse.code >= 200 and userCreationResponse.code < 300}
+                insurancePlanSuccess: ${insurancePlanResponse.code >= 200 and insurancePlanResponse.code < 300}
+              responseCodes:
+                eligibility: ${if(eligibilityResponse != null and "code" in eligibilityResponse, eligibilityResponse.code, "unknown")}
+                userCreation: ${if(userCreationResponse != null and "code" in userCreationResponse, userCreationResponse.code, "unknown")}
+                insurancePlan: ${if(insurancePlanResponse != null and "code" in insurancePlanResponse, insurancePlanResponse.code, "unknown")}
         result: statusCompletedFullResult
         next: returnSuccessFull
 

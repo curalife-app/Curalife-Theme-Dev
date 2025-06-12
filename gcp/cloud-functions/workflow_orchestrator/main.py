@@ -39,6 +39,21 @@ def workflow_orchestrator(request):
 
         logger.info(f"Received orchestrator request for email: {request_json.get('customerEmail', 'unknown')}")
 
+        # Log debug information about the request
+        logger.info(f"Request payload keys: {list(request_json.keys())}")
+        logger.info(f"Has insurance info: {bool(request_json.get('insurance') and request_json.get('insuranceMemberId'))}")
+        logger.info(f"Customer details: email={request_json.get('customerEmail', 'missing')}, firstName={request_json.get('firstName', 'missing')}, lastName={request_json.get('lastName', 'missing')}")
+
+        # Generate status tracking ID (must match workflow logic exactly)
+        import time
+        timestamp = time.time()
+        status_tracking_id = str(timestamp).replace(".", "").replace(":", "")
+
+        logger.info(f"Generated status tracking ID: {status_tracking_id}")
+
+        # Pass the status tracking ID to the workflow so it uses the same one
+        request_json['statusTrackingId'] = status_tracking_id
+
         # Initialize workflow client
         client = executions_v1.ExecutionsClient()
 
@@ -49,23 +64,18 @@ def workflow_orchestrator(request):
 
         parent = client.workflow_path(PROJECT_ID, LOCATION, WORKFLOW_ID)
 
-        # Execute workflow
+        # Execute workflow with the status tracking ID included
         execution = executions_v1.Execution(
             argument=json.dumps(request_json)
         )
 
-        logger.info(f"Starting orchestrator workflow for: {request_json.get('customerEmail')}")
+        logger.info(f"Starting orchestrator workflow for: {request_json.get('customerEmail')} with statusTrackingId: {status_tracking_id}")
         operation = client.create_execution(
             parent=parent,
             execution=execution
         )
 
         logger.info(f"Orchestrator workflow execution started: {operation.name}")
-
-        # Generate status tracking ID (same logic as in workflow)
-        import time
-        timestamp = time.time()
-        status_tracking_id = str(timestamp).replace(".", "").replace(":", "")
 
         # Return immediate response with status tracking ID
         response_data = {
