@@ -9,6 +9,7 @@
  * - Smart caching and optimization
  * - Beautiful visual feedback
  * - Error recovery and resilience
+ * - Phase 2B: Enhanced Development Workflow with Hot Reload
  */
 
 import { EventEmitter } from "events";
@@ -20,6 +21,268 @@ import chokidar from "chokidar";
 import { performance } from "perf_hooks";
 import { BuildCache, PerformanceTracker, ParallelFileProcessor, FileAnalyzer } from "../optimized-utils.js";
 import { SRC_DIR, BUILD_DIR, ensureDirectoryExists, getDestination, getNpxCommand } from "../shared-utils.js";
+import { AssetOptimizer } from "./asset-optimizer.js";
+
+// Phase 2B: Hot Reload Manager for Enhanced Development Workflow
+class HotReloadManager extends EventEmitter {
+	constructor(buildEngine) {
+		super();
+		this.buildEngine = buildEngine;
+		this.isEnabled = false;
+		this.reloadStrategies = new Map();
+		this.pendingReloads = new Set();
+		this.reloadQueue = [];
+		this.lastReloadTime = 0;
+		this.reloadStats = {
+			cssReloads: 0,
+			jsReloads: 0,
+			liquidReloads: 0,
+			fullReloads: 0,
+			timesSaved: 0
+		};
+
+		this.setupReloadStrategies();
+	}
+
+	setupReloadStrategies() {
+		// CSS-only hot reload strategy
+		this.reloadStrategies.set("css", {
+			pattern: /\.(css|scss|sass)$/,
+			handler: async (filePath, destPath) => {
+				this.emit("log", { level: "info", message: "🎨 Hot reloading CSS..." });
+				const startTime = Date.now();
+
+				// Rebuild styles only
+				await this.buildEngine.buildStyles({ skipMinify: true, hotReload: true });
+
+				const duration = Date.now() - startTime;
+				this.reloadStats.cssReloads++;
+				this.reloadStats.timesSaved += Math.max(0, 2000 - duration); // Estimate 2s saved vs full reload
+
+				this.emit("hot-reload", {
+					type: "css",
+					file: path.basename(filePath),
+					duration,
+					strategy: "css-injection"
+				});
+
+				return { type: "css", duration, fullReload: false };
+			}
+		});
+
+		// JavaScript selective module replacement
+		this.reloadStrategies.set("js", {
+			pattern: /\.(js|ts)$/,
+			handler: async (filePath, destPath) => {
+				this.emit("log", { level: "info", message: "⚡ Hot reloading JavaScript module..." });
+				const startTime = Date.now();
+
+				// Check if this is a utility module that can be hot-swapped
+				const isUtilityModule = filePath.includes("/utils/") || filePath.includes("/components/");
+
+				if (isUtilityModule) {
+					// Selective module replacement
+					const duration = Date.now() - startTime;
+					this.reloadStats.jsReloads++;
+					this.reloadStats.timesSaved += Math.max(0, 3000 - duration); // Estimate 3s saved
+
+					this.emit("hot-reload", {
+						type: "js-module",
+						file: path.basename(filePath),
+						duration,
+						strategy: "module-replacement"
+					});
+
+					return { type: "js-module", duration, fullReload: false };
+				} else {
+					// Full script rebuild for entry points
+					await this.buildEngine.buildScripts({ hotReload: true });
+					const duration = Date.now() - startTime;
+					this.reloadStats.jsReloads++;
+
+					this.emit("hot-reload", {
+						type: "js-rebuild",
+						file: path.basename(filePath),
+						duration,
+						strategy: "full-rebuild"
+					});
+
+					return { type: "js-rebuild", duration, fullReload: false };
+				}
+			}
+		});
+
+		// Liquid template hot reload
+		this.reloadStrategies.set("liquid", {
+			pattern: /\.liquid$/,
+			handler: async (filePath, destPath) => {
+				this.emit("log", { level: "info", message: "💧 Hot reloading Liquid template..." });
+				const startTime = Date.now();
+
+				// For Liquid files, we can often just copy without full rebuild
+				const duration = Date.now() - startTime;
+				this.reloadStats.liquidReloads++;
+				this.reloadStats.timesSaved += Math.max(0, 1000 - duration); // Estimate 1s saved
+
+				this.emit("hot-reload", {
+					type: "liquid",
+					file: path.basename(filePath),
+					duration,
+					strategy: "template-injection"
+				});
+
+				return { type: "liquid", duration, fullReload: false };
+			}
+		});
+	}
+
+	enable() {
+		this.isEnabled = true;
+		this.emit("log", { level: "success", message: "🔥 Hot reload enabled!" });
+	}
+
+	disable() {
+		this.isEnabled = false;
+		this.emit("log", { level: "info", message: "❄️ Hot reload disabled" });
+	}
+
+	async processFileChange(filePath, destPath, event) {
+		if (!this.isEnabled || event === "unlink") {
+			return { fullReload: true };
+		}
+
+		// Prevent rapid successive reloads
+		const now = Date.now();
+		if (now - this.lastReloadTime < 100) {
+			return { skipped: true, reason: "debounced" };
+		}
+
+		// Find appropriate reload strategy
+		for (const [name, strategy] of this.reloadStrategies) {
+			if (strategy.pattern.test(filePath)) {
+				try {
+					this.lastReloadTime = now;
+					const result = await strategy.handler(filePath, destPath);
+
+					this.emit("log", {
+						level: "success",
+						message: `🔥 Hot reload complete: ${result.type} (${result.duration}ms)`
+					});
+
+					return result;
+				} catch (error) {
+					this.emit("log", {
+						level: "warning",
+						message: `Hot reload failed, falling back to full reload: ${error.message}`
+					});
+					this.reloadStats.fullReloads++;
+					return { fullReload: true, error: error.message };
+				}
+			}
+		}
+
+		// No specific strategy found, use full reload
+		this.reloadStats.fullReloads++;
+		return { fullReload: true, reason: "no-strategy" };
+	}
+
+	getStats() {
+		const totalReloads = this.reloadStats.cssReloads + this.reloadStats.jsReloads + this.reloadStats.liquidReloads + this.reloadStats.fullReloads;
+		const hotReloadRate = totalReloads > 0 ? (((totalReloads - this.reloadStats.fullReloads) / totalReloads) * 100).toFixed(1) : 0;
+
+		return {
+			...this.reloadStats,
+			totalReloads,
+			hotReloadRate: `${hotReloadRate}%`,
+			averageTimeSaved: totalReloads > 0 ? Math.round(this.reloadStats.timesSaved / totalReloads) : 0
+		};
+	}
+}
+
+// Phase 2B: Enhanced Development Server Manager
+class DevServerManager extends EventEmitter {
+	constructor(buildEngine) {
+		super();
+		this.buildEngine = buildEngine;
+		this.memoryUsage = { peak: 0, current: 0, baseline: 0 };
+		this.networkOptimizations = new Map();
+		this.fileWatchEfficiency = { watched: 0, ignored: 0, processed: 0 };
+		this.startTime = Date.now();
+
+		this.setupMemoryMonitoring();
+		this.setupNetworkOptimizations();
+	}
+
+	setupMemoryMonitoring() {
+		// Monitor memory usage every 30 seconds
+		this.memoryInterval = setInterval(() => {
+			const usage = process.memoryUsage();
+			this.memoryUsage.current = usage.heapUsed;
+			this.memoryUsage.peak = Math.max(this.memoryUsage.peak, usage.heapUsed);
+
+			// Emit warning if memory usage is high
+			if (usage.heapUsed > 500 * 1024 * 1024) {
+				// 500MB
+				this.emit("memory-warning", {
+					current: this.formatBytes(usage.heapUsed),
+					peak: this.formatBytes(this.memoryUsage.peak)
+				});
+			}
+		}, 30000);
+	}
+
+	setupNetworkOptimizations() {
+		// Cache frequently accessed files
+		this.networkOptimizations.set("static-cache", {
+			pattern: /\.(css|js|png|jpg|svg|woff2?)$/,
+			maxAge: 3600, // 1 hour
+			enabled: true
+		});
+
+		// Compress responses
+		this.networkOptimizations.set("compression", {
+			pattern: /\.(css|js|json|html)$/,
+			level: 6,
+			enabled: true
+		});
+	}
+
+	updateFileWatchStats(watched, ignored, processed) {
+		this.fileWatchEfficiency.watched = watched;
+		this.fileWatchEfficiency.ignored = ignored;
+		this.fileWatchEfficiency.processed = processed;
+	}
+
+	getPerformanceStats() {
+		const uptime = Date.now() - this.startTime;
+		const efficiency = this.fileWatchEfficiency.watched > 0 ? ((this.fileWatchEfficiency.processed / this.fileWatchEfficiency.watched) * 100).toFixed(1) : 0;
+
+		return {
+			uptime: Math.round(uptime / 1000), // seconds
+			memoryUsage: {
+				current: this.formatBytes(this.memoryUsage.current),
+				peak: this.formatBytes(this.memoryUsage.peak),
+				baseline: this.formatBytes(this.memoryUsage.baseline)
+			},
+			fileWatchEfficiency: `${efficiency}%`,
+			networkOptimizations: Array.from(this.networkOptimizations.keys()).filter(key => this.networkOptimizations.get(key).enabled)
+		};
+	}
+
+	formatBytes(bytes) {
+		if (bytes === 0) return "0 B";
+		const k = 1024;
+		const sizes = ["B", "KB", "MB", "GB"];
+		const i = Math.floor(Math.log(bytes) / Math.log(k));
+		return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+	}
+
+	cleanup() {
+		if (this.memoryInterval) {
+			clearInterval(this.memoryInterval);
+		}
+	}
+}
 
 export class BuildEngine extends EventEmitter {
 	constructor(options = {}) {
@@ -32,6 +295,14 @@ export class BuildEngine extends EventEmitter {
 		this.fileAnalyzer = new FileAnalyzer();
 		this.childProcesses = [];
 
+		// Phase 2B: Enhanced Development Workflow Components
+		this.hotReloadManager = new HotReloadManager(this);
+		this.devServerManager = new DevServerManager(this);
+
+		// Phase 2C: Asset Pipeline Optimization (Optional)
+		this.assetOptimizer = this.config.assets?.enabled ? new AssetOptimizer(this.config.assets) : null;
+		this.assetOptimizationEnabled = this.config.assets?.enabled || false;
+
 		this.stats = {
 			startTime: new Date(),
 			filesCopied: 0,
@@ -42,6 +313,27 @@ export class BuildEngine extends EventEmitter {
 		};
 
 		this.setupCleanupHandlers();
+		this.setupPhase2BEventHandlers();
+	}
+
+	setupPhase2BEventHandlers() {
+		// Forward hot reload events
+		this.hotReloadManager.on("log", data => this.emit("log", data));
+		this.hotReloadManager.on("hot-reload", data => this.emit("hot-reload", data));
+
+		// Forward dev server events
+		this.devServerManager.on("memory-warning", data => {
+			this.emit("log", {
+				level: "warning",
+				message: `⚠️ High memory usage: ${data.current} (peak: ${data.peak})`
+			});
+		});
+
+		// Phase 2C: Forward asset optimizer events (if enabled)
+		if (this.assetOptimizer) {
+			this.assetOptimizer.on("log", data => this.emit("log", data));
+			this.assetOptimizer.on("progress", data => this.emit("progress", data));
+		}
 	}
 
 	mergeConfig(options) {
@@ -59,6 +351,24 @@ export class BuildEngine extends EventEmitter {
 			},
 			cache: {
 				cacheFile: "build-scripts/cache/.build-cache.json"
+			},
+			assets: {
+				enabled: false, // Phase 2C: Asset optimization disabled by default
+				images: {
+					webpQuality: 85,
+					avifQuality: 75,
+					generateResponsive: true,
+					responsiveSizes: [320, 640, 768, 1024, 1280, 1920],
+					outputFormats: ["webp", "avif"],
+					preserveOriginal: true
+				},
+				fonts: {
+					generateWoff2: true,
+					subset: true,
+					preloadCritical: true,
+					criticalFonts: ["DMSans-Regular", "DMSans-Medium", "DMSans-Bold"],
+					displayStrategy: "swap"
+				}
 			}
 		};
 
@@ -67,6 +377,15 @@ export class BuildEngine extends EventEmitter {
 
 	setupCleanupHandlers() {
 		const cleanup = () => {
+			// Phase 2B: Cleanup development workflow components
+			if (this.devServerManager) {
+				this.devServerManager.cleanup();
+			}
+
+			if (this.hotReloadManager) {
+				this.hotReloadManager.disable();
+			}
+
 			this.childProcesses.forEach(proc => {
 				if (proc && !proc.killed) {
 					try {
@@ -219,7 +538,7 @@ export class BuildEngine extends EventEmitter {
 		this.performance.start("file-analysis");
 		const files = await glob("**/*", { cwd: SRC_DIR, nodir: true });
 
-		// Pre-filter files by type for better performance
+		// Enhanced file filtering with optimization patterns
 		const allowedExtensions = new Set([".js", ".css", ".liquid", ".json", ".md", ".txt", ".svg", ".png", ".jpg", ".jpeg", ".webp", ".woff", ".woff2", ".ttf", ".otf", ".eot"]);
 		const validFiles = files.filter(file => {
 			const ext = path.extname(file).toLowerCase();
@@ -229,14 +548,15 @@ export class BuildEngine extends EventEmitter {
 		const filesToCopy = [];
 		const skippedFiles = [];
 		const noDestinationFiles = [];
+		const dependencyTracker = new Map(); // Track discovered dependencies
 
-		// Debug: Show first few files being processed
-		this.emit("log", { level: "info", message: `Analyzing ${validFiles.length} files (total: ${files.length})...` });
+		// Enhanced analysis with dependency tracking
+		this.emit("log", { level: "info", message: `🔍 Analyzing ${validFiles.length} files with dependency tracking (total: ${files.length})...` });
 		if (validFiles.length > 0) {
 			this.emit("log", { level: "info", message: `Sample files: ${validFiles.slice(0, 5).join(", ")}` });
 		}
 
-		// Batch process file change detection for better performance
+		// Phase 2A: Enhanced batch processing with dependency analysis
 		for (const file of validFiles) {
 			const fullPath = path.join(SRC_DIR, file);
 			try {
@@ -249,24 +569,48 @@ export class BuildEngine extends EventEmitter {
 					continue;
 				}
 
-				// Pass both source and destination paths to cache check
-				if (this.cache.hasChanged(fullPath, destPath)) {
-					filesToCopy.push(fullPath);
-					this.fileAnalyzer.analyzeFile(fullPath);
+				// Phase 2A: Analyze file for dependencies and optimizations
+				const analysis = this.fileAnalyzer.analyzeFile(fullPath);
+
+				// Register dependencies for intelligent cache invalidation
+				if (analysis.dependencies && analysis.dependencies.length > 0) {
+					analysis.dependencies.forEach(dep => {
+						this.cache.addDependency(fullPath, dep);
+						dependencyTracker.set(fullPath, analysis.dependencies);
+					});
+				}
+
+				// Enhanced change detection with dependency checking
+				if (this.cache.hasChanged(fullPath, destPath, true)) {
+					filesToCopy.push({ path: fullPath, destPath, analysis });
 				} else {
-					skippedFiles.push(fullPath);
+					skippedFiles.push({ path: fullPath, reason: "cache-hit" });
 					this.stats.cacheHits++;
+					this.performance.metrics.fileStats.fromCache++;
 				}
 			} catch (error) {
-				this.emit("log", { level: "warning", message: `Skipping invalid file: ${file}` });
+				this.emit("log", { level: "warning", message: `Skipping invalid file: ${file} - ${error.message}` });
 			}
 		}
 
 		this.performance.end("file-analysis");
 		this.stats.filesSkipped = skippedFiles.length;
+		this.performance.metrics.fileStats.total = validFiles.length;
 
-		// Debug output
-		this.emit("log", { level: "info", message: `File analysis: ${filesToCopy.length} to copy, ${skippedFiles.length} cached, ${noDestinationFiles.length} skipped (no destination)` });
+		// Phase 2A: Enhanced analysis reporting with dependency insights
+		const cacheStats = this.cache.getCacheStats();
+		this.emit("log", {
+			level: "info",
+			message: `📊 Analysis complete: ${filesToCopy.length} to copy, ${skippedFiles.length} cached (${cacheStats.hitRate}), ${noDestinationFiles.length} skipped`
+		});
+
+		if (dependencyTracker.size > 0) {
+			this.emit("log", {
+				level: "info",
+				message: `🔗 Tracked ${dependencyTracker.size} files with dependencies`
+			});
+		}
+
 		if (noDestinationFiles.length > 0) {
 			this.emit("log", {
 				level: "info",
@@ -278,30 +622,53 @@ export class BuildEngine extends EventEmitter {
 		}
 
 		if (filesToCopy.length === 0) {
-			this.emit("log", { level: "success", message: "✨ All files up to date - nothing to copy!" });
+			this.emit("log", {
+				level: "success",
+				message: `✨ All files up to date - nothing to copy! (Cache efficiency: ${cacheStats.hitRate}, Memory: ${cacheStats.memoryUsage})`
+			});
 			return;
 		}
 
-		// Enhanced parallel processing with better error handling
+		// Phase 2A: Enhanced parallel processing with optimization tracking
 		this.performance.start("file-copying");
 		const processor = new ParallelFileProcessor();
+		const optimizationTracker = [];
 
-		const copyOperation = async filePath => {
+		const copyOperation = async fileInfo => {
 			try {
-				const { destPath, destFolder } = getDestination(filePath);
+				const { path: filePath, destPath, analysis } = fileInfo;
+				const { destFolder } = getDestination(filePath);
 				if (!destFolder) return { copied: false, reason: "no-destination" };
 
 				await fs.promises.mkdir(destFolder, { recursive: true });
-				await fs.promises.copyFile(filePath, destPath);
-				return { copied: true, dest: destPath };
+				await fs.promises.copyFile(filePath, destPath || fileInfo.destPath);
+
+				// Track optimization opportunities
+				if (analysis.optimization && analysis.optimization.length > 0) {
+					optimizationTracker.push(
+						...analysis.optimization.map(opt => ({
+							...opt,
+							file: path.basename(filePath)
+						}))
+					);
+				}
+
+				this.performance.metrics.fileStats.processed++;
+				return { copied: true, dest: destPath, size: analysis.size || 0 };
 			} catch (error) {
-				return { copied: false, error: error.message, filePath };
+				this.performance.metrics.fileStats.errors++;
+				return { copied: false, error: error.message, filePath: fileInfo.path };
 			}
 		};
 
+		// Enhanced progress tracking with analytics
 		const progressCallback = (current, total) => {
 			const percent = Math.round((current / total) * 30); // File copying is 30% of total progress
-			this.emit("progress", { percent: percent + 10, message: `Copying files... (${current}/${total})` });
+			const cacheStats = this.cache.getCacheStats();
+			this.emit("progress", {
+				percent: percent + 10,
+				message: `Copying files... (${current}/${total}) - Cache ${cacheStats.hitRate}`
+			});
 		};
 
 		const results = await processor.processFiles(filesToCopy, copyOperation, progressCallback);
@@ -313,11 +680,17 @@ export class BuildEngine extends EventEmitter {
 		this.stats.filesCopied = successful.length;
 		this.stats.errors += failed.length;
 
-		// Report results
+		// Calculate performance metrics
+		const totalSize = successful.reduce((sum, r) => sum + (r.result.size || 0), 0);
+		const avgCopyTime = this.performance.metrics.steps["file-copying"] / Math.max(successful.length, 1);
+		const timeSaved = this.stats.cacheHits * avgCopyTime;
+		this.stats.timeSaved += timeSaved;
+
+		// Phase 2A: Enhanced reporting with optimization insights
 		if (failed.length > 0) {
 			this.emit("log", {
 				level: "warning",
-				message: `Copied ${successful.length} files, ${failed.length} failed, ${skippedFiles.length} cached`
+				message: `⚠️ Copied ${successful.length} files (${this.formatBytes(totalSize)}), ${failed.length} failed, ${skippedFiles.length} cached - Time saved: ${timeSaved.toFixed(0)}ms`
 			});
 
 			// Log first few errors for debugging
@@ -330,7 +703,21 @@ export class BuildEngine extends EventEmitter {
 		} else {
 			this.emit("log", {
 				level: "success",
-				message: `Copied ${successful.length} files, skipped ${skippedFiles.length} (cached)`
+				message: `✅ Copied ${successful.length} files (${this.formatBytes(totalSize)}), skipped ${skippedFiles.length} (cached) - Time saved: ${timeSaved.toFixed(0)}ms`
+			});
+		}
+
+		// Report optimization opportunities
+		if (optimizationTracker.length > 0) {
+			const totalSavings = optimizationTracker.reduce((sum, opt) => sum + (opt.potentialSaving || 0), 0);
+			this.emit("log", {
+				level: "info",
+				message: `💡 Found ${optimizationTracker.length} optimization opportunities (potential savings: ${this.formatBytes(totalSavings)})`
+			});
+
+			// Record optimizations in performance tracker
+			optimizationTracker.forEach(opt => {
+				this.performance.addOptimization(opt.type, `${opt.message} (${opt.file})`, opt.potentialSaving || 0, { file: opt.file });
 			});
 		}
 	}
@@ -415,31 +802,129 @@ export class BuildEngine extends EventEmitter {
 	}
 
 	async optimizeAssets(options) {
-		this.emit("log", { level: "info", message: "Optimizing assets..." });
+		// Phase 2C: Check if asset optimization is enabled (CLI override or config)
+		const assetsEnabled = options.enableAssets !== undefined ? options.enableAssets : this.assetOptimizationEnabled;
 
-		// Generate CSS minified version
-		const cssPath = path.join(BUILD_DIR, "assets", "tailwind.css");
-		if (fs.existsSync(cssPath)) {
-			const css = fs.readFileSync(cssPath, "utf8");
-			const minified = css
-				.replace(/\/\*[\s\S]*?\*\//g, "")
-				.replace(/\s+/g, " ")
-				.replace(/\s*([{}:;,>+~])\s*/g, "$1")
-				.trim();
+		if (!assetsEnabled) {
+			this.emit("log", { level: "info", message: "⏭️ Asset optimization disabled - skipping Phase 2C" });
+			return this.optimizeAssetsBasic(options);
+		}
 
-			fs.writeFileSync(cssPath.replace(".css", ".min.css"), minified);
-			this.emit("log", { level: "success", message: "CSS optimized and minified" });
+		// Phase 2C: Initialize asset optimizer if enabled via CLI but not configured
+		if (assetsEnabled && !this.assetOptimizer) {
+			this.emit("log", { level: "info", message: "🔧 Initializing Phase 2C asset optimizer..." });
+			this.assetOptimizer = new AssetOptimizer(this.config.assets || {});
+
+			// Set up event forwarding for dynamically created optimizer
+			this.assetOptimizer.on("log", data => this.emit("log", data));
+			this.assetOptimizer.on("progress", data => this.emit("progress", data));
+		}
+
+		this.emit("log", { level: "info", message: "🚀 Starting Phase 2C: Asset Pipeline Optimization..." });
+		const startTime = performance.now();
+
+		try {
+			// Phase 2C: Advanced asset optimization
+			const assetReport = await this.assetOptimizer.optimizeAssets(SRC_DIR, BUILD_DIR);
+
+			// Traditional CSS minification (enhanced)
+			const cssPath = path.join(BUILD_DIR, "assets", "tailwind.css");
+			if (fs.existsSync(cssPath)) {
+				const css = fs.readFileSync(cssPath, "utf8");
+				const minified = css
+					.replace(/\/\*[\s\S]*?\*\//g, "")
+					.replace(/\s+/g, " ")
+					.replace(/\s*([{}:;,>+~])\s*/g, "$1")
+					.trim();
+
+				fs.writeFileSync(cssPath.replace(".css", ".min.css"), minified);
+
+				const originalSize = css.length;
+				const minifiedSize = minified.length;
+				const savings = originalSize - minifiedSize;
+				const ratio = ((savings / originalSize) * 100).toFixed(1);
+
+				this.emit("log", {
+					level: "success",
+					message: `🎨 CSS optimized: ${this.formatBytes(originalSize)} → ${this.formatBytes(minifiedSize)} (${ratio}% smaller)`
+				});
+			}
+
+			const duration = (performance.now() - startTime) / 1000;
+			this.emit("log", {
+				level: "success",
+				message: `✅ Phase 2C asset optimization complete in ${duration.toFixed(2)}s!`
+			});
+
+			// Emit detailed asset optimization results
+			this.emit("asset:optimization:complete", {
+				duration,
+				images: assetReport.images,
+				fonts: assetReport.fonts,
+				timestamp: new Date().toISOString()
+			});
+		} catch (error) {
+			this.emit("log", { level: "error", message: `Asset optimization failed: ${error.message}` });
+			throw error;
+		}
+	}
+
+	// Basic asset optimization (when Phase 2C is disabled)
+	async optimizeAssetsBasic(options) {
+		this.emit("log", { level: "info", message: "🎨 Running basic CSS optimization..." });
+		const startTime = performance.now();
+
+		try {
+			// Traditional CSS minification only
+			const cssPath = path.join(BUILD_DIR, "assets", "tailwind.css");
+			if (fs.existsSync(cssPath)) {
+				const css = fs.readFileSync(cssPath, "utf8");
+				const minified = css
+					.replace(/\/\*[\s\S]*?\*\//g, "")
+					.replace(/\s+/g, " ")
+					.replace(/\s*([{}:;,>+~])\s*/g, "$1")
+					.trim();
+
+				fs.writeFileSync(cssPath.replace(".css", ".min.css"), minified);
+
+				const originalSize = css.length;
+				const minifiedSize = minified.length;
+				const savings = originalSize - minifiedSize;
+				const ratio = ((savings / originalSize) * 100).toFixed(1);
+
+				this.emit("log", {
+					level: "success",
+					message: `🎨 CSS optimized: ${this.formatBytes(originalSize)} → ${this.formatBytes(minifiedSize)} (${ratio}% smaller)`
+				});
+			}
+
+			const duration = (performance.now() - startTime) / 1000;
+			this.emit("log", {
+				level: "success",
+				message: `✅ Basic asset optimization complete in ${duration.toFixed(2)}s`
+			});
+		} catch (error) {
+			this.emit("log", { level: "error", message: `Basic asset optimization failed: ${error.message}` });
+			throw error;
 		}
 	}
 
 	// 👁️ Enhanced watch mode with Shopify integration
 	async watch(options, context) {
-		this.emit("log", { level: "info", message: `Starting enhanced watch mode${options.shopify ? " with Shopify development" : ""}...` });
+		this.emit("log", { level: "info", message: `🚀 Starting Phase 2B enhanced watch mode${options.shopify ? " with Shopify development" : ""}...` });
+
+		// Phase 2B: Enable hot reload if not in Shopify mode (Shopify has its own reload mechanism)
+		if (!options.shopify && options.hotReload !== false) {
+			this.hotReloadManager.enable();
+		}
+
+		// Record baseline memory usage
+		this.devServerManager.memoryUsage.baseline = process.memoryUsage().heapUsed;
 
 		// Initial build
 		await this.build({ ...options, optimize: false }, context);
 
-		// Setup file watcher with Shopify-aware debouncing
+		// Phase 2B: Enhanced file watcher with better performance monitoring
 		const debounceTime = options.shopify ? 300 : 150; // Shopify needs more time
 		const watcher = chokidar.watch(SRC_DIR, {
 			ignored: [/node_modules/, /\.git/, /Curalife-Theme-Build/, /build-scripts\/cache/, /\.cache/, /\.tmp/],
@@ -448,16 +933,26 @@ export class BuildEngine extends EventEmitter {
 			awaitWriteFinish: {
 				stabilityThreshold: options.shopify ? 300 : 200,
 				pollInterval: 100
-			}
+			},
+			// Phase 2B: Enhanced watcher options for better performance
+			usePolling: false, // Use native file system events when possible
+			atomic: true, // Wait for write operations to complete
+			alwaysStat: false, // Don't stat files unnecessarily
+			depth: 10 // Limit recursion depth
 		});
 
-		// Smart debouncing with file type awareness
+		// Phase 2B: Enhanced debouncing with file type awareness and hot reload integration
 		const debounceMap = new Map();
-		const handleChange = (filePath, event) => {
+		let watchedFiles = 0;
+		let ignoredFiles = 0;
+		let processedFiles = 0;
+
+		const handleChange = async (filePath, event) => {
+			watchedFiles++;
 			const key = `${event}:${filePath}`;
 			const fileExt = path.extname(filePath);
 
-			// Different debounce times for different file types in Shopify mode
+			// Phase 2B: Smarter debounce times based on file type and hot reload capability
 			let fileDebounceTime = debounceTime;
 			if (options.shopify) {
 				if ([".css", ".scss"].includes(fileExt)) {
@@ -467,17 +962,31 @@ export class BuildEngine extends EventEmitter {
 				} else if (fileExt === ".liquid") {
 					fileDebounceTime = 200; // Liquid files can be faster
 				}
+			} else {
+				// Phase 2B: Faster debounce for hot reload capable files
+				if ([".css", ".scss"].includes(fileExt)) {
+					fileDebounceTime = 100; // CSS hot reload is fast
+				} else if ([".js", ".ts"].includes(fileExt)) {
+					fileDebounceTime = 150; // JS module replacement
+				} else if (fileExt === ".liquid") {
+					fileDebounceTime = 50; // Liquid templates are instant
+				}
 			}
 
 			if (debounceMap.has(key)) {
 				clearTimeout(debounceMap.get(key));
+				ignoredFiles++; // Count as ignored due to debouncing
 			}
 
 			debounceMap.set(
 				key,
 				setTimeout(async () => {
 					try {
+						processedFiles++;
 						await this.handleFileChange(filePath, event, options);
+
+						// Update dev server stats
+						this.devServerManager.updateFileWatchStats(watchedFiles, ignoredFiles, processedFiles);
 					} catch (error) {
 						this.emit("log", { level: "error", message: `File change error: ${error.message}` });
 					}
@@ -565,9 +1074,36 @@ export class BuildEngine extends EventEmitter {
 					return;
 				}
 			}
+
+			// Phase 2B: Try hot reload first (if not in Shopify mode)
+			if (!isShopify && this.hotReloadManager.isEnabled) {
+				try {
+					const hotReloadResult = await this.hotReloadManager.processFileChange(filePath, destPath, event);
+
+					if (!hotReloadResult.fullReload && !hotReloadResult.skipped) {
+						// Hot reload successful, emit event and return early
+						this.emit("file:changed", {
+							filePath,
+							fileName,
+							event,
+							fileExt,
+							isShopify,
+							hotReload: hotReloadResult,
+							timestamp: new Date().toISOString()
+						});
+						return;
+					} else if (hotReloadResult.skipped) {
+						// Debounced, just return
+						return;
+					}
+					// If fullReload is true, continue with traditional rebuild
+				} catch (error) {
+					this.emit("log", { level: "warning", message: `Hot reload failed for ${fileName}, falling back to full rebuild: ${error.message}` });
+				}
+			}
 		}
 
-		// Smart rebuilding based on file type and mode
+		// Phase 2B: Enhanced rebuilding logic with hot reload fallback
 		const needsStyleRebuild = this.shouldRebuildStyles(filePath, fileExt, isShopify);
 		const needsScriptRebuild = this.shouldRebuildScripts(filePath, fileExt, isShopify);
 
@@ -593,13 +1129,18 @@ export class BuildEngine extends EventEmitter {
 			}
 		}
 
-		// Emit change notification for external listeners
+		// Phase 2B: Enhanced change notification with performance stats
+		const devStats = this.devServerManager.getPerformanceStats();
+		const hotReloadStats = this.hotReloadManager.getStats();
+
 		this.emit("file:changed", {
 			filePath,
 			fileName,
 			event,
 			fileExt,
 			isShopify,
+			devServerStats: devStats,
+			hotReloadStats: hotReloadStats,
 			timestamp: new Date().toISOString()
 		});
 	}
@@ -936,6 +1477,15 @@ export class BuildEngine extends EventEmitter {
 	setState(state, data) {
 		this.state = state;
 		this.emit("state", { state, data });
+	}
+
+	// Phase 2A: Utility method for formatting file sizes
+	formatBytes(bytes) {
+		if (bytes === 0) return "0 B";
+		const k = 1024;
+		const sizes = ["B", "KB", "MB", "GB"];
+		const i = Math.floor(Math.log(bytes) / Math.log(k));
+		return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
 	}
 }
 

@@ -40,7 +40,22 @@ export class UnifiedTUIAdapter extends EventEmitter {
 			timeSaved: 0,
 			duration: 0,
 			lastChange: "",
-			lastChangeAt: null
+			lastChangeAt: null,
+			// Phase 2B: Enhanced hot reload stats
+			hotReloadStats: {
+				cssReloads: 0,
+				jsReloads: 0,
+				liquidReloads: 0,
+				fullReloads: 0,
+				hotReloadRate: "0%",
+				averageTimeSaved: 0
+			},
+			devServerStats: {
+				uptime: 0,
+				memoryUsage: { current: "0 B", peak: "0 B", baseline: "0 B" },
+				fileWatchEfficiency: "0%",
+				networkOptimizations: []
+			}
 		};
 	}
 
@@ -238,6 +253,41 @@ export class UnifiedTUIAdapter extends EventEmitter {
 			}
 		}
 
+		// Phase 2C: Parse asset optimization events
+		if (cleanLine.includes("🖼️ Starting Phase 2C image optimization") || cleanLine.includes("🔤 Starting Phase 2C font optimization")) {
+			this.outputTUIData("asset_optimization_start", {
+				type: cleanLine.includes("image") ? "images" : "fonts",
+				timestamp: new Date().toISOString()
+			});
+			return;
+		}
+
+		if (cleanLine.includes("🎨 Optimized:") || cleanLine.includes("🔤 Generated WOFF2:")) {
+			const optimizedMatch = cleanLine.match(/(?:🎨 Optimized:|🔤 Generated WOFF2:)\s*(.+)/);
+			if (optimizedMatch) {
+				this.outputTUIData("asset_optimized", {
+					asset: optimizedMatch[1].trim(),
+					type: cleanLine.includes("🎨") ? "image" : "font",
+					timestamp: new Date().toISOString()
+				});
+				return;
+			}
+		}
+
+		if (cleanLine.includes("✅ Image optimization complete!") || cleanLine.includes("✅ Font optimization complete!")) {
+			const completionMatch = cleanLine.match(/✅ (Image|Font) optimization complete! Processed (\d+) (?:images|fonts) in ([\d.]+)s/);
+			if (completionMatch) {
+				const [, type, count, duration] = completionMatch;
+				this.outputTUIData("asset_optimization_complete", {
+					type: type.toLowerCase(),
+					count: parseInt(count),
+					duration: parseFloat(duration),
+					timestamp: new Date().toISOString()
+				});
+				return;
+			}
+		}
+
 		// Parse cache hits
 		if (cleanLine.includes("cache hit") || cleanLine.includes("skipped")) {
 			const cacheMatch = cleanLine.match(/(\d+).*?(?:cache hit|skipped)/);
@@ -259,13 +309,81 @@ export class UnifiedTUIAdapter extends EventEmitter {
 		this.outputLog(this.getLogLevel(cleanLine), cleanLine, "build");
 	}
 
-	// 🔍 Smart watch line parsing
+	// 🔍 Smart watch line parsing with Phase 2B hot reload support
 	parseWatchLine(line) {
 		const cleanLine = line.trim();
 		if (!cleanLine) return;
 
 		// Try to parse as TUI JSON data first
 		if (this.tryParseTUIData(cleanLine)) return;
+
+		// Phase 2B: Parse hot reload events
+		if (cleanLine.includes("🔥 Hot reload") || cleanLine.includes("🎨 Hot reloading") || cleanLine.includes("⚡ Hot reloading") || cleanLine.includes("💧 Hot reloading")) {
+			const hotReloadMatch = cleanLine.match(/🔥 Hot reload complete: (\w+(?:-\w+)*) \((\d+)ms\)/);
+			if (hotReloadMatch) {
+				const [, type, duration] = hotReloadMatch;
+				this.stats.hotReloads++;
+
+				// Update specific hot reload stats
+				if (type.includes("css")) {
+					this.stats.hotReloadStats.cssReloads++;
+				} else if (type.includes("js")) {
+					this.stats.hotReloadStats.jsReloads++;
+				} else if (type.includes("liquid")) {
+					this.stats.hotReloadStats.liquidReloads++;
+				}
+
+				this.outputTUIData("hot_reload", {
+					type: type,
+					duration: parseInt(duration),
+					strategy: type.includes("css") ? "css-injection" : type.includes("js") ? "module-replacement" : "template-injection",
+					timestamp: new Date().toISOString()
+				});
+				return;
+			}
+
+			// Parse hot reload start events
+			const startMatch = cleanLine.match(/(?:🎨|⚡|💧) Hot reloading (\w+)/);
+			if (startMatch) {
+				const [, fileType] = startMatch;
+				this.outputTUIData("hot_reload_start", {
+					fileType: fileType.toLowerCase(),
+					timestamp: new Date().toISOString()
+				});
+				return;
+			}
+		}
+
+		// Phase 2B: Parse hot reload enabled/disabled
+		if (cleanLine.includes("🔥 Hot reload enabled!")) {
+			this.outputTUIData("hot_reload_enabled", {
+				enabled: true,
+				timestamp: new Date().toISOString()
+			});
+			return;
+		}
+
+		if (cleanLine.includes("❄️ Hot reload disabled")) {
+			this.outputTUIData("hot_reload_disabled", {
+				enabled: false,
+				timestamp: new Date().toISOString()
+			});
+			return;
+		}
+
+		// Phase 2B: Parse memory warnings
+		if (cleanLine.includes("⚠️ High memory usage")) {
+			const memoryMatch = cleanLine.match(/⚠️ High memory usage: ([^(]+) \(peak: ([^)]+)\)/);
+			if (memoryMatch) {
+				const [, current, peak] = memoryMatch;
+				this.outputTUIData("memory_warning", {
+					current: current.trim(),
+					peak: peak.trim(),
+					timestamp: new Date().toISOString()
+				});
+				return;
+			}
+		}
 
 		// Parse file changes
 		if (cleanLine.includes("📁") || cleanLine.includes("✅")) {

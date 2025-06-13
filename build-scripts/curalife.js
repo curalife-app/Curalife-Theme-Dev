@@ -28,6 +28,8 @@ program
 	.option("--analyze", "Analyze bundle size")
 	.option("--no-cache", "Disable caching")
 	.option("--no-vite", "Skip Vite build")
+	.option("--assets", "Enable Phase 2C asset optimization (images, fonts)")
+	.option("--no-assets", "Disable Phase 2C asset optimization")
 	.action(async options => {
 		visual.showWelcomeBanner("build", options);
 
@@ -48,7 +50,9 @@ program
 				...options,
 				production: options.production || config.isProduction(),
 				minify: options.production || config.get("build.minify"),
-				optimize: options.production || config.get("build.optimize")
+				optimize: options.production || config.get("build.optimize"),
+				// Phase 2C: Asset optimization control
+				enableAssets: options.assets || (!options.noAssets && config.get("assets.enabled"))
 			});
 
 			visual.showSuccess("build", result.stats);
@@ -126,12 +130,25 @@ program
 				});
 			}
 
+			// Phase 2B: Enhanced event handlers for hot reload
+			engine.on("hot-reload", data => {
+				const strategyIcon =
+					{
+						"css-injection": "🎨",
+						"module-replacement": "⚡",
+						"template-injection": "💧",
+						"full-rebuild": "🔄"
+					}[data.strategy] || "🔥";
+
+				console.log(`${strategyIcon} Hot reload: ${chalk.hex("#50fa7b")(data.file)} (${data.duration}ms)`);
+			});
+
 			engine.on("watch:ready", data => {
 				visual.showWatchReady({
 					filesWatched: "all files",
 					cacheEnabled: config.get("performance.cache"),
 					shopifyMode: data?.shopify || options.shopify || false,
-					hotReload: options.shopify || data?.shopify || false // Hot reload only enabled for Shopify mode
+					hotReload: !options.shopify // Phase 2B: Hot reload enabled for non-Shopify mode
 				});
 
 				// Provide manual URL check option
@@ -140,7 +157,8 @@ program
 
 			await engine.execute("watch", {
 				...options,
-				shopify: options.shopify || config.isShopify()
+				shopify: options.shopify || config.isShopify(),
+				hotReload: !options.shopify // Phase 2B: Enable hot reload for non-Shopify mode
 			});
 		} catch (error) {
 			visual.showError(error, { operation: watchMode });
