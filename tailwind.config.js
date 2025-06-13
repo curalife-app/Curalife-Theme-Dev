@@ -1,6 +1,31 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-	// Content array no longer needed in v4 as it automatically detects files
+	// Content array for JIT optimization - added precise paths for better performance
+	content: [
+		"./src/liquid/**/*.liquid",
+		"./src/scripts/**/*.js",
+		"./src/styles/**/*.css",
+		"./Curalife-Theme-Build/**/*.liquid", // Include build folder for hot reload
+		"./src/**/*.{html,js,liquid}"
+	],
+
+	// Safelist for dynamic classes that might not be detected
+	safelist: [
+		// Animation classes that might be added dynamically
+		"fade-in",
+		"animate-fade-in",
+		// Common utility patterns
+		{
+			pattern: /^(bg|text|border)-(brand|curalin|curaslim|curapress)-(50|100|200|300|400|500|600|700|800|900|950)$/
+		},
+		{
+			pattern: /^(p|m|px|py|mx|my)-(0|1|2|3|4|5|6|8|10|12|16|20|24|32)$/
+		},
+		// Responsive variants
+		{
+			pattern: /^(sm|md|lg|xl|mbl|dsk):(.*)/
+		}
+	],
 
 	// Only keeping minimal JavaScript configuration for backward compatibility
 	theme: {

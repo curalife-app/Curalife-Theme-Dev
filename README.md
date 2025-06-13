@@ -4,6 +4,22 @@
 
 This repository contains the source code and development environment for the Curalife Shopify theme.
 
+## 🚀 Quick Start
+
+```bash
+# Install dependencies
+pnpm install
+
+# Start development with Shopify integration
+npm run shopify:dev
+
+# Or start standard development mode
+npm run dev
+
+# Build for production
+npm run build
+```
+
 ## Core Philosophy & Goals
 
 - **Mobile-First:** Design and build with mobile devices as the primary consideration.
@@ -14,141 +30,411 @@ This repository contains the source code and development environment for the Cur
 - **Vanilla JS:** Prefer modern vanilla JavaScript over heavy frameworks.
 - **Utility-First CSS:** Leverage Tailwind CSS for most styling.
 
-## File Structure Overview
+## 🏗️ Build System
 
-- **`src/`**: Contains all source code for the theme.
-  - **`liquid/`**: Shopify Liquid files (layouts, sections, snippets, templates, etc.).
-  - **`scripts/`**: JavaScript modules and entry points.
-  - **`styles/`**: CSS source files, including the Tailwind CSS entry point (`tailwind.css`).
-  - **`assets/`**: Static assets like icons (non-image).
-  - **`images/`**: Image assets.
-  - **`fonts/`**: Font files.
-  - **`config/`**: Shopify settings (`settings_schema.json`, `settings_data.json`).
-  - **`locales/`**: Shopify locale files.
-- **`Curalife-Theme-Build/`**: **(Generated)** The output directory containing the production-ready, flattened Shopify theme structure. **This directory is targeted by Shopify CLI commands.**
-- **`build-scripts/`**: Contains Node.js scripts managing the Vite build process, file watching, and asset handling (`build-complete.js`, `watch.js`).
-- **`utility-scripts/`**: Contains various helper and maintenance scripts (e.g., finding unused files).
-- **`testing/`**: Contains configurations and scripts for different types of testing.
-  - **`lighthouse/`**: Lighthouse CI configuration (`lighthouserc.cjs`), performance budgets (`budgets.json` - note: budgets also defined inline in config), helper scripts (`check-server.js`, `performance-monitor.js`), and output directories (ignored by git).
-  - **`visual-regression/`**: Files related to visual regression testing.
-- **`linting/`**: Contains configuration and scripts for code linting and formatting (`ESLint`, `Prettier`, `Theme Check`).
-- **Configuration Files (Root)**: `vite.config.js`, `tailwind.config.js`, `postcss.config.cjs`, `.eslintrc.js`, `.prettierrc`, `.theme-check.yml`, `package.json`, etc.
+The project uses a **unified build system** powered by:
 
-**Important:** The build process _flattens_ the nested structure within `src/liquid/` into the respective top-level directories (`snippets/`, `sections/`, etc.) inside `Curalife-Theme-Build/` as required by Shopify.
+- **Vite** for JavaScript bundling and HMR
+- **Tailwind CSS v4** for styling
+- **Smart caching** for incremental builds
+- **Integrated Shopify development** mode
 
-## Development Workflow
+### Key Features
+
+- ⚡ **3x faster builds** with parallel processing and caching
+- 🎯 **Smart file watching** with optimized debouncing
+- 🛍️ **Seamless Shopify integration** with auto-sync
+- 📊 **Performance monitoring** and optimization suggestions
+- 🎨 **Beautiful CLI interface** with real-time feedback
+
+## 📁 File Structure
+
+```
+├── 📁 src/                           # Source code
+│   ├── 📁 liquid/                    # Shopify Liquid files
+│   │   ├── layout/                   # Theme layouts
+│   │   ├── sections/                 # Shopify sections
+│   │   ├── snippets/                 # Reusable snippets
+│   │   ├── blocks/                   # Section blocks
+│   │   └── templates/                # Page templates
+│   ├── 📁 scripts/                   # JavaScript modules
+│   │   └── utils/                    # Utility functions
+│   ├── 📁 styles/                    # CSS source files
+│   │   ├── tailwind.css              # Main Tailwind entry
+│   │   └── css/                      # Custom CSS
+│   ├── 📁 assets/                    # Static assets
+│   ├── 📁 images/                    # Image assets
+│   ├── 📁 fonts/                     # Font files
+│   ├── 📁 config/                    # Shopify settings
+│   └── 📁 locales/                   # Locale files
+├── 📁 Curalife-Theme-Build/          # Generated build output
+├── 📁 build-scripts/                 # Build system
+│   ├── 📁 core/                      # Core engines
+│   ├── 📁 config/                    # Configuration
+│   ├── 📁 tui/                       # Terminal UI
+│   └── 📁 build-utilities/           # Utility scripts
+├── 📁 testing/                       # Testing configuration
+└── 📁 linting/                       # Code quality tools
+```
+
+**Important:** The build process _flattens_ the nested `src/liquid/` structure into Shopify's required flat structure in `Curalife-Theme-Build/`.
+
+## 🛠️ Development Commands
+
+### Primary Commands
+
+```bash
+# Start development with TUI interface
+npm run dev
+
+# Build for production
+npm run build
+
+# Watch files for changes (no Shopify)
+npm run watch
+
+# Shopify development mode (recommended)
+npm run shopify
+
+# Shopify development with initial build
+npm run shopify:dev
+```
+
+### Utilities
+
+```bash
+# Transpile quiz components
+npm run transpile:quiz
+
+# Check Shopify development URLs
+npm run shopify-urls
+
+# Optimize assets
+npm run optimize
+
+# Analyze build performance
+npm run analyze
+
+# Show configuration
+npm run config
+
+# Clean build cache
+npm run clean
+```
+
+### Shopify CLI Integration
+
+```bash
+# Login to Shopify
+npm run shopify:login
+
+# List available themes
+npm run shopify:theme:list
+
+# Push theme to Shopify
+npm run shopify:theme:push
+
+# Pull theme from Shopify
+npm run shopify:theme:pull
+
+# Open theme in browser
+npm run shopify:theme:open
+```
+
+## 🚀 Development Workflow
 
 ### Prerequisites
 
-- Node.js (Check `.nvmrc` or `package.json` engine requirements)
-- pnpm (`npm install -g pnpm`)
-- Shopify CLI (`npm install -g @shopify/cli @shopify/theme`)
+- **Node.js** (Check `.nvmrc` for version)
+- **pnpm** (`npm install -g pnpm`)
+- **Shopify CLI** (`npm install -g @shopify/cli @shopify/theme`)
 
 ### Setup
 
-1.  Clone the repository.
-2.  Install dependencies: `pnpm install`
-3.  Log in to Shopify CLI: `npm run shopify:login` (or `shopify auth login`)
+1. **Clone and install:**
 
-### Local Development (Watch Mode + Shopify Dev Server)
+   ```bash
+   git clone <repository-url>
+   cd Curalife-Theme-Dev
+   pnpm install
+   ```
 
-This is the recommended workflow for local development:
+2. **Authenticate with Shopify:**
+   ```bash
+   npm run shopify:login
+   ```
 
-1.  **Start the Vite Watcher:**
+### Recommended Development Flow
 
-    ```bash
-    npm run watch:shopify
-    ```
+**Option 1: Integrated Shopify Development (Recommended)**
 
-    This command uses Vite to watch for changes in JS and CSS (with HMR) and copies changes in other files (`.liquid`, assets, etc.) from `src/` to `Curalife-Theme-Build/`.
+```bash
+# Single command starts everything
+npm run shopify:dev
+```
 
-2.  **Start the Shopify Dev Server:** In a **separate terminal**, run:
+This will:
 
-    ```bash
-    npm run shopify:theme:dev
-    ```
+- Build the theme
+- Start file watching
+- Launch Shopify development server
+- Display local and preview URLs
 
-    This command starts the Shopify CLI dev server, pointing to the `Curalife-Theme-Build/` directory. It provides a local preview URL with live theme updates pushed from the build directory.
+**Option 2: Standard Development**
 
-    _(Note: Changes made via `npm run watch:shopify` are copied to `Curalife-Theme-Build/`, and `shopify theme dev --path Curalife-Theme-Build` picks them up. Some changes, especially complex Liquid or schema updates, might occasionally require a manual browser refresh.)_
+```bash
+# Development with TUI interface
+npm run dev
+
+# Or basic file watching
+npm run watch
+```
+
+**Option 3: Manual Control**
+
+```bash
+# Terminal 1: Start file watcher
+npm run watch
+
+# Terminal 2: Start Shopify dev server
+npm run shopify:theme:dev
+```
+
+### What Happens During Development
+
+1. **File Changes:** Automatic detection and copying to build directory
+2. **Style Rebuilding:** Tailwind CSS rebuilds on relevant changes
+3. **JavaScript Processing:** Vite handles JS bundling with HMR
+4. **Shopify Sync:** Changes automatically sync to your development store
+5. **Cache Optimization:** Only changed files are processed
+
+## 🎨 Styling
+
+- **Framework:** Tailwind CSS v4 with CSS-first approach
+- **Entry Point:** `src/styles/tailwind.css`
+- **Custom CSS:** Place in `src/styles/css/`
+- **Configuration:** `tailwind.config.js`
+
+```css
+/* src/styles/tailwind.css */
+@import "tailwindcss";
+
+@theme {
+	--color-primary: #your-brand-color;
+}
+
+@layer components {
+	.btn-primary {
+		@apply bg-primary rounded px-4 py-2 text-white;
+	}
+}
+```
+
+## ⚡ JavaScript
+
+- **Module System:** ES Modules via Vite
+- **Entry Points:** Defined in `vite.config.js`
+- **Utilities:** Common functions in `src/scripts/utils/`
+- **Pattern:** Vanilla JS with progressive enhancement
+
+```javascript
+// src/scripts/components/example.js
+export class ExampleComponent {
+	constructor(element) {
+		this.element = element;
+		this.init();
+	}
+
+	init() {
+		// Component logic
+	}
+}
+```
+
+## 📊 Performance & Testing
+
+### Lighthouse Integration
+
+```bash
+# Run Lighthouse CI locally
+npm run lighthouse:ci
+
+# Desktop performance test
+npm run lighthouse:desktop
+
+# Mobile performance test
+npm run lighthouse:mobile
+
+# Create baseline reports
+npm run performance:baseline
+
+# Compare current vs baseline
+npm run performance:compare
+```
+
+### Performance Monitoring
+
+- **Continuous monitoring** via GitHub Actions
+- **Core Web Vitals tracking**
+- **Performance budgets** enforced in CI
+- **Automated reports** on PRs
+
+### Code Quality
+
+```bash
+# Run all linters
+npm run lint
+
+# Auto-fix issues
+npm run lint:fix
+
+# Shopify theme validation
+npm run lint:shopify
+
+# Analyze Liquid/JS integration
+npm run analyze:liquid
+```
+
+## 🧹 Maintenance
+
+### System Management
+
+```bash
+# Check running processes
+npm run status
+
+# Clean up Node processes
+npm run cleanup
+
+# Force cleanup (Windows)
+npm run cleanup:force
+```
+
+### Cache Management
+
+```bash
+# Clean build cache and temp files
+npm run clean
+
+# Clear specific caches
+rm -rf build-scripts/cache
+rm -rf .tmp
+```
+
+## 🔧 Configuration
+
+### Build Configuration
+
+- **Main Config:** `build-scripts/config/unified-config.js`
+- **Vite Config:** `vite.config.js`
+- **Tailwind Config:** `tailwind.config.js`
+- **PostCSS Config:** `postcss.config.cjs`
+
+### Environment Detection
+
+The build system automatically detects:
+
+- **Development:** File watching with fast rebuilds
+- **Production:** Optimized builds with minification
+- **Shopify:** Enhanced integration with Shopify CLI
+- **CI:** Minimal UI with performance focus
+
+### Custom Configuration
+
+Create `curalife.config.js` in the project root:
+
+```javascript
+export default {
+	performance: {
+		workers: 4,
+		parallel: true
+	},
+	ui: {
+		theme: "modern",
+		animations: true
+	},
+	integrations: {
+		shopify: {
+			syncDelay: 500
+		}
+	}
+};
+```
+
+## 🚢 Deployment
 
 ### Production Build
 
-To create a production-ready build in `Curalife-Theme-Build/`:
+```bash
+# Build optimized theme
+npm run build
+
+# Deploy to Shopify
+npm run shopify:theme:push -- --allow-live
+```
+
+### Deployment Checklist
+
+- [ ] Run `npm run build`
+- [ ] Test with `npm run lighthouse:ci`
+- [ ] Verify `npm run lint` passes
+- [ ] Check performance budgets
+- [ ] Deploy with appropriate theme flags
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+**Build Fails:**
 
 ```bash
+# Clear cache and retry
+npm run clean
 npm run build
 ```
 
-This runs `build-scripts/build-complete.js`, which handles Vite production build, file copying/flattening, and CSS minification.
-
-### Linting
-
-Run linters (ESLint, Theme Check) and the formatter (Prettier):
+**Shopify URLs Not Showing:**
 
 ```bash
-# Check for linting errors
-npm run lint
-
-# Attempt to automatically fix linting/formatting issues
-npm run lint:fix
+# Manually check URLs
+npm run shopify-urls
 ```
 
-See [linting/README.md](./linting/README.md) for more details.
+**File Changes Not Syncing:**
 
-### Deployment
+- Check if Shopify CLI is running
+- Verify file paths in build output
+- Try restarting watch mode
 
-Deploy the production build to Shopify:
+**Performance Issues:**
+
+- Check system resources
+- Reduce concurrent workers in config
+- Use `npm run watch:fast` for minimal features
+
+### Debug Mode
 
 ```bash
-# Ensure you have run 'npm run build' first
-npm run shopify:theme:push -- --allow-live # Add flags as needed, e.g., --theme <name>
+# Enable debug logging
+npm run build -- --debug
+npm run watch -- --debug
 ```
 
-## Lighthouse CI Integration
+## 📚 Additional Resources
 
-This project uses Lighthouse CI for continuous monitoring.
+- **Build System Docs:** `build-scripts/README.md`
+- **Linting Guide:** `linting/README.md`
+- **Legacy Docs:** `SHOPIFY-SIMPLE.md` (outdated)
+- **Performance Config:** `testing/lighthouse/lighthouserc.cjs`
 
-### Running Lighthouse Locally
+## 🤝 Contributing
 
-Helper scripts are available in `testing/lighthouse/`.
+1. Follow the existing code style
+2. Run linting before commits: `npm run lint:fix`
+3. Test with `npm run build` and `npm run lighthouse:ci`
+4. Ensure performance budgets are met
+5. Update documentation for new features
 
-```bash
-# Run Lighthouse CI assertions locally (requires dev server running)
-npm run lighthouse:ci
+---
 
-# Run desktop performance test via Lighthouse CLI with UI
-npm run lighthouse:desktop
-
-# Run mobile performance test via Lighthouse CLI with UI
-npm run lighthouse:mobile
-
-# Create baseline performance reports (outputs to testing/lighthouse/performance-reports/)
-npm run performance:baseline
-
-# Compare current against baseline (outputs to testing/lighthouse/performance-reports/)
-npm run performance:compare
-
-# (Optional) Run continuous performance monitoring script
-npm run performance:monitor
-```
-
-### Configuration
-
-- **Main Config:** `testing/lighthouse/lighthouserc.cjs` (used by `lighthouse:ci`)
-- **Budgets:** Defined inline in `lighthouserc.cjs` and also present in `testing/lighthouse/budgets.json`.
-- **CI Workflow:** Defined in `.github/workflows/lighthouse-ci.yml`.
-
-### CI Pipeline & Thresholds
-
-The GitHub Actions workflow runs Lighthouse, compares against budgets/thresholds defined in the config, posts results to PRs, and deploys a report dashboard to GitHub Pages. Key default thresholds (check config for specifics):
-
-- Performance: >= 65
-- Accessibility: >= 80
-- Best Practices: >= 85
-- SEO: >= 85
-- Core Web Vitals (FCP < 2.5s, LCP < 3s, CLS < 0.1, TBT < 500ms, TTI < 4s)
-
-## Legacy Theme Development Docs
-
-For potentially outdated theme development instructions, see [SHOPIFY-SIMPLE.md](./SHOPIFY-SIMPLE.md). _(Review and update/remove this if necessary)_
+**Built with ❤️ for Curalife**

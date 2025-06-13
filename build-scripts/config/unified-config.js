@@ -5,12 +5,22 @@
  *
  * Single source of truth for all build settings with smart environment detection
  * Merged and optimized from multiple config systems
+ *
+ * @example
+ * ```javascript
+ * import config from './unified-config.js';
+ * const workers = config.get('performance.workers');
+ * const isProduction = config.isProduction();
+ * ```
  */
 
 import { readFileSync, existsSync } from "fs";
 import { join } from "path";
 import os from "os";
 
+/**
+ * Unified configuration manager with smart defaults and environment detection
+ */
 export class ConfigManager {
 	constructor() {
 		this.config = null;
@@ -317,7 +327,17 @@ export class ConfigManager {
 		}
 	}
 
-	// 🎯 Optimized get method with caching
+	/**
+	 * Get configuration value by path
+	 * @param {string} path - Dot-separated path (e.g., 'performance.workers')
+	 * @param {*} defaultValue - Default value if path doesn't exist
+	 * @returns {*} Configuration value
+	 * @example
+	 * ```javascript
+	 * const workers = config.get('performance.workers', 4);
+	 * const enabled = config.get('build.minify', false);
+	 * ```
+	 */
 	get(path, defaultValue = undefined) {
 		// Use cache for performance
 		if (this._cache.has(path)) {

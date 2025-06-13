@@ -462,6 +462,41 @@ export class UnifiedTUIAdapter extends EventEmitter {
 	}
 }
 
+/**
+ * Factory method to create specialized adapters
+ * @param {string} type - 'build', 'watch', or 'shopify'
+ * @param {Object} options - Configuration options
+ * @returns {UnifiedTUIAdapter} Configured adapter instance
+ */
+export function createAdapter(type, options = {}) {
+	const adapter = new UnifiedTUIAdapter(type);
+
+	// Configure based on type
+	switch (type) {
+		case "build":
+			adapter.mode = "build";
+			adapter.enableWatch = false;
+			break;
+		case "watch":
+			adapter.mode = "watch";
+			adapter.enableWatch = true;
+			adapter.enableShopify = false;
+			break;
+		case "shopify":
+			adapter.mode = "watch";
+			adapter.enableWatch = true;
+			adapter.enableShopify = true;
+			break;
+		default:
+			throw new Error(`Unknown adapter type: ${type}`);
+	}
+
+	// Apply custom options
+	Object.assign(adapter, options);
+
+	return adapter;
+}
+
 // 🚀 Main execution when called directly
 async function main() {
 	const operation = process.argv[2] || "build";

@@ -1091,10 +1091,12 @@ export default defineConfig(({ command, mode }) => {
 			sourcemap: false, // Disable source maps to reduce build output
 			minify: isProduction,
 			cssMinify: false, // Disable CSS minification - we handle it manually for .min.css only
-			cssCodeSplit: true,
+			cssCodeSplit: true, // Keep CSS code splitting for proper handling
+			target: "es2020", // Modern browsers for better performance
 
 			// Output CSS to assets directory with flattened structure
 			rollupOptions: {
+				treeshake: true, // Enable tree shaking
 				input: {
 					// CSS entry point
 					tailwind: path.resolve(__dirname, "src/styles/tailwind.css")
@@ -1177,6 +1179,16 @@ export default defineConfig(({ command, mode }) => {
 			}
 		},
 
+		// ESBuild configuration for modern JavaScript optimizations
+		esbuild: {
+			target: "es2020"
+		},
+
+		// Optimize dependencies for faster cold starts
+		optimizeDeps: {
+			include: ["tailwindcss", "autoprefixer", "postcss"]
+		},
+
 		// CSS configuration
 		css: {
 			postcss: {
@@ -1203,8 +1215,11 @@ export default defineConfig(({ command, mode }) => {
 				ignored: ["node_modules/**", "Curalife-Theme-Build/**", ".git/**"]
 			},
 			hmr: {
-				overlay: true,
+				overlay: false, // Cleaner dev experience
 				timeout: 5000 // Increased timeout for slower systems
+			},
+			fs: {
+				allow: [".", "src", "Curalife-Theme-Build"] // Better file access
 			},
 			open: true,
 			cors: true

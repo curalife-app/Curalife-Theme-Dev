@@ -396,6 +396,46 @@ program
 		}
 	});
 
+// Add to the existing commands section, after the 'shopify' command
+
+program
+	.command("watch:standard")
+	.description("👁️ Standard file watching (no Shopify)")
+	.action(async options => {
+		visual.showWelcomeBanner("watch", { ...options, shopify: false });
+
+		try {
+			await engine.execute("watch", {
+				...options,
+				shopify: false,
+				enableStagewise: false
+			});
+		} catch (error) {
+			visual.showError(error, { operation: "watch" });
+			process.exit(1);
+		}
+	});
+
+program
+	.command("watch:fast")
+	.description("⚡ Fast watch mode (minimal features)")
+	.action(async options => {
+		visual.showWelcomeBanner("watch", { ...options, minimal: true });
+
+		try {
+			await engine.execute("watch", {
+				...options,
+				shopify: false,
+				enableStagewise: false,
+				debounceDelay: 50, // Ultra-fast response
+				skipOptimizations: true
+			});
+		} catch (error) {
+			visual.showError(error, { operation: "watch" });
+			process.exit(1);
+		}
+	});
+
 // 🚀 Handle errors gracefully
 process.on("uncaughtException", error => {
 	visual.showError(error, { operation: "system" });
