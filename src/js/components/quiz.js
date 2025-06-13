@@ -2616,13 +2616,13 @@ class ModularQuiz {
 	_showSchedulingResults(result) {
 		const schedulingData = result?.schedulingData;
 
-		if (result?.success && schedulingData?.status === "SCHEDULED") {
-			// Success - show scheduling success page
+		if (result?.success && schedulingData?.scheduleLink) {
+			// Success - show scheduling success page when we have a schedule link
 			const successHTML = this._generateSchedulingSuccessHTML(schedulingData);
 			this.questionContainer.innerHTML = successHTML;
 		} else {
 			// Error - show scheduling error page
-			const errorMessage = schedulingData?.message || "Unknown scheduling error";
+			const errorMessage = schedulingData?.message || result?.error || "Unknown scheduling error";
 			this._showSchedulingError(errorMessage, schedulingData);
 		}
 	}
