@@ -37,8 +37,8 @@ class ModularQuiz {
 		this.workflowCompletionReject = null; // To reject the promise returned by _startOrchestratorWorkflow
 		this._lastStatusMessage = ""; // To prevent duplicate notifications for same status
 
-		// Initialize the modular notification system asynchronously
-		this._initializeNotificationManager().then(() => {
+		// Initialize the modular notification system and Stedi error mappings asynchronously
+		Promise.all([this._initializeNotificationManager(), this._initializeStediErrorMappings()]).then(() => {
 			this.init();
 		});
 	}
@@ -84,6 +84,37 @@ class ModularQuiz {
 				exportNotifications: () => console.log("📤 Export notifications")
 			};
 
+			return false;
+		}
+	}
+
+	async _initializeStediErrorMappings() {
+		try {
+			// Get the stedi error mappings URL from the data attribute set by Liquid
+			const stediErrorMappingsUrl = this.container.getAttribute("data-stedi-mappings-url");
+
+			if (!stediErrorMappingsUrl) {
+				console.warn("Stedi error mappings URL not found, using fallback error handling");
+				return false;
+			}
+
+			console.log("🔗 Loading Stedi error mappings from:", stediErrorMappingsUrl);
+
+			// Dynamic import of the Stedi error mappings
+			const { getStediErrorMapping, createStediErrorEligibilityData, getErrorTitle, isUserCorrectableError } = await import(stediErrorMappingsUrl);
+
+			this.stediErrorMappings = {
+				getMapping: getStediErrorMapping,
+				createEligibilityData: createStediErrorEligibilityData,
+				getTitle: getErrorTitle,
+				isUserCorrectable: isUserCorrectableError
+			};
+
+			console.log("✅ Stedi error mappings loaded successfully");
+			return true;
+		} catch (error) {
+			console.error("❌ Failed to load Stedi error mappings:", error);
+			this.stediErrorMappings = null;
 			return false;
 		}
 	}
@@ -3073,7 +3104,16 @@ class ModularQuiz {
 					const errorCode = eligibilityData.error?.code || eligibilityData.aaaErrorCode || eligibilityData.error?.allErrors?.[0]?.code || "Unknown";
 
 					console.log("Processing AAA_ERROR with code:", errorCode, "from eligibilityData:", eligibilityData);
-					return this._createAAAErrorEligibilityData(errorCode, eligibilityData.userMessage);
+					return this._createStediErrorEligibilityData(errorCode, eligibilityData.userMessage);
+				}
+
+				// Handle STEDI_ERROR status from workflow
+				if (eligibilityData.eligibilityStatus === "STEDI_ERROR") {
+					// Extract the Stedi error code
+					const errorCode = eligibilityData.error?.code || eligibilityData.stediErrorCode || "Unknown";
+
+					console.log("Processing STEDI_ERROR with code:", errorCode, "from eligibilityData:", eligibilityData);
+					return this._createStediErrorEligibilityData(errorCode, eligibilityData.userMessage);
 				}
 
 				return eligibilityData;
@@ -3102,7 +3142,16 @@ class ModularQuiz {
 					const errorCode = eligibilityData.error?.code || eligibilityData.aaaErrorCode || eligibilityData.error?.allErrors?.[0]?.code || "Unknown";
 
 					console.log("Processing AAA_ERROR with code:", errorCode, "from eligibilityData:", eligibilityData);
-					return this._createAAAErrorEligibilityData(errorCode, eligibilityData.userMessage);
+					return this._createStediErrorEligibilityData(errorCode, eligibilityData.userMessage);
+				}
+
+				// Handle STEDI_ERROR status from workflow
+				if (eligibilityData.eligibilityStatus === "STEDI_ERROR") {
+					// Extract the Stedi error code
+					const errorCode = eligibilityData.error?.code || eligibilityData.stediErrorCode || "Unknown";
+
+					console.log("Processing STEDI_ERROR with code:", errorCode, "from eligibilityData:", eligibilityData);
+					return this._createStediErrorEligibilityData(errorCode, eligibilityData.userMessage);
 				}
 
 				return eligibilityData;
@@ -3127,7 +3176,16 @@ class ModularQuiz {
 				const errorCode = eligibilityData.error?.code || eligibilityData.aaaErrorCode || eligibilityData.error?.allErrors?.[0]?.code || "Unknown";
 
 				console.log("Processing AAA_ERROR with code:", errorCode, "from eligibilityData:", eligibilityData);
-				return this._createAAAErrorEligibilityData(errorCode, eligibilityData.userMessage);
+				return this._createStediErrorEligibilityData(errorCode, eligibilityData.userMessage);
+			}
+
+			// Handle STEDI_ERROR status from workflow
+			if (eligibilityData.eligibilityStatus === "STEDI_ERROR") {
+				// Extract the Stedi error code
+				const errorCode = eligibilityData.error?.code || eligibilityData.stediErrorCode || "Unknown";
+
+				console.log("Processing STEDI_ERROR with code:", errorCode, "from eligibilityData:", eligibilityData);
+				return this._createStediErrorEligibilityData(errorCode, eligibilityData.userMessage);
 			}
 
 			return eligibilityData;
@@ -3242,6 +3300,18 @@ class ModularQuiz {
 		};
 	}
 
+	_createStediErrorEligibilityData(errorCode, customMessage = null) {
+		// Use the Stedi error mappings if available, otherwise fall back to generic handling
+		if (this.stediErrorMappings?.createEligibilityData) {
+			console.log("Using Stedi error mappings for error code:", errorCode);
+			return this.stediErrorMappings.createEligibilityData(errorCode, customMessage);
+		}
+
+		// Fallback to existing AAA error handling for backward compatibility
+		console.log("Falling back to AAA error handling for error code:", errorCode);
+		return this._createAAAErrorEligibilityData(errorCode, customMessage);
+	}
+
 	showResults(resultUrl, webhookSuccess = true, resultData = null, errorMessage = "") {
 		try {
 			this._stopLoadingMessages();
@@ -3328,6 +3398,16 @@ class ModularQuiz {
 		if (eligibilityStatus === "AAA_ERROR") {
 			console.log("Generating AAA error results");
 			return this._generateAAAErrorResultsHTML(resultData, resultUrl);
+		}
+
+		if (eligibilityStatus === "TECHNICAL_PROBLEM") {
+			console.log("Generating technical problem results");
+			return this._generateTechnicalProblemResultsHTML(resultData, resultUrl);
+		}
+
+		if (eligibilityStatus === "INSURANCE_PLANS_ERROR") {
+			console.log("Generating insurance plans error results");
+			return this._generateInsurancePlansErrorResultsHTML(resultData, resultUrl);
 		}
 
 		if (eligibilityStatus === "TEST_DATA_ERROR") {
@@ -3655,6 +3735,111 @@ class ModularQuiz {
 							</div>
 						</div>
 						<a href="${resultUrl}" class="quiz-booking-button">Continue</a>
+					</div>
+				</div>
+			</div>
+		`;
+	}
+
+	_generateTechnicalProblemResultsHTML(resultData, resultUrl) {
+		const messages = this.quizData.ui?.resultMessages?.technicalProblem || {};
+		const error = resultData.error || {};
+		const errorCode = error.code || resultData.stediErrorCode || "Unknown";
+		const userMessage = resultData.userMessage || error.message || "There was a technical issue processing your insurance verification.";
+		const actionTitle = error.actionTitle || "Technical Support Required";
+
+		return `
+			<div class="quiz-results-container">
+				<div class="quiz-results-header">
+					<h2 class="quiz-results-title">${messages.title || "Technical Issue Detected"}</h2>
+					<p class="quiz-results-subtitle">${messages.subtitle || "We're resolving this for you."}</p>
+				</div>
+				<div class="quiz-coverage-card" style="border-left: 4px solid #f56565; background-color: #fed7d7;">
+					<h3 class="quiz-coverage-card-title" style="color: #c53030;">⚙️ ${actionTitle}</h3>
+					<p style="color: #c53030;">${userMessage}</p>
+					${errorCode !== "Unknown" ? `<p style="color: #c53030; font-size: 0.9em; margin-top: 8px;">Error Code: ${errorCode}</p>` : ""}
+					${error.detailedDescription ? `<p style="color: #c53030; font-size: 0.85em; margin-top: 4px;">${error.detailedDescription}</p>` : ""}
+				</div>
+				<div class="quiz-action-section">
+					<div class="quiz-action-content">
+						<div class="quiz-action-header">
+							<h3 class="quiz-action-title">We're handling this</h3>
+						</div>
+						<div class="quiz-action-details">
+							<div class="quiz-action-info">
+								<svg class="quiz-action-info-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+									<path d="M10 18.3333C14.6023 18.3333 18.3333 14.6023 18.3333 9.99996C18.3333 5.39759 14.6023 1.66663 10 1.66663C5.39762 1.66663 1.66666 5.39759 1.66666 9.99996C1.66666 14.6023 5.39762 18.3333 10 18.3333Z" stroke="#306E51" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+									<path d="M7.5 9.99996L9.16667 11.6666L12.5 8.33329" stroke="#306E51" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+								</svg>
+								<div class="quiz-action-info-text">${error.actionText || "Our technical team will resolve this issue and complete your verification manually."}</div>
+							</div>
+							<div class="quiz-action-feature">
+								<svg class="quiz-action-feature-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+									<path d="M18.3333 14.1667C18.3333 15.0871 17.5871 15.8333 16.6667 15.8333H5.83333L1.66666 20V3.33333C1.66666 2.41286 2.41285 1.66667 3.33333 1.66667H16.6667C17.5871 1.66667 18.3333 2.41286 18.3333 3.33333V14.1667Z" stroke="#306E51" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+								</svg>
+								<div class="quiz-action-feature-text">Our team will manually process your eligibility verification</div>
+							</div>
+							<div class="quiz-action-feature">
+								<svg class="quiz-action-feature-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+									<path d="M6.66666 2.5V5.83333M13.3333 2.5V5.83333M2.5 9.16667H17.5M4.16666 3.33333H15.8333C16.7538 3.33333 17.5 4.07952 17.5 5V16.6667C17.5 17.5871 16.7538 18.3333 15.8333 18.3333H4.16666C3.24619 18.3333 2.5 17.5871 2.5 16.6667V5C2.5 4.07952 3.24619 3.33333 4.16666 3.33333Z" stroke="#306E51" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+								</svg>
+								<div class="quiz-action-feature-text">Quick resolution to get you connected with a dietitian</div>
+							</div>
+						</div>
+						<a href="${resultUrl}" class="quiz-booking-button">Continue with Support</a>
+					</div>
+				</div>
+			</div>
+		`;
+	}
+
+	_generateInsurancePlansErrorResultsHTML(resultData, resultUrl) {
+		const messages = this.quizData.ui?.resultMessages?.insurancePlansError || {};
+		const error = resultData.error || {};
+		const errorCode = error.code || resultData.stediErrorCode || "Unknown";
+		const userMessage = resultData.userMessage || error.message || "There was an issue with your insurance information.";
+		const actionTitle = error.actionTitle || "Insurance Information Review";
+		const canRetry = error.canRetry || false;
+
+		return `
+			<div class="quiz-results-container">
+				<div class="quiz-results-header">
+					<h2 class="quiz-results-title">${messages.title || "Insurance Information Review"}</h2>
+					<p class="quiz-results-subtitle">${messages.subtitle || "Let's verify your details."}</p>
+				</div>
+				<div class="quiz-coverage-card" style="border-left: 4px solid #ed8936; background-color: #fffaf0;">
+					<h3 class="quiz-coverage-card-title" style="color: #c05621;">📋 ${actionTitle}</h3>
+					<p style="color: #c05621;">${userMessage}</p>
+					${errorCode !== "Unknown" ? `<p style="color: #c05621; font-size: 0.9em; margin-top: 8px;">Error Code: ${errorCode}</p>` : ""}
+					${error.detailedDescription ? `<p style="color: #c05621; font-size: 0.85em; margin-top: 4px;">${error.detailedDescription}</p>` : ""}
+				</div>
+				<div class="quiz-action-section">
+					<div class="quiz-action-content">
+						<div class="quiz-action-header">
+							<h3 class="quiz-action-title">${canRetry ? "Verification Options" : "Next Steps"}</h3>
+						</div>
+						<div class="quiz-action-details">
+							<div class="quiz-action-info">
+								<svg class="quiz-action-info-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+									<path d="M10 18.3333C14.6023 18.3333 18.3333 14.6023 18.3333 9.99996C18.3333 5.39759 14.6023 1.66663 10 1.66663C5.39762 1.66663 1.66666 5.39759 1.66666 9.99996C1.66666 14.6023 5.39762 18.3333 10 18.3333Z" stroke="#306E51" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+									<path d="M7.5 9.99996L9.16667 11.6666L12.5 8.33329" stroke="#306E51" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+								</svg>
+								<div class="quiz-action-info-text">${error.actionText || "Please verify your insurance details match your card exactly, or our team can help verify your coverage manually."}</div>
+							</div>
+							<div class="quiz-action-feature">
+								<svg class="quiz-action-feature-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+									<path d="M18.3333 14.1667C18.3333 15.0871 17.5871 15.8333 16.6667 15.8333H5.83333L1.66666 20V3.33333C1.66666 2.41286 2.41285 1.66667 3.33333 1.66667H16.6667C17.5871 1.66667 18.3333 2.41286 18.3333 3.33333V14.1667Z" stroke="#306E51" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+								</svg>
+								<div class="quiz-action-feature-text">${canRetry ? "Double-check your information matches your insurance card exactly" : "Our team will verify your insurance information manually"}</div>
+							</div>
+							<div class="quiz-action-feature">
+								<svg class="quiz-action-feature-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+									<path d="M6.66666 2.5V5.83333M13.3333 2.5V5.83333M2.5 9.16667H17.5M4.16666 3.33333H15.8333C16.7538 3.33333 17.5 4.07952 17.5 5V16.6667C17.5 17.5871 16.7538 18.3333 15.8333 18.3333H4.16666C3.24619 18.3333 2.5 17.5871 2.5 16.6667V5C2.5 4.07952 3.24619 3.33333 4.16666 3.33333Z" stroke="#306E51" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+								</svg>
+								<div class="quiz-action-feature-text">Get accurate coverage details for your plan</div>
+							</div>
+						</div>
+						<a href="${resultUrl}" class="quiz-booking-button">Continue with Verification</a>
 					</div>
 				</div>
 			</div>
