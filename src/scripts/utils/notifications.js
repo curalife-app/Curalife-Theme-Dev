@@ -159,7 +159,8 @@ export class NotificationManager {
 		const notificationDuration = duration !== null ? duration : this.options.defaultDuration;
 
 		const notification = document.createElement("div");
-		notification.className = `${this.cssClasses.NOTIFICATION} ${this.cssClasses[type] || this.cssClasses.INFO}`;
+		const typeClass = this._getTypeClass(type);
+		notification.className = `${this.cssClasses.NOTIFICATION} ${typeClass}`;
 		notification.id = id;
 		notification.dataset[DATA_ATTRIBUTES.TYPE] = type;
 		notification.dataset[DATA_ATTRIBUTES.PRIORITY] = actualPriority;
@@ -865,6 +866,21 @@ export class NotificationManager {
 				return EMOJIS.INFO;
 			default:
 				return EMOJIS.INFO;
+		}
+	}
+
+	_getTypeClass(type) {
+		switch (type) {
+			case "success":
+				return this.cssClasses.SUCCESS;
+			case "error":
+				return this.cssClasses.ERROR;
+			case "warning":
+				return this.cssClasses.WARNING;
+			case "info":
+				return this.cssClasses.INFO;
+			default:
+				return this.cssClasses.INFO;
 		}
 	}
 
