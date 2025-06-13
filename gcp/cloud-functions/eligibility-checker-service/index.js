@@ -1,156 +1,81 @@
 const axios = require("axios");
 
+// Stedi API Configuration
+const STEDI_API_URL = "https://healthcare.us.stedi.com/2024-04-01/change/medicalnetwork/eligibility/v3";
+
 /**
  * All-in-One Insurance Eligibility Checker
  * HIPAA-compliant Cloud Function that replaces the eligibility workflow
  */
-exports.checkEligibility = async (req, res) => {
-	// Set CORS headers for all requests
-	res.set("Access-Control-Allow-Origin", "*");
-	res.set("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
-	res.set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
-	res.set("Access-Control-Allow-Credentials", "true");
-	res.set("Access-Control-Max-Age", "3600");
-	res.set("Content-Type", "application/json");
 
-	// Handle preflight OPTIONS request
-	if (req.method === "OPTIONS") {
-		res.status(204).send("");
-		return;
+/**
+ * Map insurance payer ID to trading partner service ID
+ */
+function mapInsuranceToTradingPartner(insurance, memberId = "") {
+	// First, try to detect from member ID patterns (most reliable)
+	if (memberId) {
+		const upperMemberId = memberId.toUpperCase();
+
+		// UnitedHealth/UHC patterns
+		if (upperMemberId.startsWith("UHC") || upperMemberId.startsWith("UNITED")) {
+			return "52133"; // Correct UHC trading partner from Stedi docs
+		}
+
+		// Humana patterns
+		if (upperMemberId.startsWith("HUM") || (upperMemberId.startsWith("H") && upperMemberId.length >= 8)) {
+			return "61101"; // Humana trading partner
+		}
+
+		// Aetna patterns
+		if (upperMemberId.startsWith("AET") || upperMemberId.startsWith("W")) {
+			return "60054"; // Correct Aetna trading partner from Stedi docs
+		}
 	}
 
-	const timestamp = Date.now();
+	// Fallback to insurance field mapping
+	const tradingPartnerMap = {
+		// Humana
+		87726: "61101",
+		HUMANA: "61101",
+		humana: "61101",
 
-	try {
-		// 1. Parse and extract request data
-		const rawData = req.body || {};
-		let actualPayload = rawData;
+		// Aetna
+		60054: "60054",
+		AETNA: "60054",
+		aetna: "60054",
 
-		// Handle nested data field if present
-		if (rawData.data) {
-			try {
-				actualPayload = typeof rawData.data === "string" ? JSON.parse(rawData.data) : rawData.data;
-			} catch (e) {
-				actualPayload = rawData.data;
-			}
-		}
+		// Blue Cross Blue Shield (varies by region, using common one)
+		BCBS: "87726",
+		"BLUE CROSS": "87726",
+		"blue cross": "87726",
 
-		// 2. Extract required fields with safe defaults
-		const firstName = getString(actualPayload, "firstName", "");
-		const lastName = getString(actualPayload, "lastName", "");
-		const insurance = getString(actualPayload, "insurance", "");
-		const insuranceMemberId = getString(actualPayload, "insuranceMemberId", "");
-		const groupNumber = getString(actualPayload, "groupNumber", "");
-		const dateOfBirth = getString(actualPayload, "dateOfBirth", "");
-		const testMode = getBoolean(actualPayload, "testMode", false);
+		// UnitedHealth/UHC
+		UNITED: "52133",
+		UHC: "52133",
+		unitedhealth: "52133"
+	};
 
-		console.log("Processing eligibility request:", {
-			firstName: firstName ? "***" : "missing",
-			lastName: lastName ? "***" : "missing",
-			insurance,
-			hasMemberId: !!insuranceMemberId,
-			hasGroupNumber: !!groupNumber,
-			testMode
-		});
-
-		// 3. Validate required fields
-		const missingFields = [];
-		if (!firstName) missingFields.push("firstName");
-		if (!lastName) missingFields.push("lastName");
-		if (!insuranceMemberId) missingFields.push("insuranceMemberId");
-
-		if (missingFields.length > 0) {
-			return res.status(400).json({
-				success: false,
-				error: "Missing required fields for eligibility check",
-				missingFields,
-				timestamp,
-				receivedData: {
-					firstName: !!firstName,
-					lastName: !!lastName,
-					insurance: !!insurance,
-					insuranceMemberId: !!insuranceMemberId,
-					groupNumber: !!groupNumber,
-					dateOfBirth: !!dateOfBirth
-				}
-			});
-		}
-
-		// 4. Select appropriate API key
-		const apiKeyResult = selectApiKey(testMode);
-		if (!apiKeyResult.valid) {
-			return res.status(500).json({
-				success: false,
-				error: "Invalid API configuration",
-				eligibilityData: {
-					isEligible: false,
-					sessionsCovered: 0,
-					deductible: { individual: 0 },
-					eligibilityStatus: "ERROR",
-					userMessage: "Invalid API configuration. Please contact customer support.",
-					planBegin: "",
-					planEnd: "",
-					isProcessing: false
-				},
-				debug: {
-					apiKeyDebug: apiKeyResult.debug,
-					message: "STEDI API key validation failed"
-				},
-				timestamp
-			});
-		}
-
-		// 5. Call Stedi API for eligibility check
-		const stediResult = await callStediAPI({
-			firstName,
-			lastName,
-			dateOfBirth,
-			insuranceMemberId,
-			insurance,
-			groupNumber,
-			apiKey: apiKeyResult.apiKey,
-			timestamp
-		});
-
-		// 6. Process and return the result
-		const response = {
-			success: true,
-			eligibilityData: stediResult.eligibilityData,
-			debug: stediResult.debug,
-			timestamp
-		};
-
-		console.log("Eligibility check completed:", {
-			isEligible: stediResult.eligibilityData.isEligible,
-			status: stediResult.eligibilityData.eligibilityStatus,
-			sessionsCovered: stediResult.eligibilityData.sessionsCovered
-		});
-
-		res.status(200).json(response);
-	} catch (error) {
-		console.error("Eligibility check failed:", error);
-
-		res.status(500).json({
-			success: false,
-			error: "Eligibility check failed",
-			eligibilityData: {
-				isEligible: false,
-				sessionsCovered: 0,
-				deductible: { individual: 0 },
-				eligibilityStatus: "ERROR",
-				userMessage: "Unable to verify insurance eligibility at this time. Please contact customer support.",
-				planBegin: "",
-				planEnd: "",
-				isProcessing: false
-			},
-			debug: {
-				error: error.message,
-				stack: error.stack
-			},
-			timestamp
-		});
+	// Try exact match first
+	if (tradingPartnerMap[insurance]) {
+		return tradingPartnerMap[insurance];
 	}
-};
+
+	// Try case-insensitive match
+	const lowerInsurance = (insurance || "").toLowerCase();
+	for (const [key, value] of Object.entries(tradingPartnerMap)) {
+		if (key.toLowerCase() === lowerInsurance) {
+			return value;
+		}
+	}
+
+	// If member ID suggests UnitedHealth but no other match, use UHC
+	if (memberId && memberId.toUpperCase().includes("UHC")) {
+		return "52133";
+	}
+
+	// Default to Humana (most common test case)
+	return "61101";
+}
 
 /**
  * Safely extract string value from object
@@ -221,93 +146,6 @@ function selectApiKey(testMode) {
 }
 
 /**
- * Call Stedi API for eligibility verification
- */
-async function callStediAPI({ firstName, lastName, dateOfBirth, insuranceMemberId, insurance, groupNumber, apiKey, timestamp }) {
-	const stediApiUrl = "https://healthcare.us.stedi.com/2024-04-01/change/medicalnetwork/eligibility/v3";
-	const controlNumber = String(Math.floor(timestamp * 1000));
-
-	// Use correct trading partner service ID for Humana
-	const tradingPartnerServiceId = "61101";
-
-	// Convert date from YYYY-MM-DD to YYYYMMDD format
-	let formattedDateOfBirth = dateOfBirth;
-	if (dateOfBirth && dateOfBirth.includes("-")) {
-		formattedDateOfBirth = dateOfBirth.replace(/-/g, "");
-	}
-
-	const requestBody = {
-		controlNumber,
-		tradingPartnerServiceId,
-		provider: {
-			organizationName: "Beluga Health",
-			npi: "1999999984"
-		},
-		subscriber: {
-			firstName,
-			lastName,
-			dateOfBirth: formattedDateOfBirth,
-			memberId: insuranceMemberId
-		},
-		encounter: {
-			serviceTypeCodes: ["30"]
-		}
-	};
-
-	// Note: groupNumber is not included in the subscriber object based on working examples
-
-	try {
-		console.log("Calling Stedi API:", {
-			url: stediApiUrl,
-			controlNumber,
-			tradingPartnerServiceId,
-			hasGroupNumber: !!groupNumber
-		});
-
-		const response = await axios.post(stediApiUrl, requestBody, {
-			headers: {
-				Authorization: apiKey,
-				"Content-Type": "application/json"
-			},
-			timeout: 30000 // 30 second timeout
-		});
-
-		console.log("Stedi API response received:", {
-			status: response.status,
-			hasData: !!response.data
-		});
-
-		return processStediResponse(response.data, requestBody);
-	} catch (error) {
-		console.error("Stedi API call failed:", {
-			message: error.message,
-			status: error.response?.status,
-			statusText: error.response?.statusText
-		});
-
-		return {
-			eligibilityData: {
-				isEligible: false,
-				sessionsCovered: 0,
-				deductible: { individual: 0 },
-				eligibilityStatus: "API_ERROR",
-				userMessage: "Unable to verify insurance eligibility at this time. Please contact customer support.",
-				planBegin: "",
-				planEnd: "",
-				isProcessing: false
-			},
-			debug: {
-				stediApiError: true,
-				error: error.message,
-				status: error.response?.status,
-				statusText: error.response?.statusText,
-				requestBody
-			}
-		};
-	}
-}
-
-/**
  * Process Stedi API response and format for our system
  */
 function processStediResponse(stediData, requestBody) {
@@ -324,128 +162,175 @@ function processStediResponse(stediData, requestBody) {
 			isProcessing: false
 		};
 
-		// Check if we have a valid response structure
-		if (!stediData) {
-			eligibilityData.eligibilityStatus = "NO_RESPONSE";
-			eligibilityData.userMessage = "No eligibility information received from insurance provider.";
-
-			return {
-				eligibilityData,
-				debug: {
-					stediResponse: stediData,
-					requestBody,
-					processingNote: "No data received from Stedi API"
-				}
-			};
+		// Check for API-level errors first
+		if (stediData?.errors && stediData.errors.length > 0) {
+			eligibilityData.eligibilityStatus = "API_ERROR";
+			eligibilityData.userMessage = "Unable to verify insurance eligibility at this time. Please contact customer support.";
+			return eligibilityData;
 		}
 
-		// Extract plan status information
-		if (stediData.planStatus && Array.isArray(stediData.planStatus)) {
-			for (const planStatus of stediData.planStatus) {
-				if (planStatus.statusCode === "1" || planStatus.status === "Active Coverage") {
-					eligibilityData.isEligible = true;
-					eligibilityData.eligibilityStatus = "ACTIVE";
-					eligibilityData.userMessage = "Your insurance coverage is active and eligible for services.";
-					break;
-				}
-			}
-		}
+		// Process plan status
+		if (stediData?.planStatus && Array.isArray(stediData.planStatus)) {
+			const activeStatus = stediData.planStatus.find(status => status.statusCode === "1" || status.status?.toLowerCase().includes("active") || status.statusCode === "A");
 
-		// Extract plan dates
-		if (stediData.planDateInformation) {
-			if (stediData.planDateInformation.planBegin) {
-				eligibilityData.planBegin = stediData.planDateInformation.planBegin;
-			}
-			// Note: Stedi doesn't always provide planEnd, so we'll leave it empty
-		}
-
-		// Extract benefit information from benefitsInformation array
-		if (stediData.benefitsInformation && Array.isArray(stediData.benefitsInformation)) {
-			let totalSessions = 0;
-			let individualDeductible = 0;
-			let copayAmount = 0;
-
-			for (const benefit of stediData.benefitsInformation) {
-				// Look for relevant service types (30 = Health Benefit Plan Coverage, 98 = Professional Visits, MH = Mental Health)
-				const relevantServiceTypes = ["30", "98", "MH"];
-				const hasRelevantService = benefit.serviceTypeCodes && benefit.serviceTypeCodes.some(code => relevantServiceTypes.includes(code));
-
-				if (hasRelevantService) {
-					// Extract session/visit limits
-					if (benefit.name === "Limitations" && benefit.benefitQuantity) {
-						const quantity = parseInt(benefit.benefitQuantity) || 0;
-						if (quantity > totalSessions) {
-							totalSessions = quantity;
-						}
-					}
-
-					// Extract deductible information
-					if (benefit.name === "Deductible" && benefit.benefitAmount) {
-						const deductible = parseFloat(benefit.benefitAmount) || 0;
-						if (deductible > individualDeductible) {
-							individualDeductible = deductible;
-						}
-					}
-
-					// Extract copay information
-					if (benefit.name === "Co-Payment" && benefit.benefitAmount) {
-						const copay = parseFloat(benefit.benefitAmount) || 0;
-						if (copay > 0 && copayAmount === 0) {
-							copayAmount = copay;
-						}
-					}
-				}
-			}
-
-			eligibilityData.sessionsCovered = totalSessions;
-			eligibilityData.deductible.individual = individualDeductible;
-			if (copayAmount > 0) {
-				eligibilityData.copay = copayAmount;
-			}
-		}
-
-		// Update user message based on eligibility and benefits
-		if (eligibilityData.isEligible) {
-			if (eligibilityData.sessionsCovered > 0) {
-				eligibilityData.userMessage = `Your insurance is active. Coverage details: ${eligibilityData.sessionsCovered} sessions covered.`;
-			} else {
+			if (activeStatus) {
+				eligibilityData.isEligible = true;
+				eligibilityData.eligibilityStatus = "ACTIVE";
 				eligibilityData.userMessage = "Your insurance coverage is active. Contact your provider for specific session details.";
 			}
 		}
 
-		return {
-			eligibilityData,
-			debug: {
-				stediResponse: stediData,
-				requestBody,
-				processingNote: "Successfully processed Stedi response",
-				extractedBenefits: {
-					planStatusFound: !!(stediData.planStatus && stediData.planStatus.length > 0),
-					benefitsFound: !!(stediData.benefitsInformation && stediData.benefitsInformation.length > 0),
-					planDatesFound: !!stediData.planDateInformation
-				}
-			}
-		};
-	} catch (error) {
-		console.error("Error processing Stedi response:", error);
+		// Extract plan dates
+		if (stediData?.planDateInformation?.planBegin) {
+			eligibilityData.planBegin = stediData.planDateInformation.planBegin;
+		}
+		if (stediData?.planDateInformation?.planEnd) {
+			eligibilityData.planEnd = stediData.planDateInformation.planEnd;
+		}
 
-		return {
-			eligibilityData: {
-				isEligible: false,
-				sessionsCovered: 0,
-				deductible: { individual: 0 },
-				eligibilityStatus: "PROCESSING_ERROR",
-				userMessage: "Error processing insurance eligibility information.",
-				planBegin: "",
-				planEnd: "",
-				isProcessing: false
-			},
-			debug: {
-				stediResponse: stediData,
-				requestBody,
-				processingError: error.message,
-				processingNote: "Error occurred while processing Stedi response"
+		// Process benefits information for deductibles and session limits
+		if (stediData?.benefitsInformation && Array.isArray(stediData.benefitsInformation)) {
+			// Look for deductible information
+			const deductibleBenefit = stediData.benefitsInformation.find(benefit => benefit.name?.toLowerCase().includes("deductible") && benefit.coverageLevel === "Individual");
+
+			if (deductibleBenefit && deductibleBenefit.benefitAmount) {
+				eligibilityData.deductible.individual = parseFloat(deductibleBenefit.benefitAmount) || 0;
 			}
+		}
+
+		return eligibilityData;
+	} catch (error) {
+		return {
+			isEligible: false,
+			sessionsCovered: 0,
+			deductible: { individual: 0 },
+			eligibilityStatus: "PROCESSING_ERROR",
+			userMessage: "Unable to process insurance information at this time.",
+			planBegin: "",
+			planEnd: "",
+			isProcessing: false
 		};
 	}
 }
+
+/**
+ * Main Cloud Function entry point
+ */
+exports.eligibilityChecker = async (req, res) => {
+	// Set CORS headers
+	res.set("Access-Control-Allow-Origin", "*");
+	res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+	res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+
+	// Handle preflight requests
+	if (req.method === "OPTIONS") {
+		return res.status(200).send();
+	}
+
+	const timestamp = Date.now();
+
+	// Extract and validate input parameters
+	const { firstName, lastName, dateOfBirth, insuranceMemberId, insurance, groupNumber } = req.body;
+
+	if (!firstName || !lastName || !dateOfBirth || !insuranceMemberId) {
+		return res.status(400).json({
+			success: false,
+			error: "Missing required fields: firstName, lastName, dateOfBirth, insuranceMemberId"
+		});
+	}
+
+	try {
+		// Format date of birth for Stedi API (YYYYMMDD)
+		const formattedDateOfBirth = dateOfBirth.replace(/[-\/]/g, "");
+
+		// Determine trading partner service ID
+		const tradingPartnerServiceId = mapInsuranceToTradingPartner(insurance, insuranceMemberId);
+
+		// Generate control number (timestamp-based)
+		const controlNumber = Date.now().toString();
+
+		// Build request body for Stedi API
+		const requestBody = {
+			controlNumber,
+			tradingPartnerServiceId,
+			provider: {
+				organizationName: "Beluga Health",
+				npi: "1999999984"
+			},
+			subscriber: {
+				firstName,
+				lastName,
+				dateOfBirth: formattedDateOfBirth,
+				memberId: insuranceMemberId
+			},
+			encounter: {
+				serviceTypeCodes: ["30"]
+			}
+		};
+
+		// Add group number to subscriber if available (required by some payers like UnitedHealth)
+		if (groupNumber && groupNumber.trim()) {
+			requestBody.subscriber.groupNumber = groupNumber.trim();
+		}
+
+		// Select appropriate API key
+		const apiKeyResult = selectApiKey(false);
+		if (!apiKeyResult.valid) {
+			return res.status(500).json({
+				success: false,
+				error: "API configuration error",
+				timestamp
+			});
+		}
+
+		// Call Stedi API
+		const stediResponse = await axios.post(STEDI_API_URL, requestBody, {
+			headers: {
+				Authorization: `Key ${apiKeyResult.apiKey}`,
+				"Content-Type": "application/json"
+			}
+		});
+
+		// Process successful response
+		const eligibilityData = processStediResponse(stediResponse.data, requestBody);
+
+		return res.status(200).json({
+			success: true,
+			eligibilityData,
+			timestamp
+		});
+	} catch (error) {
+		// Handle API errors
+		if (error.response) {
+			const eligibilityData = {
+				isEligible: false,
+				sessionsCovered: 0,
+				deductible: { individual: 0 },
+				eligibilityStatus: "API_ERROR",
+				userMessage: "Unable to verify insurance eligibility at this time. Please contact customer support.",
+				planBegin: "",
+				planEnd: "",
+				isProcessing: false
+			};
+
+			return res.status(200).json({
+				success: true,
+				eligibilityData,
+				timestamp,
+				debug: {
+					stediApiError: true,
+					error: error.message,
+					status: error.response?.status,
+					responseData: error.response?.data
+				}
+			});
+		}
+
+		// Handle other errors
+		return res.status(500).json({
+			success: false,
+			error: "Internal server error",
+			timestamp
+		});
+	}
+};

@@ -4432,4 +4432,13 @@ class ModularQuiz {
 document.addEventListener("DOMContentLoaded", () => {
 	const quiz = new ModularQuiz();
 	window.productQuiz = quiz;
+
+	// Global test function for debugging notifications
+	window.testNotifications = () => {
+		if (window.productQuiz && window.productQuiz._testNotificationSystem) {
+			window.productQuiz._testNotificationSystem();
+		} else {
+			console.error("Quiz not initialized or test method not available");
+		}
+	};
 });
