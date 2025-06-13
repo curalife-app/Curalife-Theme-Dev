@@ -153,35 +153,24 @@ async function updateContactInsuranceInfo(params) {
 	} = params;
 
 	try {
-		console.log("Updating contact properties for:", hubspotContactId);
+		console.log("Creating insurance plan record for contact:", hubspotContactId);
 
-		// Create a simple properties object with only standard fields
-		const updateProperties = {
-			// Use standard HubSpot properties that should exist
-			lifecyclestage: "customer"
-		};
+		const insurancePlanId = `plan_${hubspotContactId}_${timestamp}`;
 
-		// Add insurance info to standard text fields if available
+		// Step 1: Update contact with basic insurance info
+		const updateProperties = {};
+
+		// Store insurance provider in company field for filtering
 		if (insurance) {
 			updateProperties.company = insurance;
 		}
 
-		if (eligibilityData.eligibilityStatus) {
-			updateProperties.hs_lead_status = eligibilityData.eligibilityStatus;
-		}
+		// Store structured data in description field
+		const insuranceDescription = `Insurance Plan: ${insurance} | Member ID: ${insuranceMemberId} | Group: ${groupNumber} | Status: ${eligibilityData.eligibilityStatus} | Sessions: ${eligibilityData.sessionsCovered} | Eligible: ${eligibilityData.isEligible ? "Yes" : "No"} | Plan ID: ${insurancePlanId}`;
 
-		// Add a note to the description field
-		const noteText = `Insurance Plan Updated: ${new Date(timestamp).toISOString()}
-Provider: ${insurance || "N/A"}
-Member ID: ${insuranceMemberId || "N/A"}
-Status: ${eligibilityData.eligibilityStatus || "Unknown"}
-Eligible: ${eligibilityData.isEligible ? "Yes" : "No"}
-Sessions: ${eligibilityData.sessionsCovered || 0}`;
+		updateProperties.hs_persona = insuranceDescription.substring(0, 255); // Use persona field to store key info
 
-		updateProperties.notes_last_contacted = noteText.substring(0, 65535); // HubSpot limit
-
-		console.log("Updating properties:", Object.keys(updateProperties));
-
+		console.log("Updating contact with basic insurance info...");
 		await axios.patch(
 			`https://api.hubapi.com/crm/v3/objects/contacts/${hubspotContactId}`,
 			{
@@ -195,16 +184,95 @@ Sessions: ${eligibilityData.sessionsCovered || 0}`;
 			}
 		);
 
-		console.log("Contact properties updated successfully");
+		// Step 2: Create a detailed note/engagement record
+		const noteContent = `=== INSURANCE PLAN RECORD ===
+Created: ${new Date(timestamp).toISOString()}
+Plan ID: ${insurancePlanId}
+
+INSURANCE PROVIDER: ${insurance || "N/A"}
+MEMBER ID: ${insuranceMemberId || "N/A"}
+GROUP NUMBER: ${groupNumber || "N/A"}
+
+ELIGIBILITY STATUS: ${eligibilityData.eligibilityStatus || "Unknown"}
+ELIGIBLE: ${eligibilityData.isEligible ? "Yes" : "No"}
+SESSIONS COVERED: ${eligibilityData.sessionsCovered || 0}
+DEDUCTIBLE: $${eligibilityData.deductible?.individual || "N/A"}
+
+COVERAGE PERIOD: ${eligibilityData.planBegin || "N/A"} to ${eligibilityData.planEnd || "Ongoing"}
+
+PATIENT INFORMATION:
+- Name: ${firstName || "N/A"} ${lastName || "N/A"}
+- Date of Birth: ${dateOfBirth || "N/A"}
+- State: ${state || "N/A"}
+- Email: ${customerEmail || "N/A"}
+
+TREATMENT DETAILS:
+- Primary Reasons: ${Array.isArray(mainReasons) ? mainReasons.join(", ") : "None"}
+- Medical Conditions: ${Array.isArray(medicalConditions) ? medicalConditions.join(", ") : "None"}
+
+USER MESSAGE: ${eligibilityData.userMessage || "N/A"}
+
+=== END INSURANCE PLAN RECORD ===`;
+
+		// Create a note/engagement record
+		const notePayload = {
+			properties: {
+				hs_engagement_type: "NOTE",
+				hs_note_body: noteContent,
+				hs_engagement_source: "API",
+				hs_engagement_source_id: "insurance_plan_function"
+			},
+			associations: [
+				{
+					to: {
+						id: hubspotContactId
+					},
+					types: [
+						{
+							associationCategory: "HUBSPOT_DEFINED",
+							associationTypeId: 202 // Contact to Note association
+						}
+					]
+				}
+			]
+		};
+
+		console.log("Creating note engagement with insurance plan details...");
+		const noteResponse = await axios.post("https://api.hubapi.com/crm/v3/objects/notes", notePayload, {
+			headers: {
+				"Content-Type": "application/json",
+				Authorization: `Bearer ${hubspotApiKey}`
+			}
+		});
+
+		console.log("Insurance plan record created successfully!");
+		console.log("Note ID:", noteResponse.data.id);
 
 		return {
 			success: true,
-			insurancePlanId: `contact_update_${hubspotContactId}`,
+			insurancePlanId: insurancePlanId,
 			insurancePlanObjectId: hubspotContactId,
-			method: "contact_properties_only"
+			noteId: noteResponse.data.id,
+			method: "insurance_plan_record_and_note_created",
+			fieldsUpdated: Object.keys(updateProperties),
+			recordSummary: {
+				planId: insurancePlanId,
+				provider: insurance,
+				memberId: insuranceMemberId,
+				groupNumber: groupNumber,
+				status: eligibilityData.eligibilityStatus,
+				eligible: eligibilityData.isEligible,
+				sessions: eligibilityData.sessionsCovered,
+				deductible: eligibilityData.deductible?.individual,
+				coveragePeriod: `${eligibilityData.planBegin || "N/A"} to ${eligibilityData.planEnd || "Ongoing"}`,
+				patientInfo: `${firstName} ${lastName} (${state})`,
+				treatmentReasons: Array.isArray(mainReasons) ? mainReasons.join(", ") : "None",
+				noteCreated: true,
+				noteId: noteResponse.data.id
+			}
 		};
 	} catch (error) {
-		console.error("Failed to update contact:", {
+		console.error("Failed to create insurance plan record:", {
 			message: error.message,
 			status: error.response?.status,
 			statusText: error.response?.statusText,

@@ -4,18 +4,17 @@ async function testInsurancePlanFunction() {
 	const url = "https://us-central1-telemedicine-458913.cloudfunctions.net/workflow_insurance_plan";
 
 	const testPayload = {
-		customerEmail: "jane.doe.test@example.com",
-		firstName: "Jane",
-		lastName: "Doe",
+		customerEmail: "subtain_rathore@yahoo.com",
+		firstName: "Muhammad",
+		lastName: "Tashfeen",
 		phoneNumber: "5551234567",
 		state: "GA",
 		insurance: "Humana",
 		insuranceMemberId: "HUMANA123TEST",
 		groupNumber: "GRP789TEST",
 		dateOfBirth: "1975-05-05",
-		// !!! IMPORTANT !!!
-		// You must replace this with a REAL HubSpot Contact ID from your portal for the test to work.
-		hubspotContactId: "12345678",
+		// Using real HubSpot Contact ID from API
+		hubspotContactId: "309336616169",
 		eligibilityData: {
 			isEligible: true,
 			sessionsCovered: 25,
