@@ -1,5 +1,5 @@
 {% comment %}
-	Renders an image block, utilizing the 'image-test' snippet.
+	Renders an image block, utilizing the 'image-test' snippet or SVG content.
 
 	Accepts:
 	- block: The block object containing settings.
@@ -13,6 +13,7 @@
 
 {% assign blockMainImage = block.settings.image %}
 {% assign blockMainMobileImage = block.settings.image_mobile %}
+{% assign svgContent = block.settings.svg_content %}
 
 {% comment %} Global Store Overrides - Add your logic here if needed {% endcomment %}
 {% comment %}
@@ -26,17 +27,29 @@
 	id="block-{{ block.id }}"
 	class="image-block-wrapper custom-block"
 	{{ block.shopify_attributes }}>
-	{%
-		render 'image-test',
-		image: blockMainImage,
-		mobile_image: blockMainMobileImage,
-		is_log: true,
-		lazy: lazy | default: true,
-		load_mobile: true,
-		alt: blockMainImage.alt | default: 'Image block',
-		link: block.settings.image_link,
-		class: block.settings.additional_classes
-	%}
+	{% if svgContent != blank %}
+		{% if block.settings.image_link != blank %}
+			<a href="{{ block.settings.image_link }}" class="{{ block.settings.additional_classes }}">
+				{{ svgContent }}
+			</a>
+		{% else %}
+			<div class="{{ block.settings.additional_classes }}">
+				{{ svgContent }}
+			</div>
+		{% endif %}
+	{% else %}
+		{%
+			render 'image-test',
+			image: blockMainImage,
+			mobile_image: blockMainMobileImage,
+			is_log: true,
+			lazy: lazy | default: true,
+			load_mobile: true,
+			alt: blockMainImage.alt | default: 'Image block',
+			link: block.settings.image_link,
+			class: block.settings.additional_classes
+		%}
+	{% endif %}
 </div>
 
 {% schema %}
@@ -55,9 +68,16 @@
 				"label": "Mobile Image (Optional)"
 			},
 			{
+				"type": "textarea",
+				"id": "svg_content",
+				"label": "SVG Code (Optional)",
+				"info": "If provided, this will be used instead of the image above"
+			},
+			{
 				"type": "url",
 				"id": "image_link",
-				"label": "Image Link (Optional)"
+				"label": "Link (Optional)",
+				"info": "Works for both images and SVG content"
 			},
 			{
 				"type": "text",

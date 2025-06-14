@@ -496,6 +496,13 @@ class ModularQuiz {
 		this._lastOrchestratorUrl = orchestratorUrl;
 		this._lastOrchestratorPayload = payload;
 
+		// Report workflow initialization
+		this._reportWorkflowStage("WORKFLOW_INIT", "Starting eligibility and user creation workflow", {
+			url: orchestratorUrl,
+			hasInsurance: this._hasInsurance(),
+			payloadSize: JSON.stringify(payload).length
+		});
+
 		// Ensure any previous workflow state is cleaned up
 		this._stopStatusPolling();
 		this._stopFallbackChecking();
@@ -511,28 +518,71 @@ class ModularQuiz {
 			this.workflowCompletionReject = reject;
 
 			try {
+				// Report payload preparation
+				this._reportWorkflowStage("PAYLOAD_BUILT", "Request data prepared and validated", {
+					fields: Object.keys(payload),
+					hasInsurance: payload.insurance ? "Yes" : "No"
+				});
+
+				// Report orchestrator call
+				this._reportWorkflowStage("ORCHESTRATOR_CALL", "Initiating workflow orchestrator", {
+					url: orchestratorUrl,
+					method: "POST"
+				});
+
 				// 1. Initial call to the orchestrator to kick off the process
+				const startTime = Date.now();
 				const initialResponse = await fetch(orchestratorUrl, {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify(payload)
 				});
 
+				const duration = `${Date.now() - startTime}ms`;
+
 				if (!initialResponse.ok) {
 					const errorText = await initialResponse.text();
-					throw new Error(`Orchestrator initial call failed: HTTP ${initialResponse.status} - ${errorText}`);
+					const error = new Error(`Orchestrator initial call failed: HTTP ${initialResponse.status} - ${errorText}`);
+					error.status = initialResponse.status;
+					error.url = orchestratorUrl;
+					this._reportWorkflowError(error, {
+						stage: "ORCHESTRATOR_CALL",
+						duration,
+						responseText: errorText
+					});
+					throw error;
 				}
 
+				// Report successful connection
+				this._reportWorkflowStage("ORCHESTRATOR_SUCCESS", "Connected to workflow service successfully", {
+					status: initialResponse.status,
+					duration
+				});
+
 				const initialResult = await initialResponse.json();
+
 				// 2. Check for a statusTrackingId to begin polling, or if final data is immediately available
 				if (initialResult.success && initialResult.statusTrackingId) {
+					this._reportWorkflowStage("POLLING_START", "Status tracking initiated", {
+						trackingId: initialResult.statusTrackingId,
+						mode: "Standard Polling"
+					});
 					this._startStatusPolling(initialResult.statusTrackingId);
 				} else if (initialResult.success && initialResult.data) {
 					// If orchestrator immediately returns final data (e.g., for simple, fast workflows)
+					this._reportWorkflowStage("WORKFLOW_COMPLETE", "Workflow completed immediately", {
+						type: "Fast Track",
+						hasData: "Yes"
+					});
 					this._stopLoadingMessages(); // Dismiss loading as it's truly done
 					resolve(initialResult.data); // Resolve the promise with the final data
 				} else if (initialResult.success) {
 					// Workflow started but no immediate data - set up polling with fallback
+					this._reportWorkflowStage("POLLING_START", "Status tracking initiated with fallback", {
+						trackingId: initialResult.statusTrackingId,
+						mode: "Polling + Fallback"
+					});
+
 					// Start polling as usual
 					this._startStatusPolling(initialResult.statusTrackingId);
 
@@ -540,10 +590,19 @@ class ModularQuiz {
 					this._setupOrchestrationFallback(orchestratorUrl, payload, initialResult.statusTrackingId);
 				} else {
 					// Initial call failed or didn't provide tracking ID/data
-					throw new Error(initialResult.error || "Orchestrator did not provide status tracking ID or final data.");
+					const error = new Error(initialResult.error || "Orchestrator did not provide status tracking ID or final data.");
+					this._reportWorkflowError(error, {
+						stage: "ORCHESTRATOR_RESPONSE",
+						result: initialResult
+					});
+					throw error;
 				}
 			} catch (error) {
 				console.error("Error initiating orchestrator workflow:", error);
+				this._reportWorkflowError(error, {
+					stage: "WORKFLOW_INIT",
+					url: orchestratorUrl
+				});
 				this._stopLoadingMessages(); // Ensure loading is dismissed on immediate error
 				reject(error); // Reject the promise
 			}
@@ -555,6 +614,14 @@ class ModularQuiz {
 	 */
 	_handleWorkflowError(error) {
 		console.error("Handling workflow error:", error);
+
+		// Report the workflow failure with detailed context
+		this._reportWorkflowError(error, {
+			stage: "WORKFLOW_ERROR_HANDLER",
+			pollingAttempts: this.pollingAttempts,
+			statusTrackingId: this.statusTrackingId,
+			workflowType: this._hasInsurance() ? "Full Workflow" : "Simple Workflow"
+		});
 
 		// Stop loading messages and status polling
 		this._stopLoadingMessages();
@@ -575,6 +642,14 @@ class ModularQuiz {
 			userMessage: error.message || error.error || "There was an error processing your request.",
 			error: error
 		};
+
+		// Report final workflow failure
+		this._reportWorkflowStage("WORKFLOW_FAILED", "Workflow terminated due to error", {
+			errorType: error.name || "UnknownError",
+			errorMessage: error.message || "Unknown error",
+			errorCode: error.code,
+			statusCode: error.status
+		});
 
 		// Show error results
 		this.showResults(
@@ -603,6 +678,12 @@ class ModularQuiz {
 	 */
 	_setupOrchestrationFallback(orchestratorUrl, payload, statusTrackingId) {
 		// Check every 10 seconds starting after 20 seconds (sooner due to stale status issues)
+		this._reportWorkflowStage("FALLBACK_TRIGGERED", "Setting up fallback mechanism", {
+			delay: "20 seconds",
+			interval: "10 seconds",
+			maxAttempts: 6
+		});
+
 		this.fallbackTimeout = setTimeout(() => {
 			this._startFallbackChecking(orchestratorUrl, payload, statusTrackingId);
 		}, 20000);
@@ -612,22 +693,42 @@ class ModularQuiz {
 		let fallbackAttempts = 0;
 		const maxFallbackAttempts = 6; // 6 attempts = 1 minute of checking
 
+		this._reportWorkflowStage("FALLBACK_TRIGGERED", "Starting fallback polling", {
+			url: orchestratorUrl,
+			maxAttempts: maxFallbackAttempts,
+			trackingId: statusTrackingId
+		});
+
 		this.fallbackInterval = setInterval(async () => {
 			fallbackAttempts++;
 
 			try {
+				this._reportWorkflowStage("FALLBACK_TRIGGERED", `Fallback check attempt ${fallbackAttempts}`, {
+					attempt: fallbackAttempts,
+					maxAttempts: maxFallbackAttempts,
+					url: orchestratorUrl
+				});
+
 				// Try calling the orchestrator again to see if it's completed
+				const startTime = Date.now();
 				const response = await fetch(orchestratorUrl, {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({ ...payload, fallbackCheck: true, statusTrackingId })
 				});
+				const duration = `${Date.now() - startTime}ms`;
 
 				if (response.ok) {
 					const result = await response.json();
 
 					// If we get final data, resolve the workflow
 					if (result.success && result.data) {
+						this._reportWorkflowStage("WORKFLOW_COMPLETE", "Workflow completed via fallback", {
+							attempt: fallbackAttempts,
+							duration,
+							method: "Fallback Polling"
+						});
+
 						this._stopFallbackChecking();
 						this._stopStatusPolling();
 						this._stopLoadingMessages();
@@ -638,13 +739,27 @@ class ModularQuiz {
 						}
 						return;
 					}
+				} else {
+					this._reportWorkflowStage("FALLBACK_TRIGGERED", `Fallback check failed`, {
+						attempt: fallbackAttempts,
+						status: response.status,
+						duration
+					});
 				}
 			} catch (error) {
-				console.warn("Fallback check error:", error);
+				this._reportWorkflowError(error, {
+					stage: "FALLBACK_CHECK",
+					attempt: fallbackAttempts,
+					maxAttempts: maxFallbackAttempts
+				});
 			}
 
 			// Stop fallback checking after max attempts
 			if (fallbackAttempts >= maxFallbackAttempts) {
+				this._reportWorkflowStage("FALLBACK_TRIGGERED", "Fallback attempts exhausted", {
+					attempts: fallbackAttempts,
+					status: "Max attempts reached"
+				});
 				this._stopFallbackChecking();
 			}
 		}, 10000); // Check every 10 seconds
@@ -658,7 +773,9 @@ class ModularQuiz {
 		if (this.fallbackTimeout) {
 			clearTimeout(this.fallbackTimeout);
 			this.fallbackTimeout = null;
-			console.log("⏹️ Fallback timeout cleared");
+			this._reportWorkflowStage("FALLBACK_TRIGGERED", "Fallback mechanism stopped", {
+				reason: "Cleanup or completion"
+			});
 		}
 	}
 
@@ -668,13 +785,27 @@ class ModularQuiz {
 	_triggerEmergencyFallback() {
 		// Use the stored orchestrator data from the initial call
 		if (this._lastOrchestratorUrl && this._lastOrchestratorPayload) {
+			this._reportWorkflowStage("EMERGENCY_FALLBACK", "Triggering emergency fallback due to stale status", {
+				url: this._lastOrchestratorUrl,
+				hasPayload: !!this._lastOrchestratorPayload,
+				trackingId: this.statusTrackingId
+			});
 			this._startFallbackChecking(this._lastOrchestratorUrl, this._lastOrchestratorPayload, this.statusTrackingId);
 		} else {
-			console.error("Cannot trigger emergency fallback - missing orchestrator data");
+			this._reportWorkflowStage("EMERGENCY_FALLBACK", "Emergency fallback failed - missing data", {
+				hasUrl: !!this._lastOrchestratorUrl,
+				hasPayload: !!this._lastOrchestratorPayload,
+				trackingId: this.statusTrackingId
+			});
+
 			// Fallback to timeout error
 			setTimeout(() => {
 				if (this.workflowCompletionReject) {
-					this.workflowCompletionReject(new Error("Status polling failed and emergency fallback unavailable"));
+					const error = new Error("Status polling failed and emergency fallback unavailable");
+					this._reportWorkflowError(error, {
+						stage: "EMERGENCY_FALLBACK_FAILURE"
+					});
+					this.workflowCompletionReject(error);
 				}
 			}, 1000);
 		}
@@ -744,7 +875,11 @@ class ModularQuiz {
 		}
 
 		if (this.pollingAttempts >= this.maxPollingAttempts) {
-			console.warn("Stopping polling: Max polling attempts reached without explicit completion from backend.");
+			this._reportWorkflowStage("POLLING_ERROR", "Maximum polling attempts reached", {
+				attempts: this.pollingAttempts,
+				maxAttempts: this.maxPollingAttempts,
+				trackingId: this.statusTrackingId
+			});
 			this._stopStatusPolling(); // Stop polling, overall timeout will handle the promise
 			return;
 		}
@@ -755,30 +890,54 @@ class ModularQuiz {
 			const statusUrl = this._getStatusPollingUrl();
 			const payload = { statusTrackingId: this.statusTrackingId };
 
+			const startTime = Date.now();
 			const response = await fetch(statusUrl, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(payload)
 			});
+			const pollDuration = `${Date.now() - startTime}ms`;
 
 			if (response.ok) {
 				const statusData = await response.json();
 
 				// Check for important warnings
 				if (statusData.statusData?.debug?.eligibilityTimeout) {
-					console.warn("Eligibility timeout detected - workflow continuing without eligibility data");
+					this._reportWorkflowStage("ELIGIBILITY_TIMEOUT", "Insurance check timed out, workflow continuing", {
+						timeout: statusData.statusData.debug.eligibilityTimeout,
+						step: statusData.statusData.currentStep
+					});
 				}
 
 				if (statusData.statusData?.debug?.warnings) {
-					console.warn("Workflow warnings:", statusData.statusData.debug.warnings);
+					statusData.statusData.debug.warnings.forEach(warning => {
+						this._reportWorkflowStage("POLLING_WARNING", `Workflow warning: ${warning}`, {
+							attempt: this.pollingAttempts,
+							step: statusData.statusData.currentStep
+						});
+					});
 				}
 
 				if (statusData.success && statusData.statusData) {
+					// Report progress update
+					this._reportWorkflowStage("POLLING_UPDATE", `Progress: ${statusData.statusData.progress || 0}%`, {
+						step: statusData.statusData.currentStep,
+						status: statusData.statusData.currentStatus,
+						progress: statusData.statusData.progress,
+						attempt: this.pollingAttempts,
+						duration: pollDuration
+					});
+
 					this._updateWorkflowStatus(statusData.statusData);
 
 					// Track stale status but don't trigger emergency fallback (causes duplicate workflows)
 					if (statusData.statusData.currentStep === "processing" && statusData.statusData.progress === 25 && this.pollingAttempts > 15) {
-						console.warn(`Stale data detected - stuck at processing/25% for ${this.pollingAttempts} attempts`);
+						this._reportWorkflowStage("STALE_STATUS", "Potentially stale status detected", {
+							step: statusData.statusData.currentStep,
+							progress: statusData.statusData.progress,
+							attempts: this.pollingAttempts,
+							duration: `${this.pollingAttempts * 2}s`
+						});
 					}
 
 					if (statusData.statusData.completed) {
@@ -787,6 +946,14 @@ class ModularQuiz {
 
 						// Store the result for debugging
 						this.workflowResult = finalResult;
+
+						// Report completion
+						this._reportWorkflowStage("WORKFLOW_COMPLETE", "Workflow completed successfully via polling", {
+							attempts: this.pollingAttempts,
+							totalTime: `${this.pollingAttempts * 2}s`,
+							finalStatus: statusData.statusData.currentStatus,
+							hasData: finalResult ? "Yes" : "No"
+						});
 
 						// Resolve the original workflow promise with the final result from polling BEFORE stopping polling
 						if (this.workflowCompletionResolve) {
@@ -801,23 +968,40 @@ class ModularQuiz {
 						this._stopLoadingMessages(); // Stop loading since workflow is complete
 					}
 				} else {
-					console.warn("Status polling received unsuccessful or invalid data:", statusData);
+					this._reportWorkflowStage("POLLING_ERROR", "Invalid response from status service", {
+						success: statusData.success,
+						hasData: !!statusData.statusData,
+						error: statusData.error,
+						attempt: this.pollingAttempts
+					});
 
 					// Non-critical, continue polling unless it's a hard error
 					if (statusData.error) {
-						this._showBackgroundProcessNotification(`Polling error: ${statusData.error}`, "error", "LOW");
+						this._showBackgroundProcessNotification(`Polling error: ${statusData.error}`, "error", "info");
 					}
 				}
 			} else {
 				const errorText = await response.text();
-				console.warn("Status polling failed HTTP:", response.status, errorText);
+				this._reportWorkflowStage("POLLING_ERROR", `HTTP error during status check`, {
+					status: response.status,
+					statusText: response.statusText,
+					responseText: errorText.substring(0, 200),
+					attempt: this.pollingAttempts,
+					duration: pollDuration
+				});
+
 				// Non-critical, continue polling on network/HTTP errors
-				this._showBackgroundProcessNotification(`Network error during status check (${response.status}). Retrying...`, "error", "LOW");
+				this._showBackgroundProcessNotification(`Network error during status check (${response.status}). Retrying...`, "warning", "info");
 			}
 		} catch (error) {
-			console.warn("Status polling error (catch block):", error);
+			this._reportWorkflowError(error, {
+				stage: "STATUS_POLLING",
+				attempt: this.pollingAttempts,
+				trackingId: this.statusTrackingId
+			});
+
 			// Non-critical, continue polling on JS errors
-			this._showBackgroundProcessNotification(`An error occurred during status check. Retrying...`, "error", "LOW");
+			this._showBackgroundProcessNotification(`An error occurred during status check. Retrying...`, "warning", "info");
 		}
 	}
 
@@ -845,9 +1029,44 @@ class ModularQuiz {
 
 		this._updateLoadingStep(currentStepInfo);
 
-		// Show a small notification if the status message changes or is important
+		// Show enhanced status notifications with proper types
 		if (statusData.message && statusData.message !== this._lastStatusMessage) {
-			this._showBackgroundProcessNotification(statusData.message, "info", "LOW"); // Use low priority to not block UI
+			let notificationType = "info";
+			let priority = "info";
+
+			// Determine notification type based on status
+			if (statusData.currentStatus?.includes("COMPLETED") || statusData.currentStatus?.includes("SUCCESS")) {
+				notificationType = "success";
+				priority = "success";
+			} else if (statusData.currentStatus?.includes("FAILED") || statusData.currentStatus?.includes("ERROR")) {
+				notificationType = "error";
+				priority = "error";
+			} else if (statusData.currentStatus?.includes("STARTED") || statusData.currentStatus?.includes("PROGRESS")) {
+				notificationType = "info";
+				priority = "info";
+			}
+
+			// Map specific statuses to workflow stages
+			const statusToStageMap = {
+				INITIATED: "WORKFLOW_INIT",
+				ELIGIBILITY_CHECK_STARTED: "ELIGIBILITY_START",
+				ELIGIBILITY_CHECK_COMPLETED: "ELIGIBILITY_SUCCESS",
+				USER_CREATION_STARTED: "USER_CREATION_START",
+				USER_CREATION_COMPLETED: "USER_CREATION_SUCCESS",
+				SCHEDULING_STARTED: "SCHEDULING_START",
+				COMPLETED: "WORKFLOW_COMPLETE",
+				FAILED: "WORKFLOW_FAILED"
+			};
+
+			const stage = statusToStageMap[statusData.currentStatus] || "POLLING_UPDATE";
+
+			this._reportWorkflowStage(stage, statusData.message, {
+				currentStep: statusData.currentStep,
+				progress: statusData.progress,
+				elapsedTime: statusData.debug?.elapsedTime,
+				workflowPath: statusData.debug?.workflowPath
+			});
+
 			this._lastStatusMessage = statusData.message;
 		}
 
@@ -2784,6 +3003,8 @@ class ModularQuiz {
 		html += "</div>";
 		html += "</div>";
 		html += "</div>";
+		html += "</div>";
+		html += "</div>";
 		html += '<div class="quiz-action-section" style="background-color: #f8f9fa;">';
 		html += '<div class="quiz-action-content">';
 		html += '<div class="quiz-action-header">';
@@ -4376,6 +4597,62 @@ class ModularQuiz {
 	}
 
 	// Debug method to manually test the enhanced notification system
+	/**
+	 * Test all notification types and colors to ensure proper functionality
+	 */
+	_testNotificationColors() {
+		if (!this.notificationManager) {
+			console.error("Notification manager not available for testing");
+			return;
+		}
+
+		// Test all notification types with clear indicators
+		const testNotifications = [
+			{
+				type: "success",
+				priority: "success",
+				message: "✅ SUCCESS Test: This should be GREEN",
+				delay: 0
+			},
+			{
+				type: "error",
+				priority: "error",
+				message: "❌ ERROR Test: This should be RED",
+				delay: 500
+			},
+			{
+				type: "warning",
+				priority: "warning",
+				message: "⚠️ WARNING Test: This should be YELLOW/ORANGE",
+				delay: 1000
+			},
+			{
+				type: "info",
+				priority: "info",
+				message: "ℹ️ INFO Test: This should be BLUE",
+				delay: 1500
+			},
+			{
+				type: "error",
+				priority: "critical",
+				message: "🚨 CRITICAL Test: This should be RED and PULSING",
+				delay: 2000
+			}
+		];
+
+		testNotifications.forEach(test => {
+			setTimeout(() => {
+				console.log(`Testing notification: ${test.type} / ${test.priority}`);
+				this.notificationManager.show(test.message, test.type, test.priority);
+			}, test.delay);
+		});
+
+		// Add a final summary notification
+		setTimeout(() => {
+			this.notificationManager.show("🎨 Color Test Complete<br><strong>Check above:</strong> Green=Success, Red=Error/Critical, Yellow=Warning, Blue=Info", "info", "info");
+		}, 2500);
+	}
+
 	_testNotificationSystem() {
 		console.log("🎯 Testing SMART notification system...");
 
@@ -4426,6 +4703,280 @@ class ModularQuiz {
 			console.log("🧪 Try filtering to 'Show All' to see all notifications restored!");
 			console.log("   testNotifications() - Run this test again");
 		}, 1500);
+	}
+
+	// =======================================================================
+	// Enhanced Notification System for Workflow Reporting
+	// =======================================================================
+
+	/**
+	 * Enhanced notification system for better workflow reporting
+	 */
+	_showWorkflowNotification(message, type = "info", priority = null, details = null) {
+		if (!this.notificationManager) {
+			console.warn("Notification manager not available");
+			return;
+		}
+
+		// Build detailed message with context
+		let fullMessage = message;
+		if (details) {
+			if (typeof details === "object") {
+				// Create structured details
+				const detailParts = [];
+				if (details.step) detailParts.push(`Step: ${details.step}`);
+				if (details.duration) detailParts.push(`Duration: ${details.duration}`);
+				if (details.status) detailParts.push(`Status: ${details.status}`);
+				if (details.data) detailParts.push(`Data: ${JSON.stringify(details.data, null, 2)}`);
+				if (details.error) detailParts.push(`Error: ${details.error}`);
+				if (details.url) detailParts.push(`URL: ${details.url}`);
+
+				if (detailParts.length > 0) {
+					fullMessage += `<br><strong>Details:</strong><br>${detailParts.join("<br>")}`;
+				}
+			} else {
+				fullMessage += `<br><strong>Details:</strong> ${details}`;
+			}
+		}
+
+		return this.notificationManager.show(fullMessage, type, priority);
+	}
+
+	/**
+	 * Show workflow stage notification with proper colors and context
+	 */
+	_reportWorkflowStage(stage, status, details = null) {
+		const stageConfig = {
+			// Initialization stages
+			WORKFLOW_INIT: {
+				type: "info",
+				priority: "info",
+				emoji: "🚀",
+				title: "Workflow Initialized"
+			},
+			PAYLOAD_BUILT: {
+				type: "info",
+				priority: "info",
+				emoji: "📦",
+				title: "Request Data Prepared"
+			},
+
+			// Network stages
+			ORCHESTRATOR_CALL: {
+				type: "info",
+				priority: "info",
+				emoji: "📡",
+				title: "Contacting Workflow Service"
+			},
+			ORCHESTRATOR_SUCCESS: {
+				type: "success",
+				priority: "success",
+				emoji: "✓",
+				title: "Workflow Service Connected"
+			},
+			ORCHESTRATOR_ERROR: {
+				type: "error",
+				priority: "error",
+				emoji: "❌",
+				title: "Workflow Service Connection Failed"
+			},
+
+			// Status polling stages
+			POLLING_START: {
+				type: "info",
+				priority: "info",
+				emoji: "⏱️",
+				title: "Status Tracking Started"
+			},
+			POLLING_UPDATE: {
+				type: "info",
+				priority: "info",
+				emoji: "🔄",
+				title: "Progress Update"
+			},
+			POLLING_WARNING: {
+				type: "warning",
+				priority: "warning",
+				emoji: "⚠️",
+				title: "Polling Warning"
+			},
+			POLLING_ERROR: {
+				type: "error",
+				priority: "error",
+				emoji: "🚨",
+				title: "Status Polling Error"
+			},
+
+			// Eligibility stages
+			ELIGIBILITY_START: {
+				type: "info",
+				priority: "info",
+				emoji: "🏥",
+				title: "Insurance Check Starting"
+			},
+			ELIGIBILITY_SUCCESS: {
+				type: "success",
+				priority: "success",
+				emoji: "✅",
+				title: "Insurance Verified Successfully"
+			},
+			ELIGIBILITY_ERROR: {
+				type: "error",
+				priority: "error",
+				emoji: "⛔",
+				title: "Insurance Verification Failed"
+			},
+			ELIGIBILITY_TIMEOUT: {
+				type: "warning",
+				priority: "warning",
+				emoji: "⏰",
+				title: "Insurance Check Timeout"
+			},
+
+			// User creation stages
+			USER_CREATION_START: {
+				type: "info",
+				priority: "info",
+				emoji: "👤",
+				title: "Creating User Account"
+			},
+			USER_CREATION_SUCCESS: {
+				type: "success",
+				priority: "success",
+				emoji: "👍",
+				title: "User Account Created"
+			},
+			USER_CREATION_ERROR: {
+				type: "error",
+				priority: "error",
+				emoji: "👎",
+				title: "User Account Creation Failed"
+			},
+
+			// Scheduling stages
+			SCHEDULING_START: {
+				type: "info",
+				priority: "info",
+				emoji: "📅",
+				title: "Appointment Scheduling Starting"
+			},
+			SCHEDULING_SUCCESS: {
+				type: "success",
+				priority: "success",
+				emoji: "🎯",
+				title: "Appointment Scheduled Successfully"
+			},
+			SCHEDULING_ERROR: {
+				type: "error",
+				priority: "error",
+				emoji: "📅❌",
+				title: "Appointment Scheduling Failed"
+			},
+
+			// Fallback and emergency stages
+			FALLBACK_TRIGGERED: {
+				type: "warning",
+				priority: "warning",
+				emoji: "🔄",
+				title: "Fallback Check Triggered"
+			},
+			EMERGENCY_FALLBACK: {
+				type: "warning",
+				priority: "critical",
+				emoji: "🚨",
+				title: "Emergency Fallback Activated"
+			},
+			STALE_STATUS: {
+				type: "warning",
+				priority: "warning",
+				emoji: "⚡",
+				title: "Stale Status Detected"
+			},
+
+			// Completion stages
+			WORKFLOW_COMPLETE: {
+				type: "success",
+				priority: "success",
+				emoji: "🎉",
+				title: "Workflow Completed Successfully"
+			},
+			WORKFLOW_FAILED: {
+				type: "error",
+				priority: "critical",
+				emoji: "💥",
+				title: "Workflow Failed"
+			}
+		};
+
+		const config = stageConfig[stage] || {
+			type: "info",
+			priority: "info",
+			emoji: "📋",
+			title: "Workflow Update"
+		};
+
+		const message = `${config.emoji} ${config.title}: ${status}`;
+
+		return this._showWorkflowNotification(message, config.type, config.priority, details);
+	}
+
+	/**
+	 * Enhanced error reporting with proper types and detailed context
+	 */
+	_reportWorkflowError(error, context = {}) {
+		let errorType = "error";
+		let priority = "error";
+		let emoji = "❌";
+		let title = "Workflow Error";
+
+		// Determine error severity and type
+		if (error.message?.includes("timeout") || error.code === "ECONNABORTED") {
+			errorType = "warning";
+			priority = "warning";
+			emoji = "⏰";
+			title = "Request Timeout";
+		} else if (error.message?.includes("network") || error.message?.includes("fetch")) {
+			errorType = "error";
+			priority = "error";
+			emoji = "🌐";
+			title = "Network Error";
+		} else if (error.status >= 500) {
+			errorType = "error";
+			priority = "critical";
+			emoji = "🚨";
+			title = "Server Error";
+		} else if (error.status >= 400 && error.status < 500) {
+			errorType = "warning";
+			priority = "warning";
+			emoji = "⚠️";
+			title = "Request Error";
+		}
+
+		const errorMessage = error.message || error.error || "Unknown error occurred";
+		const message = `${emoji} ${title}: ${errorMessage}`;
+
+		const details = {
+			...context,
+			status: error.status,
+			code: error.code,
+			url: error.url,
+			timestamp: new Date().toISOString()
+		};
+
+		return this._showWorkflowNotification(message, errorType, priority, details);
+	}
+
+	_showBackgroundProcessNotification(text, type = "info", priority = null) {
+		console.log("📢 Creating notification:", { text: text.substring(0, 50) + "...", type, priority });
+
+		// Only show notifications if we have a container
+		if (!this.questionContainer) {
+			console.log("❌ No questionContainer found, skipping notification");
+			return;
+		}
+
+		// Delegate completely to the modular notification system
+		return this.notificationManager.show(text, type, priority);
 	}
 }
 
