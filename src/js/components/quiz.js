@@ -665,7 +665,7 @@ class ModularQuiz {
 	 */
 	_getOrchestratorUrl() {
 		const container = document.getElementById("quiz-container");
-		return container?.dataset?.orchestratorUrl || "https://us-central1-telemedicine-458913.cloudfunctions.net/workflow_orchestrator";
+		return container?.dataset?.orchestratorUrl || "https://us-central1-telemedicine-458913.cloudfunctions.net/workflowOrchestratorV2";
 	}
 
 	// =======================================================================
@@ -4597,113 +4597,6 @@ class ModularQuiz {
 	}
 
 	// Debug method to manually test the enhanced notification system
-	/**
-	 * Test all notification types and colors to ensure proper functionality
-	 */
-	_testNotificationColors() {
-		if (!this.notificationManager) {
-			console.error("Notification manager not available for testing");
-			return;
-		}
-
-		// Test all notification types with clear indicators
-		const testNotifications = [
-			{
-				type: "success",
-				priority: "success",
-				message: "✅ SUCCESS Test: This should be GREEN",
-				delay: 0
-			},
-			{
-				type: "error",
-				priority: "error",
-				message: "❌ ERROR Test: This should be RED",
-				delay: 500
-			},
-			{
-				type: "warning",
-				priority: "warning",
-				message: "⚠️ WARNING Test: This should be YELLOW/ORANGE",
-				delay: 1000
-			},
-			{
-				type: "info",
-				priority: "info",
-				message: "ℹ️ INFO Test: This should be BLUE",
-				delay: 1500
-			},
-			{
-				type: "error",
-				priority: "critical",
-				message: "🚨 CRITICAL Test: This should be RED and PULSING",
-				delay: 2000
-			}
-		];
-
-		testNotifications.forEach(test => {
-			setTimeout(() => {
-				console.log(`Testing notification: ${test.type} / ${test.priority}`);
-				this.notificationManager.show(test.message, test.type, test.priority);
-			}, test.delay);
-		});
-
-		// Add a final summary notification
-		setTimeout(() => {
-			this.notificationManager.show("🎨 Color Test Complete<br><strong>Check above:</strong> Green=Success, Red=Error/Critical, Yellow=Warning, Blue=Info", "info", "info");
-		}, 2500);
-	}
-
-	_testNotificationSystem() {
-		console.log("🎯 Testing SMART notification system...");
-
-		// Force create a questionContainer if it doesn't exist (for testing)
-		if (!this.questionContainer) {
-			console.log("🔧 Creating temporary questionContainer for testing");
-			this.questionContainer = document.createElement("div");
-			this.questionContainer.style.display = "none";
-			document.body.appendChild(this.questionContainer);
-		}
-
-		// Test notifications that demonstrate the smart filtering/collapsing
-		// Mix of simple and detailed notifications to show smart behavior
-
-		console.log("📝 Creating test notifications...");
-
-		// Simple notifications (no details to collapse)
-		this._showBackgroundProcessNotification("Starting process...", "info");
-		this._showBackgroundProcessNotification("Connected successfully", "success");
-		this._showBackgroundProcessNotification("Authentication failed", "error");
-
-		setTimeout(() => {
-			// Detailed notifications (can be auto-collapsed)
-			this._showBackgroundProcessNotification("Extraction Result<br>• Email: jane.humana@example.com<br>• Name: Jane Doe<br>• Missing fields: groupNumber", "info", "WARNING");
-
-			this._showBackgroundProcessNotification("Processing Result<br>• Final status: ELIGIBLE<br>• Is eligible: true<br>• Has error: false", "info");
-
-			this._showBackgroundProcessNotification(
-				"Eligibility Result<br>✅ Status: ELIGIBLE<br>• Eligible: true<br>• Sessions: 10<br>• Message: Good news! Based on your insurance information, you are eligible for dietitian sessions.",
-				"success"
-			);
-		}, 500);
-
-		setTimeout(() => {
-			// Critical notification (always stays expanded)
-			this._showBackgroundProcessNotification("Critical system failure detected!<br>• Database: Offline<br>• Immediate action required<br>• Contact IT support", "error", "CRITICAL");
-		}, 1000);
-
-		setTimeout(() => {
-			console.log("✅ Test complete! Enhanced notification system features:");
-			console.log("   🔍 Filter buttons: Show only relevant notification types");
-			console.log("   📦 Show All: Restores ALL notifications (even auto-removed ones)");
-			console.log("   📱 Auto-collapse: Only affects detailed notifications");
-			console.log("   ⚡ Simple notifications: Always visible (no collapse needed)");
-			console.log("   🚨 Critical/Error: Always stay expanded");
-			console.log("   🛡️ Smart prevention: Auto-removal disabled when 'Show All' is active");
-			console.log("");
-			console.log("🧪 Try filtering to 'Show All' to see all notifications restored!");
-			console.log("   testNotifications() - Run this test again");
-		}, 1500);
-	}
 
 	// =======================================================================
 	// Enhanced Notification System for Workflow Reporting
@@ -4843,14 +4736,14 @@ class ModularQuiz {
 			USER_CREATION_SUCCESS: {
 				type: "success",
 				priority: "success",
-				emoji: "👍",
+				emoji: "✅",
 				title: "User Account Created"
 			},
 			USER_CREATION_ERROR: {
 				type: "error",
 				priority: "error",
-				emoji: "👎",
-				title: "User Account Creation Failed"
+				emoji: "❌",
+				title: "User Creation Failed"
 			},
 
 			// Scheduling stages
@@ -4858,65 +4751,49 @@ class ModularQuiz {
 				type: "info",
 				priority: "info",
 				emoji: "📅",
-				title: "Appointment Scheduling Starting"
+				title: "Scheduling Appointment"
 			},
 			SCHEDULING_SUCCESS: {
 				type: "success",
 				priority: "success",
-				emoji: "🎯",
-				title: "Appointment Scheduled Successfully"
+				emoji: "🎉",
+				title: "Appointment Scheduled"
 			},
 			SCHEDULING_ERROR: {
 				type: "error",
 				priority: "error",
-				emoji: "📅❌",
-				title: "Appointment Scheduling Failed"
-			},
-
-			// Fallback and emergency stages
-			FALLBACK_TRIGGERED: {
-				type: "warning",
-				priority: "warning",
-				emoji: "🔄",
-				title: "Fallback Check Triggered"
-			},
-			EMERGENCY_FALLBACK: {
-				type: "warning",
-				priority: "critical",
-				emoji: "🚨",
-				title: "Emergency Fallback Activated"
-			},
-			STALE_STATUS: {
-				type: "warning",
-				priority: "warning",
-				emoji: "⚡",
-				title: "Stale Status Detected"
+				emoji: "❌",
+				title: "Scheduling Failed"
 			},
 
 			// Completion stages
 			WORKFLOW_COMPLETE: {
 				type: "success",
 				priority: "success",
-				emoji: "🎉",
-				title: "Workflow Completed Successfully"
+				emoji: "🏁",
+				title: "Workflow Complete"
 			},
 			WORKFLOW_FAILED: {
 				type: "error",
-				priority: "critical",
+				priority: "error",
 				emoji: "💥",
 				title: "Workflow Failed"
 			}
 		};
 
-		const config = stageConfig[stage] || {
-			type: "info",
-			priority: "info",
-			emoji: "📋",
-			title: "Workflow Update"
-		};
+		const config = stageConfig[stage];
+		if (!config) {
+			console.warn(`Unknown workflow stage: ${stage}`);
+			return;
+		}
 
-		const message = `${config.emoji} ${config.title}: ${status}`;
+		// Build comprehensive message
+		let message = `${config.emoji} ${config.title}`;
+		if (status) {
+			message += ` - ${status}`;
+		}
 
+		// Show notification with proper type and priority
 		return this._showWorkflowNotification(message, config.type, config.priority, details);
 	}
 
@@ -4967,11 +4844,8 @@ class ModularQuiz {
 	}
 
 	_showBackgroundProcessNotification(text, type = "info", priority = null) {
-		console.log("📢 Creating notification:", { text: text.substring(0, 50) + "...", type, priority });
-
 		// Only show notifications if we have a container
 		if (!this.questionContainer) {
-			console.log("❌ No questionContainer found, skipping notification");
 			return;
 		}
 
@@ -4983,13 +4857,4 @@ class ModularQuiz {
 document.addEventListener("DOMContentLoaded", () => {
 	const quiz = new ModularQuiz();
 	window.productQuiz = quiz;
-
-	// Global test function for debugging notifications
-	window.testNotifications = () => {
-		if (window.productQuiz && window.productQuiz._testNotificationSystem) {
-			window.productQuiz._testNotificationSystem();
-		} else {
-			console.error("Quiz not initialized or test method not available");
-		}
-	};
 });
