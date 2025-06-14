@@ -2,7 +2,7 @@ const axios = require("axios");
 
 /**
  * Insurance Plan Creator Cloud Function
- * Updates contact properties with insurance plan information
+ * Creates insurance plan custom objects in HubSpot
  * HIPAA-compliant implementation
  */
 exports.handler = async (req, res) => {
@@ -53,9 +53,10 @@ exports.handler = async (req, res) => {
 			hasEligibilityData: !!Object.keys(eligibilityData).length
 		});
 
-		// 3. Validate required fields - be more lenient
+		// 3. Validate required fields
 		const missingFields = [];
-		if (!hubspotContactId) missingFields.push("hubspotContactId");
+		if (!customerEmail) missingFields.push("customerEmail");
+		if (!firstName && !lastName) missingFields.push("firstName or lastName");
 
 		if (missingFields.length > 0) {
 			console.log("Missing critical fields:", missingFields);
@@ -68,17 +69,17 @@ exports.handler = async (req, res) => {
 		}
 
 		// 4. Get HubSpot API key
-		const hubspotApiKey = process.env.HUBSPOT_API_KEY;
-		if (!hubspotApiKey || hubspotApiKey === "YOUR_ACTUAL_HUBSPOT_API_KEY_HERE") {
+		const hubspotApiKey = process.env.HUBSPOT_API_KEY || process.env.HUBSPOT_ACCESS_TOKEN;
+		if (!hubspotApiKey || hubspotApiKey === "YOUR_ACTUAL_HUBSPOT_API_KEY_HERE" || hubspotApiKey.length < 10) {
 			return res.status(500).json({
 				success: false,
-				error: "HubSpot API key not configured",
+				error: "HubSpot API key not configured properly - requires HUBSPOT_API_KEY or HUBSPOT_ACCESS_TOKEN environment variable",
 				timestamp
 			});
 		}
 
-		// 5. Update contact properties with insurance info (simplified approach)
-		const result = await updateContactInsuranceInfo({
+		// 5. Create insurance plan custom object
+		const result = await createInsurancePlanObject({
 			customerEmail,
 			firstName,
 			lastName,
@@ -96,9 +97,9 @@ exports.handler = async (req, res) => {
 			timestamp
 		});
 
-		console.log("Insurance plan processing completed:", {
+		console.log("Insurance plan creation completed:", {
 			success: result.success,
-			method: result.method
+			objectId: result.insurancePlanObjectId
 		});
 
 		// 6. Return success response
@@ -106,8 +107,7 @@ exports.handler = async (req, res) => {
 			success: true,
 			insurancePlanId: result.insurancePlanId,
 			insurancePlanObjectId: result.insurancePlanObjectId,
-			message: "Insurance plan processed successfully",
-			method: result.method,
+			message: "Insurance plan created successfully",
 			timestamp
 		});
 	} catch (error) {
@@ -131,9 +131,9 @@ function getString(obj, key, defaultValue = "") {
 }
 
 /**
- * Update contact properties with insurance information
+ * Create insurance plan custom object in HubSpot
  */
-async function updateContactInsuranceInfo(params) {
+async function createInsurancePlanObject(params) {
 	const {
 		customerEmail,
 		firstName,
@@ -153,28 +153,91 @@ async function updateContactInsuranceInfo(params) {
 	} = params;
 
 	try {
-		console.log("Creating insurance plan record for contact:", hubspotContactId);
+		// Generate unique insurance plan ID
+		const insurancePlanId = `plan_${timestamp}_${Math.random().toString(36).substr(2, 9)}`;
+		const fullName = `${firstName} ${lastName}`.trim();
 
-		const insurancePlanId = `plan_${hubspotContactId}_${timestamp}`;
+		console.log("Creating insurance plan object with ID:", insurancePlanId);
 
-		// Step 1: Update contact with basic insurance info
-		const updateProperties = {};
+		// Map data to custom object properties based on CSV analysis
+		const properties = {
+			// Required fields
+			insurance_plan_id: insurancePlanId,
+			email: customerEmail,
+			full_name: fullName,
 
-		// Store insurance provider in company field for filtering
-		if (insurance) {
-			updateProperties.company = insurance;
+			// Basic information
+			first_name: firstName,
+			last_name: lastName,
+			date_of_birth: dateOfBirth,
+			state: state,
+
+			// Form data (what user entered)
+			form_first_name: firstName,
+			form_last_name: lastName,
+			form_full_name: fullName,
+			form_state: state,
+			form_insurance_plan: insurance,
+			form_birthday: dateOfBirth,
+
+			// Plan details
+			plan_name: insurance,
+
+			// Coverage information from eligibility data
+			coverage_status: eligibilityData.eligibilityStatus || "Unknown",
+			coverage_start_date: eligibilityData.planBegin || "",
+			coverage_end_date: eligibilityData.planEnd || "",
+
+			// Initial eligibility tracking
+			initial_eligibility: eligibilityData.isEligible ? "True" : "False",
+			initial_eligibility_date: new Date().toISOString().split("T")[0],
+			initial_checked_at: new Date().toISOString().split("T")[0],
+
+			// Last eligibility (same as initial for new records)
+			last_eligibility: eligibilityData.isEligible ? "True" : "False",
+			last_checked_at: new Date().toISOString().split("T")[0],
+
+			// Benefit information
+			benefit_amount: eligibilityData.sessionsCovered ? `${eligibilityData.sessionsCovered} sessions` : "",
+
+			// Visits remaining
+			visits_remaining: eligibilityData.sessionsCovered ? String(eligibilityData.sessionsCovered) : "0",
+
+			// Telemedicine categories based on main reasons
+			telemedicine_primary_category: Array.isArray(mainReasons) ? mainReasons[0] : "",
+			telemedicine_secondary_category: getSecondaryCategory(mainReasons, medicalConditions)
+		};
+
+		// Add co-pay information if available
+		if (eligibilityData.deductible?.individual) {
+			properties.initial_eligibility_co_pay = parseFloat(eligibilityData.deductible.individual) || 0;
+			properties.last_eligibility_co_pay = parseFloat(eligibilityData.deductible.individual) || 0;
 		}
 
-		// Store structured data in description field
-		const insuranceDescription = `Insurance Plan: ${insurance} | Member ID: ${insuranceMemberId} | Group: ${groupNumber} | Status: ${eligibilityData.eligibilityStatus} | Sessions: ${eligibilityData.sessionsCovered} | Eligible: ${eligibilityData.isEligible ? "Yes" : "No"} | Plan ID: ${insurancePlanId}`;
+		// Filter out empty values
+		const filteredProperties = Object.fromEntries(Object.entries(properties).filter(([key, value]) => value !== "" && value !== null && value !== undefined));
 
-		updateProperties.hs_persona = insuranceDescription.substring(0, 255); // Use persona field to store key info
+		console.log("Creating insurance plan object with properties:", Object.keys(filteredProperties));
 
-		console.log("Updating contact with basic insurance info...");
-		await axios.patch(
-			`https://api.hubapi.com/crm/v3/objects/contacts/${hubspotContactId}`,
+		// Create the custom object using HubSpot API
+		const response = await axios.post(
+			"https://api.hubapi.com/crm/v3/objects/2-142995261", // Replace with your actual object type ID
 			{
-				properties: updateProperties
+				properties: filteredProperties
+				// Temporarily remove associations to test basic object creation
+				// associations: hubspotContactId ? [
+				// 	{
+				// 		to: {
+				// 			id: hubspotContactId
+				// 		},
+				// 		types: [
+				// 			{
+				// 				associationCategory: "USER_DEFINED",
+				// 				associationTypeId: 1 // You may need to adjust this based on your association setup
+				// 			}
+				// 		]
+				// 	}
+				// ] : []
 			},
 			{
 				headers: {
@@ -184,108 +247,62 @@ async function updateContactInsuranceInfo(params) {
 			}
 		);
 
-		// Step 2: Create a detailed note/engagement record
-		const noteContent = `=== INSURANCE PLAN RECORD ===
-Created: ${new Date(timestamp).toISOString()}
-Plan ID: ${insurancePlanId}
-
-INSURANCE PROVIDER: ${insurance || "N/A"}
-MEMBER ID: ${insuranceMemberId || "N/A"}
-GROUP NUMBER: ${groupNumber || "N/A"}
-
-ELIGIBILITY STATUS: ${eligibilityData.eligibilityStatus || "Unknown"}
-ELIGIBLE: ${eligibilityData.isEligible ? "Yes" : "No"}
-SESSIONS COVERED: ${eligibilityData.sessionsCovered || 0}
-DEDUCTIBLE: $${eligibilityData.deductible?.individual || "N/A"}
-
-COVERAGE PERIOD: ${eligibilityData.planBegin || "N/A"} to ${eligibilityData.planEnd || "Ongoing"}
-
-PATIENT INFORMATION:
-- Name: ${firstName || "N/A"} ${lastName || "N/A"}
-- Date of Birth: ${dateOfBirth || "N/A"}
-- State: ${state || "N/A"}
-- Email: ${customerEmail || "N/A"}
-
-TREATMENT DETAILS:
-- Primary Reasons: ${Array.isArray(mainReasons) ? mainReasons.join(", ") : "None"}
-- Medical Conditions: ${Array.isArray(medicalConditions) ? medicalConditions.join(", ") : "None"}
-
-USER MESSAGE: ${eligibilityData.userMessage || "N/A"}
-
-=== END INSURANCE PLAN RECORD ===`;
-
-		// Create a note/engagement record
-		const notePayload = {
-			properties: {
-				hs_engagement_type: "NOTE",
-				hs_note_body: noteContent,
-				hs_engagement_source: "API",
-				hs_engagement_source_id: "insurance_plan_function"
-			},
-			associations: [
-				{
-					to: {
-						id: hubspotContactId
-					},
-					types: [
-						{
-							associationCategory: "HUBSPOT_DEFINED",
-							associationTypeId: 202 // Contact to Note association
-						}
-					]
-				}
-			]
-		};
-
-		console.log("Creating note engagement with insurance plan details...");
-		const noteResponse = await axios.post("https://api.hubapi.com/crm/v3/objects/notes", notePayload, {
-			headers: {
-				"Content-Type": "application/json",
-				Authorization: `Bearer ${hubspotApiKey}`
-			}
-		});
-
-		console.log("Insurance plan record created successfully!");
-		console.log("Note ID:", noteResponse.data.id);
+		console.log("Insurance plan object created successfully!");
+		console.log("Object ID:", response.data.id);
 
 		return {
 			success: true,
 			insurancePlanId: insurancePlanId,
-			insurancePlanObjectId: hubspotContactId,
-			noteId: noteResponse.data.id,
-			method: "insurance_plan_record_and_note_created",
-			fieldsUpdated: Object.keys(updateProperties),
-			recordSummary: {
-				planId: insurancePlanId,
-				provider: insurance,
-				memberId: insuranceMemberId,
-				groupNumber: groupNumber,
-				status: eligibilityData.eligibilityStatus,
-				eligible: eligibilityData.isEligible,
-				sessions: eligibilityData.sessionsCovered,
-				deductible: eligibilityData.deductible?.individual,
-				coveragePeriod: `${eligibilityData.planBegin || "N/A"} to ${eligibilityData.planEnd || "Ongoing"}`,
-				patientInfo: `${firstName} ${lastName} (${state})`,
-				treatmentReasons: Array.isArray(mainReasons) ? mainReasons.join(", ") : "None",
-				noteCreated: true,
-				noteId: noteResponse.data.id
-			}
+			insurancePlanObjectId: response.data.id,
+			propertiesSet: Object.keys(filteredProperties),
+			associatedContact: hubspotContactId || null
 		};
 	} catch (error) {
-		console.error("Failed to create insurance plan record:", {
+		console.error("Failed to create insurance plan object:", {
 			message: error.message,
 			status: error.response?.status,
 			statusText: error.response?.statusText,
-			data: error.response?.data
+			data: error.response?.data,
+			url: error.config?.url,
+			requestData: error.config?.data
 		});
 
-		// Last resort - just return success to not block the workflow
-		console.log("Returning success to avoid blocking workflow");
-		return {
-			success: true,
-			insurancePlanId: `fallback_${hubspotContactId}`,
-			insurancePlanObjectId: hubspotContactId,
-			method: "fallback_success"
-		};
+		// Log the full error response for debugging
+		if (error.response?.data) {
+			console.error("HubSpot API Error Details:", JSON.stringify(error.response.data, null, 2));
+		}
+
+		// If we get a 404, the object type might not exist or ID is wrong
+		if (error.response?.status === 404) {
+			throw new Error("Insurance plan object type not found - check object type ID in API call");
+		}
+
+		// If we get a 400, there's likely a property validation issue
+		if (error.response?.status === 400) {
+			throw new Error(`HubSpot validation error: ${error.response?.data?.message || "Unknown validation error"}`);
+		}
+
+		throw error;
 	}
+}
+
+/**
+ * Determine secondary telemedicine category based on reasons and conditions
+ */
+function getSecondaryCategory(mainReasons, medicalConditions) {
+	const allReasons = [...(Array.isArray(mainReasons) ? mainReasons : []), ...(Array.isArray(medicalConditions) ? medicalConditions : [])];
+	const reasonsString = allReasons.join(" ").toLowerCase();
+
+	// Check for weight loss related terms
+	if (reasonsString.includes("weight") || reasonsString.includes("obesity") || reasonsString.includes("diet")) {
+		return "Weight Loss";
+	}
+
+	// Check for glucose/diabetes related terms
+	if (reasonsString.includes("diabetes") || reasonsString.includes("glucose") || reasonsString.includes("blood sugar")) {
+		return "Glucose";
+	}
+
+	// Default to Weight Loss if uncertain
+	return "Weight Loss";
 }

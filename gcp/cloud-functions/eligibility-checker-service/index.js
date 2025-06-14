@@ -99,7 +99,6 @@ function getBoolean(obj, key, defaultValue = false) {
 function selectApiKey(testMode) {
 	const envProdApiKey = process.env.STEDI_API_KEY_PROD;
 	const envTestApiKey = process.env.STEDI_API_KEY;
-	const defaultApiKey = "test_fsWwDEq.XvSAryFi2OujuV0n3mNPhFfE";
 
 	const prodApiKeyValid = envProdApiKey && envProdApiKey.length > 10;
 	const testApiKeyValid = envTestApiKey && envTestApiKey.length > 10;
@@ -109,10 +108,18 @@ function selectApiKey(testMode) {
 
 	if (testMode) {
 		// Force test API key when testMode is true
-		selectedApiKey = testApiKeyValid ? envTestApiKey : defaultApiKey;
-		keyType = testApiKeyValid ? "test (env)" : "test (default)";
+		if (!testApiKeyValid) {
+			return {
+				apiKey: null,
+				valid: false,
+				keyType: "missing",
+				error: "STEDI_API_KEY environment variable not configured for test mode"
+			};
+		}
+		selectedApiKey = envTestApiKey;
+		keyType = "test (env)";
 	} else {
-		// Use production key if available, otherwise fall back to test
+		// Use production key if available, otherwise fail
 		if (prodApiKeyValid) {
 			selectedApiKey = envProdApiKey;
 			keyType = "production";
@@ -120,8 +127,12 @@ function selectApiKey(testMode) {
 			selectedApiKey = envTestApiKey;
 			keyType = "test (fallback)";
 		} else {
-			selectedApiKey = defaultApiKey;
-			keyType = "test (default fallback)";
+			return {
+				apiKey: null,
+				valid: false,
+				keyType: "missing",
+				error: "Neither STEDI_API_KEY_PROD nor STEDI_API_KEY environment variables are configured"
+			};
 		}
 	}
 
@@ -274,11 +285,13 @@ exports.eligibilityChecker = async (req, res) => {
 		}
 
 		// Select appropriate API key
-		const apiKeyResult = selectApiKey(false);
+		const testMode = req.body.testMode || false;
+		const apiKeyResult = selectApiKey(testMode);
 		if (!apiKeyResult.valid) {
 			return res.status(500).json({
 				success: false,
-				error: "API configuration error",
+				error: "API configuration error: " + (apiKeyResult.error || "Invalid API key"),
+				details: apiKeyResult.error,
 				timestamp
 			});
 		}

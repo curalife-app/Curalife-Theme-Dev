@@ -1,60 +1,49 @@
 const axios = require("axios");
 
-async function testInsurancePlanFunction() {
-	const url = "https://us-central1-telemedicine-458913.cloudfunctions.net/workflow_insurance_plan";
-
-	const testPayload = {
-		customerEmail: "subtain_rathore@yahoo.com",
-		firstName: "Muhammad",
-		lastName: "Tashfeen",
-		phoneNumber: "5551234567",
-		state: "GA",
-		insurance: "Humana",
-		insuranceMemberId: "HUMANA123TEST",
-		groupNumber: "GRP789TEST",
-		dateOfBirth: "1975-05-05",
-		// Using real HubSpot Contact ID from API
-		hubspotContactId: "309336616169",
-		eligibilityData: {
-			isEligible: true,
-			sessionsCovered: 25,
-			deductible: {
-				individual: 250
-			},
-			eligibilityStatus: "ACTIVE",
-			userMessage: "Test: Your insurance is active. Coverage details: 25 sessions covered.",
-			planBegin: "2024-01-01",
-			planEnd: ""
-		},
-		stediResponse: {
-			note: "This is a sample Stedi response for testing."
-		},
-		mainReasons: ["Anxiety", "Stress"],
-		medicalConditions: ["None"]
-	};
-
-	console.log("Sending test payload to cloud function...");
-	console.log(JSON.stringify(testPayload, null, 2));
-
+async function testInsurancePlan() {
 	try {
-		const response = await axios.post(url, testPayload, {
+		const testData = {
+			customerEmail: "test@example.com",
+			firstName: "John",
+			lastName: "Doe",
+			state: "CA",
+			insurance: "Blue Cross Blue Shield",
+			insuranceMemberId: "BC123456",
+			groupNumber: "GRP789",
+			dateOfBirth: "1990-01-01",
+			hubspotContactId: "12345",
+			eligibilityData: {
+				isEligible: true,
+				eligibilityStatus: "Active",
+				sessionsCovered: 10,
+				planBegin: "2024-01-01",
+				planEnd: "2024-12-31",
+				deductible: {
+					individual: 25
+				}
+			},
+			mainReasons: ["Weight Loss", "Nutrition Counseling"],
+			medicalConditions: ["Diabetes"]
+		};
+
+		console.log("Testing insurance plan creation...");
+		console.log("Request data:", JSON.stringify(testData, null, 2));
+
+		const response = await axios.post("https://us-central1-telemedicine-458913.cloudfunctions.net/workflow_insurance_plan", testData, {
 			headers: {
 				"Content-Type": "application/json"
 			}
 		});
 
-		console.log("\\n--- Function Response ---");
-		console.log("Status:", response.status);
-		console.log("Data:", JSON.stringify(response.data, null, 2));
+		console.log("✅ Success!");
+		console.log("Response:", JSON.stringify(response.data, null, 2));
 	} catch (error) {
-		console.error("\\n--- Error ---");
-		if (error.response) {
-			console.error("Status:", error.response.status);
-			console.error("Data:", JSON.stringify(error.response.data, null, 2));
-		} else {
-			console.error("Error:", error.message);
-		}
+		console.log("❌ Error:");
+		console.log("Status:", error.response?.status);
+		console.log("Status Text:", error.response?.statusText);
+		console.log("Error Data:", JSON.stringify(error.response?.data, null, 2));
+		console.log("Error Message:", error.message);
 	}
 }
 
-testInsurancePlanFunction();
+testInsurancePlan();

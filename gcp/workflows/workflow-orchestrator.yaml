@@ -212,8 +212,12 @@ main:
               - eligibilityData: ${eligibilityResponse.body}
               - eligibilitySuccess: true
             next: updateStatusUserCreationWithEligibility
+          - condition: ${eligibilityResponse.code == 500 and "body" in eligibilityResponse and "error" in eligibilityResponse.body}
+            assign:
+              - workflowError: "Critical failure: API configuration error"
+            next: updateStatusError
           - condition: true
-            # Eligibility check failed, continue without eligibility
+            # Eligibility check failed for other reasons, continue without eligibility but mark as failed
             assign:
               - eligibilityData:
                   eligibilityData:
@@ -290,10 +294,11 @@ main:
               - hubspotContactId: ${default(map.get(userCreationResponse.body, "hubspotContactId"), "unknown")}
             next: updateStatusInsurancePlan
           - condition: true
-            # User creation failed
+            # User creation failed - FAIL THE ENTIRE WORKFLOW
             assign:
               - userCreationSuccess: false
-            next: updateStatusUserCreationError
+              - workflowError: "Critical failure: User account creation failed"
+            next: updateStatusError
 
     # ---------------------------------------------------------------
     # 6. Update status: Creating insurance plan
@@ -576,13 +581,23 @@ main:
             statusTrackingId: ${statusTrackingId}
             currentStep: "error"
             progress: 0
-            message: "❌ Invalid email address"
+            message: ${"❌ " + default(workflowError, "Workflow processing failed")}
             timestamp: ${sys.now()}
             completed: true
             error: true
-            errorDetails: "Invalid email address"
+            errorDetails: ${default(workflowError, "A critical component failed")}
         result: statusErrorResult
-        next: returnValidationError
+        next: returnWorkflowError
+
+    - returnWorkflowError:
+        return:
+          statusCode: 500
+          headers: ${corsHeaders}
+          body:
+            success: false
+            statusTrackingId: ${statusTrackingId}
+            error: ${default(workflowError, "Workflow processing failed")}
+            timestamp: ${sys.now()}
 
     - returnValidationError:
         return:
