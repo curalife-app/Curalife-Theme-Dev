@@ -1099,7 +1099,9 @@ export default defineConfig(({ command, mode }) => {
 				treeshake: true, // Enable tree shaking
 				input: {
 					// CSS entry point
-					tailwind: path.resolve(__dirname, "src/styles/tailwind.css")
+					tailwind: path.resolve(__dirname, "src/styles/tailwind.css"),
+					// Quiz Web Components entry point
+					"quiz-components": path.resolve(__dirname, "src/scripts/components/quiz/quiz-components-loader.js")
 				},
 				output: {
 					entryFileNames: "assets/[name].js",

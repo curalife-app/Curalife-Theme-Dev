@@ -430,16 +430,21 @@ class ModularQuiz {
 		this._toggleElement(this.results, false);
 		this._toggleElement(this.error, false);
 
-		// Show loading container using Web Component
+		// Show loading container (using the correct property name 'loading')
 		if (this.loading) {
-			// Create loading display component
-			const loadingDisplay = document.createElement("quiz-loading-display");
-			loadingDisplay.setAttribute("mode", "comprehensive");
-			loadingDisplay.setAttribute("title", "Starting...");
-			loadingDisplay.setAttribute("message", "Preparing to process your information");
-
-			this.loading.innerHTML = "";
-			this.loading.appendChild(loadingDisplay);
+			this.loading.innerHTML = `
+				<div class="quiz-comprehensive-loading">
+					<div class="quiz-loading-content">
+						<div class="quiz-loading-icon">
+							<div class="quiz-loading-spinner-large"></div>
+						</div>
+						<div class="quiz-loading-step">
+							<h3 class="quiz-loading-step-title">Starting...</h3>
+							<p class="quiz-loading-step-description">Preparing to process your information</p>
+						</div>
+					</div>
+				</div>
+			`;
 			this._toggleElement(this.loading, true);
 		} else {
 			// Fallback: update next button
@@ -448,12 +453,23 @@ class ModularQuiz {
 	}
 
 	_updateLoadingStep(step) {
-		const loadingDisplay = document.querySelector("quiz-loading-display");
+		const titleElement = document.querySelector(".quiz-loading-step-title");
+		const descriptionElement = document.querySelector(".quiz-loading-step-description");
 
-		if (loadingDisplay) {
-			// Update step content via attributes
-			loadingDisplay.setAttribute("title", step.title);
-			loadingDisplay.setAttribute("message", step.description);
+		if (titleElement && descriptionElement) {
+			// Animate out
+			titleElement.style.opacity = "0";
+			descriptionElement.style.opacity = "0";
+
+			setTimeout(() => {
+				// Update content
+				titleElement.textContent = step.title;
+				descriptionElement.textContent = step.description;
+
+				// Animate in
+				titleElement.style.opacity = "1";
+				descriptionElement.style.opacity = "1";
+			}, 300);
 		}
 	}
 
@@ -480,13 +496,6 @@ class ModularQuiz {
 		this._lastOrchestratorUrl = orchestratorUrl;
 		this._lastOrchestratorPayload = payload;
 
-		// Report workflow initialization
-		this._reportWorkflowStage("WORKFLOW_INIT", "Starting eligibility and user creation workflow", {
-			url: orchestratorUrl,
-			hasInsurance: this._hasInsurance(),
-			payloadSize: JSON.stringify(payload).length
-		});
-
 		// Ensure any previous workflow state is cleaned up
 		this._stopStatusPolling();
 		this._stopFallbackChecking();
@@ -502,71 +511,28 @@ class ModularQuiz {
 			this.workflowCompletionReject = reject;
 
 			try {
-				// Report payload preparation
-				this._reportWorkflowStage("PAYLOAD_BUILT", "Request data prepared and validated", {
-					fields: Object.keys(payload),
-					hasInsurance: payload.insurance ? "Yes" : "No"
-				});
-
-				// Report orchestrator call
-				this._reportWorkflowStage("ORCHESTRATOR_CALL", "Initiating workflow orchestrator", {
-					url: orchestratorUrl,
-					method: "POST"
-				});
-
 				// 1. Initial call to the orchestrator to kick off the process
-				const startTime = Date.now();
 				const initialResponse = await fetch(orchestratorUrl, {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify(payload)
 				});
 
-				const duration = `${Date.now() - startTime}ms`;
-
 				if (!initialResponse.ok) {
 					const errorText = await initialResponse.text();
-					const error = new Error(`Orchestrator initial call failed: HTTP ${initialResponse.status} - ${errorText}`);
-					error.status = initialResponse.status;
-					error.url = orchestratorUrl;
-					this._reportWorkflowError(error, {
-						stage: "ORCHESTRATOR_CALL",
-						duration,
-						responseText: errorText
-					});
-					throw error;
+					throw new Error(`Orchestrator initial call failed: HTTP ${initialResponse.status} - ${errorText}`);
 				}
 
-				// Report successful connection
-				this._reportWorkflowStage("ORCHESTRATOR_SUCCESS", "Connected to workflow service successfully", {
-					status: initialResponse.status,
-					duration
-				});
-
 				const initialResult = await initialResponse.json();
-
 				// 2. Check for a statusTrackingId to begin polling, or if final data is immediately available
 				if (initialResult.success && initialResult.statusTrackingId) {
-					this._reportWorkflowStage("POLLING_START", "Status tracking initiated", {
-						trackingId: initialResult.statusTrackingId,
-						mode: "Standard Polling"
-					});
 					this._startStatusPolling(initialResult.statusTrackingId);
 				} else if (initialResult.success && initialResult.data) {
 					// If orchestrator immediately returns final data (e.g., for simple, fast workflows)
-					this._reportWorkflowStage("WORKFLOW_COMPLETE", "Workflow completed immediately", {
-						type: "Fast Track",
-						hasData: "Yes"
-					});
 					this._stopLoadingMessages(); // Dismiss loading as it's truly done
 					resolve(initialResult.data); // Resolve the promise with the final data
 				} else if (initialResult.success) {
 					// Workflow started but no immediate data - set up polling with fallback
-					this._reportWorkflowStage("POLLING_START", "Status tracking initiated with fallback", {
-						trackingId: initialResult.statusTrackingId,
-						mode: "Polling + Fallback"
-					});
-
 					// Start polling as usual
 					this._startStatusPolling(initialResult.statusTrackingId);
 
@@ -574,19 +540,10 @@ class ModularQuiz {
 					this._setupOrchestrationFallback(orchestratorUrl, payload, initialResult.statusTrackingId);
 				} else {
 					// Initial call failed or didn't provide tracking ID/data
-					const error = new Error(initialResult.error || "Orchestrator did not provide status tracking ID or final data.");
-					this._reportWorkflowError(error, {
-						stage: "ORCHESTRATOR_RESPONSE",
-						result: initialResult
-					});
-					throw error;
+					throw new Error(initialResult.error || "Orchestrator did not provide status tracking ID or final data.");
 				}
 			} catch (error) {
 				console.error("Error initiating orchestrator workflow:", error);
-				this._reportWorkflowError(error, {
-					stage: "WORKFLOW_INIT",
-					url: orchestratorUrl
-				});
 				this._stopLoadingMessages(); // Ensure loading is dismissed on immediate error
 				reject(error); // Reject the promise
 			}
@@ -598,14 +555,6 @@ class ModularQuiz {
 	 */
 	_handleWorkflowError(error) {
 		console.error("Handling workflow error:", error);
-
-		// Report the workflow failure with detailed context
-		this._reportWorkflowError(error, {
-			stage: "WORKFLOW_ERROR_HANDLER",
-			pollingAttempts: this.pollingAttempts,
-			statusTrackingId: this.statusTrackingId,
-			workflowType: this._hasInsurance() ? "Full Workflow" : "Simple Workflow"
-		});
 
 		// Stop loading messages and status polling
 		this._stopLoadingMessages();
@@ -627,14 +576,6 @@ class ModularQuiz {
 			error: error
 		};
 
-		// Report final workflow failure
-		this._reportWorkflowStage("WORKFLOW_FAILED", "Workflow terminated due to error", {
-			errorType: error.name || "UnknownError",
-			errorMessage: error.message || "Unknown error",
-			errorCode: error.code,
-			statusCode: error.status
-		});
-
 		// Show error results
 		this.showResults(
 			this.config.resultUrl,
@@ -649,7 +590,7 @@ class ModularQuiz {
 	 */
 	_getOrchestratorUrl() {
 		const container = document.getElementById("quiz-container");
-		return container?.dataset?.orchestratorUrl || "https://us-central1-telemedicine-458913.cloudfunctions.net/workflowOrchestratorV2";
+		return container?.dataset?.orchestratorUrl || "https://us-central1-telemedicine-458913.cloudfunctions.net/workflow_orchestrator";
 	}
 
 	// =======================================================================
@@ -662,12 +603,6 @@ class ModularQuiz {
 	 */
 	_setupOrchestrationFallback(orchestratorUrl, payload, statusTrackingId) {
 		// Check every 10 seconds starting after 20 seconds (sooner due to stale status issues)
-		this._reportWorkflowStage("FALLBACK_TRIGGERED", "Setting up fallback mechanism", {
-			delay: "20 seconds",
-			interval: "10 seconds",
-			maxAttempts: 6
-		});
-
 		this.fallbackTimeout = setTimeout(() => {
 			this._startFallbackChecking(orchestratorUrl, payload, statusTrackingId);
 		}, 20000);
@@ -677,42 +612,22 @@ class ModularQuiz {
 		let fallbackAttempts = 0;
 		const maxFallbackAttempts = 6; // 6 attempts = 1 minute of checking
 
-		this._reportWorkflowStage("FALLBACK_TRIGGERED", "Starting fallback polling", {
-			url: orchestratorUrl,
-			maxAttempts: maxFallbackAttempts,
-			trackingId: statusTrackingId
-		});
-
 		this.fallbackInterval = setInterval(async () => {
 			fallbackAttempts++;
 
 			try {
-				this._reportWorkflowStage("FALLBACK_TRIGGERED", `Fallback check attempt ${fallbackAttempts}`, {
-					attempt: fallbackAttempts,
-					maxAttempts: maxFallbackAttempts,
-					url: orchestratorUrl
-				});
-
 				// Try calling the orchestrator again to see if it's completed
-				const startTime = Date.now();
 				const response = await fetch(orchestratorUrl, {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({ ...payload, fallbackCheck: true, statusTrackingId })
 				});
-				const duration = `${Date.now() - startTime}ms`;
 
 				if (response.ok) {
 					const result = await response.json();
 
 					// If we get final data, resolve the workflow
 					if (result.success && result.data) {
-						this._reportWorkflowStage("WORKFLOW_COMPLETE", "Workflow completed via fallback", {
-							attempt: fallbackAttempts,
-							duration,
-							method: "Fallback Polling"
-						});
-
 						this._stopFallbackChecking();
 						this._stopStatusPolling();
 						this._stopLoadingMessages();
@@ -723,27 +638,13 @@ class ModularQuiz {
 						}
 						return;
 					}
-				} else {
-					this._reportWorkflowStage("FALLBACK_TRIGGERED", `Fallback check failed`, {
-						attempt: fallbackAttempts,
-						status: response.status,
-						duration
-					});
 				}
 			} catch (error) {
-				this._reportWorkflowError(error, {
-					stage: "FALLBACK_CHECK",
-					attempt: fallbackAttempts,
-					maxAttempts: maxFallbackAttempts
-				});
+				console.warn("Fallback check error:", error);
 			}
 
 			// Stop fallback checking after max attempts
 			if (fallbackAttempts >= maxFallbackAttempts) {
-				this._reportWorkflowStage("FALLBACK_TRIGGERED", "Fallback attempts exhausted", {
-					attempts: fallbackAttempts,
-					status: "Max attempts reached"
-				});
 				this._stopFallbackChecking();
 			}
 		}, 10000); // Check every 10 seconds
@@ -757,9 +658,7 @@ class ModularQuiz {
 		if (this.fallbackTimeout) {
 			clearTimeout(this.fallbackTimeout);
 			this.fallbackTimeout = null;
-			this._reportWorkflowStage("FALLBACK_TRIGGERED", "Fallback mechanism stopped", {
-				reason: "Cleanup or completion"
-			});
+			console.log("⏹️ Fallback timeout cleared");
 		}
 	}
 
@@ -769,27 +668,13 @@ class ModularQuiz {
 	_triggerEmergencyFallback() {
 		// Use the stored orchestrator data from the initial call
 		if (this._lastOrchestratorUrl && this._lastOrchestratorPayload) {
-			this._reportWorkflowStage("EMERGENCY_FALLBACK", "Triggering emergency fallback due to stale status", {
-				url: this._lastOrchestratorUrl,
-				hasPayload: !!this._lastOrchestratorPayload,
-				trackingId: this.statusTrackingId
-			});
 			this._startFallbackChecking(this._lastOrchestratorUrl, this._lastOrchestratorPayload, this.statusTrackingId);
 		} else {
-			this._reportWorkflowStage("EMERGENCY_FALLBACK", "Emergency fallback failed - missing data", {
-				hasUrl: !!this._lastOrchestratorUrl,
-				hasPayload: !!this._lastOrchestratorPayload,
-				trackingId: this.statusTrackingId
-			});
-
+			console.error("Cannot trigger emergency fallback - missing orchestrator data");
 			// Fallback to timeout error
 			setTimeout(() => {
 				if (this.workflowCompletionReject) {
-					const error = new Error("Status polling failed and emergency fallback unavailable");
-					this._reportWorkflowError(error, {
-						stage: "EMERGENCY_FALLBACK_FAILURE"
-					});
-					this.workflowCompletionReject(error);
+					this.workflowCompletionReject(new Error("Status polling failed and emergency fallback unavailable"));
 				}
 			}, 1000);
 		}
@@ -859,11 +744,7 @@ class ModularQuiz {
 		}
 
 		if (this.pollingAttempts >= this.maxPollingAttempts) {
-			this._reportWorkflowStage("POLLING_ERROR", "Maximum polling attempts reached", {
-				attempts: this.pollingAttempts,
-				maxAttempts: this.maxPollingAttempts,
-				trackingId: this.statusTrackingId
-			});
+			console.warn("Stopping polling: Max polling attempts reached without explicit completion from backend.");
 			this._stopStatusPolling(); // Stop polling, overall timeout will handle the promise
 			return;
 		}
@@ -874,54 +755,30 @@ class ModularQuiz {
 			const statusUrl = this._getStatusPollingUrl();
 			const payload = { statusTrackingId: this.statusTrackingId };
 
-			const startTime = Date.now();
 			const response = await fetch(statusUrl, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(payload)
 			});
-			const pollDuration = `${Date.now() - startTime}ms`;
 
 			if (response.ok) {
 				const statusData = await response.json();
 
 				// Check for important warnings
 				if (statusData.statusData?.debug?.eligibilityTimeout) {
-					this._reportWorkflowStage("ELIGIBILITY_TIMEOUT", "Insurance check timed out, workflow continuing", {
-						timeout: statusData.statusData.debug.eligibilityTimeout,
-						step: statusData.statusData.currentStep
-					});
+					console.warn("Eligibility timeout detected - workflow continuing without eligibility data");
 				}
 
 				if (statusData.statusData?.debug?.warnings) {
-					statusData.statusData.debug.warnings.forEach(warning => {
-						this._reportWorkflowStage("POLLING_WARNING", `Workflow warning: ${warning}`, {
-							attempt: this.pollingAttempts,
-							step: statusData.statusData.currentStep
-						});
-					});
+					console.warn("Workflow warnings:", statusData.statusData.debug.warnings);
 				}
 
 				if (statusData.success && statusData.statusData) {
-					// Report progress update
-					this._reportWorkflowStage("POLLING_UPDATE", `Progress: ${statusData.statusData.progress || 0}%`, {
-						step: statusData.statusData.currentStep,
-						status: statusData.statusData.currentStatus,
-						progress: statusData.statusData.progress,
-						attempt: this.pollingAttempts,
-						duration: pollDuration
-					});
-
 					this._updateWorkflowStatus(statusData.statusData);
 
 					// Track stale status but don't trigger emergency fallback (causes duplicate workflows)
 					if (statusData.statusData.currentStep === "processing" && statusData.statusData.progress === 25 && this.pollingAttempts > 15) {
-						this._reportWorkflowStage("STALE_STATUS", "Potentially stale status detected", {
-							step: statusData.statusData.currentStep,
-							progress: statusData.statusData.progress,
-							attempts: this.pollingAttempts,
-							duration: `${this.pollingAttempts * 2}s`
-						});
+						console.warn(`Stale data detected - stuck at processing/25% for ${this.pollingAttempts} attempts`);
 					}
 
 					if (statusData.statusData.completed) {
@@ -930,14 +787,6 @@ class ModularQuiz {
 
 						// Store the result for debugging
 						this.workflowResult = finalResult;
-
-						// Report completion
-						this._reportWorkflowStage("WORKFLOW_COMPLETE", "Workflow completed successfully via polling", {
-							attempts: this.pollingAttempts,
-							totalTime: `${this.pollingAttempts * 2}s`,
-							finalStatus: statusData.statusData.currentStatus,
-							hasData: finalResult ? "Yes" : "No"
-						});
 
 						// Resolve the original workflow promise with the final result from polling BEFORE stopping polling
 						if (this.workflowCompletionResolve) {
@@ -952,40 +801,23 @@ class ModularQuiz {
 						this._stopLoadingMessages(); // Stop loading since workflow is complete
 					}
 				} else {
-					this._reportWorkflowStage("POLLING_ERROR", "Invalid response from status service", {
-						success: statusData.success,
-						hasData: !!statusData.statusData,
-						error: statusData.error,
-						attempt: this.pollingAttempts
-					});
+					console.warn("Status polling received unsuccessful or invalid data:", statusData);
 
 					// Non-critical, continue polling unless it's a hard error
 					if (statusData.error) {
-						this._showBackgroundProcessNotification(`Polling error: ${statusData.error}`, "error", "info");
+						this._showBackgroundProcessNotification(`Polling error: ${statusData.error}`, "error", "LOW");
 					}
 				}
 			} else {
 				const errorText = await response.text();
-				this._reportWorkflowStage("POLLING_ERROR", `HTTP error during status check`, {
-					status: response.status,
-					statusText: response.statusText,
-					responseText: errorText.substring(0, 200),
-					attempt: this.pollingAttempts,
-					duration: pollDuration
-				});
-
+				console.warn("Status polling failed HTTP:", response.status, errorText);
 				// Non-critical, continue polling on network/HTTP errors
-				this._showBackgroundProcessNotification(`Network error during status check (${response.status}). Retrying...`, "warning", "info");
+				this._showBackgroundProcessNotification(`Network error during status check (${response.status}). Retrying...`, "error", "LOW");
 			}
 		} catch (error) {
-			this._reportWorkflowError(error, {
-				stage: "STATUS_POLLING",
-				attempt: this.pollingAttempts,
-				trackingId: this.statusTrackingId
-			});
-
+			console.warn("Status polling error (catch block):", error);
 			// Non-critical, continue polling on JS errors
-			this._showBackgroundProcessNotification(`An error occurred during status check. Retrying...`, "warning", "info");
+			this._showBackgroundProcessNotification(`An error occurred during status check. Retrying...`, "error", "LOW");
 		}
 	}
 
@@ -1013,44 +845,9 @@ class ModularQuiz {
 
 		this._updateLoadingStep(currentStepInfo);
 
-		// Show enhanced status notifications with proper types
+		// Show a small notification if the status message changes or is important
 		if (statusData.message && statusData.message !== this._lastStatusMessage) {
-			let notificationType = "info";
-			let priority = "info";
-
-			// Determine notification type based on status
-			if (statusData.currentStatus?.includes("COMPLETED") || statusData.currentStatus?.includes("SUCCESS")) {
-				notificationType = "success";
-				priority = "success";
-			} else if (statusData.currentStatus?.includes("FAILED") || statusData.currentStatus?.includes("ERROR")) {
-				notificationType = "error";
-				priority = "error";
-			} else if (statusData.currentStatus?.includes("STARTED") || statusData.currentStatus?.includes("PROGRESS")) {
-				notificationType = "info";
-				priority = "info";
-			}
-
-			// Map specific statuses to workflow stages
-			const statusToStageMap = {
-				INITIATED: "WORKFLOW_INIT",
-				ELIGIBILITY_CHECK_STARTED: "ELIGIBILITY_START",
-				ELIGIBILITY_CHECK_COMPLETED: "ELIGIBILITY_SUCCESS",
-				USER_CREATION_STARTED: "USER_CREATION_START",
-				USER_CREATION_COMPLETED: "USER_CREATION_SUCCESS",
-				SCHEDULING_STARTED: "SCHEDULING_START",
-				COMPLETED: "WORKFLOW_COMPLETE",
-				FAILED: "WORKFLOW_FAILED"
-			};
-
-			const stage = statusToStageMap[statusData.currentStatus] || "POLLING_UPDATE";
-
-			this._reportWorkflowStage(stage, statusData.message, {
-				currentStep: statusData.currentStep,
-				progress: statusData.progress,
-				elapsedTime: statusData.debug?.elapsedTime,
-				workflowPath: statusData.debug?.workflowPath
-			});
-
+			this._showBackgroundProcessNotification(statusData.message, "info", "LOW"); // Use low priority to not block UI
 			this._lastStatusMessage = statusData.message;
 		}
 
@@ -2987,33 +2784,31 @@ class ModularQuiz {
 		html += "</div>";
 		html += "</div>";
 		html += "</div>";
+		html += '<div class="quiz-action-section" style="background-color: #f8f9fa;">';
+		html += '<div class="quiz-action-content">';
+		html += '<div class="quiz-action-header">';
+		html += '<h3 class="quiz-action-title">Need Assistance?</h3>';
+		html += "</div>";
+		html += '<div class="quiz-action-details">';
+		html += '<div class="quiz-action-info">';
+		html += '<div class="quiz-action-info-text">';
+		html += "Our support team is here to help if you have any questions about scheduling or preparing for your appointment.";
 		html += "</div>";
 		html += "</div>";
+		html += '<div class="quiz-action-feature">';
+		html += '<svg class="quiz-action-feature-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">';
+		html += '<path d="M18.3333 5.83333L10 11.6667L1.66666 5.83333" stroke="#306E51" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>';
+		html +=
+			'<path d="M1.66666 5.83333H18.3333V15C18.3333 15.442 18.1577 15.866 17.8452 16.1785C17.5327 16.491 17.1087 16.6667 16.6667 16.6667H3.33333C2.89131 16.6667 2.46738 16.491 2.15482 16.1785C1.84226 15.866 1.66666 15.442 1.66666 15V5.83333Z" stroke="#306E51" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>';
+		html += "</svg>";
+		html += '<div class="quiz-action-feature-text">Email: support@curalife.com</div>';
 		html += "</div>";
-		html += "</div>";
-		html += "</div>";
-		html += "</div>";
-		html += "</div>";
-		html += "</div>";
-		html += "</div>";
-		html += "</div>";
-		html += "</div>";
-		html += "</div>";
-		html += "</div>";
-		html += "</div>";
-		html += "</div>";
-		html += "</div>";
-		html += "</div>";
-		html += "</div>";
-		html += "</div>";
-		html += "</div>";
-		html += "</div>";
-		html += "</div>";
-		html += "</div>";
-		html += "</div>";
-		html += "</div>";
-		html += "</div>";
-		html += "</div>";
+		html += '<div class="quiz-action-feature">';
+		html += '<svg class="quiz-action-feature-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">';
+		html +=
+			'<path d="M18.3081 14.2233C17.1569 14.2233 16.0346 14.0397 14.9845 13.6971C14.6449 13.5878 14.2705 13.6971 14.0579 13.9427L12.8372 15.6772C10.3023 14.4477 8.55814 12.7138 7.32326 10.1581L9.10465 8.89535C9.34884 8.68372 9.45814 8.30233 9.34884 7.96279C9.00581 6.91628 8.82209 5.79186 8.82209 4.64535C8.82209 4.28953 8.53256 4 8.17674 4H4.64535C4.28953 4 4 4.28953 4 4.64535C4 12.1715 10.1831 18.3953 17.6628 18.3953C18.0186 18.3953 18.3081 18.1058 18.3081 17.75V14.2233Z" stroke="#306E51" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>';
+		html += "</svg>";
+		html += '<div class="quiz-action-feature-text">Phone: 1-800-CURALIFE</div>';
 		html += "</div>";
 
 		return html; // Proper return statement
@@ -3721,33 +3516,84 @@ class ModularQuiz {
 		const sessionsCovered = resultData.sessionsCovered || 5;
 		const planEnd = resultData.planEnd || "Dec 31, 2025";
 
-		// Create coverage card component
-		const coverageCard = document.createElement("quiz-coverage-card");
-		coverageCard.setAttribute("title", "Here's Your Offer");
-		coverageCard.setAttribute("sessions-covered", sessionsCovered);
-		coverageCard.setAttribute("plan-end", planEnd);
+		return `
+			<div class="quiz-results-container">
+				<div class="quiz-results-header">
+					<h2 class="quiz-results-title">Great news! You're covered</h2>
+					<p class="quiz-results-subtitle">As of today, your insurance fully covers your online dietitian consultations*</p>
+				</div>
 
-		// Create action section component
-		const actionSection = document.createElement("quiz-action-section");
-		actionSection.setAttribute("title", "Schedule your initial online consultation now");
-		actionSection.setAttribute("background-color", "#F1F8F4");
-		actionSection.setAttribute("result-url", resultUrl);
+				<div class="quiz-coverage-card">
+					<div class="quiz-coverage-card-title">Here's Your Offer</div>
+					<div class="quiz-coverage-pricing">
+						<div class="quiz-coverage-service-item">
+							<div class="quiz-coverage-service">Initial consultation – 60 minutes</div>
+							<div class="quiz-coverage-cost">
+								<div class="quiz-coverage-copay">Co-pay: $0*</div>
+								<div class="quiz-coverage-original-price">$100</div>
+							</div>
+						</div>
+						<div class="quiz-coverage-service-item">
+							<div class="quiz-coverage-service">Follow-up consultation – 30 minutes</div>
+							<div class="quiz-coverage-cost">
+								<div class="quiz-coverage-copay">Co-pay: $0*</div>
+								<div class="quiz-coverage-original-price">$50</div>
+							</div>
+						</div>
+					</div>
 
-		// Create container and assemble
-		const container = document.createElement("div");
-		container.className = "quiz-results-container";
-		container.innerHTML = `
-			<div class="quiz-results-header">
-				<h2 class="quiz-results-title">Great news! You're covered</h2>
-				<p class="quiz-results-subtitle">As of today, your insurance fully covers your online dietitian consultations*</p>
+					<div class="quiz-coverage-divider"></div>
+
+					<div class="quiz-coverage-benefits">
+						<div class="quiz-coverage-benefit">
+							<div class="quiz-coverage-benefit-icon">
+								<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+									<path d="M7.08 1.67L3.33 1.67L3.33 18.33L10.83 18.33L10 7.5L16.67 5" stroke="#418865" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+								</svg>
+							</div>
+							<div class="quiz-coverage-benefit-text">${sessionsCovered} covered sessions remaining</div>
+						</div>
+						<div class="quiz-coverage-benefit">
+							<div class="quiz-coverage-benefit-icon">
+								<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+									<path d="M10.83 11.67L6.25 1.67L13.75 3.33L2.5 18.33L17.5 8.33" stroke="#418865" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+								</svg>
+							</div>
+							<div class="quiz-coverage-benefit-text">Coverage expires ${planEnd}</div>
+						</div>
+					</div>
+				</div>
+
+				<div class="quiz-action-section" style="background-color: #F1F8F4;">
+					<div class="quiz-action-content">
+						<div class="quiz-action-header">
+							<h3 class="quiz-action-title">Schedule your initial online consultation now</h3>
+						</div>
+						<div class="quiz-action-details">
+							<div class="quiz-action-info">
+								<div class="quiz-action-info-icon">
+									<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+										<path d="M4.58 4.17L15.83 15.42L2.08 1.67L17.83 13.75L8.33 16.25" stroke="#418865" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+									</svg>
+								</div>
+								<div class="quiz-action-info-text">Our dietitians usually recommend minimum 6 consultations over 6 months, Today, just book your first.</div>
+							</div>
+							<div class="quiz-action-feature">
+								<div class="quiz-action-feature-icon">
+									<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+										<path d="M1.67 2.5L18.33 18.17L13.33 1.67L5 5L6.67 10.42" stroke="#418865" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+									</svg>
+								</div>
+								<div class="quiz-action-feature-text">Free cancellation up to 24h before</div>
+							</div>
+						</div>
+						<a href="${resultUrl}" class="quiz-booking-button">Proceed to booking</a>
+					</div>
+				</div>
+
+				${this._generateFAQHTML()}
 			</div>
 		`;
-
-		container.appendChild(coverageCard);
-		container.appendChild(actionSection);
-		container.insertAdjacentHTML("beforeend", this._generateFAQHTML());
-
-		return container.outerHTML;
 	}
 
 	_generateNotCoveredInsuranceResultsHTML(resultData, resultUrl) {
@@ -3903,35 +3749,132 @@ class ModularQuiz {
 		const actionTitle = error.actionTitle || "Technical Issue Detected";
 		const detailedDescription = error.detailedDescription || "Our systems encountered an unexpected error while processing your request.";
 
-		// Create error display component
-		const errorDisplay = document.createElement("quiz-error-display");
-		errorDisplay.setAttribute("severity", "technical");
-		errorDisplay.setAttribute("title", actionTitle);
-		errorDisplay.setAttribute("message", userMessage);
-		errorDisplay.setAttribute("details", detailedDescription);
-		if (errorCode !== "Unknown") {
-			errorDisplay.setAttribute("error-code", errorCode);
-		}
+		return `
+			<div class="quiz-results-container">
+				<div class="quiz-results-header">
+					<h2 class="quiz-results-title">${messages.title || "Technical Issue Detected"}</h2>
+					<p class="quiz-results-subtitle">${messages.subtitle || "We're resolving this for you."}</p>
+				</div>
 
-		// Add action button
-		errorDisplay.innerHTML = `
-			<div slot="actions">
-				<a href="${resultUrl}" class="quiz-booking-button">Continue with Support</a>
+				<div class="quiz-technical-problem-error">
+					<div class="quiz-technical-problem-header">
+						<div class="quiz-technical-problem-icon">
+							<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+								<path d="M12 8V12M12 16H12.01M22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12Z" stroke="#dc2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+							</svg>
+						</div>
+						<div class="quiz-technical-problem-content">
+							<h3 class="quiz-technical-problem-title">${actionTitle}</h3>
+							<p class="quiz-technical-problem-subtitle">System error detected during processing</p>
+						</div>
+					</div>
+
+					<div class="quiz-technical-problem-message">
+						<p class="quiz-technical-problem-primary-text">${userMessage}</p>
+						<p class="quiz-technical-problem-secondary-text">${detailedDescription}</p>
+					</div>
+
+					<div class="quiz-technical-problem-details">
+						<div class="quiz-technical-problem-detail-item">
+							<svg class="quiz-technical-problem-detail-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+								<path d="M10 6V10M10 14H10.01M19 10C19 14.9706 14.9706 19 10 19C5.02944 19 1 14.9706 1 10C1 5.02944 5.02944 1 10 1C14.9706 1 19 5.02944 19 10Z" stroke="#dc2626" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+							</svg>
+							<div class="quiz-technical-problem-detail-content">
+								<p class="quiz-technical-problem-detail-title">Issue Type</p>
+								<p class="quiz-technical-problem-detail-text">System processing error</p>
+							</div>
+						</div>
+
+						<div class="quiz-technical-problem-detail-item">
+							<svg class="quiz-technical-problem-detail-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+								<path d="M10 2C14.9706 2 19 6.02944 19 11C19 15.9706 14.9706 20 10 20C5.02944 20 1 15.9706 1 11C1 6.02944 5.02944 2 10 2ZM10 7C9.44772 7 9 7.44772 9 8V12C9 12.5523 9.44772 13 10 13C10.5523 13 11 12.5523 11 12V8C11 7.44772 10.5523 7 10 7ZM10 15.5C10.8284 15.5 11.5 14.8284 11.5 14C11.5 13.1716 10.8284 12.5 10 12.5C9.17157 12.5 8.5 13.1716 8.5 14C8.5 14.8284 9.17157 15.5 10 15.5Z" fill="#dc2626"/>
+							</svg>
+							<div class="quiz-technical-problem-detail-content">
+								<p class="quiz-technical-problem-detail-title">Status</p>
+								<p class="quiz-technical-problem-detail-text">Automatically reported to our technical team</p>
+							</div>
+						</div>
+
+						<div class="quiz-technical-problem-detail-item">
+							<svg class="quiz-technical-problem-detail-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+								<path d="M13 2L3 14H12L7 18L17 6H8L13 2Z" stroke="#dc2626" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+							</svg>
+							<div class="quiz-technical-problem-detail-content">
+								<p class="quiz-technical-problem-detail-title">Resolution</p>
+								<p class="quiz-technical-problem-detail-text">Manual processing initiated</p>
+							</div>
+						</div>
+					</div>
+
+					${
+						errorCode !== "Unknown"
+							? `
+						<div class="quiz-technical-problem-error-code">
+							<span class="quiz-technical-problem-error-code-label">Error Code</span>
+							<span class="quiz-technical-problem-error-code-value">${errorCode}</span>
+						</div>
+					`
+							: ""
+					}
+				</div>
+
+				<div class="quiz-technical-problem-action">
+					<div class="quiz-technical-problem-action-header">
+						<div class="quiz-technical-problem-action-icon">
+							<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+								<path d="M8.5 3L11.5 3C12.6046 3 13.5 3.89543 13.5 5L13.5 15C13.5 16.1046 12.6046 17 11.5 17L8.5 17C7.39543 17 6.5 16.1046 6.5 15L6.5 5C6.5 3.89543 7.39543 3 8.5 3Z" stroke="#22c55e" stroke-width="1.5"/>
+								<path d="M9 6L11 6" stroke="#22c55e" stroke-width="1.5" stroke-linecap="round"/>
+								<path d="M9 8L11 8" stroke="#22c55e" stroke-width="1.5" stroke-linecap="round"/>
+								<path d="M9 10L11 10" stroke="#22c55e" stroke-width="1.5" stroke-linecap="round"/>
+								<path d="M9 12L11 12" stroke="#22c55e" stroke-width="1.5" stroke-linecap="round"/>
+								<path d="M10 14.5C10.2761 14.5 10.5 14.2761 10.5 14C10.5 13.7239 10.2761 13.5 10 13.5C9.72386 13.5 9.5 13.7239 9.5 14C9.5 14.2761 9.72386 14.5 10 14.5Z" fill="#22c55e"/>
+							</svg>
+						</div>
+						<h3 class="quiz-technical-problem-action-title">We're handling this</h3>
+					</div>
+
+					<div class="quiz-technical-problem-action-content">
+						<div class="quiz-technical-problem-action-item">
+							<svg class="quiz-technical-problem-action-item-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+								<path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+								<path d="M9 12L11 14L15 10" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+							</svg>
+							<div class="quiz-technical-problem-action-item-content">
+								<h4 class="quiz-technical-problem-action-item-title">Automatic Resolution</h4>
+								<p class="quiz-technical-problem-action-item-text">Our technical team has been automatically notified and will resolve this issue manually</p>
+							</div>
+						</div>
+
+						<div class="quiz-technical-problem-action-item">
+							<svg class="quiz-technical-problem-action-item-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+								<path d="M21 15C21 15.5304 20.7893 16.0391 20.4142 16.4142C20.0391 16.7893 19.5304 17 19 17H7L3 21V5C3 4.46957 3.21071 3.96086 3.58579 3.58579C3.96086 3.21071 4.46957 3 5 3H19C19.5304 3 20.0391 3.21071 20.4142 3.58579C20.7893 3.96086 21 4.46957 21 5V15Z" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+							</svg>
+							<div class="quiz-technical-problem-action-item-content">
+								<h4 class="quiz-technical-problem-action-item-title">Manual Processing</h4>
+								<p class="quiz-technical-problem-action-item-text">We'll manually process your eligibility verification and contact you with results</p>
+							</div>
+						</div>
+
+						<div class="quiz-technical-problem-action-item">
+							<svg class="quiz-technical-problem-action-item-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+								<path d="M8 2V5M16 2V5M3.5 9H20.5M5 3H19C20.1046 3 21 3.89543 21 5V19C21 20.1046 20.1046 21 19 21H5C3.89543 21 3 20.1046 3 19V5C3 3.89543 3.89543 3 5 3Z" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+							</svg>
+							<div class="quiz-technical-problem-action-item-content">
+								<h4 class="quiz-technical-problem-action-item-title">Quick Connection</h4>
+								<p class="quiz-technical-problem-action-item-text">Get connected with our support team to expedite your dietitian appointment</p>
+							</div>
+						</div>
+					</div>
+
+					<a href="${resultUrl}" class="quiz-technical-problem-action-button">
+						<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+							<path d="M17.5 12.5C17.5 13.4205 16.7705 14.1667 15.8333 14.1667H6.25L2.5 17.5V4.16667C2.5 3.24619 3.24619 2.5 4.16667 2.5H15.8333C16.7705 2.5 17.5 3.24619 17.5 4.16667V12.5Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+						</svg>
+						Continue with Support
+					</a>
+				</div>
 			</div>
 		`;
-
-		// Create container
-		const container = document.createElement("div");
-		container.className = "quiz-results-container";
-		container.innerHTML = `
-			<div class="quiz-results-header">
-				<h2 class="quiz-results-title">${messages.title || "Technical Issue Detected"}</h2>
-				<p class="quiz-results-subtitle">${messages.subtitle || "We're resolving this for you."}</p>
-			</div>
-		`;
-
-		container.appendChild(errorDisplay);
-		return container.outerHTML;
 	}
 
 	_generateInsurancePlansErrorResultsHTML(resultData, resultUrl) {
@@ -4433,264 +4376,69 @@ class ModularQuiz {
 	}
 
 	// Debug method to manually test the enhanced notification system
+	_testNotificationSystem() {
+		console.log("🎯 Testing SMART notification system...");
 
-	// =======================================================================
-	// Enhanced Notification System for Workflow Reporting
-	// =======================================================================
-
-	/**
-	 * Enhanced notification system for better workflow reporting
-	 */
-	_showWorkflowNotification(message, type = "info", priority = null, details = null) {
-		if (!this.notificationManager) {
-			console.warn("Notification manager not available");
-			return;
-		}
-
-		// Build detailed message with context
-		let fullMessage = message;
-		if (details) {
-			if (typeof details === "object") {
-				// Create structured details
-				const detailParts = [];
-				if (details.step) detailParts.push(`Step: ${details.step}`);
-				if (details.duration) detailParts.push(`Duration: ${details.duration}`);
-				if (details.status) detailParts.push(`Status: ${details.status}`);
-				if (details.data) detailParts.push(`Data: ${JSON.stringify(details.data, null, 2)}`);
-				if (details.error) detailParts.push(`Error: ${details.error}`);
-				if (details.url) detailParts.push(`URL: ${details.url}`);
-
-				if (detailParts.length > 0) {
-					fullMessage += `<br><strong>Details:</strong><br>${detailParts.join("<br>")}`;
-				}
-			} else {
-				fullMessage += `<br><strong>Details:</strong> ${details}`;
-			}
-		}
-
-		return this.notificationManager.show(fullMessage, type, priority);
-	}
-
-	/**
-	 * Show workflow stage notification with proper colors and context
-	 */
-	_reportWorkflowStage(stage, status, details = null) {
-		const stageConfig = {
-			// Initialization stages
-			WORKFLOW_INIT: {
-				type: "info",
-				priority: "info",
-				emoji: "🚀",
-				title: "Workflow Initialized"
-			},
-			PAYLOAD_BUILT: {
-				type: "info",
-				priority: "info",
-				emoji: "📦",
-				title: "Request Data Prepared"
-			},
-
-			// Network stages
-			ORCHESTRATOR_CALL: {
-				type: "info",
-				priority: "info",
-				emoji: "📡",
-				title: "Contacting Workflow Service"
-			},
-			ORCHESTRATOR_SUCCESS: {
-				type: "success",
-				priority: "success",
-				emoji: "✓",
-				title: "Workflow Service Connected"
-			},
-			ORCHESTRATOR_ERROR: {
-				type: "error",
-				priority: "error",
-				emoji: "❌",
-				title: "Workflow Service Connection Failed"
-			},
-
-			// Status polling stages
-			POLLING_START: {
-				type: "info",
-				priority: "info",
-				emoji: "⏱️",
-				title: "Status Tracking Started"
-			},
-			POLLING_UPDATE: {
-				type: "info",
-				priority: "info",
-				emoji: "🔄",
-				title: "Progress Update"
-			},
-			POLLING_WARNING: {
-				type: "warning",
-				priority: "warning",
-				emoji: "⚠️",
-				title: "Polling Warning"
-			},
-			POLLING_ERROR: {
-				type: "error",
-				priority: "error",
-				emoji: "🚨",
-				title: "Status Polling Error"
-			},
-
-			// Eligibility stages
-			ELIGIBILITY_START: {
-				type: "info",
-				priority: "info",
-				emoji: "🏥",
-				title: "Insurance Check Starting"
-			},
-			ELIGIBILITY_SUCCESS: {
-				type: "success",
-				priority: "success",
-				emoji: "✅",
-				title: "Insurance Verified Successfully"
-			},
-			ELIGIBILITY_ERROR: {
-				type: "error",
-				priority: "error",
-				emoji: "⛔",
-				title: "Insurance Verification Failed"
-			},
-			ELIGIBILITY_TIMEOUT: {
-				type: "warning",
-				priority: "warning",
-				emoji: "⏰",
-				title: "Insurance Check Timeout"
-			},
-
-			// User creation stages
-			USER_CREATION_START: {
-				type: "info",
-				priority: "info",
-				emoji: "👤",
-				title: "Creating User Account"
-			},
-			USER_CREATION_SUCCESS: {
-				type: "success",
-				priority: "success",
-				emoji: "✅",
-				title: "User Account Created"
-			},
-			USER_CREATION_ERROR: {
-				type: "error",
-				priority: "error",
-				emoji: "❌",
-				title: "User Creation Failed"
-			},
-
-			// Scheduling stages
-			SCHEDULING_START: {
-				type: "info",
-				priority: "info",
-				emoji: "📅",
-				title: "Scheduling Appointment"
-			},
-			SCHEDULING_SUCCESS: {
-				type: "success",
-				priority: "success",
-				emoji: "🎉",
-				title: "Appointment Scheduled"
-			},
-			SCHEDULING_ERROR: {
-				type: "error",
-				priority: "error",
-				emoji: "❌",
-				title: "Scheduling Failed"
-			},
-
-			// Completion stages
-			WORKFLOW_COMPLETE: {
-				type: "success",
-				priority: "success",
-				emoji: "🏁",
-				title: "Workflow Complete"
-			},
-			WORKFLOW_FAILED: {
-				type: "error",
-				priority: "error",
-				emoji: "💥",
-				title: "Workflow Failed"
-			}
-		};
-
-		const config = stageConfig[stage];
-		if (!config) {
-			console.warn(`Unknown workflow stage: ${stage}`);
-			return;
-		}
-
-		// Build comprehensive message
-		let message = `${config.emoji} ${config.title}`;
-		if (status) {
-			message += ` - ${status}`;
-		}
-
-		// Show notification with proper type and priority
-		return this._showWorkflowNotification(message, config.type, config.priority, details);
-	}
-
-	/**
-	 * Enhanced error reporting with proper types and detailed context
-	 */
-	_reportWorkflowError(error, context = {}) {
-		let errorType = "error";
-		let priority = "error";
-		let emoji = "❌";
-		let title = "Workflow Error";
-
-		// Determine error severity and type
-		if (error.message?.includes("timeout") || error.code === "ECONNABORTED") {
-			errorType = "warning";
-			priority = "warning";
-			emoji = "⏰";
-			title = "Request Timeout";
-		} else if (error.message?.includes("network") || error.message?.includes("fetch")) {
-			errorType = "error";
-			priority = "error";
-			emoji = "🌐";
-			title = "Network Error";
-		} else if (error.status >= 500) {
-			errorType = "error";
-			priority = "critical";
-			emoji = "🚨";
-			title = "Server Error";
-		} else if (error.status >= 400 && error.status < 500) {
-			errorType = "warning";
-			priority = "warning";
-			emoji = "⚠️";
-			title = "Request Error";
-		}
-
-		const errorMessage = error.message || error.error || "Unknown error occurred";
-		const message = `${emoji} ${title}: ${errorMessage}`;
-
-		const details = {
-			...context,
-			status: error.status,
-			code: error.code,
-			url: error.url,
-			timestamp: new Date().toISOString()
-		};
-
-		return this._showWorkflowNotification(message, errorType, priority, details);
-	}
-
-	_showBackgroundProcessNotification(text, type = "info", priority = null) {
-		// Only show notifications if we have a container
+		// Force create a questionContainer if it doesn't exist (for testing)
 		if (!this.questionContainer) {
-			return;
+			console.log("🔧 Creating temporary questionContainer for testing");
+			this.questionContainer = document.createElement("div");
+			this.questionContainer.style.display = "none";
+			document.body.appendChild(this.questionContainer);
 		}
 
-		// Delegate completely to the modular notification system
-		return this.notificationManager.show(text, type, priority);
+		// Test notifications that demonstrate the smart filtering/collapsing
+		// Mix of simple and detailed notifications to show smart behavior
+
+		console.log("📝 Creating test notifications...");
+
+		// Simple notifications (no details to collapse)
+		this._showBackgroundProcessNotification("Starting process...", "info");
+		this._showBackgroundProcessNotification("Connected successfully", "success");
+		this._showBackgroundProcessNotification("Authentication failed", "error");
+
+		setTimeout(() => {
+			// Detailed notifications (can be auto-collapsed)
+			this._showBackgroundProcessNotification("Extraction Result<br>• Email: jane.humana@example.com<br>• Name: Jane Doe<br>• Missing fields: groupNumber", "info", "WARNING");
+
+			this._showBackgroundProcessNotification("Processing Result<br>• Final status: ELIGIBLE<br>• Is eligible: true<br>• Has error: false", "info");
+
+			this._showBackgroundProcessNotification(
+				"Eligibility Result<br>✅ Status: ELIGIBLE<br>• Eligible: true<br>• Sessions: 10<br>• Message: Good news! Based on your insurance information, you are eligible for dietitian sessions.",
+				"success"
+			);
+		}, 500);
+
+		setTimeout(() => {
+			// Critical notification (always stays expanded)
+			this._showBackgroundProcessNotification("Critical system failure detected!<br>• Database: Offline<br>• Immediate action required<br>• Contact IT support", "error", "CRITICAL");
+		}, 1000);
+
+		setTimeout(() => {
+			console.log("✅ Test complete! Enhanced notification system features:");
+			console.log("   🔍 Filter buttons: Show only relevant notification types");
+			console.log("   📦 Show All: Restores ALL notifications (even auto-removed ones)");
+			console.log("   📱 Auto-collapse: Only affects detailed notifications");
+			console.log("   ⚡ Simple notifications: Always visible (no collapse needed)");
+			console.log("   🚨 Critical/Error: Always stay expanded");
+			console.log("   🛡️ Smart prevention: Auto-removal disabled when 'Show All' is active");
+			console.log("");
+			console.log("🧪 Try filtering to 'Show All' to see all notifications restored!");
+			console.log("   testNotifications() - Run this test again");
+		}, 1500);
 	}
 }
 
 document.addEventListener("DOMContentLoaded", () => {
 	const quiz = new ModularQuiz();
 	window.productQuiz = quiz;
+
+	// Global test function for debugging notifications
+	window.testNotifications = () => {
+		if (window.productQuiz && window.productQuiz._testNotificationSystem) {
+			window.productQuiz._testNotificationSystem();
+		} else {
+			console.error("Quiz not initialized or test method not available");
+		}
+	};
 });
