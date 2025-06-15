@@ -1,197 +1,349 @@
-<section class="hero-banner p-0">
-  <h1 class="hidden">Curalife - Clean, natural, effective products you can trust</h1>
+<section class="hero-banner p-0" role="region" aria-label="Featured content carousel" data-js-hook="hero-slider">
+	<h1 class="hidden">Curalife - Clean, natural, effective products you can trust</h1>
 
-  <div class="slides-container">
-    {% for block in section.blocks %}
-      <div class="slide" id="slide-{{ block.id }}" style="background-color: {{ block.settings.slide_bg_color }};">
-        <div class="mbl:flex-col-reverse mbl:p-0 container flex items-center">
-          <div class="slide-content text-start mbl:text-center max-w-[35%] mbl:max-w-full mbl:px-4">
-            <h2 style="color: {{ block.settings.slide_title_color }}">{{ block.settings.title }}</h2>
-            <p class="text-[22px] mbl:text-[5vw]" style="color: {{ block.settings.slide_subtitle_color }}">{{ block.settings.subtitle }}</p>
+	<div class="slides-container">
+		{% for block in section.blocks %}
+			<div
+				class="slide{% if forloop.first %} active{% endif %}"
+				id="slide-{{ block.id }}"
+				data-slide-index="{{ forloop.index0 }}"
+				role="tabpanel"
+				aria-label="Slide {{ forloop.index }} of {{ section.blocks.size }}"
+				style="--slide-bg-color: {{ block.settings.slide_bg_color | default: '#ffffff' }}; --slide-title-color: {{ block.settings.slide_title_color | default: '#000000' }}; --slide-subtitle-color: {{ block.settings.slide_subtitle_color | default: '#666666' }}; --button-text-color: {{ block.settings.button_text_color | default: '#000000' }};">
+				<div class="mbl:flex-col-reverse mbl:p-0 container flex items-center">
+					<div class="slide-content text-start mbl:text-center min-w-[35%] mbl:max-w-full mbl:px-4">
+						{% if block.settings.title %}
+							<h2 class="slide-title">{{ block.settings.title }}</h2>
+						{% endif %}
 
-            {% if block.settings.slide_button_title and block.settings.slide_button_link %}
-              <a href="{{ block.settings.slide_button_link }}" {% if block.settings.slide_is_button_link_new_window %}target="_blank"{% endif %}>
-                <button style="color: {{ block.settings.button_text_color }}">{{ block.settings.slide_button_title }}</button>
-              </a>
-            {% endif %}
+						{% if block.settings.subtitle %}
+							<p class="slide-subtitle text-[22px] mbl:text-[5vw]">{{ block.settings.subtitle }}</p>
+						{% endif %}
 
-            <div class="statement text-white text-[12px] mt-8 mbl:mt-4 opacity-30">Statements made on this website have not been evaluated by the U.S. Food and Drug Administration. These products are not intended to diagnose, treat, cure, or prevent any disease. Information provided by this website or this company is not a substitute for individual medical advice.</div>
-          </div>
+						{% if block.settings.slide_button_title and block.settings.slide_button_link %}
+							<a
+								class="slide-button-link"
+								href="{{ block.settings.slide_button_link }}"
+								{% if block.settings.slide_is_button_link_new_window %}
+									target="_blank" rel="noopener noreferrer"
+								{% endif %}>
+								<button class="slide-button">{{ block.settings.slide_button_title }}</button>
+							</a>
+						{% endif %}
 
-          {% if block.settings.image %}
-            {% render 'responsive-image', img: block.settings.image, img_mobile: block.settings.image_mobile, classes: "mbl:w-full", is_dont_lazyload: true %}
-          {% endif %}
-        </div>
-      </div>
-    {% endfor %}
-  </div>
+						<div class="statement">
+							Statements made on this website have not been evaluated by the U.S. Food and Drug Administration. These products are not intended to diagnose, treat, cure, or prevent any disease.
+							Information provided by this website or this company is not a substitute for individual medical advice.
+						</div>
+					</div>
+
+					{% if block.settings.image %}
+						{% render 'image-test', image: block.settings.image, mobile_image: block.settings.image_mobile, classes: 'mbl:w-full min-w-[85%]', is_dont_lazyload: true %}
+					{% endif %}
+				</div>
+			</div>
+		{% endfor %}
+	</div>
 </section>
 
 <style>
-  .hero-banner {
-    position: relative;
-    height: 490px;
-    overflow: hidden;
-  }
+	.hero-banner {
+		position: relative;
+		height: 490px;
+		overflow: hidden;
+	}
 
-  .hero-banner .slides-container {
-    width: 100%;
-    height: 100%;
-    position: relative;
-  }
+	.hero-banner .slides-container {
+		width: 100%;
+		height: 100%;
+		position: relative;
+	}
 
-  .hero-banner .slide {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-size: cover;
-    background-position: center;
-    opacity: 0;
-    transition: opacity 1s ease-in-out;
-  }
+	.hero-banner .slide {
+		position: absolute;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
+		background-color: var(--slide-bg-color);
+		background-size: cover;
+		background-position: center;
+		opacity: 0;
+		visibility: hidden;
+		transition: opacity 1s ease-in-out, visibility 1s ease-in-out;
+	}
 
-  .hero-banner a button {
-    background-color: white;
-    color: var(--blue);
-    font-weight: bold;
-  }
+	.hero-banner .slide.active {
+		opacity: 1;
+		visibility: visible;
+	}
 
-  /* First slide visible by default */
-  .hero-banner .slide:first-child {
-    opacity: 1;
-  }
+	.hero-banner .slide-title {
+		color: var(--slide-title-color);
+	}
 
-  .hero-banner .slide img {
-    min-width: 130%;
-  }
+	.hero-banner .slide-subtitle {
+		color: var(--slide-subtitle-color);
+	}
 
-  .hero-banner h2 strong {
-    color: var(--orange);
-  }
+	.hero-banner .slide-button {
+		background-color: white;
+		color: var(--primary-color);
+		font-weight: bold;
+	}
 
-  @media (max-width: 767px) {
-    .hero-banner {
-      min-height: calc(100vh - 56px);
-    }
+	.hero-banner .slide-button:hover {
+		transform: translateY(-2px);
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+	}
 
-    .hero-banner .slide img {
-      min-width: 100%;
-    }
-  }
+	.hero-banner .statement {
+		color: white;
+		font-size: 12px;
+		margin-top: 2rem;
+		opacity: 0.3;
+	}
+
+	.hero-banner h2 strong {
+		color: var(--orange);
+	}
+
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		padding: 0;
+		margin: -1px;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+		white-space: nowrap;
+		border: 0;
+	}
+
+	.hidden {
+		display: none;
+	}
+
+	@media (max-width: 767px) {
+		.hero-banner {
+			min-height: calc(100vh - 56px);
+		}
+
+		.hero-banner .slide {
+			justify-content: flex-start;
+		}
+
+		.hero-banner .slide img {
+			min-width: 100%;
+		}
+
+		.hero-banner .statement {
+			margin-top: 1rem;
+		}
+	}
 </style>
 
 <script>
-document.addEventListener("DOMContentLoaded", function() {
-  const slides = document.querySelectorAll(".hero-banner .slide");
-  const slidesContainer = document.querySelector(".hero-banner");
-  let maxHeight = 0;
+	document.addEventListener('DOMContentLoaded', function () {
+		const heroSlider = document.querySelector('[data-js-hook="hero-slider"]');
+		if (!heroSlider) return;
 
-  function adjustHeightForMobile() {
-    if (window.innerWidth <= 767) {
-      maxHeight = 0;
+		const slides = heroSlider.querySelectorAll('.slide');
 
-      slides.forEach(slide => {
-        const slideHeight = slide.offsetHeight;
-        if (slideHeight > maxHeight) {
-          maxHeight = slideHeight;
-        }
-      });
+		if (slides.length <= 1) return;
 
-      slidesContainer.style.height = `${maxHeight}px`;
-    } else {
-      slidesContainer.style.height = '490px'; // Example default height, adjust as needed
-    }
-  }
+		let currentSlide = 0;
+		let intervalId = null;
+		let isPaused = false;
+		let resizeTimeout = null;
 
-  adjustHeightForMobile();
-  window.addEventListener('resize', adjustHeightForMobile);
+		function debounce(func, wait) {
+			return function executedFunction(...args) {
+				const later = () => {
+					clearTimeout(resizeTimeout);
+					func(...args);
+				};
+				clearTimeout(resizeTimeout);
+				resizeTimeout = setTimeout(later, wait);
+			};
+		}
 
-  let currentSlide = 0;
-  function changeSlide() {
-    slides[currentSlide].style.opacity = 0;
-    currentSlide = (currentSlide + 1) % slides.length;
-    slides[currentSlide].style.opacity = 1;
-  }
+		function adjustHeightForMobile() {
+			if (window.innerWidth <= 767) {
+				let maxHeight = 0;
+				slides.forEach(slide => {
+					slide.style.height = 'auto';
+					const slideHeight = slide.offsetHeight;
+					if (slideHeight > maxHeight) {
+						maxHeight = slideHeight;
+					}
+				});
+				heroSlider.style.height = `${maxHeight}px`;
+				slides.forEach(slide => {
+					slide.style.height = '100%';
+				});
+			} else {
+				heroSlider.style.height = '490px';
+			}
+		}
 
-  setInterval(changeSlide, 5000);
-});
+		function goToSlide(index) {
+			if (index < 0 || index >= slides.length) return;
+
+			slides[currentSlide].classList.remove('active');
+			currentSlide = index;
+			slides[currentSlide].classList.add('active');
+		}
+
+		function nextSlide() {
+			const next = (currentSlide + 1) % slides.length;
+			goToSlide(next);
+		}
+
+		function startSlideshow() {
+			if (intervalId) clearInterval(intervalId);
+			intervalId = setInterval(nextSlide, 5000);
+			isPaused = false;
+		}
+
+		function pauseSlideshow() {
+			if (intervalId) {
+				clearInterval(intervalId);
+				intervalId = null;
+			}
+			isPaused = true;
+		}
+
+		// Initialize
+		adjustHeightForMobile();
+		startSlideshow();
+
+		// Event listeners
+		window.addEventListener('resize', debounce(adjustHeightForMobile, 250));
+
+		// Pause on hover
+		heroSlider.addEventListener('mouseenter', () => {
+			if (!isPaused) pauseSlideshow();
+		});
+
+		heroSlider.addEventListener('mouseleave', () => {
+			if (!isPaused) startSlideshow();
+		});
+
+		// Keyboard navigation
+		heroSlider.addEventListener('keydown', e => {
+			switch (e.key) {
+				case 'ArrowLeft':
+					e.preventDefault();
+					goToSlide(currentSlide === 0 ? slides.length - 1 : currentSlide - 1);
+					break;
+				case 'ArrowRight':
+					e.preventDefault();
+					goToSlide((currentSlide + 1) % slides.length);
+					break;
+				case ' ':
+					e.preventDefault();
+					if (isPaused) {
+						startSlideshow();
+					} else {
+						pauseSlideshow();
+					}
+					break;
+			}
+		});
+
+		// Pause when page is hidden
+		document.addEventListener('visibilitychange', () => {
+			if (document.hidden) {
+				pauseSlideshow();
+			} else if (!isPaused) {
+				startSlideshow();
+			}
+		});
+
+		// Cleanup on page unload
+		window.addEventListener('beforeunload', () => {
+			if (intervalId) clearInterval(intervalId);
+		});
+	});
 </script>
 
 {% schema %}
-{
-  "name": "Dynamic Hero Slider",
-  "settings": [],
-  "blocks": [
-    {
-      "type": "slide",
-      "name": "Slide",
-      "settings": [
-        {
-          "type": "color",
-          "id": "slide_bg_color",
-          "label": "Slide Background Color"
-        },
-        {
-          "type": "color",
-          "id": "slide_title_color",
-          "label": "Slide Title Color"
-        },
-        {
-          "type": "color",
-          "id": "slide_subtitle_color",
-          "label": "Slide Subtitle Color"
-        },
-        {
-          "type": "color",
-          "id": "button_text_color",
-          "label": "Button Text Color"
-        },
-        {
-          "type": "image_picker",
-          "id": "image",
-          "label": "Slide Image"
-        },
-        {
-          "type": "image_picker",
-          "id": "image_mobile",
-          "label": "Slide Image for Mobile"
-        },
-        {
-          "type": "text",
-          "id": "title",
-          "label": "Main Title"
-        },
-        {
-          "type": "text",
-          "id": "subtitle",
-          "label": "Subtitle"
-        },
-        {
-          "type": "text",
-          "id": "slide_button_title",
-          "label": "Slide Button Title"
-        },
-        {
-          "type": "url",
-          "id": "slide_button_link",
-          "label": "Slide Button Link"
-        },
-        {
-          "type": "checkbox",
-          "id": "slide_is_button_link_new_window",
-          "label": "Open Slide Button Link in New Window",
-          "default": false
-        }
-      ]
-    }
-  ],
-  "presets": [
-    {
-      "name": "Default Hero Slider",
-      "category": "Hero"
-    }
-  ]
-}
+	{
+		"name": "Dynamic Hero Slider",
+		"settings": [],
+		"blocks": [
+			{
+				"type": "slide",
+				"name": "Slide",
+				"settings": [
+					{
+						"type": "color",
+						"id": "slide_bg_color",
+						"label": "Slide Background Color"
+					},
+					{
+						"type": "color",
+						"id": "slide_title_color",
+						"label": "Slide Title Color"
+					},
+					{
+						"type": "color",
+						"id": "slide_subtitle_color",
+						"label": "Slide Subtitle Color"
+					},
+					{
+						"type": "color",
+						"id": "button_text_color",
+						"label": "Button Text Color"
+					},
+					{
+						"type": "image_picker",
+						"id": "image",
+						"label": "Slide Image"
+					},
+					{
+						"type": "image_picker",
+						"id": "image_mobile",
+						"label": "Slide Image for Mobile"
+					},
+					{
+						"type": "text",
+						"id": "title",
+						"label": "Main Title"
+					},
+					{
+						"type": "text",
+						"id": "subtitle",
+						"label": "Subtitle"
+					},
+					{
+						"type": "text",
+						"id": "slide_button_title",
+						"label": "Slide Button Title"
+					},
+					{
+						"type": "url",
+						"id": "slide_button_link",
+						"label": "Slide Button Link"
+					},
+					{
+						"type": "checkbox",
+						"id": "slide_is_button_link_new_window",
+						"label": "Open Slide Button Link in New Window",
+						"default": false
+					}
+				]
+			}
+		],
+		"presets": [
+			{
+				"name": "Default Hero Slider",
+				"category": "Hero"
+			}
+		]
+	}
 {% endschema %}
